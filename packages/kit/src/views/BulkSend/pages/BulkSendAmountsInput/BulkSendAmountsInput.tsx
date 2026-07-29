@@ -1049,19 +1049,65 @@ function BulkSendAmountsInputContent({
   // shown on this page are display-basis; ITransferInfo.amount must stay raw.
   // One multiplier for the whole page is correct because every transfer moves
   // the same token. Native coins can never legitimately carry a multiplier —
-  // same guard as the Send page. When the details poll fails and clears
-  // matchedTokenDetails, fall back to the route token snapshot so the
-  // display-to-raw conversion at submit never silently degrades to a no-op;
-  // a live detail overrides the snapshot whenever it exists (same pattern as
-  // TokenDetailsHeader).
-  const rebaseMultiplier = useMemo(
+  // same guard as the Send page.
+  //
+  // Multiplier precedence: live detail > last rendered live value > route
+  // token snapshot. tokenInfo is the token-list snapshot taken when the user
+  // picked the token on the addresses page, and BulkSend is a long form —
+  // by submit time that snapshot can be arbitrarily stale. Once a live
+  // detail has rendered amounts, a failed poll (which clears
+  // matchedTokenDetails) must not swap the basis back to the stale snapshot:
+  // tokenRebaseUtils requires the display->raw conversion at submit to use
+  // the same multiplier that rendered the amounts the user confirmed. The
+  // remembered value is keyed by token identity so a mid-flow token change
+  // can never leak the previous token's multiplier under fresh amounts.
+  const rebaseTokenKey = useMemo(
     () =>
-      tokenInfo && !tokenInfo.isNative
-        ? (tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
-          tokenInfo.balanceMultiplier)
+      tokenInfo
+        ? `${tokenInfo.networkId ?? networkId ?? ''}__${(
+            tokenInfo.address ?? ''
+          ).toLowerCase()}`
         : undefined,
-    [tokenInfo, matchedTokenDetails],
+    [tokenInfo, networkId],
   );
+  const lastLiveMultiplierRef = useRef<
+    | {
+        tokenKey: string;
+        balanceMultiplier: string | undefined;
+      }
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (
+      tokenInfo &&
+      !tokenInfo.isNative &&
+      matchedTokenDetails &&
+      rebaseTokenKey
+    ) {
+      lastLiveMultiplierRef.current = {
+        tokenKey: rebaseTokenKey,
+        balanceMultiplier:
+          tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
+          tokenInfo.balanceMultiplier,
+      };
+    }
+  }, [tokenInfo, matchedTokenDetails, rebaseTokenKey]);
+  const rebaseMultiplier = useMemo(() => {
+    if (!tokenInfo || tokenInfo.isNative) {
+      return undefined;
+    }
+    if (matchedTokenDetails) {
+      return (
+        tokenRebaseUtils.pickBalanceMultiplier(matchedTokenDetails) ??
+        tokenInfo.balanceMultiplier
+      );
+    }
+    const lastLive = lastLiveMultiplierRef.current;
+    if (lastLive && lastLive.tokenKey === rebaseTokenKey) {
+      return lastLive.balanceMultiplier;
+    }
+    return tokenInfo.balanceMultiplier;
+  }, [tokenInfo, matchedTokenDetails, rebaseTokenKey]);
 
   const displayBalance = useMemo(() => {
     const raw = matchedTokenDetails?.balanceParsed;
