@@ -46,7 +46,7 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   // href still work for the URL-opening modes.
   if (activeFeature.mode !== undefined) {
     // Returning here unconditionally made the CTA dead whenever the payload
-    // was not dispatchable.
+    // never dispatched.
     const dispatched = parseNotificationPayload(
       activeFeature.mode,
       activeFeature.payload ?? activeFeature.href,

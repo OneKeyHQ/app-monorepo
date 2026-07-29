@@ -74,7 +74,7 @@ function useWalletBanner({
 
       if (item.mode) {
         // Returning here unconditionally skipped the href handling below, so
-        // an undispatchable payload made the banner a dead tap.
+        // a payload that never dispatched made the banner a dead tap.
         const payloadHandled = parseNotificationPayload(
           item.mode,
           item.payload,
