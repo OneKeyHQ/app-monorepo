@@ -329,12 +329,12 @@ export function UnifoldSourceSelector({
         if (!canSelectToken) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setTokenOpen(true);
+        if (onOpenMobileTokenSelector) {
+          onOpenMobileTokenSelector();
           return;
         }
 
-        onOpenMobileTokenSelector?.();
+        setTokenOpen(true);
       }}
     />
   );
@@ -350,12 +350,12 @@ export function UnifoldSourceSelector({
         if (!canSelectChain) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setChainOpen(true);
+        if (onOpenMobileChainSelector) {
+          onOpenMobileChainSelector();
           return;
         }
 
-        onOpenMobileChainSelector?.();
+        setChainOpen(true);
       }}
     />
   );
@@ -383,7 +383,7 @@ export function UnifoldSourceSelector({
           </SizableText>
           <TokenContractDisclosure selection={selection} />
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileTokenSelector ? (
           tokenTrigger
         ) : (
           <Popover
@@ -465,7 +465,7 @@ export function UnifoldSourceSelector({
             )}
           </DashText>
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileChainSelector ? (
           chainTrigger
         ) : (
           <Popover

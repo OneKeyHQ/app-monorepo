@@ -87,7 +87,9 @@ export default function MobileUnifoldDepositTransferModal() {
   }, [goBack]);
   useBackHandler(
     handleSystemBackPress,
-    platformEnv.isNativeAndroid && Boolean(initialSelectorMode),
+    platformEnv.isNativeAndroid &&
+      !detailExecutionId &&
+      (Boolean(initialSelectorMode) || flowHistory.length > 1),
   );
   const renderBackHeaderLeft = useCallback(
     () => <NavBackButton onPress={goBack} />,
