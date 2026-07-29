@@ -71,6 +71,7 @@ export function useSwapTokenList(
     tokenListType?: string;
   },
   supportNetworksOverride?: ISwapNetwork[],
+  useLocalSearchFallback = false,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
@@ -245,6 +246,8 @@ export function useSwapTokenList(
     tokenFetchParams,
   ]);
   const latestTokenListFetchEffectKeyRef = useRef('');
+  const [settledTokenListFetchEffectKey, setSettledTokenListFetchEffectKey] =
+    useState('');
 
   const swapAllNetworkTokenListCacheKey = useMemo(
     () =>
@@ -428,6 +431,7 @@ export function useSwapTokenList(
       setLpTokenRequestLoading(true);
     }
 
+    let isCancelled = false;
     void (async () => {
       try {
         await Promise.all([
@@ -446,6 +450,13 @@ export function useSwapTokenList(
         ]);
       } finally {
         if (
+          !isCancelled &&
+          latestTokenListFetchEffectKeyRef.current === tokenListFetchEffectKey
+        ) {
+          setSettledTokenListFetchEffectKey(tokenListFetchEffectKey);
+        }
+        if (
+          !isCancelled &&
           lpTokenRequestLoadingRef.current &&
           latestTokenListFetchEffectKeyRef.current === tokenListFetchEffectKey
         ) {
@@ -454,6 +465,9 @@ export function useSwapTokenList(
         }
       }
     })();
+    return () => {
+      isCancelled = true;
+    };
   }, [
     indexedAccountId,
     otherWalletTypeAccountId,
@@ -543,14 +557,15 @@ export function useSwapTokenList(
     swapTokenFetching,
   ]);
 
-  const currentTokens = useMemo(() => {
+  const isTokenListFetchSettled =
+    settledTokenListFetchEffectKey === tokenListFetchEffectKey;
+  const unfilteredTokens = useMemo(() => {
     if (!isSwapSupportAllAccountsReady) {
       return [];
     }
     if (keywords) {
-      return fuseRemoteTokensSearch.search(keywords);
+      return [];
     }
-
     return networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
       ? mergedAllNetworkTokenList({
           swapAllNetRecommend:
@@ -558,16 +573,76 @@ export function useSwapTokenList(
         })
       : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [];
   }, [
-    fuseRemoteTokensSearch,
     keywords,
     mergedAllNetworkTokenList,
     tokenCatch,
     tokenFetchParams,
     isSwapSupportAllAccountsReady,
   ]);
+  const searchBaseContextKey = [
+    indexedAccountId ?? otherWalletTypeAccountId ?? '',
+    currentSelectNetwork?.networkId ?? currentNetworkId ?? '',
+    selectTokenModalType,
+    from ?? '',
+    lpToken === undefined ? '' : String(lpToken),
+    requestCurrency,
+    swapSupportAllNetworks.map((network) => network.networkId).join(','),
+  ].join('__');
+  const searchBaseTokensRef = useRef<{
+    contextKey: string;
+    tokens: ISwapToken[];
+  }>({
+    contextKey: searchBaseContextKey,
+    tokens: [],
+  });
+  if (searchBaseTokensRef.current.contextKey !== searchBaseContextKey) {
+    searchBaseTokensRef.current = {
+      contextKey: searchBaseContextKey,
+      tokens: [],
+    };
+  }
+  if (!keywords && isTokenListFetchSettled) {
+    searchBaseTokensRef.current = {
+      contextKey: searchBaseContextKey,
+      tokens: unfilteredTokens,
+    };
+  }
+  const searchBaseTokens = searchBaseTokensRef.current.tokens;
+  const fuseSearchBaseTokens = useFuse(searchBaseTokens, {
+    shouldSort: false,
+    keys: ['symbol', 'contractAddress'],
+  });
+  const currentTokens = useMemo(() => {
+    if (!isSwapSupportAllAccountsReady) {
+      return [];
+    }
+    if (!keywords) {
+      return unfilteredTokens;
+    }
+    const remoteTokens = fuseRemoteTokensSearch.search(keywords);
+    if (
+      !useLocalSearchFallback ||
+      remoteTokens.length > 0 ||
+      isTokenListFetchSettled
+    ) {
+      return remoteTokens;
+    }
+    const localTokens = fuseSearchBaseTokens.search(keywords);
+    return localTokens.length > 0 ? localTokens : searchBaseTokens;
+  }, [
+    fuseRemoteTokensSearch,
+    fuseSearchBaseTokens,
+    isSwapSupportAllAccountsReady,
+    isTokenListFetchSettled,
+    keywords,
+    searchBaseTokens,
+    unfilteredTokens,
+    useLocalSearchFallback,
+  ]);
 
   const fetchLoading =
     !isSwapSupportAllAccountsReady ||
+    !isTokenListFetchSettled ||
     (swapTokenFetching && currentTokens.length === 0) ||
     (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
       (!allNetworkTokenListReady || !swapAllNetworkTokenList));
