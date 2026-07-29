@@ -2669,8 +2669,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!dexUniverses?.length) {
         // Re-selecting the coin that is already active must not downgrade
         // metadata we already resolved; only an actual switch falls back to
-        // the unresolved shape.
-        if (!shouldSeedSubscriptionTarget && oldActiveAsset?.coin === newCoin) {
+        // the unresolved shape. The record has to be genuinely resolved to
+        // qualify: perpsActiveAssetAtom is persisted, and a build from before
+        // this fix could have stored `assetId: -1` there, so short-circuiting
+        // on coin alone would preserve the very value this branch clears.
+        if (
+          !shouldSeedSubscriptionTarget &&
+          oldActiveAsset &&
+          oldActiveAsset.coin === newCoin &&
+          oldActiveAsset.universe &&
+          typeof oldActiveAsset.assetId === 'number' &&
+          oldActiveAsset.assetId >= 0
+        ) {
           markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
             coin: oldActiveAsset.coin,
           });
