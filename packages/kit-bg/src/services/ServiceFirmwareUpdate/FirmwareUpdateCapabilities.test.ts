@@ -2,7 +2,6 @@ import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/types/ipTable';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
@@ -14,8 +13,6 @@ import {
   getBridgeFirmwareV4BinaryParams,
   isExternalFirmwareCapabilityReady,
   isFirmwareArtifactCapabilityReadyValue,
-  isRetryableRouteError,
-  orderFirmwareArtifactRoutes,
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
@@ -25,20 +22,6 @@ import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
 import type { CoreApi, FirmwareUpdatePlan } from '@onekeyfe/hd-core';
-
-jest.mock('@onekeyhq/shared/src/request/helpers/sniRequest', () => ({
-  isProxyActiveForUrl: jest.fn().mockResolvedValue(false),
-}));
-jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
-  __esModule: true,
-  default: {
-    getIpTableConfig: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-
-const mockGetIpTableConfig = jest.requireMock(
-  '@onekeyhq/shared/src/request/requestHelper',
-).default.getIpTableConfig as jest.Mock;
 
 const ready = {
   planSchemaVersion: 2,
@@ -82,7 +65,7 @@ describe('isExternalFirmwareCapabilityReady', () => {
     expect(
       isFirmwareArtifactCapabilityReadyValue({
         ...nativeReady,
-        supportedRouteTypes: ['domain', 'domain'],
+        supportedRouteTypes: ['pinnedIp'],
       }),
     ).toBe(false);
   });
@@ -92,8 +75,6 @@ describe('prepared firmware execution', () => {
   const createController = () =>
     new FirmwarePreparedArtifactController({
       getHardwareTransportType: async () => EHardwareTransportType.Bridge,
-      getInstanceId: async () => 'test-instance',
-      getIpTableConfig: async () => ({}) as IIpTableConfigWithRuntime,
       getSDKInstance: async () => ({}) as CoreApi,
     });
 
@@ -168,7 +149,7 @@ describe('prepared firmware execution', () => {
     expect(firmwareUpdateV2).not.toHaveBeenCalled();
   });
 
-  test('applies the rollout gate to Desktop Bridge at cache and execution time', async () => {
+  test('uses artifact capability to enable Desktop Bridge plan caching', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
       appPlatform: platformEnv.appPlatform,
@@ -194,14 +175,6 @@ describe('prepared firmware execution', () => {
         platform: 'desktop',
         artifacts: [],
       } as unknown as FirmwareUpdatePlan;
-      jest
-        .spyOn(
-          controller as unknown as {
-            evaluateRollout: () => Promise<{ allowed: boolean }>;
-          },
-          'evaluateRollout',
-        )
-        .mockResolvedValue({ allowed: false });
 
       await expect(
         controller.cachePlanIfPreparedSupported({
@@ -209,187 +182,30 @@ describe('prepared firmware execution', () => {
           connectId: 'device',
           transportType: EHardwareTransportType.Bridge,
         }),
-      ).resolves.toBe(false);
+      ).resolves.toBe(true);
 
-      (
-        controller as unknown as {
-          plans: Map<string, FirmwareUpdatePlan>;
-        }
-      ).plans.set(plan.planDigest, plan);
       await expect(
         controller.prepareWorkflowArtifacts({
           firmwareUpdatePlanDigest: plan.planDigest,
           deviceUUID: 'device',
           deviceType: 'pro',
         } as unknown as ICheckAllFirmwareReleaseResult),
-      ).rejects.toThrow('Firmware external rollout is unavailable');
+      ).resolves.toBeUndefined();
     } finally {
       Object.assign(platformEnv, previousPlatform);
     }
   });
 });
 
-describe('orderFirmwareArtifactRoutes', () => {
-  const configWithRuntime: IIpTableConfigWithRuntime = {
-    config: {
-      version: 1,
-      ttl_sec: 3600,
-      generated_at: '2026-07-27T00:00:00.000Z',
-      signature: 'test',
-      domains: {
-        'web.onekey-asset.com': {
-          endpoints: [
-            { ip: '1.1.1.1', provider: 'a', region: 'CN', weight: 100 },
-            { ip: '2.2.2.2', provider: 'b', region: 'CN', weight: 90 },
-          ],
-        },
-      },
-    },
-    runtime: {
-      enabled: true,
-      lastUpdated: 1,
-      lastRegionCheck: 1,
-      selections: {},
-      lastBestIp: { 'web.onekey-asset.com': '2.2.2.2' },
-    },
-  };
-
+describe('downloadTrustedFirmwareArtifact', () => {
   afterEach(() => {
     jest.restoreAllMocks();
-    mockGetIpTableConfig.mockResolvedValue(undefined);
   });
 
-  test('keeps proxy and unknown proxy state on the domain route', () => {
-    expect(
-      orderFirmwareArtifactRoutes({
-        hostname: 'web.onekey-asset.com',
-        configWithRuntime,
-        proxyActive: true,
-      }),
-    ).toEqual([{ routeType: 'domain' }]);
-    expect(
-      orderFirmwareArtifactRoutes({
-        hostname: 'web.onekey-asset.com',
-        configWithRuntime,
-        proxyActive: null,
-      }),
-    ).toEqual([{ routeType: 'domain' }]);
-  });
-
-  test('uses domain first until an endorsed runtime selection exists', () => {
-    expect(
-      orderFirmwareArtifactRoutes({
-        hostname: 'web.onekey-asset.com',
-        configWithRuntime,
-        proxyActive: false,
-      }),
-    ).toEqual([
-      { routeType: 'domain' },
-      { routeType: 'pinnedIp', resolvedIp: '2.2.2.2' },
-      { routeType: 'pinnedIp', resolvedIp: '1.1.1.1' },
-    ]);
-  });
-
-  test('prioritizes the selected exact-host IP and preserves fallback order', () => {
-    expect(
-      orderFirmwareArtifactRoutes({
-        hostname: 'web.onekey-asset.com',
-        configWithRuntime: {
-          ...configWithRuntime,
-          runtime: {
-            ...configWithRuntime.runtime!,
-            selections: { 'web.onekey-asset.com': '1.1.1.1' },
-          },
-        },
-        proxyActive: false,
-      }),
-    ).toEqual([
-      { routeType: 'pinnedIp', resolvedIp: '1.1.1.1' },
-      { routeType: 'pinnedIp', resolvedIp: '2.2.2.2' },
-      { routeType: 'domain' },
-    ]);
-  });
-
-  test('treats native network and deadline errors as retryable route failures', () => {
-    expect(
-      isRetryableRouteError(
-        new Error('ARTIFACT_NETWORK_FAILED: firmware request failed'),
-      ),
-    ).toBe(true);
-    expect(
-      isRetryableRouteError(
-        new Error(
-          'ARTIFACT_DEADLINE_EXCEEDED: firmware download exceeded its deadline',
-        ),
-      ),
-    ).toBe(true);
-    expect(
-      isRetryableRouteError(
-        new Error('ARTIFACT_TLS_FAILED: firmware TLS validation failed'),
-      ),
-    ).toBe(false);
-  });
-
-  test('reserves deadline for the next route after a stalled attempt', async () => {
+  test('uses the canonical domain route with the remaining deadline', async () => {
     const artifact = await getTrustedFirmwareArtifact(
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
     );
-    mockGetIpTableConfig.mockResolvedValue({
-      ...configWithRuntime,
-      config: {
-        ...configWithRuntime.config,
-        domains: {
-          'common.onekey-asset.com': {
-            endpoints: [
-              { ip: '1.1.1.1', provider: 'a', region: 'CN', weight: 100 },
-            ],
-          },
-        },
-      },
-    });
-    const download = jest
-      .spyOn(firmwareArtifactAdapter, 'download')
-      .mockRejectedValueOnce(
-        new Error(
-          'ARTIFACT_DEADLINE_EXCEEDED: firmware download exceeded its deadline',
-        ),
-      )
-      .mockResolvedValueOnce({
-        artifactRef: `fw:${artifact.expectedSha256}`,
-        size: artifact.expectedSize,
-        sha256: artifact.expectedSha256,
-      });
-
-    await expect(
-      downloadTrustedFirmwareArtifact({
-        artifact,
-        artifactId: 'bootloader',
-        transactionId: 'fwtx:deadline',
-        leaseRef: 'fwlease:deadline',
-        deadlineAt: Date.now() + 10_000,
-      }),
-    ).resolves.toMatchObject({
-      artifactRef: `fw:${artifact.expectedSha256}`,
-    });
-
-    expect(download).toHaveBeenCalledTimes(2);
-    expect(
-      download.mock.calls[0][0].overallDeadlineSeconds,
-    ).toBeLessThanOrEqual(5);
-    expect(download.mock.calls[1][0].route.routeType).toBe('pinnedIp');
-  });
-
-  test('gives a single available route the full remaining deadline', async () => {
-    const artifact = await getTrustedFirmwareArtifact(
-      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
-    );
-    mockGetIpTableConfig.mockResolvedValue({
-      ...configWithRuntime,
-      config: {
-        ...configWithRuntime.config,
-        domains: {},
-      },
-    });
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
       .mockResolvedValue({
@@ -412,6 +228,9 @@ describe('orderFirmwareArtifactRoutes', () => {
     });
 
     expect(download).toHaveBeenCalledTimes(1);
+    expect(download.mock.calls[0][0].route).toEqual({
+      routeType: 'domain',
+    });
     expect(download.mock.calls[0][0].overallDeadlineSeconds).toBeGreaterThan(
       15 * 60,
     );
@@ -420,43 +239,21 @@ describe('orderFirmwareArtifactRoutes', () => {
     ).toBeLessThanOrEqual(20 * 60);
   });
 
-  test('fails closed on TLS errors without trying another route', async () => {
+  test('does not start a download after the preparation deadline', async () => {
     const artifact = await getTrustedFirmwareArtifact(
       'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin',
     );
-    mockGetIpTableConfig.mockResolvedValue({
-      ...configWithRuntime,
-      config: {
-        ...configWithRuntime.config,
-        domains: {
-          'common.onekey-asset.com': {
-            endpoints: [
-              { ip: '1.1.1.1', provider: 'a', region: 'CN', weight: 100 },
-            ],
-          },
-        },
-      },
-      runtime: {
-        ...configWithRuntime.runtime!,
-        selections: { 'common.onekey-asset.com': '1.1.1.1' },
-      },
-    });
-    const download = jest
-      .spyOn(firmwareArtifactAdapter, 'download')
-      .mockRejectedValue(
-        new Error('ARTIFACT_TLS_FAILED: firmware TLS validation failed'),
-      );
-
+    const download = jest.spyOn(firmwareArtifactAdapter, 'download');
     await expect(
       downloadTrustedFirmwareArtifact({
         artifact,
         artifactId: 'bootloader',
         transactionId: 'fwtx:test',
         leaseRef: 'fwlease:test',
-        deadlineAt: Date.now() + 10_000,
+        deadlineAt: Date.now() - 1,
       }),
-    ).rejects.toThrow('ARTIFACT_TLS_FAILED');
-    expect(download).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow('Firmware artifact preparation exceeded its deadline');
+    expect(download).not.toHaveBeenCalled();
   });
 });
 
@@ -574,7 +371,7 @@ describe('Desktop Bridge firmware binaries', () => {
     );
   });
 
-  test('cancels an active preparation without trying another route', async () => {
+  test('cancels an active preparation after a download failure', async () => {
     const { plan } = await createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
       firmwareArtifactProtocolVersion: 2,

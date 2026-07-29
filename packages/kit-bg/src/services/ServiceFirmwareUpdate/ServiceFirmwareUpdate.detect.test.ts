@@ -405,7 +405,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       backgroundApi: {} as IBackgroundApi,
     });
 
-  test('keeps Pro on the existing V3 path when rollout produced no Plan', async () => {
+  test('keeps Pro on the existing V3 path when no prepared Plan exists', async () => {
     const service = createService();
     const updatingFirmwareV3 = jest
       .spyOn(service, 'updatingFirmwareV3')

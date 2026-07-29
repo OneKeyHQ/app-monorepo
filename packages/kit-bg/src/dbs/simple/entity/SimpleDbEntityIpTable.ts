@@ -101,10 +101,6 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
                   at: Date.now(),
                   version: config.version,
                   generatedAt: config.generated_at,
-                  firmwarePolicyVersion: Math.max(
-                    runtime.lastVerified?.firmwarePolicyVersion ?? 0,
-                    config.firmware_rollout?.policyVersion ?? 0,
-                  ),
                   payloadHash: verifiedMeta.payloadHash,
                 },
               }

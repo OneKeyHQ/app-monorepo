@@ -28,7 +28,6 @@ export {
   getFirmwareArtifactSelfTestErrorCode,
   getFirmwareArtifactSelfTestPlatform,
 } from './FirmwareArtifactSelfTest';
-export { evaluateFirmwareUpdateRollout } from './FirmwareUpdateRolloutPolicy';
 export { getTrustedFirmwareConfig } from './trustedFirmwareCatalog';
 
 export const createFirmwareUpdateRuntimeHost = (
