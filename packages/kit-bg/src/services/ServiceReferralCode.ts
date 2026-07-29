@@ -12,6 +12,7 @@ import {
   FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
@@ -59,6 +60,14 @@ import type {
   IRedemptionCodeRedeemParams,
   IRedemptionCodeRedeemResponse,
   IRedemptionRecordsResponse,
+  ISwapCumulativeRewardsParams,
+  ISwapCumulativeRewardsResponse,
+  ISwapInviteeRewardsParams,
+  ISwapInviteeRewardsResponse,
+  ISwapInvitesParams,
+  ISwapInvitesResponse,
+  ISwapRecordsParams,
+  ISwapRecordsResponse,
   IUpdateInviteCodeNoteResponse,
   IWalletCreationRecordItem,
   IWalletDevUnbindParams,
@@ -73,6 +82,14 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBWallet } from '../dbs/local/types';
 import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
+type ISwapInvitesRequestParams = ISwapInvitesParams & {
+  disableAutoToast?: boolean;
+};
+
+type ISwapRecordsRequestParams = ISwapRecordsParams & {
+  disableAutoToast?: boolean;
+};
 
 // Background best-effort referral endpoints share this options bag: in
 // production we don't want unhealthy backends to surface scary error toasts
@@ -167,7 +184,7 @@ class ServiceReferralCode extends ServiceBase {
       subject: params.subject,
     };
     // Only pass timeRange when not using custom date range
-    if (params.startTime && params.endTime) {
+    if (params.startTime !== undefined && params.endTime !== undefined) {
       queryParams.startTime = params.startTime;
       queryParams.endTime = params.endTime;
     } else {
@@ -516,6 +533,84 @@ class ServiceReferralCode extends ServiceBase {
       { params: queryParams },
     );
     return response.data.data;
+  }
+
+  @backgroundMethod()
+  async getSwapCumulativeRewards(
+    params: ISwapCumulativeRewardsParams = {},
+  ): Promise<ISwapCumulativeRewardsResponse> {
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: ISwapCumulativeRewardsResponse;
+      }>('/rebate/v1/invite/swap-cumulative-rewards', {
+        params,
+      });
+      return response.data.data;
+    } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInvites(
+    params: ISwapInvitesRequestParams,
+  ): Promise<ISwapInvitesResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInvitesResponse }>(
+        '/rebate/v1/invite/swap-invites',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapRecords(
+    params: ISwapRecordsRequestParams = {},
+  ): Promise<ISwapRecordsResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapRecordsResponse }>(
+        '/rebate/v1/invite/swap-records',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInviteeRewards(
+    params: ISwapInviteeRewardsParams,
+  ): Promise<ISwapInviteeRewardsResponse> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInviteeRewardsResponse }>(
+        '/rebate/v1/invite/swap-invitee-rewards',
+        { params },
+      );
+      return response.data.data;
+    } catch (error) {
+      // The invitee reward dialog renders its own inline error state; keep the
+      // rejection but mute the proxy-layer auto toast so failures don't show
+      // both a raw server toast and the inline error.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
   }
 
   @backgroundMethod()

@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 
+import { type IntlShape, useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
@@ -10,45 +13,59 @@ import type {
   IUseCurrentLevelCardReturn,
 } from '../types';
 
+function getDisplayLabel(
+  intl: IntlShape,
+  labelKey?: string,
+  fallback?: string,
+): string {
+  if (labelKey) {
+    return intl.formatMessage({
+      id: labelKey as ETranslations,
+      defaultMessage: fallback,
+    });
+  }
+  return fallback ?? '';
+}
+
 export function useCurrentLevelCard(
   props: ICurrentLevelCardProps,
 ): IUseCurrentLevelCardReturn {
   const { rebateConfig, rebateLevels } = props;
+  const intl = useIntl();
 
-  // Fetch level detail to get more accurate data
   const { result: levelDetail } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.getLevelDetail(),
     [],
     {
       initResult: undefined,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
 
   return useMemo(() => {
-    // Get current level info
     const currentLevel = rebateConfig;
+    const targetLevel = levelDetail?.currentLevel ?? currentLevel.level;
 
-    // Find the basic level info from rebateLevels
+    const detailLevel =
+      levelDetail?.levels.find((level) => level.level === targetLevel) ??
+      levelDetail?.levels.find((level) => level.isCurrent);
+    const displayedLevel = detailLevel?.level ?? targetLevel;
     const basicLevelInfo = rebateLevels?.find(
-      (level) => level.level === currentLevel.level,
+      (level) => level.level === displayedLevel,
     );
 
-    // Use levelDetail for complete data if available
-    let detailLevel;
-    if (levelDetail?.levels) {
-      detailLevel = levelDetail.levels.find((level) => level.isCurrent);
-    }
+    const levelIcon =
+      detailLevel?.icon || basicLevelInfo?.icon || currentLevel.icon || '';
+    const levelLabel = getDisplayLabel(
+      intl,
+      detailLevel?.labelKey ??
+        basicLevelInfo?.labelKey ??
+        currentLevel.labelKey,
+      detailLevel?.label ?? basicLevelInfo?.label ?? currentLevel.label,
+    );
 
-    // Get level icon URL and label from API data
-    const levelIcon = detailLevel?.icon || '';
-    const levelLabel =
-      detailLevel?.label || basicLevelInfo?.label || currentLevel.label || '';
-
-    // Get commission rates from detailed level data if available
-    // Convert to array format for easier iteration in components
     let commissionRates: Array<{
       subject: string;
       rate: {
@@ -58,29 +75,38 @@ export function useCurrentLevelCard(
       };
     }> = [];
 
-    // Use detailed commission rates if available
-    if (detailLevel?.commissionRates) {
-      const rates = detailLevel.commissionRates;
+    const rates =
+      detailLevel?.commissionRates ??
+      basicLevelInfo?.configs ??
+      (displayedLevel === currentLevel.level
+        ? currentLevel.configs
+        : undefined);
 
-      // Convert rates to array format (similar to LevelAccordionItem)
+    if (rates) {
       if (Array.isArray(rates)) {
         commissionRates = rates.map((rate, index) => ({
-          subject: rate.labelKey ?? `${index}`,
+          subject: rate.labelKey ?? rate.commissionRatesLabelKey ?? `${index}`,
           rate: {
             you: rate.rebate,
             invitee: rate.discount,
-            label:
-              rate.commissionRatesLabel || rate.label || `Rate ${index + 1}`,
+            label: getDisplayLabel(
+              intl,
+              rate.commissionRatesLabelKey ?? rate.labelKey,
+              rate.commissionRatesLabel ?? rate.label,
+            ),
           },
         }));
       } else {
-        // Handle Record<string, IInviteLevelCommissionRate> format
         commissionRates = Object.entries(rates).map(([subject, rate]) => ({
           subject,
           rate: {
             you: rate.rebate,
             invitee: rate.discount,
-            label: rate.commissionRatesLabel || rate.label || subject,
+            label: getDisplayLabel(
+              intl,
+              rate.commissionRatesLabelKey ?? rate.labelKey,
+              rate.commissionRatesLabel ?? rate.label ?? subject,
+            ),
           },
         }));
       }
@@ -94,5 +120,5 @@ export function useCurrentLevelCard(
       levelLabel,
       commissionRates,
     };
-  }, [rebateConfig, rebateLevels, levelDetail]);
+  }, [intl, levelDetail, rebateConfig, rebateLevels]);
 }

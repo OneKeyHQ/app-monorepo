@@ -33,6 +33,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -61,6 +62,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -78,6 +80,9 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { SwapInviteeRewardActionButton } from '../../components/InviteeReward/SwapInviteeRewardActionButton';
+import { SwapInviteeRewardSettingsItem } from '../../components/InviteeReward/SwapInviteeRewardSettingsItem';
+import { getSwapInviteeRewardActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
@@ -293,8 +298,10 @@ const SwapSlippageCustomContent = ({
 
 const SwapSettingsDialogContent = ({
   marketPresetSettings,
+  showInviteeRewardEntry,
 }: {
   marketPresetSettings?: IMarketPresetSettingsState;
+  showInviteeRewardEntry?: boolean;
 }) => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -499,6 +506,23 @@ const SwapSettingsDialogContent = ({
             />
           </>
         ) : null}
+        {showInviteeRewardEntry ? (
+          <>
+            <Divider />
+            {/* This dialog renders in the global overlay portal, outside the
+                swap page's providers, so the account-dependent item must bring
+                its own account-selector mirror. */}
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.swap,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <SwapInviteeRewardSettingsItem />
+            </AccountSelectorProviderMirror>
+          </>
+        ) : null}
       </YStack>
     </ScrollView>
   );
@@ -637,6 +661,7 @@ type ISwapSettingsHeaderButtonProps = {
   iconColor?: ColorTokens;
   compact?: boolean;
   showCustomSlippageValue?: boolean;
+  showInviteeRewardEntry?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -646,6 +671,7 @@ export function SwapSettingsHeaderButton({
   iconColor,
   compact,
   showCustomSlippageValue,
+  showInviteeRewardEntry,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -697,6 +723,7 @@ export function SwapSettingsHeaderButton({
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
             marketPresetSettings={marketPresetSettings}
+            showInviteeRewardEntry={showInviteeRewardEntry}
           />
         </SwapProviderMirror>
       ),
@@ -707,7 +734,7 @@ export function SwapSettingsHeaderButton({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, swapStoreName]);
+  }, [intl, marketPresetSettings, showInviteeRewardEntry, swapStoreName]);
 
   if (slippageTitle) {
     return (
@@ -769,7 +796,7 @@ const SwapHeaderRightActionContainer = ({
     { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
   ] = useInAppNotificationAtom();
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtLg, md } = useMedia();
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -821,6 +848,17 @@ const SwapHeaderRightActionContainer = ({
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  const swapInviteeRewardActionPlacement = getSwapInviteeRewardActionPlacement({
+    isDesktop: Boolean(platformEnv.isDesktop),
+    isMediumLayout: md,
+    isModal: pageType === EPageType.modal,
+    isNative: Boolean(platformEnv.isNative),
+    swapTypeSwitch,
+  });
+  const showSwapInviteeRewardAction =
+    swapInviteeRewardActionPlacement === 'swapHeader';
+  const showSwapInviteeRewardSettingsItem =
+    swapInviteeRewardActionPlacement === 'mobileSettings';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -939,10 +977,21 @@ const SwapHeaderRightActionContainer = ({
   }
 
   return (
-    // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
+    // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
       <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+        {showSwapInviteeRewardAction ? (
+          <SwapInviteeRewardActionButton
+            testID={SwapTestIDs.inviteeRewardButton}
+            icon="GiftOutline"
+            iconProps={{
+              size: resolvedIconSize,
+              color: iconColor ?? '$icon',
+            }}
+            size={resolvedButtonSize}
+          />
+        ) : null}
         {kLineButton}
         <SwapSettingsHeaderButton
           pageType={pageType}
@@ -950,6 +999,7 @@ const SwapHeaderRightActionContainer = ({
           iconColor={iconColor}
           compact={compact}
           marketPresetSettings={marketPresetSettings}
+          showInviteeRewardEntry={showSwapInviteeRewardSettingsItem}
         />
 
         {/* On mobile every tab has its own Order History list, so the global

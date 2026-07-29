@@ -4,15 +4,17 @@ import { useIntl } from 'react-intl';
 
 import { XStack, YStack } from '@onekeyhq/components';
 import {
-  ResponsiveThreeColumnLayout,
+  ResponsiveFourColumnLayout,
   SimpleTabs,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
 import { PerpsReward, usePerpsCumulativeRewards } from '../PerpsReward';
 import { SectionHeader } from '../SectionHeader';
+import { SwapReward } from '../SwapReward';
 
 import { CreateCodeButton } from './components/CreateCodeButton';
 import { InviteCodeListTable } from './components/InviteCodeListTable';
@@ -104,7 +106,8 @@ export function InvitationDetailsSection({
       </XStack>
 
       {selectedTab === EInvitationDetailsTab.REWARD ? (
-        <ResponsiveThreeColumnLayout
+        <ResponsiveFourColumnLayout
+          gap={platformEnv.isDesktop ? '$4' : undefined}
           firstColumn={
             <HardwareSalesReward
               hardwareSales={HardwareSales}
@@ -115,6 +118,7 @@ export function InvitationDetailsSection({
             <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
           }
           thirdColumn={<OnChainReward onChain={Onchain} />}
+          fourthColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
         />
       ) : (
         <YStack px="$pagePadding" gap="$4">
