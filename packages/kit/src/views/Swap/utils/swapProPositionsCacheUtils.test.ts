@@ -9,6 +9,7 @@ import {
   SWAP_PRO_POSITIONS_CACHE_TTL_MS,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
   getValidSwapProPositionsCache,
+  resolveSwapProPositionsDisplayOwner,
   shouldReuseSwapProPositionsCache,
   upsertSwapProPositionsCacheEntry,
 } from './swapProPositionsCacheUtils';
@@ -69,6 +70,44 @@ describe('swapProPositionsCacheUtils', () => {
         ownerKey: 'account-2__evm--1__usd',
       }),
     ).toBe(false);
+  });
+
+  it('uses positions only when cache and live data match the exact owner', () => {
+    expect(
+      resolveSwapProPositionsDisplayOwner({
+        cacheByOwner: {
+          [cacheEntry.ownerKey]: cacheEntry,
+        },
+        dataOwnerKey: cacheEntry.ownerKey,
+        hasPositionAccount: true,
+        positionOwnerKey: cacheEntry.ownerKey,
+        supportNetworksReady: true,
+      }),
+    ).toEqual({
+      cachedPositionEntry: cacheEntry,
+      hasCachedPositionSnapshot: true,
+      hasPositionOwner: true,
+      isLiveTokenListForCurrentOwner: true,
+    });
+  });
+
+  it('does not approximate a positions owner before support networks are ready', () => {
+    expect(
+      resolveSwapProPositionsDisplayOwner({
+        cacheByOwner: {
+          [cacheEntry.ownerKey]: cacheEntry,
+        },
+        dataOwnerKey: cacheEntry.ownerKey,
+        hasPositionAccount: true,
+        positionOwnerKey: '',
+        supportNetworksReady: false,
+      }),
+    ).toEqual({
+      cachedPositionEntry: undefined,
+      hasCachedPositionSnapshot: false,
+      hasPositionOwner: true,
+      isLiveTokenListForCurrentOwner: false,
+    });
   });
 
   it('persists only display fields and never carries cached Stock classification', () => {

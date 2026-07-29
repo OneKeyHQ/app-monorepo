@@ -20,13 +20,11 @@ import {
   ANIMATE_ONLY_BG_BORDER_COLOR,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
-import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -46,7 +44,6 @@ export default function PickYourDevice() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const [devSettings] = useDevSettingsPersistAtom();
   const DEVICES = useMemo<
     Array<{
       name: string;
@@ -57,18 +54,6 @@ export default function PickYourDevice() {
     }>
   >(() => {
     const devices = [
-      // MOCK(pro2): Pro 2 is not on the market yet, so its picker card only
-      // appears when dev settings are enabled. Production users never see it,
-      // which keeps every downstream Pro 2 mock path unreachable for them.
-      ...(devSettings.enabled
-        ? [
-            {
-              name: 'OneKey Pro 2',
-              deviceType: [MOCK_PRO2_DEVICE_TYPE],
-              image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
-            },
-          ]
-        : []),
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -105,7 +90,7 @@ export default function PickYourDevice() {
     }
 
     return devices;
-  }, [intl, devSettings.enabled]);
+  }, [intl]);
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
@@ -237,6 +222,7 @@ export default function PickYourDevice() {
                   width="100%"
                   height="90%"
                   $gtMd={{ height: '100%' }}
+                  resizeWidth={240}
                   resizeMode="contain"
                 />
               </YStack>
