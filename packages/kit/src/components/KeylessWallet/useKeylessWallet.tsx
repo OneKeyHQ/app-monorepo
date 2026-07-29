@@ -51,6 +51,7 @@ import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/
 import {
   markOneKeyIdFailureServerLogged,
   showOneKeyIdLoginFailedToast,
+  throwLocalizedOneKeyIdLoginError,
 } from '../../views/Prime/components/oneKeyIdLoginToastUtils';
 import {
   redirectKeylessOneKeyIdAuthToExtExpandTab,
@@ -641,10 +642,10 @@ export function useKeylessWallet() {
       const accessToken = result?.session?.accessToken;
       const refreshToken = result?.session?.refreshToken;
       if (!accessToken || !refreshToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'Keyless wallet OAuth login failed: session token not found',
-        );
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          reason: 'Keyless wallet OAuth login failed: session token not found',
+        });
       }
       const { rollbackHandle } = await persistKeylessOAuthSession({
         accessToken,
@@ -667,6 +668,7 @@ export function useKeylessWallet() {
     },
     [
       checkKeylessWalletCreatedOnServer,
+      intl,
       persistKeylessOAuthSession,
       signInWithSocialLogin,
     ],
@@ -695,10 +697,11 @@ export function useKeylessWallet() {
         const candidateAccessToken = result?.session?.accessToken || '';
         const candidateRefreshToken = result?.session?.refreshToken || '';
         if (!candidateAccessToken) {
-          // TODO: i18n
-          throw new OneKeyLocalError(
-            'OneKey ID OAuth reauthentication failed: access token not found',
-          );
+          throwLocalizedOneKeyIdLoginError({
+            intl,
+            reason:
+              'OneKey ID OAuth reauthentication failed: access token not found',
+          });
         }
 
         const isMatched =
@@ -786,10 +789,17 @@ export function useKeylessWallet() {
           displayEmail: prepareResult.displayEmail,
         });
         Dialog.show({
-          // TODO: i18n
-          title: 'Continue with current OneKey ID?',
-          // TODO: i18n
-          description: `You are signed in as ${displayEmail}. Continue with this OneKey ID to create a Keyless wallet, or log out to use another Google or Apple account.`,
+          title: intl.formatMessage({
+            id: ETranslations.continue_with_current_onekey_id__title,
+          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.continue_with_current_onekey_id__desc,
+            },
+            {
+              email: displayEmail,
+            },
+          ),
           showCancelButton: true,
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_continue,
@@ -873,10 +883,13 @@ export function useKeylessWallet() {
         prepareResult.status ===
         EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable
       ) {
-        throw new OneKeyLocalError(
-          prepareResult.errorMessage ||
-            'Local Keyless wallet data is unavailable.',
-        );
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          key: ETranslations.keyless_wallet_data_unavailable__desc,
+          reason: `Keyless wallet creation preparation failed: local data unavailable. ${
+            prepareResult.errorMessage || ''
+          }`,
+        });
       }
       if (
         prepareResult.status ===
@@ -920,10 +933,13 @@ export function useKeylessWallet() {
               nextPrepareResult.status ===
               EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable
             ) {
-              throw new OneKeyLocalError(
-                nextPrepareResult.errorMessage ||
-                  'Local Keyless wallet data is unavailable.',
-              );
+              throwLocalizedOneKeyIdLoginError({
+                intl,
+                key: ETranslations.keyless_wallet_data_unavailable__desc,
+                reason: `Keyless wallet creation preparation failed after OAuth linking: local data unavailable. ${
+                  nextPrepareResult.errorMessage || ''
+                }`,
+              });
             }
             await startKeylessCreateWithOAuthProvider({ provider });
           },
@@ -954,6 +970,7 @@ export function useKeylessWallet() {
     },
     [
       continueKeylessCreateWithPreparedOneKeyId,
+      intl,
       reauthenticateLegacyOneKeyIdWithOAuthProvider,
       showContinueWithCurrentOneKeyIdDialog,
       showLocalKeylessWalletExistsDialog,
@@ -980,10 +997,13 @@ export function useKeylessWallet() {
         return;
       }
       if (!prepareResult.walletId) {
-        throw new OneKeyLocalError(
-          prepareResult.errorMessage ||
-            'Unable to identify the local Keyless wallet for recovery.',
-        );
+        throwLocalizedOneKeyIdLoginError({
+          intl,
+          key: ETranslations.keyless_wallet_data_unavailable__desc,
+          reason: `Unable to identify the local Keyless wallet for recovery. ${
+            prepareResult.errorMessage || ''
+          }`,
+        });
       }
       await runIdentityExit(
         {
@@ -1007,7 +1027,7 @@ export function useKeylessWallet() {
         },
       );
     },
-    [handleHealthyPreparedKeylessCreateWithOneKeyId, runIdentityExit],
+    [handleHealthyPreparedKeylessCreateWithOneKeyId, intl, runIdentityExit],
   );
 
   // goToOneKeyIDLoginPageForKeylessWallet
@@ -1134,9 +1154,14 @@ export function useKeylessWallet() {
         return;
       }
       if (!action) {
+        console.error('EKeylessFinalizeAction is required');
         Dialog.show({
-          title: 'Keyless Wallet',
-          description: 'EKeylessFinalizeAction is required',
+          title: intl.formatMessage({
+            id: ETranslations.global_unknown_error,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          }),
           showCancelButton: false,
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_got_it,
