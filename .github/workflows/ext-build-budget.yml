@@ -1,0 +1,59 @@
+name: Extension Build Budget Check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - x
+    paths:
+      - '.github/workflows/ext-build-budget.yml'
+      - 'apps/ext/**'
+      - 'packages/**'
+      - 'development/babel-plugins/**'
+      - 'development/rspack/**'
+      - 'package.json'
+      - 'yarn.lock'
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  ext-build-budget:
+    name: Extension build budget
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
+
+      - name: Check extension production build budgets
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn app:ext:build
