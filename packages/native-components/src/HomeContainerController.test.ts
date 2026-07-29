@@ -1995,6 +1995,95 @@ describe('native HomeContainer background authority', () => {
   });
 });
 
+describe('Android HomeContainer content slot presentation', () => {
+  const source = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+
+  it('routes content slots to the page encoded in the slot key', () => {
+    expect(source).toContain(
+      'val contentTabId = homeContainerContentSlotTabId(key)',
+    );
+    expect(source).toContain(
+      'adapter.pageForTab(contentTabId)?.stateSlotTarget()',
+    );
+    expect(source).toContain(
+      'adapter.pageForTab(contentTabId)?.contentHeaderSlotTarget()',
+    );
+    expect(source).toContain(
+      'adapter.pageForTab(contentTabId)?.footerSlotTarget(key)',
+    );
+  });
+
+  it('reflows parked slots after pager selection settles', () => {
+    const completionBlock = source.slice(
+      source.indexOf('private fun completePagerSelectionIfIdle()'),
+      source.indexOf('private fun moveToTab('),
+    );
+    expect(completionBlock).toContain(
+      'selectedTabId = targetTab.id',
+    );
+    expect(completionBlock).toContain(
+      'post { onSlotLayoutChange?.invoke() }',
+    );
+  });
+
+  it('does not deadlock tab selection behind an unacknowledged render', () => {
+    const selectionBlock = source.slice(
+      source.indexOf('private fun emitTabSelection(tabId: String)'),
+      source.indexOf('private fun emitHandoff('),
+    );
+    expect(selectionBlock).toContain(
+      'val currentState = renderedProtocolV2State',
+    );
+    expect(selectionBlock).toContain(
+      'onVisibleTabChange?.invoke(tabId)',
+    );
+    expect(selectionBlock).toContain(
+      'renderedProtocolV2State = selectedState',
+    );
+    expect(selectionBlock).toContain(
+      'renderedProtocolV3State = selectedV3State',
+    );
+  });
+
+  it('does not duplicate Android bottom tab bar clearance', () => {
+    const recyclerBlock = source.slice(
+      source.indexOf('private fun configureRecycler(target: RecyclerView)'),
+      source.indexOf('private fun onListLayoutCompleted('),
+    );
+    expect(recyclerBlock).toContain('target.setPadding(0, 0, 0, 0)');
+    expect(recyclerBlock).not.toContain('dp(112)');
+  });
+
+  it('does not block render acknowledgement on a sticky layout requested flag', () => {
+    const readinessBlock = source.slice(
+      source.indexOf('private fun isListPresentationReady()'),
+      source.indexOf('private fun scheduleRenderPreDraw('),
+    );
+    expect(readinessBlock).toContain(
+      'homeContainerCanScheduleListPresentation(',
+    );
+    expect(readinessBlock).not.toContain('recycler.isLayoutRequested');
+  });
+
+  it('bubbles row layout requests through the page container', () => {
+    const pageBlock = source.slice(
+      source.indexOf('private class HomePageView'),
+      source.indexOf('fun bind(', source.indexOf('private class HomePageView')),
+    );
+    expect(pageBlock).toContain('listAdapter.onRowsSubmitted');
+    expect(pageBlock).toContain('recycler.requestLayout()');
+    expect(pageBlock).toContain('this@HomePageView.requestLayout()');
+    expect(pageBlock).toContain('recycler.postOnAnimation');
+    expect(pageBlock).toContain('rootView.requestLayout()');
+  });
+});
+
 describe('native HomeContainer loading action-row geometry', () => {
   const iosSource = fs.readFileSync(
     path.join(__dirname, '../ios/HomeContainerView.swift'),

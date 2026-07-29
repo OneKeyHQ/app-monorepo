@@ -14,6 +14,13 @@ import { buildBasicOptions } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
+// These Cocoa-specific options are not declared by @sentry/react-native 6.22,
+// but the RN bridge forwards them to the native SDK. Android ignores them.
+const nativeBreadcrumbOptions = {
+  enableAutoBreadcrumbTracking: false,
+  enableNetworkBreadcrumbs: false,
+};
+
 // oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react-native';
 
@@ -46,13 +53,17 @@ export const initSentry = () => {
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...basicOptions,
     maxCacheItems: 60,
-    maxBreadcrumbs: 0,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
-    // integrations; error reporting remains enabled.
-    integrations: [],
+    // integrations. Remove the default Breadcrumbs integration instead of
+    // passing an empty array, which would merge with the defaults.
+    integrations: (defaultIntegrations) =>
+      defaultIntegrations.filter(
+        (integration) => integration.name !== 'Breadcrumbs',
+      ),
+    beforeBreadcrumb: () => null,
     enableAutoPerformanceTracing: false,
     // Disable Hermes profiling on React Native. With multiple Hermes runtimes
     // in the iOS release smoke test, native stopProfiling can throw on a
@@ -63,6 +74,8 @@ export const initSentry = () => {
     // heap), which is safe for privacy and essential for diagnosing native crashes.
     enableNativeCrashHandling: true,
     enableNdk: true,
+    enableNdkScopeSync: false,
+    ...nativeBreadcrumbOptions,
     enableWatchdogTerminationTracking: false,
     attachScreenshot: false,
     attachViewHierarchy: false,

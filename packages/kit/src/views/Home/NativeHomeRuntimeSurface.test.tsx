@@ -124,6 +124,12 @@ describe('Native Home runtime surface', () => {
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
     expect(mobileRendererSource).toContain('initialSnapshot={initialSnapshot}');
+    expect(mobileRendererSource).toContain(
+      'onVisibleTabChange={handleVisibleTabChange}',
+    );
+    expect(mobileRendererSource).toContain(
+      'acceptTabSelection(tabId, homeNavigation.tabApplicabilityRevision);',
+    );
     expect(mobileRendererSource).not.toContain('nativeUnavailable');
     expect(mobileRendererSource).not.toContain('fallback=');
     expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');

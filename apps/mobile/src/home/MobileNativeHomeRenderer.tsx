@@ -1682,7 +1682,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     previousSnapshotRef.current = snapshot;
   }, [controller, revisionState, slots, snapshot]);
 
-  useLayoutEffect(() => () => disposeNativeSession(), [disposeNativeSession]);
+  useEffect(() => () => disposeNativeSession(), [disposeNativeSession]);
 
   useLayoutEffect(() => {
     const target = nativeRef.current;
@@ -1843,6 +1843,26 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       );
     },
     [dispatchHomeIntent, facts],
+  );
+  const acceptTabSelection = useCallback(
+    (tabId: IHomeContainerTabId, revision: number) => {
+      if (dispatchTabIntent(tabId, revision)) {
+        markTabRendered(tabId);
+        controller?.recordSelectedTab(tabId);
+        return;
+      }
+      nativeRef.current?.selectTab(selectedTabId, false);
+    },
+    [controller, dispatchTabIntent, markTabRendered, selectedTabId],
+  );
+  const handleVisibleTabChange = useCallback(
+    (tabId: string) => {
+      if (!isTabId(tabId)) {
+        return;
+      }
+      acceptTabSelection(tabId, homeNavigation.tabApplicabilityRevision);
+    },
+    [acceptTabSelection, homeNavigation.tabApplicabilityRevision],
   );
 
   const dispatchNativeAction = useCallback(
@@ -2187,12 +2207,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         }
       }
       if (parsed.intent.kind === 'selectTab') {
-        if (dispatchTabIntent(parsed.intent.tabId, parsed.authority.revision)) {
-          markTabRendered(parsed.intent.tabId);
-          controller?.recordSelectedTab(parsed.intent.tabId);
-        } else {
-          nativeRef.current?.selectTab(selectedTabId, false);
-        }
+        acceptTabSelection(parsed.intent.tabId, parsed.authority.revision);
         return;
       }
       if (
@@ -2228,16 +2243,14 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       dispatchNativeAction(parsed);
     },
     [
-      controller,
+      acceptTabSelection,
       addRecommendedMarketTokens,
       bannerPayload?.tronResource,
       dispatchHomeIntent,
       dispatchNativeAction,
-      dispatchTabIntent,
       facts,
       handleOnManageToken,
       handleRefreshIntent,
-      markTabRendered,
       navigation,
       marketPayload,
       openLowValueAssets,
@@ -2245,7 +2258,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       owner,
       portfolioPayload?.showLpTokensOnly,
       selectMarketCategory,
-      selectedTabId,
       selectedRecommendedMarketRowIds,
       toggleMarketFavorite,
       viewMoreMarket,
@@ -2314,6 +2326,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         testID="NativeHomeContainer"
         onReady={handleReady}
         onIntent={handleIntent}
+        onVisibleTabChange={handleVisibleTabChange}
         onTransportResult={handleTransportResult}
         onRenderError={handleRenderError}
       />
