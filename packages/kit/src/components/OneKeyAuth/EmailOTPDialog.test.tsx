@@ -10,7 +10,12 @@ import { createEmailOtpRateLimitError } from './emailOtpRateLimitError';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    formatMessage: ({ id }: { id: string }, values?: { seconds?: number }) => {
+      if (id === 'resend_code_countdown__action') {
+        return `${id} (${String(values?.seconds)}s)`;
+      }
+      return id;
+    },
   }),
 }));
 
@@ -80,11 +85,11 @@ describe('EmailOTPDialog', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.prime_code_resend} (33s)`,
+        `${ETranslations.resend_code_countdown__action} (33s)`,
       );
     });
     expect(Toast.error).toHaveBeenCalledWith({
-      title: 'Please retry after 33 seconds.',
+      title: ETranslations.email_verification_rate_limit,
     });
   });
 
@@ -111,7 +116,7 @@ describe('EmailOTPDialog', () => {
     await waitFor(() => {
       expect(sendCode).toHaveBeenCalledTimes(2);
       expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.prime_code_resend} (33s)`,
+        `${ETranslations.resend_code_countdown__action} (33s)`,
       );
     });
   });

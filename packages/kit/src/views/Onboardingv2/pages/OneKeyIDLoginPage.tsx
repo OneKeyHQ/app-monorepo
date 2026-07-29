@@ -209,7 +209,9 @@ function OneKeyIDLoginPage() {
               },
             );
             Toast.success({
-              title: 'Reset Success',
+              title: intl.formatMessage({
+                id: ETranslations.global_success,
+              }),
             });
             setIsResetMode(false);
           } else {
@@ -237,6 +239,7 @@ function OneKeyIDLoginPage() {
     [
       checkKeylessWalletCreatedOnServer,
       checkKeylessWalletLocalExistence,
+      intl,
       isCreateOrRestoreMode,
       isResetMode,
       isVerifyMode,
@@ -255,7 +258,9 @@ function OneKeyIDLoginPage() {
 
   const title = isVerifyMode
     ? intl.formatMessage({ id: ETranslations.keyless_verify_identity_title })
-    : intl.formatMessage({ id: ETranslations.select_your_email });
+    : intl.formatMessage({
+        id: ETranslations.choose_keyless_account__title,
+      });
   const desc = isVerifyMode
     ? intl.formatMessage(
         { id: ETranslations.keyless_verify_identity_desc },
@@ -266,7 +271,9 @@ function OneKeyIDLoginPage() {
               : 'Google',
         },
       )
-    : intl.formatMessage({ id: ETranslations.select_your_email_desc });
+    : intl.formatMessage({
+        id: ETranslations.choose_keyless_account__desc,
+      });
 
   return (
     <OnboardingPage

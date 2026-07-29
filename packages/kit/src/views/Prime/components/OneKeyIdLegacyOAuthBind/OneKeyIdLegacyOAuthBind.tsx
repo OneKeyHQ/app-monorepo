@@ -26,7 +26,6 @@ import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
@@ -48,18 +47,17 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { showOneKeyIdLoginSuccessToast } from '../oneKeyIdLoginToastUtils';
+import {
+  getSanitizedAuthErrorText,
+  showOneKeyIdLoginSuccessToast,
+  throwLocalizedOneKeyIdLoginError,
+} from '../oneKeyIdLoginToastUtils';
 import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
 
 import { getOneKeyIdOAuthBindProviders } from './oneKeyIdOAuthBindProviders';
 
 import type { IntlShape } from 'react-intl';
 
-// TODO: i18n
-export const ONEKEY_ID_BIND_OAUTH_TITLE = 'Add Another Sign-In Method';
-// TODO: i18n
-export const ONEKEY_ID_BIND_OAUTH_DESC =
-  'You can continue using email. Optionally link Google or Apple for another way to access your OneKey ID.';
 let isLegacyOAuthBindDialogVisible = false;
 
 const PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS = 3;
@@ -70,47 +68,47 @@ type IOneKeyIdOAuthBindDialogResult =
   | 'bound'
   | IOneKeyIdOAuthAccountSwitchResult;
 
-function getSanitizedAuthError(error: unknown): string {
-  const safeError = error as {
-    message?: unknown;
-    code?: unknown;
-    status?: unknown;
-    httpStatusCode?: unknown;
-    requestId?: unknown;
-  };
-  return `message=${String(safeError?.message || 'unknown')} code=${String(
-    safeError?.code || '',
-  )} status=${String(
-    safeError?.status || safeError?.httpStatusCode || '',
-  )} requestId=${String(safeError?.requestId || '')}`;
-}
-
-// TODO: i18n (use a {provider} placeholder)
-function getBindOAuthTitle(provider?: EOAuthSocialLoginProvider) {
+function getBindOAuthTitle({
+  intl,
+  provider,
+}: {
+  intl: IntlShape;
+  provider?: EOAuthSocialLoginProvider;
+}) {
   return provider
-    ? `Add ${getOAuthSocialLoginProviderName(provider)} Sign-In`
-    : ONEKEY_ID_BIND_OAUTH_TITLE;
+    ? intl.formatMessage(
+        { id: ETranslations.link_social_platform__title },
+        { platform: getOAuthSocialLoginProviderName(provider) },
+      )
+    : intl.formatMessage({
+        id: ETranslations.add_sign_in_method__title,
+      });
 }
 
-// TODO: i18n (use a {provider} placeholder)
 function getBindOAuthDescription({
+  intl,
   provider,
   isRequiredForKeyless,
 }: {
+  intl: IntlShape;
   provider?: EOAuthSocialLoginProvider;
   isRequiredForKeyless: boolean;
 }) {
-  if (!provider) {
-    return ONEKEY_ID_BIND_OAUTH_DESC;
+  const providerName = provider
+    ? getOAuthSocialLoginProviderName(provider)
+    : intl.formatMessage({
+        id: ETranslations.google_or_apple__label,
+      });
+  if (provider && isRequiredForKeyless) {
+    return intl.formatMessage(
+      { id: ETranslations.link_provider_for_keyless__desc },
+      { provider: providerName },
+    );
   }
-  if (isRequiredForKeyless) {
-    return `Link ${getOAuthSocialLoginProviderName(
-      provider,
-    )} to continue creating or recovering your Keyless wallet. Email sign-in will remain available for your OneKey ID.`;
-  }
-  return `You can continue using email. Optionally link ${getOAuthSocialLoginProviderName(
-    provider,
-  )} for another way to access your OneKey ID.`;
+  return intl.formatMessage(
+    { id: ETranslations.add_sign_in_method__desc },
+    { provider: providerName },
+  );
 }
 
 function isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown): boolean {
@@ -159,13 +157,20 @@ async function showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
     };
     Dialog.show({
       icon: 'ErrorOutline',
-      // TODO: i18n
-      title: 'Already Linked to Another OneKey ID',
-      // TODO: i18n (two full messages — with and without the trailing
-      // Keyless clause; never concatenate translated fragments)
-      description: `This ${providerName} account is already linked to another OneKey ID, so it can't be added to ${emailText}. Continuing will log out of ${emailText} and sign in with the OneKey ID linked to this ${providerName} account. You can log back in with email verification at any time${
-        hasLocalKeylessWallet ? '; the Keyless wallet stays untouched' : ''
-      }.`,
+      title: intl.formatMessage({
+        id: ETranslations.oauth_account_already_linked__title,
+      }),
+      description: intl.formatMessage(
+        {
+          id: hasLocalKeylessWallet
+            ? ETranslations.oauth_account_already_linked_switch_keyless__desc
+            : ETranslations.oauth_account_already_linked_switch__desc,
+        },
+        {
+          provider: providerName,
+          email: emailText,
+        },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({ id: ETranslations.global_continue }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
@@ -185,8 +190,10 @@ function OneKeyIdLegacyOAuthBindHeader({
   inDialog?: boolean;
   isRequiredForKeyless: boolean;
 }) {
-  const title = getBindOAuthTitle(bindProvider);
+  const intl = useIntl();
+  const title = getBindOAuthTitle({ intl, provider: bindProvider });
   const description = getBindOAuthDescription({
+    intl,
     provider: bindProvider,
     isRequiredForKeyless,
   });
@@ -289,7 +296,7 @@ function OneKeyIdLegacyOAuthBindActions({
           if (attempt >= PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS) {
             console.error(
               'OneKeyIdLegacyOAuthBindActions prepare failed:',
-              getSanitizedAuthError(error),
+              getSanitizedAuthErrorText(error),
             );
             return;
           }
@@ -317,13 +324,27 @@ function OneKeyIdLegacyOAuthBindActions({
       oauthAccessToken: string;
       rollbackHandle?: IKeylessOAuthSessionRollbackHandle;
     }): Promise<boolean> => {
-      const confirmed = await showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog(
-        {
+      let confirmed = false;
+      try {
+        confirmed = await showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
           intl,
           provider,
           hasLocalKeylessWallet: isLocalKeylessOAuthMode,
-        },
-      );
+        });
+      } catch (error) {
+        if (rollbackHandle) {
+          try {
+            await rollbackProvisionalOAuthSession({ rollbackHandle });
+          } catch (rollbackError) {
+            // A failed rollback must not replace the original error.
+            console.error(
+              'OAuth session rollback failed:',
+              getSanitizedAuthErrorText(rollbackError),
+            );
+          }
+        }
+        throw error;
+      }
       if (!confirmed) {
         if (rollbackHandle) {
           await rollbackProvisionalOAuthSession({ rollbackHandle });
@@ -403,18 +424,19 @@ function OneKeyIdLegacyOAuthBindActions({
           const { isLoggedIn, onekeyUserId: expectedOnekeyUserId } =
             await backgroundApiProxy.servicePrime.getLocalUserInfo();
           if (!isLoggedIn || !expectedOnekeyUserId) {
-            // TODO: i18n (surfaces as a raw toast via withErrorAutoToast)
-            throw new OneKeyLocalError(
-              'OAuth bind failed: OneKey ID is not logged in',
-            );
+            throwLocalizedOneKeyIdLoginError({
+              intl,
+              reason: 'OAuth bind failed: OneKey ID is not logged in',
+            });
           }
           let oauthAccessToken = '';
           let rollbackHandle: IKeylessOAuthSessionRollbackHandle | undefined;
           try {
             const result = await getOAuthAccessToken({
               provider,
-              // TODO: i18n (surfaces as a raw toast via withErrorAutoToast)
-              missingTokenMessage: 'OAuth bind failed: access token not found',
+              missingTokenMessage: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
             });
             oauthAccessToken = result.accessToken;
             rollbackHandle = result.rollbackHandle;
@@ -477,7 +499,7 @@ function OneKeyIdLegacyOAuthBindActions({
             // here); any follow-up continuation errors surface through the
             // continuation's own error handling, so only log here.
             defaultLogger.prime.subscription.onekeyIdLogout({
-              reason: `OneKeyIdLegacyOAuthBindActions: onBindSuccess failed after bind committed: ${String(
+              reason: `OneKeyIdLegacyOAuthBindActions: onBindSuccess failed after bind committed: ${getSanitizedAuthErrorText(
                 bindSuccessHandlerError,
               )}`,
             });
@@ -489,7 +511,7 @@ function OneKeyIdLegacyOAuthBindActions({
       } catch (error) {
         console.error(
           'OneKeyIdLegacyOAuthBindActions bind failed:',
-          getSanitizedAuthError(error),
+          getSanitizedAuthErrorText(error),
         );
       } finally {
         bindingProviderRef.current = null;
@@ -549,7 +571,7 @@ function OneKeyIdLegacyOAuthBindActions({
             onPress={() => void handleBindOAuth(provider)}
           >
             {intl.formatMessage(
-              { id: ETranslations.continue_with_social_platform },
+              { id: ETranslations.link_social_platform__action },
               { platform: providerName },
             )}
           </Button>
@@ -647,13 +669,14 @@ function OneKeyIdOAuthBindStatus({
 }: {
   providers: EOneKeyIdOAuthProvider[];
 }) {
+  const intl = useIntl();
   const providerNames = providers.map((provider) =>
     getOneKeyIdOAuthProviderName(provider),
   );
-  // TODO: i18n (localize the list conjunction via intl.formatList instead of
-  // hardcoding ' and ')
   const providerText =
-    providerNames.length > 1 ? providerNames.join(' and ') : providerNames[0];
+    providerNames.length > 1
+      ? intl.formatMessage({ id: ETranslations.google_and_apple__label })
+      : providerNames[0];
 
   return (
     <YStack
@@ -669,8 +692,10 @@ function OneKeyIdOAuthBindStatus({
         mx={0}
         borderRadius={0}
         userSelect="none"
-        // TODO: i18n (use a {provider} placeholder)
-        title={`${providerText} Sign-In linked`}
+        title={intl.formatMessage(
+          { id: ETranslations.social_sign_in_linked__title },
+          { provider: providerText },
+        )}
         titleProps={{
           size: '$bodyMdMedium',
           color: '$text',
@@ -727,7 +752,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
       } catch (error) {
         console.error(
           'OneKeyIdLegacyOAuthBindPrompt refresh failed:',
-          getSanitizedAuthError(error),
+          getSanitizedAuthErrorText(error),
         );
       }
     };
@@ -784,7 +809,7 @@ async function shouldShowOneKeyIdOAuthBindDialog(
   } catch (error) {
     console.error(
       'showOneKeyIdLegacyOAuthBindDialog failed:',
-      getSanitizedAuthError(error),
+      getSanitizedAuthErrorText(error),
     );
     return false;
   }

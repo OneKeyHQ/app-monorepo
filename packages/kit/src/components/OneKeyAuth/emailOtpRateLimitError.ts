@@ -1,5 +1,6 @@
 import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const EMAIL_OTP_RATE_LIMIT_ERROR_CODE = 'over_email_send_rate_limit';
 const EMAIL_OTP_RATE_LIMIT_ERROR_TYPE = 'emailOtpRateLimit';
@@ -47,6 +48,8 @@ export function createEmailOtpRateLimitError({
 }) {
   return new OneKeyLocalError<unknown, IEmailOtpRateLimitErrorData>({
     message,
+    key: ETranslations.email_verification_rate_limit,
+    info: { rest: String(retryAfterSeconds) },
     data: {
       type: EMAIL_OTP_RATE_LIMIT_ERROR_TYPE,
       retryAfterSeconds,
