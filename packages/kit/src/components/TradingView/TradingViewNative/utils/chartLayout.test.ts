@@ -17,12 +17,10 @@ import {
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceExtremumHorizontalLayout,
-  getTradingViewNativePriceTransform,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeBarHeight,
-  getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 
@@ -152,7 +150,7 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
   });
 
-  it('scales volume against the currently visible candles', () => {
+  it('derives max volume from the currently visible candles', () => {
     const points = buildPoints({
       count: 4,
       startTimestamp: getLocalTimestamp(2025, 0, 15),
@@ -176,62 +174,30 @@ describe('TradingViewNative chart layout', () => {
       getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
     ).toBe(10);
     expect(layout?.maxVolume).toBe(10);
+  });
+
+  it('calculates volume bar height only for positive finite values', () => {
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 10,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 5,
+        volumeHeight: 100,
       }),
-    ).toBe(100);
+    ).toBe(50);
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 0,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 0,
+        volumeHeight: 100,
       }),
-    ).toBe(1);
-  });
-
-  it('preserves small volume ratios before applying the visible scale', () => {
-    const baseMaxVolume = 1000;
-    const visibleScale = getTradingViewNativeVolumeScale({
-      baseMaxVolume,
-      visibleMaxVolume: 10,
-    });
-    const scaledHeights = [1, 5, 10].map(
-      (volume) =>
-        getTradingViewNativeVolumeBarHeight({
-          maxVolume: baseMaxVolume,
-          volume,
-          volumeHeight: 100,
-        }) * visibleScale,
-    );
-
-    expect(scaledHeights).toEqual([10, 50, 100]);
-  });
-
-  it('maps a static price picture into the visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 8,
-      targetPriceRange: 4,
-    });
-    const mapY = (y: number) => y * transform.scaleY + transform.translateY;
-
-    expect(mapY(44)).toBeCloseTo(24);
-    expect(mapY(84)).toBeCloseTo(124);
-  });
-
-  it('centers a flat visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 7,
-      targetPriceRange: 0,
-    });
-
-    expect(54 * transform.scaleY + transform.translateY).toBeCloseTo(74);
+    ).toBe(0);
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: Number.POSITIVE_INFINITY,
+        volumeHeight: 100,
+      }),
+    ).toBe(0);
   });
 
   it('centers the watermark and keeps it inside small canvases', () => {
@@ -366,6 +332,69 @@ describe('TradingViewNative chart layout', () => {
     expect(initialLayout.unit).toBe('hour');
     expect(pannedLayout.unit).toBe('hour');
     expect(pannedLayout.ticks).toEqual(initialLayout.ticks);
+  });
+
+  it('limits time-axis point reads to the visible window', () => {
+    const sourcePoints = buildPoints({
+      count: 10_000,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    let pointReadCount = 0;
+    const points = sourcePoints.map((point) => ({
+      ...point,
+      get t() {
+        pointReadCount += 1;
+        return point.t;
+      },
+    }));
+
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      endIndex: 5050,
+      minimumIndexSpacing: 12,
+      points,
+      startIndex: 5000,
+    });
+
+    expect(layout.ticks.length).toBeGreaterThan(0);
+    expect(pointReadCount).toBeLessThan(200);
+    expect(
+      layout.ticks.every(({ index }) => index > 4900 && index < 5150),
+    ).toBe(true);
+  });
+
+  it('keeps visible tick anchors stable across an aligned window boundary', () => {
+    const points = buildPoints({
+      count: 240,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      minimumIndexSpacing: 12,
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 153,
+      startIndex: 107,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 154,
+      startIndex: 108,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 108 && index < 153);
+
+    expect(pannedLayout.unit).toBe(initialLayout.unit);
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
   });
 
   it('uses day ticks for a multi-week visible range', () => {

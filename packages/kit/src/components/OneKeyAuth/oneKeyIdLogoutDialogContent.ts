@@ -2,11 +2,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type { IIdentityExitPlan } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
-import {
-  ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION,
-  ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
-} from './oneKeyIdLogoutConsts';
-
 import type { IntlShape } from 'react-intl';
 
 type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
@@ -31,22 +26,28 @@ function getBaseOneKeyIdLogoutDialogContent({
     const nextProviderName = presentation.nextProvider
       ? getOAuthSocialLoginProviderName(presentation.nextProvider)
       : undefined;
+    const description = nextProviderName
+      ? intl.formatMessage(
+          {
+            id: presentation.oneKeyIdWillBeLoggedOut
+              ? ETranslations.remove_unavailable_keyless_wallet_for_provider_and_onekey_id__desc
+              : ETranslations.remove_unavailable_keyless_wallet_for_provider__desc,
+          },
+          { provider: nextProviderName },
+        )
+      : intl.formatMessage({
+          id: presentation.oneKeyIdWillBeLoggedOut
+            ? ETranslations.remove_unavailable_keyless_wallet_and_onekey_id__desc
+            : ETranslations.remove_unavailable_keyless_wallet__desc,
+        });
     return {
       icon: 'ErrorOutline',
       tone: 'destructive',
-      // TODO: i18n
-      title: 'Remove Unavailable Keyless Wallet?',
-      // TODO: i18n
-      description: `The local Keyless wallet data cannot be read correctly. ${
-        nextProviderName
-          ? `To continue with ${nextProviderName}, first remove this Keyless wallet from this device.`
-          : 'Remove this Keyless wallet from this device to continue.'
-      }${
-        presentation.oneKeyIdWillBeLoggedOut
-          ? ' The OneKey ID session backed by this Keyless wallet will also be logged out.'
-          : ''
-      }`,
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
+      title: intl.formatMessage({
+        id: ETranslations.remove_unavailable_keyless_wallet__title,
+      }),
+      description,
+      confirmText: intl.formatMessage({ id: ETranslations.global_remove }),
     };
   }
   if (presentation.type === 'switchOAuthProvider') {
@@ -59,11 +60,23 @@ function getBaseOneKeyIdLogoutDialogContent({
     return {
       icon: 'ErrorOutline',
       tone: 'destructive',
-      // TODO: i18n (use a complete message with provider placeholders)
-      title: `Switch to ${nextProviderName} Sign-In?`,
-      // TODO: i18n (use a complete message with provider placeholders)
-      description: `You're currently using ${currentProviderName} Keyless. Continuing with ${nextProviderName} will log out and remove this Keyless wallet from this device.`,
-      confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
+      title: intl.formatMessage(
+        { id: ETranslations.switch_social_sign_in__title },
+        { provider: nextProviderName },
+      ),
+      description: intl.formatMessage(
+        {
+          id:
+            presentation.effect === 'linkedOneKeyIdAndKeyless'
+              ? ETranslations.switch_keyless_sign_in_and_onekey_id__desc
+              : ETranslations.switch_keyless_sign_in__desc,
+        },
+        {
+          currentProvider: currentProviderName,
+          nextProvider: nextProviderName,
+        },
+      ),
+      confirmText: intl.formatMessage({ id: ETranslations.global_continue }),
     };
   }
 
@@ -71,8 +84,12 @@ function getBaseOneKeyIdLogoutDialogContent({
     return {
       icon: 'ErrorOutline',
       tone: 'destructive',
-      title: ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_TITLE,
-      description: ONEKEY_ID_ASSOCIATED_KEYLESS_LOGOUT_DESCRIPTION,
+      title: intl.formatMessage({
+        id: ETranslations.log_out_onekey_id_and_keyless__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.log_out_onekey_id_and_keyless__desc,
+      }),
       confirmText: intl.formatMessage({ id: ETranslations.global_logout }),
     };
   }
