@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
@@ -129,7 +130,7 @@ export class Analytics {
       this.basicInfo.pageName = eventProps.pageName;
     }
     if (!this.instanceId || !this.baseURL) {
-      throw new Error('Analytics is not initialized');
+      throw new OneKeyLocalError('Analytics is not initialized');
     }
     if (platformEnv.isWebEmbed) {
       postMessage({

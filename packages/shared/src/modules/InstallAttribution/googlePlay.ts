@@ -1,6 +1,6 @@
 import {
-  getInstallationTimeAsync,
   getInstallReferrerAsync,
+  getInstallationTimeAsync,
 } from 'expo-application';
 
 import { defaultLogger } from '../../logger/logger';
