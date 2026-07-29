@@ -157,12 +157,7 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
-  // Which candidate the USB→BLE binding probe is connecting to. Currently
-  // BOOKKEEPING ONLY — nothing reads it. It used to gate silent cancellation
-  // of pairing requests during a probe; that was wrong (a device whose THP
-  // credential expired asks to pair exactly like an unknown one, so our own
-  // device got rejected) and identity is now decided solely by the
-  // post-handshake device_id comparison. Kept as the probe lifecycle marker.
+  // Probe lifecycle marker; bookkeeping only, nothing reads it.
   private _bindingProbeConnectId?: string;
 
   beginBindingProbe(connectId: string): void {
@@ -249,15 +244,9 @@ export class TrezorAdapter
         selectedMethod?: number;
         nfcData?: string;
       };
-      // A pairing request during a binding probe used to be treated as "not
-      // this device" and cancelled silently. That is wrong: a device whose THP
-      // credential was invalidated (user cleared the bond) asks to pair too,
-      // so our OWN device got rejected, the code-entry dialog never appeared,
-      // and the stored bleConnectId could never be refreshed — a deadlock the
-      // user could not escape. Identity is decided by the device_id comparison
-      // after the handshake (ServiceThirdPartyHardware tryBind), which needs
-      // this dialog to complete. The probe only ever runs on a device the user
-      // explicitly picked, so prompting is expected.
+      // Never suppress this during a binding probe: an expired THP credential
+      // makes our own device ask to pair too. Identity = device_id after the
+      // handshake, which needs this dialog to complete.
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_TREZOR_THP_PAIRING method=${
           payload.selectedMethod ?? '-'
@@ -845,12 +834,8 @@ export class TrezorAdapter
     }
   }
 
-  // A failed connect can leave a zombie BLE link behind: the SDK's
-  // session-init failure path throws without closing its transport, the
-  // main-process link still reads "connected" and gets reused, and every
-  // retry then talks into the dead pipe ("Malformed protocol format").
-  // Best-effort teardown so the next attempt rebuilds a real link. No-op
-  // off desktop, for USB connectIds, and when no link is actually held.
+  // A failed connect can leave a zombie link the next attempt would reuse,
+  // talking into a dead pipe ("Malformed protocol format"). Best-effort.
   private async _teardownBleLinkAfterFailure(connectId: string): Promise<void> {
     try {
       const bridge = (

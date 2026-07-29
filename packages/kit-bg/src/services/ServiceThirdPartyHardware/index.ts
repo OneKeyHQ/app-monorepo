@@ -290,10 +290,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
           vendor: EHardwareVendor.trezor,
         });
       }
-      // No device_id read back is "could not verify", not "different device".
-      // connectDevice reports '' when features are missing; treating that as a
-      // mismatch rejects the user's own device and the dialog then greys the
-      // candidate out for good (TrezorBleBindingDialog rejectedConnectIds).
+      // No device_id is "could not verify", not "different device" — a
+      // mismatch verdict would grey the user's own device out for good.
       if (!result.payload.deviceId) {
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate identity unavailable bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId}`,
@@ -332,13 +330,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
         dbDeviceId: device.id,
         bleConnectId,
       });
-      // Binding can mint fresh THP credentials (the device asks to pair when
-      // its old ones expired). They were buffered because the row did not
-      // carry this bleConnectId yet — it does now, so drain them here, or the
-      // user re-enters the pairing code on every future connect. Both callers
-      // of this method need it: signing-time auto-fallback AND the manual
-      // "bind Bluetooth" row in device details. Best-effort, exactly like the
-      // createHWWallet flush — losing credentials must never fail the bind.
+      // Binding can mint THP credentials, buffered until the row carries this
+      // bleConnectId — it does now. Without this drain the user re-enters the
+      // pairing code on every connect. Best-effort: must never fail the bind.
       try {
         await this.persistTrezorThpCredentials({
           connectId: bleConnectId,
