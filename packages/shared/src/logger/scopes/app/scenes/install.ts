@@ -12,7 +12,12 @@ export type IGooglePlayInstallAttributionParams = {
 };
 
 export class InstallScene extends BaseScene {
-  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferrer(rawReferrer: string) {
+    return rawReferrer;
+  }
+
+  @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'info' })
   public googlePlayInstallAttribution(
     params: IGooglePlayInstallAttributionParams,

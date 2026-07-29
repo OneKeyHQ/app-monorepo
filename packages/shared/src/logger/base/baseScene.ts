@@ -60,7 +60,7 @@ export abstract class BaseScene {
       return `${ts} ${durationInfo.duration}`;
     };
 
-    logFn({
+    return logFn({
       scopeName: this.scopeName,
       sceneName: this.sceneName,
       methodName,

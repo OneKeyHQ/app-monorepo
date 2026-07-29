@@ -17,16 +17,24 @@ class ServerLogScene extends BaseScene {
   campaignEvent(params: Record<string, string>) {
     return params;
   }
+
+  @LogToServer({ level: 'info', waitForServer: true })
+  confirmedEvent(params: Record<string, string>) {
+    return params;
+  }
 }
 
 describe('logFn', () => {
   let trackEvent: jest.MockedFunction<Analytics['trackEvent']>;
+  let trackEventAsync: jest.MockedFunction<Analytics['trackEventAsync']>;
 
   beforeEach(() => {
     jest.useFakeTimers();
     trackEvent = jest.fn();
+    trackEventAsync = jest.fn().mockResolvedValue(undefined);
     appGlobals.$analytics = {
       trackEvent,
+      trackEventAsync,
     } as unknown as Analytics;
     loggerConfig.updateRuntimeConfig({
       enabled: {},
@@ -61,5 +69,31 @@ describe('logFn', () => {
     expect(trackEvent).toHaveBeenCalledWith('utmParamsCaptured', {
       utm_source: 'dedicated',
     });
+  });
+
+  it('waits for confirmed server delivery when requested', async () => {
+    const scene = new ServerLogScene();
+    const delivery = scene.confirmedEvent({
+      utm_source: 'confirmed',
+    }) as unknown as Promise<void>;
+
+    jest.runOnlyPendingTimers();
+
+    await expect(delivery).resolves.toBeUndefined();
+    expect(trackEventAsync).toHaveBeenCalledWith('confirmedEvent', {
+      utm_source: 'confirmed',
+    });
+  });
+
+  it('propagates confirmed server delivery failures', async () => {
+    trackEventAsync.mockRejectedValueOnce(new Error('network failed'));
+    const scene = new ServerLogScene();
+    const delivery = scene.confirmedEvent({
+      utm_source: 'retry',
+    }) as unknown as Promise<void>;
+
+    jest.runOnlyPendingTimers();
+
+    await expect(delivery).rejects.toThrow('network failed');
   });
 });

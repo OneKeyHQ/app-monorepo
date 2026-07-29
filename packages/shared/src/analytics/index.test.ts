@@ -64,6 +64,7 @@ async function waitForPostCount(expectedCount: number) {
 describe('Analytics tier', () => {
   beforeEach(() => {
     mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
     mockGetDeviceCpuTier.mockClear();
     mockGetDeviceInfo.mockClear();
   });
@@ -128,6 +129,35 @@ describe('Analytics tier', () => {
       expect.objectContaining({
         attributes: expect.objectContaining({ tier: 3 }),
       }),
+    );
+  });
+
+  it('waits for event delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('confirmedEvent', { source: 'campaign' });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'confirmedEvent',
+        eventProps: expect.objectContaining({ source: 'campaign' }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new Error('network failed'));
+
+    await expect(
+      analytics.trackEventAsync('confirmedEvent', { source: 'campaign' }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(analytics.trackEventAsync('confirmedEvent')).rejects.toThrow(
+      'Analytics is not initialized',
     );
   });
 });

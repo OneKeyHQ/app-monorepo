@@ -121,6 +121,29 @@ export class Analytics {
     }
   }
 
+  async trackEventAsync(
+    eventName: string,
+    eventProps?: Record<string, any>,
+  ): Promise<void> {
+    if (eventProps?.pageName) {
+      this.basicInfo.pageName = eventProps.pageName;
+    }
+    if (!this.instanceId || !this.baseURL) {
+      throw new Error('Analytics is not initialized');
+    }
+    if (platformEnv.isWebEmbed) {
+      postMessage({
+        type: EWebEmbedPostMessageType.TrackEvent,
+        data: {
+          eventName,
+          eventProps,
+        },
+      });
+      return;
+    }
+    await this.requestEvent(eventName, eventProps);
+  }
+
   private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
     let deviceInfoPromise = this.deviceInfoPromise;
     if (!deviceInfoPromise) {
