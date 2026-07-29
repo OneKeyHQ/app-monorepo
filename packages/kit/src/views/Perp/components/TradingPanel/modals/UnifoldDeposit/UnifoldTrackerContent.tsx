@@ -1,0 +1,852 @@
+// cspell: words unifold Unifold
+import { useCallback, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  Dialog,
+  Divider,
+  Empty,
+  Icon,
+  ScrollView,
+  SizableText,
+  Skeleton,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+  useBackHandler,
+  useClipboard,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
+import {
+  isUnifoldHyperCoreDestination,
+  resolveUnifoldDepositDestination,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import {
+  getSafeUnifoldRecipient,
+  isUnifoldRecipientAligned,
+} from '@onekeyhq/kit/src/views/Perp/utils/unifoldRecipient';
+import {
+  perpsActiveAccountAtom,
+  useDevSettingsPersistAtom,
+  usePerpsActiveAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
+
+import {
+  formatUnifoldChainName,
+  formatUnifoldExecutionDate,
+  formatUnifoldProcessingTime,
+  formatUnifoldTokenAmount,
+  formatUnifoldUsd,
+  normalizeUnifoldExplorerUrl,
+  normalizeUnifoldIconUrl,
+} from './unifoldFormat';
+
+const TRACKER_POLL_INTERVAL_MS = 3000;
+const DESKTOP_TRACKER_BODY_HEIGHT = 550;
+
+function isProcessing(execution: IUnifoldDepositExecution): boolean {
+  return !execution.terminal;
+}
+
+// Contract discipline: delayed is never rendered as failure; failed/refunded
+// point at support instead of an invented reason.
+function rowTitleId(execution: IUnifoldDepositExecution): ETranslations {
+  if (execution.status === 'succeeded') {
+    return ETranslations.perp_unifold_deposit_completed__title;
+  }
+  if (execution.terminal) {
+    return ETranslations.perp_unifold_deposit_needs_attention__title;
+  }
+  return ETranslations.perp_unifold_deposit_processing__title;
+}
+
+function detailStatusId(execution: IUnifoldDepositExecution): ETranslations {
+  if (execution.status === 'succeeded') {
+    return ETranslations.perp_status_comlete;
+  }
+  if (execution.terminal) {
+    return ETranslations.perp_unifold_needs_attention__title;
+  }
+  return ETranslations.global_processing;
+}
+
+// Processing (including delayed) must read as neutral progress, never as the
+// caution color reserved for deposits that actually need attention.
+function detailStatusDotColor(
+  execution: IUnifoldDepositExecution,
+): '$bgInfoStrong' | '$bgSuccessStrong' | '$bgCautionStrong' {
+  if (isProcessing(execution)) {
+    return '$bgInfoStrong';
+  }
+  if (execution.status === 'succeeded') {
+    return '$bgSuccessStrong';
+  }
+  return '$bgCautionStrong';
+}
+
+function shortenHash(hash: string): string {
+  if (hash.length <= 14) {
+    return hash;
+  }
+  return `${hash.slice(0, 8)}...${hash.slice(-4)}`;
+}
+
+function ExecutionTokenBadge({
+  execution,
+  compact = false,
+}: {
+  execution: IUnifoldDepositExecution;
+  compact?: boolean;
+}) {
+  if (isProcessing(execution)) {
+    return <Spinner size="small" scale={compact ? 0.65 : 1} />;
+  }
+  return (
+    <Stack
+      w={compact ? '$4' : '$5'}
+      h={compact ? '$4' : '$5'}
+      bg={
+        execution.status === 'succeeded'
+          ? '$bgSuccessStrong'
+          : '$bgCautionStrong'
+      }
+      borderRadius="$full"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon
+        name={
+          execution.status === 'succeeded'
+            ? 'CheckLargeOutline'
+            : 'ErrorOutline'
+        }
+        size={compact ? '$2.5' : '$3.5'}
+        color="$iconOnColor"
+      />
+    </Stack>
+  );
+}
+
+function TrackerIntroCard({ onDepositPress }: { onDepositPress?: () => void }) {
+  const intl = useIntl();
+  return (
+    <XStack
+      p="$3"
+      gap="$2.5"
+      alignItems="center"
+      bg="$bgStrong"
+      borderRadius="$3"
+    >
+      <Stack
+        w="$4"
+        h="$4"
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+      </Stack>
+      <YStack flex={1} gap="$0.5">
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_activity__title,
+          })}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_unifold_activity__desc,
+          })}
+        </SizableText>
+      </YStack>
+      {onDepositPress ? (
+        <Button
+          testID="perps-unifold-tracker-deposit"
+          size="small"
+          variant="primary"
+          flexShrink={0}
+          onPress={onDepositPress}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_deposit,
+          })}
+        </Button>
+      ) : null}
+    </XStack>
+  );
+}
+
+// Exported so the dev gallery can render fixture rows without any network.
+export function UnifoldExecutionRow({
+  execution,
+  onPress,
+}: {
+  execution: IUnifoldDepositExecution;
+  onPress: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack
+      testID={`perps-unifold-tracker-row-${execution.executionId}`}
+      p="$3"
+      alignItems="center"
+      gap="$3"
+      bg={platformEnv.isNative ? '$bgSubdued' : '$bgStrong'}
+      borderRadius="$3"
+      cursor="pointer"
+      hoverStyle={{
+        bg: platformEnv.isNative ? '$bgHover' : '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: platformEnv.isNative ? '$bgActive' : '$bgStrongActive',
+      }}
+      onPress={onPress}
+    >
+      <Token
+        size="md"
+        tokenImageUri={normalizeUnifoldIconUrl(
+          execution.destinationTokenIconUrl,
+        )}
+        cornerBadge={<ExecutionTokenBadge execution={execution} compact />}
+      />
+      <YStack flex={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          fontWeight="600"
+          numberOfLines={1}
+        >
+          {intl.formatMessage({ id: rowTitleId(execution) })}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {formatUnifoldExecutionDate(execution.createdAt)}
+        </SizableText>
+      </YStack>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+        flexShrink={0}
+      >
+        {formatUnifoldUsd(
+          execution.destinationAmountUsd ?? execution.sourceAmountUsd,
+        )}
+      </SizableText>
+      <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function DetailInfoRow({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  onCopy?: () => void;
+}) {
+  return (
+    <XStack
+      px="$4"
+      py="$3"
+      gap="$3"
+      alignItems="center"
+      justifyContent="space-between"
+      role={onCopy ? 'button' : undefined}
+      cursor={onCopy ? 'pointer' : undefined}
+      userSelect={onCopy ? 'none' : undefined}
+      hoverStyle={onCopy ? { bg: '$bgHover' } : undefined}
+      pressStyle={onCopy ? { bg: '$bgActive' } : undefined}
+      onPress={onCopy}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
+      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
+        >
+          {value}
+        </SizableText>
+        {onCopy ? (
+          <Stack p="$1" m="$-1">
+            <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
+          </Stack>
+        ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
+function DetailLinkRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      px="$4"
+      py="$3"
+      gap="$3"
+      alignItems="center"
+      justifyContent="space-between"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
+      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
+        >
+          {value}
+        </SizableText>
+        <Icon name="OpenOutline" size="$3.5" color="$iconSubdued" />
+      </XStack>
+    </XStack>
+  );
+}
+
+export function UnifoldExecutionDetail({
+  execution,
+  estimatedProcessingTimeSeconds,
+}: {
+  execution: IUnifoldDepositExecution;
+  // Comes from the selected chain's catalog entry, so it only exists inside a
+  // deposit session. The tracker renders history with no chain selection and
+  // passes nothing — in that case the ETA row is omitted rather than guessed.
+  estimatedProcessingTimeSeconds?: number;
+}) {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+  const processing = isProcessing(execution);
+  const [devSettings] = useDevSettingsPersistAtom();
+  const destination = resolveUnifoldDepositDestination(devSettings);
+  const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
+  const destinationLabel = isHyperCoreDestination ? 'HyperCore' : 'Arbitrum';
+  const destinationCurrency = isHyperCoreDestination
+    ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+    : execution.destinationCurrency;
+  const explorerUrl = normalizeUnifoldExplorerUrl(execution.explorerUrl);
+  const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
+    execution.destinationExplorerUrl,
+  );
+  return (
+    <YStack testID={`perps-unifold-execution-detail-${execution.executionId}`}>
+      <YStack alignItems="center" py="$6" gap="$2">
+        <Token
+          size="xxl"
+          tokenImageUri={normalizeUnifoldIconUrl(
+            execution.destinationTokenIconUrl,
+          )}
+          cornerBadge={<ExecutionTokenBadge execution={execution} />}
+        />
+        <XStack alignItems="center" gap="$1.5">
+          {execution.status === 'succeeded' ? null : (
+            <Stack
+              w="$2"
+              h="$2"
+              borderRadius="$full"
+              bg={detailStatusDotColor(execution)}
+            />
+          )}
+          <SizableText size="$headingMd" color="$text">
+            {intl.formatMessage({ id: detailStatusId(execution) })}
+          </SizableText>
+        </XStack>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {formatUnifoldExecutionDate(execution.createdAt)}
+        </SizableText>
+      </YStack>
+
+      {execution.terminal && execution.status !== 'succeeded' ? (
+        // Contract §1: failed/refunded → point at support; never invent a
+        // failure reason.
+        <XStack
+          bg="$bgCautionSubdued"
+          borderWidth="$px"
+          borderColor="$borderCautionSubdued"
+          borderRadius="$3"
+          p="$3"
+          mb="$3"
+          gap="$2"
+          alignItems="center"
+        >
+          <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
+          <SizableText size="$bodySm" color="$textCaution" flex={1}>
+            {intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_contact_support_ref__desc,
+              },
+              { ref: execution.executionId },
+            )}
+          </SizableText>
+        </XStack>
+      ) : null}
+
+      <YStack gap="$3">
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_amount_sent__title,
+            })}
+            value={formatUnifoldTokenAmount({
+              baseUnit: execution.sourceAmountBaseUnit,
+              decimals: execution.sourceTokenDecimals,
+              currency: execution.sourceCurrency,
+            })}
+          />
+          <Divider borderColor="$bgSubdued" />
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_amount_received__title,
+            })}
+            value={formatUnifoldTokenAmount({
+              baseUnit: execution.destinationAmountBaseUnit,
+              decimals: execution.destinationTokenDecimals,
+              currency: destinationCurrency,
+            })}
+          />
+          <Divider borderColor="$bgSubdued" />
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_usd_value__title,
+            })}
+            value={formatUnifoldUsd(
+              execution.destinationAmountUsd ?? execution.sourceAmountUsd,
+            )}
+          />
+          {processing &&
+          execution.status !== 'delayed' &&
+          typeof estimatedProcessingTimeSeconds === 'number' &&
+          estimatedProcessingTimeSeconds > 0 ? (
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailInfoRow
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_estimated_delivery_time__title,
+                })}
+                value={formatUnifoldProcessingTime(
+                  estimatedProcessingTimeSeconds,
+                  intl,
+                )}
+              />
+            </>
+          ) : null}
+        </YStack>
+
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_source_network__title,
+            })}
+            value={formatUnifoldChainName({
+              chainType: execution.sourceChainType,
+              chainId: execution.sourceChainId,
+            })}
+          />
+          <Divider borderColor="$bgSubdued" />
+          {/* Executions do not carry the destination triplet, so this reflects
+              the destination the app is configured for. In production that is
+              always HyperCore; dev builds may route to a plain chain. */}
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_destination_network__title,
+            })}
+            value={destinationLabel}
+          />
+        </YStack>
+
+        <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+          {/* Always present: this is the id support asks for, and the caution
+              banner above is what sends the user here. */}
+          <DetailInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_reference__title,
+            })}
+            value={shortenHash(execution.executionId)}
+            onCopy={() => copyText(execution.executionId)}
+          />
+          {explorerUrl && execution.transactionHash ? (
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailLinkRow
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_tx__title,
+                })}
+                value={shortenHash(execution.transactionHash)}
+                onPress={() => {
+                  openUrlExternal(explorerUrl);
+                }}
+              />
+            </>
+          ) : null}
+          {execution.status === 'succeeded' &&
+          destinationExplorerUrl &&
+          execution.destinationTransactionHashes[0] ? (
+            <>
+              <Divider borderColor="$bgSubdued" />
+              <DetailLinkRow
+                label={intl.formatMessage({
+                  id: ETranslations.perp_unifold_completion_tx__title,
+                })}
+                value={shortenHash(execution.destinationTransactionHashes[0])}
+                onPress={() => {
+                  openUrlExternal(destinationExplorerUrl);
+                }}
+              />
+            </>
+          ) : null}
+        </YStack>
+      </YStack>
+    </YStack>
+  );
+}
+
+export function UnifoldTrackerContent({
+  recipientAddress,
+  listHeight,
+  useDialogHeader = false,
+  useExternalHeader = false,
+  fillAvailableHeight = false,
+  detailExecutionId: controlledDetailExecutionId,
+  onDetailExecutionIdChange,
+  onDepositPress,
+}: {
+  recipientAddress: string | null;
+  listHeight?: number;
+  useDialogHeader?: boolean;
+  useExternalHeader?: boolean;
+  fillAvailableHeight?: boolean;
+  detailExecutionId?: string | null;
+  onDetailExecutionIdChange?: (executionId: string | null) => void;
+  onDepositPress?: () => void;
+}) {
+  const intl = useIntl();
+  // Security MUST-2 applies to the tracker too: the queried recipient must be
+  // the currently active perps account at open time. The incoming prop (which
+  // may originate from a route param) is cross-checked against the live atom
+  // and fails closed on mismatch.
+  const safeRecipientRef = useRef<string | null | undefined>(undefined);
+  if (safeRecipientRef.current === undefined) {
+    const activeAccount = jotaiDefaultStore.get(perpsActiveAccountAtom.atom());
+    safeRecipientRef.current = getSafeUnifoldRecipient({
+      recipient: recipientAddress,
+      activeAccountAddress: activeAccount.accountAddress,
+    });
+  }
+  const safeRecipient = safeRecipientRef.current ?? null;
+
+  // The frozen recipient must also stop being queried once the active perps
+  // account moves or disappears under an open tracker, or this keeps polling
+  // and rendering the PREVIOUS account's deposit history.
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const liveAccountAddress = activePerpsAccount.accountAddress;
+  const isLiveRecipientAligned = isUnifoldRecipientAligned({
+    recipient: safeRecipient,
+    activeAccountAddress: liveAccountAddress,
+  });
+  const accountChanged = Boolean(
+    safeRecipient && liveAccountAddress && !isLiveRecipientAligned,
+  );
+
+  // Track the selected row by id and re-derive it from the freshest poll
+  // result, so an in-progress execution keeps updating inside the detail view
+  // instead of freezing at the moment it was tapped.
+  const [internalDetailSelection, setInternalDetailSelection] = useState<{
+    executionId: string;
+    snapshot: IUnifoldDepositExecution;
+  } | null>(null);
+  const detailExecutionId =
+    controlledDetailExecutionId === undefined
+      ? (internalDetailSelection?.executionId ?? null)
+      : controlledDetailExecutionId;
+  const closeDetail = useCallback(() => {
+    if (controlledDetailExecutionId === undefined) {
+      setInternalDetailSelection(null);
+    }
+    onDetailExecutionIdChange?.(null);
+  }, [controlledDetailExecutionId, onDetailExecutionIdChange]);
+  const openDetail = useCallback(
+    (execution: IUnifoldDepositExecution) => {
+      setInternalDetailSelection({
+        executionId: execution.executionId,
+        snapshot: execution,
+      });
+      onDetailExecutionIdChange?.(execution.executionId);
+    },
+    [onDetailExecutionIdChange],
+  );
+
+  // Full history: no `since` param (newest first, up to 100 rows). The 3s
+  // poll matches the contract; the server throttles upstream QPS.
+  // A rejected poll must not leave the screen shimmering forever, which reads
+  // exactly like "still loading" — the failure is surfaced instead, while the
+  // poll keeps retrying underneath.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const { result: executions } = usePromiseResult(
+    async () => {
+      if (!safeRecipient || !isLiveRecipientAligned) {
+        return [];
+      }
+      try {
+        const items =
+          await backgroundApiProxy.serviceUnifoldDeposit.listDepositExecutions({
+            recipientAddress: safeRecipient,
+          });
+        setLoadFailed(false);
+        return items;
+      } catch (error) {
+        setLoadFailed(true);
+        throw error;
+      }
+    },
+    [safeRecipient, isLiveRecipientAligned],
+    {
+      watchLoading: true,
+      pollingInterval: isLiveRecipientAligned
+        ? TRACKER_POLL_INTERVAL_MS
+        : undefined,
+    },
+  );
+
+  // The detail is a sub-view, not a route, so Android's hardware back would
+  // otherwise pop the whole tracker modal. Android only: on web the same hook
+  // listens for Escape (which must still close the dialog) and iOS modals are
+  // dismissed by drag, not by a back event.
+  useBackHandler(
+    useCallback(() => {
+      closeDetail();
+      return true;
+    }, [closeDetail]),
+    platformEnv.isNativeAndroid && Boolean(detailExecutionId),
+  );
+
+  const withDialogHeader = (body: ReactNode) => {
+    if (!useDialogHeader) {
+      return body;
+    }
+    const dialogBody = (
+      <Stack
+        height={Math.min(
+          listHeight ?? DESKTOP_TRACKER_BODY_HEIGHT,
+          DESKTOP_TRACKER_BODY_HEIGHT,
+        )}
+        minHeight={0}
+      >
+        {body}
+      </Stack>
+    );
+    return (
+      <>
+        {detailExecutionId ? (
+          <Dialog.Header>
+            <XStack
+              alignItems="center"
+              gap="$2"
+              cursor="pointer"
+              onPress={closeDetail}
+            >
+              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_details__title,
+                })}
+              </Dialog.Title>
+            </XStack>
+          </Dialog.Header>
+        ) : (
+          <Dialog.Header
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_crypto_deposits__title,
+            })}
+          />
+        )}
+        {dialogBody}
+      </>
+    );
+  };
+
+  if (!safeRecipient || !isLiveRecipientAligned) {
+    return withDialogHeader(
+      <YStack py="$8">
+        <Empty
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_details_unavailable__title,
+          })}
+          description={
+            accountChanged
+              ? intl.formatMessage({
+                  id: ETranslations.active_trading_account_changed__msg,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.feedback_address_mismatch,
+                })
+          }
+        />
+      </YStack>,
+    );
+  }
+
+  if (detailExecutionId) {
+    const liveExecution =
+      executions?.find((e) => e.executionId === detailExecutionId) ??
+      (internalDetailSelection?.executionId === detailExecutionId
+        ? internalDetailSelection.snapshot
+        : undefined);
+    if (!liveExecution) {
+      return withDialogHeader(
+        <YStack py="$8">
+          <Empty
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_details_unavailable__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.perp_unifold_return_tracker_try_again__desc,
+            })}
+          />
+        </YStack>,
+      );
+    }
+    return withDialogHeader(
+      // Bounded like the list branch: the dialog panel clamps its height but
+      // does not scroll, so a tall detail would render outside it.
+      <ScrollView
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        maxHeight={fillAvailableHeight ? undefined : (listHeight ?? 460)}
+      >
+        <YStack>
+          {useDialogHeader || useExternalHeader ? null : (
+            <XStack
+              pb="$2"
+              alignItems="center"
+              gap="$1"
+              cursor="pointer"
+              onPress={closeDetail}
+            >
+              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+              <SizableText size="$bodyMdMedium" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_details__title,
+                })}
+              </SizableText>
+            </XStack>
+          )}
+          <UnifoldExecutionDetail execution={liveExecution} />
+        </YStack>
+      </ScrollView>,
+    );
+  }
+
+  if (executions === undefined && loadFailed) {
+    return withDialogHeader(
+      <YStack py="$8">
+        <Empty
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_network_error,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.perp_unifold_connection_retrying__desc,
+          })}
+        />
+      </YStack>,
+    );
+  }
+
+  // usePromiseResult defers the first run: `executions === undefined` means
+  // "not loaded yet" — render the skeleton, never flash the empty state.
+  if (executions === undefined) {
+    return withDialogHeader(
+      // Geometry matches the loaded list exactly, so resolving the first poll
+      // does not shift the rows sideways or upwards.
+      <YStack
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        minHeight={0}
+      >
+        <YStack gap="$3" width="100%" flex={1}>
+          <TrackerIntroCard onDepositPress={onDepositPress} />
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} width="100%" height={60} radius={12} />
+          ))}
+        </YStack>
+      </YStack>,
+    );
+  }
+
+  if (!executions.length) {
+    return withDialogHeader(
+      <YStack
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        minHeight={0}
+      >
+        <YStack flex={1} gap="$3">
+          <TrackerIntroCard onDepositPress={onDepositPress} />
+          <YStack flex={1} py="$8" alignItems="center" gap="$2">
+            <Empty
+              icon="ClockTimeHistoryOutline"
+              title={intl.formatMessage({
+                id: ETranslations.perp_unifold_no_deposits__title,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.perp_unifold_history_appears_here__desc,
+              })}
+            />
+          </YStack>
+        </YStack>
+      </YStack>,
+    );
+  }
+
+  return withDialogHeader(
+    <YStack
+      flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+      minHeight={0}
+    >
+      <ScrollView
+        flex={useDialogHeader || fillAvailableHeight ? 1 : undefined}
+        maxHeight={fillAvailableHeight ? undefined : (listHeight ?? 460)}
+      >
+        <YStack gap="$3" pb="$4">
+          <TrackerIntroCard onDepositPress={onDepositPress} />
+          {executions.map((execution) => (
+            <UnifoldExecutionRow
+              key={execution.executionId}
+              execution={execution}
+              onPress={() => openDetail(execution)}
+            />
+          ))}
+        </YStack>
+      </ScrollView>
+    </YStack>,
+  );
+}

@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   getPerpsAccountDisplaySnapshotEntry,
@@ -109,6 +110,8 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const lastAccountValueRef = useRef<
     | {
         accountKey: string;
@@ -209,12 +212,20 @@ function DepositButton() {
     displayAccountValue !== undefined;
   const isEmptyAccount =
     !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
+  const isDepositVariant = isEmptyAccount && !isDepositDisabled;
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
     badgeVariant = 'unknown';
-  } else if (isEmptyAccount) {
+  } else if (isDepositVariant) {
     badgeVariant = 'deposit';
   }
+  const handlePress = useCallback(() => {
+    if (isDepositVariant) {
+      void showDepositWithdrawModal('deposit');
+      return;
+    }
+    void showPortfolio();
+  }, [isDepositVariant, showDepositWithdrawModal, showPortfolio]);
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
@@ -275,14 +286,14 @@ function DepositButton() {
   // neutral material. Off iOS 26 (every other platform) this stays the original
   // solid Badge.
   const glassActive = isLiquidGlassAvailable();
-  const nonGlassBg = isEmptyAccount ? '$bgAccent' : '$bgStrong';
+  const nonGlassBg = isDepositVariant ? '$bgAccent' : '$bgStrong';
   const badge = (
     <Badge
       borderRadius="$full"
       size="medium"
-      variant={isEmptyAccount ? 'primary' : 'secondary'}
+      variant={isDepositVariant ? 'primary' : 'secondary'}
       testID={PerpTestIDs.PortfolioButton}
-      onPress={showPortfolio}
+      onPress={handlePress}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"
@@ -315,7 +326,7 @@ function DepositButton() {
             </>
           );
         }
-        if (isEmptyAccount) {
+        if (isDepositVariant) {
           return (
             <>
               <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
@@ -347,7 +358,7 @@ function DepositButton() {
       isInteractive
       glassEffectStyle="regular"
       // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
-      {...(isEmptyAccount && { tintColor: theme.bgAccent?.val })}
+      {...(isDepositVariant && { tintColor: theme.bgAccent?.val })}
       style={depositGlassStyle}
     >
       {badge}
