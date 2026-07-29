@@ -16,6 +16,7 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
@@ -476,6 +477,54 @@ describe('swapStockChannelUtils', () => {
     ).toEqual({
       fromToken: usdtToken,
       toToken: appleStockToken,
+    });
+  });
+
+  it('refreshes Stock execution metadata from an identity-matched token detail', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+    const tokenDetail = {
+      ...appleStockToken,
+      balanceParsed: '0.168058487842240859',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail,
+      }),
+    ).toEqual(appleStockToken);
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail: {
+          ...tokenDetail,
+          contractAddress: micronStockToken.contractAddress,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('resyncs Stock execution tokens when only authoritative metadata changes', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: cachedStockToken,
+        currentToToken: usdcToken,
+        payToken: usdcToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toEqual({
+      fromToken: appleStockToken,
+      toToken: usdcToken,
     });
   });
 

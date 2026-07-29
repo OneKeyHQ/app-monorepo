@@ -89,7 +89,7 @@ export function resolveStockExecutionTokensToSync({
   const fromToken =
     tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
   const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
-  if (!fromToken || !toToken) {
+  if (!stockToken || !fromToken || !toToken) {
     return undefined;
   }
   const executionPairSynced =
@@ -101,7 +101,14 @@ export function resolveStockExecutionTokensToSync({
       token1: currentToToken,
       token2: toToken,
     });
-  return executionPairSynced ? undefined : { fromToken, toToken };
+  const currentStockToken =
+    tradeSide === ESwapStockTradeSide.Buy ? currentToToken : currentFromToken;
+  const stockExecutionMetadataSynced =
+    currentStockToken?.decimals === stockToken.decimals &&
+    Boolean(currentStockToken?.isStock) === Boolean(stockToken.isStock);
+  return executionPairSynced && stockExecutionMetadataSynced
+    ? undefined
+    : { fromToken, toToken };
 }
 
 export function isStockTradeReadyForQuote({
@@ -253,6 +260,39 @@ export function buildStockSwapTokenFromMarketToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+  };
+}
+
+export function resolveStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}): ISwapToken | undefined {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: tokenDetail,
+    })
+  ) {
+    return undefined;
+  }
+  const isNative = tokenDetail.isNative ?? token.isNative;
+  if (
+    token.decimals === tokenDetail.decimals &&
+    token.isNative === isNative &&
+    token.isStock === true
+  ) {
+    return token;
+  }
+  return {
+    ...token,
+    decimals: tokenDetail.decimals,
+    isNative,
+    isStock: true,
   };
 }
 

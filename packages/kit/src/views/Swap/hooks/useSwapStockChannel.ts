@@ -40,6 +40,7 @@ import {
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   shouldResetStockTradeReceiveAmount,
@@ -308,6 +309,26 @@ export function useSwapStockChannel() {
       setStockSelectedToken,
       syncStockExecutionTokens,
     ],
+  );
+
+  const syncStockTokenDetail = useCallback(
+    (tokenDetail: ISwapToken) => {
+      const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
+      const nextStockToken = resolveStockExecutionTokenMetadata({
+        token: currentToken,
+        tokenDetail,
+      });
+      if (!nextStockToken || nextStockToken === currentToken) {
+        return;
+      }
+      setStockTokenState(nextStockToken);
+      setStockSelectedToken(nextStockToken);
+      stockTokenSnapshotRef.current = nextStockToken;
+      void syncStockExecutionTokens({
+        stockToken: nextStockToken,
+      });
+    },
+    [currentStockToken, setStockSelectedToken, syncStockExecutionTokens],
   );
 
   useEffect(() => {
@@ -629,6 +650,7 @@ export function useSwapStockChannel() {
       selectPayToken,
       switchTradeSide,
       selectRecentTokenPair,
+      syncStockTokenDetail,
     }),
     [
       channelStage,
@@ -647,6 +669,7 @@ export function useSwapStockChannel() {
       selectRecentTokenPair,
       selectStockSwapToken,
       selectStockToken,
+      syncStockTokenDetail,
       switchTradeSide,
       speedConfigReady,
       activeStockTokenDetail,
