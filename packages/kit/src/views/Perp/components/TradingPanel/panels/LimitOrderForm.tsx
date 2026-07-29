@@ -78,6 +78,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getAggressiveLimitPriceWarningFromBbo } from '../../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
@@ -255,7 +256,7 @@ export function LimitOrderForm({
 
   // Track BBO + mid in refs so the side-button press handlers can resolve the
   // concrete price without depending on the latest render closure.
-  const bbo = useBboForOrderPrice(isBBOActive);
+  const bbo = useBboForOrderPrice(!isSpot);
   const bboRef = useRef(bbo);
   bboRef.current = bbo;
   const midPriceBNRef = useRef(midPriceBN);
@@ -886,6 +887,18 @@ export function LimitOrderForm({
         slValue,
         orderMode: 'standard',
       };
+      const aggressiveLimitPriceWarning = isSpot
+        ? undefined
+        : getAggressiveLimitPriceWarningFromBbo({
+            coin: symbol,
+            side: pressedSide,
+            type: builtFormData.type,
+            orderMode: builtFormData.orderMode,
+            limitPrice: resolvedPrice,
+            limitTif: builtFormData.limitTif,
+            bboPriceMode: builtFormData.bboPriceMode,
+            bbo: bboRef.current,
+          });
 
       showOrderConfirmDialog({
         overrideSide: pressedSide,
@@ -893,6 +906,7 @@ export function LimitOrderForm({
         price: resolvedPrice,
         expectedCoin: symbol,
         intl,
+        aggressiveLimitPriceWarning,
         onConfirmSuccess: onClose,
       });
     },

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -43,6 +43,7 @@ import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccoun
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
+import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import { buildDefaultTpSlPercent } from '../../utils/tpslSeed';
 import {
@@ -55,6 +56,7 @@ import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { SizeInput } from '../TradingPanel/inputs/SizeInput';
 import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
+import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLimitPriceWarning';
 
 import {
   buildAddPositionMinimumAmountLabel,
@@ -64,7 +66,7 @@ import {
 } from './utils/addPosition';
 
 import type { IAddPositionValidationError } from './utils/addPosition';
-import type { IntlShape } from 'react-intl';
+
 type IAddPositionOrderType = 'market' | 'limit';
 
 export interface IAddPositionParams {
@@ -114,6 +116,10 @@ const AddPositionForm = memo(
     const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [orderBookTop, setOrderBookTop] = useState<{
+      bestBid?: string;
+      bestAsk?: string;
+    }>({});
     const requestIdRef = useRef(0);
     const isLimitPriceInitializedRef = useRef(false);
 
@@ -181,6 +187,25 @@ const AddPositionForm = memo(
     }, [fetchTargetAssetData]);
 
     useEffect(() => {
+      let disposed = false;
+      setOrderBookTop({});
+      void backgroundApiProxy.serviceHyperliquid
+        .fetchL2BookByCoin({ coin })
+        .then((book) => {
+          if (!disposed) {
+            setOrderBookTop({
+              bestBid: book?.levels?.[0]?.[0]?.px,
+              bestAsk: book?.levels?.[1]?.[0]?.px,
+            });
+          }
+        })
+        .catch(() => undefined);
+      return () => {
+        disposed = true;
+      };
+    }, [coin]);
+
+    useEffect(() => {
       if (midPrice && !isLimitPriceInitializedRef.current) {
         setLimitPrice(formatPriceToSignificantDigits(midPrice));
         isLimitPriceInitializedRef.current = true;
@@ -213,6 +238,24 @@ const AddPositionForm = memo(
       targetAsset.assetId !== undefined &&
       szDecimals !== undefined &&
       isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }),
+    );
+    const aggressiveLimitPriceWarning = useMemo(
+      () =>
+        orderType === 'limit'
+          ? getAggressiveLimitPriceWarning({
+              side: isBuy ? 'long' : 'short',
+              limitPrice,
+              bestBid: orderBookTop.bestBid,
+              bestAsk: orderBookTop.bestAsk,
+            })
+          : undefined,
+      [
+        isBuy,
+        limitPrice,
+        orderBookTop.bestAsk,
+        orderBookTop.bestBid,
+        orderType,
+      ],
     );
     const resolvedSize = useMemo(
       () =>
@@ -405,7 +448,7 @@ const AddPositionForm = memo(
           szDecimals: latestSzDecimals,
         });
 
-        await actions.current.placeOrderByCoin({
+        const orderParams = {
           coin,
           expectedAccountAddress: accountAddress,
           isBuy,
@@ -415,8 +458,12 @@ const AddPositionForm = memo(
           tif: orderType === 'limit' ? 'Gtc' : undefined,
           tpTriggerPx,
           slTriggerPx,
-        });
-        onClose();
+        } as const;
+        const placeOrder = async () => {
+          await actions.current.placeOrderByCoin(orderParams);
+          onClose();
+        };
+        await placeOrder();
       } catch (error) {
         Toast.error({
           title:
@@ -460,6 +507,10 @@ const AddPositionForm = memo(
 
     return (
       <YStack gap="$4">
+        {aggressiveLimitPriceWarning ? (
+          <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+        ) : null}
+
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
