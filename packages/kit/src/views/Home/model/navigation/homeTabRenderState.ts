@@ -7,21 +7,6 @@ type IHomeTabRenderState = {
   renderedTabIds: ReadonlySet<IHomeTabId>;
 };
 
-function buildHomeTabRenderOwnerKey({
-  accountId,
-  indexedAccountId,
-  walletId,
-}: {
-  accountId?: string;
-  indexedAccountId?: string;
-  walletId?: string;
-}): string | undefined {
-  const accountOwnerId = indexedAccountId || accountId;
-  return walletId && accountOwnerId
-    ? `${walletId}:${accountOwnerId}`
-    : undefined;
-}
-
 function createHomeTabRenderState(
   ownerKey: string | undefined,
 ): IHomeTabRenderState {
@@ -73,7 +58,6 @@ function isHomeTabRendered(
 
 export {
   DEFAULT_HOME_TAB_ID,
-  buildHomeTabRenderOwnerKey,
   createHomeTabRenderState,
   isHomeTabRendered,
   markHomeTabRendered,

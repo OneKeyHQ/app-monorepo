@@ -74,7 +74,6 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { buildHomeWalletCapabilityNavigationModel } from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabStore } from '../hooks/useHomeWalletTabStore';
 import {
-  buildHomeTabRenderOwnerKey,
   createHomeTabRenderState,
   isHomeTabRendered,
   markHomeTabRendered,
@@ -351,7 +350,8 @@ export function HomePageView({
   // fallback to avoid tab config change on first render.
   const vaultSettings = fetchedVaultSettings ?? cachedVaultSettings;
 
-  const { capabilityNavigation, selectCapabilityTab } = useHomeWalletTabStore();
+  const { capabilityNavigation, ownerScopeKey, selectCapabilityTab } =
+    useHomeWalletTabStore();
   const homeWalletCapabilityTabModel = useMemo(
     () => buildHomeWalletCapabilityNavigationModel(capabilityNavigation),
     [capabilityNavigation],
@@ -625,11 +625,7 @@ export function HomePageView({
   const initialPagerTabName = selectedTabName || pagerTabConfigs[0]?.name || '';
   const [pagerTabName, setPagerTabName] = useState(initialPagerTabName);
   const pendingPagerTabIdRef = useRef<EHomeWalletTab | undefined>(undefined);
-  const homeTabsOwnerKey = buildHomeTabRenderOwnerKey({
-    accountId: account?.id,
-    indexedAccountId: account?.indexedAccountId,
-    walletId: wallet?.id,
-  });
+  const homeTabsOwnerKey = ownerScopeKey;
   const [homeTabRenderState, setHomeTabRenderState] = useState(() =>
     createHomeTabRenderState(homeTabsOwnerKey),
   );

@@ -82,6 +82,7 @@ export function useHomeWalletTabStore() {
   const isReady = capabilityNavigation.kind === 'ready';
   return {
     capabilityNavigation,
+    ownerScopeKey: facts?.ownerToken.scopeKey,
     isReady,
     isDeFiSupported: isReady && capabilityNavigation.tabs.includes('defi'),
     isPerpsSupported: isReady && capabilityNavigation.tabs.includes('perps'),

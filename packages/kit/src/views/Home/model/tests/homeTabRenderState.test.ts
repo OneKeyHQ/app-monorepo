@@ -1,5 +1,4 @@
 import {
-  buildHomeTabRenderOwnerKey,
   createHomeTabRenderState,
   isHomeTabRendered,
   markHomeTabRendered,
@@ -7,22 +6,6 @@ import {
 } from '../navigation/homeTabRenderState';
 
 describe('homeTabRenderState', () => {
-  it('keeps HD account tabs mounted across network account changes', () => {
-    expect(
-      buildHomeTabRenderOwnerKey({
-        accountId: 'network-account-a',
-        indexedAccountId: 'indexed-account',
-        walletId: 'wallet',
-      }),
-    ).toBe(
-      buildHomeTabRenderOwnerKey({
-        accountId: 'network-account-b',
-        indexedAccountId: 'indexed-account',
-        walletId: 'wallet',
-      }),
-    );
-  });
-
   it('renders only Spot before any tab interaction', () => {
     const state = createHomeTabRenderState('account-a');
 

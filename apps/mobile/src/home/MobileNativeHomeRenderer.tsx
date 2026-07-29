@@ -51,7 +51,6 @@ import { Upgrade } from '@onekeyhq/kit/src/views/Home/components/Upgrade';
 import { WalletActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions';
 import { createHomeAuthorityId } from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
 import {
-  buildHomeTabRenderOwnerKey,
   createHomeTabRenderState,
   isHomeTabRendered,
   markHomeTabRendered,
@@ -386,11 +385,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       sessionId: session.ownerToken.sessionId,
     };
   }, [session.ownerToken]);
-  const homeTabsOwnerKey = buildHomeTabRenderOwnerKey({
-    accountId: account?.id,
-    indexedAccountId: indexedAccount?.id || account?.indexedAccountId,
-    walletId: wallet?.id,
-  });
+  const homeTabsOwnerKey = session.ownerToken?.scopeKey;
   const [homeTabRenderState, setHomeTabRenderState] = useState(() =>
     createHomeTabRenderState(homeTabsOwnerKey),
   );
