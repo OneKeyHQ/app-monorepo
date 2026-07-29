@@ -21,6 +21,10 @@ import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
 const CONFIG_FETCH_TIMEOUT_MS = 7000;
 const CONFIG_FETCH_MAX_SNI_CANDIDATES = 3;
+const EMPTY_DEVICE_CONFIG: RemoteConfigResponse['pro2'] = {
+  firmware: [],
+  ble: [],
+};
 const FIRMWARE_DEVICE_CONFIG_KEYS = [
   'classic',
   'classic1s',
@@ -56,7 +60,14 @@ function parseFirmwareRemoteConfig(
       return null;
     }
   }
-  return isFirmwareRemoteConfig(parsed) ? parsed : null;
+  // Stable config can predate a newly introduced device manifest. The SDK
+  // already treats missing device data as empty, so normalize that one
+  // forward-compatible field before applying the strict schema guard.
+  const normalized =
+    isRecord(parsed) && parsed.pro2 === undefined
+      ? { ...parsed, pro2: EMPTY_DEVICE_CONFIG }
+      : parsed;
+  return isFirmwareRemoteConfig(normalized) ? normalized : null;
 }
 
 async function getConfigSniCandidates(options: {

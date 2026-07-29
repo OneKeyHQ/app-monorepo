@@ -1,11 +1,13 @@
 import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
@@ -237,6 +239,27 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'wallet.example.com',
       }),
     );
+  });
+});
+
+describe('isIpTableTransportError', () => {
+  test('recognizes the normalized Axios network error used by the global interceptor', () => {
+    expect(
+      isIpTableTransportError({
+        code: -99_999,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        message: 'Network error',
+      }),
+    ).toBe(true);
+  });
+
+  test('does not treat an HTTP response as a transport failure', () => {
+    expect(
+      isIpTableTransportError({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        response: { status: 503 },
+      }),
+    ).toBe(false);
   });
 });
 

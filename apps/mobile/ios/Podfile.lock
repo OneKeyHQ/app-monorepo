@@ -4006,7 +4006,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeRangeDownloader (3.0.81-alpha.1):
+  - ReactNativeRangeDownloader (3.0.81-alpha.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -4035,7 +4035,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeNativeLogger
-    - SniConnect (= 3.0.81-alpha.1)
+    - SniConnect (= 3.0.81-alpha.4)
     - SocketRocket
     - SSZipArchive (>= 2.5.4)
     - Yoga
@@ -4740,7 +4740,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - SniConnect (3.0.81-alpha.1):
+  - SniConnect (3.0.81-alpha.4):
     - boost
     - DoubleConversion
     - EMASCurl (= 1.5.5)
