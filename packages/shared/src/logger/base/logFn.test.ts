@@ -19,8 +19,12 @@ class ServerLogScene extends BaseScene {
   }
 
   @LogToServer({ level: 'info', waitForServer: true })
-  confirmedEvent(params: Record<string, string>) {
+  private confirmedEvent(params: Record<string, string>) {
     return params;
+  }
+
+  confirmedEventDelivery(params: Record<string, string>): Promise<void> {
+    return this.confirmedEvent(params) as unknown as Promise<void>;
   }
 }
 
@@ -73,9 +77,9 @@ describe('logFn', () => {
 
   it('waits for confirmed server delivery when requested', async () => {
     const scene = new ServerLogScene();
-    const delivery = scene.confirmedEvent({
+    const delivery = scene.confirmedEventDelivery({
       utm_source: 'confirmed',
-    }) as unknown as Promise<void>;
+    });
 
     jest.runOnlyPendingTimers();
 
@@ -88,9 +92,9 @@ describe('logFn', () => {
   it('propagates confirmed server delivery failures', async () => {
     trackEventAsync.mockRejectedValueOnce(new Error('network failed'));
     const scene = new ServerLogScene();
-    const delivery = scene.confirmedEvent({
+    const delivery = scene.confirmedEventDelivery({
       utm_source: 'retry',
-    }) as unknown as Promise<void>;
+    });
 
     jest.runOnlyPendingTimers();
 

@@ -38,7 +38,7 @@ export abstract class BaseScene {
     methodName: string,
     args: unknown[],
     metadataList: IMethodDecoratorMetadata[],
-  ) {
+  ): void | Promise<void> {
     const now = new Date();
 
     const lastDuration =

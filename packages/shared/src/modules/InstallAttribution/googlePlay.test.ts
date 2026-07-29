@@ -19,8 +19,8 @@ jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
       install: {
-        googlePlayInstallAttribution: jest.fn(),
         installReferrer: jest.fn(),
+        reportGooglePlayInstallAttribution: jest.fn(),
       },
     },
   },
@@ -42,14 +42,15 @@ const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
   defaultLogger: {
     app: {
       install: {
-        googlePlayInstallAttribution: jest.Mock;
         installReferrer: jest.Mock;
+        reportGooglePlayInstallAttribution: jest.Mock;
       };
     };
   };
 };
 const logAttributionMock =
-  mockedLoggerModule.defaultLogger.app.install.googlePlayInstallAttribution;
+  mockedLoggerModule.defaultLogger.app.install
+    .reportGooglePlayInstallAttribution;
 const logRawReferrerMock =
   mockedLoggerModule.defaultLogger.app.install.installReferrer;
 

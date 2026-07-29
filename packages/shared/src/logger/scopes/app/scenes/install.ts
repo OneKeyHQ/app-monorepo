@@ -19,10 +19,18 @@ export class InstallScene extends BaseScene {
 
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'info' })
-  public googlePlayInstallAttribution(
+  private googlePlayInstallAttribution(
     params: IGooglePlayInstallAttributionParams,
   ) {
     return params;
+  }
+
+  public reportGooglePlayInstallAttribution(
+    params: IGooglePlayInstallAttributionParams,
+  ): Promise<void> {
+    return this.googlePlayInstallAttribution(
+      params,
+    ) as unknown as Promise<void>;
   }
 
   @LogToLocal({ level: 'error' })

@@ -81,6 +81,6 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
     return;
   }
 
-  await defaultLogger.app.install.googlePlayInstallAttribution(referrer);
+  await defaultLogger.app.install.reportGooglePlayInstallAttribution(referrer);
   await markAttributionHandled();
 }
