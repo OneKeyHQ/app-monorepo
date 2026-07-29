@@ -23,6 +23,7 @@ import {
   useHomeSectionSnapshot,
 } from '../../model/react/homeStoreHooks';
 import { useHomePortfolioIntents } from '../../model/react/useHomePortfolioIntents';
+import { resolveHomePortfolioLpTokenSwitch } from '../../model/sections/spot/homePortfolioControls';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 function TokenListBlock({
@@ -47,7 +48,8 @@ function TokenListBlock({
   } = useActiveAccount({ num: 0 });
   const portfolioSection = useHomeSectionSnapshot('portfolio');
   const portfolioPayload = useHomeSectionPayload('portfolio');
-  const { setShowLpTokensOnly } = useHomePortfolioIntents();
+  const { requestedShowLpTokensOnly, setShowLpTokensOnly } =
+    useHomePortfolioIntents();
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -65,6 +67,19 @@ function TokenListBlock({
       setShowLpTokensOnly(value);
     },
     [setShowLpTokensOnly],
+  );
+  const lpTokenSwitch = useMemo(
+    () =>
+      resolveHomePortfolioLpTokenSwitch({
+        liveLoading: payload?.isLpTokenSwitchLoading ?? false,
+        liveValue: payload?.showLpTokensOnly ?? false,
+        requestedValue: requestedShowLpTokensOnly,
+      }),
+    [
+      payload?.isLpTokenSwitchLoading,
+      payload?.showLpTokensOnly,
+      requestedShowLpTokensOnly,
+    ],
   );
 
   const handleOnPressToken = useCallback(
@@ -125,9 +140,9 @@ function TokenListBlock({
   const headerActions = useMemo(() => {
     const filterSwitch = payload?.showLpTokenFilterSwitch ? (
       <TokenSelectorLpTokenSwitch
-        value={payload.showLpTokensOnly}
+        value={lpTokenSwitch.value}
         onChange={handleLpTokenFilterChange}
-        loading={payload.isLpTokenSwitchLoading}
+        loading={lpTokenSwitch.loading}
       />
     ) : null;
     if (!manageTokenEnabled || !tableLayout) {
@@ -151,6 +166,8 @@ function TokenListBlock({
     handleLpTokenFilterChange,
     handleOnManageToken,
     intl,
+    lpTokenSwitch.loading,
+    lpTokenSwitch.value,
     manageTokenEnabled,
     payload,
     tableLayout,
@@ -163,7 +180,7 @@ function TokenListBlock({
   );
   if (portfolioSection.value.kind === 'error') {
     content = <EmptyToken />;
-  } else if (payload) {
+  } else if (payload && !lpTokenSwitch.loading) {
     if (payload.displayIds.length === 0 && payload.isAllNetworkEmptyAccount) {
       content = (
         <Stack py="$20">

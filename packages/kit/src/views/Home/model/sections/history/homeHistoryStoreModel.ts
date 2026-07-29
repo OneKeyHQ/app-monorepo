@@ -1,5 +1,6 @@
 import { unionBy } from 'lodash';
 
+import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -31,6 +32,35 @@ export function createHomeHistoryStorePayload({
     refresh,
     tokenMap,
   };
+}
+
+export function getAllNetworksHomeHistoryLimit(page: number | undefined) {
+  const normalizedPage =
+    typeof page === 'number' && Number.isFinite(page)
+      ? Math.max(1, Math.trunc(page))
+      : 1;
+  return normalizedPage * HISTORY_PAGE_SIZE;
+}
+
+export function shouldContinueHomeHistoryPagination({
+  addedCount,
+  cursorAdvanced,
+  isAllNetworks,
+  responseCount,
+  responseHasMore,
+}: {
+  addedCount: number;
+  cursorAdvanced: boolean;
+  isAllNetworks: boolean;
+  responseCount: number;
+  responseHasMore: boolean;
+}) {
+  return Boolean(
+    responseHasMore &&
+    responseCount > 0 &&
+    addedCount > 0 &&
+    (isAllNetworks || cursorAdvanced),
+  );
 }
 
 export function selectRecentHomeHistoryRows(

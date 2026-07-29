@@ -52,9 +52,11 @@ import {
 import {
   HOME_HISTORY_ACTION_IDS,
   createHomeHistoryStorePayload,
+  getAllNetworksHomeHistoryLimit,
   mergeHomeHistoryAddressMap,
   mergeHomeHistoryPage,
   reconcileHomeHistoryFirstPage,
+  shouldContinueHomeHistoryPagination,
 } from '../sections/history/homeHistoryStoreModel';
 
 import {
@@ -315,6 +317,12 @@ function useHomeHistoryStoreSource({
         });
       }
       try {
+        const paginationParams = isAllNetworks
+          ? { limit: getAllNetworksHomeHistoryLimit(page) }
+          : {
+              ...(page ? { page } : {}),
+              ...(cursor ? { cursor } : {}),
+            };
         const common = {
           currencyMap,
           excludeTestNetwork: true,
@@ -323,8 +331,7 @@ function useHomeHistoryStoreSource({
           isManualRefresh: manual,
           networkId,
           sourceCurrency: settings.currencyInfo.id,
-          ...(page ? { page } : {}),
-          ...(cursor ? { cursor } : {}),
+          ...paginationParams,
         };
         const fetchPromise = mergeDerive
           ? backgroundApiProxy.serviceHistory.fetchAccountHistoryForMergeDerive(
@@ -364,6 +371,7 @@ function useHomeHistoryStoreSource({
     },
     [
       currencyMap,
+      isAllNetworks,
       mergeDerive,
       networkId,
       requestAccountId,
@@ -488,8 +496,7 @@ function useHomeHistoryStoreSource({
                 ),
                 cursor: normalizeCursor(response.next),
                 data: nextData,
-                hasMore:
-                  !isAllNetworks && Boolean(response.hasMoreOnChainHistory),
+                hasMore: Boolean(response.hasMoreOnChainHistory),
                 tokenMap: tokenMapRef.current,
               });
               payloadRef.current = payload;
@@ -517,7 +524,6 @@ function useHomeHistoryStoreSource({
       fetchRemoteHistory,
       gateway,
       identityKey,
-      isAllNetworks,
       runPostFetchEffects,
       sourceEnabled,
       sourceTaskIdentityKey,
@@ -631,7 +637,6 @@ function useHomeHistoryStoreSource({
   const loadMore = useCallback(async () => {
     if (
       !sourceEnabled ||
-      isAllNetworks ||
       loadMoreInFlightRef.current ||
       !payloadRef.current.hasMore ||
       (platformEnv.isNative &&
@@ -667,12 +672,13 @@ function useHomeHistoryStoreSource({
             nextCursor ?? undefined,
             { indexerTimestampCursor: isIndexerRef.current },
           );
-          const hasMore = Boolean(
-            response.hasMoreOnChainHistory &&
-            response.txs.length > 0 &&
-            merged.addedCount > 0 &&
+          const hasMore = shouldContinueHomeHistoryPagination({
+            addedCount: merged.addedCount,
             cursorAdvanced,
-          );
+            isAllNetworks,
+            responseCount: response.txs.length,
+            responseHasMore: Boolean(response.hasMoreOnChainHistory),
+          });
           const payload = createHomeHistoryStorePayload({
             addressMap: mergeHomeHistoryAddressMap(
               payloadRef.current.addressMap,

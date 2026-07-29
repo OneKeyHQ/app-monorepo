@@ -323,6 +323,38 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ).toEqual([{ id: 'portfolio-assets', items: [] }]);
   });
 
+  it('replaces only portfolio asset rows with skeletons during a DeFi-token switch', () => {
+    const sections = buildMobileNativeHomeViewModelSections({
+      ...presentation,
+      marketSemantic: { kind: 'loading', placeholder: 'market' },
+      payloads: {},
+      portfolioAssetsLoading: true,
+      sectionId: 'portfolio',
+      semantic: {
+        kind: 'ready',
+        rowIds: [],
+        freshness: 'confirmedCache',
+        refresh: 'refreshing',
+      },
+    });
+
+    expect(sections[0]).toEqual({
+      id: 'portfolio-assets',
+      items: Array.from({ length: 6 }, (_, index) => ({
+        id: `portfolio-assets-loading-${index}`,
+        displayHeight: 68,
+        renderer: 'loading',
+        title: 'Loading',
+      })),
+    });
+    expect(
+      sections
+        .slice(1)
+        .every((section) => !section.id.startsWith('portfolio-assets')),
+    ).toBe(true);
+    expect(sections[1]?.id).toBe('portfolio-market');
+  });
+
   it('keeps the add-token footer before Show less when portfolio tokens are expanded', () => {
     const tokens = Array.from({ length: 7 }, (_, index) => ({
       $key: `token-${index}`,
@@ -557,11 +589,11 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     expect(items.map((item) => item.title)).toEqual(['OTHER', 'NATIVE']);
     expect(items[0]).toMatchObject({
       badgeImageUrl: undefined,
-      detail: '••••',
+      detail: '****',
       displayHeight: 60,
       subtitle: '€9.00',
       subtitleDetail: '-1.00%',
-      value: '••••',
+      value: '****',
     });
     expect(items[1]).toMatchObject({
       badgeImageUrl: undefined,
@@ -983,7 +1015,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ]);
   });
 
-  it('arms History load-more only for an idle single-network last row', () => {
+  it('arms History load-more for an idle last row in either network scope', () => {
     const history = {
       id: 'history-load-more',
       decodedTx: {
@@ -1029,7 +1061,9 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     expect(
       build({ historyLoadingMore: true }).at(-1)?.actionId,
     ).toBeUndefined();
-    expect(build({ isAllNetworks: true }).at(-1)?.actionId).toBeUndefined();
+    expect(build({ isAllNetworks: true }).at(-1)?.actionId).toBe(
+      HOME_HISTORY_ACTION_IDS.loadMore,
+    );
   });
 
   it('renders UTXO change outputs as one net transfer like the React History row', () => {

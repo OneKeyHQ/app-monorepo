@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import {
   useHomeFacts,
+  useHomeInteraction,
   useHomeSection,
   useHomeStoreIntentActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
@@ -11,8 +12,13 @@ import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '../sections/spot/homeP
 
 export function useHomePortfolioIntents() {
   const facts = useHomeFacts();
+  const interaction = useHomeInteraction();
   const portfolioSection = useHomeSection('portfolio');
   const { dispatchHomeIntent } = useHomeStoreIntentActions().current;
+  const requestedShowLpTokensOnly =
+    interaction.sectionControls.portfolio?.[
+      HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
+    ];
 
   const setShowLpTokensOnly = useCallback(
     (value: boolean) => {
@@ -38,5 +44,5 @@ export function useHomePortfolioIntents() {
     [dispatchHomeIntent, facts, portfolioSection.sectionCommandRevision],
   );
 
-  return { setShowLpTokensOnly };
+  return { requestedShowLpTokensOnly, setShowLpTokensOnly };
 }

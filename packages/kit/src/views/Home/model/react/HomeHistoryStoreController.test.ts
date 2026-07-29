@@ -167,6 +167,18 @@ describe('HomeHistoryStoreController', () => {
     expect(controllerSource).not.toContain('useHomeTokenListSnapshot');
   });
 
+  it('expands All Networks History through limit-based load-more', () => {
+    expect(controllerSource).toContain(
+      '{ limit: getAllNetworksHomeHistoryLimit(page) }',
+    );
+    expect(controllerSource).toContain(
+      'hasMore: Boolean(response.hasMoreOnChainHistory)',
+    );
+    expect(controllerSource).not.toContain(
+      '!isAllNetworks && Boolean(response.hasMoreOnChainHistory)',
+    );
+  });
+
   it('hydrates and revalidates before the History tab becomes visible', () => {
     const initialLoadEffect = controllerSource.slice(
       controllerSource.indexOf(

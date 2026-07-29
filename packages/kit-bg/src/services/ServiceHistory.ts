@@ -1047,8 +1047,8 @@ class ServiceHistory extends ServiceBase {
   private async _resolveHistoryRequestParams(
     params: IFetchAccountHistoryParams,
   ): Promise<IFetchAccountHistoryParams> {
-    // AllNetworks aggregates server-side and does not accept the new pagination
-    // contract — keep its request body untouched.
+    // AllNetworks expands its recent window through `limit`; it does not use
+    // the page/cursor or time-range contracts below.
     if (networkUtils.isAllNetwork({ networkId: params.networkId })) {
       return params;
     }
@@ -1738,8 +1738,7 @@ class ServiceHistory extends ServiceBase {
     return {
       hasMoreOnChainHistory,
       next,
-      // AllNetworks isn't paginated, so only the single-network branch
-      // carries an indexer cursor.
+      // AllNetworks expands by limit and does not carry an indexer cursor.
       isIndexer: !isAllNetworks && !!isIndexerChain,
       accounts,
       allAccounts,

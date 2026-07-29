@@ -67,7 +67,10 @@ import {
 } from '@onekeyhq/kit/src/views/Home/model/sections/banner/homeBannerStoreModel';
 import { HOME_HISTORY_ACTION_IDS } from '@onekeyhq/kit/src/views/Home/model/sections/history/homeHistoryStoreModel';
 import { getHomeMarketTokenRowId } from '@onekeyhq/kit/src/views/Home/model/sections/market/homeMarketSourceAdapter';
-import { HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
+import {
+  HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID,
+  resolveHomePortfolioLpTokenSwitch,
+} from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
 import {
   HOME_SECTION_ACTION_IDS,
   HOME_SHELL_ACTION_IDS,
@@ -198,7 +201,7 @@ function formatShellBalance({
   hidden: boolean;
 }): string {
   if (hidden) {
-    return '••••';
+    return '****';
   }
   const value = Number(amount);
   if (!Number.isFinite(value)) {
@@ -321,10 +324,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     interaction.sectionControls.portfolio?.[
       HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID
     ];
-  const displayedShowLpTokensOnly =
-    typeof requestedShowLpTokensOnly === 'boolean'
-      ? requestedShowLpTokensOnly
-      : (portfolioPayload?.showLpTokensOnly ?? false);
+  const lpTokenSwitch = resolveHomePortfolioLpTokenSwitch({
+    liveLoading: portfolioPayload?.isLpTokenSwitchLoading ?? false,
+    liveValue: portfolioPayload?.showLpTokensOnly ?? false,
+    requestedValue: requestedShowLpTokensOnly,
+  });
   const perpsPayload = useHomeSectionPayload('perps');
   const defiPayload = useHomeSectionPayload('defi');
   const nftPayload = useHomeSectionPayload('nft');
@@ -560,6 +564,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           defi: defiPayload,
           market: marketPayload,
         },
+        portfolioAssetsLoading: lpTokenSwitch.loading,
         sectionId: 'portfolio',
         semantic: portfolioSection.value,
       }),
@@ -575,6 +580,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       nativeLabels,
       network?.logoURI,
       network?.isAllNetworks,
+      lpTokenSwitch.loading,
       portfolioPayload,
       portfolioSection.value,
       settings.currencyInfo.id,
@@ -1345,8 +1351,8 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
                     headerActions={
                       portfolioPayload?.showLpTokenFilterSwitch ? (
                         <TokenSelectorLpTokenSwitch
-                          value={displayedShowLpTokensOnly}
-                          loading={portfolioPayload.isLpTokenSwitchLoading}
+                          value={lpTokenSwitch.value}
+                          loading={lpTokenSwitch.loading}
                           onChange={setShowLpTokensOnly}
                         />
                       ) : null
@@ -1507,7 +1513,8 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       actionRowAuthority,
       backupStateAuthority,
       balanceAuthority,
-      displayedShowLpTokensOnly,
+      lpTokenSwitch.loading,
+      lpTokenSwitch.value,
       deFiStateAuthority,
       footerAuthorities,
       header.actionRowHeight,

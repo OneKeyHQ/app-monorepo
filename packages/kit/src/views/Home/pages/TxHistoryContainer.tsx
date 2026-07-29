@@ -80,11 +80,7 @@ function TxHistoryListContainer(
       command.type === 'sectionActionInvoked' &&
       command.actionId === HOME_HISTORY_ACTION_IDS.loadMore,
   );
-  const loadMoreEnabled =
-    !plainMode &&
-    !limit &&
-    !network?.isAllNetworks &&
-    Boolean(payload?.hasMore);
+  const loadMoreEnabled = !plainMode && !limit && Boolean(payload?.hasMore);
 
   const isFrozenTopTabScenario = !plainMode && !limit;
   const frozenTopEnabled =

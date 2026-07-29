@@ -66,6 +66,19 @@ describe('Home portfolio Store boundary', () => {
     );
   });
 
+  it('publishes DeFi-token switch loading while the scoped request runs', () => {
+    expect(controllerSource).toContain('setIsLpTokenSwitchLoading(true)');
+    expect(controllerSource).toContain('setIsLpTokenSwitchLoading(false)');
+    expect(rendererSource).toContain('requestedShowLpTokensOnly');
+    expect(rendererSource).toContain('loading={lpTokenSwitch.loading}');
+    expect(rendererSource).toContain('payload && !lpTokenSwitch.loading');
+    expect(
+      controllerSource.indexOf('setIsLpTokenSwitchLoading(true)'),
+    ).toBeLessThan(
+      controllerSource.indexOf('void runLpTokenList({ alwaysSetState: true })'),
+    );
+  });
+
   it('binds single-network responses to their request owner and explicit terminal', () => {
     expect(controllerSource).toContain(
       'requestOwnerKey === cellsIngestInputsRef.current.ownerKey',

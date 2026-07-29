@@ -548,6 +548,7 @@ function buildPortfolioAssetSections({
   hideValue,
   isAllNetworks,
   labels,
+  loading,
   payload,
 }: {
   actionsEnabled: boolean;
@@ -557,8 +558,22 @@ function buildPortfolioAssetSections({
   hideValue: boolean;
   isAllNetworks: boolean;
   labels: IHomeNativeLabels;
+  loading: boolean;
   payload: IHomeSpotLegacyPayload | undefined;
 }): IHomeContainerSection[] {
+  if (loading) {
+    return [
+      {
+        id: 'portfolio-assets',
+        items: Array.from({ length: VISIBLE_ROW_LIMIT }, (_, index) => ({
+          id: `portfolio-assets-loading-${index}`,
+          renderer: 'loading' as const,
+          title: labels.loading,
+          displayHeight: 68,
+        })),
+      },
+    ];
+  }
   const tokenMap = new Map(
     (payload?.tokens ?? []).map((token) => [token.$key, token]),
   );
@@ -606,10 +621,10 @@ function buildPortfolioAssetSections({
           subtitleDetail: formatTokenPriceChange(fiat?.price24h),
           subtitleDetailColor: getPriceChangeColor(priceChange),
           value: hideValue
-            ? '••••'
+            ? '****'
             : formatAmount(fiat?.balanceParsed ?? fiat?.balance),
           detail: hideValue
-            ? '••••'
+            ? '****'
             : formatTokenValue({
                 balance: fiat?.balanceParsed ?? fiat?.balance,
                 fiatContext,
@@ -641,7 +656,7 @@ function buildPortfolioAssetSections({
                 title: `${smallBalanceTokenCount} ${labels.lowValueAssets}`,
                 displayHeight: 56,
                 value: hideValue
-                  ? '••••'
+                  ? '****'
                   : formatTokenValue({
                       balance: smallBalanceTokenCount,
                       fiatContext,
@@ -1329,12 +1344,7 @@ function buildHistorySections(
       }),
     }),
   );
-  if (
-    isAllNetworks ||
-    isLoadingMore ||
-    !payload?.hasMore ||
-    sections.length === 0
-  ) {
+  if (isLoadingMore || !payload?.hasMore || sections.length === 0) {
     return sections;
   }
   const lastSectionIndex = sections.length - 1;
@@ -1398,6 +1408,7 @@ export function buildMobileNativeHomeViewModelSections({
   marketRecommendationState,
   marketSemantic,
   payloads,
+  portfolioAssetsLoading = false,
   sectionTitle,
   sectionId,
   semantic,
@@ -1414,6 +1425,7 @@ export function buildMobileNativeHomeViewModelSections({
   marketRecommendationState?: IHomeNativeMarketRecommendationState;
   marketSemantic?: IHomeSectionSemanticModel;
   payloads: IHomeNativePayloads;
+  portfolioAssetsLoading?: boolean;
   sectionTitle?: string;
   sectionId: IHomeContainerTabId;
   semantic: IHomeSectionSemanticModel;
@@ -1455,6 +1467,7 @@ export function buildMobileNativeHomeViewModelSections({
           hideValue,
           isAllNetworks,
           labels,
+          loading: portfolioAssetsLoading,
           payload: payloads.portfolio,
         }),
         ...(payloads.defi?.protocols.length

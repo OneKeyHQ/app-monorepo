@@ -1088,6 +1088,7 @@ function HomePortfolioStoreController({
       return;
     }
 
+    setIsLpTokenSwitchLoading(true);
     setScopedLpTokenListState({
       initialized: false,
       isRefreshing: true,
