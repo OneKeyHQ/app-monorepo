@@ -119,6 +119,21 @@ describe('firmware config fetcher', () => {
     expect(mockedSniRequest).not.toHaveBeenCalled();
   });
 
+  it('normalizes a stable config published before the Pro2 manifest', async () => {
+    const { pro2: _pro2, ...stableConfig } = buildRemoteConfig();
+    directGet.mockResolvedValue({ data: stableConfig });
+    const fetchConfig = await createConfigFetcher();
+
+    await expect(fetchConfig?.(CONFIG_URL)).resolves.toEqual({
+      ...stableConfig,
+      pro2: {
+        firmware: [],
+        ble: [],
+      },
+    });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
   it('uses the first builtin candidate on a cold-start transport failure', async () => {
     const config = buildRemoteConfig();
     directGet.mockRejectedValue(transportError());

@@ -1,6 +1,7 @@
 import axios, { AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
@@ -321,6 +322,13 @@ export function isIpTableTransportError(error: unknown): boolean {
   }
   if ('response' in error && (error as { response?: unknown }).response) {
     return false;
+  }
+  if (
+    'className' in error &&
+    (error as { className?: unknown }).className ===
+      EOneKeyErrorClassNames.AxiosNetworkError
+  ) {
+    return true;
   }
   const code = getErrorCode(error);
   return TRANSPORT_ERROR_CODES.has(code);
