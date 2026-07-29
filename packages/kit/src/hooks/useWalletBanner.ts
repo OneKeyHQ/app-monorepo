@@ -73,12 +73,8 @@ function useWalletBanner({
       }
 
       if (item.mode) {
-        // A banner whose payload cannot be turned into a navigation target
-        // used to be a dead tap: the early return skipped the href handling
-        // below. Fall through instead so a banner that also carries an href
-        // still goes somewhere. The return value covers the silent no-op
-        // branches too (blocked WebView URL, empty payload, unknown mode),
-        // which never invoke the fallback handler.
+        // Returning here unconditionally skipped the href handling below, so
+        // an undispatchable payload made the banner a dead tap.
         const payloadHandled = parseNotificationPayload(
           item.mode,
           item.payload,

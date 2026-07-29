@@ -2661,18 +2661,12 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
-      // `universesByDex` is `[]` when nothing is cached yet, so `[dexIndex]`
-      // is `undefined` and the old `?.length === 0` test was never true —
-      // execution fell through and committed `assetId: -1` as if it were a
-      // resolved asset. Keep the seeded coin (l2Book subscribes by coin, so
-      // the target stays correct) but leave the metadata unresolved.
+      // `universesByDex` is `[]` before anything is cached, so the old
+      // `?.length === 0` test was never true and `assetId: -1` got committed
+      // as a resolved asset.
       if (!dexUniverses?.length) {
-        // Re-selecting the coin that is already active must not downgrade
-        // metadata we already resolved; only an actual switch falls back to
-        // the unresolved shape. The record has to be genuinely resolved to
-        // qualify: perpsActiveAssetAtom is persisted, and a build from before
-        // this fix could have stored `assetId: -1` there, so short-circuiting
-        // on coin alone would preserve the very value this branch clears.
+        // perpsActiveAssetAtom is persisted, so matching on coin alone would
+        // hand back an `assetId: -1` left by an older build.
         if (
           !shouldSeedSubscriptionTarget &&
           oldActiveAsset &&
@@ -2694,11 +2688,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
         if (requestId === this.activeAssetChangeRequestId) {
           await perpsActiveAssetAtom.set(result);
-          // This branch used to fall through to the shared tail below, which
-          // clears the previous coin's ctx on a switch. Returning early skips
-          // that, and perpsActiveAssetCtxMidPriceAtom reads the ctx without a
-          // coin guard — useTradingPrice would then seed the form with the
-          // previous coin's mid price.
+          // Returning early skips the shared tail that clears this, and
+          // perpsActiveAssetCtxMidPriceAtom reads the ctx without a coin
+          // guard — the form would seed with the previous coin's mid price.
           if (oldCoin !== newCoin) {
             await perpsActiveAssetCtxAtom.set(undefined);
             schedulePerpsActiveAssetCtxDisplayUpdate({

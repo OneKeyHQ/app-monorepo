@@ -104,9 +104,9 @@ export async function navigateToNotificationDetailByLocalParams({
   getEarnAccount: IGetEarnAccountFunc;
 }) {
   const { screen, params: navigationParams } = payload;
-  // Defense in depth for callers that bypass parseNotificationPayload (the
-  // mode=dialog navigate action). Throwing lets their catch surface the
-  // fallback dialog rather than dispatching push(undefined) into the void.
+  // Covers callers that bypass parseNotificationPayload (the mode=dialog
+  // navigate action): throwing surfaces their fallback dialog instead of
+  // dispatching push(undefined).
   if (typeof screen !== 'string' || !screen) {
     throw new OneKeyLocalError(
       'navigateToNotificationDetail: payload has no target screen',
@@ -376,20 +376,16 @@ export function parseNotificationPayload(
     [key: string]: any;
   },
 ): boolean {
-  // Returns whether the payload was actually dispatched. Several branches are
-  // deliberate no-ops (blocked WebView URL, empty payload, unknown mode) and
-  // do not run `fallbackHandler`, so callers that want to degrade gracefully
-  // — the wallet banner falling back to its own `href` — cannot rely on the
-  // handler alone to tell them nothing happened.
+  // The `false` branches include deliberate no-ops (blocked WebView URL,
+  // empty payload, unknown mode) that never run `fallbackHandler`, so callers
+  // cannot use the handler alone to detect that nothing happened.
   const normalizedMode = normalizeNotificationMode(mode);
   switch (normalizedMode) {
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
-        // `JSON.parse('{}')` succeeds, so a structurally invalid payload used
-        // to reach the navigator as `push(undefined)` — a silent no-op that
-        // reads to the user as a dead banner/notification. Treat a missing
-        // target as a parse failure so the caller's fallback runs instead.
+        // `JSON.parse('{}')` succeeds, so a payload with no target used to
+        // reach the navigator as `push(undefined)` — a silent dead tap.
         if (
           !payloadObj ||
           typeof payloadObj !== 'object' ||

@@ -952,11 +952,9 @@ function useHyperliquidSymbolSelect() {
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
-        // The latch is process-wide, so this skip is also the only
-        // remount-time resync from the BG target. Bail out only when the
-        // context already agrees with BG — a context-less switch
-        // (notification / banner / tray) whose event bus message was dropped
-        // would otherwise strand this page on the previous coin forever.
+        // The latch is process-wide, so this skip doubles as the only
+        // remount-time resync: skipping unconditionally would strand the page
+        // on the previous coin when the event bus message was dropped.
         const bgSwitchParams =
           await buildActiveInstrumentSwitchParamsFromGlobal();
         const ctxInstrument = activeTradeInstrumentRef.current;
@@ -1115,12 +1113,9 @@ function useHyperliquidSymbolSelect() {
     }
   }, [actions, setActiveAssetCtxColdCache]);
 
-  // `useOnRouterChange` fires on every root state change, so without this
-  // transition dedupe an in-tab push/pop — the token selector's `popStack()`
-  // runs before its own `switchTradeInstrument()` resolves — would re-enter
-  // selectInitialSymbol mid-switch. The context instrument is written
-  // optimistically ahead of the BG atoms, so that window reads as divergence
-  // and would force the previous coin back over the user's selection.
+  // Without the transition dedupe, the token selector's `popStack()` — which
+  // runs before its own `switchTradeInstrument()` resolves — re-enters
+  // mid-switch and forces the previous coin back over the user's selection.
   const isRouteFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
     const nextFocused = resolvePerpRouteFocused(isFocus);

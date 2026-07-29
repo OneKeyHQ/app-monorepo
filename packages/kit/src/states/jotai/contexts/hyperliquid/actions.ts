@@ -522,11 +522,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    // Publishing the subscription target is unconditional: it is idempotent
-    // state sync, and the BG reconcile aborts wholesale (allMids/L2/BBO/user
-    // channels) while perpsActiveOrderBookOptionsAtom still names the previous
-    // coin. Gating it on route focus stranded every context-less coin switch
-    // (notification / banner / tray) until the next focus transition.
+    // Unconditional: the BG reconcile aborts every channel while this atom
+    // still names the previous coin, so gating the publish on route focus
+    // stranded context-less switches (notification / banner / tray).
     const stored = getPerpsOrderBookTickOptionsWithCache(
       params.orderBookTickOptions,
     )[params.instrument.coin];
@@ -546,14 +544,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    // Skip the explicit resubscribe when the route cannot render the result.
-    // This is a best-effort saving, not a guarantee: on extension and native
-    // the BG atom watcher subscribes to perpsActiveOrderBookOptionsAtom and
-    // reconciles on its own, so the publish above can already trigger a
-    // rebuild there. It only stays suppressed while the handler is disabled
-    // (AutoPauseSubscriptions does that on blur) — notably not while the Perp
-    // tab is merely covered by a modal. Desktop and web have no watcher, so
-    // this branch is the only gate for them.
+    // Best-effort saving only: extension and native reconcile off the atom
+    // watcher regardless. Desktop and web have no watcher, so this is their
+    // only gate.
     if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
       return;
     }

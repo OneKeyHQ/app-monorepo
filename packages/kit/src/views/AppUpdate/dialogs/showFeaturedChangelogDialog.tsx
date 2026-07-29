@@ -45,10 +45,8 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   // carrier for the URL/JSON; fall back to href so backends that only set
   // href still work for the URL-opening modes.
   if (activeFeature.mode !== undefined) {
-    // Branch on whether the payload was actually dispatched rather than on the
-    // fallback handler alone: an unrecognized backend `mode`, a WebView URL
-    // rejected by policy, or an empty payload are all no-ops that never invoke
-    // the handler, and returning unconditionally there made the CTA dead.
+    // Returning here unconditionally made the CTA dead whenever the payload
+    // was not dispatchable.
     const dispatched = parseNotificationPayload(
       activeFeature.mode,
       activeFeature.payload ?? activeFeature.href,

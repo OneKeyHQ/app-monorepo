@@ -144,10 +144,9 @@ function BaseNotificationHandlerContainer() {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
-          // The payload targets a perp market, but changeActiveAsset only
-          // writes perpsActiveAssetAtom. Without this the page reopens in
-          // whatever mode the user left behind, and a spot mode would make
-          // the resync read spotActiveAssetAtom and drop this coin entirely.
+          // changeActiveAsset only writes perpsActiveAssetAtom, so a leftover
+          // spot mode would make the resync read spotActiveAssetAtom and drop
+          // this coin.
           await tradingModeAtom.set('perp');
           // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
           // switch its active instrument; without this the coin switch is a
@@ -156,10 +155,8 @@ function BaseNotificationHandlerContainer() {
             mode: 'perp',
             coin: perpToken,
           });
-          // Leaving Perps closes the socket, and navigation here is ~350ms of
-          // popToMainRoute + wait before the tab even switches. Start the
-          // reconnect now so it overlaps the navigation instead of beginning
-          // only once the route regains focus.
+          // Start the reconnect now so it overlaps the ~350ms of
+          // popToMainRoute + wait, rather than waiting for route focus.
           void backgroundApiProxy.serviceHyperliquidSubscription
             .resumeSubscriptions()
             .catch((error) => {
