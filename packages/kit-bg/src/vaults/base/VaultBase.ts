@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildTxActionDirection,
   getStakingActionLabel,
@@ -401,6 +402,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         signal: params.signal ?? undefined,
       },
     );
+    tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(resp.data.data);
     return resp;
   }
 
@@ -1481,6 +1483,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       signal,
       headers,
     });
+    tokenRebaseUtils.normalizeAccountTokensRespBalanceMultiplier(
+      resp.data.data,
+    );
     return resp;
   }
 

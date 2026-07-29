@@ -74,6 +74,11 @@ const MobileUnifoldDepositTransferModal = LazyLoadPage(
     import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTransferModal'),
 );
 
+const MobileUnifoldSourceSelectorModal = LazyLoadPage(
+  () =>
+    import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldSourceSelectorModal'),
+);
+
 const MobileUnifoldDepositTrackerModal = LazyLoadPage(
   () =>
     import('../components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTrackerModal'),
@@ -116,6 +121,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
     component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldSourceSelector,
+    component: MobileUnifoldSourceSelectorModal,
   },
   {
     name: EModalPerpRoutes.MobileUnifoldDepositTracker,
@@ -167,6 +176,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileUnifoldDepositTransfer,
     component: MobileUnifoldDepositTransferModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileUnifoldSourceSelector,
+    component: MobileUnifoldSourceSelectorModal,
   },
   {
     name: EModalPerpRoutes.MobileUnifoldDepositTracker,
