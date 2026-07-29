@@ -2,7 +2,10 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { mergePrimeInfiniPaymentProgressSnapshot } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
-import type { IPrimeInfiniPendingPaymentSession } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeInfiniPayment,
+  IPrimeInfiniPendingPaymentSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   hasPrimeInfiniPaymentProgress,
@@ -62,11 +65,35 @@ export async function getPrimeInfiniPaymentEntryGuard() {
     };
   }
 
-  const latestPayment =
-    await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+  let latestPayment: IPrimeInfiniPayment;
+  try {
+    latestPayment = await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
       paymentId: pendingPaymentSession.paymentCacheKey.paymentId,
       expectedOneKeyUserId: onekeyUserId,
     });
+  } catch {
+    // The invoice state is unknown, so neither releasing the session nor
+    // opening a second channel is safe. Throwing here used to lock every
+    // purchase channel behind a toast until the session TTL, with the one
+    // screen that can release the session sitting unreachable behind this
+    // gate. Fall back to the local snapshot instead: an invoice that never
+    // left this device commits no funds and keeps the picker open, anything
+    // else resumes the crypto flow, whose stale fallback screen still lets
+    // the user force a replacement.
+    const localSendStarted =
+      pendingPaymentSession.sendStarted ||
+      hasPrimeInfiniPaymentProgress(pendingPaymentSession.payment);
+    return {
+      isLoggedIn: true,
+      hasPendingPayment: !isPrimeInfiniPaymentReplaceable({
+        payment: pendingPaymentSession.payment,
+        sendStarted: localSendStarted,
+      }),
+      onekeyUserId,
+      pendingSubscriptionPeriod:
+        pendingPaymentSession.selectedSubscriptionPeriod,
+    };
+  }
   const paymentWithDurableProgress = mergePrimeInfiniPaymentProgressSnapshot({
     previous: pendingPaymentSession.payment,
     latest: latestPayment,

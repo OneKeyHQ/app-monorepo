@@ -3694,8 +3694,11 @@ function PrimeInfiniWalletPaymentRoot({
       if (!hasError) {
         paymentCreationIntentRef.current = false;
       }
+      // Deliberately not gated on the payment creation intent: every entry
+      // with a non-replaceable pending session pauses here once, resume
+      // included, so the user always passes the one screen that can force a
+      // new payment instead of being funneled straight into polling.
       const shouldShowExistingPaymentChoice = Boolean(
-        shouldCreatePayment &&
         pendingSession &&
         !isPrimeInfiniPaymentReplaceable({
           payment: pendingSession.payment,
@@ -3706,9 +3709,11 @@ function PrimeInfiniWalletPaymentRoot({
       // retry screen would hide the unfinished-payment choice behind an error
       // the user cannot clear, which is the one screen that can release the
       // session. Fall back to the stored snapshot, clearly marked as stale.
+      // Like the fresh choice above, this ignores the creation intent: a
+      // resume entry whose load failed has nothing to resume into, so the
+      // choice is the only screen that helps.
       const staleExistingPaymentSession =
         sessionLoadFailed &&
-        shouldCreatePayment &&
         localSessionSnapshot &&
         !isPrimeInfiniPaymentReplaceable({
           payment: localSessionSnapshot.payment,

@@ -325,6 +325,73 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
   });
 
+  it('degrades to the local snapshot when the invoice fetch fails on a claimed session', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: true,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockRejectedValue(
+      new Error('invoice endpoint down'),
+    );
+
+    // Blocking every channel here would strand the user until the session
+    // TTL; reporting the pending payment instead routes them into the crypto
+    // flow, whose stale fallback screen can still force a replacement.
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+    expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
+    expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
+  });
+
+  it('keeps the picker open when the invoice fetch fails on a replaceable session', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockRejectedValue(
+      new Error('invoice endpoint down'),
+    );
+
+    // An invoice that never left this device commits no funds, so the other
+    // purchase channels stay available even while its state is unknown.
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+  });
+
   it('fails closed when the session is replaced while the payment is fetched', async () => {
     mockGetLocalUserInfo.mockResolvedValue({
       isLoggedIn: true,
