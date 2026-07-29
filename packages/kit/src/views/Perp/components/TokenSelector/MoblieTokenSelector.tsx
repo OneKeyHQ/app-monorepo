@@ -1089,7 +1089,9 @@ function MobileTokenSelectorModal({
   ]);
 
   useEffect(() => {
-    void prewarmPerpsTokenSelectorImages(mockedListData);
+    void prewarmPerpsTokenSelectorImages(mockedListData, {
+      tokenSizes: ['lg'],
+    });
   }, [mockedListData]);
 
   const isDefaultPerpsSelectorView =

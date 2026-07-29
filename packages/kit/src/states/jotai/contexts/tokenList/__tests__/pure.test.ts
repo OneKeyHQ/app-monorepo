@@ -73,6 +73,20 @@ describe('sumAggregateEntry', () => {
     expect(result?.frozenBalance).toBe('3');
     expect(result?.totalBalance).toBe('30');
   });
+
+  it('scaled-UI (rebase) members: multiplies each member by its OWN balanceMultiplier before summing balanceParsed, raw balance stays unmultiplied, and the summed entry carries NO balanceMultiplier', () => {
+    const result = sumAggregateEntry([
+      makeFiat({ balance: '4', balanceParsed: '4', balanceMultiplier: '1.1' }),
+      makeFiat({ balance: '1', balanceParsed: '1' }),
+    ]);
+    // 4 * 1.1 + 1 = 5.4 (display basis)
+    expect(result?.balanceParsed).toBe('5.4');
+    // raw balance is summed as-is (not multiplied)
+    expect(result?.balance).toBe('5');
+    // the summed entry is display-basis already; it must NOT carry a
+    // multiplier, otherwise a display selector would multiply it again
+    expect(result?.balanceMultiplier).toBeUndefined();
+  });
 });
 
 describe('fiatEqual', () => {
