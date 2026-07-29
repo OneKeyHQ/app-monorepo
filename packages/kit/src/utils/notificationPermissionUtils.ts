@@ -22,6 +22,14 @@ export async function isNotificationFullyEnabled(): Promise<boolean> {
   if (!serverSettings?.pushEnabled) {
     return false;
   }
+  // The desktop provider cannot resolve the real OS permission (neither the
+  // main nor the render process reports it reliably, so it hardcodes
+  // `default`; see NotificationProvider.desktop.ts). Gating on it there would
+  // keep this check false forever, so the master switch alone decides on
+  // desktop; other platforms report a real value and keep the gate.
+  if (platformEnv.isDesktop) {
+    return true;
+  }
   const permission =
     await backgroundApiProxy.serviceNotification.getPermission();
   if (
