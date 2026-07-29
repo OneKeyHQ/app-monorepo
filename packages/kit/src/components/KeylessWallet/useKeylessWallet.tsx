@@ -1208,7 +1208,12 @@ export function useKeylessWallet() {
           prepareResult,
           provider,
         });
+        return;
       }
+
+      throw new OneKeyLocalError(
+        `Unsupported Keyless wallet creation preparation status: ${prepareResult.status}`,
+      );
     },
     [
       continueKeylessCreateWithCurrentOneKeyId,
