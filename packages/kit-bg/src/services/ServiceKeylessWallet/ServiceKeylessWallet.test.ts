@@ -502,9 +502,8 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     serviceAny.getOrMigrateKeylessOAuthAccessTokenForLocalWallet.mockResolvedValue(
       previousAccessToken,
     );
-    await serviceAny.setRealmAccessTokenExchangeTombstone(
-      previousAccessToken,
-      'confirmed',
+    serviceAny.getRealmAccessTokenExchangeTombstone = jest.fn(
+      async () => 'confirmed',
     );
     mockSupabaseRefreshSession.mockResolvedValue({
       data: {
@@ -520,6 +519,9 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
     ).resolves.toEqual({
       status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
     });
+    expect(
+      serviceAny.getRealmAccessTokenExchangeTombstone,
+    ).toHaveBeenCalledWith(previousAccessToken);
     expect(serviceAny.validateTokenMatchesKeylessWallet).not.toHaveBeenCalled();
   });
 
