@@ -322,4 +322,17 @@ export class PrimeSubscriptionScene extends BaseScene {
       reason,
     };
   }
+
+  // A OneKey ID auth failure reason recorded at the throw site: the
+  // user-facing copy is localized/generic, so this keeps the stable English
+  // cause for server triage. Fires regardless of which toast (auto,
+  // fallback, or none) surfaces the failure — unlike onekeyIdLoginFailedToast
+  // above, which strictly means "the fallback toast was shown".
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
 }

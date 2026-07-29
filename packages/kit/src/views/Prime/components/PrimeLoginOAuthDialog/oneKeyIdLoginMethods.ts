@@ -1,22 +1,14 @@
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 
-export type IOneKeyIdLoginMethod =
-  | {
-      type: 'oauth';
-      provider: EOAuthSocialLoginProvider;
-      requiresKeylessLogout: boolean;
-      requiresMalformedKeylessRecovery?: boolean;
-    }
-  | {
-      type: 'email';
-    };
-
-export type IOneKeyIdLoginMethodGroups = {
-  primary: IOneKeyIdLoginMethod[];
-  more: IOneKeyIdLoginMethod[];
+// Email sign-in is always available and rendered unconditionally by the
+// dialog; this module only decides which OAuth buttons show and how they
+// behave.
+export type IOneKeyIdLoginMethod = {
+  type: 'oauth';
+  provider: EOAuthSocialLoginProvider;
+  requiresKeylessLogout: boolean;
+  requiresMalformedKeylessRecovery?: boolean;
 };
-
-const EMAIL_METHOD: IOneKeyIdLoginMethod = { type: 'email' };
 
 function buildOAuthMethod({
   provider,
@@ -37,7 +29,7 @@ function buildOAuthMethod({
   };
 }
 
-export function getOneKeyIdLoginMethodGroups({
+export function getOneKeyIdLoginMethods({
   isLocalKeylessOAuthMode,
   isLocalKeylessDataUnavailable = false,
   localKeylessProvider,
@@ -45,39 +37,33 @@ export function getOneKeyIdLoginMethodGroups({
   isLocalKeylessOAuthMode: boolean;
   isLocalKeylessDataUnavailable?: boolean;
   localKeylessProvider?: EOAuthSocialLoginProvider;
-}): IOneKeyIdLoginMethodGroups {
+}): IOneKeyIdLoginMethod[] {
   if (!isLocalKeylessOAuthMode && !isLocalKeylessDataUnavailable) {
-    return {
-      primary: [
-        buildOAuthMethod({
-          provider: EOAuthSocialLoginProvider.Google,
-          requiresKeylessLogout: false,
-        }),
-        buildOAuthMethod({
-          provider: EOAuthSocialLoginProvider.Apple,
-          requiresKeylessLogout: false,
-        }),
-      ],
-      more: [EMAIL_METHOD],
-    };
+    return [
+      buildOAuthMethod({
+        provider: EOAuthSocialLoginProvider.Google,
+        requiresKeylessLogout: false,
+      }),
+      buildOAuthMethod({
+        provider: EOAuthSocialLoginProvider.Apple,
+        requiresKeylessLogout: false,
+      }),
+    ];
   }
 
   if (isLocalKeylessDataUnavailable || !localKeylessProvider) {
-    return {
-      primary: [
-        buildOAuthMethod({
-          provider: EOAuthSocialLoginProvider.Google,
-          requiresKeylessLogout: false,
-          requiresMalformedKeylessRecovery: true,
-        }),
-        buildOAuthMethod({
-          provider: EOAuthSocialLoginProvider.Apple,
-          requiresKeylessLogout: false,
-          requiresMalformedKeylessRecovery: true,
-        }),
-      ],
-      more: [EMAIL_METHOD],
-    };
+    return [
+      buildOAuthMethod({
+        provider: EOAuthSocialLoginProvider.Google,
+        requiresKeylessLogout: false,
+        requiresMalformedKeylessRecovery: true,
+      }),
+      buildOAuthMethod({
+        provider: EOAuthSocialLoginProvider.Apple,
+        requiresKeylessLogout: false,
+        requiresMalformedKeylessRecovery: true,
+      }),
+    ];
   }
 
   const oppositeProvider =
@@ -85,19 +71,14 @@ export function getOneKeyIdLoginMethodGroups({
       ? EOAuthSocialLoginProvider.Apple
       : EOAuthSocialLoginProvider.Google;
 
-  return {
-    primary: [
-      buildOAuthMethod({
-        provider: localKeylessProvider,
-        requiresKeylessLogout: false,
-      }),
-    ],
-    more: [
-      buildOAuthMethod({
-        provider: oppositeProvider,
-        requiresKeylessLogout: true,
-      }),
-      EMAIL_METHOD,
-    ],
-  };
+  return [
+    buildOAuthMethod({
+      provider: localKeylessProvider,
+      requiresKeylessLogout: false,
+    }),
+    buildOAuthMethod({
+      provider: oppositeProvider,
+      requiresKeylessLogout: true,
+    }),
+  ];
 }

@@ -1,28 +1,25 @@
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 
-import { getOneKeyIdLoginMethodGroups } from './oneKeyIdLoginMethods';
+import { getOneKeyIdLoginMethods } from './oneKeyIdLoginMethods';
 
-describe('getOneKeyIdLoginMethodGroups', () => {
-  test('shows both OAuth providers as primary methods without local Keyless', () => {
+describe('getOneKeyIdLoginMethods', () => {
+  test('shows both OAuth providers without local Keyless', () => {
     expect(
-      getOneKeyIdLoginMethodGroups({
+      getOneKeyIdLoginMethods({
         isLocalKeylessOAuthMode: false,
       }),
-    ).toEqual({
-      primary: [
-        {
-          type: 'oauth',
-          provider: EOAuthSocialLoginProvider.Google,
-          requiresKeylessLogout: false,
-        },
-        {
-          type: 'oauth',
-          provider: EOAuthSocialLoginProvider.Apple,
-          requiresKeylessLogout: false,
-        },
-      ],
-      more: [{ type: 'email' }],
-    });
+    ).toEqual([
+      {
+        type: 'oauth',
+        provider: EOAuthSocialLoginProvider.Google,
+        requiresKeylessLogout: false,
+      },
+      {
+        type: 'oauth',
+        provider: EOAuthSocialLoginProvider.Apple,
+        requiresKeylessLogout: false,
+      },
+    ]);
   });
 
   test.each([
@@ -35,54 +32,46 @@ describe('getOneKeyIdLoginMethodGroups', () => {
       oppositeProvider: EOAuthSocialLoginProvider.Google,
     },
   ])(
-    'keeps $localProvider primary and puts $oppositeProvider behind Keyless logout',
+    'shows $localProvider and $oppositeProvider together while preserving Keyless logout',
     ({ localProvider, oppositeProvider }) => {
       expect(
-        getOneKeyIdLoginMethodGroups({
+        getOneKeyIdLoginMethods({
           isLocalKeylessOAuthMode: true,
           localKeylessProvider: localProvider,
         }),
-      ).toEqual({
-        primary: [
-          {
-            type: 'oauth',
-            provider: localProvider,
-            requiresKeylessLogout: false,
-          },
-        ],
-        more: [
-          {
-            type: 'oauth',
-            provider: oppositeProvider,
-            requiresKeylessLogout: true,
-          },
-          { type: 'email' },
-        ],
-      });
+      ).toEqual([
+        {
+          type: 'oauth',
+          provider: localProvider,
+          requiresKeylessLogout: false,
+        },
+        {
+          type: 'oauth',
+          provider: oppositeProvider,
+          requiresKeylessLogout: true,
+        },
+      ]);
     },
   );
 
   test('routes visible OAuth methods through confirmed Keyless recovery when the wallet data is unavailable', () => {
     expect(
-      getOneKeyIdLoginMethodGroups({
+      getOneKeyIdLoginMethods({
         isLocalKeylessOAuthMode: true,
       }),
-    ).toEqual({
-      primary: [
-        {
-          type: 'oauth',
-          provider: EOAuthSocialLoginProvider.Google,
-          requiresKeylessLogout: false,
-          requiresMalformedKeylessRecovery: true,
-        },
-        {
-          type: 'oauth',
-          provider: EOAuthSocialLoginProvider.Apple,
-          requiresKeylessLogout: false,
-          requiresMalformedKeylessRecovery: true,
-        },
-      ],
-      more: [{ type: 'email' }],
-    });
+    ).toEqual([
+      {
+        type: 'oauth',
+        provider: EOAuthSocialLoginProvider.Google,
+        requiresKeylessLogout: false,
+        requiresMalformedKeylessRecovery: true,
+      },
+      {
+        type: 'oauth',
+        provider: EOAuthSocialLoginProvider.Apple,
+        requiresKeylessLogout: false,
+        requiresMalformedKeylessRecovery: true,
+      },
+    ]);
   });
 });
