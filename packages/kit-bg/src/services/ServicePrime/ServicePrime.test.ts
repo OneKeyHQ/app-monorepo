@@ -20,6 +20,8 @@ const mockPrimeLoginDialogAtom = {
   set: jest.fn(async () => undefined),
 };
 
+const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -30,6 +32,21 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
     () =>
     (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) =>
       descriptor,
+  // Mirrors the real guard: throws unless the caller passes the devOnlyPassword.
+  // The literal is inlined because a jest.mock factory cannot read outer scope.
+  checkDevOnlyPassword: (
+    params: { $$devOnlyPassword?: string } | undefined,
+    methodName?: string,
+  ) => {
+    if (params?.$$devOnlyPassword !== 'valid-dev-only-password') {
+      const { OneKeyLocalError } = require('@onekeyhq/shared/src/errors');
+      throw new OneKeyLocalError(
+        `You are not allowed to call this method, devOnlyPassword is wrong. method=${
+          methodName || ''
+        }`,
+      );
+    }
+  },
   toastIfError:
     () =>
     (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) =>
@@ -374,18 +391,94 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
 });
 
 describe('ServicePrime.apiResetInfiniSubscription', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
   });
 
-  it('posts to the Infini test reset endpoint without a request body', async () => {
-    const { service } = createService();
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createResetService() {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
     const post = jest.fn(async () => undefined);
     service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, simpleDbPrime, post };
+  }
 
-    await service.apiResetInfiniSubscription();
+  it('pins the confirming user session on the reset request', async () => {
+    const { service, post } = createResetService();
 
-    expect(post).toHaveBeenCalledWith('/prime/v1/infini/test/reset');
+    await service.apiResetInfiniSubscription(
+      { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD },
+      { expectedOneKeyUserId: 'user-a' },
+    );
+
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/infini/test/reset',
+      undefined,
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  // An account switch between the confirmation and the send must abort the
+  // delete, never redirect it onto the account that is current by then.
+  it('rejects when the logged-in user is no longer the confirming user', async () => {
+    const { service, post } = createResetService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+
+    await expect(
+      service.apiResetInfiniSubscription(
+        { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD },
+        { expectedOneKeyUserId: 'user-a' },
+      ),
+    ).rejects.toThrow('Prime purchase user changed');
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  // The method is production-callable and no decorator guards it, so the method
+  // body itself must reject a missing or wrong devOnlyPassword before the
+  // destructive request is sent.
+  it.each([
+    ['missing devOnlyPassword', {} as any],
+    ['wrong devOnlyPassword', { $$devOnlyPassword: 'wrong-password' } as any],
+  ])('rejects a direct call with %s', async (_title, params) => {
+    const { service, post } = createResetService();
+
+    await expect(
+      service.apiResetInfiniSubscription(params, {
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow(/devOnlyPassword is wrong/);
+
+    expect(post).not.toHaveBeenCalled();
   });
 });
 
@@ -2885,6 +2978,62 @@ describe('ServicePrime provisional Keyless OAuth session rollback', () => {
     );
   });
 
+  it('clears this flow own provisional session on a guarded rollback', async () => {
+    // The legacy-bind abort path relies on this: since the rollback is
+    // ownership-guarded, the caller must NOT be exempted from cleanup.
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    const persistenceJournal =
+      simpleDbPrime.setKeylessOAuthSessionPersistenceJournal.mock.calls[0][0];
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue(
+      persistenceJournal.sessionCommitId,
+    );
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: true });
+    expect(mockRemoveAuthSessionStorageBySessionSource).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it('preserves a session that now backs a committed KeylessOAuth login', async () => {
+    // The concurrent-flow case the cleanup exemption used to protect: the
+    // rollback itself refuses once the slot backs a committed login, so no
+    // caller-side exemption is needed to keep the winning session.
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'independent-keyless-user' });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(1);
+
+    const { rollbackHandle } = await service.persistKeylessOAuthSession({
+      accessToken,
+      refreshToken: 'refresh-independent',
+    });
+    // A concurrent KeylessOAuth login committed while the bind was aborting.
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+
+    await expect(
+      service.rollbackProvisionalKeylessOAuthSession({ rollbackHandle }),
+    ).resolves.toEqual({ cleared: false });
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
   it('rejects an expired rollback handle when its timer is delayed', async () => {
     jest.useFakeTimers();
     const { service, simpleDbPrime } = createService();
@@ -3399,5 +3548,396 @@ describe('ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState', () => {
 
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
     expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => {
+  const LEGACY_TOKEN = 'legacy-token-a';
+  const OAUTH_TOKEN = buildFakeJwt({ sub: 'oauth-sub-a' });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  // Source-aware slot reads: the legacy snapshot reads the LegacyEmailSupabase
+  // slot while the keyless guard (and the post-POST commit) read the shared
+  // KeylessOAuth slot.
+  function mockSlots({ legacyToken = LEGACY_TOKEN } = {}) {
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockImplementation(
+      async (source: unknown) => ({
+        status: 'ok',
+        accessToken:
+          source === EPrimeAuthSessionSource.LegacyEmailSupabase
+            ? legacyToken
+            : OAUTH_TOKEN,
+      }),
+    );
+  }
+
+  function createBindService({
+    tokenOwnerOnekeyUserId = 'user-a',
+    authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase,
+    authStateGeneration = 7,
+  }: {
+    tokenOwnerOnekeyUserId?: string;
+    authSessionSource?: unknown;
+    authStateGeneration?: number;
+  } = {}) {
+    const { service, simpleDbPrime, backgroundApi } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue(LEGACY_TOKEN);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(authSessionSource);
+    // The invalid-token coordinator resolves the source through the
+    // effective-source reader, so keep both in sync.
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      authSessionSource,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(authStateGeneration);
+    mockSlots();
+
+    const get = jest.fn(async () => ({
+      status: 200,
+      data: {
+        code: 0,
+        data: {
+          onekeyAccount: { onekeyUserId: tokenOwnerOnekeyUserId },
+        },
+      },
+    }));
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
+    return { service, simpleDbPrime, backgroundApi, get, post };
+  }
+
+  function bind(service: any, expectedOnekeyUserId = 'user-a') {
+    return service.apiBindLegacyOneKeyIdOAuth({
+      oauthAccessToken: OAUTH_TOKEN,
+      expectedOnekeyUserId,
+    });
+  }
+
+  it('binds with the token bytes whose server-side owner is the consented account', async () => {
+    const { service, get, post } = createBindService();
+
+    await expect(bind(service)).resolves.toEqual(
+      expect.objectContaining({
+        onekeyAccount: expect.objectContaining({ onekeyUserId: 'user-a' }),
+      }),
+    );
+
+    // Ownership probe pinned to the exact captured legacy token, and the
+    // bind POST carries those same bytes (never a re-read).
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      autoHandleError: false,
+      headers: {
+        'X-Onekey-Request-Token': LEGACY_TOKEN,
+      },
+    });
+    // The POST must be pinned to the same verified bytes: without an
+    // explicit header the client interceptor would inject a fresh slot read,
+    // so a slot swap after the probe would authenticate the irreversible
+    // bind as a different account than the one just verified.
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/account/identities/oauth/bind',
+      {
+        token: OAUTH_TOKEN,
+        legacyOneKeyIdAuthToken: LEGACY_TOKEN,
+      },
+      {
+        headers: {
+          'X-Onekey-Request-Token': LEGACY_TOKEN,
+        },
+      },
+    );
+  });
+
+  it('aborts when the live login already flipped to KeylessOAuth (stale legacy slot)', async () => {
+    // Post-commit legacy cleanup failures are deliberately tolerated, so a
+    // residual legacy token can coexist with a live KeylessOAuth login.
+    const { service, get, post } = createBindService({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+    });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the logged-in account changed since the user consented', async () => {
+    const { service, get, post } = createBindService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+
+    await expect(bind(service, 'user-a')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when OneKey ID is logged out', async () => {
+    const { service, get, post } = createBindService();
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the captured legacy token is not the bytes persisted in the slot', async () => {
+    const { service, get, post } = createBindService();
+    mockSlots({ legacyToken: 'another-legacy-token' });
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the server says the captured token belongs to another account', async () => {
+    // Split-runtime TOCTOU: the main runtime wrote account B's session into
+    // the shared legacy slot (verifyOtp) while its apiLogin is still queued
+    // on this loginMutex, so the bg atom/generation still show the consented
+    // account A and every local check is self-consistent. Only the server can
+    // tell whose token this is.
+    const { service, get, post } = createBindService({
+      tokenOwnerOnekeyUserId: 'user-b',
+    });
+
+    await expect(bind(service, 'user-a')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the token owner cannot be resolved', async () => {
+    const { service, post } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 0, data: {} },
+      })),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('aborts when the auth state generation advances across the ownership probe', async () => {
+    const { service, simpleDbPrime, post } = createBindService();
+    let probed = false;
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        probed = true;
+        // A login commit landed while the probe was in flight.
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(8);
+        return {
+          status: 200,
+          data: {
+            code: 0,
+            data: { onekeyAccount: { onekeyUserId: 'user-a' } },
+          },
+        };
+      }),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(probed).toBe(true);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('reclassifies an invalid legacy token instead of reporting a login change', async () => {
+    // autoHandleError: false makes the interceptor skip its code!==0 branch,
+    // so a rejected token resolves normally. Collapsing that into the
+    // state-changed error would tell the user to retry something that can
+    // never succeed, skip the invalid-token teardown, and (via the cleanup
+    // exemption) strand this flow's provisional keyless session.
+    const { service, post, backgroundApi } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 90_002, message: 'token expired', data: undefined },
+      })),
+      post,
+    }));
+
+    // This class carries no className override, so match the type itself —
+    // that is what handlePrimeLoginInvalidToken keys off.
+    await expect(bind(service)).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeLoginInvalidToken,
+    );
+
+    expect(post).not.toHaveBeenCalled();
+    // autoHandleError:false bypasses the client's invalid-token interceptor,
+    // so the bind must hand the CAPTURED token to the coordinator itself —
+    // otherwise the dead session stays logged in after the abort.
+    expect(
+      backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutReconciliation,
+    ).toHaveBeenCalledWith({ expectedAccessToken: LEGACY_TOKEN });
+  });
+
+  it('still surfaces the invalid-token cause when reconciliation itself fails', async () => {
+    // The coordinator is a best-effort side effect; letting its failure
+    // escape would replace the real cause with a confusing secondary error.
+    const { service, post, simpleDbPrime } = createBindService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 90_002, message: 'token expired', data: undefined },
+      })),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeLoginInvalidToken,
+    );
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a non-auth server error from the probe as a server error', async () => {
+    const { service, post } = createBindService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        status: 200,
+        data: { code: 50_000, message: 'boom', data: undefined },
+      })),
+      post,
+    }));
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+    });
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the keyless slot after the probe to keep the guard->POST window at one request', async () => {
+    // The probe added a round-trip; running the keyless guard before it would
+    // stretch the uncovered window from one POST to GET + POST, and the
+    // snapshot re-check only re-validates the legacy side.
+    const { service } = createBindService();
+    const calls: string[] = [];
+    const keylessGuard = jest
+      .spyOn(service, 'assertKeylessSessionPersistedBeforeLogin')
+      .mockImplementation(async () => {
+        calls.push('keylessGuard');
+        return { verifiedTokenSub: 'oauth-sub-a' };
+      });
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        calls.push('probe');
+        return {
+          status: 200,
+          data: {
+            code: 0,
+            data: { onekeyAccount: { onekeyUserId: 'user-a' } },
+          },
+        };
+      }),
+      post: jest.fn(async () => {
+        calls.push('bindPost');
+        return {
+          data: {
+            data: {
+              onekeyAccount: {
+                onekeyUserId: 'user-a',
+                normalizedEmail: 'a@example.com',
+                displayEmail: 'a@example.com',
+              },
+            },
+          },
+        };
+      }),
+    }));
+
+    await expect(bind(service)).resolves.toBeDefined();
+
+    expect(calls).toEqual(['probe', 'keylessGuard', 'bindPost']);
+    expect(keylessGuard).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the legacy guard before the keyless slot guard', async () => {
+    // The legacy precondition is the cheap, definitive one: it must fail
+    // before the keyless slot is even read, so a bind aborted by a login
+    // change never reports a keyless-slot problem instead.
+    const { service } = createBindService({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+    });
+    const keylessGuard = jest.spyOn(
+      service,
+      'assertKeylessSessionPersistedBeforeLogin',
+    );
+
+    await expect(bind(service)).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(keylessGuard).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty expectedOnekeyUserId instead of binding unconditionally', async () => {
+    const { service, get, post } = createBindService();
+
+    await expect(bind(service, '')).rejects.toMatchObject({
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
   });
 });

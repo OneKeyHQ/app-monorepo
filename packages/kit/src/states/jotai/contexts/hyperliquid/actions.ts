@@ -129,6 +129,7 @@ import {
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
   getPerpsTokenInfoNotFoundMessage,
+  getPerpsTradingNotEnabledMessage,
 } from './utils/config';
 import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
 import {
@@ -3480,7 +3481,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const info = await perpsActiveAccountIsAgentReadyAtom.get();
     if (info.isAgentReady === false) {
       showEnableTradingDialog();
-      throw new OneKeyLocalError('Trading not enabled');
+      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
     }
   });
 

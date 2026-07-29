@@ -12,18 +12,14 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigateToKeyTagImportPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { ONEKEY_KEY_TAG_PURCHASE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalKeyTagRoutes,
-  EModalRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { KeyTagTestIDs } from '../../testIDs';
@@ -33,23 +29,20 @@ const UserOptions = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onBackup = useCallback(() => {
-    navigation.pushModal(EModalRoutes.KeyTagModal, {
-      screen: EModalKeyTagRoutes.BackupWallet,
-    });
+    navigation.push(EModalKeyTagRoutes.BackupWallet);
   }, [navigation]);
-  const onImport = useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+  const onImport = useCallback(() => {
     defaultLogger.setting.page.keyTagImport();
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportKeyTag,
-    });
-  }, [navigation]);
+    navigateToKeyTagImportPage();
+  }, []);
   const onGetOne = useCallback(() => {
     openUrlExternal(ONEKEY_KEY_TAG_PURCHASE_URL);
   }, []);
   return (
     <Page>
-      <Page.Header title="OneKey KeyTag" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_onekey_keytag })}
+      />
       <Page.Body>
         <Stack mx="$5" mt="$2" mb="$5" borderRadius="$3">
           <Stack borderRadius={12} overflow="hidden">

@@ -107,6 +107,10 @@ import {
   shouldRenderPrimeInfiniPaymentSelection,
 } from '../hooks/primeInfiniPaymentUtils';
 import {
+  capturePrimeInfiniSessionRevision,
+  releasePrimeInfiniTerminalSession,
+} from '../hooks/primeInfiniTerminalRelease';
+import {
   isPrimeInfiniExternalCheckoutInFlight,
   usePrimeInfiniPurchase,
 } from '../hooks/usePrimeInfiniPurchase';
@@ -119,7 +123,9 @@ import {
 } from '../primeSubscriptionPurchaseSuccess';
 
 import { showPrimeInfiniWaitingDialog } from './PrimeInfiniWaitingDialog';
+import { usePrimePurchaseCallback } from './PrimePurchaseDialog/PrimePurchaseDialog';
 
+import type { IPrimeInfiniPaymentSessionRevision } from '../hooks/primeInfiniPaymentReplacement';
 import type {
   IPrimeInfiniPaymentAsset,
   IPrimeInfiniPaymentPhase,
@@ -156,6 +162,7 @@ type ILoadPaymentOptionsState = {
   canUseExternalCheckout: boolean;
   shouldCreatePayment: boolean;
   shouldShowExistingPaymentChoice: boolean;
+  staleExistingPaymentSession?: IPrimeInfiniPendingPaymentSession;
   pendingSession?: IPrimeInfiniPendingPaymentSession;
   completedPaymentId?: string;
 };
@@ -502,11 +509,13 @@ function PrimeInfiniPaymentUnavailableSelection({
 function PrimeInfiniExistingPaymentChoice({
   session,
   isStartingNewPayment,
+  isPaymentStateStale,
   onContinueExistingPayment,
   onStartNewPayment,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
   isStartingNewPayment: boolean;
+  isPaymentStateStale: boolean;
   onContinueExistingPayment: () => void;
   onStartNewPayment: () => Promise<void>;
 }) {
@@ -526,6 +535,19 @@ function PrimeInfiniExistingPaymentChoice({
           // TODO: i18n pending translation key
           description="The previous transfer may still complete. Starting a new payment could result in duplicate transfers."
         />
+        {isPaymentStateStale ? (
+          // The amounts below come from the local record because the server
+          // could not be reached for this invoice. Presenting them as current
+          // would let someone read a stale "0 confirming" as proof they never
+          // paid, which is exactly the judgement this screen asks them to make.
+          <Alert
+            type="critical"
+            // TODO: i18n pending translation key
+            title="Unable to refresh this payment"
+            // TODO: i18n pending translation key
+            description="The amounts below are from this device's last known state and may be out of date. Check the recipient address on chain before starting a new payment."
+          />
+        ) : null}
         <YStack
           gap="$3"
           p="$4"
@@ -554,6 +576,15 @@ function PrimeInfiniExistingPaymentChoice({
               {session.payment.amountConfirming ?? '0'} {session.payment.token}
             </SizableText>
           </XStack>
+          {isPaymentStateStale ? (
+            <YStack gap="$1">
+              {/* TODO: i18n pending translation key */}
+              <SizableText color="$textSubdued">Recipient address</SizableText>
+              <SizableText size="$bodySm" userSelect="text">
+                {session.payment.address}
+              </SizableText>
+            </YStack>
+          ) : null}
           {platformEnv.isDev ? (
             <YStack gap="$1">
               <SizableText color="$textSubdued">Payment ID</SizableText>
@@ -976,6 +1007,56 @@ function PrimeInfiniWalletPaymentContent({
     [baseline.onekeyUserId],
   );
 
+  // Releases an invoice the server closed with nothing collected. The ordinary
+  // discard above refuses it once sendStarted is latched, which would strand
+  // the user on a dead payment with no way to change the selection.
+  const captureTerminalPaymentSessionRevision = useCallback(async () => {
+    const onekeyUserId = baseline.onekeyUserId;
+    if (!onekeyUserId) {
+      return undefined;
+    }
+    return capturePrimeInfiniSessionRevision({
+      queue: sessionPersistenceQueueRef.current,
+      fetchPersistedSession: () =>
+        backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
+          onekeyUserId,
+        }),
+    });
+  }, [baseline.onekeyUserId]);
+
+  const discardTerminalPaymentSessionForSelectionChange = useCallback(
+    async (
+      latestPayment: IPrimeInfiniPayment,
+      sessionRevision: IPrimeInfiniPaymentSessionRevision | undefined,
+    ) => {
+      const onekeyUserId = baseline.onekeyUserId;
+      const expectedPaymentCacheIdentity = paymentCacheKeyRef.current;
+      if (
+        !onekeyUserId ||
+        expectedPaymentCacheIdentity?.paymentId !== latestPayment.paymentId
+      ) {
+        return false;
+      }
+      return releasePrimeInfiniTerminalSession({
+        queue: sessionPersistenceQueueRef.current,
+        discardTerminalSession: () =>
+          backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+            {
+              onekeyUserId,
+              expectedPaymentCacheIdentity,
+              // Revision pinned before the caller's remote fetch. Absent means
+              // there was no session then, and the DB layer still refuses if
+              // one has appeared since.
+              expectedUpdatedAt: sessionRevision?.updatedAt ?? 0,
+              expectedSendStarted: sessionRevision?.sendStarted ?? false,
+              latestPayment,
+            },
+          ),
+      });
+    },
+    [baseline.onekeyUserId],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1362,6 +1443,9 @@ function PrimeInfiniWalletPaymentContent({
               expectedOneKeyUserId: baseline.onekeyUserId ?? '',
             }),
           discardPaymentSession: discardPaymentSessionForSelectionChange,
+          captureSessionRevision: captureTerminalPaymentSessionRevision,
+          discardTerminalPaymentSession:
+            discardTerminalPaymentSessionForSelectionChange,
           fetchPersistedPaymentSession: () =>
             backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
               onekeyUserId: baseline.onekeyUserId ?? '',
@@ -1530,6 +1614,8 @@ function PrimeInfiniWalletPaymentContent({
       baseline.onekeyUserId,
       assets,
       discardPaymentSessionForSelectionChange,
+      captureTerminalPaymentSessionRevision,
+      discardTerminalPaymentSessionForSelectionChange,
       featureName,
       intl,
       onExitPreventedChange,
@@ -2488,10 +2574,15 @@ function PrimeInfiniWalletPaymentContent({
             setPhase('polling');
             throw new OneKeyLocalError('Infini payment send already started');
           }
-          const persistedSession =
-            await backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
-              { onekeyUserId: purchaseUserIdForSend },
-            );
+          const [persistedSession, latestPayment] = await Promise.all([
+            backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
+              onekeyUserId: purchaseUserIdForSend,
+            }),
+            backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+              paymentId: paymentForSend.paymentId,
+              expectedOneKeyUserId: purchaseUserIdForSend,
+            }),
+          ]);
           if (
             !persistedSession ||
             !isSamePrimeInfiniPaymentCacheKey(
@@ -2510,11 +2601,6 @@ function PrimeInfiniWalletPaymentContent({
             setPhase('polling');
             throw new OneKeyLocalError('Infini payment send already started');
           }
-          const latestPayment =
-            await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
-              paymentId: paymentForSend.paymentId,
-              expectedOneKeyUserId: purchaseUserIdForSend,
-            });
           if (!isAttemptCurrent()) {
             preSendBlockedPhase = 'failed';
             throw new OneKeyLocalError('Infini payment attempt is stale');
@@ -2536,7 +2622,6 @@ function PrimeInfiniWalletPaymentContent({
           }
           paymentRef.current = latestPayment;
           setPayment(latestPayment);
-          await persistPaymentSession({ nextPayment: latestPayment });
           const latestOutcome = getPrimeInfiniPaymentOutcome({
             payment: latestPayment,
           });
@@ -2562,6 +2647,10 @@ function PrimeInfiniWalletPaymentContent({
           ) {
             preSendBlockedPhase =
               latestOutcome === 'failed' ? 'failed' : 'expired';
+            await persistPaymentSession({
+              nextPayment: latestPayment,
+              nextSendStarted: false,
+            });
             setPhase(preSendBlockedPhase);
             throw new OneKeyLocalError('Infini payment is no longer sendable');
           }
@@ -2752,6 +2841,9 @@ function PrimeInfiniWalletPaymentContent({
             expectedOneKeyUserId: baseline.onekeyUserId ?? '',
           }),
         discardPaymentSession: discardPaymentSessionForSelectionChange,
+        captureSessionRevision: captureTerminalPaymentSessionRevision,
+        discardTerminalPaymentSession:
+          discardTerminalPaymentSessionForSelectionChange,
         fetchPersistedPaymentSession: () =>
           backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession({
             onekeyUserId: baseline.onekeyUserId ?? '',
@@ -2882,6 +2974,8 @@ function PrimeInfiniWalletPaymentContent({
   }, [
     baseline.onekeyUserId,
     discardPaymentSessionForSelectionChange,
+    captureTerminalPaymentSessionRevision,
+    discardTerminalPaymentSessionForSelectionChange,
     featureName,
     intl,
     isPurchaseUserCurrent,
@@ -2944,6 +3038,9 @@ function PrimeInfiniWalletPaymentContent({
                   expectedOneKeyUserId: baseline.onekeyUserId ?? '',
                 }),
               discardPaymentSession: discardPaymentSessionForSelectionChange,
+              captureSessionRevision: captureTerminalPaymentSessionRevision,
+              discardTerminalPaymentSession:
+                discardTerminalPaymentSessionForSelectionChange,
               fetchPersistedPaymentSession: () =>
                 backgroundApiProxy.simpleDb.prime.getInfiniPendingPaymentSession(
                   {
@@ -3053,6 +3150,8 @@ function PrimeInfiniWalletPaymentContent({
     [
       baseline.onekeyUserId,
       discardPaymentSessionForSelectionChange,
+      captureTerminalPaymentSessionRevision,
+      discardTerminalPaymentSessionForSelectionChange,
       featureName,
       onClose,
       onExitPreventedChange,
@@ -3406,6 +3505,7 @@ function PrimeInfiniWalletPaymentRoot({
   const initialAccountSyncPromiseRef = useRef<Promise<void> | undefined>(
     undefined,
   );
+  const { purchase } = usePrimePurchaseCallback();
   const completedPaymentHandledRef = useRef('');
   const paymentCreationIntentRef = useRef(createNewPayment);
   const forcedReplacementGenerationRef = useRef(0);
@@ -3464,6 +3564,9 @@ function PrimeInfiniWalletPaymentRoot({
       let sessionLoadFailed = false;
       let pendingSession: IPrimeInfiniPendingPaymentSession | undefined;
       let completedPaymentId: string | undefined;
+      // Kept outside the try so a failed server refresh can still fall back to
+      // what is stored locally.
+      let localSessionSnapshot: IPrimeInfiniPendingPaymentSession | undefined;
       if (onekeyUserId) {
         try {
           const restoredSession = normalizePendingPaymentSession(
@@ -3471,6 +3574,7 @@ function PrimeInfiniWalletPaymentRoot({
               { onekeyUserId },
             ),
           );
+          localSessionSnapshot = restoredSession;
           if (restoredSession) {
             const canonicalAsset = getCanonicalPrimeInfiniPaymentAsset(
               restoredSession.asset,
@@ -3598,6 +3702,20 @@ function PrimeInfiniWalletPaymentRoot({
           sendStarted: pendingSession.sendStarted,
         }),
       );
+      // The server can keep failing on one specific invoice. Showing only the
+      // retry screen would hide the unfinished-payment choice behind an error
+      // the user cannot clear, which is the one screen that can release the
+      // session. Fall back to the stored snapshot, clearly marked as stale.
+      const staleExistingPaymentSession =
+        sessionLoadFailed &&
+        shouldCreatePayment &&
+        localSessionSnapshot &&
+        !isPrimeInfiniPaymentReplaceable({
+          payment: localSessionSnapshot.payment,
+          sendStarted: localSessionSnapshot.sendStarted,
+        })
+          ? localSessionSnapshot
+          : undefined;
       if (pendingSession) {
         logPrimeInfiniPaymentFlow({
           stage: 'paymentSession',
@@ -3668,6 +3786,7 @@ function PrimeInfiniWalletPaymentRoot({
         completedPaymentId,
         shouldCreatePayment,
         shouldShowExistingPaymentChoice,
+        staleExistingPaymentSession,
         canUseExternalCheckout: Boolean(
           hasValidRouteParams &&
           onekeyUserId &&
@@ -3695,13 +3814,25 @@ function PrimeInfiniWalletPaymentRoot({
     )
       ? undefined
       : result?.pendingSession;
-  const existingPaymentChoiceSession =
+  const freshExistingPaymentChoiceSession =
     result?.shouldShowExistingPaymentChoice &&
     effectivePendingSession &&
     continuedExistingPaymentBindingId !==
       effectivePendingSession.paymentCacheKey.bindingId
       ? effectivePendingSession
       : undefined;
+  const staleExistingPaymentChoiceSession =
+    !freshExistingPaymentChoiceSession &&
+    result?.staleExistingPaymentSession &&
+    !discardedPaymentBindingIds.has(
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId,
+    ) &&
+    continuedExistingPaymentBindingId !==
+      result.staleExistingPaymentSession.paymentCacheKey.bindingId
+      ? result.staleExistingPaymentSession
+      : undefined;
+  const existingPaymentChoiceSession =
+    freshExistingPaymentChoiceSession ?? staleExistingPaymentChoiceSession;
 
   useEffect(() => {
     const completedPaymentId = result?.completedPaymentId;
@@ -3862,6 +3993,16 @@ function PrimeInfiniWalletPaymentRoot({
       reason: 'userContinuedExistingPayment',
       sendStarted: existingPaymentChoiceSession.sendStarted,
     });
+    if (staleExistingPaymentChoiceSession) {
+      // This choice was rendered from the stored snapshot because the server
+      // would not confirm the invoice, so there is nothing to resume into:
+      // polling needs the same request that just failed. Marking it continued
+      // would also hide the forced replacement along with the screen, leaving
+      // no way back to it. Retry the load instead, which either recovers the
+      // real session or brings both options back.
+      void run({ alwaysSetState: true });
+      return;
+    }
     setContinuedExistingPaymentBindingId(
       existingPaymentChoiceSession.paymentCacheKey.bindingId,
     );
@@ -3869,7 +4010,9 @@ function PrimeInfiniWalletPaymentRoot({
     existingPaymentChoiceSession,
     featureName,
     plan,
+    run,
     selectedSubscriptionPeriod,
+    staleExistingPaymentChoiceSession,
   ]);
   const handleStartForcedReplacement = useCallback(async () => {
     if (
@@ -3885,7 +4028,7 @@ function PrimeInfiniWalletPaymentRoot({
     forcedReplacementGenerationRef.current = attemptGeneration;
     const shouldContinue = () =>
       forcedReplacementGenerationRef.current === attemptGeneration;
-    let handedOffToPaymentCreation = false;
+    let handedOffToPaymentEntry = false;
     setIsStartingForcedReplacement(true);
     onExitPreventedChange(true);
     logPrimeInfiniPaymentFlow({
@@ -3974,12 +4117,17 @@ function PrimeInfiniWalletPaymentRoot({
           reason: 'previousPaymentSuperseded',
           sendStarted: false,
         });
-        paymentCreationIntentRef.current = true;
-        setSelectedAssetKey(currentSession.asset.key);
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
-        handedOffToPaymentCreation = true;
-        await run({ alwaysSetState: true });
+        handedOffToPaymentEntry = true;
+        // The superseded session no longer holds the entry gate, so hand the
+        // user back to the payment method picker rather than silently minting
+        // another invoice for the same token. Someone forcing a new payment may
+        // be doing it precisely because they can no longer pay with that asset,
+        // and having accepted the duplicate-transfer warning they are entitled
+        // to every channel, not just the crypto one.
+        onClose();
+        await purchase({ selectedSubscriptionPeriod, featureName });
         return;
       }
       if (replacementResult.type === 'track') {
@@ -4021,7 +4169,7 @@ function PrimeInfiniWalletPaymentRoot({
       errorToastUtils.toastIfError(error);
       errorToastUtils.showToastOfError(error);
     } finally {
-      if (!handedOffToPaymentCreation) {
+      if (!handedOffToPaymentEntry) {
         setIsStartingForcedReplacement(false);
         onExitPreventedChange(false);
       }
@@ -4030,7 +4178,9 @@ function PrimeInfiniWalletPaymentRoot({
     existingPaymentChoiceSession,
     featureName,
     isStartingForcedReplacement,
+    onClose,
     onExitPreventedChange,
+    purchase,
     result?.baseline.onekeyUserId,
     run,
     plan,
@@ -4100,6 +4250,7 @@ function PrimeInfiniWalletPaymentRoot({
       return (
         <PrimeInfiniExistingPaymentChoice
           session={existingPaymentChoiceSession}
+          isPaymentStateStale={Boolean(staleExistingPaymentChoiceSession)}
           isStartingNewPayment={
             isStartingForcedReplacement || Boolean(isLoading)
           }

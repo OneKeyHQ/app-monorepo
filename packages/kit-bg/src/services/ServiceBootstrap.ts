@@ -209,6 +209,15 @@ class ServiceBootstrap extends ServiceBase {
             ),
           ]
         : []),
+      // Resume persisted tracking from the runtime that owns it. The dynamic
+      // preflight keeps the full Unifold service out of an idle startup while
+      // preserving recovery after this background runtime restarts.
+      timedDeferred('serviceUnifoldDeposit.resumeDepositTracking', () =>
+        import('./ServiceUnifoldDeposit/resumeUnifoldDepositTracking').then(
+          ({ resumeUnifoldDepositTracking }) =>
+            resumeUnifoldDepositTracking(this.backgroundApi),
+        ),
+      ),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),

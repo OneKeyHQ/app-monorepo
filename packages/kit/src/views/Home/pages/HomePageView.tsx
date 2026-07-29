@@ -854,10 +854,23 @@ export function HomePageView({
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
+    // The remount key resets the pager to the first tab while HomePageView's
+    // pager state still points at the previously selected tab, so seed
+    // the remounted container with that tab. But the new pagerTabConfigs and
+    // the stale pagerTabName can land in the same render (the reset effect
+    // above runs only after it), and the web Tabs.Container initializes
+    // focusedTab with whatever name it receives without falling back when
+    // the name is missing from the tab set — leaving content, highlight and
+    // active state out of sync. Validate here and fall back to the first tab.
+    const seedTabName = pagerTabConfigs.some((tab) => tab.name === pagerTabName)
+      ? pagerTabName
+      : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // Both implementations only read this prop at mount.
+        initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}

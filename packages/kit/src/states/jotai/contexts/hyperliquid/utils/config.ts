@@ -17,6 +17,9 @@ export const getPerpsOrderNoLongerEligibleForChaseMessage = t(
 export const getPerpsTokenInfoNotFoundMessage = t(
   ETranslations.perp_token_info_not_found__msg,
 );
+export const getPerpsTradingNotEnabledMessage = t(
+  ETranslations.perp_error_enable,
+);
 
 export const ERROR_PATTERNS: Record<EErrorType, string[]> = {
   [EErrorType.INVALID_AGENT]: ['User or API Wallet', 'does not exist'],

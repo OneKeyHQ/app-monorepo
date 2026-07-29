@@ -1,7 +1,9 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import type {
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swapStockTokenListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
   ESwapTabSwitchType,
-  IFetchTokensParams,
+  type IFetchTokensParams,
 } from '@onekeyhq/shared/types/swap/types';
 
 export function buildSwapTokenFetchParams({
@@ -36,6 +38,10 @@ export function buildSwapTokenFetchParams({
     keywords,
     lpToken,
     currency: requestCurrency,
+    ...(swapType === ESwapTabSwitchType.STOCK &&
+    networkUtils.isAllNetwork({ networkId: targetNetworkId })
+      ? { limit: swapStockTokenListMaxCount }
+      : {}),
   };
 
   if (matchedAccount?.apiAddress) {

@@ -1,5 +1,6 @@
 import {
   buildSwapAllNetworkTokenListCacheKey,
+  dedupeTokenSelectorNetworkAccounts,
   filterTokenSelectorTokensByBackendIndexedNetworks,
   isTokenSelectorDappTokenFilterSupportedNetworkBase,
 } from './tokenSelectorFilterUtils';
@@ -40,6 +41,45 @@ describe('tokenSelectorFilterUtils', () => {
           backendIndexedNetworkIds: ['evm--1'],
         }),
       ).toEqual([{ networkId: 'evm--1', symbol: 'ETH' }]);
+    });
+  });
+
+  describe('dedupeTokenSelectorNetworkAccounts', () => {
+    it('keeps one request per network and API address', () => {
+      expect(
+        dedupeTokenSelectorNetworkAccounts([
+          {
+            accountId: 'account-1',
+            apiAddress: '0xAccount',
+            networkId: 'evm--1',
+          },
+          {
+            accountId: 'account-2',
+            apiAddress: '0xaccount',
+            networkId: 'evm--1',
+          },
+          {
+            accountId: 'account-3',
+            apiAddress: '0xAccount',
+            networkId: 'evm--56',
+          },
+          {
+            accountId: 'account-4',
+            networkId: 'sol--101',
+          },
+        ]),
+      ).toEqual([
+        {
+          accountId: 'account-1',
+          apiAddress: '0xAccount',
+          networkId: 'evm--1',
+        },
+        {
+          accountId: 'account-3',
+          apiAddress: '0xAccount',
+          networkId: 'evm--56',
+        },
+      ]);
     });
   });
 
