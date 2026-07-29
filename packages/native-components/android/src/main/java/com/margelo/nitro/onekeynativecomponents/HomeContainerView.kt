@@ -230,6 +230,13 @@ internal fun homeContainerTargetSynchronizedCollapseOffset(
     requestedOffset.coerceIn(0, maximumHeaderOffset)
   }
 
+internal fun homeContainerShouldSynchronizeBoundPage(
+  currentTabId: String,
+  nextTabId: String,
+  selectedTabId: String,
+): Boolean =
+  currentTabId != nextTabId || nextTabId != selectedTabId
+
 internal data class HomeContainerCompletedRender(
   val state: HomeContainerProtocolV2State,
   val acknowledgement: String,
@@ -1756,6 +1763,11 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       tab: HomeContainerTab,
       next: HomeContainerSnapshot,
     ) {
+      val shouldSynchronizeCollapseOffset = homeContainerShouldSynchronizeBoundPage(
+        currentTabId = page.tabId,
+        nextTabId = tab.id,
+        selectedTabId = selectedTabId,
+      )
       page.onSlotLayoutChange = { this@HomeContainerView.onSlotLayoutChange?.invoke() }
       page.onAction = { actionId, itemId, tabId ->
         this@HomeContainerView.emitAction(actionId, itemId, tabId)
@@ -1787,7 +1799,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
         next.revision,
       )
-      page.synchronizeCollapseOffset(collapseOffset)
+      if (shouldSynchronizeCollapseOffset) {
+        page.synchronizeCollapseOffset(collapseOffset)
+      }
       page.setMountedSlotKeys(mountedSlotKeys)
       page.setPresentationActive(
         tab.id == selectedTabId &&

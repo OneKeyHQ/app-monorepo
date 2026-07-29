@@ -220,7 +220,7 @@ beforeEach(() => {
 });
 
 describe('HomeStoreControllerBridge effects', () => {
-  it('acquires the controller lease before local authority work and connects after layout', async () => {
+  it('acquires authority with a passive lifecycle and then connects', async () => {
     let view!: ReactTestRenderer;
     await act(async () => {
       view = create(
@@ -231,6 +231,9 @@ describe('HomeStoreControllerBridge effects', () => {
       await Promise.resolve();
     });
 
+    expect(mockEvents.indexOf('layout-complete')).toBeLessThan(
+      mockEvents.indexOf('acquire-lease'),
+    );
     expect(mockEvents.indexOf('acquire-lease')).toBeLessThan(
       mockEvents.indexOf('subscribe'),
     );
@@ -241,9 +244,6 @@ describe('HomeStoreControllerBridge effects', () => {
       mockEvents.indexOf('publish-owner'),
     );
     expect(mockEvents.indexOf('publish-owner')).toBeLessThan(
-      mockEvents.indexOf('layout-complete'),
-    );
-    expect(mockEvents.indexOf('layout-complete')).toBeLessThan(
       mockEvents.indexOf('connect'),
     );
 

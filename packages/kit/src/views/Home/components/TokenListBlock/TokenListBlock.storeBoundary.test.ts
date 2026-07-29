@@ -77,6 +77,12 @@ describe('Home portfolio Store boundary', () => {
     ).toBeLessThan(
       controllerSource.indexOf('void runLpTokenList({ alwaysSetState: true })'),
     );
+    expect(controllerSource).toMatch(
+      /useEffect\(\(\) => \{\s+if \(!showLpTokensOnly/,
+    );
+    expect(controllerSource).not.toMatch(
+      /useLayoutEffect\(\(\) => \{\s+if \(!showLpTokensOnly/,
+    );
   });
 
   it('binds single-network responses to their request owner and explicit terminal', () => {

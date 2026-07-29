@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -99,7 +99,7 @@ export function HomeStoreControllerBridge() {
   const inputsRef = useRef({ account, network, owner, wallet });
   inputsRef.current = { account, network, owner, wallet };
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const releaseControllerLease = acquireHomeStoreControllerLease({
       leaseId: controllerLeaseIdRef.current,
       storeKey: controllerLeaseKey,

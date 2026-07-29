@@ -374,4 +374,33 @@ class HomeContainerNavigationContractTest {
       ),
     )
   }
+
+  @Test
+  fun `selected page rebind preserves its existing viewport`() {
+    assertFalse(
+      homeContainerShouldSynchronizeBoundPage(
+        currentTabId = "portfolio",
+        nextTabId = "portfolio",
+        selectedTabId = "portfolio",
+      ),
+    )
+  }
+
+  @Test
+  fun `new and non-selected page binds synchronize the shared header`() {
+    assertTrue(
+      homeContainerShouldSynchronizeBoundPage(
+        currentTabId = "",
+        nextTabId = "portfolio",
+        selectedTabId = "portfolio",
+      ),
+    )
+    assertTrue(
+      homeContainerShouldSynchronizeBoundPage(
+        currentTabId = "portfolio",
+        nextTabId = "defi",
+        selectedTabId = "portfolio",
+      ),
+    )
+  }
 }

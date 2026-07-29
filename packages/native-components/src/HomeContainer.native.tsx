@@ -276,6 +276,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
   ) => {
     const { width: windowWidth } = useWindowDimensions();
     const nativeRef = useRef<HomeContainerNativeView | null>(null);
+    const readyNativeRef = useRef<HomeContainerNativeView | null>(null);
     const [acknowledgedSlotBundle, setAcknowledgedSlotBundle] =
       useState<IHomeContainerSlotBundle>();
     const [safeFallbackSlotBundle, setSafeFallbackSlotBundle] = useState<
@@ -313,8 +314,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       );
     }, [pendingProtocolV3Transport]);
 
-    useImperativeHandle(
-      ref,
+    const imperativeHandle = useMemo<IHomeContainerRef>(
       () => ({
         setSnapshot: (nextSnapshot) => {
           nativeRef.current?.setSnapshot(
@@ -454,6 +454,7 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
       }),
       [],
     );
+    useImperativeHandle(ref, () => imperativeHandle, [imperativeHandle]);
 
     const onActionRef = useRef(onAction);
     onActionRef.current = onAction;
@@ -553,6 +554,13 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     );
     const stableHybridRef = useCallback((nextRef: HomeContainerNativeView) => {
       nativeRef.current = nextRef;
+      if (
+        readyNativeRef.current === nextRef ||
+        readyNativeRef.current?.equals(nextRef)
+      ) {
+        return;
+      }
+      readyNativeRef.current = nextRef;
       const capabilities = parseCapabilities(nextRef.getCapabilities());
       if (capabilities) {
         // Nitro publishes the hybrid ref during the native commit, before

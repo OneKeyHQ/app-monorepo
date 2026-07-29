@@ -2106,4 +2106,13 @@ describe('Android HomeContainer list update stability', () => {
       'if (configuredHomeContainerSkeletonGradients[this] == gradientColors.toList()) return',
     );
   });
+
+  it('preserves the selected page viewport when the mounted page is rebound', () => {
+    expect(androidSource).toContain(
+      'val shouldSynchronizeCollapseOffset = homeContainerShouldSynchronizeBoundPage(',
+    );
+    expect(androidSource).toContain(
+      'if (shouldSynchronizeCollapseOffset) {\n        page.synchronizeCollapseOffset(collapseOffset)\n      }',
+    );
+  });
 });

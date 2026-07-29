@@ -24,6 +24,8 @@ import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
+import { shouldFreezeNativeBottomTab } from './nativeBottomTabFreezePolicy';
+
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 
 const Stack = createStackNavigator();
@@ -149,6 +151,12 @@ export function TabStackNavigator<RouteName extends string>({
           // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
           tabBarIcon: nativeTabBarIcon as any,
           tabBarLabel: intl.formatMessage({ id: translationId }),
+          // React Freeze recreates Android Fabric native views on reveal. Keep
+          // Wallet's HomeContainer mounted so its RecyclerView viewport survives.
+          freezeOnBlur: shouldFreezeNativeBottomTab({
+            isNativeIOS: Boolean(platformEnv.isNativeIOS),
+            routeName: name,
+          }),
         };
 
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop

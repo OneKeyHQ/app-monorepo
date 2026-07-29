@@ -1,5 +1,6 @@
 import { type ReactNode, createRef } from 'react';
 
+import { Freeze } from 'react-freeze';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { HomeContainer } from './HomeContainer.native';
@@ -41,7 +42,16 @@ let mockProtocolV3PatchSlotPropsAtSubmission:
   | Record<string, unknown>
   | undefined;
 
-const mockNativeView = {
+type IMockNativeView = {
+  applyPatch: (json: string) => void;
+  completeRefresh: (requestId?: string) => void;
+  equals: (other: unknown) => boolean;
+  getCapabilities: () => string;
+  selectTab: (tabId?: string, animated?: boolean) => void;
+  setSnapshot: (json: string) => void;
+};
+
+const mockNativeView: jest.Mocked<IMockNativeView> = {
   applyPatch: jest.fn((json: string) => {
     const payload = JSON.parse(json) as { protocolVersion?: number };
     if (payload.protocolVersion === HOME_CONTAINER_PROTOCOL_V3_VERSION) {
@@ -51,6 +61,7 @@ const mockNativeView = {
     }
   }),
   completeRefresh: jest.fn(),
+  equals: jest.fn((other: unknown): boolean => other === mockNativeView),
   getCapabilities: jest.fn(() =>
     JSON.stringify({
       schemaVersions: [HOME_CONTAINER_SCHEMA_VERSION],
@@ -299,6 +310,52 @@ describe('Native HomeContainer protocol v2 slot fallback', () => {
       initialSnapshot,
     );
     expect(mockNativeView.setSnapshot).not.toHaveBeenCalled();
+    act(() => view.unmount());
+  });
+
+  it('reuses the imperative transport handle after a frozen scene resumes', async () => {
+    const ref = createRef<IHomeContainerRef>();
+    const render = (freeze: boolean) => (
+      <Freeze freeze={freeze}>
+        <HomeContainer ref={ref} />
+      </Freeze>
+    );
+    let view!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      view = TestRenderer.create(render(false));
+      await Promise.resolve();
+    });
+    const initialHandle = ref.current;
+
+    await act(async () => {
+      view.update(render(true));
+      await Promise.resolve();
+    });
+    expect(ref.current).toBeNull();
+
+    await act(async () => {
+      view.update(render(false));
+      await Promise.resolve();
+    });
+    expect(ref.current).toBe(initialHandle);
+    act(() => view.unmount());
+  });
+
+  it('publishes readiness only once for repeated refs to the same native view', async () => {
+    const onReady = jest.fn();
+    let view!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      view = TestRenderer.create(<HomeContainer onReady={onReady} />);
+      await Promise.resolve();
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      mockHostProps?.hybridRef?.(mockNativeView);
+      mockHostProps?.hybridRef?.(mockNativeView);
+      await Promise.resolve();
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
     act(() => view.unmount());
   });
 

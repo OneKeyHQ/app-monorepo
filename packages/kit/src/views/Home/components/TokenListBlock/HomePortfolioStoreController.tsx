@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -1068,7 +1061,7 @@ function HomePortfolioStoreController({
     },
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!showLpTokensOnly || !account?.id || !network?.id) {
       setIsLpTokenSwitchLoading(false);
       // Leaving DeFi-token mode must drop the scoped list/map, restoring the

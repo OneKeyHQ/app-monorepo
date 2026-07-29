@@ -55,6 +55,9 @@ describe('Native Home runtime surface', () => {
         '../../../../../apps/mobile/src/home/mobileHomeRendererDevSwitch.ts',
       ),
     );
+    const homeStoreControllerBridgeSource = readSource(
+      'model/react/HomeStoreControllerBridge.tsx',
+    );
     const iosNativeSource = readSource(
       path.resolve(
         __dirname,
@@ -124,6 +127,16 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).not.toContain('nativeUnavailable');
     expect(mobileRendererSource).not.toContain('fallback=');
     expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');
+    expect(mobileRendererSource).toMatch(
+      /useEffect\(\(\) => \(\) => disposeNativeSession\(\), \[disposeNativeSession\]\);/,
+    );
+    expect(mobileRendererSource).not.toMatch(
+      /useLayoutEffect\(\(\) => \(\) => disposeNativeSession\(\), \[disposeNativeSession\]\);/,
+    );
+    expect(homeStoreControllerBridgeSource).not.toContain('useLayoutEffect');
+    expect(homeStoreControllerBridgeSource).toContain(
+      'const releaseControllerLease = acquireHomeStoreControllerLease({',
+    );
     expect(mobileRendererSource).toContain("execution: 'controller'");
     expect(mobileRendererSource).toContain(
       'const HOME_REFRESH_FEEDBACK_DURATION_MS = 1200;',
