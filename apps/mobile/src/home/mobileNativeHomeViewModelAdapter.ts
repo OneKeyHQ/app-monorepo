@@ -82,6 +82,14 @@ type IMobileNativeHomeTabTopology = {
   >;
   tabIds: readonly IHomeContainerTabId[];
 };
+type IMobileNativeHomePortfolioFilterPresentation = {
+  show: boolean;
+  value: boolean;
+};
+type IMobileNativeHomePortfolioPresentation = {
+  assetItemIdByPresentationId: Readonly<Record<string, string>>;
+  sections: IHomeContainerSection[];
+};
 
 const DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY: IMobileNativeHomeTabTopology = {
   destinations: { portfolio: 'inline' },
@@ -202,6 +210,89 @@ function resolveMobileNativeHomeBodySections({
       ],
     },
   ];
+}
+
+function buildMobileNativeHomePortfolioPresentation(
+  sections: IHomeContainerSection[],
+): IMobileNativeHomePortfolioPresentation {
+  const assetItemIdByPresentationId: Record<string, string> = {};
+  // Native row ids are presentation identity, not Store business identity.
+  // Position ids let cached owners reconfigure existing cells; the renderer
+  // maps them back to the current token keys before dispatching an intent.
+  return {
+    assetItemIdByPresentationId,
+    sections: sections.map((section) => {
+      if (section.id !== 'portfolio-assets') {
+        return section;
+      }
+      return {
+        ...section,
+        items: section.items.map((item, index) => {
+          const presentationId = `portfolio-assets-row-${index}`;
+          assetItemIdByPresentationId[presentationId] = item.id;
+          return { ...item, id: presentationId };
+        }),
+      };
+    }),
+  };
+}
+
+function resolveMobileNativeHomePortfolioSections({
+  current,
+  lastCommitted,
+  loading,
+}: {
+  current: IHomeContainerSection[];
+  lastCommitted?: IHomeContainerSection[];
+  loading: boolean;
+}): IHomeContainerSection[] {
+  if (!loading) {
+    return current;
+  }
+  if (!lastCommitted?.length) {
+    return current;
+  }
+  return lastCommitted.map((section) => ({
+    ...section,
+    actionDisabled: true,
+    actionId: undefined,
+    items: section.items.map((item) => {
+      return {
+        ...item,
+        actionId: undefined,
+        favoriteActionId: undefined,
+        segments: item.segments?.map((segment) => ({
+          ...segment,
+          actionId: '',
+        })),
+      };
+    }),
+  }));
+}
+
+function resolveMobileNativeHomePortfolioFilterPresentation({
+  current,
+  lastCommitted,
+  loading,
+}: {
+  current: IMobileNativeHomePortfolioFilterPresentation;
+  lastCommitted?: IMobileNativeHomePortfolioFilterPresentation;
+  loading: boolean;
+}): IMobileNativeHomePortfolioFilterPresentation {
+  return loading ? (lastCommitted ?? current) : current;
+}
+
+function shouldPresentMobileNativeHomePortfolioChrome({
+  bodyPresentationKind,
+  hasCommittedPresentation,
+}: {
+  bodyPresentationKind: IHomeBodyPresentation['kind'];
+  hasCommittedPresentation: boolean;
+}): boolean {
+  return (
+    bodyPresentationKind === 'portfolio' ||
+    (bodyPresentationKind === 'loading' && hasCommittedPresentation)
+  );
 }
 
 const MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS = {
@@ -1573,12 +1664,16 @@ export {
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
   MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
+  buildMobileNativeHomePortfolioPresentation,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomePortfolioFilterPresentation,
+  resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
+  shouldPresentMobileNativeHomePortfolioChrome,
 };
 export type {
   IHomeNativeExpandedState,
@@ -1586,5 +1681,7 @@ export type {
   IHomeNativeLabels,
   IHomeNativeMarketRecommendationState,
   IHomeNativePayloads,
+  IMobileNativeHomePortfolioFilterPresentation,
+  IMobileNativeHomePortfolioPresentation,
   IMobileNativeHomeTabTopology,
 };

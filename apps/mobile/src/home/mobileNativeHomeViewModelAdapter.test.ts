@@ -15,12 +15,16 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import {
+  buildMobileNativeHomePortfolioPresentation,
   buildMobileNativeHomeViewModelSections,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomePortfolioFilterPresentation,
+  resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
+  shouldPresentMobileNativeHomePortfolioChrome,
 } from './mobileNativeHomeViewModelAdapter';
 
 const presentation = {
@@ -123,6 +127,209 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       destinations: { portfolio: 'inline' },
       tabIds: ['portfolio'],
     });
+  });
+
+  it('keeps token presentation rows stable while preserving current business ids', () => {
+    const first = buildMobileNativeHomePortfolioPresentation([
+      {
+        id: 'portfolio-assets',
+        items: [
+          { id: 'btc', renderer: 'asset', title: 'BTC' },
+          { id: 'eth', renderer: 'asset', title: 'ETH' },
+        ],
+      },
+    ]);
+    const replacement = buildMobileNativeHomePortfolioPresentation([
+      {
+        id: 'portfolio-assets',
+        items: [
+          { id: 'sol', renderer: 'asset', title: 'SOL' },
+          { id: 'usdc', renderer: 'asset', title: 'USDC' },
+        ],
+      },
+    ]);
+
+    expect(first.sections[0]?.items.map((item) => item.id)).toEqual([
+      'portfolio-assets-row-0',
+      'portfolio-assets-row-1',
+    ]);
+    expect(replacement.sections[0]?.items.map((item) => item.id)).toEqual([
+      'portfolio-assets-row-0',
+      'portfolio-assets-row-1',
+    ]);
+    expect(replacement.assetItemIdByPresentationId).toEqual({
+      'portfolio-assets-row-0': 'sol',
+      'portfolio-assets-row-1': 'usdc',
+    });
+  });
+
+  it('keeps committed portfolio presentation while stripping owner commands', () => {
+    expect(
+      resolveMobileNativeHomePortfolioSections({
+        current: [
+          {
+            id: 'portfolio-state',
+            items: [
+              {
+                id: 'portfolio-state-loading-0',
+                renderer: 'loading',
+                title: 'Loading',
+              },
+            ],
+          },
+        ],
+        lastCommitted: [
+          {
+            id: 'portfolio-assets',
+            items: [
+              {
+                id: 'btc',
+                renderer: 'asset',
+                title: 'BTC',
+                actionId: 'open-asset',
+                favoriteActionId: 'favorite-btc',
+                displayHeight: 60,
+              },
+              {
+                id: 'eth',
+                renderer: 'asset',
+                title: 'ETH',
+                actionId: 'open-asset',
+                displayHeight: 60,
+              },
+            ],
+          },
+          {
+            id: 'portfolio-assets-toggle',
+            items: [
+              {
+                id: 'portfolio-assets-toggle',
+                renderer: 'showMore',
+                title: 'Show more',
+                actionId: 'toggle-assets',
+              },
+            ],
+          },
+        ],
+        loading: true,
+      }),
+    ).toEqual([
+      {
+        id: 'portfolio-assets',
+        actionDisabled: true,
+        actionId: undefined,
+        items: [
+          {
+            id: 'btc',
+            renderer: 'asset',
+            title: 'BTC',
+            actionId: undefined,
+            favoriteActionId: undefined,
+            displayHeight: 60,
+            segments: undefined,
+          },
+          {
+            id: 'eth',
+            renderer: 'asset',
+            title: 'ETH',
+            actionId: undefined,
+            favoriteActionId: undefined,
+            displayHeight: 60,
+            segments: undefined,
+          },
+        ],
+      },
+      {
+        id: 'portfolio-assets-toggle',
+        actionDisabled: true,
+        actionId: undefined,
+        items: [
+          {
+            id: 'portfolio-assets-toggle',
+            renderer: 'showMore',
+            title: 'Show more',
+            actionId: undefined,
+            favoriteActionId: undefined,
+            segments: undefined,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('uses cached token content immediately and keeps the cold loading fallback', () => {
+    const cached = [
+      {
+        id: 'portfolio-assets',
+        items: [{ id: 'sol', renderer: 'asset' as const, title: 'SOL' }],
+      },
+    ];
+    const coldLoading = [
+      {
+        id: 'portfolio-state',
+        items: [
+          {
+            id: 'portfolio-state-loading-0',
+            renderer: 'loading' as const,
+            title: 'Loading',
+          },
+        ],
+      },
+    ];
+
+    expect(
+      resolveMobileNativeHomePortfolioSections({
+        current: cached,
+        loading: false,
+      }),
+    ).toBe(cached);
+    expect(
+      resolveMobileNativeHomePortfolioSections({
+        current: coldLoading,
+        loading: true,
+      }),
+    ).toBe(coldLoading);
+  });
+
+  it('keeps portfolio chrome mounted only while a committed view is loading', () => {
+    expect(
+      shouldPresentMobileNativeHomePortfolioChrome({
+        bodyPresentationKind: 'loading',
+        hasCommittedPresentation: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPresentMobileNativeHomePortfolioChrome({
+        bodyPresentationKind: 'loading',
+        hasCommittedPresentation: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPresentMobileNativeHomePortfolioChrome({
+        bodyPresentationKind: 'missingNetworkAccount',
+        hasCommittedPresentation: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the committed token filter presentation disabled during loading', () => {
+    const committed = { show: true, value: true };
+    const replacement = { show: false, value: false };
+
+    expect(
+      resolveMobileNativeHomePortfolioFilterPresentation({
+        current: replacement,
+        lastCommitted: committed,
+        loading: true,
+      }),
+    ).toBe(committed);
+    expect(
+      resolveMobileNativeHomePortfolioFilterPresentation({
+        current: replacement,
+        lastCommitted: committed,
+        loading: false,
+      }),
+    ).toBe(replacement);
   });
 
   it('shows funded actions before the final balance total settles', () => {

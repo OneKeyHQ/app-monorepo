@@ -117,18 +117,23 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   type IHomeNativeExpandedState,
   type IHomeNativeMarketRecommendationState,
+  type IMobileNativeHomePortfolioFilterPresentation,
   type IMobileNativeHomeTabTopology,
   MOBILE_NATIVE_HOME_BANNER_SKELETON_ID,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
+  buildMobileNativeHomePortfolioPresentation,
   buildMobileNativeHomeViewModelSections,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
+  resolveMobileNativeHomePortfolioFilterPresentation,
+  resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
+  shouldPresentMobileNativeHomePortfolioChrome,
 } from './mobileNativeHomeViewModelAdapter';
 
 const TAB_ORDER: readonly IHomeContainerTabId[] = [
@@ -490,32 +495,34 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     [intl, marketPayload?.favoriteMode, selectedRecommendedMarketRowIds],
   );
 
-  const portfolioSections = useMemo(
+  const currentPortfolioPresentation = useMemo(
     () =>
-      buildMobileNativeHomeViewModelSections({
-        allNetworksBadgeImageUrl: network?.logoURI,
-        expanded: expandedSections,
-        fiatContext: {
-          currencyMap,
-          targetCurrencyId: settings.currencyInfo.id,
-          targetCurrencyUnit: settings.currencyInfo.symbol,
-        },
-        formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
-        hideValue,
-        isAllNetworks: Boolean(network?.isAllNetworks),
-        labels: nativeLabels,
-        locale: intl.locale,
-        marketRecommendationState,
-        marketSemantic: marketSection.value,
-        payloads: {
-          portfolio: portfolioPayload,
-          defi: defiPayload,
-          market: marketPayload,
-        },
-        portfolioAssetsLoading: lpTokenSwitch.loading,
-        sectionId: 'portfolio',
-        semantic: portfolioSection.value,
-      }),
+      buildMobileNativeHomePortfolioPresentation(
+        buildMobileNativeHomeViewModelSections({
+          allNetworksBadgeImageUrl: network?.logoURI,
+          expanded: expandedSections,
+          fiatContext: {
+            currencyMap,
+            targetCurrencyId: settings.currencyInfo.id,
+            targetCurrencyUnit: settings.currencyInfo.symbol,
+          },
+          formatActionLabel: (labelId) => intl.formatMessage({ id: labelId }),
+          hideValue,
+          isAllNetworks: Boolean(network?.isAllNetworks),
+          labels: nativeLabels,
+          locale: intl.locale,
+          marketRecommendationState,
+          marketSemantic: marketSection.value,
+          payloads: {
+            portfolio: portfolioPayload,
+            defi: defiPayload,
+            market: marketPayload,
+          },
+          portfolioAssetsLoading: lpTokenSwitch.loading,
+          sectionId: 'portfolio',
+          semantic: portfolioSection.value,
+        }),
+      ),
     [
       defiPayload,
       currencyMap,
@@ -535,6 +542,58 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       settings.currencyInfo.symbol,
     ],
   );
+  const currentPortfolioSections = currentPortfolioPresentation.sections;
+  const portfolioAssetItemIdByPresentationId =
+    currentPortfolioPresentation.assetItemIdByPresentationId;
+  const lastCommittedPortfolioSectionsRef = useRef<
+    IHomeContainerSection[] | undefined
+  >(undefined);
+  // Match tab handoff semantics: owner loading is not a committed replacement
+  // presentation. Keep the last Portfolio rows mounted but strip every command,
+  // then let cached or live data reconfigure those same presentation identities.
+  const portfolioSections = resolveMobileNativeHomePortfolioSections({
+    current: currentPortfolioSections,
+    lastCommitted: lastCommittedPortfolioSectionsRef.current,
+    loading: portfolioSection.value.kind === 'loading',
+  });
+  const hasCommittedPortfolioPresentation = Boolean(
+    portfolioSection.value.kind === 'ready' ||
+    lastCommittedPortfolioSectionsRef.current,
+  );
+  const shouldPresentPortfolioChrome =
+    shouldPresentMobileNativeHomePortfolioChrome({
+      bodyPresentationKind: displayModel.body.kind,
+      hasCommittedPresentation: hasCommittedPortfolioPresentation,
+    });
+  const portfolioOwnerLoading = portfolioSection.value.kind === 'loading';
+  const currentPortfolioFilterPresentation = useMemo(
+    () => ({
+      show: Boolean(portfolioPayload?.showLpTokenFilterSwitch),
+      value: lpTokenSwitch.value,
+    }),
+    [lpTokenSwitch.value, portfolioPayload?.showLpTokenFilterSwitch],
+  );
+  const lastCommittedPortfolioFilterPresentationRef = useRef<
+    IMobileNativeHomePortfolioFilterPresentation | undefined
+  >(undefined);
+  const portfolioFilterPresentation =
+    resolveMobileNativeHomePortfolioFilterPresentation({
+      current: currentPortfolioFilterPresentation,
+      lastCommitted: lastCommittedPortfolioFilterPresentationRef.current,
+      loading: portfolioOwnerLoading,
+    });
+  useLayoutEffect(() => {
+    if (portfolioSection.value.kind === 'ready' && !lpTokenSwitch.loading) {
+      lastCommittedPortfolioSectionsRef.current = currentPortfolioSections;
+      lastCommittedPortfolioFilterPresentationRef.current =
+        currentPortfolioFilterPresentation;
+    }
+  }, [
+    currentPortfolioFilterPresentation,
+    currentPortfolioSections,
+    lpTokenSwitch.loading,
+    portfolioSection.value.kind,
+  ]);
   const perpsSections = useMemo(
     () =>
       buildMobileNativeHomeViewModelSections({
@@ -650,18 +709,16 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     };
   }, [intl.locale, nativeLabels]);
 
-  const currentTabTopology = useMemo<
-    IMobileNativeHomeTabTopology | undefined
-  >(() => {
-    const value = homeNavigation.value;
-    if (value.kind !== 'ready') {
-      return undefined;
-    }
-    return {
-      destinations: value.destinations,
-      tabIds: value.tabs,
-    };
-  }, [homeNavigation.value]);
+  const currentTabTopology = useMemo<IMobileNativeHomeTabTopology | undefined>(
+    () =>
+      homeNavigation.value.kind === 'ready'
+        ? {
+            destinations: homeNavigation.value.destinations,
+            tabIds: homeNavigation.value.tabs,
+          }
+        : undefined,
+    [homeNavigation.value],
+  );
   const lastCommittedTabTopologyRef = useRef<
     IMobileNativeHomeTabTopology | undefined
   >(undefined);
@@ -1042,20 +1099,23 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           : {}),
       },
       contentHeaders: {
-        ...(displayModel.body.kind === 'portfolio'
+        ...(shouldPresentPortfolioChrome
           ? {
               portfolio: {
-                interaction: portfolioPayload?.showLpTokenFilterSwitch
-                  ? ('tap' as const)
-                  : ('none' as const),
+                interaction:
+                  portfolioFilterPresentation.show && !portfolioOwnerLoading
+                    ? ('tap' as const)
+                    : ('none' as const),
                 content: (
                   <RichBlockHeader
                     title={nativeLabels.tokens}
                     headerActions={
-                      portfolioPayload?.showLpTokenFilterSwitch ? (
+                      portfolioFilterPresentation.show ? (
                         <TokenSelectorLpTokenSwitch
-                          value={lpTokenSwitch.value}
-                          loading={lpTokenSwitch.loading}
+                          value={portfolioFilterPresentation.value}
+                          loading={
+                            portfolioOwnerLoading || lpTokenSwitch.loading
+                          }
                           onChange={setShowLpTokensOnly}
                         />
                       ) : null
@@ -1085,10 +1145,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           : {}),
       },
       tabAccessories: {
-        ...(displayModel.body.kind === 'portfolio'
+        ...(shouldPresentPortfolioChrome
           ? {
               portfolio: {
-                interaction: 'tap' as const,
+                interaction: portfolioOwnerLoading
+                  ? ('none' as const)
+                  : ('tap' as const),
                 content: (
                   <TabHeaderSettings
                     nativeSlot
@@ -1114,19 +1176,23 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           : {}),
       },
       contentFooters: {
-        ...(displayModel.body.kind === 'portfolio'
+        ...(shouldPresentPortfolioChrome
           ? {
               portfolio: {
                 ...(shouldShowUpgrade
                   ? {
                       upgrade: {
-                        interaction: 'tap' as const,
+                        interaction: portfolioOwnerLoading
+                          ? ('none' as const)
+                          : ('tap' as const),
                         content: <Upgrade />,
                       },
                     }
                   : {}),
                 support: {
-                  interaction: 'tap' as const,
+                  interaction: portfolioOwnerLoading
+                    ? ('none' as const)
+                    : ('tap' as const),
                   content: <SupportHub nativeSlot />,
                 },
               },
@@ -1205,7 +1271,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     [
       account?.id,
       lpTokenSwitch.loading,
-      lpTokenSwitch.value,
       defiSection.value.kind,
       header.actionRowHeight,
       historyPayload?.hasMore,
@@ -1226,11 +1291,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       isPerpsEmpty,
       perpsPayload,
       perpsSection.value.kind,
-      portfolioPayload,
+      portfolioFilterPresentation,
+      portfolioOwnerLoading,
       renderedTabIds,
       displayModel.actions.kind,
       displayModel.balance,
       displayModel.body.kind,
+      shouldPresentPortfolioChrome,
       shouldMountHistoryEndFooter,
       shouldShowActionRowSkeleton,
       setShowLpTokensOnly,
@@ -1461,6 +1528,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           market: marketSection.sectionCommandRevision,
         };
         const targetRevision = sectionCommandRevisions[targetSectionId];
+        const itemId =
+          targetSectionId === 'portfolio' &&
+          intent.intent.commandId === HOME_SECTION_ACTION_IDS.openAsset &&
+          intent.intent.itemId
+            ? (portfolioAssetItemIdByPresentationId[intent.intent.itemId] ??
+              intent.intent.itemId)
+            : intent.intent.itemId;
         storeIntent = {
           type: 'sectionActionInvoked',
           actionId: intent.intent.commandId,
@@ -1471,7 +1545,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           },
           execution: 'controller',
           intentId: intent.intentId,
-          itemId: intent.intent.itemId,
+          itemId,
           owner: facts.owner,
           sectionId: targetSectionId,
           sessionId: facts.ownerToken.sessionId,
@@ -1489,6 +1563,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       nftSection.sectionCommandRevision,
       perpsSection.sectionCommandRevision,
       portfolioSection.sectionCommandRevision,
+      portfolioAssetItemIdByPresentationId,
       selectedTabId,
       shell.shellCommandRevision,
     ],

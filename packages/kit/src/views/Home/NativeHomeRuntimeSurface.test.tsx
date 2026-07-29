@@ -212,8 +212,24 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).toContain(
       'resolveHomePortfolioLpTokenSwitch({',
     );
-    expect(mobileRendererSource).toContain('value={lpTokenSwitch.value}');
-    expect(mobileRendererSource).toContain('loading={lpTokenSwitch.loading}');
+    expect(mobileRendererSource).toContain(
+      'resolveMobileNativeHomePortfolioFilterPresentation({',
+    );
+    expect(mobileRendererSource).toContain(
+      'value={portfolioFilterPresentation.value}',
+    );
+    expect(mobileRendererSource).toContain(
+      'portfolioOwnerLoading || lpTokenSwitch.loading',
+    );
+    expect(mobileRendererSource).toContain(
+      'lastCommittedPortfolioSectionsRef.current',
+    );
+    expect(mobileRendererSource).toContain(
+      'lastCommittedTabTopologyRef.current',
+    );
+    expect(mobileRendererSource).toContain(
+      'resolveMobileNativeHomePortfolioSections({',
+    );
     expect(mobileRendererSource).toContain(
       'portfolioAssetsLoading: lpTokenSwitch.loading',
     );
