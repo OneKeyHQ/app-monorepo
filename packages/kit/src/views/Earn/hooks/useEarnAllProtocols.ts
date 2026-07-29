@@ -102,7 +102,8 @@ function mergeItemIntoProviderMap(
  * 客户端归并。~30 个请求，冷加载 1s+。
  */
 async function fetchAggregatedByFanOut(): Promise<IEarnAggregatedProvider[]> {
-  const v2Assets = await backgroundApiProxy.serviceStaking.getAvailableAssetsV2();
+  const v2Assets =
+    await backgroundApiProxy.serviceStaking.getAvailableAssetsV2();
   const symbols = Array.from(
     new Set(
       v2Assets
@@ -147,9 +148,7 @@ async function fetchAllProtocolsAggregated(): Promise<
   return fetchAggregatedByFanOut();
 }
 
-let aggregatedCachePromise:
-  | Promise<IEarnAggregatedProvider[]>
-  | undefined;
+let aggregatedCachePromise: Promise<IEarnAggregatedProvider[]> | undefined;
 let aggregatedCacheTime = 0;
 
 function getAllProtocolsAggregated({

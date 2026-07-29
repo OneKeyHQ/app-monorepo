@@ -98,10 +98,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const sortedTokens = useMemo(
     () =>
       tokens.toSorted((rowA, rowB) => {
-        const valueA =
-          sortKey === 'tvl' ? rowA.tvlValue : getRowAprValue(rowA);
-        const valueB =
-          sortKey === 'tvl' ? rowB.tvlValue : getRowAprValue(rowB);
+        const valueA = sortKey === 'tvl' ? rowA.tvlValue : getRowAprValue(rowA);
+        const valueB = sortKey === 'tvl' ? rowB.tvlValue : getRowAprValue(rowB);
         return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
       }),
     [sortDirection, sortKey, tokens],
