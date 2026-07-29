@@ -17,8 +17,10 @@ on:
       - 'development/developmentConsts.js'
       - 'development/env.js'
       - 'development/envExposedToClient.js'
+      - 'development/htmlBootstrapData.js'
       - 'development/platformEnvDefine.js'
       - 'development/rspack/**'
+      - 'development/utils/resolveCommitSha.js'
       - 'package.json'
       - 'yarn.lock'
 
