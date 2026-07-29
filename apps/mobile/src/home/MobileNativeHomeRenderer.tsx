@@ -50,6 +50,13 @@ import { SupportHub } from '@onekeyhq/kit/src/views/Home/components/SupportHub';
 import { Upgrade } from '@onekeyhq/kit/src/views/Home/components/Upgrade';
 import { WalletActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions';
 import { createHomeAuthorityId } from '@onekeyhq/kit/src/views/Home/model/core/homeIdentity';
+import {
+  buildHomeTabRenderOwnerKey,
+  createHomeTabRenderState,
+  isHomeTabRendered,
+  markHomeTabRendered,
+  reconcileHomeTabRenderOwner,
+} from '@onekeyhq/kit/src/views/Home/model/navigation/homeTabRenderState';
 import { useHomeSectionPayload } from '@onekeyhq/kit/src/views/Home/model/react/homeStoreHooks';
 import { useHomeMarketIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomeMarketIntents';
 import { useHomePortfolioIntents } from '@onekeyhq/kit/src/views/Home/model/react/useHomePortfolioIntents';
@@ -120,6 +127,7 @@ import {
   buildMobileNativeHomeViewModelSections,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
@@ -381,6 +389,40 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       sessionId: session.ownerToken.sessionId,
     };
   }, [session.ownerToken]);
+  const homeTabsOwnerKey = buildHomeTabRenderOwnerKey({
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id || account?.indexedAccountId,
+    walletId: wallet?.id,
+  });
+  const [homeTabRenderState, setHomeTabRenderState] = useState(() =>
+    createHomeTabRenderState(homeTabsOwnerKey),
+  );
+  const markTabRendered = useCallback(
+    (tabId: IHomeContainerTabId) => {
+      setHomeTabRenderState((current) =>
+        markHomeTabRendered(current, homeTabsOwnerKey, tabId),
+      );
+    },
+    [homeTabsOwnerKey],
+  );
+  useLayoutEffect(() => {
+    if (homeTabRenderState.ownerKey === homeTabsOwnerKey) {
+      return;
+    }
+    setHomeTabRenderState((current) =>
+      reconcileHomeTabRenderOwner(current, homeTabsOwnerKey),
+    );
+    nativeRef.current?.selectTab('portfolio', false);
+  }, [homeTabRenderState.ownerKey, homeTabsOwnerKey]);
+  const renderedTabIds = useMemo(
+    () =>
+      new Set(
+        TAB_ORDER.filter((tabId) =>
+          isHomeTabRendered(homeTabRenderState, homeTabsOwnerKey, tabId),
+        ),
+      ),
+    [homeTabRenderState, homeTabsOwnerKey],
+  );
   const nativeTheme = useMemo<IHomeContainerTheme>(
     () => ({
       backgroundColor: theme.bgApp.val,
@@ -609,6 +651,25 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       portfolioSections,
     ],
   );
+  const loadingSectionsByTab = useMemo<
+    Record<IHomeContainerTabId, IHomeContainerSection[]>
+  >(() => {
+    const build = (tabId: IHomeContainerTabId) =>
+      buildMobileNativeHomeViewModelSections({
+        labels: nativeLabels,
+        locale: intl.locale,
+        payloads: {},
+        sectionId: tabId,
+        semantic: { kind: 'loading', placeholder: tabId },
+      });
+    return {
+      portfolio: build('portfolio'),
+      perps: build('perps'),
+      defi: build('defi'),
+      nft: build('nft'),
+      history: build('history'),
+    };
+  }, [intl.locale, nativeLabels]);
 
   const tabs = useMemo<IHomeContainerTab[]>(() => {
     const value = homeNavigation.value;
@@ -638,11 +699,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           id: tabId,
           title: tabTitles[tabId],
           destination,
-          sections: resolveMobileNativeHomeBodySections({
-            bodyPresentationKind: displayModel.body.kind,
-            sections: sectionsByTab[tabId],
-            tabId,
-          }),
+          sections: renderedTabIds.has(tabId)
+            ? resolveMobileNativeHomeBodySections({
+                bodyPresentationKind: displayModel.body.kind,
+                sections: sectionsByTab[tabId],
+                tabId,
+              })
+            : loadingSectionsByTab[tabId],
         };
       },
     );
@@ -650,6 +713,8 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     displayModel.body.kind,
     displayModel.navigation.kind,
     homeNavigation.value,
+    loadingSectionsByTab,
+    renderedTabIds,
     sectionsByTab,
     tabTitles,
   ]);
@@ -680,12 +745,10 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     const actionLayout = resolveMobileNativeHomeActionLayout({
       actionPresentationKind: displayModel.actions.kind,
     });
-    let actionRowHeight = 98;
-    if (isBackupRequired) {
-      actionRowHeight = 0;
-    } else if (actionLayout === 'standard') {
-      actionRowHeight = 62;
-    }
+    const actionRowHeight = resolveMobileNativeHomeActionRowHeight({
+      actionLayout,
+      isBackupRequired,
+    });
     let banners: IHomeContainerHeader['banners'] = [];
     if (bannerPresentation === 'loading') {
       banners = [
@@ -774,16 +837,19 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const shouldShowActionRowSkeleton = header.actionLayout === 'loading';
 
   const selectedTabId = useMemo<IHomeContainerTabId>(() => {
-    const requested =
+    const navigationTabId =
       homeNavigation.value.kind === 'ready'
         ? homeNavigation.value.selectedTabId
         : 'portfolio';
+    const requested = renderedTabIds.has(navigationTabId)
+      ? navigationTabId
+      : 'portfolio';
     return tabs.some(
       (tab) => tab.id === requested && tab.destination === 'inline',
     )
       ? requested
       : (tabs.find((tab) => tab.destination === 'inline')?.id ?? 'portfolio');
-  }, [homeNavigation.value, tabs]);
+  }, [homeNavigation.value, renderedTabIds, tabs]);
 
   const snapshot = useMemo<IHomeContainerSnapshot>(
     () => ({
@@ -1048,8 +1114,10 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       selectedTab: selectedTabId,
       showTokenFilter: Boolean(portfolioPayload?.showLpTokenFilterSwitch),
       showPortfolioSettings: Boolean(portfolioAccessoryAuthority),
-      showHistoryFilter: Boolean(historyAccessoryAuthority),
-      showPerpsHeader: Boolean(perpsHeaderAuthority),
+      showHistoryFilter:
+        renderedTabIds.has('history') && Boolean(historyAccessoryAuthority),
+      showPerpsHeader:
+        renderedTabIds.has('perps') && Boolean(perpsHeaderAuthority),
       showDeFiHeader: false,
       showUpgrade: shouldShowUpgrade,
       showSupport: true,
@@ -1081,6 +1149,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     portfolioAccessoryAuthority,
     portfolioPayload?.showLpTokenFilterSwitch,
     portfolioSections,
+    renderedTabIds,
     selectedTabId,
     shouldShowUpgrade,
   ]);
@@ -1161,7 +1230,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(nftStateAuthority
+        ...(renderedTabIds.has('nft') && nftStateAuthority
           ? {
               nft: {
                 interaction: 'none' as const,
@@ -1171,7 +1240,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(deFiStateAuthority
+        ...(renderedTabIds.has('defi') && deFiStateAuthority
           ? {
               defi: {
                 interaction: 'tap' as const,
@@ -1181,7 +1250,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(perpsStateAuthority
+        ...(renderedTabIds.has('perps') && perpsStateAuthority
           ? {
               perps: {
                 interaction: 'tap' as const,
@@ -1197,7 +1266,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(historyStateAuthority
+        ...(renderedTabIds.has('history') && historyStateAuthority
           ? {
               history: {
                 interaction: 'tap' as const,
@@ -1243,7 +1312,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(perpsHeaderAuthority && perpsPayload
+        ...(renderedTabIds.has('perps') && perpsHeaderAuthority && perpsPayload
           ? {
               perps: {
                 interaction: 'tap' as const,
@@ -1275,17 +1344,21 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        history: {
-          interaction: 'tap',
-          authority: historyAccessoryAuthority,
-          content: (
-            <TabHeaderSettings
-              nativeSlot
-              focusedTab={tabTitles.history}
-              historyIcon="Filter1Outline"
-            />
-          ),
-        },
+        ...(renderedTabIds.has('history')
+          ? {
+              history: {
+                interaction: 'tap' as const,
+                authority: historyAccessoryAuthority,
+                content: (
+                  <TabHeaderSettings
+                    nativeSlot
+                    focusedTab={tabTitles.history}
+                    historyIcon="Filter1Outline"
+                  />
+                ),
+              },
+            }
+          : {}),
       },
       contentFooters: {
         ...(displayModel.body.kind === 'portfolio'
@@ -1308,7 +1381,8 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(perpsSection.value.kind === 'ready' || isPerpsEmpty
+        ...(renderedTabIds.has('perps') &&
+        (perpsSection.value.kind === 'ready' || isPerpsEmpty)
           ? {
               perps: {
                 ...(shouldShowUpgrade
@@ -1336,22 +1410,26 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        defi: {
-          ...(shouldShowUpgrade
-            ? {
-                upgrade: {
+        ...(renderedTabIds.has('defi')
+          ? {
+              defi: {
+                ...(shouldShowUpgrade
+                  ? {
+                      upgrade: {
+                        interaction: 'tap' as const,
+                        authority: footerAuthorities.defiUpgrade,
+                        content: <Upgrade />,
+                      },
+                    }
+                  : {}),
+                support: {
                   interaction: 'tap' as const,
-                  authority: footerAuthorities.defiUpgrade,
-                  content: <Upgrade />,
+                  authority: footerAuthorities.defiSupport,
+                  content: <SupportHub nativeSlot />,
                 },
-              }
-            : {}),
-          support: {
-            interaction: 'tap',
-            authority: footerAuthorities.defiSupport,
-            content: <SupportHub nativeSlot />,
-          },
-        },
+              },
+            }
+          : {}),
       },
     }),
     [
@@ -1386,6 +1464,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       portfolioAccessoryAuthority,
       portfolioHeaderAuthority,
       portfolioPayload,
+      renderedTabIds,
       displayModel.actions.kind,
       displayModel.balance,
       displayModel.body.kind,
@@ -2028,6 +2107,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       }
       if (parsed.intent.kind === 'selectTab') {
         if (dispatchTabIntent(parsed.intent.tabId, parsed.authority.revision)) {
+          markTabRendered(parsed.intent.tabId);
           controller?.recordSelectedTab(parsed.intent.tabId);
         } else {
           nativeRef.current?.selectTab(selectedTabId, false);
@@ -2076,6 +2156,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       facts,
       handleOnManageToken,
       handleRefreshIntent,
+      markTabRendered,
       navigation,
       marketPayload,
       openLowValueAssets,

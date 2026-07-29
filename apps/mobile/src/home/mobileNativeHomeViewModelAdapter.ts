@@ -59,6 +59,8 @@ const HYPER_EVM_LOGO_URI =
   'https://uni.onekey-asset.com/static/chain/hyper-evm.png';
 const VISIBLE_ROW_LIMIT = 6;
 const MOBILE_NATIVE_HOME_BANNER_SKELETON_ID = 'home-banner-loading';
+const MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT = 62;
+const MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT = 98;
 
 type IMobileNativeHomeBannerPresentation = 'content' | 'hidden' | 'loading';
 type IMobileNativeHomeActionLayout = 'loading' | 'standard' | 'zeroBalance';
@@ -80,6 +82,21 @@ function resolveMobileNativeHomeActionLayout({
   return 'loading';
 }
 
+function resolveMobileNativeHomeActionRowHeight({
+  actionLayout,
+  isBackupRequired,
+}: {
+  actionLayout: IMobileNativeHomeActionLayout;
+  isBackupRequired: boolean;
+}): number {
+  if (isBackupRequired) {
+    return 0;
+  }
+  return actionLayout === 'zeroBalance'
+    ? MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT
+    : MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT;
+}
+
 function resolveMobileNativeHomeBannerPresentation({
   bannerPolicyKind,
   bannerResourceKind,
@@ -98,12 +115,14 @@ function resolveMobileNativeHomeBannerPresentation({
   if (bannerPolicyKind === 'hidden') {
     return 'hidden';
   }
-  if (bannerPolicyKind === 'eligible' && hasBannerContent) {
+  if (bannerPolicyKind === 'pending') {
+    return 'loading';
+  }
+  if (hasBannerContent) {
     return 'content';
   }
   if (
     bannerResourceKind === 'ready' ||
-    bannerResourceKind === 'partial' ||
     bannerResourceKind === 'empty' ||
     bannerResourceKind === 'error'
   ) {
@@ -112,7 +131,8 @@ function resolveMobileNativeHomeBannerPresentation({
   if (
     hasBannerContent ||
     bannerResourceKind === 'idle' ||
-    bannerResourceKind === 'loading'
+    bannerResourceKind === 'loading' ||
+    bannerResourceKind === 'partial'
   ) {
     return 'loading';
   }
@@ -1276,8 +1296,10 @@ export {
   MOBILE_NATIVE_HOME_MARKET_CATEGORY_ACTION_PREFIX,
   MOBILE_NATIVE_HOME_MARKET_ACTION_IDS,
   MOBILE_NATIVE_HOME_PRESENTATION_ACTION_IDS,
+  MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT,
   getDeFiTotal,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
 };

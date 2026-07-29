@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -66,6 +73,13 @@ import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { PullToRefresh } from '../components/PullToRefresh';
 import { buildHomeWalletCapabilityNavigationModel } from '../homeWalletCapabilityTabModel';
 import { useHomeWalletTabStore } from '../hooks/useHomeWalletTabStore';
+import {
+  buildHomeTabRenderOwnerKey,
+  createHomeTabRenderState,
+  isHomeTabRendered,
+  markHomeTabRendered,
+  reconcileHomeTabRenderOwner,
+} from '../model/navigation/homeTabRenderState';
 import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import { HomeTestIDs } from '../testIDs';
 
@@ -611,14 +625,75 @@ export function HomePageView({
   const initialPagerTabName = selectedTabName || pagerTabConfigs[0]?.name || '';
   const [pagerTabName, setPagerTabName] = useState(initialPagerTabName);
   const pendingPagerTabIdRef = useRef<EHomeWalletTab | undefined>(undefined);
-  const initialMountedTabId = selectedTabId ?? pagerTabConfigs[0]?.id;
-  const [mountedHomeTabIds, setMountedHomeTabIds] = useState<
-    Set<EHomeWalletTab>
-  >(() => (initialMountedTabId ? new Set([initialMountedTabId]) : new Set()));
+  const homeTabsOwnerKey = buildHomeTabRenderOwnerKey({
+    accountId: account?.id,
+    indexedAccountId: account?.indexedAccountId,
+    walletId: wallet?.id,
+  });
+  const [homeTabRenderState, setHomeTabRenderState] = useState(() =>
+    createHomeTabRenderState(homeTabsOwnerKey),
+  );
+  const pendingSpotResetOwnerKeyRef = useRef(homeTabsOwnerKey);
   const lastDisplayableTabNameRef = useRef(initialPagerTabName);
+  const markTabRendered = useCallback(
+    (tabId: EHomeWalletTab) => {
+      setHomeTabRenderState((current) =>
+        markHomeTabRendered(current, homeTabsOwnerKey, tabId),
+      );
+    },
+    [homeTabsOwnerKey],
+  );
+
+  useLayoutEffect(() => {
+    if (homeTabRenderState.ownerKey !== homeTabsOwnerKey) {
+      setHomeTabRenderState((current) =>
+        reconcileHomeTabRenderOwner(current, homeTabsOwnerKey),
+      );
+      pendingSpotResetOwnerKeyRef.current = homeTabsOwnerKey;
+    }
+    if (
+      !homeTabsOwnerKey ||
+      pendingSpotResetOwnerKeyRef.current !== homeTabsOwnerKey ||
+      !homeWalletCapabilityTabModel.shouldCommitTabs
+    ) {
+      return;
+    }
+    const spotTab = pagerTabConfigs.find(
+      (tab) => tab.id === EHomeWalletTab.Portfolio,
+    );
+    if (!spotTab) {
+      return;
+    }
+    const selectionAlreadySpot = selectedTabId === EHomeWalletTab.Portfolio;
+    if (
+      !selectionAlreadySpot &&
+      !selectCapabilityTab(EHomeWalletTab.Portfolio)
+    ) {
+      return;
+    }
+    pendingPagerTabIdRef.current = undefined;
+    setPagerTabName(spotTab.name);
+    lastDisplayableTabNameRef.current = spotTab.name;
+    tabsRef.current?.jumpToTab(spotTab.name);
+    if (selectionAlreadySpot) {
+      pendingSpotResetOwnerKeyRef.current = undefined;
+    }
+  }, [
+    homeTabRenderState.ownerKey,
+    homeTabsOwnerKey,
+    homeWalletCapabilityTabModel.shouldCommitTabs,
+    pagerTabConfigs,
+    selectCapabilityTab,
+    selectedTabId,
+  ]);
 
   useEffect(() => {
-    if (!homeWalletCapabilityTabModel.shouldCommitTabs || !selectedTab) {
+    if (
+      homeTabRenderState.ownerKey !== homeTabsOwnerKey ||
+      pendingSpotResetOwnerKeyRef.current === homeTabsOwnerKey ||
+      !homeWalletCapabilityTabModel.shouldCommitTabs ||
+      !selectedTab
+    ) {
       return;
     }
     if (pagerTabName !== selectedTab.name) {
@@ -631,6 +706,8 @@ export function HomePageView({
     lastDisplayableTabNameRef.current = selectedTab.name;
   }, [
     homeWalletCapabilityTabModel.shouldCommitTabs,
+    homeTabRenderState.ownerKey,
+    homeTabsOwnerKey,
     pagerTabName,
     selectedTab,
   ]);
@@ -644,20 +721,6 @@ export function HomePageView({
       tabsRef.current?.jumpToTab(fallbackTabName);
     }
   }, [pagerTabConfigs, perpTabShowWeb, selectedTabId]);
-
-  useEffect(() => {
-    if (!selectedTabId) {
-      return;
-    }
-    setMountedHomeTabIds((prev) => {
-      if (prev.has(selectedTabId)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.add(selectedTabId);
-      return next;
-    });
-  }, [selectedTabId]);
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -691,6 +754,7 @@ export function HomePageView({
           if (nextTab.id !== selectedTabId) {
             pendingPagerTabIdRef.current = nextTab.id;
           }
+          markTabRendered(nextTab.id);
         }
         const nextPagerTabName = nextTab?.name ?? name;
         setPagerTabName(nextPagerTabName);
@@ -764,6 +828,7 @@ export function HomePageView({
       tabConfigs,
       tabBarTabNames,
       homeWalletCapabilityTabModel,
+      markTabRendered,
       selectedTabId,
     ],
   );
@@ -800,6 +865,7 @@ export function HomePageView({
         if (nextTab.id !== selectedTabId) {
           pendingPagerTabIdRef.current = nextTab.id;
         }
+        markTabRendered(nextTab.id);
       }
       const nextPagerTabName = nextTab?.name ?? data.tabName;
       setPagerTabName(nextPagerTabName);
@@ -807,6 +873,7 @@ export function HomePageView({
     },
     [
       homeWalletCapabilityTabModel,
+      markTabRendered,
       pagerTabConfigs,
       perpTabShowWeb,
       selectCapabilityTab,
@@ -850,13 +917,10 @@ export function HomePageView({
     // optimization here is intentionally HD-only because Others wallets
     // typically stay pinned to a single network and the cost of the
     // occasional remount is not worth special-casing.
-    const key = `${wallet?.id ?? ''}-${
-      account?.indexedAccountId ?? account?.id ?? ''
-    }`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
-        key={key}
+        key={homeTabsOwnerKey ?? 'home-wallet-no-owner'}
         allowHeaderOverscroll
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
@@ -870,7 +934,11 @@ export function HomePageView({
           pagerTabConfigs.map((tab) => (
             <Tabs.Tab key={tab.name} name={tab.name}>
               <FreezeInactiveHomeTab tabName={tab.name}>
-                {selectedTabId === tab.id || mountedHomeTabIds.has(tab.id) ? (
+                {isHomeTabRendered(
+                  homeTabRenderState,
+                  homeTabsOwnerKey,
+                  tab.id,
+                ) ? (
                   tab.component
                 ) : (
                   <HomeWalletCapabilityPendingContent />
@@ -893,17 +961,14 @@ export function HomePageView({
     );
   }, [
     tabContainerWidth,
-    wallet?.id,
-    account?.id,
-    account?.indexedAccountId,
+    homeTabsOwnerKey,
     renderHeader,
     renderTabBar,
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
     pagerTabName,
-    selectedTabId,
-    mountedHomeTabIds,
+    homeTabRenderState,
     homeWalletCapabilityTabModel.shouldCommitTabs,
   ]);
 
@@ -926,11 +991,13 @@ export function HomePageView({
         }
         setPagerTabName(name);
         lastDisplayableTabNameRef.current = name;
+        markTabRendered(payload.id);
         tabsRef.current?.jumpToTab(name);
       }
     },
     [
       homeWalletCapabilityTabModel.shouldCommitTabs,
+      markTabRendered,
       perpTabShowWeb,
       selectCapabilityTab,
       selectedTabId,

@@ -22,7 +22,7 @@ describe('HomePageView Store tab authority', () => {
     );
   });
 
-  it('keeps the local tab state limited to the pager name mirror', () => {
+  it('keeps local tab state limited to pager and render lifecycle presentation', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'HomePageView.tsx'),
       'utf8',
@@ -31,6 +31,8 @@ describe('HomePageView Store tab authority', () => {
     expect(source).toContain(
       'const [pagerTabName, setPagerTabName] = useState(initialPagerTabName)',
     );
+    expect(source).toContain('createHomeTabRenderState(homeTabsOwnerKey)');
+    expect(source).toContain('isHomeTabRendered(');
     expect(source).toContain('pendingPagerTabIdRef');
     expect(source).not.toContain('const [activeTabName');
   });

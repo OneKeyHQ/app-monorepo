@@ -12,6 +12,7 @@ import {
 import {
   buildMobileNativeHomeViewModelSections,
   resolveMobileNativeHomeActionLayout,
+  resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
   resolveMobileNativeHomeBodySections,
 } from './mobileNativeHomeViewModelAdapter';
@@ -75,7 +76,34 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ).toBe('standard');
   });
 
-  it('renders the banner independently from unresolved balance content', () => {
+  it('keeps loading action geometry aligned with the funded row', () => {
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'loading',
+        isBackupRequired: false,
+      }),
+    ).toBe(62);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'standard',
+        isBackupRequired: false,
+      }),
+    ).toBe(62);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'zeroBalance',
+        isBackupRequired: false,
+      }),
+    ).toBe(98);
+    expect(
+      resolveMobileNativeHomeActionRowHeight({
+        actionLayout: 'loading',
+        isBackupRequired: true,
+      }),
+    ).toBe(0);
+  });
+
+  it('keeps the banner loading until its display policy settles', () => {
     expect(
       resolveMobileNativeHomeBannerPresentation({
         bannerPolicyKind: 'pending',
@@ -85,11 +113,25 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     ).toBe('loading');
     expect(
       resolveMobileNativeHomeBannerPresentation({
+        bannerPolicyKind: 'eligible',
+        bannerResourceKind: 'partial',
+        hasBannerContent: false,
+      }),
+    ).toBe('loading');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
         bannerPolicyKind: 'pending',
         bannerResourceKind: 'partial',
         hasBannerContent: true,
       }),
-    ).toBe('hidden');
+    ).toBe('loading');
+    expect(
+      resolveMobileNativeHomeBannerPresentation({
+        bannerPolicyKind: 'pending',
+        bannerResourceKind: 'ready',
+        hasBannerContent: false,
+      }),
+    ).toBe('loading');
     expect(
       resolveMobileNativeHomeBannerPresentation({
         bannerPolicyKind: 'eligible',
