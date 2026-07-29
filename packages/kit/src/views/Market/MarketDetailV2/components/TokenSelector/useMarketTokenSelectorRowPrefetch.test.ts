@@ -82,6 +82,7 @@ describe('useMarketTokenSelectorRowPrefetch', () => {
     expect(mockPrefetchMarketTokenSelection).toHaveBeenCalledWith({
       address: token.address,
       networkId: token.networkId,
+      currencyId: 'usd',
       firstTradeTime: token.firstTradeTime,
     });
   });
@@ -113,6 +114,7 @@ describe('useMarketTokenSelectorRowPrefetch', () => {
     expect(mockPrefetchMarketTokenSelection).toHaveBeenCalledWith({
       address: token.address,
       networkId: token.networkId,
+      currencyId: 'usd',
       firstTradeTime: token.firstTradeTime,
     });
 
