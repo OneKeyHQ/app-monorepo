@@ -245,6 +245,7 @@ function appendLegendCommands({
     },
   );
   for (const segment of layout.segments) {
+    const textBaselineY = segment.textBaselineY ?? layout.textBaselineY;
     commands.push(
       {
         font: 'legend',
@@ -252,7 +253,7 @@ function appendLegendCommands({
         paint: 'axisText',
         text: segment.label,
         x: segment.labelX,
-        y: layout.textBaselineY,
+        y: textBaselineY,
       },
       {
         font: 'legend',
@@ -260,7 +261,7 @@ function appendLegendCommands({
         paint: isUp ? 'up' : 'down',
         text: segment.value,
         x: segment.valueX,
-        y: layout.textBaselineY,
+        y: textBaselineY,
       },
     );
   }
@@ -576,7 +577,12 @@ export function buildTradingViewNativeChartScene({
   }
 
   const latestPoint = points[points.length - 1];
-  const legend = getTradingViewNativeChartLegend(crosshairPoint ?? latestPoint);
+  const legendPointIndex = crosshairPointIndex ?? points.length - 1;
+  const legendPoint = points[legendPointIndex] ?? latestPoint;
+  const legend = getTradingViewNativeChartLegend(
+    legendPoint,
+    points[legendPointIndex - 1]?.c,
+  );
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
   appendLegendCommands({
