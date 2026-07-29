@@ -331,7 +331,7 @@ export function showPerpsUnifoldDepositMenuDialog({
             id: ETranslations.perp_unifold_transfer_crypto__title,
           })}
           subtitle={intl.formatMessage({
-            id: ETranslations.perp_relay_crypto_transfer__desc,
+            id: ETranslations.perp_unifold_network_minimum_instant__desc,
           })}
           hint={<TransferChainHintLogos />}
           onPress={() => {

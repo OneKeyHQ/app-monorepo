@@ -122,8 +122,14 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log you out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_onekey_id_session_conflict__desc,
+        },
+        {
+          email: displayEmail,
+        },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
@@ -157,8 +163,14 @@ export async function showOneKeyIdOAuthReauthAccountMismatchDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `This ${providerName} account isn't the one linked to your current OneKey ID. Please choose the linked account and try again.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
+        },
+        {
+          provider: providerName,
+        },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_retry,

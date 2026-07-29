@@ -127,3 +127,34 @@ export function shouldReuseSwapProPositionsCache({
     now - cacheEntry.updatedAt < SWAP_PRO_POSITIONS_CACHE_TTL_MS,
   );
 }
+
+export function resolveSwapProPositionsDisplayOwner({
+  cacheByOwner,
+  dataOwnerKey,
+  hasPositionAccount,
+  positionOwnerKey,
+  supportNetworksReady,
+}: {
+  cacheByOwner: Record<string, ISwapProPositionsCacheEntry>;
+  dataOwnerKey: string;
+  hasPositionAccount: boolean;
+  positionOwnerKey: string;
+  supportNetworksReady: boolean;
+}) {
+  const cachedPositionEntry = positionOwnerKey
+    ? cacheByOwner[positionOwnerKey]
+    : undefined;
+
+  return {
+    cachedPositionEntry,
+    hasCachedPositionSnapshot: Boolean(
+      cachedPositionEntry?.ownerKey === positionOwnerKey,
+    ),
+    hasPositionOwner:
+      Boolean(positionOwnerKey) ||
+      (!supportNetworksReady && hasPositionAccount),
+    isLiveTokenListForCurrentOwner: positionOwnerKey
+      ? dataOwnerKey === positionOwnerKey
+      : !hasPositionAccount && !dataOwnerKey,
+  };
+}

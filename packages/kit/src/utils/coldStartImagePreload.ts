@@ -1,8 +1,11 @@
+import { PixelRatio } from 'react-native';
+
 import {
   primeCachedImagePaths,
   primeCachedImageRefs,
 } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -10,6 +13,12 @@ import {
   getHyperliquidTokenImageUrl,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
+
+import {
+  type ITokenSize,
+  getTokenImageResizeWidth,
+} from '../components/Token/tokenSize';
 
 type IColdStartSnapshot = Record<string, unknown>;
 
@@ -24,6 +33,19 @@ type IImagePreloadOptions = {
   decodeTimeoutMs?: number;
   primeTimeoutMs?: number;
   preload?: boolean;
+  pixelRatio?: number;
+  resizeWidth?: number;
+};
+
+type IImagePreloadItem = {
+  uri: string;
+  resizeWidth?: number;
+};
+
+type IImagePreloadInput = string | IImagePreloadItem;
+
+type IPerpsTokenSelectorImagePreloadOptions = {
+  tokenSizes?: readonly ITokenSize[];
 };
 
 type ITokenSelectorImageItem = {
@@ -44,6 +66,9 @@ const PERPS_OPEN_ORDER_LIMIT = 16;
 const PERPS_ALIAS_LOGO_LIMIT = 24;
 const PERPS_TOKEN_SELECTOR_LOGO_LIMIT = 72;
 const PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT = 24;
+const COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH = s(32);
+const PERPS_TOKEN_SELECTOR_NATIVE_PRELOAD_TOKEN_SIZES = ['lg'] as const;
+const PERPS_TOKEN_SELECTOR_DESKTOP_PRELOAD_TOKEN_SIZES = ['sm', 'md'] as const;
 const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
   'BTC',
   'ETH',
@@ -86,6 +111,59 @@ function addImageUri(uris: Set<string>, uri?: unknown) {
   if (typeof uri === 'string' && REMOTE_IMAGE_URI_RE.test(uri)) {
     uris.add(uri);
   }
+}
+
+function getImagePreloadItem(input: IImagePreloadInput): IImagePreloadItem {
+  return typeof input === 'string' ? { uri: input } : input;
+}
+
+function buildPrewarmImageUri({
+  uri,
+  pixelRatio,
+  resizeWidth,
+}: {
+  uri: string;
+  pixelRatio?: number;
+  resizeWidth?: number;
+}): string | undefined {
+  if (!resizeWidth) {
+    return uri;
+  }
+  const result = buildTosImageResizeUrl({
+    uri,
+    pixelRatio:
+      pixelRatio ??
+      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
+      1,
+    resizeWidth,
+  });
+  return result.uri;
+}
+
+function getPerpsTokenSelectorPreloadSizes(
+  tokenSizes?: readonly ITokenSize[],
+): readonly ITokenSize[] {
+  if (tokenSizes?.length) {
+    return tokenSizes;
+  }
+  return platformEnv.isNative
+    ? PERPS_TOKEN_SELECTOR_NATIVE_PRELOAD_TOKEN_SIZES
+    : PERPS_TOKEN_SELECTOR_DESKTOP_PRELOAD_TOKEN_SIZES;
+}
+
+function buildPerpsTokenSelectorImagePreloadItems({
+  uris,
+  tokenSizes,
+}: {
+  uris: string[];
+  tokenSizes: readonly ITokenSize[];
+}): IImagePreloadItem[] {
+  const resizeWidths = [
+    ...new Set(tokenSizes.map((size) => getTokenImageResizeWidth(size))),
+  ];
+  return uris.flatMap((uri) =>
+    resizeWidths.map((resizeWidth) => ({ uri, resizeWidth })),
+  );
 }
 
 function addTokenLikeImageUris(uris: Set<string>, token?: unknown) {
@@ -338,7 +416,7 @@ export function getPerpsTokenSelectorImageUrisFromItems({
 }
 
 export async function prewarmImageUris(
-  imageUris: string[],
+  imageUris: IImagePreloadInput[],
   {
     limit = COLD_START_IMAGE_PRELOAD_LIMIT,
     awaitPreload = false,
@@ -346,9 +424,25 @@ export async function prewarmImageUris(
     decodeTimeoutMs,
     primeTimeoutMs,
     preload = true,
+    pixelRatio,
+    resizeWidth = COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH,
   }: IImagePreloadOptions = {},
 ) {
-  const uris = [...new Set(imageUris)].slice(0, limit);
+  const uris = [
+    ...new Set(
+      imageUris
+        .slice(0, limit)
+        .map(getImagePreloadItem)
+        .map((item) =>
+          buildPrewarmImageUri({
+            uri: item.uri,
+            pixelRatio,
+            resizeWidth: item.resizeWidth ?? resizeWidth,
+          }),
+        )
+        .filter((uri): uri is string => Boolean(uri)),
+    ),
+  ];
   if (!uris.length) {
     return 0;
   }
@@ -361,7 +455,7 @@ export async function prewarmImageUris(
   const shouldPreload = preload || (platformEnv.isNativeAndroid && decode);
   const shouldDecode = decode && !platformEnv.isNativeAndroid;
   if (shouldPreload) {
-    tasks.push(preloadImages(uris.map((uri) => ({ uri }))));
+    tasks.push(preloadImages(uris.map((uri) => ({ uri, optimize: false }))));
   }
   if (shouldDecode) {
     tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
@@ -389,23 +483,33 @@ export async function prewarmColdStartImagesFromSnapshot(
 
 export function prewarmPerpsTokenSelectorImages(
   items: ITokenSelectorImageItem[],
+  options: IPerpsTokenSelectorImagePreloadOptions = {},
 ) {
   const uris = getPerpsTokenSelectorImageUrisFromItems({ items });
   const criticalUris = uris.slice(0, PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT);
   const remainingUris = uris.slice(PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT);
-  if (remainingUris.length) {
-    void prewarmImageUris(remainingUris, {
+  const tokenSizes = getPerpsTokenSelectorPreloadSizes(options.tokenSizes);
+  const criticalItems = buildPerpsTokenSelectorImagePreloadItems({
+    uris: criticalUris,
+    tokenSizes,
+  });
+  const remainingItems = buildPerpsTokenSelectorImagePreloadItems({
+    uris: remainingUris,
+    tokenSizes,
+  });
+  if (remainingItems.length) {
+    void prewarmImageUris(remainingItems, {
       decode: true,
-      limit: remainingUris.length,
+      limit: remainingItems.length,
       preload: true,
       primeTimeoutMs: 250,
     });
   }
-  return prewarmImageUris(criticalUris, {
+  return prewarmImageUris(criticalItems, {
     awaitPreload: true,
     decode: true,
     decodeTimeoutMs: 1500,
-    limit: PERPS_TOKEN_SELECTOR_LOGO_LIMIT,
+    limit: criticalItems.length,
     preload: false,
     primeTimeoutMs: 250,
   });
