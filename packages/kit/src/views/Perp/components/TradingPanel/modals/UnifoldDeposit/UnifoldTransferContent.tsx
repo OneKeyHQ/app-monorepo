@@ -1,5 +1,5 @@
 // cspell: words unifold Unifold hypercore Hypercore
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,7 @@ import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
 import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
@@ -293,6 +294,8 @@ export function UnifoldTransferContent({
   useExternalHeader = false,
   detailExecutionId: controlledDetailExecutionId,
   onDetailExecutionIdChange,
+  sourceSelectorResult,
+  onSourceSelectorResultHandled,
 }: {
   expectedRecipient: string | null | undefined;
   onPressExecution?: (execution: IUnifoldDepositExecution) => void;
@@ -305,6 +308,8 @@ export function UnifoldTransferContent({
   useExternalHeader?: boolean;
   detailExecutionId?: string | null;
   onDetailExecutionIdChange?: (executionId: string | null) => void;
+  sourceSelectorResult?: IUnifoldSourceSelectorResult;
+  onSourceSelectorResultHandled?: () => void;
 }) {
   const intl = useIntl();
   const [dismissedExecutionStatuses, setDismissedExecutionStatuses] = useState<
@@ -330,6 +335,44 @@ export function UnifoldTransferContent({
     showActivationWarning,
     activationRetrying,
   } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
+  const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !sourceSelectorResult ||
+      !supportedAssets ||
+      handledSourceSelectorRequestIdRef.current ===
+        sourceSelectorResult.requestId
+    ) {
+      return;
+    }
+    handledSourceSelectorRequestIdRef.current = sourceSelectorResult.requestId;
+    const asset = supportedAssets?.find(
+      (item) => item.symbol === sourceSelectorResult.assetSymbol,
+    );
+    if (asset) {
+      if (sourceSelectorResult.mode === 'token') {
+        selectToken(asset);
+      } else {
+        const chain = asset.chains.find(
+          (item) =>
+            item.chain_type === sourceSelectorResult.chainType &&
+            item.chain_id === sourceSelectorResult.chainId,
+        );
+        if (chain) {
+          selectToken(asset);
+          selectChain(chain);
+        }
+      }
+    }
+    onSourceSelectorResultHandled?.();
+  }, [
+    onSourceSelectorResultHandled,
+    selectChain,
+    selectToken,
+    sourceSelectorResult,
+    supportedAssets,
+  ]);
 
   const handleDismiss = useCallback(
     (executionId: string) => {

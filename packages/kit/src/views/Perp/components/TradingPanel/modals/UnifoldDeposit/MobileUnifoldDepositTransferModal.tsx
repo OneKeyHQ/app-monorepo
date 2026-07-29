@@ -49,6 +49,9 @@ export default function MobileUnifoldDepositTransferModal() {
     () => <NavCloseButton onPress={closeModal} />,
     [closeModal],
   );
+  const clearSourceSelectorResult = useCallback(() => {
+    navigation.setParams({ sourceSelectorResult: undefined });
+  }, [navigation]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -67,6 +70,8 @@ export default function MobileUnifoldDepositTransferModal() {
             instead of the screen — the cards go in the page footer here. */}
         <UnifoldTransferContent
           expectedRecipient={route.params?.expectedRecipient}
+          sourceSelectorResult={route.params?.sourceSelectorResult}
+          onSourceSelectorResultHandled={clearSourceSelectorResult}
           statusCardsPlacement="pageFooter"
           useExternalHeader
           detailExecutionId={detailExecutionId}
