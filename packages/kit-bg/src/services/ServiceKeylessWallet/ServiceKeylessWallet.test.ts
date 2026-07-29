@@ -95,6 +95,8 @@ jest.mock('../../endpoints', () => ({
 const mockSupabaseGetSession = jest.fn();
 const mockSupabaseRefreshSession = jest.fn();
 const mockSupabaseSetSession = jest.fn();
+const mockJuiceboxExchangeToken = jest.fn();
+const mockJuiceboxDispose = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   __esModule: true,
@@ -107,6 +109,13 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
       },
     },
   }),
+}));
+
+jest.mock('./utils/JuiceboxClient', () => ({
+  JuiceboxClient: jest.fn().mockImplementation(() => ({
+    exchangeToken: mockJuiceboxExchangeToken,
+    dispose: mockJuiceboxDispose,
+  })),
 }));
 
 jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
@@ -432,6 +441,8 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
   beforeEach(() => {
     ({ serviceAny } = createService());
     mockSupabaseRefreshSession.mockReset();
+    mockJuiceboxExchangeToken.mockReset();
+    mockJuiceboxDispose.mockReset();
     serviceAny.getOrMigrateKeylessOAuthAccessTokenForLocalWallet = jest.fn(
       async () => TOKEN,
     );
@@ -523,6 +534,44 @@ describe('ServiceKeylessWallet realm exchange access token refresh', () => {
       serviceAny.getRealmAccessTokenExchangeTombstone,
     ).toHaveBeenCalledWith(previousAccessToken);
     expect(serviceAny.validateTokenMatchesKeylessWallet).not.toHaveBeenCalled();
+  });
+
+  test('exchanges a realm access token only once across concurrent cache misses', async () => {
+    jest.useFakeTimers();
+    try {
+      const accessToken = buildFakeSupabaseJwt(
+        Math.floor(Date.now() / 1000) + 60 * 60,
+      );
+      const exchangeStarted = createDeferred<void>();
+      const releaseExchange = createDeferred<void>();
+      mockJuiceboxExchangeToken.mockImplementationOnce(async () => {
+        exchangeStarted.resolve();
+        await releaseExchange.promise;
+      });
+
+      const firstClientPromise = serviceAny.getJuiceboxClientFromCache(
+        accessToken,
+        'resetOrVerifyPin',
+      );
+      await exchangeStarted.promise;
+      const secondClientPromise = serviceAny.getJuiceboxClientFromCache(
+        accessToken,
+        'resetOrVerifyPin',
+      );
+
+      expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(1);
+      releaseExchange.resolve();
+      const [firstClient, secondClient] = await Promise.all([
+        firstClientPromise,
+        secondClientPromise,
+      ]);
+
+      expect(secondClient).toBe(firstClient);
+      expect(mockJuiceboxExchangeToken).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   test('requests OAuth reauthentication when session refresh is definitively rejected', async () => {

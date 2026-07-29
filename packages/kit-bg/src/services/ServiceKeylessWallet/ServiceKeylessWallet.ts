@@ -252,6 +252,8 @@ class ServiceKeylessWallet extends ServiceBase {
 
   updatePinConfirmStatusMutex = new Semaphore(1);
 
+  private realmAccessTokenExchangeMutex = new Semaphore(1);
+
   // Serializes EVERY consumer of the legacy per-owner encrypted keyless
   // OAuth refresh-token blob (pre-OneKey-ID-unification builds). The blob
   // holds a SINGLE-USE rotating GoTrue refresh token, and two concurrent
@@ -339,26 +341,36 @@ class ServiceKeylessWallet extends ServiceBase {
       cacheHit: !!client,
     });
     if (!client) {
-      const exchangeTombstone =
-        await this.getRealmAccessTokenExchangeTombstone(token);
-      if (exchangeTombstone) {
-        throw new OneKeyLocalError(
-          exchangeTombstone === 'confirmed'
-            ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
-            : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
-        );
-      }
-      // Mark before the request: an ambiguous network failure may still have
-      // consumed the access token on the server.
-      await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
-      juiceboxClientCache.clear();
-      const { JuiceboxClient: JuiceboxClientRuntime } =
-        await import('./utils/JuiceboxClient');
-      client = new JuiceboxClientRuntime();
-      await client.exchangeToken(token, diagnosticContext);
-      await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
-      juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
-      juiceboxClientCache.set(token, client);
+      client = await this.realmAccessTokenExchangeMutex.runExclusive(
+        async () => {
+          const cachedClient = juiceboxClientCache.get(token);
+          if (cachedClient) {
+            juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
+            return cachedClient;
+          }
+          const exchangeTombstone =
+            await this.getRealmAccessTokenExchangeTombstone(token);
+          if (exchangeTombstone) {
+            throw new OneKeyLocalError(
+              exchangeTombstone === 'confirmed'
+                ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
+                : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
+            );
+          }
+          // Mark before the request: an ambiguous network failure may still
+          // have consumed the access token on the server.
+          await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
+          juiceboxClientCache.clear();
+          const { JuiceboxClient: JuiceboxClientRuntime } =
+            await import('./utils/JuiceboxClient');
+          const newClient = new JuiceboxClientRuntime();
+          await newClient.exchangeToken(token, diagnosticContext);
+          await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
+          juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
+          juiceboxClientCache.set(token, newClient);
+          return newClient;
+        },
+      );
     } else {
       juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
     }
