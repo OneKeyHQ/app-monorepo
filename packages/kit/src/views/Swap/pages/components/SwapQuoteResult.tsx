@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Accordion,
   Divider,
+  HeightTransition,
   Icon,
   Keyboard,
   LottieView,
@@ -14,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
@@ -77,12 +77,68 @@ interface ISwapQuoteResultProps {
 
 const SWAP_ACCORDION_VALUE = 'swap_accordion_value';
 
+function SwapQuoteResultAccordion({
+  children,
+  disabled,
+  renderTrigger,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+  renderTrigger: (open: boolean) => ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const onValueChange = useCallback((value: string) => {
+    const nextIsOpen = value === SWAP_ACCORDION_VALUE;
+    setIsOpen(nextIsOpen);
+    if (nextIsOpen) {
+      Keyboard.dismiss();
+    }
+  }, []);
+
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      value={isOpen ? SWAP_ACCORDION_VALUE : ''}
+      onValueChange={onValueChange}
+    >
+      <Accordion.Item value={SWAP_ACCORDION_VALUE}>
+        <Accordion.Trigger
+          unstyled
+          testID={SwapTestIDs.quoteDetailsToggle}
+          borderWidth={0}
+          bg="$transparent"
+          p="$0"
+          cursor="pointer"
+          disabled={disabled}
+        >
+          {({ open }: { open: boolean }) => renderTrigger(open)}
+        </Accordion.Trigger>
+        <HeightTransition hide={!isOpen}>
+          <Accordion.Content
+            forceMount
+            gap="$4"
+            p="$0"
+            pointerEvents={isOpen ? 'auto' : 'none'}
+            aria-hidden={!isOpen}
+            accessibilityElementsHidden={!isOpen}
+            importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
+            {...(platformEnv.isNative ? {} : { inert: !isOpen })}
+          >
+            {children}
+          </Accordion.Content>
+        </HeightTransition>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
   refreshAction,
 }: ISwapQuoteResultProps) => {
-  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -222,14 +278,6 @@ const SwapQuoteResult = ({
     quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
     !hasQuoteResultForDisplay;
 
-  const onValueChange = useCallback((value: string) => {
-    const isOpen = value === SWAP_ACCORDION_VALUE;
-    setIsAccordionOpen(isOpen);
-    if (isOpen) {
-      Keyboard.dismiss();
-    }
-  }, []);
-
   const fromAmountDebounce = useDebounce(
     fromTokenAmount,
     SWAP_QUOTE_INPUT_DEBOUNCE_MS,
@@ -349,160 +397,135 @@ const SwapQuoteResult = ({
     !new BigNumber(fromAmountDebounce.value).isNaN()
   ) {
     return (
-      <Accordion type="single" collapsible onValueChange={onValueChange}>
-        <Accordion.Item value={SWAP_ACCORDION_VALUE}>
-          <Accordion.Trigger
-            unstyled
-            testID={SwapTestIDs.quoteDetailsToggle}
-            borderWidth={0}
-            bg="$transparent"
-            p="$0"
-            cursor="pointer"
-            disabled={
-              !quoteResultForDisplay?.info.provider ||
-              swapQuoteLoading ||
-              isStaleRefreshing
+      <SwapQuoteResultAccordion
+        disabled={
+          !quoteResultForDisplay?.info.provider ||
+          swapQuoteLoading ||
+          isStaleRefreshing
+        }
+        renderTrigger={(open) => (
+          <SwapQuoteResultRate
+            rate={quoteResultForDisplay?.instantRate}
+            quoting={quoting}
+            fromToken={fromToken}
+            toToken={toToken}
+            isBest={quoteResultForDisplay?.isBest}
+            showBestBadge={!platformEnv.isNative}
+            customSlippageValue={mobileCustomSlippageInfo?.value}
+            customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
+            customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
+            providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''}
+            isLoading={isQuotePresentationLoading}
+            showNoProvider={showNoProvider}
+            refreshAction={refreshAction}
+            canOpenResult={Boolean(quoteResultForDisplay?.info.provider)}
+            openResult={open}
+          />
+        )}
+      >
+        <Divider mt="$4" />
+        {quoteResultForDisplay?.allowanceResult ? (
+          <SwapApproveAllowanceSelectContainer
+            allowanceResult={quoteResultForDisplay?.allowanceResult}
+            fromTokenSymbol={fromToken?.symbol ?? ''}
+            isLoading={isQuotePresentationLoading}
+          />
+        ) : null}
+        {quoteResultForDisplay?.info.provider ? (
+          <SwapProviderInfoItem
+            providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''} // TODO default logo
+            providerName={quoteResultForDisplay?.info.providerName ?? ''}
+            isBest={quoteResultForDisplay?.isBest}
+            isLoading={isQuotePresentationLoading}
+            fromToken={fromToken}
+            toToken={toToken}
+            showLock={!!quoteResultForDisplay?.allowanceResult}
+            percentageFee={quoteResultForDisplay?.fee?.percentageFee}
+            percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
+            onPress={
+              quoteResultForDisplay?.info.provider && onOpenProviderList
+                ? () => {
+                    onOpenProviderList();
+                  }
+                : undefined
             }
-          >
-            {({ open }: { open: boolean }) => (
-              <SwapQuoteResultRate
-                rate={quoteResultForDisplay?.instantRate}
-                quoting={quoting}
-                fromToken={fromToken}
-                toToken={toToken}
-                isBest={quoteResultForDisplay?.isBest}
-                showBestBadge={!platformEnv.isNative}
-                customSlippageValue={mobileCustomSlippageInfo?.value}
-                customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
-                customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
-                providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''}
-                isLoading={isQuotePresentationLoading}
-                showNoProvider={showNoProvider}
-                refreshAction={refreshAction}
-                canOpenResult={Boolean(quoteResultForDisplay?.info.provider)}
-                openResult={open}
-              />
-            )}
-          </Accordion.Trigger>
-          <Accordion.HeightAnimator
-            animation="quick"
-            overflow={isAccordionOpen ? 'visible' : 'hidden'}
-          >
-            <Accordion.Content
-              gap="$4"
-              p="$0"
-              animation="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              exitStyle={{ opacity: 0 }}
-            >
-              <Divider mt="$4" />
-              {quoteResultForDisplay?.allowanceResult ? (
-                <SwapApproveAllowanceSelectContainer
-                  allowanceResult={quoteResultForDisplay?.allowanceResult}
-                  fromTokenSymbol={fromToken?.symbol ?? ''}
-                  isLoading={isQuotePresentationLoading}
-                />
-              ) : null}
-              {quoteResultForDisplay?.info.provider ? (
-                <SwapProviderInfoItem
-                  providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''} // TODO default logo
-                  providerName={quoteResultForDisplay?.info.providerName ?? ''}
-                  isBest={quoteResultForDisplay?.isBest}
-                  isLoading={isQuotePresentationLoading}
-                  fromToken={fromToken}
-                  toToken={toToken}
-                  showLock={!!quoteResultForDisplay?.allowanceResult}
-                  percentageFee={quoteResultForDisplay?.fee?.percentageFee}
-                  percentOriginFee={
-                    quoteResultForDisplay?.fee?.percentOriginFee
-                  }
-                  onPress={
-                    quoteResultForDisplay?.info.provider && onOpenProviderList
-                      ? () => {
-                          onOpenProviderList();
-                        }
-                      : undefined
-                  }
-                />
-              ) : null}
-              {quoteDuration ? (
-                <SwapCommonInfoItem
-                  title={intl.formatMessage({
-                    id: ETranslations.provider_swap_duration,
-                  })}
-                  isLoading={isQuotePresentationLoading}
-                  value={quoteDuration}
-                />
-              ) : null}
-              {quoteResultForDisplay?.toAmount &&
-              !quoteResultForDisplay?.unSupportSlippage &&
-              !quoteResultForDisplay.isWrapped ? (
-                <SwapSlippageTriggerContainer
-                  isLoading={isQuotePresentationLoading}
-                  onPress={onSlippageHandleClick}
-                  slippageItem={slippageItem}
-                />
-              ) : null}
-              {(quoteResultForDisplay?.fee?.estimatedFeeFiatValue ||
-                quoteResultForDisplay?.fee?.isFreeNetworkFee) &&
-              !quoteResultForDisplay?.allowanceResult ? (
-                <SwapCommonInfoItem
-                  title={intl.formatMessage({
-                    id: ETranslations.swap_page_provider_est_network_fee,
-                  })}
-                  isLoading={isQuotePresentationLoading}
-                  valueComponent={
-                    quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
-                      <XStack gap="$1" alignItems="center">
-                        <Icon
-                          name="PartyCelebrateSolid"
-                          color="$iconSuccess"
-                          w={15}
-                          h={15}
-                        />
-                        <SizableText size="$bodyMdMedium" color="$textSuccess">
-                          {intl.formatMessage({
-                            id: ETranslations.prime_status_free,
-                          })}
-                        </SizableText>
-                      </XStack>
-                    ) : (
-                      <NumberSizeableText
-                        size="$bodyMdMedium"
-                        formatter="value"
-                        formatterOptions={{
-                          currency: settingsPersistAtom.currencyInfo.symbol,
-                        }}
-                      >
-                        {quoteResultForDisplay?.fee?.estimatedFeeFiatValue}
-                      </NumberSizeableText>
-                    )
-                  }
-                  questionMarkContent={
-                    <SizableText
-                      p="$4"
-                      $gtMd={{
-                        size: '$bodyMd',
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.swap_review_network_cost_popover_content,
-                      })}
-                    </SizableText>
-                  }
-                />
-              ) : null}
-              {swapTokenMetadata?.swapTokenMetadata
-                ? tokenMetadataParse(
-                    swapTokenMetadata?.swapTokenMetadata,
-                    fromToken,
-                    toToken,
-                  )
-                : null}
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
-      </Accordion>
+          />
+        ) : null}
+        {quoteDuration ? (
+          <SwapCommonInfoItem
+            title={intl.formatMessage({
+              id: ETranslations.provider_swap_duration,
+            })}
+            isLoading={isQuotePresentationLoading}
+            value={quoteDuration}
+          />
+        ) : null}
+        {quoteResultForDisplay?.toAmount &&
+        !quoteResultForDisplay?.unSupportSlippage &&
+        !quoteResultForDisplay.isWrapped ? (
+          <SwapSlippageTriggerContainer
+            isLoading={isQuotePresentationLoading}
+            onPress={onSlippageHandleClick}
+            slippageItem={slippageItem}
+          />
+        ) : null}
+        {(quoteResultForDisplay?.fee?.estimatedFeeFiatValue ||
+          quoteResultForDisplay?.fee?.isFreeNetworkFee) &&
+        !quoteResultForDisplay?.allowanceResult ? (
+          <SwapCommonInfoItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_provider_est_network_fee,
+            })}
+            isLoading={isQuotePresentationLoading}
+            valueComponent={
+              quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
+                <XStack gap="$1" alignItems="center">
+                  <Icon
+                    name="PartyCelebrateSolid"
+                    color="$iconSuccess"
+                    w={15}
+                    h={15}
+                  />
+                  <SizableText size="$bodyMdMedium" color="$textSuccess">
+                    {intl.formatMessage({
+                      id: ETranslations.prime_status_free,
+                    })}
+                  </SizableText>
+                </XStack>
+              ) : (
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settingsPersistAtom.currencyInfo.symbol,
+                  }}
+                >
+                  {quoteResultForDisplay?.fee?.estimatedFeeFiatValue}
+                </NumberSizeableText>
+              )
+            }
+            questionMarkContent={
+              <SizableText
+                p="$4"
+                $gtMd={{
+                  size: '$bodyMd',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_review_network_cost_popover_content,
+                })}
+              </SizableText>
+            }
+          />
+        ) : null}
+        {swapTokenMetadata?.swapTokenMetadata
+          ? tokenMetadataParse(
+              swapTokenMetadata?.swapTokenMetadata,
+              fromToken,
+              toToken,
+            )
+          : null}
+      </SwapQuoteResultAccordion>
     );
   }
 };
