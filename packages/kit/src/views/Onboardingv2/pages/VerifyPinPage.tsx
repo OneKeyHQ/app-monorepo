@@ -243,7 +243,9 @@ function VerifyPinPage() {
   const onTitleMultipleClick = useCallback(() => {
     if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore) {
       Dialog.confirm({
-        title: 'Continue with provider fixed?',
+        title: intl.formatMessage({
+          id: ETranslations.global_continue_anyway,
+        }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue_anyway,
         }),

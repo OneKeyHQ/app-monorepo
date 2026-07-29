@@ -39,7 +39,6 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
-  // TODO: i18n
   return String(error || 'Identity exit failed.');
 }
 
