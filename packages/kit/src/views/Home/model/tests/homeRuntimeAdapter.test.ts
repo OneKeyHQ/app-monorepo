@@ -1,5 +1,3 @@
-import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
-
 import {
   type IHomeRuntimeAdapter,
   createHomeRuntimeEnvelope,
@@ -16,7 +14,6 @@ const expected = {
     paramsFingerprint: 'params-1',
     dataSchemaVersion: 1,
   },
-  requestSeq: 1,
 };
 
 function verifyConformance(adapter: IHomeRuntimeAdapter) {
@@ -42,18 +39,6 @@ function verifyConformance(adapter: IHomeRuntimeAdapter) {
       expected,
     ),
   ).toEqual({ accepted: false, reason: 'sessionMismatch' });
-  expect(
-    adapter.validateResponse(
-      { ...envelope, token: { ...token, requestSeq: 2 } },
-      expected,
-    ),
-  ).toEqual({ accepted: false, reason: 'requestSequenceMismatch' });
-  expect(
-    adapter.validateResponse(
-      { ...envelope, token: { ...token, protocolVersion: 999 } },
-      expected,
-    ),
-  ).toEqual({ accepted: false, reason: 'protocolMismatch' });
 }
 
 describe('Home runtime adapters', () => {
@@ -68,7 +53,6 @@ describe('Home runtime adapters', () => {
       new SplitRuntimeHomeAdapter({
         clientInstanceId: 'client-1',
         getHandshake: async () => ({
-          protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
           producerInstanceId: 'producer-1',
         }),
       }),
@@ -77,7 +61,6 @@ describe('Home runtime adapters', () => {
 
   it('calls the bg handshake only on split connect and explicit refresh', async () => {
     const getHandshake = jest.fn(async () => ({
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: 'producer-1',
     }));
     const split = new SplitRuntimeHomeAdapter({

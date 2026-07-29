@@ -15,7 +15,7 @@ describe('home wallet capability navigation model', () => {
     expect(
       buildHomeWalletCapabilityNavigationModel({
         destinations: { portfolio: 'inline', perps: 'web' },
-        freshness: 'live',
+        priority: 1,
         kind: 'ready',
         perpsDestination: 'web',
         refresh: 'idle',

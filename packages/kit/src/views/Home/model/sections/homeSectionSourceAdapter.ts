@@ -6,31 +6,28 @@ import type {
 } from './homeSectionCoordinator';
 
 export type IScopedResourceState<T extends IHomeRuntimeJsonValue> =
-  | { status: 'idle'; requestSeq: 0 }
-  | { status: 'loading'; requestSeq: number }
+  | { status: 'idle' }
+  | { status: 'loading' }
   | {
       status: 'partial';
-      requestSeq: number;
       data: T;
       coverageFingerprint: string;
     }
   | {
       status: 'success';
-      requestSeq: number;
       data: T;
       coverageFingerprint: string;
     }
-  | { status: 'empty'; requestSeq: number; coverageFingerprint: string }
+  | { status: 'empty'; coverageFingerprint: string }
   | {
       status: 'error';
-      requestSeq: number;
       errorKind:
         | 'source'
         | 'transport'
         | 'schemaMismatch'
         | 'runtimeUnavailable';
     }
-  | { status: 'stopped'; requestSeq: number };
+  | { status: 'stopped' };
 
 function adaptHomeSectionSourceState<T extends IHomeRuntimeJsonValue>({
   getRowIds,
@@ -41,40 +38,30 @@ function adaptHomeSectionSourceState<T extends IHomeRuntimeJsonValue>({
   identity: IHomeSectionSourceIdentity;
   state: IScopedResourceState<T>;
 }): IHomeSectionCoordinatorEvent<T> | undefined {
-  const base = {
-    ...identity,
-    requestSeq: state.requestSeq,
-  };
   switch (state.status) {
     case 'idle':
     case 'loading':
-      return { ...base, kind: 'loading' };
+      return { ...identity, kind: 'loading' };
     case 'partial':
-      return {
-        ...base,
-        kind: 'partial',
-        coverageFingerprint: state.coverageFingerprint,
-      };
+      return { ...identity, kind: 'partial' };
     case 'success':
       return {
-        ...base,
+        ...identity,
         kind: 'complete',
         result: {
           kind: 'success',
           data: state.data,
           rowIds: getRowIds(state.data),
         },
-        coverageFingerprint: state.coverageFingerprint,
       };
     case 'empty':
       return {
-        ...base,
+        ...identity,
         kind: 'complete',
         result: { kind: 'empty' },
-        coverageFingerprint: state.coverageFingerprint,
       };
     case 'error':
-      return { ...base, kind: 'error', errorKind: state.errorKind };
+      return { ...identity, kind: 'error' };
     case 'stopped':
       return undefined;
     default:
@@ -87,18 +74,15 @@ function createHomeSectionConfirmedSeed<T>({
   getRowIds,
   identity,
   refresh,
-  requestSeq,
 }: {
   data: T;
   getRowIds: (data: T) => readonly string[];
   identity: IHomeSectionSourceIdentity;
   refresh: 'idle' | 'refreshing';
-  requestSeq: number;
 }): IHomeSectionCoordinatorEvent<T> {
   return {
     ...identity,
     kind: 'seedConfirmed',
-    requestSeq,
     data,
     rowIds: getRowIds(data),
     refresh,

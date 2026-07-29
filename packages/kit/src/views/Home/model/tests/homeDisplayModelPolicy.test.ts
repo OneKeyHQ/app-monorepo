@@ -87,7 +87,7 @@ describe('homeDisplayModelPolicy', () => {
         },
         actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
         banner: { kind: 'none' },
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });

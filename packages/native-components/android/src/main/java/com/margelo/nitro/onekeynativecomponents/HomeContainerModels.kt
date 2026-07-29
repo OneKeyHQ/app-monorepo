@@ -4,8 +4,6 @@ import android.graphics.Color
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val HOME_CONTAINER_MAXIMUM_SAFE_INTEGER = 9_007_199_254_740_991L
-
 internal data class HomeContainerTheme(
   val backgroundColor: String,
   val cardColor: String,
@@ -137,35 +135,28 @@ internal data class HomeContainerTab(
 )
 
 internal data class HomeContainerSnapshot(
-  val schemaVersion: Int,
-  val revision: Long,
   val selectedTabId: String,
   val header: HomeContainerHeader,
   val tabs: List<HomeContainerTab>,
   val theme: HomeContainerTheme,
+)
+
+internal data class HomeContainerOwner(
+  val scopeKey: String,
+  val sessionId: String,
 ) {
-  fun applying(patch: HomeContainerPatch): HomeContainerSnapshot {
-    val sectionPatches = patch.tabs.associate { it.tabId to it.sections }
-    return copy(
-      revision = patch.revision,
-      header = patch.header ?: header,
-      tabs = tabs.map { tab ->
-        sectionPatches[tab.id]?.let { tab.copy(sections = it) } ?: tab
-      },
-    )
-  }
+  fun isValid(): Boolean = scopeKey.isNotEmpty() && sessionId.isNotEmpty()
 }
+
+internal data class HomeContainerState(
+  val owner: HomeContainerOwner,
+  val snapshot: HomeContainerSnapshot,
+)
 
 internal fun HomeContainerSnapshot.inlineTabs(): List<HomeContainerTab> =
   tabs.filter { it.destination == HomeContainerTabDestination.INLINE }
 
 internal fun HomeContainerSnapshot.hasValidTabInvariants(): Boolean {
-  if (
-    schemaVersion != HOME_CONTAINER_BUSINESS_SCHEMA_VERSION ||
-    revision !in 0..HOME_CONTAINER_MAXIMUM_SAFE_INTEGER
-  ) {
-    return false
-  }
   if (tabs.isEmpty()) return false
   val tabIds = tabs.map { it.id }
   if (tabIds.any(String::isEmpty) || tabIds.toSet().size != tabIds.size) return false
@@ -184,65 +175,26 @@ internal fun HomeContainerSnapshot.hasValidTabInvariants(): Boolean {
   }
 }
 
-internal fun HomeContainerSnapshot.applyingValidatedPatch(
-  patch: HomeContainerPatch,
-): HomeContainerSnapshot? {
-  if (
-    patch.schemaVersion != HOME_CONTAINER_BUSINESS_SCHEMA_VERSION ||
-    patch.revision !in 0..HOME_CONTAINER_MAXIMUM_SAFE_INTEGER ||
-    patch.revision < revision
-  ) {
-    return null
-  }
-  val validTabIds = inlineTabs().mapTo(mutableSetOf()) { it.id }
-  val patchedTabIds = patch.tabs.map { it.tabId }
-  if (patchedTabIds.toSet().size != patchedTabIds.size) return null
-  if (patchedTabIds.any { it !in validTabIds }) return null
-  return applying(patch).takeIf(HomeContainerSnapshot::hasValidTabInvariants)
-}
-
-internal data class HomeContainerTabPatch(
-  val tabId: String,
-  val sections: List<HomeContainerSection>,
-)
-
-internal data class HomeContainerPatch(
-  val schemaVersion: Int,
-  val revision: Long,
-  val header: HomeContainerHeader?,
-  val tabs: List<HomeContainerTabPatch>,
-)
-
 internal object HomeContainerJson {
-  fun parseSnapshot(json: String): HomeContainerSnapshot {
+  fun parseState(json: String): HomeContainerState {
     val root = JSONObject(json)
-    return HomeContainerSnapshot(
-      schemaVersion = root.getInt("schemaVersion"),
-      revision = root.getLong("revision"),
-      selectedTabId = root.getString("selectedTabId"),
-      header = parseHeader(root.getJSONObject("header")),
-      tabs = root.getJSONArray("tabs").mapObjects(::parseTab),
-      theme = parseTheme(root.getJSONObject("theme")),
-    ).also { snapshot ->
-      require(snapshot.hasValidTabInvariants()) {
-        "HomeContainer snapshot has invalid tab destination invariants"
-      }
-    }
-  }
-
-  fun parsePatch(json: String): HomeContainerPatch {
-    val root = JSONObject(json)
-    return HomeContainerPatch(
-      schemaVersion = root.getInt("schemaVersion"),
-      revision = root.getLong("revision"),
-      header = root.optJSONObject("header")?.let(::parseHeader),
-      tabs = root.getJSONArray("tabs").mapObjects { tab ->
-        HomeContainerTabPatch(
-          tabId = tab.getString("tabId"),
-          sections = tab.getJSONArray("sections").mapObjects(::parseSection),
-        )
-      },
+    val ownerJson = root.getJSONObject("owner")
+    val owner = HomeContainerOwner(
+      scopeKey = ownerJson.getString("scopeKey"),
+      sessionId = ownerJson.getString("sessionId"),
     )
+    require(owner.isValid()) { "HomeContainer owner is invalid" }
+    val payload = root.getJSONObject("payload")
+    val snapshot = HomeContainerSnapshot(
+      selectedTabId = payload.getString("selectedTabId"),
+      header = parseHeader(payload.getJSONObject("header")),
+      tabs = payload.getJSONArray("tabs").mapObjects(::parseTab),
+      theme = parseTheme(payload.getJSONObject("theme")),
+    )
+    require(snapshot.hasValidTabInvariants()) {
+      "HomeContainer state has invalid tab destination invariants"
+    }
+    return HomeContainerState(owner = owner, snapshot = snapshot)
   }
 
   private fun parseTheme(value: JSONObject): HomeContainerTheme = HomeContainerTheme(

@@ -19,7 +19,7 @@ namespace margelo::nitro::onekeynativecomponents {
   using namespace facebook;
 
   /**
-   * Represents the Java/Kotlin callback `(tabId: String, requestId: String) -> Unit`.
+   * Represents the Java/Kotlin callback `(code: String, message: String) -> Unit`.
    * This can be passed around between C++ and Java/Kotlin.
    */
   struct JFunc_void_std__string_std__string: public jni::JavaClass<JFunc_void_std__string_std__string> {
@@ -30,9 +30,9 @@ namespace margelo::nitro::onekeynativecomponents {
     /**
      * Invokes the function this `JFunc_void_std__string_std__string` instance holds through JNI.
      */
-    void invoke(const std::string& tabId, const std::string& requestId) const {
-      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* tabId */, jni::alias_ref<jni::JString> /* requestId */)>("invoke");
-      method(self(), jni::make_jstring(tabId), jni::make_jstring(requestId));
+    void invoke(const std::string& code, const std::string& message) const {
+      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* code */, jni::alias_ref<jni::JString> /* message */)>("invoke");
+      method(self(), jni::make_jstring(code), jni::make_jstring(message));
     }
   };
 
@@ -41,7 +41,7 @@ namespace margelo::nitro::onekeynativecomponents {
    */
   class JFunc_void_std__string_std__string_cxx final: public jni::HybridClass<JFunc_void_std__string_std__string_cxx, JFunc_void_std__string_std__string> {
   public:
-    static jni::local_ref<JFunc_void_std__string_std__string::javaobject> fromCpp(const std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>& func) {
+    static jni::local_ref<JFunc_void_std__string_std__string::javaobject> fromCpp(const std::function<void(const std::string& /* code */, const std::string& /* message */)>& func) {
       return JFunc_void_std__string_std__string_cxx::newObjectCxxArgs(func);
     }
 
@@ -49,13 +49,13 @@ namespace margelo::nitro::onekeynativecomponents {
     /**
      * Invokes the C++ `std::function<...>` this `JFunc_void_std__string_std__string_cxx` instance holds.
      */
-    void invoke_cxx(jni::alias_ref<jni::JString> tabId, jni::alias_ref<jni::JString> requestId) {
-      _func(tabId->toStdString(), requestId->toStdString());
+    void invoke_cxx(jni::alias_ref<jni::JString> code, jni::alias_ref<jni::JString> message) {
+      _func(code->toStdString(), message->toStdString());
     }
 
   public:
     [[nodiscard]]
-    inline const std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>& getFunction() const {
+    inline const std::function<void(const std::string& /* code */, const std::string& /* message */)>& getFunction() const {
       return _func;
     }
 
@@ -66,11 +66,11 @@ namespace margelo::nitro::onekeynativecomponents {
     }
 
   private:
-    explicit JFunc_void_std__string_std__string_cxx(const std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>& func): _func(func) { }
+    explicit JFunc_void_std__string_std__string_cxx(const std::function<void(const std::string& /* code */, const std::string& /* message */)>& func): _func(func) { }
 
   private:
     friend HybridBase;
-    std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)> _func;
+    std::function<void(const std::string& /* code */, const std::string& /* message */)> _func;
   };
 
 } // namespace margelo::nitro::onekeynativecomponents

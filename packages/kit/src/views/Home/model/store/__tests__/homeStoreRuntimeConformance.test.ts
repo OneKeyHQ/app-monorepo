@@ -13,7 +13,6 @@ describe('Home Store runtime gateway conformance', () => {
     const split = new SplitRuntimeHomeAdapter({
       clientInstanceId,
       getHandshake: async () => ({
-        protocolVersion: 1,
         producerInstanceId,
       }),
     });
@@ -21,7 +20,6 @@ describe('Home Store runtime gateway conformance', () => {
     const expected = {
       producerInstanceId,
       sessionId: 'session-a',
-      requestSeq: 1,
       sourceKey: {
         scopeKey: 'owner-a',
         sourceId: 'portfolio' as const,

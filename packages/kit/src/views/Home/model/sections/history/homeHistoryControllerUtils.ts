@@ -12,7 +12,7 @@ type IHomeHistoryStoreResult =
       kind: 'ready';
       rowIds: readonly string[];
       data: IHomeRuntimeJsonValue;
-      freshness: 'live';
+      priority: 1;
       refresh: 'idle';
     };
 
@@ -34,7 +34,7 @@ export function createHomeHistoryStoreResult(
         kind: 'ready',
         rowIds: payload.data.map((tx) => tx.id),
         data,
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       };
 }

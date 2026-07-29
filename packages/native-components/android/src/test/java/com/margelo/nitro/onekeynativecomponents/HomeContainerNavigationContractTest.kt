@@ -429,31 +429,4 @@ class HomeContainerNavigationContractTest {
     assertNull(homeContainerContentSlotTabId("tab.accessory.portfolio"))
   }
 
-  @Test
-  fun `presentation readiness ignores a sticky RecyclerView layout requested flag`() {
-    assertTrue(
-      homeContainerCanScheduleListPresentation(
-        hasPendingLayout = false,
-        hasPendingAdapterUpdates = false,
-        width = 1080,
-        height = 1600,
-      ),
-    )
-    assertFalse(
-      homeContainerCanScheduleListPresentation(
-        hasPendingLayout = true,
-        hasPendingAdapterUpdates = false,
-        width = 1080,
-        height = 1600,
-      ),
-    )
-    assertFalse(
-      homeContainerCanScheduleListPresentation(
-        hasPendingLayout = false,
-        hasPendingAdapterUpdates = true,
-        width = 1080,
-        height = 1600,
-      ),
-    )
-  }
 }

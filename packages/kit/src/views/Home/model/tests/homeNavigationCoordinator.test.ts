@@ -100,7 +100,7 @@ describe('homeNavigationCoordinator', () => {
       intent: live.intent,
     });
     expect(refreshing.navigation).toMatchObject({
-      freshness: 'confirmedCache',
+      priority: 0,
       kind: 'ready',
       refresh: 'refreshing',
       tabs: ['portfolio', 'perps', 'defi', 'nft', 'history'],

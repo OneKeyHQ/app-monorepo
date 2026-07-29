@@ -31,41 +31,37 @@ type IHomeNFTEvidence =
 function projectHomeNFTSectionSource({
   authorityReady,
   evidence,
-  requestSeq,
   scopeMatches,
 }: {
   authorityReady: boolean;
   evidence: IHomeNFTEvidence;
-  requestSeq: number;
   scopeMatches: boolean;
 }): IHomeNFTSourceSnapshot {
   if (!authorityReady || !scopeMatches) {
-    return { kind: 'loading', requestSeq };
+    return { kind: 'loading' };
   }
   switch (evidence.kind) {
     case 'loading':
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
     case 'confirmedCache':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'partial':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'error':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'complete':
       if (evidence.confirmedEmpty) {
         return {
           kind: 'complete',
-          requestSeq,
           coverageFingerprint: evidence.coverageFingerprint,
           result: { kind: 'empty' },
         };
       }
       if (!evidence.data || evidence.rowIds.length === 0) {
-        return { kind: 'loading', requestSeq };
+        return { kind: 'loading' };
       }
       return {
         kind: 'complete',
-        requestSeq,
         coverageFingerprint: evidence.coverageFingerprint,
         result: {
           kind: 'success',
@@ -74,20 +70,18 @@ function projectHomeNFTSectionSource({
         },
       };
     default:
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
   }
 }
 
 function buildHomeNFTCoverage({
-  requestSeq,
   rowCount,
   source,
 }: {
-  requestSeq: number;
   rowCount: number;
   source: 'allNetworks' | 'singleNetwork';
 }): string {
-  return `nft:${source}:${requestSeq}:rows:${rowCount}:complete`;
+  return `nft:${source}:rows:${rowCount}:complete`;
 }
 
 export { buildHomeNFTCoverage, projectHomeNFTSectionSource };

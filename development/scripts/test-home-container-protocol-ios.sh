@@ -9,11 +9,9 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 xcrun swiftc \
   "$REPO_ROOT/packages/native-components/ios/HomeContainerModels.swift" \
-  "$REPO_ROOT/packages/native-components/ios/HomeContainerProtocolV3.swift" \
-  "$REPO_ROOT/packages/native-components/tests/ios/HomeContainerProtocolV3Contract.swift" \
-  -o "$TEMP_DIR/home-container-protocol-v3"
+  "$REPO_ROOT/packages/native-components/tests/ios/HomeContainerStateContract.swift" \
+  -o "$TEMP_DIR/home-container-state"
 
-SNAPSHOT_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container-v3.snapshot.json")"
-PATCH_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container-v3.patch.json")"
+STATE_JSON="$(<"$REPO_ROOT/packages/native-components/tests/fixtures/home-container.state.json")"
 
-"$TEMP_DIR/home-container-protocol-v3" "$SNAPSHOT_JSON" "$PATCH_JSON"
+"$TEMP_DIR/home-container-state" "$STATE_JSON"

@@ -736,12 +736,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     case body
   }
 
-  var onAction: ((String, String, String) -> Void)?
-  var onRefresh: ((String, String) -> Void)?
-  var onVisibleTabChange: ((String) -> Void)?
   var onRenderError: ((String, String) -> Void)?
   var onIntent: ((String) -> Void)?
-  var onTransportResult: ((String) -> Void)?
   @objc dynamic var slotLayoutDidChange: (() -> Void)?
 
   private let outerScrollView = HomeContainerNestedScrollView()
@@ -754,18 +750,11 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     qos: .userInitiated
   )
   private let decoder = JSONDecoder()
-  private let encoder = JSONEncoder()
   private let lifecycleLock = NSLock()
-  private var pendingInitialSnapshot: HomeContainerProtocolV3SnapshotEnvelope?
-  private var initialSnapshotApplyScheduled = false
+  private var pendingInitialState: HomeContainerState?
+  private var initialStateApplyScheduled = false
   private var snapshot: HomeContainerSnapshot?
-  private var protocolV2State: HomeContainerProtocolV2State?
-  private var protocolV3State: HomeContainerProtocolV3State?
-  private var renderedProtocolV2State: HomeContainerProtocolV2State?
-  private var renderedProtocolV3State: HomeContainerProtocolV3State?
-  private var pendingProtocolV3Patch: HomeContainerProtocolV3PatchEnvelope?
-  private var pendingProtocolV3PatchRetryScheduled = false
-  private var lastNeedSnapshotResultKey: String?
+  private var state: HomeContainerState?
   private var pages: [HomeContainerPageView] = []
   private var refreshRequestIds = Set<String>()
   private var selectedTabId = ""
@@ -774,7 +763,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   private var refreshEnabled = false
   private var headerHeight: CGFloat = 0
   private var mountedSlotKeys = Set<String>()
-  private var mountedSlotMetadata = [HomeContainerProtocolV3MountedSlotMetadata]()
   private var pagerTransitionState = PagerTransitionState.idle
   private var pendingPagerNotify = false
   private var tabSelectionQueue = HomeContainerTabSelectionQueue()
@@ -822,14 +810,14 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     outerScrollView.addSubview(tabsView)
     headerView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
-      self.emitAction(actionId: actionId, itemId: itemId, tabId: self.selectedTabId)
+      self.emitAction(actionId: actionId, itemId: itemId)
     }
     tabsView.onSelect = { [weak self] tabId in
       self?.selectTabFromControl(tabId)
     }
     tabsView.onAction = { [weak self] actionId, itemId in
       guard let self else { return }
-      self.emitAction(actionId: actionId, itemId: itemId, tabId: self.selectedTabId)
+      self.emitAction(actionId: actionId, itemId: itemId)
     }
     headerView.onSlotLayoutChange = { [weak self] in
       self?.slotLayoutDidChange?()
@@ -855,7 +843,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    schedulePendingInitialSnapshot()
+    schedulePendingInitialState()
   }
 
   @objc private func contentSizeCategoryDidChange() {
@@ -907,7 +895,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
     }
     updateSharedChromeLayout()
-    schedulePendingInitialSnapshot()
+    schedulePendingInitialState()
 
     guard pagerTransitionState == .idle,
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
@@ -929,233 +917,86 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     slotLayoutDidChange?()
   }
 
-  func submitSnapshot(_ json: String) {
+  func submitState(_ json: String) {
     parsingQueue.async { [weak self] in
       guard let self, !self.isDisposed() else { return }
-      let data = Data(json.utf8)
       do {
-        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
-        if probe?.protocolVersion != nil || probe?.kind == "snapshot" {
-          if probe?.protocolVersion == 3 {
-            let envelope = try self.decoder.decode(
-              HomeContainerProtocolV3SnapshotEnvelope.self,
-              from: data
-            )
-            DispatchQueue.main.async { [weak self] in
-              self?.pendingProtocolV3Patch = nil
-              self?.handleProtocolV3Outcome(
-                HomeContainerProtocolV3Transaction.apply(snapshot: envelope)
-              )
-            }
-            return
-          }
-          guard probe?.protocolVersion == homeContainerProtocolVersion else {
-            DispatchQueue.main.async { [weak self] in
-              self?.emitNeedSnapshot(
-                owner: probe?.owner,
-                currentRevision: self?.protocolV2State?.revision,
-                reason: .unsupportedProtocol
-              )
-            }
-            return
-          }
-          guard probe?.schemaVersion == homeContainerBusinessSchemaVersion else {
-            DispatchQueue.main.async { [weak self] in
-              self?.emitNeedSnapshot(
-                owner: probe?.owner,
-                currentRevision: self?.protocolV2State?.revision,
-                reason: .unsupportedSchema
-              )
-            }
-            return
-          }
-          let envelope = try self.decoder.decode(
-            HomeContainerProtocolV2SnapshotEnvelope.self,
-            from: data
-          )
-          DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.protocolV3State = nil
-            self.pendingProtocolV3Patch = nil
-            self.handleProtocolV2Outcome(
-              HomeContainerProtocolV2Transaction.apply(
-                snapshot: envelope,
-                current: self.protocolV2State
-              )
-            )
-          }
-          return
-        }
         let next = try self.decoder.decode(
-          HomeContainerSnapshot.self,
-          from: data
+          HomeContainerState.self,
+          from: Data(json.utf8)
         )
-        guard next.schemaVersion == homeContainerBusinessSchemaVersion else {
+        guard next.isValid else {
           self.reportError(
-            code: "unsupported_schema",
-            message: "HomeContainer schema \(next.schemaVersion) is not supported"
-          )
-          return
-        }
-        guard homeContainerValidatesBusinessInvariants(next) else {
-          self.reportError(
-            code: "invalid_snapshot",
-            message: "HomeContainer snapshot violates business invariants"
+            code: "invalid_state",
+            message: "HomeContainer state violates protocol invariants"
           )
           return
         }
         DispatchQueue.main.async { [weak self] in
-          guard let self else { return }
-          self.protocolV2State = nil
-          self.protocolV3State = nil
-          self.pendingProtocolV3Patch = nil
-          self.lastNeedSnapshotResultKey = nil
+          guard let self, !self.isDisposed() else { return }
+          if self.state?.owner != nil, self.state?.owner != next.owner {
+            self.resetViewportForOwnerChange()
+          }
+          self.state = next
           self.applySnapshot(
-            next,
-            allowsMissingSelectedTabFallback: true,
-            enforcesMonotonicRevision: true
+            next.payload,
+            allowsMissingSelectedTabFallback: false
           )
         }
       } catch {
-        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
-        if probe?.protocolVersion != nil || probe?.kind == "snapshot" {
-          DispatchQueue.main.async { [weak self] in
-            self?.emitNeedSnapshot(
-              owner: nil,
-              currentRevision: self?.protocolV2State?.revision,
-              reason: .invalidInvariant
-            )
-          }
-        } else {
-          self.reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
-        }
+        self.reportError(code: "state_decode_failed", message: error.localizedDescription)
       }
     }
   }
 
-  func submitInitialSnapshot(_ json: String) {
+  func submitInitialState(_ json: String) {
     do {
       let next = try JSONDecoder().decode(
-        HomeContainerProtocolV3SnapshotEnvelope.self,
+        HomeContainerState.self,
         from: Data(json.utf8)
       )
-      pendingInitialSnapshot = next
-      schedulePendingInitialSnapshot()
+      guard next.isValid else {
+        reportError(
+          code: "invalid_state",
+          message: "HomeContainer state violates protocol invariants"
+        )
+        return
+      }
+      pendingInitialState = next
+      schedulePendingInitialState()
       setNeedsLayout()
     } catch {
-      reportError(code: "snapshot_decode_failed", message: error.localizedDescription)
+      reportError(code: "state_decode_failed", message: error.localizedDescription)
     }
   }
 
-  private func schedulePendingInitialSnapshot() {
-    guard pendingInitialSnapshot != nil,
+  private func schedulePendingInitialState() {
+    guard pendingInitialState != nil,
           window != nil,
           bounds.width > 0,
           bounds.height > 0,
-          !initialSnapshotApplyScheduled else {
+          !initialStateApplyScheduled else {
       return
     }
-    initialSnapshotApplyScheduled = true
+    initialStateApplyScheduled = true
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      self.initialSnapshotApplyScheduled = false
+      self.initialStateApplyScheduled = false
       guard self.window != nil,
             self.bounds.width > 0,
             self.bounds.height > 0,
-            let next = self.pendingInitialSnapshot else {
+            let next = self.pendingInitialState else {
         return
       }
-      self.pendingInitialSnapshot = nil
-      self.pendingProtocolV3Patch = nil
-      self.handleProtocolV3Outcome(
-        HomeContainerProtocolV3Transaction.apply(snapshot: next)
-      )
-    }
-  }
-
-  func submitPatch(_ json: String) {
-    parsingQueue.async { [weak self] in
-      guard let self, !self.isDisposed() else { return }
-      let data = Data(json.utf8)
-      do {
-        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
-        if probe?.protocolVersion != nil || probe?.kind == "patch" {
-          if probe?.protocolVersion == 3 {
-            let patch = try self.decoder.decode(
-              HomeContainerProtocolV3PatchEnvelope.self,
-              from: data
-            )
-            DispatchQueue.main.async { [weak self] in
-              guard let self else { return }
-              self.applyProtocolV3PatchOrDefer(patch)
-            }
-            return
-          }
-          guard probe?.protocolVersion == homeContainerProtocolVersion else {
-            DispatchQueue.main.async { [weak self] in
-              self?.emitNeedSnapshot(
-                owner: probe?.owner,
-                currentRevision: self?.protocolV2State?.revision,
-                reason: .unsupportedProtocol
-              )
-            }
-            return
-          }
-          guard probe?.schemaVersion == homeContainerBusinessSchemaVersion else {
-            DispatchQueue.main.async { [weak self] in
-              self?.emitNeedSnapshot(
-                owner: probe?.owner,
-                currentRevision: self?.protocolV2State?.revision,
-                reason: .unsupportedSchema
-              )
-            }
-            return
-          }
-          let patch = try self.decoder.decode(
-            HomeContainerProtocolV2PatchEnvelope.self,
-            from: data
-          )
-          DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.protocolV3State = nil
-            self.pendingProtocolV3Patch = nil
-            self.handleProtocolV2Outcome(
-              HomeContainerProtocolV2Transaction.apply(
-                patch: patch,
-                current: self.protocolV2State
-              )
-            )
-          }
-          return
-        }
-        let patch = try self.decoder.decode(
-          HomeContainerPatch.self,
-          from: data
-        )
-        guard patch.schemaVersion == homeContainerBusinessSchemaVersion else {
-          self.reportError(
-            code: "unsupported_schema",
-            message: "HomeContainer patch schema \(patch.schemaVersion) is not supported"
-          )
-          return
-        }
-        DispatchQueue.main.async { [weak self] in
-          self?.applyPatch(patch)
-        }
-      } catch {
-        let probe = try? self.decoder.decode(HomeContainerTransportProbe.self, from: data)
-        if probe?.protocolVersion != nil || probe?.kind == "patch" {
-          DispatchQueue.main.async { [weak self] in
-            self?.emitNeedSnapshot(
-              owner: nil,
-              currentRevision: self?.protocolV2State?.revision,
-              reason: .invalidInvariant
-            )
-          }
-        } else {
-          self.reportError(code: "patch_decode_failed", message: error.localizedDescription)
-        }
+      self.pendingInitialState = nil
+      if self.state?.owner != nil, self.state?.owner != next.owner {
+        self.resetViewportForOwnerChange()
       }
+      self.state = next
+      self.applySnapshot(
+        next.payload,
+        allowsMissingSelectedTabFallback: false
+      )
     }
   }
 
@@ -1186,69 +1027,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     slotLayoutDidChange?()
   }
 
-  @objc(setMountedSlotMetadata:)
-  func setMountedSlotMetadata(_ entries: [[String: Any]]) {
-    let metadata = entries.compactMap { entry -> HomeContainerProtocolV3MountedSlotMetadata? in
-      guard let slotId = entry["slotId"] as? String,
-            let ownerScopeKey = entry["ownerScopeKey"] as? String,
-            let ownerSessionId = entry["ownerSessionId"] as? String,
-            let slotRevisionNumber = entry["slotRevision"] as? NSNumber,
-            let producedByStoreCommitIdNumber =
-              entry["producedByStoreCommitId"] as? NSNumber,
-            let slotRevision = Int(exactly: slotRevisionNumber.doubleValue),
-            let producedByStoreCommitId = Int(
-              exactly: producedByStoreCommitIdNumber.doubleValue
-            )
-      else { return nil }
-      return HomeContainerProtocolV3MountedSlotMetadata(
-        slotId: slotId,
-        owner: HomeContainerProtocolV2Owner(
-          scopeKey: ownerScopeKey,
-          sessionId: ownerSessionId
-        ),
-        slotRevision: slotRevision,
-        producedByStoreCommitId: producedByStoreCommitId
-      )
-    }
-    mountedSlotMetadata = metadata
-    setMountedSlotKeys(entries.compactMap { $0["slotId"] as? String })
-    schedulePendingProtocolV3PatchRetry()
-  }
-
-  private func availableProtocolV3SlotRevisions() -> [String: Int] {
-    guard let owner = protocolV3State?.identity.owner else { return [:] }
-    return homeContainerProtocolV3AvailableSlotRevisions(
-      owner: owner,
-      mountedSlots: mountedSlotMetadata
-    )
-  }
-
-  private func applyProtocolV3PatchOrDefer(
-    _ patch: HomeContainerProtocolV3PatchEnvelope
-  ) {
-    let outcome = HomeContainerProtocolV3Transaction.apply(
-      patch: patch,
-      current: protocolV3State,
-      availableSlotRevisions: availableProtocolV3SlotRevisions()
-    )
-    if case .needSnapshot(.slotRevisionGap) = outcome {
-      pendingProtocolV3Patch = patch
-      return
-    }
-    pendingProtocolV3Patch = nil
-    handleProtocolV3Outcome(outcome)
-  }
-
-  private func schedulePendingProtocolV3PatchRetry() {
-    guard pendingProtocolV3Patch != nil,
-          !pendingProtocolV3PatchRetryScheduled else { return }
-    pendingProtocolV3PatchRetryScheduled = true
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      self.pendingProtocolV3PatchRetryScheduled = false
-      guard let patch = self.pendingProtocolV3Patch else { return }
-      self.applyProtocolV3PatchOrDefer(patch)
-    }
+  @objc(ownsSlotWithScopeKey:sessionId:)
+  func ownsSlot(scopeKey: String, sessionId: String) -> Bool {
+    state?.owner == HomeContainerOwner(scopeKey: scopeKey, sessionId: sessionId)
   }
 
   @objc(slotFrameForKey:)
@@ -1307,19 +1088,27 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     lifecycleLock.unlock()
   }
 
+  private func resetViewportForOwnerChange() {
+    pagerTransitionState = .idle
+    pendingPagerNotify = false
+    tabSelectionQueue = HomeContainerTabSelectionQueue()
+    pages.forEach { $0.removeFromSuperview() }
+    pages = []
+    selectedTabId = ""
+    snapshot = nil
+    refreshRequestIds.removeAll()
+    refreshControl.endRefreshing()
+    outerScrollView.setContentOffset(.zero, animated: false)
+    pager.setContentOffset(.zero, animated: false)
+    verticalScrollOwner = .header
+  }
+
   private func applySnapshot(
     _ next: HomeContainerSnapshot,
-    allowsMissingSelectedTabFallback: Bool,
-    enforcesMonotonicRevision: Bool,
-    completion: (() -> Void)? = nil
+    allowsMissingSelectedTabFallback: Bool
   ) {
     guard !isDisposed() else { return }
     guard homeContainerValidatesBusinessInvariants(next) else { return }
-    if enforcesMonotonicRevision,
-       let current = snapshot,
-       next.revision < current.revision {
-      return
-    }
     if !allowsMissingSelectedTabFallback,
        !next.tabs.contains(where: { $0.id == next.selectedTabId }) {
       return
@@ -1342,15 +1131,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
     var nextPages: [HomeContainerPageView] = []
     let inlineTabs = next.tabs.filter { $0.destination == .inline }
-    let renderGroup = DispatchGroup()
     for tab in inlineTabs {
       let page = oldPages[tab.id] ?? makePage(tabId: tab.id)
-      renderGroup.enter()
-      page.apply(
-        tab: tab,
-        theme: next.theme,
-        completion: renderGroup.leave
-      )
+      page.apply(tab: tab, theme: next.theme)
       nextPages.append(page)
       if page.superview == nil {
         pager.addSubview(page)
@@ -1376,130 +1159,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     homeContainerEnableDynamicTypeRecursively()
     setNeedsLayout()
     layoutIfNeeded()
-    if let completion {
-      renderGroup.notify(queue: .main, execute: completion)
-    }
-  }
-
-  private func applyPatch(_ patch: HomeContainerPatch) {
-    guard let current = snapshot, patch.revision >= current.revision else {
-      return
-    }
-    let validTabIds = Set(
-      current.tabs.lazy.filter { $0.destination == .inline }.map(\.id)
-    )
-    let patchedTabIds = patch.tabs.map(\.tabId)
-    guard Set(patchedTabIds).count == patchedTabIds.count,
-          patch.tabs.allSatisfy({ validTabIds.contains($0.tabId) }) else { return }
-
-    let next = current.applying(patch)
-    guard homeContainerValidatesBusinessInvariants(next) else { return }
-    snapshot = next
-    if let header = patch.header {
-      let previousHeaderHeight = headerHeight
-      headerView.apply(header: header, theme: next.theme)
-      headerHeight = headerView.preferredHeight
-      if abs(previousHeaderHeight - headerHeight) > 0.5 {
-        setNeedsLayout()
-      }
-      updateSharedChromeLayout()
-    }
-    for tabPatch in patch.tabs {
-      guard let page = pages.first(where: { $0.tabId == tabPatch.tabId }) else { continue }
-      page.updateSections(tabPatch.sections)
-    }
-  }
-
-  private func applyProtocolV2Patch(
-    _ next: HomeContainerSnapshot,
-    renderPlan: HomeContainerProtocolV2RenderPlan,
-    completion: @escaping () -> Void
-  ) {
-    guard !isDisposed(), homeContainerValidatesBusinessInvariants(next) else { return }
-    snapshot = next
-
-    if renderPlan.shouldApplySurface {
-      let nextBackgroundColor = UIColor(
-        homeContainerColor: next.theme.backgroundColor,
-        fallback: .systemBackground
-      )
-      backgroundColor = nextBackgroundColor
-      pager.backgroundColor = nextBackgroundColor
-    }
-
-    if renderPlan.shouldBindHeader || renderPlan.shouldApplySurface {
-      let previousHeaderHeight = headerHeight
-      headerView.apply(header: next.header, theme: next.theme)
-      headerHeight = headerView.preferredHeight
-      if abs(previousHeaderHeight - headerHeight) > 0.5 {
-        setNeedsLayout()
-      }
-    }
-    if renderPlan.shouldReconcileNavigation || renderPlan.shouldApplySurface {
-      tabsView.apply(
-        tabs: next.tabs,
-        selectedTabId: next.selectedTabId,
-        theme: next.theme
-      )
-    }
-
-    let renderGroup = DispatchGroup()
-    if renderPlan.shouldReconcileNavigation {
-      let oldPages = Dictionary(
-        pages.map { ($0.tabId, $0) },
-        uniquingKeysWith: { first, _ in first }
-      )
-      var nextPages = [HomeContainerPageView]()
-      for tab in next.tabs where tab.destination == .inline {
-        let existingPage = oldPages[tab.id]
-        let page = existingPage ?? makePage(tabId: tab.id)
-        if existingPage == nil || renderPlan.shouldApplySurface ||
-          renderPlan.sectionTabIds.contains(tab.id)
-        {
-          renderGroup.enter()
-          page.apply(tab: tab, theme: next.theme, completion: renderGroup.leave)
-        }
-        if page.superview == nil {
-          pager.addSubview(page)
-        }
-        nextPages.append(page)
-      }
-      let nextIds = Set(nextPages.map(\.tabId))
-      pages.filter { !nextIds.contains($0.tabId) }.forEach { $0.removeFromSuperview() }
-      pages = nextPages
-      selectedTabId = next.selectedTabId
-      updateSelectedTab(next.selectedTabId)
-      homeContainerEnableDynamicTypeRecursively()
-    } else if renderPlan.shouldApplySurface {
-      let tabsById = Dictionary(
-        uniqueKeysWithValues: next.tabs.map { ($0.id, $0) }
-      )
-      pages.forEach { page in
-        guard let tab = tabsById[page.tabId] else { return }
-        renderGroup.enter()
-        page.apply(tab: tab, theme: next.theme, completion: renderGroup.leave)
-      }
-    } else {
-      renderPlan.sectionTabIds.forEach { tabId in
-        guard let tab = next.tabs.first(where: { $0.id == tabId }),
-              let page = pages.first(where: { $0.tabId == tabId })
-        else { return }
-        renderGroup.enter()
-        page.updateSections(tab.sections, completion: renderGroup.leave)
-      }
-    }
-
-    if renderPlan.shouldBindHeader || renderPlan.shouldReconcileNavigation ||
-      renderPlan.shouldApplySurface
-    {
-      updateSharedChromeLayout()
-    }
-    setNeedsLayout()
-    headerView.setNeedsLayout()
-    layoutIfNeeded()
-    headerView.layoutIfNeeded()
-    slotLayoutDidChange?()
-    renderGroup.notify(queue: .main, execute: completion)
   }
 
   private func makePage(tabId: String) -> HomeContainerPageView {
@@ -1507,8 +1166,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     page.setUnifiedVerticalDriverEnabled(usesUnifiedVerticalDriver)
     page.requirePagerPanToFail(pager.panGestureRecognizer)
     page.setMountedSlotKeys(mountedSlotKeys)
-    page.onAction = { [weak self] actionId, itemId, sourceTabId in
-      self?.emitAction(actionId: actionId, itemId: itemId, tabId: sourceTabId)
+    page.onAction = { [weak self] actionId, itemId in
+      self?.emitAction(actionId: actionId, itemId: itemId)
     }
     if !usesUnifiedVerticalDriver {
       page.onContentOffsetChange = { [weak self] source in
@@ -1940,314 +1599,77 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     emitRefresh(tabId: selectedTabId, requestId: requestId)
   }
 
-  private func handleProtocolV3Outcome(_ outcome: HomeContainerProtocolV3ApplyOutcome) {
-    guard !isDisposed() else { return }
-    switch outcome {
-    case .applied(let state, let renderPlan):
-      if renderPlan.isFullSnapshot {
-        pendingProtocolV3Patch = nil
-      }
-      if protocolV3State?.identity.owner != state.identity.owner {
-        renderedProtocolV2State = nil
-        renderedProtocolV3State = nil
-      }
-      protocolV3State = state
-      protocolV2State = state.legacyState
-      lastNeedSnapshotResultKey = nil
-      let completion = { [weak self] in
-        guard let self,
-              self.protocolV3State?.identity == state.identity,
-              self.protocolV3State?.transportRevision == state.transportRevision
-        else { return }
-        self.renderedProtocolV2State = state.legacyState
-        self.renderedProtocolV3State = state
-        self.emitTransportResult(
-          .applied(owner: state.identity.owner, revision: state.transportRevision)
-        )
-      }
-      if renderPlan.isFullSnapshot {
-        applySnapshot(
-          state.snapshot,
-          allowsMissingSelectedTabFallback: false,
-          enforcesMonotonicRevision: false,
-          completion: completion
-        )
-      } else {
-        applyProtocolV2Patch(
-          state.snapshot,
-          renderPlan: renderPlan,
-          completion: completion
-        )
-      }
-    case .duplicate(let state):
-      guard renderedProtocolV3State?.identity == state.identity,
-            renderedProtocolV3State?.transportRevision == state.transportRevision
-      else { return }
-      emitTransportResult(
-        .duplicate(owner: state.identity.owner, revision: state.transportRevision)
-      )
-    case .needSnapshot(let reason):
-      pendingProtocolV3Patch = nil
-      renderedProtocolV2State = nil
-      renderedProtocolV3State = nil
-      let legacyReason: HomeContainerProtocolV2NeedSnapshotReason
-      switch reason {
-      case .ownerMismatch:
-        legacyReason = .ownerMismatch
-      case .revisionGap:
-        legacyReason = .revisionGap
-      case .unsupportedProtocol:
-        legacyReason = .unsupportedProtocol
-      case .invalidInvariant, .slotRevisionGap:
-        legacyReason = .invalidInvariant
-      }
-      emitNeedSnapshot(
-        owner: protocolV3State?.identity.owner,
-        currentRevision: protocolV3State?.transportRevision,
-        reason: legacyReason
-      )
-    }
-  }
-
-  private func handleProtocolV2Outcome(_ outcome: HomeContainerProtocolV2ApplyOutcome) {
-    guard !isDisposed() else { return }
-    switch outcome {
-    case .applied(let state, let renderPlan):
-      if protocolV2State?.owner != state.owner {
-        renderedProtocolV2State = nil
-      }
-      protocolV2State = state
-      lastNeedSnapshotResultKey = nil
-      let completion = { [weak self] in
-        guard let self,
-              self.protocolV2State?.owner == state.owner,
-              self.protocolV2State?.revision == state.revision
-        else { return }
-        self.renderedProtocolV2State = state
-        self.emitTransportResult(.applied(owner: state.owner, revision: state.revision))
-      }
-      if renderPlan.isFullSnapshot {
-        applySnapshot(
-          state.snapshot,
-          allowsMissingSelectedTabFallback: false,
-          enforcesMonotonicRevision: false,
-          completion: completion
-        )
-      } else {
-        applyProtocolV2Patch(
-          state.snapshot,
-          renderPlan: renderPlan,
-          completion: completion
-        )
-      }
-    case let .duplicate(owner, revision):
-      guard renderedProtocolV2State?.owner == owner,
-            renderedProtocolV2State?.revision == revision
-      else { return }
-      emitTransportResult(.duplicate(owner: owner, revision: revision))
-    case let .needSnapshot(owner, currentRevision, reason):
-      renderedProtocolV2State = nil
-      emitNeedSnapshot(
-        owner: owner,
-        currentRevision: currentRevision,
-        reason: reason
-      )
-    }
-  }
-
-  private func emitAction(actionId: String, itemId: String, tabId: String) {
-    if let state = renderedProtocolV3State {
-      let authority: HomeContainerProtocolV3IntentAuthority
-      if homeContainerHeaderContainsCommand(state.snapshot.header, commandId: actionId) {
-        authority = .shellCommands(
-          revision: state.authorityRevisions.shellCommands
-        )
-      } else {
-        let sectionId =
-          actionId.hasPrefix("home.widget.market") || actionId.hasPrefix("home.market.")
-          ? "market" : tabId
-        guard
-          let revision = state.authorityRevisions.sectionCommands[sectionId]
-        else {
-          return
-        }
-        authority = .sectionCommands(sectionId: sectionId, revision: revision)
-      }
-      emitProtocolV3Intent(
-        state: state,
-        authority: authority,
-        payload: .action(commandId: actionId, itemId: itemId)
-      )
-      return
-    }
-    guard let state = renderedProtocolV2State else {
-      onAction?(actionId, itemId, tabId)
-      return
-    }
-    emitIntent(
-      state: state,
-      payload: .action(commandId: actionId, itemId: itemId)
-    )
+  private func emitAction(actionId: String, itemId: String) {
+    emitIntent(payload: [
+      "kind": "action",
+      "commandId": actionId,
+      "itemId": itemId,
+    ])
   }
 
   private func emitRefresh(tabId: String, requestId: String) {
-    if let state = renderedProtocolV3State,
-      let revision = state.authorityRevisions.sectionCommands[tabId]
-    {
-      emitProtocolV3Intent(
-        state: state,
-        authority: .sectionCommands(sectionId: tabId, revision: revision),
-        payload: .refresh(tabId: tabId, requestId: requestId)
-      )
+    guard state != nil else {
+      refreshRequestIds.remove(requestId)
+      refreshControl.endRefreshing()
       return
     }
-    guard let state = renderedProtocolV2State else {
-      onRefresh?(tabId, requestId)
-      return
-    }
-    emitIntent(
-      state: state,
-      payload: .refresh(tabId: tabId, requestId: requestId)
-    )
+    emitIntent(payload: [
+      "kind": "refresh",
+      "tabId": tabId,
+      "requestId": requestId,
+    ])
   }
 
   private func emitTabSelection(tabId: String) {
-    guard let currentState = renderedProtocolV2State else {
-      onVisibleTabChange?(tabId)
-      return
-    }
-    guard currentState.snapshot.tabs.contains(where: {
+    guard let currentState = state else { return }
+    guard currentState.payload.tabs.contains(where: {
       $0.id == tabId && $0.destination == .inline
     }) else {
       return
     }
     let selectedSnapshot = HomeContainerSnapshot(
-      schemaVersion: currentState.snapshot.schemaVersion,
-      revision: currentState.snapshot.revision,
       selectedTabId: tabId,
-      header: currentState.snapshot.header,
-      tabs: currentState.snapshot.tabs,
-      theme: currentState.snapshot.theme
+      header: currentState.payload.header,
+      tabs: currentState.payload.tabs,
+      theme: currentState.payload.theme
     )
-    let selectedState = HomeContainerProtocolV2State(
+    let selectedState = HomeContainerState(
       owner: currentState.owner,
-      revision: currentState.revision,
-      snapshot: selectedSnapshot
+      payload: selectedSnapshot
     )
     snapshot = selectedSnapshot
-    protocolV2State = selectedState
-    renderedProtocolV2State = selectedState
-    if let state = renderedProtocolV3State {
-      let selectedV3State = HomeContainerProtocolV3State(
-        identity: state.identity,
-        transportRevision: state.transportRevision,
-        presentationRevisions: state.presentationRevisions,
-        authorityRevisions: state.authorityRevisions,
-        slotRevisions: state.slotRevisions,
-        legacyState: selectedState
-      )
-      protocolV3State = selectedV3State
-      renderedProtocolV3State = selectedV3State
-      emitProtocolV3Intent(
-        state: state,
-        authority: .tabApplicability(
-          revision: state.authorityRevisions.tabApplicability
-        ),
-        payload: .selectTab(tabId: tabId)
-      )
-      return
-    }
-    emitIntent(state: selectedState, payload: .selectTab(tabId: tabId))
+    state = selectedState
+    emitIntent(payload: ["kind": "selectTab", "tabId": tabId])
   }
 
   private func emitHandoff(tab: HomeContainerTab) {
     guard tab.destination == .handoff,
           let commandId = tab.handoffCommandId,
           !commandId.isEmpty else { return }
-    if let state = renderedProtocolV3State {
-      emitProtocolV3Intent(
-        state: state,
-        authority: .tabApplicability(
-          revision: state.authorityRevisions.tabApplicability
-        ),
-        payload: .handoff(tabId: tab.id, commandId: commandId)
-      )
-      return
-    }
-    guard let state = renderedProtocolV2State else {
-      onAction?(commandId, tab.id, selectedTabId)
-      return
-    }
-    emitIntent(
-      state: state,
-      payload: .handoff(tabId: tab.id, commandId: commandId)
-    )
+    emitIntent(payload: [
+      "kind": "handoff",
+      "tabId": tab.id,
+      "commandId": commandId,
+    ])
   }
 
-  private func emitIntent(
-    state: HomeContainerProtocolV2State,
-    payload: HomeContainerProtocolV2Intent.Payload
-  ) {
-    let intent = HomeContainerProtocolV2Intent(
-      intentId: UUID().uuidString,
-      owner: state.owner,
-      renderedRevision: state.revision,
-      intent: payload
-    )
-    guard let data = try? encoder.encode(intent),
+  private func emitIntent(payload: [String: Any]) {
+    guard let owner = state?.owner else { return }
+    let intent: [String: Any] = [
+      "intentId": UUID().uuidString,
+      "owner": [
+        "scopeKey": owner.scopeKey,
+        "sessionId": owner.sessionId,
+      ],
+      "intent": payload,
+    ]
+    guard JSONSerialization.isValidJSONObject(intent),
+          let data = try? JSONSerialization.data(withJSONObject: intent),
           let json = String(data: data, encoding: .utf8) else {
       reportError(code: "intent_encode_failed", message: "Unable to encode native intent")
       return
     }
     onIntent?(json)
-  }
-
-  private func emitProtocolV3Intent(
-    state: HomeContainerProtocolV3State,
-    authority: HomeContainerProtocolV3IntentAuthority,
-    payload: HomeContainerProtocolV3IntentPayload
-  ) {
-    let intent = HomeContainerProtocolV3Intent(
-      protocolVersion: 3,
-      intentId: UUID().uuidString,
-      owner: state.identity.owner,
-      authority: authority,
-      intent: payload
-    )
-    guard intent.isValid(against: state),
-          let data = try? encoder.encode(intent),
-          let json = String(data: data, encoding: .utf8) else {
-      reportError(code: "intent_encode_failed", message: "Unable to encode native intent")
-      return
-    }
-    onIntent?(json)
-  }
-
-  private func emitNeedSnapshot(
-    owner: HomeContainerProtocolV2Owner?,
-    currentRevision: Int?,
-    reason: HomeContainerProtocolV2NeedSnapshotReason
-  ) {
-    let result = HomeContainerProtocolV2TransportResult.needSnapshot(
-      owner: owner,
-      currentRevision: currentRevision,
-      reason: reason
-    )
-    guard result.coalescingKey != lastNeedSnapshotResultKey else { return }
-    lastNeedSnapshotResultKey = result.coalescingKey
-    emitTransportResult(result)
-  }
-
-  private func emitTransportResult(_ result: HomeContainerProtocolV2TransportResult) {
-    guard let data = try? encoder.encode(result),
-          let json = String(data: data, encoding: .utf8) else {
-      reportError(
-        code: "transport_result_encode_failed",
-        message: "Unable to encode native transport result"
-      )
-      return
-    }
-    onTransportResult?(json)
   }
 
   private func reportError(code: String, message: String) {
@@ -2265,7 +1687,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
 private final class HomeContainerPageView: UIView, UITableViewDelegate {
   let tabId: String
-  var onAction: ((String, String, String) -> Void)?
+  var onAction: ((String, String) -> Void)?
   var onContentOffsetChange: ((HomeContainerPageView) -> Void)?
   var onBeginDragging: ((HomeContainerPageView) -> Void)?
   var onEndDragging: ((HomeContainerPageView) -> Void)?
@@ -2769,7 +2191,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           case .item(let item) = row.kind,
           let actionId = item.actionId,
           !actionId.isEmpty else { return }
-    onAction?(actionId, item.id, tabId)
+    onAction?(actionId, item.id)
   }
 
   func tableView(
@@ -2788,7 +2210,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     }
     guard let rowId = dataSource.itemIdentifier(for: indexPath),
           let request = loadMoreRequest(for: rowId) else { return }
-    onAction?(request.actionId, request.itemId, tabId)
+    onAction?(request.actionId, request.itemId)
   }
 
   func tableView(
@@ -2858,7 +2280,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           as! HomeContainerNFTGridCell
         cell.apply(items: items, theme: theme) { [weak self] actionId, itemId in
           guard let self else { return }
-          self.onAction?(actionId, itemId, self.tabId)
+          self.onAction?(actionId, itemId)
         }
         return cell
       case .marketRecommendations(let items):
@@ -2868,7 +2290,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         ) as! HomeContainerMarketRecommendationGridCell
         cell.apply(items: items, theme: theme) { [weak self] actionId, itemId in
           guard let self else { return }
-          self.onAction?(actionId, itemId, self.tabId)
+          self.onAction?(actionId, itemId)
         }
         return cell
       case .horizontal(let section):
@@ -2876,7 +2298,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           as! HomeContainerHorizontalCell
         cell.apply(section: section, theme: theme) { [weak self] actionId, itemId in
           guard let self else { return }
-          self.onAction?(actionId, itemId, self.tabId)
+          self.onAction?(actionId, itemId)
         }
         return cell
       case .sectionTitle(let section):
@@ -2886,7 +2308,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           guard let self,
                 let actionId = section.actionId,
                 !actionId.isEmpty else { return }
-          self.onAction?(actionId, section.id, self.tabId)
+          self.onAction?(actionId, section.id)
         }
         return cell
       case .item(let item):
@@ -2900,7 +2322,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
           as! HomeContainerItemCell
         cell.apply(item: item, theme: theme) { [weak self] actionId, itemId in
           guard let self else { return }
-          self.onAction?(actionId, itemId, self.tabId)
+          self.onAction?(actionId, itemId)
         }
         return cell
       }

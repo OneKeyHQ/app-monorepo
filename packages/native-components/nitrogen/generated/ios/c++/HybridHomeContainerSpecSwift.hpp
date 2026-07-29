@@ -58,12 +58,12 @@ namespace margelo::nitro::onekeynativecomponents {
 
   public:
     // Properties
-    inline std::string getInitialSnapshotJson() noexcept override {
-      auto __result = _swiftPart.getInitialSnapshotJson();
+    inline std::string getInitialStateJson() noexcept override {
+      auto __result = _swiftPart.getInitialStateJson();
       return __result;
     }
-    inline void setInitialSnapshotJson(const std::string& initialSnapshotJson) noexcept override {
-      _swiftPart.setInitialSnapshotJson(initialSnapshotJson);
+    inline void setInitialStateJson(const std::string& initialStateJson) noexcept override {
+      _swiftPart.setInitialStateJson(initialStateJson);
     }
     inline std::string getBackgroundColor() noexcept override {
       auto __result = _swiftPart.getBackgroundColor();
@@ -77,27 +77,6 @@ namespace margelo::nitro::onekeynativecomponents {
     }
     inline void setDebugOverlayEnabled(bool debugOverlayEnabled) noexcept override {
       _swiftPart.setDebugOverlayEnabled(std::forward<decltype(debugOverlayEnabled)>(debugOverlayEnabled));
-    }
-    inline std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>> getOnAction() noexcept override {
-      auto __result = _swiftPart.getOnAction();
-      return __result;
-    }
-    inline void setOnAction(const std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>& onAction) noexcept override {
-      _swiftPart.setOnAction(onAction);
-    }
-    inline std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>> getOnRefresh() noexcept override {
-      auto __result = _swiftPart.getOnRefresh();
-      return __result;
-    }
-    inline void setOnRefresh(const std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>& onRefresh) noexcept override {
-      _swiftPart.setOnRefresh(onRefresh);
-    }
-    inline std::optional<std::function<void(const std::string& /* tabId */)>> getOnVisibleTabChange() noexcept override {
-      auto __result = _swiftPart.getOnVisibleTabChange();
-      return __result;
-    }
-    inline void setOnVisibleTabChange(const std::optional<std::function<void(const std::string& /* tabId */)>>& onVisibleTabChange) noexcept override {
-      _swiftPart.setOnVisibleTabChange(onVisibleTabChange);
     }
     inline std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>> getOnRenderError() noexcept override {
       auto __result = _swiftPart.getOnRenderError();
@@ -113,24 +92,11 @@ namespace margelo::nitro::onekeynativecomponents {
     inline void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) noexcept override {
       _swiftPart.setOnIntent(onIntent);
     }
-    inline std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() noexcept override {
-      auto __result = _swiftPart.getOnTransportResult();
-      return __result;
-    }
-    inline void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) noexcept override {
-      _swiftPart.setOnTransportResult(onTransportResult);
-    }
 
   public:
     // Methods
-    inline void setSnapshot(const std::string& snapshotJson) override {
-      auto __result = _swiftPart.setSnapshot(snapshotJson);
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-    }
-    inline void applyPatch(const std::string& patchJson) override {
-      auto __result = _swiftPart.applyPatch(patchJson);
+    inline void setState(const std::string& stateJson) override {
+      auto __result = _swiftPart.setState(stateJson);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
@@ -146,14 +112,6 @@ namespace margelo::nitro::onekeynativecomponents {
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
-    }
-    inline std::string getCapabilities() override {
-      auto __result = _swiftPart.getCapabilities();
-      if (__result.hasError()) [[unlikely]] {
-        std::rethrow_exception(__result.error());
-      }
-      auto __value = std::move(__result.value());
-      return __value;
     }
 
   private:

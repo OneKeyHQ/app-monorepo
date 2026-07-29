@@ -15,7 +15,7 @@ const fundedShell = {
       items: ['send', 'receive'] as const,
     },
     banner: { kind: 'none' as const },
-    freshness: 'live' as const,
+    priority: 1 as const,
     refresh: 'idle' as const,
   },
 };

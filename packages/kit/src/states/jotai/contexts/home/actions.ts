@@ -250,14 +250,8 @@ function dispatchHomeStoreEventsAtomically(
   const presentationChanged = mutations.some(
     (mutation) => mutation.slice === 'shell' || mutation.slice === 'navigation',
   );
-  const cacheHydrated = events.some(
-    (event) =>
-      event.type === 'displaySnapshotHydrated' ||
-      event.type === 'confirmedSnapshotHydrated',
-  );
   set(homeCommitIdentityState.atom(), {
     storeCommitId: current.commitIdentity.storeCommitId + 1,
-    origin: cacheHydrated ? 'cacheHydrate' : 'storeEvent',
     changedSourceIds,
     presentationChanged,
     ownerChanged: events.some((event) => event.type === 'ownerChanged'),

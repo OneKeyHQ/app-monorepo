@@ -51,7 +51,6 @@ export function createInitialHomeStoreState(): IHomeStoreState {
     runtime: {
       topology: 'single',
       connection: 'waiting',
-      protocolVersion: 0,
     },
     walletInputs: {
       ready: false,

@@ -1,27 +1,14 @@
 import type { IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getHomeSourceKeyIdentity } from '../core/homeIdentity';
 
 import type {
-  IHomeCachedSnapshotPayload,
   IHomeCachedSourceRecord,
   IHomeStoreResourceSlot,
   IHomeStoreSourceId,
 } from './homeStoreTypes';
 
 const HOME_STORE_CACHE_TTL_MS = 5 * 60 * 1000;
-
-function getHomeStoreCacheContentSignature({
-  records,
-}: Pick<IHomeCachedSnapshotPayload, 'records'>): string {
-  return stringUtils.stableStringify({
-    records: records.map(
-      ({ confirmedAt: _confirmedAt, expiresAt: _expiresAt, ...record }) =>
-        record,
-    ),
-  });
-}
 
 function createCacheRecord({
   now,
@@ -36,7 +23,7 @@ function createCacheRecord({
 }): IHomeCachedSourceRecord | undefined {
   if (
     (slot.kind !== 'ready' && slot.kind !== 'empty') ||
-    slot.freshness !== 'live' ||
+    slot.priority !== 1 ||
     slot.refresh !== 'idle' ||
     !slot.token
   ) {
@@ -57,29 +44,4 @@ function createCacheRecord({
   };
 }
 
-function mergeHomeStoreCacheRecords({
-  cachedRecords,
-  liveRecords,
-  now,
-}: {
-  cachedRecords: readonly IHomeCachedSourceRecord[];
-  liveRecords: readonly IHomeCachedSourceRecord[];
-  now: number;
-}): IHomeCachedSourceRecord[] {
-  const recordsBySource = new Map(
-    cachedRecords
-      .filter((record) => record.expiresAt > now)
-      .map((record) => [record.sourceId, record]),
-  );
-  liveRecords.forEach((record) => {
-    recordsBySource.set(record.sourceId, record);
-  });
-  return Array.from(recordsBySource.values());
-}
-
-export {
-  HOME_STORE_CACHE_TTL_MS,
-  createCacheRecord,
-  getHomeStoreCacheContentSignature,
-  mergeHomeStoreCacheRecords,
-};
+export { HOME_STORE_CACHE_TTL_MS, createCacheRecord };

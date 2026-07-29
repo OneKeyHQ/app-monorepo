@@ -11,7 +11,7 @@ describe('Home banner Store source', () => {
     const order: string[] = [];
     const handle = {
       request: { ownerToken, sourceId: 'banner' as const },
-      token: { requestSeq: 1 },
+      token: {},
     } as unknown as ReturnType<IHomeBannerSourceGateway['begin']>;
     const gateway: IHomeBannerSourceGateway = {
       begin: () => {
@@ -99,7 +99,7 @@ describe('Home banner Store source', () => {
     const gateway = {
       begin: jest.fn(() => ({
         request: { ownerToken, sourceId: 'banner' as const },
-        token: { requestSeq: 1 },
+        token: {},
       })),
       complete,
     } as unknown as IHomeBannerSourceGateway;
@@ -165,7 +165,7 @@ describe('Home banner Store source', () => {
     const gateway = {
       begin: jest.fn(() => ({
         request: { ownerToken, sourceId: 'banner' as const },
-        token: { requestSeq: 1 },
+        token: {},
       })),
       complete,
     } as unknown as IHomeBannerSourceGateway;
@@ -245,7 +245,7 @@ describe('Home banner Store source', () => {
     const gateway = {
       begin: jest.fn(() => ({
         request: { ownerToken, sourceId: 'banner' as const },
-        token: { requestSeq: 1 },
+        token: {},
       })),
       complete: jest.fn(),
     } as unknown as IHomeBannerSourceGateway;
@@ -279,7 +279,7 @@ describe('Home banner Store source', () => {
     const gateway = {
       begin: jest.fn(() => ({
         request: { ownerToken, sourceId: 'banner' as const },
-        token: { requestSeq: 1 },
+        token: {},
       })),
       complete,
     } as unknown as IHomeBannerSourceGateway;

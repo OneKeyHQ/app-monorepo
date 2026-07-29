@@ -17,11 +17,9 @@ const handle = {
     sectionId: 'history',
   },
   token: {
-    protocolVersion: 1,
     clientInstanceId: 'client-a',
     producerInstanceId: 'producer-a',
     sessionId: 'session-a',
-    requestSeq: 1,
     sourceKey: {
       scopeKey: 'owner-a',
       sourceId: 'history',

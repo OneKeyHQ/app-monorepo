@@ -23,7 +23,7 @@ function buildFacts({
         id: 'portfolio',
         included: true,
         positiveEvidence: portfolioStatus === 'partial',
-        sourceIdentity: 'portfolio-v1',
+        sourceIdentity: 'portfolio-source',
         sourceScopeKey: 'scope-1',
         status: portfolioStatus,
       },
@@ -34,14 +34,14 @@ function buildFacts({
         id: 'defi',
         included: true,
         positiveEvidence: false,
-        sourceIdentity: 'defi-v1',
+        sourceIdentity: 'defi-source',
         sourceScopeKey: 'scope-1',
         status: defiStatus,
       },
     ],
     ownerToken,
     quoteBasis,
-    requiredSetRevision: 'portfolio+defi:v1',
+    requiredSetRevision: 'portfolio+defi',
   });
 }
 
@@ -53,7 +53,7 @@ describe('homeBalanceAggregation', () => {
         amount: '13',
         ownerScopeKey: ownerToken.scopeKey,
         quoteBasis,
-        requiredSetRevision: 'portfolio+defi:v1',
+        requiredSetRevision: 'portfolio+defi',
       },
     });
     expect(

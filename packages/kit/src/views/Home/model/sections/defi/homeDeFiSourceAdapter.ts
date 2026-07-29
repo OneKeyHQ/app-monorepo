@@ -68,23 +68,20 @@ function createHomeDeFiSnapshotDefaults(): IHomeDeFiLegacyPayload {
 }
 
 type IHomeDeFiSourceSnapshot =
-  | { kind: 'loading'; requestSeq: number }
+  | { kind: 'loading' }
   | {
       kind: 'confirmedCache';
-      requestSeq: number;
       data: IHomeDeFiLegacyPayload;
       rowIds: readonly string[];
       refresh: 'idle' | 'refreshing';
     }
   | {
       kind: 'partial';
-      requestSeq: number;
       coverageFingerprint: string;
       data: IHomeDeFiLegacyPayload;
     }
   | {
       kind: 'complete';
-      requestSeq: number;
       coverageFingerprint: string;
       result:
         | { kind: 'empty' }
@@ -96,7 +93,6 @@ type IHomeDeFiSourceSnapshot =
     }
   | {
       kind: 'error';
-      requestSeq: number;
       errorKind:
         | 'source'
         | 'transport'
@@ -149,28 +145,25 @@ function adaptHomeDeFiSourceSnapshot({
 }): IHomeSectionCoordinatorEvent<IHomeDeFiLegacyPayload> {
   switch (snapshot.kind) {
     case 'loading':
-      return { ...identity, kind: 'loading', requestSeq: snapshot.requestSeq };
+      return { ...identity, kind: 'loading' };
     case 'confirmedCache':
       return createHomeSectionConfirmedSeed({
         data: snapshot.data,
         getRowIds: () => snapshot.rowIds,
         identity,
         refresh: snapshot.refresh,
-        requestSeq: snapshot.requestSeq,
       });
     case 'partial':
       return {
         ...identity,
         kind: snapshot.kind,
-        requestSeq: snapshot.requestSeq,
-        coverageFingerprint: snapshot.coverageFingerprint,
       };
     case 'complete':
-      return { ...identity, ...snapshot };
+      return { ...identity, kind: 'complete', result: snapshot.result };
     case 'error':
-      return { ...identity, ...snapshot };
+      return { ...identity, kind: 'error' };
     default:
-      return { ...identity, kind: 'loading', requestSeq: 0 };
+      return { ...identity, kind: 'loading' };
   }
 }
 

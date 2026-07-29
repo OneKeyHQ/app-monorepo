@@ -38,11 +38,12 @@ describe('Home Store action boundary', () => {
   });
 
   it('limits the generic dispatcher to controller/source internals and its atomic test', () => {
-    const internalActionsImport = ['contexts/home', 'actions'].join('/');
     const consumers = listTypeScriptFiles(kitSrcRoot)
       .filter((filePath) => filePath !== __filename)
       .filter((filePath) =>
-        fs.readFileSync(filePath, 'utf8').includes(internalActionsImport),
+        fs
+          .readFileSync(filePath, 'utf8')
+          .includes('import { useHomeStoreInternalActions }'),
       )
       .map((filePath) => path.relative(kitSrcRoot, filePath))
       .toSorted();

@@ -25,14 +25,14 @@ namespace margelo::nitro::onekeynativecomponents::views {
                                                      const HybridHomeContainerProps& sourceProps,
                                                      const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
-    initialSnapshotJson([&]() -> CachedProp<std::string> {
+    initialStateJson([&]() -> CachedProp<std::string> {
       try {
-        const react::RawValue* rawValue = rawProps.at("initialSnapshotJson", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.initialSnapshotJson;
+        const react::RawValue* rawValue = rawProps.at("initialStateJson", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.initialStateJson;
         const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::string>::fromRawValue(*runtime, value, sourceProps.initialSnapshotJson);
+        return CachedProp<std::string>::fromRawValue(*runtime, value, sourceProps.initialStateJson);
       } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.initialSnapshotJson: ") + exc.what());
+        throw std::runtime_error(std::string("HomeContainer.initialStateJson: ") + exc.what());
       }
     }()),
     backgroundColor([&]() -> CachedProp<std::string> {
@@ -55,36 +55,6 @@ namespace margelo::nitro::onekeynativecomponents::views {
         throw std::runtime_error(std::string("HomeContainer.debugOverlayEnabled: ") + exc.what());
       }
     }()),
-    onAction([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onAction", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onAction;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onAction);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.onAction: ") + exc.what());
-      }
-    }()),
-    onRefresh([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onRefresh", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onRefresh;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onRefresh);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.onRefresh: ") + exc.what());
-      }
-    }()),
-    onVisibleTabChange([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* tabId */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onVisibleTabChange", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onVisibleTabChange;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::string& /* tabId */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onVisibleTabChange);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.onVisibleTabChange: ") + exc.what());
-      }
-    }()),
     onRenderError([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onRenderError", nullptr, nullptr);
@@ -105,16 +75,6 @@ namespace margelo::nitro::onekeynativecomponents::views {
         throw std::runtime_error(std::string("HomeContainer.onIntent: ") + exc.what());
       }
     }()),
-    onTransportResult([&]() -> CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onTransportResult", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onTransportResult;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, "f"), sourceProps.onTransportResult);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("HomeContainer.onTransportResult: ") + exc.what());
-      }
-    }()),
     hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("hybridRef", nullptr, nullptr);
@@ -128,28 +88,20 @@ namespace margelo::nitro::onekeynativecomponents::views {
 
   HybridHomeContainerProps::HybridHomeContainerProps(const HybridHomeContainerProps& other):
     react::ViewProps(),
-    initialSnapshotJson(other.initialSnapshotJson),
+    initialStateJson(other.initialStateJson),
     backgroundColor(other.backgroundColor),
     debugOverlayEnabled(other.debugOverlayEnabled),
-    onAction(other.onAction),
-    onRefresh(other.onRefresh),
-    onVisibleTabChange(other.onVisibleTabChange),
     onRenderError(other.onRenderError),
     onIntent(other.onIntent),
-    onTransportResult(other.onTransportResult),
     hybridRef(other.hybridRef) { }
 
   bool HybridHomeContainerProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
-      case hashString("initialSnapshotJson"): return true;
+      case hashString("initialStateJson"): return true;
       case hashString("backgroundColor"): return true;
       case hashString("debugOverlayEnabled"): return true;
-      case hashString("onAction"): return true;
-      case hashString("onRefresh"): return true;
-      case hashString("onVisibleTabChange"): return true;
       case hashString("onRenderError"): return true;
       case hashString("onIntent"): return true;
-      case hashString("onTransportResult"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

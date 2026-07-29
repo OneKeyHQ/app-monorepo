@@ -10,8 +10,6 @@ using namespace facebook::react;
   NSString *_slotKey;
   NSString *_ownerScopeKey;
   NSString *_ownerSessionId;
-  double _slotRevision;
-  double _producedByStoreCommitId;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -29,8 +27,6 @@ using namespace facebook::react;
     _slotKey = @"";
     _ownerScopeKey = @"";
     _ownerSessionId = @"";
-    _slotRevision = -1;
-    _producedByStoreCommitId = -1;
     self.userInteractionEnabled = YES;
     self.clipsToBounds = YES;
   }
@@ -55,16 +51,6 @@ using namespace facebook::react;
 - (NSString *)ownerSessionId
 {
   return _ownerSessionId;
-}
-
-- (double)slotRevision
-{
-  return _slotRevision;
-}
-
-- (double)producedByStoreCommitId
-{
-  return _producedByStoreCommitId;
 }
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
@@ -95,15 +81,11 @@ using namespace facebook::react;
       [NSString stringWithUTF8String:newProps.ownerSessionId.c_str()];
   BOOL metadataChanged = ![_slotKey isEqualToString:nextKey] ||
       ![_ownerScopeKey isEqualToString:nextOwnerScopeKey] ||
-      ![_ownerSessionId isEqualToString:nextOwnerSessionId] ||
-      _slotRevision != newProps.slotRevision ||
-      _producedByStoreCommitId != newProps.producedByStoreCommitId;
+      ![_ownerSessionId isEqualToString:nextOwnerSessionId];
   if (metadataChanged) {
     _slotKey = nextKey;
     _ownerScopeKey = nextOwnerScopeKey;
     _ownerSessionId = nextOwnerSessionId;
-    _slotRevision = newProps.slotRevision;
-    _producedByStoreCommitId = newProps.producedByStoreCommitId;
     UIView *ancestor = self.superview;
     while (ancestor != nil) {
       [ancestor setNeedsLayout];

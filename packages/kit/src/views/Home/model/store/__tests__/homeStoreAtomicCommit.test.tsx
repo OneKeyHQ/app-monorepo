@@ -128,7 +128,7 @@ describe('Home Store atomic dispatcher', () => {
                   items: ['send', 'receive', 'buySell', 'swap'],
                 },
                 banner: { kind: 'none' },
-                freshness: 'confirmedCache',
+                priority: 0,
                 refresh: 'refreshing',
               },
             },
@@ -140,7 +140,6 @@ describe('Home Store atomic dispatcher', () => {
     const snapshot = probe.read?.();
     expect(snapshot?.commitIdentity.storeCommitId).toBe(1);
     expect(snapshot?.commitIdentity).toMatchObject({
-      origin: 'cacheHydrate',
       ownerChanged: true,
     });
     expect(snapshot?.session.ownerToken).toEqual({

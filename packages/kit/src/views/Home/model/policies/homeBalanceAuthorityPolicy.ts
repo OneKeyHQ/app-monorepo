@@ -33,7 +33,7 @@ function confirmedPresentation({
       },
       actions: { kind: 'zero', items: zeroActions },
       banner: { kind: 'none' },
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh,
     };
   }
@@ -49,7 +49,7 @@ function confirmedPresentation({
     },
     actions: { kind: 'funded', items: fundedActions },
     banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
-    freshness: 'confirmedCache',
+    priority: 0,
     refresh,
   };
 }
@@ -223,7 +223,7 @@ function projectHomeBalanceAuthority({
         },
         actions: { kind: 'zero', items: zeroActions },
         banner: { kind: 'none' },
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     };
@@ -242,7 +242,7 @@ function projectHomeBalanceAuthority({
       },
       actions: { kind: 'funded', items: fundedActions },
       banner: bannerAvailable ? { kind: 'positive' } : { kind: 'none' },
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
     },
   };

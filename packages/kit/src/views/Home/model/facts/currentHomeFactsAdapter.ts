@@ -6,7 +6,6 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
 import type { IHomeRuntimeOwnerScope } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
@@ -138,7 +137,6 @@ export function adaptCurrentHomeFacts(
       topology: input.authority.topology,
       connection: runtimeConnection,
       producerInstanceId: input.authority.producerInstanceId,
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
     },
     capabilityInputs: {
       ready: false,

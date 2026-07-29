@@ -4,15 +4,11 @@
   "bubblingEventTypes": {},
   "directEventTypes": {},
   "validAttributes": {
-    "initialSnapshotJson": true,
+    "initialStateJson": true,
     "backgroundColor": true,
     "debugOverlayEnabled": true,
-    "onAction": true,
-    "onRefresh": true,
-    "onVisibleTabChange": true,
     "onRenderError": true,
     "onIntent": true,
-    "onTransportResult": true,
     "hybridRef": true
   }
 }

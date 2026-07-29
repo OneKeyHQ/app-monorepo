@@ -11,7 +11,7 @@ import org.junit.Test
 class HomeContainerMarketContractTest {
   @Test
   fun `market DTO keeps dynamic categories recommendations and image candidates`() {
-    val snapshot = HomeContainerJson.parseSnapshot(marketSnapshotJson())
+    val snapshot = HomeContainerJson.parseState(marketStateJson()).snapshot
     val section = snapshot.tabs.first().sections.single()
     val tabs = section.items.first()
     val token = section.items[1]
@@ -33,7 +33,7 @@ class HomeContainerMarketContractTest {
 
   @Test
   fun `optional market DTO fields keep safe empty defaults`() {
-    val snapshot = HomeContainerJson.parseSnapshot(marketSnapshotJson(includeOptionalFields = false))
+    val snapshot = HomeContainerJson.parseState(marketStateJson(includeOptionalFields = false)).snapshot
     val section = snapshot.tabs.first().sections.single()
     val token = section.items[1]
 
@@ -71,7 +71,7 @@ class HomeContainerMarketContractTest {
 
   @Test
   fun `diff key changes for identity favorite categories and image candidates`() {
-    val snapshot = HomeContainerJson.parseSnapshot(marketSnapshotJson())
+    val snapshot = HomeContainerJson.parseState(marketStateJson()).snapshot
     val token = snapshot.tabs.first().sections.single().items[1]
     val tabs = snapshot.tabs.first().sections.single().items.first()
 
@@ -99,10 +99,9 @@ class HomeContainerMarketContractTest {
     assertEquals(96, resolveHomeContainerRowHeight(56, 2f, 96))
   }
 
-  private fun marketSnapshotJson(includeOptionalFields: Boolean = true): String {
-    val payload = JSONObject(fixture("home-container-v2.snapshot.json").getJSONObject("payload").toString())
-      .put("schemaVersion", HOME_CONTAINER_BUSINESS_SCHEMA_VERSION)
-      .put("revision", 10)
+  private fun marketStateJson(includeOptionalFields: Boolean = true): String {
+    val state = fixture("home-container.state.json")
+    val payload = state.getJSONObject("payload")
     val portfolio = payload.getJSONArray("tabs").getJSONObject(0)
     val marketTabs = JSONObject()
       .put("id", "market-tabs")
@@ -146,7 +145,7 @@ class HomeContainerMarketContractTest {
           .put("items", JSONArray().put(marketTabs).put(token)),
       ),
     )
-    return payload.toString()
+    return state.toString()
   }
 
   private fun segment(

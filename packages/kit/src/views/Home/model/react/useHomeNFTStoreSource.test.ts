@@ -1,6 +1,14 @@
+import fs from 'fs';
+import path from 'path';
+
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useHomeNFTStoreSource } from './useHomeNFTStoreSource';
+
+const sourceHook = fs.readFileSync(
+  path.join(__dirname, 'useHomeNFTStoreSource.ts'),
+  'utf8',
+);
 
 interface ITestAllNetworkParams {
   allNetworkAccountsData?: (value: {
@@ -70,8 +78,6 @@ type ITestGlobal = typeof globalThis & {
       token: {
         clientInstanceId: string;
         producerInstanceId: string;
-        protocolVersion: number;
-        requestSeq: number;
         sessionId: string;
         sourceKey: {
           dataSchemaVersion: number;
@@ -162,8 +168,6 @@ jest.mock('./useHomeStoreSourcePublisher', () => {
     token: {
       clientInstanceId: 'client-1',
       producerInstanceId: 'producer-1',
-      protocolVersion: 1,
-      requestSeq: 1,
       sessionId: 'session-1',
       sourceKey: {
         dataSchemaVersion: 1,
@@ -297,6 +301,53 @@ describe('useHomeNFTStoreSource', () => {
     view.unmount();
   });
 
+  it('hydrates cache when a same-source manual request starts before the cache settles', async () => {
+    const background = testGlobal.__homeNFTBackgroundControl;
+    let resolveCache: ((value: ITestNFT[]) => void) | undefined;
+    let resolveLive: ((value: ITestNFTResponse) => void) | undefined;
+    const cachePromise = new Promise<ITestNFT[]>((resolve) => {
+      resolveCache = resolve;
+    });
+    const livePromise = new Promise<ITestNFTResponse>((resolve) => {
+      resolveLive = resolve;
+    });
+    background.getAccountLocalNFTs.mockReturnValue(cachePromise);
+    background.fetchAccountNFTs.mockReturnValue(livePromise);
+
+    const view = renderHook(() =>
+      useHomeNFTStoreSource({ enabled: true, visible: false }),
+    );
+
+    await waitFor(() =>
+      expect(background.getAccountLocalNFTs).toHaveBeenCalledTimes(1),
+    );
+
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = view.result.current.refresh();
+    });
+    await waitFor(() =>
+      expect(background.fetchAccountNFTs).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      resolveCache?.([nft]);
+      await cachePromise;
+    });
+    await waitFor(() => expect(view.result.current.data).toEqual([nft]));
+
+    await act(async () => {
+      resolveLive?.({
+        data: [nft],
+        isSameAllNetworksAccountData: true,
+        networkId: 'btc--0',
+      });
+      await refreshPromise;
+    });
+
+    view.unmount();
+  });
+
   it('opens the all-network request before account/cache/fan-out work and completes it once', async () => {
     const activeState = testGlobal.__homeNFTActiveState;
     activeState.activeAccount.network = {
@@ -374,5 +425,16 @@ describe('useHomeNFTStoreSource', () => {
     ).toBeLessThan(publisher.complete.mock.invocationCallOrder[0]);
 
     view.unmount();
+  });
+
+  it('uses source identity and request handles instead of request start order', () => {
+    expect(sourceHook).not.toContain('requestSeq');
+    expect(sourceHook).not.toContain('requestIdRef');
+    expect(sourceHook).not.toContain('generation <');
+    expect(sourceHook).toContain(
+      'nftSourceIdentityKeyRef.current === requestSourceIdentityKey',
+    );
+    expect(sourceHook).toContain('handle: IHomeSectionSourceRequestHandle');
+    expect(sourceHook).toContain('allNetworkExpectedRequestCountRef');
   });
 });

@@ -243,7 +243,7 @@ describe('Perps Home amount authority scope gates', () => {
     );
   });
 
-  it('completes the Store response before exposing the local compatibility result', () => {
+  it('completes the Store response before exposing the local result', () => {
     const source = fs.readFileSync(
       path.join(__dirname, 'usePerpsHomePortfolio.ts'),
       'utf8',
@@ -261,5 +261,47 @@ describe('Perps Home amount authority scope gates', () => {
     );
     expect(source).not.toContain('requestHandleByResultRef');
     expect(source).not.toContain('publishHomeSectionSource');
+  });
+
+  it('accepts same-identity responses by arrival while retaining authority fences', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'usePerpsHomePortfolio.ts'),
+      'utf8',
+    );
+    const requestCurrentSource = source.slice(
+      source.indexOf('const isRequestCurrent ='),
+      source.indexOf('if (!accountId && !indexedAccountId)'),
+    );
+    const trackedResultSource = source.slice(
+      source.indexOf('const setTrackedResult ='),
+      source.indexOf(
+        'let snapshot:',
+        source.indexOf('const setTrackedResult ='),
+      ),
+    );
+
+    expect(source).not.toContain('sourceExecutionSeqRef');
+    expect(source).not.toContain('requestSeq');
+    expect(requestCurrentSource).toContain(
+      'deriveTypeRevisionRef.current !== deriveTypeRevision',
+    );
+    expect(requestCurrentSource).toContain(
+      'liveAccountScopeKeyRef.current !== requestScopeKey',
+    );
+    expect(requestCurrentSource).toContain(
+      'liveOwnerToken?.scopeKey !== requestOwnerToken.scopeKey',
+    );
+    expect(requestCurrentSource).toContain(
+      'liveOwnerToken?.sessionId !== requestOwnerToken.sessionId',
+    );
+    expect(trackedResultSource).toContain(
+      'liveAccountScopeKeyRef.current !== scope.accountScopeKey',
+    );
+    expect(trackedResultSource).toContain(
+      'liveOwnerToken?.scopeKey !== requestHandle.token.sourceKey.scopeKey',
+    );
+    expect(trackedResultSource).toContain(
+      'liveOwnerToken?.sessionId !== requestHandle.token.sessionId',
+    );
   });
 });

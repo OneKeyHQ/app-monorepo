@@ -1,12 +1,8 @@
 {
-  "kind": "snapshot",
-  "protocolVersion": 2,
-  "schemaVersion": 2,
   "owner": {
     "scopeKey": "wallet-1:account-1:all",
     "sessionId": "session-1"
   },
-  "revision": 7,
   "payload": {
     "selectedTabId": "portfolio",
     "header": {

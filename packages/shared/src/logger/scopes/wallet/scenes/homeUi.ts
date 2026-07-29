@@ -82,21 +82,12 @@ export class HomeUiScene extends BaseScene {
     return params;
   }
 
-  @LogToLocal({ level: 'info' })
-  public homeStoreCacheDecision(params: {
-    operation: 'load' | 'hydrate' | 'persist';
-    outcome: 'accepted' | 'empty' | 'failed' | 'rejected';
-    recordCount: number;
-  }) {
-    return params;
-  }
-
   /**
-   * Diagnose the owner-partitioned, lazy Home display snapshot cache V2.
+   * Diagnose the owner-partitioned, lazy Home display snapshot cache.
    * Snapshot payloads and raw owner keys must never be included.
    */
   @LogToLocal({ level: 'info' })
-  public homeDisplaySnapshotCacheV2(params: {
+  public homeDisplaySnapshotCache(params: {
     stage:
       | 'ownerReady'
       | 'manifest'
@@ -161,22 +152,6 @@ export class HomeUiScene extends BaseScene {
     historyItemCount: number;
     marketItemCount: number;
     earnItemCount: number;
-  }) {
-    return params;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public homeNativeTransportDecision(params: {
-    resultKind: 'applied' | 'duplicate' | 'needSnapshot' | 'invalid';
-    revision?: number;
-    currentRevision?: number;
-    reason?:
-      | 'ownerMismatch'
-      | 'revisionGap'
-      | 'slotRevisionGap'
-      | 'invalidInvariant'
-      | 'unsupportedSchema'
-      | 'unsupportedProtocol';
   }) {
     return params;
   }

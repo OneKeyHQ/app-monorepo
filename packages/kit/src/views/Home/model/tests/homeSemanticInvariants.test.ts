@@ -24,7 +24,6 @@ function facts(): IHomeFacts {
       topology: 'single',
       connection: 'ready',
       producerInstanceId: 'producer-a',
-      protocolVersion: 1,
     },
     capabilityInputs: {
       ready: true,

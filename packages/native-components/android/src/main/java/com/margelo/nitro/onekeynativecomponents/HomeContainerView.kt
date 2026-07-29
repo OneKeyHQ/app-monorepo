@@ -17,7 +17,6 @@ import android.text.SpannableString
 import android.text.Spanned
 import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -47,11 +46,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
+import org.json.JSONObject
 
 private const val HOME_CONTAINER_TAB_HEIGHT_DP = 60
 private const val HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP = 60
 private const val HOME_CONTAINER_BANNER_SKELETON_ID = "home-banner-loading"
-private const val HOME_CONTAINER_ACK_DEBUG_TAG = "NativeHomeAck"
 private val configuredHomeContainerSkeletonGradients =
   WeakHashMap<SkeletonNativeView, List<String>>()
 
@@ -254,176 +253,9 @@ internal fun homeContainerContentSlotTabId(key: String): String? {
   }
 }
 
-internal data class HomeContainerCompletedRender(
-  val state: HomeContainerProtocolV2State,
-  val acknowledgement: String,
-)
-
-private data class HomeContainerPendingRender(
-  val state: HomeContainerProtocolV2State,
-  var requiredTabId: String,
-  val acknowledgement: String,
-)
-
-private data class HomeContainerPageRenderProgress(
-  val instanceId: String,
-  var listLaidOutRevision: Long = -1L,
-  var preDrawAfterLayoutRevision: Long = -1L,
-)
-
-internal class HomeContainerListLayoutTracker {
-  private var submittedGeneration = 0L
-  private var laidOutGeneration = 0L
-  private var submittedRevision = -1L
-
-  val latestSubmittedGeneration: Long
-    get() = submittedGeneration
-
-  val hasPendingLayout: Boolean
-    get() = laidOutGeneration < submittedGeneration
-
-  fun submit(revision: Long): Long {
-    submittedGeneration += 1
-    submittedRevision = revision
-    return submittedGeneration
-  }
-
-  fun markLaidOut(
-    generation: Long,
-    hasPendingAdapterUpdates: Boolean,
-    layoutItemCount: Int,
-    adapterItemCount: Int,
-  ): Long? {
-    if (
-      generation != submittedGeneration ||
-      hasPendingAdapterUpdates ||
-      layoutItemCount != adapterItemCount
-    ) {
-      return null
-    }
-    laidOutGeneration = maxOf(laidOutGeneration, generation)
-    return submittedRevision
-  }
-}
-
-internal fun homeContainerCanScheduleListPresentation(
-  hasPendingLayout: Boolean,
-  hasPendingAdapterUpdates: Boolean,
-  width: Int,
-  height: Int,
-): Boolean =
-  !hasPendingLayout &&
-    !hasPendingAdapterUpdates &&
-    width > 0 &&
-    height > 0
-
-internal class HomeContainerRenderCompletionCoordinator {
-  private val pendingRenders = sortedMapOf<Long, HomeContainerPendingRender>()
-  private val pageProgressByTab = mutableMapOf<String, HomeContainerPageRenderProgress>()
-
-  fun enqueue(
-    state: HomeContainerProtocolV2State,
-    requiredTabId: String,
-    acknowledgement: String,
-  ) {
-    pendingRenders[state.revision] = HomeContainerPendingRender(
-      state = state,
-      requiredTabId = requiredTabId,
-      acknowledgement = acknowledgement,
-    )
-  }
-
-  fun retargetPending(tabId: String) {
-    pendingRenders.values.forEach { pending -> pending.requiredTabId = tabId }
-  }
-
-  fun registerPage(tabId: String, instanceId: String) {
-    val current = pageProgressByTab[tabId]
-    if (current?.instanceId == instanceId) return
-    pageProgressByTab[tabId] = HomeContainerPageRenderProgress(instanceId)
-  }
-
-  fun unregisterPage(tabId: String, instanceId: String) {
-    if (pageProgressByTab[tabId]?.instanceId == instanceId) {
-      pageProgressByTab.remove(tabId)
-    }
-  }
-
-  fun markListLaidOut(tabId: String, instanceId: String, revision: Long) {
-    val progress = activePage(tabId, instanceId) ?: return
-    progress.listLaidOutRevision = maxOf(progress.listLaidOutRevision, revision)
-    Log.d(HOME_CONTAINER_ACK_DEBUG_TAG, "list revision=$revision tab=$tabId")
-  }
-
-  fun markPreDraw(
-    tabId: String,
-    instanceId: String,
-    revision: Long,
-  ): List<HomeContainerCompletedRender> {
-    val progress = activePage(tabId, instanceId) ?: return emptyList()
-    val revisionDrawnAfterLayout = minOf(revision, progress.listLaidOutRevision)
-    if (revisionDrawnAfterLayout >= 0) {
-      progress.preDrawAfterLayoutRevision = maxOf(
-        progress.preDrawAfterLayoutRevision,
-        revisionDrawnAfterLayout,
-      )
-    }
-    return drainCompletedRenders().also { completed ->
-      Log.d(
-        HOME_CONTAINER_ACK_DEBUG_TAG,
-        "predraw revision=$revision tab=$tabId completed=${completed.size}",
-      )
-    }
-  }
-
-  fun reset() {
-    pendingRenders.clear()
-    pageProgressByTab.clear()
-  }
-
-  private fun activePage(
-    tabId: String,
-    instanceId: String,
-  ): HomeContainerPageRenderProgress? =
-    pageProgressByTab[tabId]?.takeIf { progress -> progress.instanceId == instanceId }
-
-  private fun drainCompletedRenders(): List<HomeContainerCompletedRender> = buildList {
-    while (pendingRenders.isNotEmpty()) {
-      val (revision, pending) = pendingRenders.entries.first()
-      val progress = pageProgressByTab[pending.requiredTabId] ?: break
-      if (
-        minOf(
-          progress.listLaidOutRevision,
-          progress.preDrawAfterLayoutRevision,
-        ) < revision
-      ) {
-        break
-      }
-      pendingRenders.remove(revision)
-      add(
-        HomeContainerCompletedRender(
-          state = pending.state,
-          acknowledgement = pending.acknowledgement,
-        ),
-      )
-    }
-  }
-}
-
-internal fun homeContainerDuplicateIsRendered(
-  renderedState: HomeContainerProtocolV2State?,
-  duplicate: HomeContainerProtocolV2ApplyOutcome.Duplicate,
-): Boolean = renderedState?.let { state ->
-  state.owner == duplicate.owner && state.revision >= duplicate.revision
-} == true
-
 internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context) {
-  var onAction: ((String, String, String) -> Unit)? = null
-  var onRefresh: ((String, String) -> Unit)? = null
-  var onVisibleTabChange: ((String) -> Unit)? = null
   var onRenderError: ((String, String) -> Unit)? = null
   var onIntent: ((String) -> Unit)? = null
-  var onTransportResult: ((String) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
 
   private val parser = Executors.newSingleThreadExecutor()
@@ -433,24 +265,16 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var adapter = HomePagerAdapter()
   private val headerView = HomeHeaderView(context)
   private val tabsView = HomeTabsView(context)
-  private val renderCompletionCoordinator = HomeContainerRenderCompletionCoordinator()
   private var activeRefreshRequestId: String? = null
-  private var pendingInitialSnapshotJson: String? = null
-  private var initialSnapshotApplyScheduled = false
+  private var pendingInitialStateJson: String? = null
+  private var initialStateApplyScheduled = false
   private var snapshot: HomeContainerSnapshot? = null
-  private var protocolV2State: HomeContainerProtocolV2State? = null
-  private var renderedProtocolV2State: HomeContainerProtocolV2State? = null
-  private var protocolV3State: HomeContainerProtocolV3State? = null
-  private var renderedProtocolV3State: HomeContainerProtocolV3State? = null
-  private var pendingProtocolV3PatchJson: String? = null
-  private var pendingProtocolV3PatchRetryScheduled = false
-  private var lastNeedSnapshotResultKey: String? = null
+  private var state: HomeContainerState? = null
   private var fallbackBackgroundColor = Color.WHITE
   private var selectedTabId = ""
   private var pendingPagerTabId: String? = null
   private var pendingPagerSelectionIsProgrammatic = false
   private var pendingPagerSelectionShouldNotify = false
-  private var pendingSelectedPageRenderRevision = -1L
   private var pagerScrollState = ViewPager2.SCROLL_STATE_IDLE
   private var suppressPageCallback = false
   private var refreshEnabled = false
@@ -458,7 +282,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private var collapseOffset = 0
   private var appliedSharedChromeOffset: Int? = null
   private var mountedSlotKeys = emptySet<String>()
-  private var mountedSlotMetadata = emptyList<HomeContainerProtocolV3MountedSlotMetadata>()
   private val chromeTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
   private var chromeGestureCandidate = false
   private var horizontalGesture = false
@@ -517,10 +340,10 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       emitRefresh(selectedTabId, requestId)
     }
     headerView.onAction = { actionId, itemId ->
-      emitAction(actionId, itemId, selectedTabId)
+      emitAction(actionId, itemId)
     }
     tabsView.onAction = { actionId, itemId ->
-      emitAction(actionId, itemId, selectedTabId)
+      emitAction(actionId, itemId)
     }
     tabsView.onSelect = { tabId ->
       moveToTab(
@@ -546,7 +369,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         }
         // ViewPager2 reports the selected page before its RecyclerView has
         // physically settled. Keep both gesture and programmatic transitions
-        // pending so a Store navigation patch cannot stop the pager mid-page.
+        // pending so a Store navigation update cannot stop the pager mid-page.
         pendingPagerTabId = homeContainerPendingPageTransition(
           pendingPagerTabId,
           tab.id,
@@ -557,7 +380,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           pendingPagerSelectionShouldNotify = true
         }
         preparePageForPresentation(tab.id)
-        updatePagePresentationActivity()
         completePagerSelectionIfIdle()
       }
 
@@ -567,94 +389,58 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           pendingPagerSelectionIsProgrammatic = false
           pendingPagerSelectionShouldNotify = true
         }
-        updatePagePresentationActivity()
         completePagerSelectionIfIdle()
       }
     })
   }
 
-  fun submitSnapshot(json: String) {
+  fun submitState(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
-      if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
-        post {
-          pendingProtocolV3PatchJson = null
-          handleProtocolV3Outcome(
-            HomeContainerProtocolV3Transaction.applySnapshot(json),
-          )
-        }
-        return@execute
-      }
-      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "snapshot")) {
-        post {
-          pendingProtocolV3PatchJson = null
-          protocolV3State = null
-          renderedProtocolV3State = null
-          handleProtocolV2Outcome(
-            HomeContainerProtocolV2Transaction.applySnapshot(json, protocolV2State),
-          )
-        }
-        return@execute
-      }
       try {
-        val next = HomeContainerJson.parseSnapshot(json)
-        if (next.schemaVersion != SCHEMA_VERSION) {
-          reportError(
-            "unsupported_schema",
-            "HomeContainer schema ${next.schemaVersion} is not supported",
-          )
-          return@execute
-        }
+        val next = HomeContainerJson.parseState(json)
         post {
-          pendingProtocolV3PatchJson = null
-          protocolV2State = null
-          renderedProtocolV2State = null
-          protocolV3State = null
-          renderedProtocolV3State = null
-          renderCompletionCoordinator.reset()
-          lastNeedSnapshotResultKey = null
-          applySnapshot(next)
+          if (state?.owner != null && state?.owner != next.owner) {
+            resetViewportForOwnerChange()
+          }
+          state = next
+          applySnapshot(
+            next.snapshot,
+            allowsMissingSelectedTabFallback = false,
+          )
         }
       } catch (error: Exception) {
-        reportError("snapshot_decode_failed", error.message ?: error.javaClass.simpleName)
+        reportError("state_decode_failed", error.message ?: error.javaClass.simpleName)
       }
     }
   }
 
-  fun submitInitialSnapshot(json: String) {
+  fun submitInitialState(json: String) {
     if (disposed.get()) return
-    if (!HomeContainerProtocolV3Transaction.isProtocolPayload(json, "snapshot")) {
-      reportError(
-        "unsupported_protocol",
-        "HomeContainer initial snapshot must use protocol v3",
-      )
-      return
-    }
-    pendingInitialSnapshotJson = json
-    schedulePendingInitialSnapshot()
+    pendingInitialStateJson = json
+    schedulePendingInitialState()
     requestLayout()
   }
 
-  private fun schedulePendingInitialSnapshot() {
+  private fun schedulePendingInitialState() {
     if (
-      pendingInitialSnapshotJson == null ||
+      pendingInitialStateJson == null ||
       !isAttachedToWindow ||
       width <= 0 ||
       height <= 0 ||
-      initialSnapshotApplyScheduled
+      initialStateApplyScheduled
     ) {
       return
     }
-    initialSnapshotApplyScheduled = true
+    initialStateApplyScheduled = true
     post {
-      initialSnapshotApplyScheduled = false
+      initialStateApplyScheduled = false
       if (disposed.get() || !isAttachedToWindow || width <= 0 || height <= 0) {
         return@post
       }
-      val json = pendingInitialSnapshotJson ?: return@post
-      pendingInitialSnapshotJson = null
-      pendingProtocolV3PatchJson = null
-      handleProtocolV3Outcome(HomeContainerProtocolV3Transaction.applySnapshot(json))
+      val json = pendingInitialStateJson ?: return@post
+      pendingInitialStateJson = null
+      submitState(json)
     }
   }
 
@@ -774,42 +560,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     parent?.requestDisallowInterceptTouchEvent(false)
   }
 
-  fun submitPatch(json: String) {
-    parser.execute {
-      if (disposed.get()) return@execute
-      if (HomeContainerProtocolV3Transaction.isProtocolPayload(json, "patch")) {
-        post {
-          applyProtocolV3PatchOrDefer(json)
-        }
-        return@execute
-      }
-      if (HomeContainerProtocolV2Transaction.isProtocolPayload(json, "patch")) {
-        post {
-          pendingProtocolV3PatchJson = null
-          protocolV3State = null
-          renderedProtocolV3State = null
-          handleProtocolV2Outcome(
-            HomeContainerProtocolV2Transaction.applyPatch(json, protocolV2State),
-          )
-        }
-        return@execute
-      }
-      try {
-        val patch = HomeContainerJson.parsePatch(json)
-        if (patch.schemaVersion != SCHEMA_VERSION) {
-          reportError(
-            "unsupported_schema",
-            "HomeContainer patch schema ${patch.schemaVersion} is not supported",
-          )
-          return@execute
-        }
-        post { applyPatch(patch) }
-      } catch (error: Exception) {
-        reportError("patch_decode_failed", error.message ?: error.javaClass.simpleName)
-      }
-    }
-  }
-
   fun completeRefresh(requestId: String) {
     post {
       if (activeRefreshRequestId == requestId) {
@@ -834,45 +584,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     onSlotLayoutChange?.invoke()
   }
 
-  fun setMountedSlotMetadata(
-    keys: Set<String>,
-    metadata: List<HomeContainerProtocolV3MountedSlotMetadata>,
-  ) {
-    mountedSlotMetadata = metadata
-    setMountedSlotKeys(keys)
-    schedulePendingProtocolV3PatchRetry()
-  }
-
-  private fun availableProtocolV3SlotRevisions(): Map<String, Long> =
-    protocolV3State?.identity?.owner?.let { owner ->
-      homeContainerProtocolV3AvailableSlotRevisions(owner, mountedSlotMetadata)
-    }.orEmpty()
-
-  private fun applyProtocolV3PatchOrDefer(json: String) {
-    val outcome = HomeContainerProtocolV3Transaction.applyPatch(
-      json,
-      current = protocolV3State,
-      availableSlotRevisions = availableProtocolV3SlotRevisions(),
-    )
-    if (
-      outcome is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot &&
-      outcome.reason == HomeContainerProtocolV3NeedSnapshotReason.SLOT_REVISION_GAP
-    ) {
-      pendingProtocolV3PatchJson = json
-      return
-    }
-    pendingProtocolV3PatchJson = null
-    handleProtocolV3Outcome(outcome)
-  }
-
-  private fun schedulePendingProtocolV3PatchRetry() {
-    if (pendingProtocolV3PatchJson == null || pendingProtocolV3PatchRetryScheduled) return
-    pendingProtocolV3PatchRetryScheduled = true
-    post {
-      pendingProtocolV3PatchRetryScheduled = false
-      pendingProtocolV3PatchJson?.let(::applyProtocolV3PatchOrDefer)
-    }
-  }
+  fun ownsSlot(ownerScopeKey: String, ownerSessionId: String): Boolean =
+    state?.owner == HomeContainerOwner(ownerScopeKey, ownerSessionId)
 
   fun slotFrame(key: String): Rect? {
     val statePrefix = "content.state."
@@ -977,21 +690,10 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       activeRefreshRequestId = null
       isRefreshing = false
       snapshot = null
-      protocolV2State = null
-      renderedProtocolV2State = null
-      protocolV3State = null
-      renderedProtocolV3State = null
-      pendingProtocolV3PatchJson = null
-      pendingProtocolV3PatchRetryScheduled = false
+      state = null
       mountedSlotKeys = emptySet()
-      mountedSlotMetadata = emptyList()
-      renderCompletionCoordinator.reset()
-      onAction = null
-      onRefresh = null
-      onVisibleTabChange = null
       onRenderError = null
       onIntent = null
-      onTransportResult = null
       onSlotLayoutChange = null
     }
   }
@@ -999,11 +701,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private fun applySnapshot(
     next: HomeContainerSnapshot,
     allowsMissingSelectedTabFallback: Boolean = true,
-    enforcesMonotonicRevision: Boolean = true,
   ) {
     if (disposed.get()) return
     val current = snapshot
-    if (enforcesMonotonicRevision && current != null && next.revision < current.revision) return
     if (!next.hasValidTabInvariants()) return
     if (
       !allowsMissingSelectedTabFallback &&
@@ -1020,7 +720,10 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     tabsView.bind(next.tabs, next.selectedTabId, next.theme)
     suppressPageCallback = true
     try {
-      adapter.bind(next, forceMountedPageRebind = current != null)
+      adapter.bind(
+        next,
+        forceMountedPageRebind = current != null,
+      )
       val inlineTabs = next.inlineTabs()
       pager.offscreenPageLimit = inlineTabs.size.coerceAtLeast(1)
       val navigationTabId = homeContainerNavigationTabId(
@@ -1039,7 +742,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       val navigationTab = inlineTabs.firstOrNull { it.id == navigationTabId }
       if (navigationTab != null) {
         selectedTabId = navigationTab.id
-        adapter.setSelectedTab(navigationTab.id)
         tabsView.setSelectedTab(navigationTab.id)
         val index = adapter.positionForTab(navigationTab.id)
         if (index >= 0) {
@@ -1058,180 +760,12 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       suppressPageCallback = false
     }
     updateSharedChromeLayout()
-    updatePagePresentationActivity()
-    awaitSelectedPageRender(next.revision)
-  }
-
-  private fun applyPatch(patch: HomeContainerPatch) {
-    val current = snapshot ?: return
-    val next = current.applyingValidatedPatch(patch) ?: return
-    snapshot = next
-    patch.header?.let { header ->
-      val previousHeaderHeight = headerHeight
-      headerView.bind(header, next.theme)
-      headerHeight = headerView.preferredHeight
-      if (previousHeaderHeight != headerHeight) {
-        adapter.updateTopSpacerHeight(
-          headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
-          next.revision,
-        )
-      }
-      updateSharedChromeLayout()
-    }
-    adapter.applyPatch(next, patch)
-  }
-
-  private fun applyProtocolV2Patch(
-    next: HomeContainerSnapshot,
-    renderPlan: HomeContainerProtocolV2RenderPlan,
-  ) {
-    if (disposed.get() || !next.hasValidTabInvariants()) return
-    snapshot = next
-    var headerHeightChanged = false
-    if (renderPlan.shouldApplySurface) {
-      setBackgroundColor(parseHomeContainerColor(next.theme.backgroundColor, Color.WHITE))
-    }
-    if (renderPlan.shouldBindHeader || renderPlan.shouldApplySurface) {
-      val previousHeaderHeight = headerHeight
-      headerView.bind(next.header, next.theme)
-      headerHeight = headerView.preferredHeight
-      headerHeightChanged = previousHeaderHeight != headerHeight
-    }
-    if (renderPlan.shouldReconcileNavigation || renderPlan.shouldApplySurface) {
-      tabsView.bind(next.tabs, next.selectedTabId, next.theme)
-    }
-    when {
-      renderPlan.shouldReconcileNavigation -> adapter.bind(next)
-      renderPlan.shouldApplySurface -> adapter.applyTheme(next)
-      renderPlan.sectionTabIds.isNotEmpty() ->
-        adapter.updateSections(next, renderPlan.sectionTabIds)
-      else -> {
-        adapter.advanceSnapshot(next)
-        emptySet()
-      }
-    }
-
-    if (headerHeightChanged) {
-      adapter.updateTopSpacerHeight(
-        headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
-        next.revision,
-      )
-    }
-
-    if (renderPlan.shouldReconcileNavigation) {
-      suppressPageCallback = true
-      try {
-        val inlineTabs = next.inlineTabs()
-        pager.offscreenPageLimit = inlineTabs.size.coerceAtLeast(1)
-        val navigationTabId = homeContainerNavigationTabId(
-          pendingTargetTabId = pendingPagerTabId,
-          requestedTabId = next.selectedTabId,
-          inlineTabIds = inlineTabs.map { it.id },
-        )
-        if (pendingPagerTabId != null && navigationTabId != pendingPagerTabId) {
-          pendingPagerTabId = null
-          pendingPagerSelectionIsProgrammatic = false
-          pendingPagerSelectionShouldNotify = false
-        }
-        val navigationTab = inlineTabs.firstOrNull { it.id == navigationTabId } ?: return
-        selectedTabId = navigationTab.id
-        adapter.setSelectedTab(navigationTab.id)
-        tabsView.setSelectedTab(navigationTab.id)
-        val index = adapter.positionForTab(navigationTab.id)
-        if (index >= 0) {
-          adapter.requestPageRender(navigationTab.id)
-          if (
-            !homeContainerShouldPreservePendingPageTransition(
-              pendingPagerTabId,
-              navigationTab.id,
-            )
-          ) {
-            setPagerCurrentItem(index, false)
-          }
-        }
-      } finally {
-        suppressPageCallback = false
-      }
-    }
-
-    if (
-      renderPlan.shouldBindHeader ||
-      renderPlan.shouldReconcileNavigation ||
-      renderPlan.shouldApplySurface
-    ) {
-      updateSharedChromeLayout()
-    }
-    updatePagePresentationActivity()
-    awaitSelectedPageRender(next.revision)
-  }
-
-  private fun awaitSelectedPageRender(revision: Long) {
-    pendingSelectedPageRenderRevision = maxOf(
-      pendingSelectedPageRenderRevision,
-      revision,
-    )
-    if (
-      pagerScrollState != ViewPager2.SCROLL_STATE_IDLE ||
-      pager.scrollState != ViewPager2.SCROLL_STATE_IDLE ||
-      pendingPagerTabId != null
-    ) {
-      updatePagePresentationActivity()
-      return
-    }
-    val requiredTabId = selectedTabId
-    renderCompletionCoordinator.retargetPending(requiredTabId)
-    val page = adapter.pageForTab(requiredTabId)
-    if (page != null && page.isAttachedToWindow) {
-      renderCompletionCoordinator.registerPage(requiredTabId, page.renderInstanceId)
-      val requestedRevision = pendingSelectedPageRenderRevision
-      pendingSelectedPageRenderRevision = -1L
-      page.awaitRenderCommit(requestedRevision)
-      return
-    }
-    pager.post {
-      if (disposed.get()) return@post
-      if (
-        pagerScrollState != ViewPager2.SCROLL_STATE_IDLE ||
-        pager.scrollState != ViewPager2.SCROLL_STATE_IDLE ||
-        pendingPagerTabId != null
-      ) {
-        return@post
-      }
-      val latestRequiredTabId = selectedTabId
-      val latestRevision = maxOf(
-        protocolV2State?.revision ?: revision,
-        pendingSelectedPageRenderRevision,
-      )
-      renderCompletionCoordinator.retargetPending(latestRequiredTabId)
-      val attachedPage = adapter.pageForTab(latestRequiredTabId)
-      if (attachedPage != null && attachedPage.isAttachedToWindow) {
-        renderCompletionCoordinator.registerPage(
-          latestRequiredTabId,
-          attachedPage.renderInstanceId,
-        )
-        pendingSelectedPageRenderRevision = -1L
-        attachedPage.awaitRenderCommit(latestRevision)
-      } else {
-        adapter.requestPageRender(latestRequiredTabId)
-      }
-    }
   }
 
   private fun preparePageForPresentation(tabId: String) {
-    val revision = protocolV2State?.revision ?: snapshot?.revision ?: return
+    if (snapshot == null) return
     val sourceOffset = adapter.pageForTab(selectedTabId)?.collapseOffset ?: collapseOffset
-    adapter.pageForTab(tabId)?.prepareForPresentation(revision, sourceOffset)
-  }
-
-  private fun updatePagePresentationActivity() {
-    val activeTabId = selectedTabId.takeIf {
-      pagerScrollState == ViewPager2.SCROLL_STATE_IDLE &&
-        pager.scrollState == ViewPager2.SCROLL_STATE_IDLE &&
-        pendingPagerTabId == null
-    }
-    adapter.pages().forEach { page ->
-      page.setPresentationActive(page.tabId == activeTabId)
-    }
+    adapter.pageForTab(tabId)?.synchronizeCollapseOffset(sourceOffset)
   }
 
   private fun completePagerSelectionIfIdle() {
@@ -1265,14 +799,11 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     pendingPagerSelectionIsProgrammatic = false
     pendingPagerSelectionShouldNotify = false
     selectedTabId = targetTab.id
-    adapter.setSelectedTab(targetTab.id)
     tabsView.setSelectedTab(targetTab.id)
     collapseOffset = synchronizedCollapseOffset
     updateSharedChromePosition()
-    updatePagePresentationActivity()
     post { onSlotLayoutChange?.invoke() }
     if (shouldNotify) emitTabSelection(targetTab.id)
-    protocolV2State?.revision?.let(::awaitSelectedPageRender)
   }
 
   private fun moveToTab(tabId: String, animated: Boolean, notify: Boolean) {
@@ -1292,7 +823,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     if (adapter.pageForTab(tabId) == null) {
       adapter.requestPageRender(tabId)
     }
-    updatePagePresentationActivity()
     setPagerCurrentItem(index, animated)
     completePagerSelectionIfIdle()
   }
@@ -1345,200 +875,38 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         pendingPagerTabId = null
         pendingPagerSelectionIsProgrammatic = false
         pendingPagerSelectionShouldNotify = false
-        updatePagePresentationActivity()
         post { onSlotLayoutChange?.invoke() }
-        protocolV2State?.revision?.let(::awaitSelectedPageRender)
       }
     }
   }
 
-  private fun handleProtocolV3Outcome(outcome: HomeContainerProtocolV3ApplyOutcome) {
-    if (disposed.get()) return
-    when (outcome) {
-      is HomeContainerProtocolV3ApplyOutcome.Applied -> {
-        if (protocolV3State?.identity?.owner != outcome.state.identity.owner) {
-          renderCompletionCoordinator.reset()
-          renderedProtocolV2State = null
-          renderedProtocolV3State = null
-          resetViewportForOwnerChange()
-        }
-        protocolV3State = outcome.state
-        protocolV2State = outcome.state.legacyState
-        lastNeedSnapshotResultKey = null
-        renderCompletionCoordinator.retargetPending(
-          outcome.state.legacyState.snapshot.selectedTabId,
-        )
-        renderCompletionCoordinator.enqueue(
-          state = outcome.state.legacyState,
-          requiredTabId = outcome.state.legacyState.snapshot.selectedTabId,
-          acknowledgement = HomeContainerProtocolV3Transaction.appliedResult(
-            outcome.state,
-          ),
-        )
-        if (outcome.renderPlan.isFullSnapshot) {
-          applySnapshot(
-            next = outcome.state.legacyState.snapshot,
-            allowsMissingSelectedTabFallback = false,
-            enforcesMonotonicRevision = false,
-          )
-        } else {
-          applyProtocolV2Patch(
-            outcome.state.legacyState.snapshot,
-            outcome.renderPlan,
-          )
-        }
-      }
-      is HomeContainerProtocolV3ApplyOutcome.Duplicate -> {
-        if (
-          renderedProtocolV3State?.identity?.owner == outcome.state.identity.owner &&
-          renderedProtocolV3State?.transportRevision == outcome.state.transportRevision
-        ) {
-          emitTransportResult(
-            HomeContainerProtocolV3Transaction.duplicateResult(outcome.state),
-          )
-        }
-      }
-      is HomeContainerProtocolV3ApplyOutcome.NeedSnapshot -> {
-        renderCompletionCoordinator.reset()
-        renderedProtocolV2State = null
-        renderedProtocolV3State = null
-        val result = HomeContainerProtocolV3Transaction.needSnapshotResult(
-          protocolV3State,
-          outcome.reason,
-        )
-        if (lastNeedSnapshotResultKey != result) {
-          lastNeedSnapshotResultKey = result
-          emitTransportResult(result)
-        }
-      }
-    }
-  }
-
-  private fun handleProtocolV2Outcome(outcome: HomeContainerProtocolV2ApplyOutcome) {
-    if (disposed.get()) return
-    when (outcome) {
-      is HomeContainerProtocolV2ApplyOutcome.Applied -> {
-        if (protocolV2State?.owner != outcome.state.owner) {
-          renderCompletionCoordinator.reset()
-          renderedProtocolV2State = null
-          resetViewportForOwnerChange()
-        }
-        protocolV2State = outcome.state
-        lastNeedSnapshotResultKey = null
-        renderCompletionCoordinator.retargetPending(outcome.state.snapshot.selectedTabId)
-        renderCompletionCoordinator.enqueue(
-          state = outcome.state,
-          requiredTabId = outcome.state.snapshot.selectedTabId,
-          acknowledgement = outcome.toTransportResultJson(),
-        )
-        if (outcome.renderPlan.isFullSnapshot) {
-          applySnapshot(
-            next = outcome.state.snapshot,
-            allowsMissingSelectedTabFallback = false,
-            enforcesMonotonicRevision = false,
-          )
-        } else {
-          applyProtocolV2Patch(outcome.state.snapshot, outcome.renderPlan)
-        }
-      }
-      is HomeContainerProtocolV2ApplyOutcome.Duplicate -> {
-        if (homeContainerDuplicateIsRendered(renderedProtocolV2State, outcome)) {
-          emitTransportResult(outcome.toTransportResultJson())
-        }
-      }
-      is HomeContainerProtocolV2ApplyOutcome.NeedSnapshot -> {
-        renderCompletionCoordinator.reset()
-        renderedProtocolV2State = null
-        emitNeedSnapshot(outcome)
-      }
-    }
-  }
-
-  private fun completeProtocolV2Render(completed: HomeContainerCompletedRender) {
-    val appliedState = protocolV2State ?: return
-    if (
-      appliedState.owner != completed.state.owner ||
-      completed.state.revision > appliedState.revision
-    ) {
-      return
-    }
-    renderedProtocolV2State = if (appliedState.revision == completed.state.revision) {
-      appliedState
-    } else {
-      completed.state
-    }
-    renderedProtocolV3State = protocolV3State?.takeIf {
-      it.identity.owner == completed.state.owner &&
-        it.transportRevision == completed.state.revision
-    }
-    emitTransportResult(completed.acknowledgement)
-  }
-
-  private fun emitAction(actionId: String, itemId: String, tabId: String) {
-    if (protocolV3State != null) {
-      val state = renderedProtocolV3State ?: return
-      val sectionId = if (
-        actionId.startsWith("home.widget.market") ||
-        actionId.startsWith("home.market.")
-      ) {
-        "market"
-      } else {
-        tabId
-      }
-      HomeContainerProtocolV3Transaction.actionIntent(
-        state = state,
-        commandId = actionId,
-        itemId = itemId,
-        sectionId = sectionId,
-      )?.let(::emitIntent)
-      return
-    }
-    if (protocolV2State == null) {
-      onAction?.invoke(actionId, itemId, tabId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
+  private fun emitAction(actionId: String, itemId: String) {
     emitIntent(
-      HomeContainerProtocolV2Intent.action(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        commandId = actionId,
-        itemId = itemId,
-      ),
+      JSONObject()
+        .put("kind", "action")
+        .put("commandId", actionId)
+        .put("itemId", itemId),
     )
   }
 
   private fun emitRefresh(tabId: String, requestId: String) {
-    if (protocolV3State != null) {
-      val state = renderedProtocolV3State ?: return
-      HomeContainerProtocolV3Transaction.refreshIntent(
-        state,
-        tabId,
-        requestId,
-      )?.let(::emitIntent)
+    if (state == null) {
+      if (activeRefreshRequestId == requestId) {
+        activeRefreshRequestId = null
+      }
+      isRefreshing = false
       return
     }
-    if (protocolV2State == null) {
-      onRefresh?.invoke(tabId, requestId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
     emitIntent(
-      HomeContainerProtocolV2Intent.refresh(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        tabId = tabId,
-        requestId = requestId,
-      ),
+      JSONObject()
+        .put("kind", "refresh")
+        .put("tabId", tabId)
+        .put("requestId", requestId),
     )
   }
 
   private fun emitTabSelection(tabId: String) {
-    val currentState = renderedProtocolV2State
-    if (currentState == null) {
-      onVisibleTabChange?.invoke(tabId)
-      return
-    }
+    val currentState = state ?: return
     if (
       currentState.snapshot.tabs.none {
         it.id == tabId && it.destination == HomeContainerTabDestination.INLINE
@@ -1546,71 +914,35 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     ) {
       return
     }
-    val selectedState = currentState.selectingTab(tabId) ?: return
-    snapshot = selectedState.snapshot
-    protocolV2State = selectedState
-    renderedProtocolV2State = selectedState
-    if (protocolV3State != null) {
-      val renderedState = renderedProtocolV3State ?: run {
-        onVisibleTabChange?.invoke(tabId)
-        return
-      }
-      val selectedV3State = renderedState.copy(legacyState = selectedState)
-      protocolV3State = selectedV3State
-      renderedProtocolV3State = selectedV3State
-      HomeContainerProtocolV3Transaction.selectTabIntent(
-        renderedState,
-        tabId,
-      )?.let(::emitIntent)
-      return
-    }
-    emitIntent(
-      HomeContainerProtocolV2Intent.selectTab(
-        owner = selectedState.owner,
-        renderedRevision = selectedState.revision,
-        tabId = tabId,
-      ),
-    )
+    val selectedSnapshot = currentState.snapshot.copy(selectedTabId = tabId)
+    snapshot = selectedSnapshot
+    state = currentState.copy(snapshot = selectedSnapshot)
+    emitIntent(JSONObject().put("kind", "selectTab").put("tabId", tabId))
   }
 
   private fun emitHandoff(tab: HomeContainerTab) {
     val commandId = tab.handoffCommandId ?: return
-    if (protocolV3State != null) {
-      val state = renderedProtocolV3State ?: return
-      HomeContainerProtocolV3Transaction.handoffIntent(
-        state,
-        tab.id,
-        commandId,
-      )?.let(::emitIntent)
-      return
-    }
-    if (protocolV2State == null) {
-      onAction?.invoke(commandId, tab.id, selectedTabId)
-      return
-    }
-    val state = renderedProtocolV2State ?: return
     emitIntent(
-      HomeContainerProtocolV2Intent.handoff(
-        owner = state.owner,
-        renderedRevision = state.revision,
-        tabId = tab.id,
-        commandId = commandId,
-      ),
+      JSONObject()
+        .put("kind", "handoff")
+        .put("tabId", tab.id)
+        .put("commandId", commandId),
     )
   }
 
-  private fun emitIntent(json: String) {
+  private fun emitIntent(payload: JSONObject) {
+    val owner = state?.owner ?: return
+    val json = JSONObject()
+      .put("intentId", UUID.randomUUID().toString())
+      .put(
+        "owner",
+        JSONObject()
+          .put("scopeKey", owner.scopeKey)
+          .put("sessionId", owner.sessionId),
+      )
+      .put("intent", payload)
+      .toString()
     onIntent?.invoke(json)
-  }
-
-  private fun emitNeedSnapshot(result: HomeContainerProtocolV2ApplyOutcome.NeedSnapshot) {
-    if (lastNeedSnapshotResultKey == result.coalescingKey) return
-    lastNeedSnapshotResultKey = result.coalescingKey
-    emitTransportResult(result.toTransportResultJson())
-  }
-
-  private fun emitTransportResult(json: String) {
-    onTransportResult?.invoke(json)
   }
 
   private fun reportError(code: String, message: String) {
@@ -1621,7 +953,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     private var value: HomeContainerSnapshot? = null
     private var inlineTabs = emptyList<HomeContainerTab>()
     private val pages = mutableMapOf<String, HomePageView>()
-    private var selectedId = ""
 
     init {
       setHasStableIds(true)
@@ -1669,60 +1000,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       return changedTabIds
     }
 
-    fun applyPatch(next: HomeContainerSnapshot, patch: HomeContainerPatch) {
-      updateSections(next, patch.tabs.mapTo(linkedSetOf()) { it.tabId })
-    }
-
-    fun updateSections(
-      next: HomeContainerSnapshot,
-      tabIds: Set<String>,
-    ): Set<String> {
-      val nextTabs = next.inlineTabs()
-      if (inlineTabs.map { it.id } != nextTabs.map { it.id }) {
-        return bind(next)
-      }
-      value = next
-      inlineTabs = nextTabs
-      val changedTabIds = tabIds.filterTo(linkedSetOf()) { tabId ->
-        nextTabs.any { it.id == tabId }
-      }
-      changedTabIds.forEach { tabId ->
-        val tab = nextTabs.firstOrNull { it.id == tabId } ?: return@forEach
-        val page = pages[tabId]
-        if (page != null) {
-          page.updateSections(tab.sections, next.theme, next.revision)
-        } else {
-          val position = positionForTab(tabId)
-          if (position >= 0) notifyItemChanged(position)
-        }
-      }
-      return changedTabIds
-    }
-
-    fun applyTheme(next: HomeContainerSnapshot): Set<String> {
-      val nextTabs = next.inlineTabs()
-      if (inlineTabs.map { it.id } != nextTabs.map { it.id }) {
-        return bind(next)
-      }
-      value = next
-      inlineTabs = nextTabs
-      if (nextTabs.isNotEmpty()) notifyItemRangeChanged(0, nextTabs.size)
-      return nextTabs.mapTo(linkedSetOf()) { it.id }
-    }
-
-    fun advanceSnapshot(next: HomeContainerSnapshot) {
-      value = next
-      inlineTabs = next.inlineTabs()
-    }
-
-    fun setSelectedTab(tabId: String) {
-      selectedId = tabId
-    }
-
-    fun updateTopSpacerHeight(height: Int, revision: Long) {
-      pages.values.forEach { it.updateTopSpacerHeight(height, revision) }
-    }
-
     fun pageForTab(tabId: String): HomePageView? = pages[tabId]
 
     fun requestPageRender(tabId: String) {
@@ -1755,48 +1032,15 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       val next = value ?: return
       val tab = inlineTabs[position]
       pages.entries.removeAll { entry ->
-        if (entry.value === holder.page && entry.key != tab.id) {
-          renderCompletionCoordinator.unregisterPage(
-            entry.key,
-            holder.page.renderInstanceId,
-          )
-          true
-        } else {
-          false
-        }
+        entry.value === holder.page && entry.key != tab.id
       }
       pages[tab.id] = holder.page
       bindPage(holder.page, tab, next)
     }
 
-    override fun onViewAttachedToWindow(holder: HomePageHolder) {
-      super.onViewAttachedToWindow(holder)
-      val tabId = holder.page.tabId
-      if (tabId.isEmpty()) return
-      renderCompletionCoordinator.registerPage(tabId, holder.page.renderInstanceId)
-      holder.page.setPresentationActive(
-        tabId == selectedTabId &&
-          pagerScrollState == ViewPager2.SCROLL_STATE_IDLE &&
-          pendingPagerTabId == null,
-      )
-      if (tabId == selectedTabId) {
-        value?.revision?.let(holder.page::awaitRenderCommit)
-      }
-    }
-
     override fun onViewRecycled(holder: HomePageHolder) {
-      val recycledTabId = holder.page.tabId
       pages.entries.removeAll { it.value === holder.page }
-      renderCompletionCoordinator.unregisterPage(
-        recycledTabId,
-        holder.page.renderInstanceId,
-      )
       super.onViewRecycled(holder)
-      if (recycledTabId == selectedTabId) {
-        pager.post {
-          protocolV2State?.revision?.let(::awaitSelectedPageRender)
-        }
-      }
     }
 
     private fun bindPage(
@@ -1810,8 +1054,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
         selectedTabId = selectedTabId,
       )
       page.onSlotLayoutChange = { this@HomeContainerView.onSlotLayoutChange?.invoke() }
-      page.onAction = { actionId, itemId, tabId ->
-        this@HomeContainerView.emitAction(actionId, itemId, tabId)
+      page.onAction = { actionId, itemId ->
+        this@HomeContainerView.emitAction(actionId, itemId)
       }
       page.onCollapseOffsetChange = { sourcePage, offset ->
         if (sourcePage.tabId == selectedTabId) {
@@ -1819,36 +1063,15 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
           updateSharedChromePosition()
         }
       }
-      page.onListContentLaidOut = { sourcePage, revision ->
-        renderCompletionCoordinator.markListLaidOut(
-          sourcePage.tabId,
-          sourcePage.renderInstanceId,
-          revision,
-        )
-      }
-      page.onRenderPreDraw = { sourcePage, revision ->
-        renderCompletionCoordinator.markPreDraw(
-          sourcePage.tabId,
-          sourcePage.renderInstanceId,
-          revision,
-        ).forEach(::completeProtocolV2Render)
-      }
-      renderCompletionCoordinator.registerPage(tab.id, page.renderInstanceId)
       page.bind(
         tab,
         next.theme,
         headerHeight + dp(HOME_CONTAINER_TAB_HEIGHT_DP),
-        next.revision,
       )
       if (shouldSynchronizeCollapseOffset) {
         page.synchronizeCollapseOffset(collapseOffset)
       }
       page.setMountedSlotKeys(mountedSlotKeys)
-      page.setPresentationActive(
-        tab.id == selectedTabId &&
-          pagerScrollState == ViewPager2.SCROLL_STATE_IDLE &&
-          pendingPagerTabId == null,
-      )
     }
   }
 
@@ -1889,7 +1112,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     pendingPagerTabId = null
     pendingPagerSelectionIsProgrammatic = false
     pendingPagerSelectionShouldNotify = false
-    pendingSelectedPageRenderRevision = -1L
     collapseOffset = 0
     activeRefreshRequestId = null
     isRefreshing = false
@@ -1903,40 +1125,22 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
-    schedulePendingInitialSnapshot()
+    schedulePendingInitialState()
     onSlotLayoutChange?.invoke()
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    schedulePendingInitialSnapshot()
+    schedulePendingInitialState()
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-
-  companion object {
-    private const val SCHEMA_VERSION = HOME_CONTAINER_BUSINESS_SCHEMA_VERSION
-  }
-}
-
-private class HomeContainerListLayoutManager(
-  context: Context,
-  private val onLayoutCompletedCallback: (Int) -> Unit,
-) : LinearLayoutManager(context) {
-  override fun onLayoutCompleted(state: RecyclerView.State?) {
-    super.onLayoutCompleted(state)
-    onLayoutCompletedCallback(state?.itemCount ?: 0)
-  }
 }
 
 private class HomePageView(context: Context) : FrameLayout(context) {
-  var onAction: ((String, String, String) -> Unit)? = null
+  var onAction: ((String, String) -> Unit)? = null
   var onCollapseOffsetChange: ((HomePageView, Int) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
-  var onListContentLaidOut: ((HomePageView, Long) -> Unit)? = null
-  var onRenderPreDraw: ((HomePageView, Long) -> Unit)? = null
-
-  val renderInstanceId: String = UUID.randomUUID().toString()
 
   var tabId: String = ""
     private set
@@ -1948,11 +1152,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   private var userScrollActive = false
   private var pendingSynchronizedCollapseOffset: Int? = null
   private var lastDispatchedCollapseOffset: Int? = null
-  private var latestRequestedRenderRevision = -1L
-  private var pendingPresentationRevision = -1L
-  private var presentationActive = false
-  private var scheduledPreDrawRevision = -1L
-  private var preDrawListener: android.view.ViewTreeObserver.OnPreDrawListener? = null
 
   val collapseOffset: Int
     get() {
@@ -1971,21 +1170,18 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     configureRecycler(recycler)
     addView(recycler, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     listAdapter.onAction = { actionId, itemId ->
-      onAction?.invoke(actionId, itemId, tabId)
+      onAction?.invoke(actionId, itemId)
     }
-    listAdapter.onRowsSubmitted = { submittedRevision ->
-      latestRequestedRenderRevision = maxOf(
-        latestRequestedRenderRevision,
-        submittedRevision,
-      )
+    listAdapter.onRowsSubmitted = {
       recycler.requestLayout()
       this@HomePageView.requestLayout()
       recycler.postOnAnimation {
         recycler.requestLayout()
         this@HomePageView.requestLayout()
-        if (listAdapter.hasPendingLayout || recycler.hasPendingAdapterUpdates()) {
+        if (recycler.hasPendingAdapterUpdates()) {
           rootView.requestLayout()
         }
+        scheduleSlotLayoutAfterListMutation()
       }
     }
   }
@@ -1994,57 +1190,12 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     tab: HomeContainerTab,
     theme: HomeContainerTheme,
     topSpacerHeight: Int,
-    revision: Long,
   ) {
     tabId = tab.id
-    latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     this.topSpacerHeight = topSpacerHeight
     lastDispatchedCollapseOffset = null
-    listAdapter.bind(tab.id, tab.sections, theme, topSpacerHeight, revision)
-  }
-
-  fun updateSections(
-    sections: List<HomeContainerSection>,
-    theme: HomeContainerTheme,
-    revision: Long,
-  ) {
-    latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
-    setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
-    listAdapter.updateSections(sections, theme, revision)
-  }
-
-  fun updateTopSpacerHeight(height: Int, revision: Long) {
-    latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
-    topSpacerHeight = height
-    lastDispatchedCollapseOffset = null
-    listAdapter.updateTopSpacerHeight(height, revision)
-  }
-
-  fun awaitRenderCommit(revision: Long) {
-    latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
-    pendingPresentationRevision = maxOf(pendingPresentationRevision, revision)
-    trySchedulePresentation()
-  }
-
-  fun prepareForPresentation(revision: Long, collapseOffset: Int) {
-    latestRequestedRenderRevision = maxOf(latestRequestedRenderRevision, revision)
-    pendingPresentationRevision = maxOf(pendingPresentationRevision, revision)
-    synchronizeCollapseOffset(collapseOffset)
-    trySchedulePresentation()
-  }
-
-  fun setPresentationActive(active: Boolean) {
-    if (presentationActive == active) {
-      if (active) trySchedulePresentation()
-      return
-    }
-    presentationActive = active
-    if (!active) {
-      removeRenderPreDrawListener()
-      return
-    }
-    trySchedulePresentation()
+    listAdapter.bind(tab.id, tab.sections, theme, topSpacerHeight)
   }
 
   fun setMountedSlotKeys(keys: Set<String>) {
@@ -2088,7 +1239,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   }
 
   fun recycle() {
-    removeRenderPreDrawListener()
     pendingSynchronizedCollapseOffset = null
     recycler.adapter = null
     listAdapter.onAction = null
@@ -2096,8 +1246,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     onAction = null
     onCollapseOffsetChange = null
     onSlotLayoutChange = null
-    onListContentLaidOut = null
-    onRenderPreDraw = null
   }
 
   fun stateSlotTarget(): ViewGroup? {
@@ -2133,124 +1281,8 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     return (-layoutManager.getDecoratedTop(firstView)).coerceAtLeast(0)
   }
 
-  private fun trySchedulePresentation() {
-    val revision = pendingPresentationRevision
-    if (
-      revision < 0 ||
-      !presentationActive ||
-      !isAttachedToWindow ||
-      !isListPresentationReady()
-    ) {
-      Log.d(
-        HOME_CONTAINER_ACK_DEBUG_TAG,
-        "blocked revision=$revision tab=$tabId active=$presentationActive " +
-          "attached=$isAttachedToWindow",
-      )
-      return
-    }
-    Log.d(HOME_CONTAINER_ACK_DEBUG_TAG, "ready revision=$revision tab=$tabId")
-    onListContentLaidOut?.invoke(this, revision)
-    scheduleRenderPreDraw(revision)
-  }
-
-  private fun isListPresentationReady(): Boolean {
-    if (!homeContainerCanScheduleListPresentation(
-        hasPendingLayout = listAdapter.hasPendingLayout,
-        hasPendingAdapterUpdates = recycler.hasPendingAdapterUpdates(),
-        width = recycler.width,
-        height = recycler.height,
-      )
-    ) {
-      Log.d(
-        HOME_CONTAINER_ACK_DEBUG_TAG,
-        "base tab=$tabId layout=${listAdapter.hasPendingLayout} " +
-          "updates=${recycler.hasPendingAdapterUpdates()} size=${recycler.width}x${recycler.height}",
-      )
-      return false
-    }
-    val pendingOffset = pendingSynchronizedCollapseOffset
-    if (pendingOffset != null && abs(currentScrollOffset() - pendingOffset) > 1) {
-      Log.d(
-        HOME_CONTAINER_ACK_DEBUG_TAG,
-        "offset tab=$tabId pending=$pendingOffset current=${currentScrollOffset()}",
-      )
-      return false
-    }
-    if (listAdapter.itemCount <= 0 || recycler.childCount <= 0) {
-      Log.d(
-        HOME_CONTAINER_ACK_DEBUG_TAG,
-        "children tab=$tabId items=${listAdapter.itemCount} children=${recycler.childCount}",
-      )
-      return false
-    }
-    if (listAdapter.itemCount == 1) return true
-
-    val visibleBodyHeight = recycler.height -
-      (topSpacerHeight - collapseOffset).coerceAtLeast(0)
-    if (visibleBodyHeight <= 0) return true
-    val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return false
-    return (layoutManager.findLastVisibleItemPosition() >= 1).also { ready ->
-      if (!ready) {
-        Log.d(
-          HOME_CONTAINER_ACK_DEBUG_TAG,
-          "body tab=$tabId last=${layoutManager.findLastVisibleItemPosition()} " +
-            "bodyHeight=$visibleBodyHeight",
-        )
-      }
-    }
-  }
-
-  private fun scheduleRenderPreDraw(revision: Long) {
-    scheduledPreDrawRevision = maxOf(scheduledPreDrawRevision, revision)
-    if (preDrawListener != null) return
-    val listener = object : android.view.ViewTreeObserver.OnPreDrawListener {
-      override fun onPreDraw(): Boolean {
-        val observer = recycler.viewTreeObserver
-        if (observer.isAlive) observer.removeOnPreDrawListener(this)
-        preDrawListener = null
-        val renderedRevision = scheduledPreDrawRevision
-        scheduledPreDrawRevision = -1L
-        if (
-          !presentationActive ||
-          renderedRevision < 0 ||
-          !isListPresentationReady()
-        ) {
-          Log.d(
-            HOME_CONTAINER_ACK_DEBUG_TAG,
-            "predraw-blocked revision=$renderedRevision tab=$tabId active=$presentationActive",
-          )
-          return true
-        }
-        Log.d(
-          HOME_CONTAINER_ACK_DEBUG_TAG,
-          "predraw-ready revision=$renderedRevision tab=$tabId",
-        )
-        if (pendingPresentationRevision <= renderedRevision) {
-          pendingPresentationRevision = -1L
-        }
-        onSlotLayoutChange?.invoke()
-        onRenderPreDraw?.invoke(this@HomePageView, renderedRevision)
-        return true
-      }
-    }
-    preDrawListener = listener
-    recycler.viewTreeObserver.addOnPreDrawListener(listener)
-    recycler.invalidate()
-  }
-
-  private fun removeRenderPreDrawListener() {
-    preDrawListener?.let { listener ->
-      val observer = recycler.viewTreeObserver
-      if (observer.isAlive) observer.removeOnPreDrawListener(listener)
-    }
-    preDrawListener = null
-    scheduledPreDrawRevision = -1L
-  }
-
   private fun configureRecycler(target: RecyclerView) {
-    target.layoutManager = HomeContainerListLayoutManager(context) { layoutItemCount ->
-      onListLayoutCompleted(layoutItemCount)
-    }
+    target.layoutManager = LinearLayoutManager(context)
     target.adapter = listAdapter
     target.itemAnimator = DefaultItemAnimator().apply {
       supportsChangeAnimations = false
@@ -2265,7 +1297,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     target.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
       applyPendingSynchronizedCollapseOffset()
       onSlotLayoutChange?.invoke()
-      target.post { trySchedulePresentation() }
     }
     target.addOnChildAttachStateChangeListener(
       object : RecyclerView.OnChildAttachStateChangeListener {
@@ -2301,27 +1332,6 @@ private class HomePageView(context: Context) : FrameLayout(context) {
         }
       }
     })
-  }
-
-  private fun onListLayoutCompleted(layoutItemCount: Int) {
-    val completedGeneration = listAdapter.latestSubmittedGeneration
-    recycler.post {
-      if (!listAdapter.hasPendingLayout) {
-        trySchedulePresentation()
-        return@post
-      }
-      val laidOutRevision = listAdapter.markLaidOut(
-        generation = completedGeneration,
-        hasPendingAdapterUpdates = recycler.hasPendingAdapterUpdates(),
-        layoutItemCount = layoutItemCount,
-      ) ?: return@post
-      latestRequestedRenderRevision = maxOf(
-        latestRequestedRenderRevision,
-        laidOutRevision,
-      )
-      scheduleSlotLayoutAfterListMutation()
-      trySchedulePresentation()
-    }
   }
 
   private fun applyPendingSynchronizedCollapseOffset() {
@@ -2423,46 +1433,25 @@ internal fun resolveHomeContainerRowHeight(
 
 private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
   var onAction: ((String, String) -> Unit)? = null
-  var onRowsSubmitted: ((Long) -> Unit)? = null
+  var onRowsSubmitted: (() -> Unit)? = null
   private var theme = HomeContainerTheme("#FFFFFF", "#F5F5F5", "#EEEEEE", "#111111", "#777777", "#3574F0", "#1F9D67", "#D64545")
   private var sections: List<HomeContainerSection> = emptyList()
   private var rows: List<HomeListRow> = emptyList()
   private var tabId = ""
   private var topSpacerHeight = 0
   private var mountedSlotKeys = emptySet<String>()
-  private var revision = -1L
-  private val layoutTracker = HomeContainerListLayoutTracker()
-
-  val hasPendingLayout: Boolean
-    get() = layoutTracker.hasPendingLayout
-
-  val latestSubmittedGeneration: Long
-    get() = layoutTracker.latestSubmittedGeneration
-
-  fun markLaidOut(
-    generation: Long,
-    hasPendingAdapterUpdates: Boolean,
-    layoutItemCount: Int,
-  ): Long? = layoutTracker.markLaidOut(
-    generation = generation,
-    hasPendingAdapterUpdates = hasPendingAdapterUpdates,
-    layoutItemCount = layoutItemCount,
-    adapterItemCount = itemCount,
-  )
 
   fun bind(
     tabId: String,
     sections: List<HomeContainerSection>,
     theme: HomeContainerTheme,
     topSpacerHeight: Int,
-    revision: Long,
   ) {
     val themeChanged = this.theme != theme
     this.tabId = tabId
     this.theme = theme
     this.sections = homeContainerSectionsForRendering(sections)
     this.topSpacerHeight = topSpacerHeight
-    this.revision = revision
     submitRows(themeChanged = themeChanged)
   }
 
@@ -2472,28 +1461,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     submitRows()
   }
 
-  fun updateTopSpacerHeight(height: Int, revision: Long) {
-    if (topSpacerHeight == height) return
-    topSpacerHeight = height
-    this.revision = revision
-    submitRows()
-  }
-
-  fun updateSections(
-    sections: List<HomeContainerSection>,
-    theme: HomeContainerTheme,
-    revision: Long,
-  ) {
-    val themeChanged = this.theme != theme
-    this.theme = theme
-    this.sections = homeContainerSectionsForRendering(sections)
-    this.revision = revision
-    submitRows(themeChanged = themeChanged)
-  }
-
   private fun submitRows(themeChanged: Boolean = false) {
-    val submittedRevision = revision
-    layoutTracker.submit(submittedRevision)
     val currentRows = rows
     val currentHasLoadingRows = currentRows.any { it.item?.renderer == "loading" }
     val nextRows = buildRows()
@@ -2546,7 +1514,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
     ) {
       notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
     }
-    onRowsSubmitted?.invoke(submittedRevision)
+    onRowsSubmitted?.invoke()
   }
 
   fun statePosition(): Int {

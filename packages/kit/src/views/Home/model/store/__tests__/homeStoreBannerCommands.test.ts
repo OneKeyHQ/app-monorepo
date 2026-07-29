@@ -64,7 +64,7 @@ function createBannerState(): IHomeStoreState {
           isBotWalletReceiveBlocked: false,
         },
         coverageFingerprint: 'banner-a',
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     },
@@ -196,7 +196,7 @@ describe('Home Store banner command authority', () => {
         ...liveState.resources,
         banner: {
           ...banner,
-          freshness: 'confirmedCache',
+          priority: 0,
         },
       },
     };

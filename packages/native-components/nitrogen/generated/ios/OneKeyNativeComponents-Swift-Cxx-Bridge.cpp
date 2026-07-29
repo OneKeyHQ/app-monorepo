@@ -14,27 +14,19 @@
 
 namespace margelo::nitro::onekeynativecomponents::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>
-  Func_void_std__string_std__string_std__string create_Func_void_std__string_std__string_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = OneKeyNativeComponents::Func_void_std__string_std__string_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& actionId, const std::string& itemId, const std::string& tabId) mutable -> void {
-      swiftClosure.call(actionId, itemId, tabId);
-    };
-  }
-
-  // pragma MARK: std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>
+  // pragma MARK: std::function<void(const std::string& /* code */, const std::string& /* message */)>
   Func_void_std__string_std__string create_Func_void_std__string_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = OneKeyNativeComponents::Func_void_std__string_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& tabId, const std::string& requestId) mutable -> void {
-      swiftClosure.call(tabId, requestId);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& code, const std::string& message) mutable -> void {
+      swiftClosure.call(code, message);
     };
   }
 
-  // pragma MARK: std::function<void(const std::string& /* tabId */)>
+  // pragma MARK: std::function<void(const std::string& /* intentJson */)>
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = OneKeyNativeComponents::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::string& tabId) mutable -> void {
-      swiftClosure.call(tabId);
+    return [swiftClosure = std::move(swiftClosure)](const std::string& intentJson) mutable -> void {
+      swiftClosure.call(intentJson);
     };
   }
 

@@ -46,7 +46,7 @@ export function createHomeStoreSectionSourceResult(
       return {
         kind: 'ready',
         rowIds: value.rowIds,
-        freshness: value.freshness,
+        priority: value.priority,
         refresh: value.refresh,
         ...(data === undefined ? {} : { data }),
       };

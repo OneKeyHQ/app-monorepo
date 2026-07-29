@@ -11,6 +11,7 @@ import type {
 
 import type { IHomeConfirmedBalanceRecord } from '../cache/homeConfirmedBalanceCacheReducer';
 import type { IHomeCapabilityFacts } from '../capabilities/homeCapabilityTypes';
+import type { IHomeDataPriority } from '../core/homeDataPriority';
 import type { IHomeBalanceFacts, IHomeFacts } from '../facts/homeFacts';
 import type { IHomeBannerStorePayload } from '../sections/banner/homeBannerStoreModel';
 import type {
@@ -91,7 +92,7 @@ export type IHomeStoreResourceSlot<TPayload extends IHomeRuntimeJsonValue> =
       data?: TPayload;
       coverageFingerprint: string;
       confirmedCacheSourceKeyIdentity?: string;
-      freshness: 'live' | 'confirmedCache';
+      priority: IHomeDataPriority;
       refresh: 'idle' | 'refreshing' | 'failed';
     }
   | {
@@ -99,7 +100,7 @@ export type IHomeStoreResourceSlot<TPayload extends IHomeRuntimeJsonValue> =
       token?: IHomeRuntimeRequestToken;
       coverageFingerprint: string;
       confirmedCacheSourceKeyIdentity?: string;
-      freshness: 'live' | 'confirmedCache';
+      priority: IHomeDataPriority;
       refresh: 'idle' | 'refreshing' | 'failed';
     }
   | {
@@ -128,7 +129,6 @@ export type IHomeStoreRuntimeState = {
   topology: IHomeRuntimeTopology;
   connection: 'waiting' | 'ready' | 'degraded' | 'stopped';
   producerInstanceId?: string;
-  protocolVersion: number;
 };
 
 export type IHomeStoreWalletInputs = IHomeFacts['wallet'];
@@ -184,7 +184,6 @@ export type IHomeStoreDiagnosticsState = {
 
 export type IHomeStoreCommitIdentity = {
   storeCommitId: number;
-  origin?: 'cacheHydrate' | 'storeEvent';
   changedSourceIds?: readonly IHomeStoreSourceId[];
   presentationChanged?: boolean;
   ownerChanged?: boolean;
@@ -290,7 +289,7 @@ export type IHomeStoreSectionSourceResult =
       kind: 'ready';
       rowIds: readonly string[];
       data?: IHomeRuntimeJsonValue;
-      freshness: 'live' | 'confirmedCache';
+      priority: IHomeDataPriority;
       refresh: 'idle' | 'refreshing' | 'failed';
     }
   | { kind: 'empty' }
@@ -313,12 +312,6 @@ export type IHomeStoreEvent =
     }
   | { type: 'balanceChanged'; facts: IHomeFacts; observedAt: number }
   | { type: 'capabilityChanged'; facts: IHomeCapabilityFacts }
-  | {
-      type: 'sectionSourceChanged';
-      ownerToken: IHomeRuntimeOwnerToken;
-      sectionId: IHomeSectionId;
-      result: IHomeStoreSectionSourceResult;
-    }
   | {
       type: 'sectionReset';
       ownerToken: IHomeRuntimeOwnerToken;
@@ -416,7 +409,6 @@ export type IHomeStoreRejectReason =
   | 'sessionMismatch'
   | 'sourceMismatch'
   | 'producerMismatch'
-  | 'requestSequenceStale'
   | 'requestPhaseRegression'
   | 'intentDuplicate'
   | 'intentAuthorityExpired'
@@ -432,10 +424,4 @@ export type IHomeCachedSourceRecord = {
   confirmedAt: number;
   expiresAt: number;
   payload: IHomeRuntimeJsonValue;
-};
-
-export type IHomeCachedSnapshotPayload = {
-  codecVersion: number;
-  ownerScopeKey: string;
-  records: readonly IHomeCachedSourceRecord[];
 };

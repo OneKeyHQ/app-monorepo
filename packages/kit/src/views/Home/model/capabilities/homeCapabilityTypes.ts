@@ -1,5 +1,6 @@
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 
+import type { IHomeDataPriority } from '../core/homeDataPriority';
 import type { IHomeAccountType, IHomeNetworkFamily } from '../facts/homeFacts';
 import type { IHomeSectionId, IHomeTabId } from '../semantic/homeSemanticTypes';
 
@@ -52,7 +53,7 @@ type IHomeCapabilityPresentation =
   | {
       kind: 'ready';
       refresh: 'idle' | 'refreshing' | 'failed';
-      freshness: 'live' | 'confirmedCache';
+      priority: IHomeDataPriority;
       value: IHomeCapabilitySet;
     };
 

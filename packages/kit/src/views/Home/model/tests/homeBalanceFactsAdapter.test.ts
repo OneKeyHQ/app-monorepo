@@ -21,7 +21,7 @@ describe('currentHomeBalanceFactsAdapter', () => {
           id: 'portfolio',
           included: true,
           positiveEvidence: true,
-          sourceIdentity: 'portfolio-v1',
+          sourceIdentity: 'portfolio-source',
           sourceScopeKey: 'scope-1',
           status: 'success',
         },
@@ -32,7 +32,7 @@ describe('currentHomeBalanceFactsAdapter', () => {
           id: 'defi',
           included: true,
           positiveEvidence: true,
-          sourceIdentity: 'defi-v1',
+          sourceIdentity: 'defi-source',
           sourceScopeKey: 'scope-1',
           status: 'success',
         },
@@ -41,13 +41,13 @@ describe('currentHomeBalanceFactsAdapter', () => {
           id: 'perps',
           included: false,
           positiveEvidence: false,
-          sourceIdentity: 'perps-v1',
+          sourceIdentity: 'perps-source',
           status: 'idle',
         },
       ],
       ownerToken,
       quoteBasis,
-      requiredSetRevision: 'portfolio+defi:v1',
+      requiredSetRevision: 'portfolio+defi',
     });
 
     expect(facts.requiredContributors).toEqual(['defi', 'portfolio']);
@@ -64,14 +64,14 @@ describe('currentHomeBalanceFactsAdapter', () => {
           id: 'portfolio',
           included: true,
           positiveEvidence: true,
-          sourceIdentity: 'portfolio-v1',
+          sourceIdentity: 'portfolio-source',
           sourceScopeKey: 'scope-old',
           status: 'success',
         },
       ],
       ownerToken,
       quoteBasis,
-      requiredSetRevision: 'portfolio:v1',
+      requiredSetRevision: 'portfolio',
     });
 
     expect(facts.contributors.portfolio?.resource).toEqual({ kind: 'loading' });

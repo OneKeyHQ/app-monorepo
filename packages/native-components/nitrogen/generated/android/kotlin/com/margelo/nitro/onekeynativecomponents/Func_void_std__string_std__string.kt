@@ -14,7 +14,7 @@ import dalvik.annotation.optimization.FastNative
 
 
 /**
- * Represents the JavaScript callback `(tabId: string, requestId: string) => void`.
+ * Represents the JavaScript callback `(code: string, message: string) => void`.
  * This can be either implemented in C++ (in which case it might be a callback coming from JS),
  * or in Kotlin/Java (in which case it is a native callback).
  */
@@ -28,11 +28,11 @@ fun interface Func_void_std__string_std__string: (String, String) -> Unit {
    */
   @DoNotStrip
   @Keep
-  override fun invoke(tabId: String, requestId: String): Unit
+  override fun invoke(code: String, message: String): Unit
 }
 
 /**
- * Represents the JavaScript callback `(tabId: string, requestId: string) => void`.
+ * Represents the JavaScript callback `(code: string, message: string) => void`.
  * This is implemented in C++, via a `std::function<...>`.
  * The callback might be coming from JS.
  */
@@ -56,15 +56,15 @@ class Func_void_std__string_std__string_cxx: Func_void_std__string_std__string {
 
   @DoNotStrip
   @Keep
-  override fun invoke(tabId: String, requestId: String): Unit
-    = invoke_cxx(tabId,requestId)
+  override fun invoke(code: String, message: String): Unit
+    = invoke_cxx(code,message)
 
   @FastNative
-  private external fun invoke_cxx(tabId: String, requestId: String): Unit
+  private external fun invoke_cxx(code: String, message: String): Unit
 }
 
 /**
- * Represents the JavaScript callback `(tabId: string, requestId: string) => void`.
+ * Represents the JavaScript callback `(code: string, message: string) => void`.
  * This is implemented in Java/Kotlin, via a `(String, String) -> Unit`.
  * The callback is always coming from native.
  */
@@ -74,7 +74,7 @@ class Func_void_std__string_std__string_cxx: Func_void_std__string_std__string {
 class Func_void_std__string_std__string_java(private val function: (String, String) -> Unit): Func_void_std__string_std__string {
   @DoNotStrip
   @Keep
-  override fun invoke(tabId: String, requestId: String): Unit {
-    return this.function(tabId, requestId)
+  override fun invoke(code: String, message: String): Unit {
+    return this.function(code, message)
   }
 }

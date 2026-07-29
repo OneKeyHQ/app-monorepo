@@ -12,12 +12,10 @@ const identity = {
   sourceRevision: 1,
 };
 
-function complete(input = identity, requestSeq = 1, rowId = 'row-1') {
+function complete(input = identity, rowId = 'row-1') {
   return {
     ...input,
     kind: 'complete' as const,
-    requestSeq,
-    coverageFingerprint: `coverage-${requestSeq}`,
     result: {
       kind: 'success' as const,
       data: { rows: [{ id: rowId }] },
@@ -36,7 +34,6 @@ describe('HomeSectionCoordinator', () => {
     const seeded = coordinator.dispatch({
       ...identity,
       kind: 'seedConfirmed',
-      requestSeq: 1,
       data,
       rowIds: ['cached-row'],
       refresh: 'refreshing',
@@ -44,7 +41,7 @@ describe('HomeSectionCoordinator', () => {
     expect(seeded).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
       authoritative: { kind: 'confirmedCache' },
@@ -55,8 +52,6 @@ describe('HomeSectionCoordinator', () => {
     const partial = coordinator.dispatch({
       ...identity,
       kind: 'partial',
-      requestSeq: 1,
-      coverageFingerprint: 'all:1:1/2:0',
     });
     expect(partial.semantic).toMatchObject({
       kind: 'ready',
@@ -67,13 +62,12 @@ describe('HomeSectionCoordinator', () => {
     }
   });
 
-  it('accepts same-request loading after an idle confirmed seed', () => {
+  it('keeps a confirmed seed while loading', () => {
     const data = { rows: [{ id: 'cached-row' }] };
     const coordinator = new HomeSectionCoordinator<typeof data>(identity);
     coordinator.dispatch({
       ...identity,
       kind: 'seedConfirmed',
-      requestSeq: 1,
       data,
       rowIds: ['cached-row'],
       refresh: 'idle',
@@ -81,13 +75,12 @@ describe('HomeSectionCoordinator', () => {
     const refreshing = coordinator.dispatch({
       ...identity,
       kind: 'loading',
-      requestSeq: 1,
     });
     expect(refreshing).toMatchObject({
       accepted: true,
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
       authoritative: { kind: 'confirmedCache' },
@@ -100,7 +93,7 @@ describe('HomeSectionCoordinator', () => {
   it('keeps loading and partial loading when no exact cache exists', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
     expect(
-      coordinator.dispatch({ ...identity, kind: 'loading', requestSeq: 1 }),
+      coordinator.dispatch({ ...identity, kind: 'loading' }),
     ).toMatchObject({
       semantic: { kind: 'loading' },
       authoritative: { kind: 'none' },
@@ -109,8 +102,6 @@ describe('HomeSectionCoordinator', () => {
       coordinator.dispatch({
         ...identity,
         kind: 'partial',
-        requestSeq: 1,
-        coverageFingerprint: 'all:1:1/2:0',
       }),
     ).toMatchObject({
       semantic: { kind: 'loading' },
@@ -118,19 +109,31 @@ describe('HomeSectionCoordinator', () => {
     });
   });
 
-  it('uses an exact live cache while a newer request refreshes', () => {
+  it('keeps exact network data over later cache and refresh events', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
-    const live = complete(identity, 1);
+    const live = complete(identity);
     coordinator.dispatch(live);
     expect(
-      coordinator.dispatch({ ...identity, kind: 'loading', requestSeq: 2 }),
+      coordinator.dispatch({
+        ...identity,
+        kind: 'seedConfirmed',
+        data: { rows: [{ id: 'cached-row' }] },
+        rowIds: ['cached-row'],
+        refresh: 'idle',
+      }),
+    ).toMatchObject({
+      semantic: { kind: 'ready', priority: 1 },
+      authoritative: { kind: 'live', data: live.result.data },
+    });
+    expect(
+      coordinator.dispatch({ ...identity, kind: 'loading' }),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
-      authoritative: { kind: 'confirmedCache', data: live.result.data },
+      authoritative: { kind: 'live', data: live.result.data },
     });
   });
 
@@ -138,45 +141,39 @@ describe('HomeSectionCoordinator', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
     expect(coordinator.dispatch(complete())).toMatchObject({
       accepted: true,
-      semantic: { kind: 'ready', freshness: 'live', rowIds: ['row-1'] },
+      semantic: { kind: 'ready', priority: 1, rowIds: ['row-1'] },
       authoritative: { kind: 'live', data: { rows: [{ id: 'row-1' }] } },
     });
     expect(
       coordinator.dispatch({
         ...identity,
         kind: 'error',
-        requestSeq: 2,
-        errorKind: 'source',
       }),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'failed',
       },
-      authoritative: { kind: 'confirmedCache' },
+      authoritative: { kind: 'live' },
     });
   });
 
   it('keeps loading, partial, empty, and uncached error distinct', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
     expect(
-      coordinator.dispatch({ ...identity, kind: 'loading', requestSeq: 1 }),
+      coordinator.dispatch({ ...identity, kind: 'loading' }),
     ).toMatchObject({ semantic: { kind: 'loading' } });
     expect(
       coordinator.dispatch({
         ...identity,
         kind: 'partial',
-        requestSeq: 1,
-        coverageFingerprint: 'partial',
       }),
     ).toMatchObject({ semantic: { kind: 'loading' } });
     expect(
       coordinator.dispatch({
         ...identity,
         kind: 'complete',
-        requestSeq: 2,
-        coverageFingerprint: 'empty',
         result: { kind: 'empty' },
       }),
     ).toMatchObject({ semantic: { kind: 'empty' } });
@@ -186,8 +183,6 @@ describe('HomeSectionCoordinator', () => {
         ...identity,
         sourceKeyIdentity: 'cold-source',
         kind: 'error',
-        requestSeq: 1,
-        errorKind: 'transport',
       }),
     ).toMatchObject({
       semantic: { kind: 'error' },
@@ -212,8 +207,6 @@ describe('HomeSectionCoordinator', () => {
         ...identity,
         sourceKeyIdentity: 'rejected-source',
         kind: 'error',
-        requestSeq: 1,
-        errorKind: 'source',
       }),
     ).toMatchObject({
       semantic: { kind: 'error' },
@@ -228,7 +221,6 @@ describe('HomeSectionCoordinator', () => {
         ...identity,
         sourceKeyIdentity: 'rejected-seed',
         kind: 'seedConfirmed',
-        requestSeq: 1,
         data: { rows: [{ id: 'rejected' }] },
         rowIds: ['rejected'],
         refresh: 'refreshing',
@@ -240,8 +232,6 @@ describe('HomeSectionCoordinator', () => {
         ...identity,
         sourceKeyIdentity: 'rejected-seed',
         kind: 'error',
-        requestSeq: 1,
-        errorKind: 'source',
       }),
     ).toMatchObject({
       semantic: { kind: 'error' },
@@ -249,32 +239,13 @@ describe('HomeSectionCoordinator', () => {
     });
   });
 
-  it('rejects a same-request phase regression after terminal success', () => {
-    const coordinator = new HomeSectionCoordinator<IData>(identity);
-    const snapshot = coordinator.dispatch(complete(identity, 1));
-    expect(
-      coordinator.dispatch({ ...identity, kind: 'loading', requestSeq: 1 }),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
-    expect(
-      coordinator.dispatch({
-        ...identity,
-        kind: 'error',
-        requestSeq: 1,
-        errorKind: 'source',
-      }),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
-    expect(coordinator.getSnapshot()).toBe(snapshot);
-  });
-
   it('does not revive stale rows after authoritative empty', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
-    coordinator.dispatch(complete(identity, 1));
+    coordinator.dispatch(complete(identity));
     expect(
       coordinator.dispatch({
         ...identity,
         kind: 'complete',
-        requestSeq: 2,
-        coverageFingerprint: 'empty-2',
         result: { kind: 'empty' },
       }),
     ).toMatchObject({ semantic: { kind: 'empty' } });
@@ -282,8 +253,6 @@ describe('HomeSectionCoordinator', () => {
       coordinator.dispatch({
         ...identity,
         kind: 'error',
-        requestSeq: 3,
-        errorKind: 'source',
       }),
     ).toMatchObject({
       semantic: { kind: 'error' },
@@ -293,46 +262,40 @@ describe('HomeSectionCoordinator', () => {
 
   it('keeps exact identity rebinding stable and dispose terminal', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
-    const snapshot = coordinator.dispatch(complete(identity, 1));
+    const snapshot = coordinator.dispatch(complete(identity));
     coordinator.setOwner({ ...identity });
     expect(coordinator.getSnapshot()).toBe(snapshot);
     coordinator.dispose();
     coordinator.setOwner({ ...identity, sourceRevision: 2 });
     expect(
       coordinator.dispatch(
-        complete({ ...identity, sourceRevision: 2 }, 2, 'row-2'),
+        complete({ ...identity, sourceRevision: 2 }, 'row-2'),
       ),
     ).toMatchObject({ accepted: false, staleReason: 'disposed' });
     expect(coordinator.getSnapshot()).toBe(snapshot);
   });
 
-  it('rejects stale owner, source, producer, revision, request, and disposed events', () => {
+  it('rejects stale owner, source, producer, revision, and disposed events', () => {
     const coordinator = new HomeSectionCoordinator<IData>(identity);
-    coordinator.dispatch(complete(identity, 2));
+    coordinator.dispatch(complete(identity));
     expect(
       coordinator.dispatch(
-        complete({ ...identity, owner: { ...owner, sessionId: 'old' } }, 3),
+        complete({ ...identity, owner: { ...owner, sessionId: 'old' } }),
       ),
     ).toMatchObject({ accepted: false, staleReason: 'ownerMismatch' });
     expect(
-      coordinator.dispatch(
-        complete({ ...identity, sourceKeyIdentity: 'old' }, 3),
-      ),
+      coordinator.dispatch(complete({ ...identity, sourceKeyIdentity: 'old' })),
     ).toMatchObject({ accepted: false, staleReason: 'sourceMismatch' });
     expect(
       coordinator.dispatch(
-        complete({ ...identity, producerInstanceId: 'old' }, 3),
+        complete({ ...identity, producerInstanceId: 'old' }),
       ),
     ).toMatchObject({ accepted: false, staleReason: 'producerMismatch' });
     expect(
-      coordinator.dispatch(complete({ ...identity, sourceRevision: 0 }, 3)),
+      coordinator.dispatch(complete({ ...identity, sourceRevision: 0 })),
     ).toMatchObject({ accepted: false, staleReason: 'sourceRevisionStale' });
-    expect(coordinator.dispatch(complete(identity, 1))).toMatchObject({
-      accepted: false,
-      staleReason: 'requestStale',
-    });
     coordinator.dispose();
-    expect(coordinator.dispatch(complete(identity, 3))).toMatchObject({
+    expect(coordinator.dispatch(complete(identity))).toMatchObject({
       accepted: false,
       staleReason: 'disposed',
     });

@@ -78,7 +78,7 @@ describe('home Perps section authority', () => {
     const completeEvidence = {
       kind: 'complete' as const,
       confirmedEmpty: false,
-      coverageFingerprint: buildHomePerpsCoverage(1),
+      coverageFingerprint: buildHomePerpsCoverage(),
       data,
       rowIds: ['perps'],
     };
@@ -87,15 +87,13 @@ describe('home Perps section authority', () => {
       projectHomePerpsSectionSource({
         authorityReady: false,
         scopeMatches: true,
-        requestSeq: 1,
         evidence: completeEvidence,
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 1 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomePerpsSectionSource({
         authorityReady: true,
         scopeMatches: false,
-        requestSeq: 2,
         evidence: {
           kind: 'confirmedCache',
           data,
@@ -103,7 +101,7 @@ describe('home Perps section authority', () => {
           refresh: 'idle',
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 2 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('maps confirmed cache to a seed event and preserves the payload reference', () => {
@@ -112,7 +110,6 @@ describe('home Perps section authority', () => {
     const snapshot = projectHomePerpsSectionSource({
       authorityReady: true,
       scopeMatches: true,
-      requestSeq: 3,
       evidence: {
         kind: 'confirmedCache',
         data,
@@ -125,7 +122,6 @@ describe('home Perps section authority', () => {
     expect(event).toMatchObject({
       ...identity,
       kind: 'seedConfirmed',
-      requestSeq: 3,
       rowIds: ['perps'],
       refresh: 'refreshing',
     });
@@ -140,7 +136,7 @@ describe('home Perps section authority', () => {
     expect(resolution.semantic).toEqual({
       kind: 'ready',
       rowIds: ['perps'],
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
     expect(resolution.authoritative).toEqual({
@@ -156,38 +152,34 @@ describe('home Perps section authority', () => {
       projectHomePerpsSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 4,
         evidence: {
           kind: 'complete',
           confirmedEmpty: true,
-          coverageFingerprint: buildHomePerpsCoverage(4),
+          coverageFingerprint: buildHomePerpsCoverage(),
           data: undefined,
           rowIds: [],
         },
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 4,
-      coverageFingerprint: buildHomePerpsCoverage(4),
+      coverageFingerprint: buildHomePerpsCoverage(),
       result: { kind: 'empty' },
     });
     expect(
       projectHomePerpsSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 5,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
-          coverageFingerprint: buildHomePerpsCoverage(5),
+          coverageFingerprint: buildHomePerpsCoverage(),
           data,
           rowIds: ['perps-a', 'perps-b'],
         },
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 5,
-      coverageFingerprint: buildHomePerpsCoverage(5),
+      coverageFingerprint: buildHomePerpsCoverage(),
       result: {
         kind: 'success',
         data,
@@ -203,63 +195,31 @@ describe('home Perps section authority', () => {
       projectHomePerpsSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 6,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
-          coverageFingerprint: buildHomePerpsCoverage(6),
+          coverageFingerprint: buildHomePerpsCoverage(),
           data: undefined,
           rowIds: ['perps'],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 6 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomePerpsSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 7,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
-          coverageFingerprint: buildHomePerpsCoverage(7),
+          coverageFingerprint: buildHomePerpsCoverage(),
           data,
           rowIds: [],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 7 });
+    ).toEqual({ kind: 'loading' });
   });
 
-  it('passes error kind through to the coordinator event and cold error semantic', () => {
-    const identity = createIdentity();
-    const snapshot = projectHomePerpsSectionSource({
-      authorityReady: true,
-      scopeMatches: true,
-      requestSeq: 8,
-      evidence: {
-        kind: 'error',
-        errorKind: 'runtimeUnavailable',
-      },
-    });
-    const event = adaptHomePerpsSourceSnapshot({ identity, snapshot });
-
-    expect(event).toMatchObject({
-      ...identity,
-      kind: 'error',
-      requestSeq: 8,
-      errorKind: 'runtimeUnavailable',
-    });
-    expect(
-      new HomeSectionCoordinator<IHomePerpsLegacyPayload>(identity).dispatch(
-        event,
-      ),
-    ).toMatchObject({
-      accepted: true,
-      semantic: { kind: 'error', errorState: 'perps' },
-      authoritative: { kind: 'none' },
-    });
-  });
-
-  it('keeps cached rows during loading partial and error refresh states', () => {
+  it('keeps network rows during refresh states', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomePerpsLegacyPayload>(
       identity,
@@ -271,8 +231,7 @@ describe('home Perps section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 1,
-          coverageFingerprint: buildHomePerpsCoverage(1),
+          coverageFingerprint: buildHomePerpsCoverage(),
           result: { kind: 'success', data: live, rowIds: ['perps'] },
         },
       }),
@@ -281,16 +240,16 @@ describe('home Perps section authority', () => {
       coordinator.dispatch(
         adaptHomePerpsSourceSnapshot({
           identity,
-          snapshot: { kind: 'loading', requestSeq: 2 },
+          snapshot: { kind: 'loading' },
         }),
       ),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
-      authoritative: { kind: 'confirmedCache', data: live },
+      authoritative: { kind: 'live', data: live },
     });
     expect(
       coordinator.dispatch(
@@ -298,15 +257,14 @@ describe('home Perps section authority', () => {
           identity,
           snapshot: {
             kind: 'partial',
-            requestSeq: 3,
-            coverageFingerprint: 'perps:3:partial',
+            coverageFingerprint: 'perps:partial',
           },
         }),
       ),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
     });
@@ -316,7 +274,6 @@ describe('home Perps section authority', () => {
           identity,
           snapshot: {
             kind: 'error',
-            requestSeq: 4,
             errorKind: 'transport',
           },
         }),
@@ -324,26 +281,26 @@ describe('home Perps section authority', () => {
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'failed',
       },
     });
   });
 
-  it('rejects stale terminal and owner responses without A-B-A contamination', () => {
+  it('accepts later same-source responses but rejects a different owner', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomePerpsLegacyPayload>(
       identity,
     );
     const current = payload('current');
+    const later = payload('later');
 
     coordinator.dispatch(
       adaptHomePerpsSourceSnapshot({
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 2,
-          coverageFingerprint: buildHomePerpsCoverage(2),
+          coverageFingerprint: buildHomePerpsCoverage(),
           result: { kind: 'success', data: current, rowIds: ['perps'] },
         },
       }),
@@ -354,17 +311,16 @@ describe('home Perps section authority', () => {
           identity,
           snapshot: {
             kind: 'complete',
-            requestSeq: 1,
-            coverageFingerprint: buildHomePerpsCoverage(1),
+            coverageFingerprint: buildHomePerpsCoverage(),
             result: {
               kind: 'success',
-              data: payload('stale'),
+              data: later,
               rowIds: ['perps'],
             },
           },
         }),
       ),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
+    ).toMatchObject({ accepted: true });
 
     const changedOwnerIdentity = createHomePerpsSourceIdentity({
       owner: { scopeKey: 'account:account-b', sessionId: 'session-b' },
@@ -377,8 +333,7 @@ describe('home Perps section authority', () => {
           identity: changedOwnerIdentity,
           snapshot: {
             kind: 'complete',
-            requestSeq: 3,
-            coverageFingerprint: buildHomePerpsCoverage(3),
+            coverageFingerprint: buildHomePerpsCoverage(),
             result: {
               kind: 'success',
               data: payload('wrong-owner'),
@@ -390,49 +345,7 @@ describe('home Perps section authority', () => {
     ).toMatchObject({ accepted: false, staleReason: 'ownerMismatch' });
     expect(coordinator.getSnapshot().authoritative).toEqual({
       kind: 'live',
-      data: current,
-    });
-  });
-
-  it('treats terminal events as final for their request phase', () => {
-    const identity = createIdentity();
-    const coordinator = new HomeSectionCoordinator<IHomePerpsLegacyPayload>(
-      identity,
-    );
-    const complete = payload('complete');
-
-    expect(
-      coordinator.dispatch(
-        adaptHomePerpsSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'complete',
-            requestSeq: 9,
-            coverageFingerprint: buildHomePerpsCoverage(9),
-            result: {
-              kind: 'success',
-              data: complete,
-              rowIds: ['perps'],
-            },
-          },
-        }),
-      ),
-    ).toMatchObject({ accepted: true });
-    expect(
-      coordinator.dispatch(
-        adaptHomePerpsSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'error',
-            requestSeq: 9,
-            errorKind: 'transport',
-          },
-        }),
-      ),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
-    expect(coordinator.getSnapshot().authoritative).toEqual({
-      kind: 'live',
-      data: complete,
+      data: later,
     });
   });
 });

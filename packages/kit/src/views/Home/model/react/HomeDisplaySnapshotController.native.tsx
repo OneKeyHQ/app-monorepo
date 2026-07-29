@@ -8,8 +8,8 @@ import { homeDisplaySnapshotLoadState } from '@onekeyhq/kit/src/states/jotai/con
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 
-import { getHomeDisplaySnapshotPartitionTag } from '../cacheV2/homeDisplaySnapshotKeys';
-import { loadPreparedHomeDisplaySnapshot } from '../cacheV2/loadPreparedHomeDisplaySnapshot.native';
+import { getHomeDisplaySnapshotPartitionTag } from '../cache/homeDisplaySnapshotKeys';
+import { loadPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.native';
 
 import { HomeDisplaySnapshotControllerShared } from './HomeDisplaySnapshotController.shared';
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
@@ -39,7 +39,7 @@ function NativeHomeDisplaySnapshotBootstrap() {
     const partitionTag = getHomeDisplaySnapshotPartitionTag(
       ownerToken.scopeKey,
     );
-    perfMark('Home:v3Cache:nativeSyncLoadStart');
+    perfMark('Home:displayCache:nativeSyncLoadStart');
     try {
       const displaySnapshot = loadPreparedHomeDisplaySnapshot({
         ownerScopeKey: ownerToken.scopeKey,
@@ -51,7 +51,7 @@ function NativeHomeDisplaySnapshotBootstrap() {
       });
       const loadedSourceIds =
         displaySnapshot?.records.map((record) => record.sourceId) ?? [];
-      defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+      defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
         stage: 'initialHydrate',
         outcome: displaySnapshot ? 'accepted' : 'miss',
         partitionTag,
@@ -60,7 +60,7 @@ function NativeHomeDisplaySnapshotBootstrap() {
         loadedSourceIds: loadedSourceIds.toSorted().join(','),
         criticalIncluded: Boolean(displaySnapshot?.shell),
       });
-      perfMark('Home:v3Cache:nativeSyncHydrated', {
+      perfMark('Home:displayCache:nativeSyncHydrated', {
         elapsedMs: Date.now() - startedAt,
         recordCount: loadedSourceIds.length,
       });
@@ -69,7 +69,7 @@ function NativeHomeDisplaySnapshotBootstrap() {
         ownerScopeKey: ownerToken.scopeKey,
         sessionId: ownerToken.sessionId,
       });
-      defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+      defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
         stage: 'initialHydrate',
         outcome: 'failed',
         partitionTag,

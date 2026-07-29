@@ -253,7 +253,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         sectionId: 'history',
         semantic: {
           kind: 'ready',
-          freshness: 'live',
+          priority: 1,
           refresh: 'idle',
           rowIds: [],
         },
@@ -295,7 +295,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       sectionId: 'defi',
       semantic: {
         kind: 'ready',
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
         rowIds: ['aave', 'uniswap'],
       },
@@ -316,7 +316,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         semantic: {
           kind: 'ready',
           rowIds: [],
-          freshness: 'live',
+          priority: 1,
           refresh: 'idle',
         },
       }),
@@ -333,7 +333,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [],
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
     });
@@ -420,7 +420,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: tokens.map((token) => token.$key),
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -490,7 +490,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: tokens.map((token) => token.$key),
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -580,7 +580,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: ['other', 'native'],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -635,7 +635,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: ['eth'],
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
     });
@@ -725,7 +725,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [visible.$key, lowValue.$key],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -799,7 +799,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       marketSemantic: {
         kind: 'ready',
         rowIds: ['spot:evm--1:0xabc'],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
       payloads: { market: marketPayload },
@@ -807,7 +807,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -845,7 +845,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -906,7 +906,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       marketSemantic: {
         kind: 'ready',
         rowIds: rows.map((row) => `spot:${row.chainId}:${row.contractAddress}`),
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
       payloads: { market: marketPayload },
@@ -914,7 +914,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -997,7 +997,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [history.id],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -1052,7 +1052,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         semantic: {
           kind: 'ready',
           rowIds: [history.id],
-          freshness: 'live',
+          priority: 1,
           refresh: 'idle',
         },
       });
@@ -1163,7 +1163,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [history.id],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });
@@ -1238,7 +1238,7 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       semantic: {
         kind: 'ready',
         rowIds: [history.id],
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     });

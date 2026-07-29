@@ -14,29 +14,19 @@ namespace margelo::nitro::onekeynativecomponents {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
-      prototype.registerHybridGetter("initialSnapshotJson", &HybridHomeContainerSpec::getInitialSnapshotJson);
-      prototype.registerHybridSetter("initialSnapshotJson", &HybridHomeContainerSpec::setInitialSnapshotJson);
+      prototype.registerHybridGetter("initialStateJson", &HybridHomeContainerSpec::getInitialStateJson);
+      prototype.registerHybridSetter("initialStateJson", &HybridHomeContainerSpec::setInitialStateJson);
       prototype.registerHybridGetter("backgroundColor", &HybridHomeContainerSpec::getBackgroundColor);
       prototype.registerHybridSetter("backgroundColor", &HybridHomeContainerSpec::setBackgroundColor);
       prototype.registerHybridGetter("debugOverlayEnabled", &HybridHomeContainerSpec::getDebugOverlayEnabled);
       prototype.registerHybridSetter("debugOverlayEnabled", &HybridHomeContainerSpec::setDebugOverlayEnabled);
-      prototype.registerHybridGetter("onAction", &HybridHomeContainerSpec::getOnAction);
-      prototype.registerHybridSetter("onAction", &HybridHomeContainerSpec::setOnAction);
-      prototype.registerHybridGetter("onRefresh", &HybridHomeContainerSpec::getOnRefresh);
-      prototype.registerHybridSetter("onRefresh", &HybridHomeContainerSpec::setOnRefresh);
-      prototype.registerHybridGetter("onVisibleTabChange", &HybridHomeContainerSpec::getOnVisibleTabChange);
-      prototype.registerHybridSetter("onVisibleTabChange", &HybridHomeContainerSpec::setOnVisibleTabChange);
       prototype.registerHybridGetter("onRenderError", &HybridHomeContainerSpec::getOnRenderError);
       prototype.registerHybridSetter("onRenderError", &HybridHomeContainerSpec::setOnRenderError);
       prototype.registerHybridGetter("onIntent", &HybridHomeContainerSpec::getOnIntent);
       prototype.registerHybridSetter("onIntent", &HybridHomeContainerSpec::setOnIntent);
-      prototype.registerHybridGetter("onTransportResult", &HybridHomeContainerSpec::getOnTransportResult);
-      prototype.registerHybridSetter("onTransportResult", &HybridHomeContainerSpec::setOnTransportResult);
-      prototype.registerHybridMethod("setSnapshot", &HybridHomeContainerSpec::setSnapshot);
-      prototype.registerHybridMethod("applyPatch", &HybridHomeContainerSpec::applyPatch);
+      prototype.registerHybridMethod("setState", &HybridHomeContainerSpec::setState);
       prototype.registerHybridMethod("completeRefresh", &HybridHomeContainerSpec::completeRefresh);
       prototype.registerHybridMethod("selectTab", &HybridHomeContainerSpec::selectTab);
-      prototype.registerHybridMethod("getCapabilities", &HybridHomeContainerSpec::getCapabilities);
     });
   }
 

@@ -23,7 +23,7 @@ function complete(amount: string): IHomeBalanceAggregationResult {
       ownerScopeKey: 'owner-1',
       positiveEvidence: amount !== '0',
       quoteBasis,
-      requiredSetRevision: 'required-v1',
+      requiredSetRevision: 'required',
       sourceKeyIdentity: 'source-1',
     },
   };
@@ -46,7 +46,7 @@ function partial({
       ownerScopeKey: 'owner-1',
       positiveEvidence,
       quoteBasis,
-      requiredSetRevision: 'required-v1',
+      requiredSetRevision: 'required',
       sourceKeyIdentity: 'source-1',
     },
     reason: refresh === 'failed' ? 'sourceError' : 'sourcePending',
@@ -91,7 +91,7 @@ describe('homeBalanceAuthorityPolicy', () => {
       header: { balance: { amount: confirmed.amount } },
       actions: { kind: 'funded' },
       banner: { kind: 'positive' },
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
   });
@@ -143,7 +143,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     ).toMatchObject({
       kind: 'funded',
       header: { balance: { amount: confirmed.amount } },
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
   });
@@ -184,7 +184,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     ).toMatchObject({
       kind: 'funded',
       header: { balance: { amount: confirmed.amount } },
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
   });
@@ -203,7 +203,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     expect(loading.cacheCommit).toBeUndefined();
     expect(loading.presentation).toMatchObject({
       kind: 'funded',
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
 
@@ -230,7 +230,7 @@ describe('homeBalanceAuthorityPolicy', () => {
     });
     expect(zero.presentation).toMatchObject({
       kind: 'zero',
-      freshness: 'live',
+      priority: 1,
     });
     expect(zero.cacheCommit).toMatchObject({
       amount: '0',

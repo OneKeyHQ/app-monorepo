@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useHomeStoreInternalActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 
-import type { IPreparedHomeDisplaySnapshot } from '../cacheV2/loadPreparedHomeDisplaySnapshot';
+import type { IPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot';
 import type { IHomeStoreEvent } from '../store/homeStoreTypes';
 
 type IHomeControllerEventPayload<TType extends IHomeStoreEvent['type']> = Omit<

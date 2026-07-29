@@ -214,7 +214,7 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
           : undefined)
       );
     };
-    const requiredSetRevision = `home-store-balance:v2:${
+    const requiredSetRevision = `home-store-balance:${
       network.isAllNetworks ? 'all' : network.id
     }`;
     const balance = adaptCurrentHomeBalanceFacts({
@@ -240,9 +240,9 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
           positiveEvidence: hasHoldings || hasNonZeroPortfolioWorth,
           sourceIdentity:
             portfolioResource.kind === 'idle'
-              ? 'home-store-portfolio:v1'
+              ? 'home-store-portfolio'
               : (portfolioResource.token?.sourceKey.paramsFingerprint ??
-                'home-store-portfolio:v1'),
+                'home-store-portfolio'),
           sourceScopeKey: getResourceSourceScopeKey(portfolioResource),
           status: portfolioStatus,
         },
@@ -262,9 +262,9 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
           positiveEvidence: !deFiTotal.isZero(),
           sourceIdentity:
             deFiResource.kind === 'idle'
-              ? 'home-store-defi:v2'
+              ? 'home-store-defi'
               : (deFiResource.token?.sourceKey.paramsFingerprint ??
-                'home-store-defi:v2'),
+                'home-store-defi'),
           sourceScopeKey: getResourceSourceScopeKey(deFiResource),
           status: deFiStatus,
         },
@@ -289,9 +289,9 @@ function useHomeBalanceFacts(): IHomeFacts | undefined {
           positiveEvidence: perpsAmount.isGreaterThan(0),
           sourceIdentity:
             perpsResource.kind === 'idle'
-              ? 'home-store-perps:v1'
+              ? 'home-store-perps'
               : (perpsResource.token?.sourceKey.paramsFingerprint ??
-                'home-store-perps:v1'),
+                'home-store-perps'),
           sourceScopeKey: getResourceSourceScopeKey(perpsResource),
           status: perpsStatus,
         },

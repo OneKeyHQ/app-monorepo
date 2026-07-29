@@ -114,14 +114,14 @@ open class HybridHomeContainerSpec_cxx {
   }
 
   // Properties
-  public final var initialSnapshotJson: std.string {
+  public final var initialStateJson: std.string {
     @inline(__always)
     get {
-      return std.string(self.__implementation.initialSnapshotJson)
+      return std.string(self.__implementation.initialStateJson)
     }
     @inline(__always)
     set {
-      self.__implementation.initialSnapshotJson = String(newValue)
+      self.__implementation.initialStateJson = String(newValue)
     }
   }
 
@@ -144,102 +144,6 @@ open class HybridHomeContainerSpec_cxx {
     @inline(__always)
     set {
       self.__implementation.debugOverlayEnabled = newValue
-    }
-  }
-
-  public final var onAction: bridge.std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______ {
-    @inline(__always)
-    get {
-      return { () -> bridge.std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______ in
-        if let __unwrappedValue = self.__implementation.onAction {
-          return bridge.create_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______({ () -> bridge.Func_void_std__string_std__string_std__string in
-            let __closureWrapper = Func_void_std__string_std__string_std__string(__unwrappedValue)
-            return bridge.create_Func_void_std__string_std__string_std__string(__closureWrapper.toUnsafe())
-          }())
-        } else {
-          return .init()
-        }
-      }()
-    }
-    @inline(__always)
-    set {
-      self.__implementation.onAction = { () -> ((_ actionId: String, _ itemId: String, _ tabId: String) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______(newValue)
-          return { () -> (String, String, String) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_std__string_std__string_std__string(__unwrapped)
-            return { (__actionId: String, __itemId: String, __tabId: String) -> Void in
-              __wrappedFunction.call(std.string(__actionId), std.string(__itemId), std.string(__tabId))
-            }
-          }()
-        } else {
-          return nil
-        }
-      }()
-    }
-  }
-
-  public final var onRefresh: bridge.std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______ {
-    @inline(__always)
-    get {
-      return { () -> bridge.std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______ in
-        if let __unwrappedValue = self.__implementation.onRefresh {
-          return bridge.create_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______({ () -> bridge.Func_void_std__string_std__string in
-            let __closureWrapper = Func_void_std__string_std__string(__unwrappedValue)
-            return bridge.create_Func_void_std__string_std__string(__closureWrapper.toUnsafe())
-          }())
-        } else {
-          return .init()
-        }
-      }()
-    }
-    @inline(__always)
-    set {
-      self.__implementation.onRefresh = { () -> ((_ tabId: String, _ requestId: String) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______(newValue)
-          return { () -> (String, String) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_std__string_std__string(__unwrapped)
-            return { (__tabId: String, __requestId: String) -> Void in
-              __wrappedFunction.call(std.string(__tabId), std.string(__requestId))
-            }
-          }()
-        } else {
-          return nil
-        }
-      }()
-    }
-  }
-
-  public final var onVisibleTabChange: bridge.std__optional_std__function_void_const_std__string_____tabId______ {
-    @inline(__always)
-    get {
-      return { () -> bridge.std__optional_std__function_void_const_std__string_____tabId______ in
-        if let __unwrappedValue = self.__implementation.onVisibleTabChange {
-          return bridge.create_std__optional_std__function_void_const_std__string_____tabId______({ () -> bridge.Func_void_std__string in
-            let __closureWrapper = Func_void_std__string(__unwrappedValue)
-            return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
-          }())
-        } else {
-          return .init()
-        }
-      }()
-    }
-    @inline(__always)
-    set {
-      self.__implementation.onVisibleTabChange = { () -> ((_ tabId: String) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_std__string_____tabId______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____tabId______(newValue)
-          return { () -> (String) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_std__string(__unwrapped)
-            return { (__tabId: String) -> Void in
-              __wrappedFunction.call(std.string(__tabId))
-            }
-          }()
-        } else {
-          return nil
-        }
-      }()
     }
   }
 
@@ -307,54 +211,11 @@ open class HybridHomeContainerSpec_cxx {
     }
   }
 
-  public final var onTransportResult: bridge.std__optional_std__function_void_const_std__string_____resultJson______ {
-    @inline(__always)
-    get {
-      return { () -> bridge.std__optional_std__function_void_const_std__string_____resultJson______ in
-        if let __unwrappedValue = self.__implementation.onTransportResult {
-          return bridge.create_std__optional_std__function_void_const_std__string_____resultJson______({ () -> bridge.Func_void_std__string in
-            let __closureWrapper = Func_void_std__string(__unwrappedValue)
-            return bridge.create_Func_void_std__string(__closureWrapper.toUnsafe())
-          }())
-        } else {
-          return .init()
-        }
-      }()
-    }
-    @inline(__always)
-    set {
-      self.__implementation.onTransportResult = { () -> ((_ resultJson: String) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_std__string_____resultJson______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_std__string_____resultJson______(newValue)
-          return { () -> (String) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_std__string(__unwrapped)
-            return { (__resultJson: String) -> Void in
-              __wrappedFunction.call(std.string(__resultJson))
-            }
-          }()
-        } else {
-          return nil
-        }
-      }()
-    }
-  }
-
   // Methods
   @inline(__always)
-  public final func setSnapshot(snapshotJson: std.string) -> bridge.Result_void_ {
+  public final func setState(stateJson: std.string) -> bridge.Result_void_ {
     do {
-      try self.__implementation.setSnapshot(snapshotJson: String(snapshotJson))
-      return bridge.create_Result_void_()
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
-    }
-  }
-
-  @inline(__always)
-  public final func applyPatch(patchJson: std.string) -> bridge.Result_void_ {
-    do {
-      try self.__implementation.applyPatch(patchJson: String(patchJson))
+      try self.__implementation.setState(stateJson: String(stateJson))
       return bridge.create_Result_void_()
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
@@ -381,18 +242,6 @@ open class HybridHomeContainerSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_void_(__exceptionPtr)
-    }
-  }
-
-  @inline(__always)
-  public final func getCapabilities() -> bridge.Result_std__string_ {
-    do {
-      let __result = try self.__implementation.getCapabilities()
-      let __resultCpp = std.string(__result)
-      return bridge.create_Result_std__string_(__resultCpp)
-    } catch (let __error) {
-      let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_std__string_(__exceptionPtr)
     }
   }
 

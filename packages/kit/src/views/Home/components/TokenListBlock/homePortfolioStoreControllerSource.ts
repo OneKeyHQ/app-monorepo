@@ -13,7 +13,6 @@ import type { IHomeStoreSectionSourceResult } from '../../model/store/homeStoreT
 type IHomePortfolioRequestRound = {
   handle: IHomeSectionSourceRequestHandle;
   identityKey: string;
-  sequence: number;
 };
 
 type IHomePortfolioValuationReceipt = {
@@ -106,7 +105,7 @@ function filterHomePortfolioRiskTokens({
 class HomePortfolioRequestLifecycle {
   private activeRound: IHomePortfolioRequestRound | undefined;
 
-  private sequence = 0;
+  private readonly activeRounds = new Set<IHomePortfolioRequestRound>();
 
   begin({
     beginRequest,
@@ -115,12 +114,11 @@ class HomePortfolioRequestLifecycle {
     beginRequest: () => IHomeSectionSourceRequestHandle;
     identityKey: string;
   }): IHomePortfolioRequestRound {
-    this.sequence += 1;
     const round = {
       handle: beginRequest(),
       identityKey,
-      sequence: this.sequence,
     };
+    this.activeRounds.add(round);
     this.activeRound = round;
     return round;
   }
@@ -137,24 +135,28 @@ class HomePortfolioRequestLifecycle {
     result: IHomeStoreSectionSourceResult;
     round: IHomePortfolioRequestRound | undefined;
   }): boolean {
-    if (!round || this.activeRound !== round) {
+    if (!round || !this.activeRounds.has(round)) {
       return false;
     }
-    this.activeRound = undefined;
+    this.activeRounds.delete(round);
+    if (this.activeRound === round) {
+      this.activeRound = Array.from(this.activeRounds).at(-1);
+    }
     completeRequest(round.handle, result);
     return true;
   }
 
   invalidate(): void {
+    this.activeRounds.clear();
     this.activeRound = undefined;
-  }
-
-  getRequestCount(): number {
-    return this.sequence;
   }
 
   getActiveRound(): IHomePortfolioRequestRound | undefined {
     return this.activeRound;
+  }
+
+  isActive(round: IHomePortfolioRequestRound): boolean {
+    return this.activeRounds.has(round);
   }
 }
 
@@ -214,7 +216,7 @@ function buildHomePortfolioReadyResult(
   return {
     kind: 'ready',
     data,
-    freshness: 'live',
+    priority: 1,
     refresh: 'idle',
     rowIds: payload.displayIds,
   };

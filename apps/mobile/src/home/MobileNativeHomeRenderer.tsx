@@ -29,7 +29,6 @@ import { useHomeDisplayModel } from '@onekeyhq/kit/src/hooks/useHomeBalanceState
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useHomeCommitIdentity,
   useHomeFacts,
   useHomeInteraction,
   useHomeNavigation,
@@ -71,6 +70,7 @@ import {
   HOME_PORTFOLIO_SHOW_LP_TOKENS_CONTROL_ID,
   resolveHomePortfolioLpTokenSwitch,
 } from '@onekeyhq/kit/src/views/Home/model/sections/spot/homePortfolioControls';
+import type { IHomeSectionId } from '@onekeyhq/kit/src/views/Home/model/semantic/homeSemanticTypes';
 import {
   HOME_SECTION_ACTION_IDS,
   HOME_SHELL_ACTION_IDS,
@@ -94,24 +94,19 @@ import {
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  HOME_CONTAINER_SCHEMA_VERSION,
-  HOME_CONTAINER_SLOT_CONTRACT_REVISION,
   HomeContainer,
-  HomeContainerController,
-  type IHomeContainerCapabilities,
   type IHomeContainerHeader,
-  type IHomeContainerIntentV3,
+  type IHomeContainerIntent,
   type IHomeContainerOwner,
   type IHomeContainerRef,
   type IHomeContainerSection,
-  type IHomeContainerSlotKey,
   type IHomeContainerSlots,
   type IHomeContainerSnapshot,
+  type IHomeContainerState,
   type IHomeContainerTab,
   type IHomeContainerTabId,
   type IHomeContainerTheme,
-  parseHomeContainerIntentV3,
-  parseHomeContainerTransportResult,
+  parseHomeContainerIntent,
 } from '@onekeyhq/native-components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -219,35 +214,26 @@ function formatShellBalance({
   }
 }
 
-function navigationShell(tabs: IHomeContainerTab[]) {
-  return tabs.map(({ sections: _sections, ...tab }) => tab);
-}
-
 function countSectionItems(sections: IHomeContainerSection[]): number {
   return sections.reduce((count, section) => count + section.items.length, 0);
 }
 
-function collectSlotRevisions(
-  slots: IHomeContainerSlots,
-): Record<string, number> {
-  const revisions: Record<string, number> = {};
-  const addSlot = (
-    slot: { authority?: { slotId: string; slotRevision: number } } | undefined,
-  ) => {
-    if (slot?.authority) {
-      revisions[slot.authority.slotId] = slot.authority.slotRevision;
-    }
-  };
-  addSlot(slots.accountRow);
-  addSlot(slots.balance);
-  addSlot(slots.headerActionRow);
-  Object.values(slots.contentHeaders ?? {}).forEach(addSlot);
-  Object.values(slots.contentStates ?? {}).forEach(addSlot);
-  Object.values(slots.tabAccessories ?? {}).forEach(addSlot);
-  Object.values(slots.contentFooters ?? {}).forEach((footerSlots) => {
-    Object.values(footerSlots ?? {}).forEach(addSlot);
-  });
-  return revisions;
+function headerContainsCommand(
+  header: IHomeContainerHeader,
+  commandId: string,
+): boolean {
+  return Boolean(
+    header.accountActionId === commandId ||
+    header.copyActionId === commandId ||
+    header.networkActionId === commandId ||
+    header.balanceActionId === commandId ||
+    header.actions.some((action) => action.actionId === commandId) ||
+    header.balanceActions?.some((action) => action.actionId === commandId) ||
+    header.banners.some(
+      (banner) =>
+        banner.actionId === commandId || banner.dismissActionId === commandId,
+    ),
+  );
 }
 
 export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
@@ -255,9 +241,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const theme = useTheme();
   const navigation = useAppNavigation();
   const nativeRef = useRef<IHomeContainerRef>(null);
-  const nativeCapabilitiesRef = useRef<IHomeContainerCapabilities | undefined>(
-    undefined,
-  );
   const homeNativeDecisionKeyRef = useRef<string | undefined>(undefined);
   const homeNativeContentDecisionKeyRef = useRef<string | undefined>(undefined);
   const [expandedSections, setExpandedSections] =
@@ -276,7 +259,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const interaction = useHomeInteraction();
   const shell = useHomeShell();
   const homeNavigation = useHomeNavigation();
-  const commitIdentity = useHomeCommitIdentity();
   const portfolioSection = useHomeSection('portfolio');
   const perpsSection = useHomeSection('perps');
   const defiSection = useHomeSection('defi');
@@ -884,8 +866,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
 
   const snapshot = useMemo<IHomeContainerSnapshot>(
     () => ({
-      schemaVersion: HOME_CONTAINER_SCHEMA_VERSION,
-      revision: 0,
       selectedTabId,
       header,
       tabs,
@@ -915,260 +895,16 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         (network?.isAllNetworks || !vaultSettings?.hideBlockExplorer))),
   );
 
-  const accountRowAuthority = useMemo(
-    () =>
-      owner
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'header.account-row' as IHomeContainerSlotKey,
-            slotRevision: 1,
-          }
-        : undefined,
-    // The account selector owns its internal React state. Its Home slot
-    // identity only changes when the Home owner changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId],
-  );
-  const balanceAuthority = useMemo(
-    () =>
-      owner
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'header.balance' as IHomeContainerSlotKey,
-            slotRevision: shell.balancePresentationRevision,
-          }
-        : undefined,
-    // The balance slot changes with the Shell slice while its React content
-    // continues to own hide-value interaction and number formatting.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId, shell.balancePresentationRevision],
-  );
-  const actionRowAuthority = useMemo(
-    () =>
-      owner && displayModel.actions.kind !== 'hidden'
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'header.action-row' as IHomeContainerSlotKey,
-            slotRevision: shell.actionsPresentationRevision,
-          }
-        : undefined,
-    // The action slot changes only with the Shell slice. Unrelated section
-    // commits must not rebuild WalletActions or advance its slot revision.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      displayModel.actions.kind,
-      owner?.scopeKey,
-      owner?.sessionId,
-      shell.actionsPresentationRevision,
-    ],
-  );
-  const backupStateAuthority = useMemo(
-    () =>
-      owner && displayModel.body.kind === 'backupPrompt'
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.state.portfolio' as IHomeContainerSlotKey,
-            slotRevision: shell.bodyPresentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      displayModel.body.kind,
-      owner?.scopeKey,
-      owner?.sessionId,
-      shell.bodyPresentationRevision,
-    ],
-  );
-  const portfolioHeaderAuthority = useMemo(
-    () =>
-      owner
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.header.portfolio' as IHomeContainerSlotKey,
-            slotRevision: portfolioSection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId, portfolioSection.presentationRevision],
-  );
-  const perpsHeaderAuthority = useMemo(
-    () =>
-      owner && perpsPayload && perpsSection.value.kind === 'ready'
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.header.perps' as IHomeContainerSlotKey,
-            slotRevision: perpsSection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      owner?.scopeKey,
-      owner?.sessionId,
-      perpsPayload,
-      perpsSection.presentationRevision,
-      perpsSection.value.kind,
-    ],
-  );
-  const perpsStateAuthority = useMemo(
-    () =>
-      owner && isPerpsEmpty
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.state.perps' as IHomeContainerSlotKey,
-            slotRevision: perpsSection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      isPerpsEmpty,
-      owner?.scopeKey,
-      owner?.sessionId,
-      perpsSection.presentationRevision,
-    ],
-  );
-  const nftStateAuthority = useMemo(
-    () =>
-      owner &&
-      (nftSection.value.kind === 'empty' || nftSection.value.kind === 'error')
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.state.nft' as IHomeContainerSlotKey,
-            slotRevision: nftSection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      nftSection.presentationRevision,
-      nftSection.value.kind,
-      owner?.scopeKey,
-      owner?.sessionId,
-    ],
-  );
-  const deFiStateAuthority = useMemo(
-    () =>
-      owner &&
-      (defiSection.value.kind === 'empty' || defiSection.value.kind === 'error')
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.state.defi' as IHomeContainerSlotKey,
-            slotRevision: defiSection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      defiSection.presentationRevision,
-      defiSection.value.kind,
-      owner?.scopeKey,
-      owner?.sessionId,
-    ],
-  );
-  const historyStateAuthority = useMemo(
-    () =>
-      owner && isHistoryEmpty
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'content.state.history' as IHomeContainerSlotKey,
-            slotRevision: historySection.presentationRevision,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      historySection.presentationRevision,
-      isHistoryEmpty,
-      owner?.scopeKey,
-      owner?.sessionId,
-    ],
-  );
-  const portfolioAccessoryAuthority = useMemo(
-    () =>
-      owner
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'tab.accessory.portfolio' as IHomeContainerSlotKey,
-            slotRevision: 1,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId],
-  );
-  const historyAccessoryAuthority = useMemo(
-    () =>
-      owner
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId: 'tab.accessory.history' as IHomeContainerSlotKey,
-            slotRevision: 1,
-          }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId],
-  );
-  const historyEndFooterAuthority = useMemo(
-    () =>
-      owner && shouldMountHistoryEndFooter
-        ? {
-            owner,
-            producedByStoreCommitId: commitIdentity.storeCommitId,
-            slotId:
-              'content.footer.history.historyEnd' as IHomeContainerSlotKey,
-            slotRevision: commitIdentity.storeCommitId,
-          }
-        : undefined,
-    [commitIdentity.storeCommitId, owner, shouldMountHistoryEndFooter],
-  );
-
-  const footerAuthorities = useMemo(() => {
-    if (!owner) {
-      return {
-        portfolioUpgrade: undefined,
-        portfolioSupport: undefined,
-        perpsUpgrade: undefined,
-        perpsSupport: undefined,
-        defiUpgrade: undefined,
-        defiSupport: undefined,
-      };
-    }
-    const build = (
-      tabId: 'portfolio' | 'perps' | 'defi',
-      footerId: 'upgrade' | 'support',
-    ) => ({
-      owner,
-      producedByStoreCommitId: commitIdentity.storeCommitId,
-      slotId: `content.footer.${tabId}.${footerId}` as IHomeContainerSlotKey,
-      slotRevision: 1,
-    });
-    return {
-      portfolioUpgrade: build('portfolio', 'upgrade'),
-      portfolioSupport: build('portfolio', 'support'),
-      perpsUpgrade: build('perps', 'upgrade'),
-      perpsSupport: build('perps', 'support'),
-      defiUpgrade: build('defi', 'upgrade'),
-      defiSupport: build('defi', 'support'),
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner?.scopeKey, owner?.sessionId]);
-
   useEffect(() => {
     const decision = {
       selectedTab: selectedTabId,
       showTokenFilter: Boolean(portfolioPayload?.showLpTokenFilterSwitch),
-      showPortfolioSettings: Boolean(portfolioAccessoryAuthority),
-      showHistoryFilter:
-        renderedTabIds.has('history') && Boolean(historyAccessoryAuthority),
+      showPortfolioSettings: displayModel.body.kind === 'portfolio',
+      showHistoryFilter: renderedTabIds.has('history'),
       showPerpsHeader:
-        renderedTabIds.has('perps') && Boolean(perpsHeaderAuthority),
+        renderedTabIds.has('perps') &&
+        Boolean(perpsPayload) &&
+        perpsSection.value.kind === 'ready',
       showDeFiHeader: false,
       showUpgrade: shouldShowUpgrade,
       showSupport: true,
@@ -1189,15 +925,15 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     defaultLogger.wallet.homeUi.homeNativeContentDecision(decision);
   }, [
     defiSections,
-    historyAccessoryAuthority,
+    displayModel.body.kind,
     historySections,
     marketPayload?.earnRows.length,
     marketPayload?.rows.length,
     nftPayload?.data.length,
     nftSection.value.kind,
-    perpsHeaderAuthority,
+    perpsPayload,
+    perpsSection.value.kind,
     perpsSections,
-    portfolioAccessoryAuthority,
     portfolioPayload?.showLpTokenFilterSwitch,
     portfolioSections,
     renderedTabIds,
@@ -1210,7 +946,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       backgroundColor: nativeTheme.backgroundColor,
       accountRow: {
         interaction: 'tap',
-        authority: accountRowAuthority,
         content: (
           <XStack flex={1} alignItems="center" justifyContent="space-between">
             <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
@@ -1241,7 +976,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       },
       balance: {
         interaction: 'tap',
-        authority: balanceAuthority,
         content: (
           <HomeOverviewContainer
             nativeSlot
@@ -1255,7 +989,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           ? undefined
           : {
               interaction: 'tap',
-              authority: actionRowAuthority,
               height: header.actionRowHeight,
               content: (
                 <HomeTokenListProviderMirror>
@@ -1271,41 +1004,40 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               ),
             },
       contentStates: {
-        ...(backupStateAuthority
+        ...(displayModel.body.kind === 'backupPrompt'
           ? {
               portfolio: {
                 interaction: 'tap',
-                authority: backupStateAuthority,
                 content: <NotBackedUpEmpty />,
                 height: 320,
               },
             }
           : {}),
-        ...(renderedTabIds.has('nft') && nftStateAuthority
+        ...(renderedTabIds.has('nft') &&
+        (nftSection.value.kind === 'empty' || nftSection.value.kind === 'error')
           ? {
               nft: {
                 interaction: 'none' as const,
-                authority: nftStateAuthority,
                 content: <EmptyNFT />,
                 height: 360,
               },
             }
           : {}),
-        ...(renderedTabIds.has('defi') && deFiStateAuthority
+        ...(renderedTabIds.has('defi') &&
+        (defiSection.value.kind === 'empty' ||
+          defiSection.value.kind === 'error')
           ? {
               defi: {
                 interaction: 'tap' as const,
-                authority: deFiStateAuthority,
                 content: <EmptyDeFi tableLayout />,
                 height: 360,
               },
             }
           : {}),
-        ...(renderedTabIds.has('perps') && perpsStateAuthority
+        ...(renderedTabIds.has('perps') && isPerpsEmpty
           ? {
               perps: {
                 interaction: 'tap' as const,
-                authority: perpsStateAuthority,
                 content: (
                   <PerpsHomeStateSlot
                     viewState="empty"
@@ -1317,11 +1049,10 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(renderedTabIds.has('history') && historyStateAuthority
+        ...(renderedTabIds.has('history') && isHistoryEmpty
           ? {
               history: {
                 interaction: 'tap' as const,
-                authority: historyStateAuthority,
                 content: (
                   <EmptyHistory
                     showViewInExplorer
@@ -1344,7 +1075,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
                 interaction: portfolioPayload?.showLpTokenFilterSwitch
                   ? ('tap' as const)
                   : ('none' as const),
-                authority: portfolioHeaderAuthority,
                 content: (
                   <RichBlockHeader
                     title={nativeLabels.tokens}
@@ -1363,11 +1093,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               },
             }
           : {}),
-        ...(renderedTabIds.has('perps') && perpsHeaderAuthority && perpsPayload
+        ...(renderedTabIds.has('perps') &&
+        perpsSection.value.kind === 'ready' &&
+        perpsPayload
           ? {
               perps: {
                 interaction: 'tap' as const,
-                authority: perpsHeaderAuthority,
                 content: (
                   <PerpsHomeHeaderSlot
                     totalUsd={perpsPayload.view.accountValueUsd}
@@ -1385,7 +1116,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           ? {
               portfolio: {
                 interaction: 'tap' as const,
-                authority: portfolioAccessoryAuthority,
                 content: (
                   <TabHeaderSettings
                     nativeSlot
@@ -1399,7 +1129,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           ? {
               history: {
                 interaction: 'tap' as const,
-                authority: historyAccessoryAuthority,
                 content: (
                   <TabHeaderSettings
                     nativeSlot
@@ -1419,14 +1148,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
                   ? {
                       upgrade: {
                         interaction: 'tap' as const,
-                        authority: footerAuthorities.portfolioUpgrade,
                         content: <Upgrade />,
                       },
                     }
                   : {}),
                 support: {
                   interaction: 'tap' as const,
-                  authority: footerAuthorities.portfolioSupport,
                   content: <SupportHub nativeSlot />,
                 },
               },
@@ -1440,14 +1167,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
                   ? {
                       upgrade: {
                         interaction: 'tap' as const,
-                        authority: footerAuthorities.perpsUpgrade,
                         content: <Upgrade />,
                       },
                     }
                   : {}),
                 support: {
                   interaction: 'tap' as const,
-                  authority: footerAuthorities.perpsSupport,
                   content: (
                     <SupportHub
                       nativeSlot
@@ -1468,27 +1193,24 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
                   ? {
                       upgrade: {
                         interaction: 'tap' as const,
-                        authority: footerAuthorities.defiUpgrade,
                         content: <Upgrade />,
                       },
                     }
                   : {}),
                 support: {
                   interaction: 'tap' as const,
-                  authority: footerAuthorities.defiSupport,
                   content: <SupportHub nativeSlot />,
                 },
               },
             }
           : {}),
-        ...(historyEndFooterAuthority
+        ...(shouldMountHistoryEndFooter
           ? {
               history: {
                 historyEnd: {
                   interaction: isHistoryLoadingMore
                     ? ('none' as const)
                     : ('tap' as const),
-                  authority: historyEndFooterAuthority,
                   content: (
                     <TxHistoryListFooter
                       showFooter
@@ -1509,44 +1231,34 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     }),
     [
       account?.id,
-      accountRowAuthority,
-      actionRowAuthority,
-      backupStateAuthority,
-      balanceAuthority,
       lpTokenSwitch.loading,
       lpTokenSwitch.value,
-      deFiStateAuthority,
-      footerAuthorities,
+      defiSection.value.kind,
       header.actionRowHeight,
-      historyAccessoryAuthority,
-      historyEndFooterAuthority,
       historyPayload?.hasMore,
       historyPayload?.tokenMap,
-      historyStateAuthority,
       indexedAccount?.id,
       intl,
       isBackupRequired,
       isOthersWallet,
+      isHistoryEmpty,
       isHistoryLoadingMore,
       nativeTheme.backgroundColor,
       nativeLabels.tokens,
       network?.id,
       network?.isAllNetworks,
-      nftStateAuthority,
+      nftSection.value.kind,
       perpsCanDeposit,
       perpsDepositDisabled,
-      perpsHeaderAuthority,
       isPerpsEmpty,
       perpsPayload,
-      perpsStateAuthority,
       perpsSection.value.kind,
-      portfolioAccessoryAuthority,
-      portfolioHeaderAuthority,
       portfolioPayload,
       renderedTabIds,
       displayModel.actions.kind,
       displayModel.balance,
       displayModel.body.kind,
+      shouldMountHistoryEndFooter,
       shouldShowActionRowSkeleton,
       setShowLpTokensOnly,
       shouldShowUpgrade,
@@ -1555,156 +1267,38 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     ],
   );
   const slotBundle = useMemo(
+    () => (owner ? { owner, slots } : undefined),
+    [owner, slots],
+  );
+
+  const nativeState = useMemo<IHomeContainerState | undefined>(
     () =>
       owner
         ? {
             owner,
-            semanticRevision: commitIdentity.storeCommitId,
-            slotContractRevision: HOME_CONTAINER_SLOT_CONTRACT_REVISION,
-            slots,
+            payload: {
+              selectedTabId: snapshot.selectedTabId,
+              header: snapshot.header,
+              tabs: snapshot.tabs,
+              theme: snapshot.theme,
+            },
           }
         : undefined,
-    [commitIdentity.storeCommitId, owner, slots],
+    [owner, snapshot],
   );
-
-  const revisionState = useMemo(
-    () => ({
-      storeCommitId: commitIdentity.storeCommitId,
-      presentationRevisions: {
-        shell: shell.presentationRevision,
-        navigation: homeNavigation.presentationRevision,
-        sections: {
-          portfolio: portfolioSection.presentationRevision,
-          perps: perpsSection.presentationRevision,
-          defi: defiSection.presentationRevision,
-          nft: nftSection.presentationRevision,
-          history: historySection.presentationRevision,
-          market: marketSection.presentationRevision,
-        },
-      },
-      authorityRevisions: {
-        shellCommands: shell.shellCommandRevision,
-        tabApplicability: homeNavigation.tabApplicabilityRevision,
-        sectionCommands: {
-          portfolio: portfolioSection.sectionCommandRevision,
-          perps: perpsSection.sectionCommandRevision,
-          defi: defiSection.sectionCommandRevision,
-          nft: nftSection.sectionCommandRevision,
-          history: historySection.sectionCommandRevision,
-          market: marketSection.sectionCommandRevision,
-        },
-      },
-      slotRevisions: collectSlotRevisions(slots),
-    }),
-    [
-      commitIdentity.storeCommitId,
-      defiSection,
-      historySection,
-      homeNavigation,
-      marketSection,
-      nftSection,
-      perpsSection,
-      portfolioSection,
-      shell,
-      slots,
-    ],
-  );
-  const controller = useMemo(
-    () =>
-      owner
-        ? new HomeContainerController({
-            initialOwner: owner,
-            initialProtocolV3Revisions: revisionState,
-            initialSlots: slots,
-            initialSnapshot: snapshot,
-            requireProtocolV3: true,
-          })
-        : undefined,
-    // A controller is a transport session and must only be replaced with owner.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owner?.scopeKey, owner?.sessionId],
-  );
-  const initialSnapshot = useMemo(
-    () => controller?.getInitialProtocolV3Snapshot(),
-    [controller],
-  );
-  const previousSnapshotRef = useRef(snapshot);
-  const attachedTargetRef = useRef<IHomeContainerRef | undefined>(undefined);
   const refreshFeedbackTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>(),
   );
 
   const disposeNativeSession = useCallback(() => {
-    const target = attachedTargetRef.current ?? nativeRef.current ?? undefined;
     refreshFeedbackTimersRef.current.forEach((timeoutId, requestId) => {
       clearTimeout(timeoutId);
-      target?.completeRefresh(requestId);
+      nativeRef.current?.completeRefresh(requestId);
     });
     refreshFeedbackTimersRef.current.clear();
-    controller?.detach(target);
-    controller?.dispose();
-    attachedTargetRef.current = undefined;
-    nativeCapabilitiesRef.current = undefined;
-  }, [controller]);
-
-  useLayoutEffect(() => {
-    if (!controller) {
-      return;
-    }
-    const previous = previousSnapshotRef.current;
-    controller.setProtocolV3RevisionState(revisionState);
-    if (!equal(previous.header, snapshot.header)) {
-      controller.updateHeader(snapshot.header);
-    }
-    if (!equal(previous.theme, snapshot.theme)) {
-      controller.updateTheme(snapshot.theme);
-    }
-    if (
-      !equal(navigationShell(previous.tabs), navigationShell(snapshot.tabs))
-    ) {
-      controller.updateTabs(snapshot.tabs);
-    } else {
-      snapshot.tabs.forEach((tab) => {
-        const previousTab = previous.tabs.find((item) => item.id === tab.id);
-        if (
-          tab.destination === 'inline' &&
-          previousTab?.destination === 'inline' &&
-          !equal(previousTab.sections, tab.sections)
-        ) {
-          controller.updateTabSections(tab.id, tab.sections);
-        }
-      });
-    }
-    if (previous.selectedTabId !== snapshot.selectedTabId) {
-      controller.selectTab(snapshot.selectedTabId);
-    }
-    controller.updateSlots(slots);
-    previousSnapshotRef.current = snapshot;
-  }, [controller, revisionState, slots, snapshot]);
+  }, []);
 
   useEffect(() => () => disposeNativeSession(), [disposeNativeSession]);
-
-  useLayoutEffect(() => {
-    const target = nativeRef.current;
-    if (!target || !controller) {
-      return;
-    }
-    // The native view outlives an owner-scoped controller, so an owner switch
-    // must attach the replacement without waiting for another native onReady.
-    const capabilities =
-      nativeCapabilitiesRef.current ?? target.getCapabilities();
-    if (!capabilities) {
-      return;
-    }
-    if (!controller.attach(target, capabilities)) {
-      defaultLogger.app.error.log(
-        '[NativeHome] controller attach failed after owner change',
-      );
-      return;
-    }
-    nativeCapabilitiesRef.current = capabilities;
-    attachedTargetRef.current = target;
-  }, [controller]);
 
   useEffect(() => {
     const value = homeNavigation.value;
@@ -1730,10 +1324,9 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     const hasTronResource = Boolean(bannerPayload?.tronResource);
     const shouldShowBanner =
       bannerPresentation === 'content' && (bannerCount > 0 || hasTronResource);
+    const showActionSlot = displayModel.actions.kind !== 'hidden';
+    const showBackupSlot = displayModel.body.kind === 'backupPrompt';
     const decisionKey = stringUtils.stableStringify({
-      accountRowAuthority,
-      actionRowAuthority,
-      backupStateAuthority,
       balanceModel,
       displayModel,
       bannerCount,
@@ -1759,9 +1352,9 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       selectedTab: value.kind === 'ready' ? value.selectedTabId : '',
       visibleTabs: value.kind === 'ready' ? value.tabs.join(',') : '',
       showSearchHeader: true,
-      showAccountSlot: Boolean(accountRowAuthority),
-      showActionSlot: Boolean(actionRowAuthority),
-      showBackupSlot: Boolean(backupStateAuthority),
+      showAccountSlot: true,
+      showActionSlot,
+      showBackupSlot,
     });
     defaultLogger.wallet.homeUi.homeHeaderDecision({
       networkScope,
@@ -1811,9 +1404,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     });
   }, [
     balanceModel,
-    accountRowAuthority,
-    actionRowAuthority,
-    backupStateAuthority,
     bannerPayload,
     bannerPresentation,
     bannerResource.kind,
@@ -1827,14 +1417,17 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   ]);
 
   const dispatchTabIntent = useCallback(
-    (tabId: IHomeContainerTabId, revision: number) => {
+    (tabId: IHomeContainerTabId) => {
       if (!facts) {
         return false;
       }
       return didAcceptIntent(
         dispatchHomeIntent({
           type: 'tabSelected',
-          authority: { kind: 'tabApplicability', revision },
+          authority: {
+            kind: 'tabApplicability',
+            revision: homeNavigation.tabApplicabilityRevision,
+          },
           intentId: createHomeAuthorityId('intent'),
           owner: facts.owner,
           sessionId: facts.ownerToken.sessionId,
@@ -1842,49 +1435,40 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         }),
       );
     },
-    [dispatchHomeIntent, facts],
+    [dispatchHomeIntent, facts, homeNavigation.tabApplicabilityRevision],
   );
   const acceptTabSelection = useCallback(
-    (tabId: IHomeContainerTabId, revision: number) => {
-      if (dispatchTabIntent(tabId, revision)) {
+    (tabId: IHomeContainerTabId) => {
+      if (dispatchTabIntent(tabId)) {
         markTabRendered(tabId);
-        controller?.recordSelectedTab(tabId);
         return;
       }
       nativeRef.current?.selectTab(selectedTabId, false);
     },
-    [controller, dispatchTabIntent, markTabRendered, selectedTabId],
+    [dispatchTabIntent, markTabRendered, selectedTabId],
   );
-  const handleVisibleTabChange = useCallback(
-    (tabId: string) => {
-      if (!isTabId(tabId)) {
-        return;
-      }
-      acceptTabSelection(tabId, homeNavigation.tabApplicabilityRevision);
-    },
-    [acceptTabSelection, homeNavigation.tabApplicabilityRevision],
-  );
-
   const dispatchNativeAction = useCallback(
-    (intent: IHomeContainerIntentV3) => {
+    (intent: IHomeContainerIntent) => {
       if (!facts || intent.intent.kind !== 'action') {
         return;
       }
-      const authority = intent.authority;
       let storeIntent: IHomeStoreIntent;
-      if (authority.kind === 'shellCommands') {
+      if (headerContainsCommand(header, intent.intent.commandId)) {
         storeIntent = {
           type: 'headerActionInvoked',
           actionId: intent.intent.commandId,
-          authority,
+          authority: {
+            kind: 'shellCommands',
+            revision: shell.shellCommandRevision,
+          },
           execution: 'controller',
           intentId: intent.intentId,
           itemId: intent.intent.itemId,
           owner: facts.owner,
           sessionId: facts.ownerToken.sessionId,
         };
-      } else if (authority.kind === 'sectionCommands') {
-        let targetSectionId = authority.sectionId;
+      } else {
+        let targetSectionId: IHomeSectionId = selectedTabId;
         if (
           intent.intent.commandId === HOME_SECTION_ACTION_IDS.openDeFiProtocol
         ) {
@@ -1895,12 +1479,15 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         ) {
           targetSectionId = 'market';
         }
-        let targetRevision = authority.revision;
-        if (targetSectionId === 'defi') {
-          targetRevision = defiSection.sectionCommandRevision;
-        } else if (targetSectionId === 'market') {
-          targetRevision = marketSection.sectionCommandRevision;
-        }
+        const sectionCommandRevisions: Record<IHomeSectionId, number> = {
+          portfolio: portfolioSection.sectionCommandRevision,
+          perps: perpsSection.sectionCommandRevision,
+          defi: defiSection.sectionCommandRevision,
+          nft: nftSection.sectionCommandRevision,
+          history: historySection.sectionCommandRevision,
+          market: marketSection.sectionCommandRevision,
+        };
+        const targetRevision = sectionCommandRevisions[targetSectionId];
         storeIntent = {
           type: 'sectionActionInvoked',
           actionId: intent.intent.commandId,
@@ -1916,8 +1503,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           sectionId: targetSectionId,
           sessionId: facts.ownerToken.sessionId,
         };
-      } else {
-        return;
       }
       dispatchHomeIntent(storeIntent);
     },
@@ -1925,7 +1510,14 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       defiSection.sectionCommandRevision,
       dispatchHomeIntent,
       facts,
+      header,
+      historySection.sectionCommandRevision,
       marketSection.sectionCommandRevision,
+      nftSection.sectionCommandRevision,
+      perpsSection.sectionCommandRevision,
+      portfolioSection.sectionCommandRevision,
+      selectedTabId,
+      shell.shellCommandRevision,
     ],
   );
 
@@ -2014,12 +1606,19 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   ]);
 
   const handleRefreshIntent = useCallback(
-    (tabId: IHomeContainerTabId, requestId: string, revision: number) => {
+    (_tabId: IHomeContainerTabId, requestId: string) => {
       if (!facts) {
         nativeRef.current?.completeRefresh(requestId);
         return;
       }
       let didStartRefresh = false;
+      const sectionCommandRevisions: Record<IHomeContainerTabId, number> = {
+        portfolio: portfolioSection.sectionCommandRevision,
+        perps: perpsSection.sectionCommandRevision,
+        defi: defiSection.sectionCommandRevision,
+        nft: nftSection.sectionCommandRevision,
+        history: historySection.sectionCommandRevision,
+      };
       tabs.forEach((tab) => {
         const sectionId = tab.id;
         const effects = dispatchHomeIntent({
@@ -2027,10 +1626,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           actionId: `home.${sectionId}.refresh`,
           authority: {
             kind: 'sectionCommands',
-            revision:
-              sectionId === tabId
-                ? revision
-                : revisionState.authorityRevisions.sectionCommands[sectionId],
+            revision: sectionCommandRevisions[sectionId],
             sectionId,
           },
           execution: 'controller',
@@ -2053,12 +1649,21 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       }, HOME_REFRESH_FEEDBACK_DURATION_MS);
       refreshFeedbackTimersRef.current.set(requestId, timeoutId);
     },
-    [dispatchHomeIntent, facts, revisionState, tabs],
+    [
+      defiSection.sectionCommandRevision,
+      dispatchHomeIntent,
+      facts,
+      historySection.sectionCommandRevision,
+      nftSection.sectionCommandRevision,
+      perpsSection.sectionCommandRevision,
+      portfolioSection.sectionCommandRevision,
+      tabs,
+    ],
   );
 
   const handleIntent = useCallback(
     (value: string) => {
-      const parsed = parseHomeContainerIntentV3(value);
+      const parsed = parseHomeContainerIntent(value);
       if (!parsed) {
         return;
       }
@@ -2207,29 +1812,24 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
         }
       }
       if (parsed.intent.kind === 'selectTab') {
-        acceptTabSelection(parsed.intent.tabId, parsed.authority.revision);
+        acceptTabSelection(parsed.intent.tabId);
         return;
       }
-      if (
-        parsed.intent.kind === 'refresh' &&
-        parsed.authority.kind === 'sectionCommands' &&
-        isTabId(parsed.intent.tabId)
-      ) {
-        handleRefreshIntent(
-          parsed.intent.tabId,
-          parsed.intent.requestId,
-          parsed.authority.revision,
-        );
+      if (parsed.intent.kind === 'refresh' && isTabId(parsed.intent.tabId)) {
+        handleRefreshIntent(parsed.intent.tabId, parsed.intent.requestId);
         return;
       }
       if (parsed.intent.kind === 'handoff') {
-        if (!facts || parsed.authority.kind !== 'tabApplicability') {
+        if (!facts) {
           return;
         }
         const effects = dispatchHomeIntent({
           type: 'tabHandoffInvoked',
           actionId: parsed.intent.commandId,
-          authority: parsed.authority,
+          authority: {
+            kind: 'tabApplicability',
+            revision: homeNavigation.tabApplicabilityRevision,
+          },
           intentId: parsed.intentId,
           owner: facts.owner,
           sessionId: facts.ownerToken.sessionId,
@@ -2251,6 +1851,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       facts,
       handleOnManageToken,
       handleRefreshIntent,
+      homeNavigation.tabApplicabilityRevision,
       navigation,
       marketPayload,
       openLowValueAssets,
@@ -2264,54 +1865,13 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     ],
   );
 
-  const handleReady = useCallback(
-    (capabilities: IHomeContainerCapabilities) => {
-      const target = nativeRef.current;
-      nativeCapabilitiesRef.current = capabilities;
-      if (!target || !controller) {
-        return;
-      }
-      if (!controller.attach(target, capabilities)) {
-        defaultLogger.app.error.log(
-          '[NativeHome] controller attach failed during native readiness',
-        );
-        return;
-      }
-      attachedTargetRef.current = target;
-    },
-    [controller],
-  );
-  const handleTransportResult = useCallback(
-    (value: string) => {
-      const result = parseHomeContainerTransportResult(value);
-      if (!result) {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: 'invalid',
-        });
-      } else if (result.kind === 'needSnapshot') {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: result.kind,
-          currentRevision: result.currentRevision,
-          reason: result.reason,
-        });
-      } else {
-        defaultLogger.wallet.homeUi.homeNativeTransportDecision({
-          resultKind: result.kind,
-          revision: result.revision,
-        });
-      }
-      controller?.handleTransportResult(value);
-    },
-    [controller],
-  );
-
   const handleRenderError = useCallback((code: string, message: string) => {
     defaultLogger.app.error.log(
       `[NativeHome] render failed: code=${code}, message=${message}`,
     );
   }, []);
 
-  if (!owner || !controller || !initialSnapshot) {
+  if (!owner || !nativeState) {
     return null;
   }
 
@@ -2320,14 +1880,11 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       <HomeTabSearchHeader />
       <HomeContainer
         ref={nativeRef}
-        initialSnapshot={initialSnapshot}
+        state={nativeState}
         style={{ flex: 1 }}
         slotBundle={slotBundle}
         testID="NativeHomeContainer"
-        onReady={handleReady}
         onIntent={handleIntent}
-        onVisibleTabChange={handleVisibleTabChange}
-        onTransportResult={handleTransportResult}
         onRenderError={handleRenderError}
       />
     </Stack>

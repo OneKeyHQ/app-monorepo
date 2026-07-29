@@ -40,7 +40,10 @@ import type {
   IHomeDisplaySnapshotManifest,
   IHomeDisplaySnapshotRoute,
 } from './homeDisplaySnapshotTypes';
-import type { IHomeShellSemanticModel } from '../semantic/homeSemanticTypes';
+import type {
+  IHomeNavigationSemanticModel,
+  IHomeShellSemanticModel,
+} from '../semantic/homeSemanticTypes';
 import type {
   IHomeStoreCommitIdentity,
   IHomeStoreSourceId,
@@ -75,10 +78,9 @@ function isConfirmedCacheShell(shell: IHomeShellSemanticModel): boolean {
   const presentation = shell.presentation;
   return (
     (presentation.kind === 'funded' &&
-      (presentation.freshness === 'confirmedCache' ||
+      (presentation.priority === 0 ||
         presentation.header.authority === 'confirmedCache')) ||
-    (presentation.kind === 'zero' &&
-      presentation.freshness === 'confirmedCache')
+    (presentation.kind === 'zero' && presentation.priority === 0)
   );
 }
 
@@ -89,8 +91,14 @@ function isLiveSnapshotShell(shell: IHomeShellSemanticModel): boolean {
   const presentation = shell.presentation;
   return (
     (presentation.kind === 'funded' || presentation.kind === 'zero') &&
-    presentation.freshness === 'live'
+    presentation.priority === 1
   );
+}
+
+function isNetworkSnapshotNavigation(
+  navigation: IHomeNavigationSemanticModel,
+): boolean {
+  return navigation.kind === 'ready' && navigation.priority === 1;
 }
 
 function shouldReplaceDescriptor({
@@ -260,9 +268,9 @@ async function persistHomeDisplaySnapshotOnce(
 
   if (shouldEvaluateCritical) {
     const shell = hasConfirmedCacheShell ? undefined : projectedShell;
-    const navigation = projectHomeDisplaySnapshotNavigation(
-      job.state.navigation.value,
-    );
+    const navigation = isNetworkSnapshotNavigation(job.state.navigation.value)
+      ? projectHomeDisplaySnapshotNavigation(job.state.navigation.value)
+      : undefined;
     if (shell || navigation) {
       const contentSignature = getHomeDisplaySnapshotContentSignature(
         stringUtils.stableStringify({
@@ -436,7 +444,7 @@ async function persistHomeDisplaySnapshotOnce(
     },
     removeKeys: Array.from(cleanupKeys),
   });
-  perfMark('Home:v3Cache:physicalWrite', {
+  perfMark('Home:displayCache:physicalWrite', {
     chunkCount: entries.length - 2,
   });
   const writtenSourceIds = entries
@@ -447,7 +455,7 @@ async function persistHomeDisplaySnapshotOnce(
         chunkId !== 'critical' &&
         HOME_STORE_SOURCE_IDS.includes(chunkId as IHomeStoreSourceId),
     );
-  defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+  defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
     stage: 'persist',
     outcome: 'accepted',
     partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -466,7 +474,7 @@ async function persistHomeDisplaySnapshot(
   try {
     await persistHomeDisplaySnapshotOnce(job);
   } catch (error) {
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
       stage: 'persist',
       outcome: 'retrying',
       partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),
@@ -503,7 +511,7 @@ export class HomeDisplaySnapshotPersistQueue {
       this.cancelPending();
       return;
     }
-    if (!ownerScopeKey || commitIdentity.origin === 'cacheHydrate') {
+    if (!ownerScopeKey) {
       return;
     }
     const existing = this.pendingJobs.get(ownerScopeKey);
@@ -614,7 +622,7 @@ export class HomeDisplaySnapshotPersistQueue {
       try {
         await persistHomeDisplaySnapshot(job);
       } catch (error) {
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'persist',
           outcome: 'failed',
           partitionTag: getHomeDisplaySnapshotPartitionTag(job.ownerScopeKey),

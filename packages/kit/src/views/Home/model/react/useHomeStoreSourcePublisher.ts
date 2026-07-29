@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 
 import { useHomeStoreInternalActions } from '@onekeyhq/kit/src/states/jotai/contexts/home/actions';
 import {
-  HOME_RUNTIME_PROTOCOL_VERSION,
   type IHomeRuntimeJsonValue,
   type IHomeRuntimeQuoteBasis,
   type IHomeRuntimeRequestToken,
@@ -10,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import type { IHomeSectionId } from '../semantic/homeSemanticTypes';
 import type {
   IHomeStoreEvent,
   IHomeStoreRequestToken,
@@ -24,10 +24,12 @@ type IHomeSourceEventPayload<TType extends IHomeStoreEvent['type']> = Omit<
   'type'
 >;
 
-type IHomeSectionSourceRequest = Omit<
-  IHomeSourceEventPayload<'sectionSourceChanged'>,
-  'result'
-> & {
+type IHomeSectionSourceRequest = {
+  ownerToken: {
+    scopeKey: string;
+    sessionId: string;
+  };
+  sectionId: IHomeSectionId;
   dataSchemaVersion?: number;
   paramsFingerprint?: string;
   quoteBasis?: IHomeRuntimeQuoteBasis;
@@ -64,23 +66,6 @@ export type IHomeStoreSourceRequestHandle<
 };
 
 let homeSourceGatewayInstanceSeq = 0;
-const HOME_SOURCE_GATEWAY_MAX_TRACKED_IDENTITIES = 32;
-
-function setBoundedMapValue<TKey, TValue>(
-  map: Map<TKey, TValue>,
-  key: TKey,
-  value: TValue,
-) {
-  map.delete(key);
-  map.set(key, value);
-  while (map.size > HOME_SOURCE_GATEWAY_MAX_TRACKED_IDENTITIES) {
-    const oldestKey = map.keys().next().value as TKey | undefined;
-    if (oldestKey === undefined) {
-      break;
-    }
-    map.delete(oldestKey);
-  }
-}
 
 function createHomeSourceGatewayInstanceId(prefix: string) {
   homeSourceGatewayInstanceSeq += 1;
@@ -97,30 +82,16 @@ export function createHomeStoreSourceGateway({
   ),
   readHomeStoreSnapshot,
 }: IHomeStoreSectionSourceGatewayOptions) {
-  const requestSeqBySource = new Map<string, number>();
-
   return {
     begin<TSourceId extends IHomeStoreSourceId>(
       request: IHomeStoreSourceRequest<TSourceId>,
     ): IHomeStoreSourceRequestHandle<TSourceId> {
       const snapshot = readHomeStoreSnapshot();
-      const sourceIdentity = `${request.ownerToken.scopeKey}:${request.ownerToken.sessionId}:${request.sourceId}`;
-      const current = snapshot.resources[request.sourceId];
-      const currentRequestSeq =
-        current.kind === 'idle' ? 0 : (current.token?.requestSeq ?? 0);
-      const requestSeq =
-        Math.max(
-          currentRequestSeq,
-          requestSeqBySource.get(sourceIdentity) ?? 0,
-        ) + 1;
-      setBoundedMapValue(requestSeqBySource, sourceIdentity, requestSeq);
       const token: IHomeStoreRequestToken<TSourceId> = {
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
         clientInstanceId,
         producerInstanceId:
           snapshot.runtime.producerInstanceId ?? fallbackProducerInstanceId,
         sessionId: request.ownerToken.sessionId,
-        requestSeq,
         sourceKey: {
           scopeKey: request.ownerToken.scopeKey,
           sourceId: request.sourceId,
@@ -145,9 +116,7 @@ export function createHomeStoreSourceGateway({
         envelope: { token: handle.token, result },
       } as IHomeStoreEvent);
     },
-    dispose() {
-      requestSeqBySource.clear();
-    },
+    dispose() {},
   };
 }
 
@@ -159,7 +128,7 @@ function createReadyEnvelopeData(
     section: {
       kind: 'ready',
       rowIds: result.rowIds,
-      freshness: result.freshness,
+      priority: result.priority,
       refresh: result.refresh,
     },
   };
@@ -182,37 +151,16 @@ export function createHomeStoreSectionSourceGateway({
   ),
   readHomeStoreSnapshot,
 }: IHomeStoreSectionSourceGatewayOptions) {
-  const activeTokenBySource = new Map<string, IHomeRuntimeRequestToken>();
-  const requestSeqBySource = new Map<string, number>();
-
-  const getLifecycle = (payload: IHomeSectionSourceRequest) => {
+  const getProducerInstanceId = () => {
     const snapshot = readHomeStoreSnapshot();
-    const producerInstanceId =
-      snapshot.runtime.producerInstanceId ?? fallbackProducerInstanceId;
-    const sourceIdentity = `${payload.ownerToken.scopeKey}:${payload.ownerToken.sessionId}:${payload.sectionId}`;
-    return { producerInstanceId, snapshot, sourceIdentity };
+    return snapshot.runtime.producerInstanceId ?? fallbackProducerInstanceId;
   };
 
   const openRequest = (payload: IHomeSectionSourceRequest) => {
-    const { producerInstanceId, snapshot, sourceIdentity } =
-      getLifecycle(payload);
-    const currentResource = snapshot.resources[payload.sectionId];
-    const currentStoreRequestSeq =
-      currentResource.kind === 'idle'
-        ? 0
-        : (currentResource.token?.requestSeq ?? 0);
-    const requestSeq =
-      Math.max(
-        requestSeqBySource.get(sourceIdentity) ?? 0,
-        currentStoreRequestSeq,
-      ) + 1;
-    setBoundedMapValue(requestSeqBySource, sourceIdentity, requestSeq);
     const token: IHomeRuntimeRequestToken = {
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       clientInstanceId,
-      producerInstanceId,
+      producerInstanceId: getProducerInstanceId(),
       sessionId: payload.ownerToken.sessionId,
-      requestSeq,
       sourceKey: {
         scopeKey: payload.ownerToken.scopeKey,
         sourceId: payload.sectionId,
@@ -228,13 +176,11 @@ export function createHomeStoreSectionSourceGateway({
         quoteBasis: payload.quoteBasis,
       },
     };
-    setBoundedMapValue(activeTokenBySource, sourceIdentity, token);
     dispatchHomeEvent({ type: 'sourceRequested', token });
     return token;
   };
 
   const respond = (
-    payload: IHomeSectionSourceRequest,
     token: IHomeRuntimeRequestToken,
     result: Extract<
       IHomeStoreEvent,
@@ -245,12 +191,6 @@ export function createHomeStoreSectionSourceGateway({
       type: 'sourceResponded',
       envelope: { token, result },
     });
-    if (result.kind !== 'partial') {
-      const { sourceIdentity } = getLifecycle(payload);
-      if (activeTokenBySource.get(sourceIdentity) === token) {
-        activeTokenBySource.delete(sourceIdentity);
-      }
-    }
   };
 
   const completeRequest = (
@@ -259,7 +199,7 @@ export function createHomeStoreSectionSourceGateway({
   ) => {
     const payload = handle.payload;
     if (result.kind === 'partial') {
-      respond(payload, handle.token, {
+      respond(handle.token, {
         kind: 'partial',
         data: createPartialEnvelopeData(result),
         coverageFingerprint: result.coverageFingerprint,
@@ -267,7 +207,7 @@ export function createHomeStoreSectionSourceGateway({
       return;
     }
     if (result.kind === 'ready') {
-      respond(payload, handle.token, {
+      respond(handle.token, {
         kind: 'success',
         data: createReadyEnvelopeData(result),
         coverageFingerprint: stringUtils.stableStringify(result.rowIds),
@@ -275,14 +215,14 @@ export function createHomeStoreSectionSourceGateway({
       return;
     }
     if (result.kind === 'empty') {
-      respond(payload, handle.token, {
+      respond(handle.token, {
         kind: 'empty',
         coverageFingerprint: `${payload.sectionId}:empty`,
       });
       return;
     }
     if (result.kind === 'error') {
-      respond(payload, handle.token, {
+      respond(handle.token, {
         kind: 'error',
         errorKind: 'source',
       });
@@ -291,10 +231,9 @@ export function createHomeStoreSectionSourceGateway({
     if (result.kind === 'loading') {
       return;
     }
-    dispatchHomeEvent({
-      type: 'sectionSourceChanged',
-      ...payload,
-      result,
+    respond(handle.token, {
+      kind: 'hidden',
+      reason: result.reason,
     });
   };
 
@@ -306,10 +245,7 @@ export function createHomeStoreSectionSourceGateway({
       };
     },
     complete: completeRequest,
-    dispose() {
-      activeTokenBySource.clear();
-      requestSeqBySource.clear();
-    },
+    dispose() {},
   };
 }
 

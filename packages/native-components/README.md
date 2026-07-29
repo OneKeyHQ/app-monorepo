@@ -13,24 +13,25 @@ platform builds and code generation.
   refresh controls, and scroll coordination. The bounded image cache is a
   process-wide shared native resource; page data and offsets remain per view.
 - JS heap copies: background services produce data in the isolated `bg` heap.
-  Data is serialized once when crossing to `main`, normalized into schema v1,
-  then serialized once more for the single imperative JSI snapshot call.
+  Data is serialized once when crossing to `main`, then serialized once more for
+  the imperative JSI state call.
 - Timing: `bg` and `main` initialize independently. Data adapters must subscribe
-  before pulling the current snapshot and must not assume background readiness.
-- Version skew: native and JS capabilities are negotiated with
-  `isHomeContainerAvailable()` and `getCapabilities()`. Every payload includes a
-  `schemaVersion` and monotonic `revision`; native drops stale revisions. Atomic
-  header/tab patches require `supportsAtomicPatches`; older native binaries
-  automatically receive compatible full snapshots instead.
+  before pulling current data and must not assume background readiness.
+- Protocol: the bundled JS and native code use one unversioned contract. Every
+  submission is a complete state containing `owner` and `payload`. Native
+  applies submissions in arrival order and renders the latest state. There are
+  no patches, revisions, ACKs, version negotiation, or compatibility paths.
+- Ownership: slot content and intents are accepted only when both `scopeKey` and
+  `sessionId` match the current state owner. Switching owner resets per-view
+  navigation and scroll state.
 
 Scroll offsets, sticky-header state, page gestures, list recycling, and refresh
 indicators are native-owned. JS receives semantic actions, refresh requests,
 and visible-tab changes only. It does not receive per-frame scroll events.
 One native axis coordinator owns horizontal strips, page swipes, and vertical
-header handoff so a drag cannot race a row tap or another scroll view.
-Header updates and tab data updates share one atomic patch. Native updates only
-the affected header or tab, so a price refresh cannot reload a different list
-while the user is scrolling or tapping it.
+header handoff so a drag cannot race a row tap or another scroll view. Native
+uses platform list diffing when applying each complete state, preserving mounted
+views and scroll state where identifiers are unchanged.
 
 ## Controlled slots
 

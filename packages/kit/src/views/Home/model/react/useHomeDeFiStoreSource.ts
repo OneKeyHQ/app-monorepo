@@ -159,10 +159,7 @@ export function useHomeDeFiStoreSource({
   const [errorCode, setErrorCode] = useState<string>();
   protocolsRef.current = protocols;
   protocolMapRef.current = protocolMap;
-  const requestIdRef = useRef(0);
-  const sourceRequestSeqRef = useRef(0);
   const renderedOwnerScopeRef = useRef<string | undefined>(undefined);
-  const allNetworkGenerationRef = useRef(0);
   const allNetworkForceRefreshRef = useRef(false);
   const allNetworkConsumeForceRefreshQuotaRef = useRef(false);
   const singleNetworkLoadRef = useRef<
@@ -281,21 +278,14 @@ export function useHomeDeFiStoreSource({
         : undefined,
     [deFiSourceIdentity],
   );
+  const deFiSourceIdentityKeyRef = useRef(deFiSourceIdentityKey);
+  deFiSourceIdentityKeyRef.current = deFiSourceIdentityKey;
   const deFiCoordinatorRef = useRef<
     HomeSectionCoordinator<IHomeDeFiLegacyPayload> | undefined
   >(undefined);
-  const allNetworkSectionRequestSeqRef = useRef(0);
-  const requestHandleBySeqRef = useRef(
-    new Map<number, IHomeSectionSourceRequestHandle>(),
-  );
-
-  useEffect(() => {
-    const requestHandles = requestHandleBySeqRef.current;
-    requestHandles.clear();
-    return () => {
-      requestHandles.clear();
-    };
-  }, [deFiSourceIdentityKey]);
+  const allNetworkSectionRequestHandleRef = useRef<
+    IHomeSectionSourceRequestHandle | undefined
+  >(undefined);
 
   const applyAuthoritativeDeFiPayload = useCallback(
     (resolution: IHomeSectionCoordinatorResolution<IHomeDeFiLegacyPayload>) => {
@@ -309,14 +299,8 @@ export function useHomeDeFiStoreSource({
     [],
   );
 
-  const publishDeFiEvidence = useCallback(
-    ({
-      evidence,
-      requestSeq,
-    }: {
-      evidence: IHomeDeFiEvidence;
-      requestSeq: number;
-    }) => {
+  const resolveDeFiEvidence = useCallback(
+    (evidence: IHomeDeFiEvidence) => {
       if (!deFiSourceIdentity || !deFiSourceIdentityKey) {
         return undefined;
       }
@@ -335,7 +319,6 @@ export function useHomeDeFiStoreSource({
           snapshot: projectHomeDeFiSectionSource({
             authorityReady: true,
             evidence,
-            requestSeq,
             scopeMatches: Boolean(deFiSourceIdentity),
           }),
         }),
@@ -343,32 +326,53 @@ export function useHomeDeFiStoreSource({
       if (!resolution.accepted) {
         return resolution;
       }
-      if (evidence.kind === 'loading') {
-        const handle = beginHomeSectionRequest({
-          dataSchemaVersion: HOME_DEFI_DATA_SCHEMA_VERSION,
-          ownerToken: deFiSourceIdentity.owner,
-          paramsFingerprint: deFiSourceIdentity.sourceKeyIdentity,
-          quoteBasis: { currency: settings.currencyInfo.id },
-          sectionId: 'defi',
-        });
-        requestHandleBySeqRef.current.set(requestSeq, handle);
+      applyAuthoritativeDeFiPayload(resolution);
+      return resolution;
+    },
+    [applyAuthoritativeDeFiPayload, deFiSourceIdentity, deFiSourceIdentityKey],
+  );
+
+  const beginDeFiEvidenceRequest = useCallback(() => {
+    if (!deFiSourceIdentity) {
+      return undefined;
+    }
+    const handle = beginHomeSectionRequest({
+      dataSchemaVersion: HOME_DEFI_DATA_SCHEMA_VERSION,
+      ownerToken: deFiSourceIdentity.owner,
+      paramsFingerprint: deFiSourceIdentity.sourceKeyIdentity,
+      quoteBasis: { currency: settings.currencyInfo.id },
+      sectionId: 'defi',
+    });
+    resolveDeFiEvidence({ kind: 'loading' });
+    return handle;
+  }, [
+    beginHomeSectionRequest,
+    deFiSourceIdentity,
+    resolveDeFiEvidence,
+    settings.currencyInfo.id,
+  ]);
+
+  const completeDeFiEvidence = useCallback(
+    ({
+      evidence,
+      handle,
+    }: {
+      evidence: IHomeDeFiEvidence;
+      handle: IHomeSectionSourceRequestHandle;
+    }) => {
+      const resolution = resolveDeFiEvidence(evidence);
+      if (!resolution?.accepted) {
         return resolution;
       }
       if (evidence.kind === 'partial') {
-        const handle = requestHandleBySeqRef.current.get(requestSeq);
         const data = normalizeHomeStoreJson(evidence.data);
-        if (handle && data !== undefined) {
+        if (data !== undefined) {
           completeHomeSectionRequest(handle, {
             kind: 'partial',
             coverageFingerprint: evidence.coverageFingerprint,
             data,
           });
         }
-        applyAuthoritativeDeFiPayload(resolution);
-        return resolution;
-      }
-      const handle = requestHandleBySeqRef.current.get(requestSeq);
-      if (!handle) {
         return resolution;
       }
       const data =
@@ -379,18 +383,9 @@ export function useHomeDeFiStoreSource({
         handle,
         createHomeStoreSectionSourceResult(resolution.semantic, data),
       );
-      requestHandleBySeqRef.current.delete(requestSeq);
-      applyAuthoritativeDeFiPayload(resolution);
       return resolution;
     },
-    [
-      applyAuthoritativeDeFiPayload,
-      beginHomeSectionRequest,
-      completeHomeSectionRequest,
-      deFiSourceIdentity,
-      deFiSourceIdentityKey,
-      settings.currencyInfo.id,
-    ],
+    [completeHomeSectionRequest, resolveDeFiEvidence],
   );
 
   const loadSupportedActions = useCallback(async () => {
@@ -469,6 +464,7 @@ export function useHomeDeFiStoreSource({
       return;
     }
     deFiCoordinatorRef.current = undefined;
+    allNetworkSectionRequestHandleRef.current = undefined;
   }, [deFiSourceIdentity, deFiSourceIdentityKey]);
 
   useEffect(
@@ -508,15 +504,15 @@ export function useHomeDeFiStoreSource({
         return currentTask.promise;
       }
       const task = (async () => {
-        sourceRequestSeqRef.current += 1;
-        const requestId = sourceRequestSeqRef.current;
-        requestIdRef.current = requestId;
+        const requestSourceIdentityKey = deFiSourceIdentityKey;
+        const isRequestSourceCurrent = () =>
+          deFiSourceIdentityKeyRef.current === requestSourceIdentityKey;
+        const handle = beginDeFiEvidenceRequest();
+        if (!handle) {
+          return;
+        }
         setIsRefreshing(true);
         setErrorCode(undefined);
-        publishDeFiEvidence({
-          requestSeq: requestId,
-          evidence: { kind: 'loading' },
-        });
         try {
           const shouldForceRefresh =
             forceRefresh === 'consumeQuota'
@@ -537,7 +533,7 @@ export function useHomeDeFiStoreSource({
             }),
             loadSupportedActions(),
           ]);
-          if (requestIdRef.current === requestId) {
+          if (isRequestSourceCurrent()) {
             setProtocols(response.protocols);
             setProtocolMap(response.protocolMap);
             setInitialized(true);
@@ -549,13 +545,12 @@ export function useHomeDeFiStoreSource({
               overview: response.overview,
             });
             const rowIds = getHomeDeFiProtocolRowIds(payload);
-            publishDeFiEvidence({
-              requestSeq: requestId,
+            completeDeFiEvidence({
+              handle,
               evidence: {
                 kind: 'complete',
                 confirmedEmpty: response.protocols.length === 0,
                 coverageFingerprint: buildHomeDeFiCoverage({
-                  requestSeq: requestId,
                   rowCount: rowIds.length,
                   source: 'singleNetwork',
                 }),
@@ -565,16 +560,16 @@ export function useHomeDeFiStoreSource({
             });
           }
         } catch {
-          if (requestIdRef.current === requestId) {
+          if (isRequestSourceCurrent()) {
             setErrorCode('defi_fetch_failed');
             setInitialized(true);
-            publishDeFiEvidence({
-              requestSeq: requestId,
+            completeDeFiEvidence({
+              handle,
               evidence: { kind: 'error', errorKind: 'source' },
             });
           }
         } finally {
-          if (requestIdRef.current === requestId) {
+          if (isRequestSourceCurrent()) {
             setIsRefreshing(false);
           }
         }
@@ -591,14 +586,15 @@ export function useHomeDeFiStoreSource({
     },
     [
       accountId,
+      beginDeFiEvidenceRequest,
       buildDeFiPayload,
+      completeDeFiEvidence,
       deFiSourceIdentityKey,
       fullSourceEnabled,
       indexedAccountId,
       isAllNetworks,
       loadSupportedActions,
       networkId,
-      publishDeFiEvidence,
       sourceCurrencyInfo,
       targetCurrencyInfo,
       updateOverview,
@@ -658,20 +654,16 @@ export function useHomeDeFiStoreSource({
   );
 
   const handleAllNetworkSettled = useCallback(
-    (response: INativeHomeDeFiResponse | undefined, generation: number) => {
+    (response: INativeHomeDeFiResponse | undefined) => {
       if (!response || refreshCacheOnly) {
         return;
       }
       if (response.isSameAllNetworksAccountData === false) {
         return;
       }
-      if (generation < allNetworkGenerationRef.current) {
-        return;
-      }
       if (!isAllNetworkSourceCurrent()) {
         return;
       }
-      allNetworkGenerationRef.current = generation;
       allNetworkResponsesRef.current.set(
         getAllNetworkResponseKey(response, allNetworkResponsesRef.current.size),
         response,
@@ -679,14 +671,16 @@ export function useHomeDeFiStoreSource({
       applyResponse(response);
       const payload = buildAllNetworkPayload();
       updateOverview({ overview: payload.overview });
-      publishDeFiEvidence({
-        requestSeq: allNetworkSectionRequestSeqRef.current,
+      const handle = allNetworkSectionRequestHandleRef.current;
+      if (!handle) {
+        return;
+      }
+      completeDeFiEvidence({
+        handle,
         evidence: {
           kind: 'partial',
           data: payload,
-          coverageFingerprint: `defi:allNetworks:${
-            allNetworkSectionRequestSeqRef.current
-          }:settled:${
+          coverageFingerprint: `defi:allNetworks:settled:${
             allNetworkRequestOutcomeRef.current.attemptCount
           }:expected:${
             allNetworkExpectedRequestCountRef.current
@@ -697,8 +691,8 @@ export function useHomeDeFiStoreSource({
     [
       applyResponse,
       buildAllNetworkPayload,
+      completeDeFiEvidence,
       isAllNetworkSourceCurrent,
-      publishDeFiEvidence,
       refreshCacheOnly,
       updateOverview,
     ],
@@ -730,15 +724,13 @@ export function useHomeDeFiStoreSource({
       allNetworkStartedSucceededRef.current = false;
       allNetworkSourceIdentityKeyRef.current = deFiSourceIdentityKey;
       allNetworkResponsesRef.current.clear();
-      sourceRequestSeqRef.current += 1;
-      const requestSeq = sourceRequestSeqRef.current;
-      allNetworkSectionRequestSeqRef.current = requestSeq;
+      const handle = beginDeFiEvidenceRequest();
+      if (!handle) {
+        return;
+      }
+      allNetworkSectionRequestHandleRef.current = handle;
       setIsRefreshing(true);
       setErrorCode(undefined);
-      publishDeFiEvidence({
-        requestSeq,
-        evidence: { kind: 'loading' },
-      });
       if (allNetworkConsumeForceRefreshQuotaRef.current) {
         allNetworkConsumeForceRefreshQuotaRef.current = false;
         allNetworkForceRefreshRef.current = (
@@ -760,9 +752,9 @@ export function useHomeDeFiStoreSource({
       allNetworkStartedSucceededRef.current = true;
     },
     [
+      beginDeFiEvidenceRequest,
       deFiSourceIdentityKey,
       loadSupportedActions,
-      publishDeFiEvidence,
       refreshCacheOnly,
     ],
   );
@@ -784,7 +776,10 @@ export function useHomeDeFiStoreSource({
     }
     const expectedRequestCount = allNetworkExpectedRequestCountRef.current;
     const outcome = allNetworkRequestOutcomeRef.current;
-    const requestSeq = allNetworkSectionRequestSeqRef.current;
+    const handle = allNetworkSectionRequestHandleRef.current;
+    if (!handle) {
+      return;
+    }
     const authorityStatus = resolveNativeHomeAllNetworkAuthorityStatus({
       emptyAccountsResolved: allNetworkEmptyAccountsResolvedRef.current,
       expectedRequestCount,
@@ -804,13 +799,12 @@ export function useHomeDeFiStoreSource({
     );
     updateOverview({ overview });
     if (allNetworkEmptyAccountsResolvedRef.current) {
-      publishDeFiEvidence({
-        requestSeq,
+      completeDeFiEvidence({
+        handle,
         evidence: {
           kind: 'complete',
           confirmedEmpty: true,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq,
             rowCount: 0,
             source: 'allNetworks',
           }),
@@ -819,18 +813,17 @@ export function useHomeDeFiStoreSource({
         },
       });
     } else if (authorityStatus === 'error') {
-      publishDeFiEvidence({
-        requestSeq,
+      completeDeFiEvidence({
+        handle,
         evidence: { kind: 'error', errorKind: 'source' },
       });
     } else {
-      publishDeFiEvidence({
-        requestSeq,
+      completeDeFiEvidence({
+        handle,
         evidence: {
           kind: 'complete',
           confirmedEmpty: rowIds.length === 0,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq,
             rowCount: rowIds.length,
             source: 'allNetworks',
           }),
@@ -839,13 +832,14 @@ export function useHomeDeFiStoreSource({
         },
       });
     }
+    allNetworkSectionRequestHandleRef.current = undefined;
     allNetworkForceRefreshRef.current = false;
     setIsRefreshing(false);
     setInitialized(true);
   }, [
     buildAllNetworkPayload,
+    completeDeFiEvidence,
     isAllNetworkSourceCurrent,
-    publishDeFiEvidence,
     refreshCacheOnly,
     updateOverview,
   ]);
@@ -1118,14 +1112,13 @@ export function useHomeDeFiStoreSource({
   ]);
 
   useEffect(() => {
-    requestIdRef.current += 1;
-    allNetworkGenerationRef.current = 0;
     const ownerScope =
       accountId && networkId && walletId
         ? `${walletId}:${accountId}:${networkId}`
         : undefined;
     if (renderedOwnerScopeRef.current !== ownerScope) {
       renderedOwnerScopeRef.current = ownerScope;
+      allNetworkSectionRequestHandleRef.current = undefined;
       setProtocols([]);
       setProtocolMap({});
       setInitialized(false);
@@ -1160,12 +1153,17 @@ export function useHomeDeFiStoreSource({
   );
   const applyPositionRefresh = useCallback(
     ({
+      handle,
       payload,
-      requestSeq,
+      sourceIdentityKey,
     }: {
+      handle: IHomeSectionSourceRequestHandle;
       payload: IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed];
-      requestSeq: number;
+      sourceIdentityKey: string;
     }) => {
+      if (deFiSourceIdentityKeyRef.current !== sourceIdentityKey) {
+        return;
+      }
       const ownerMatches =
         accountId &&
         networkId &&
@@ -1173,8 +1171,8 @@ export function useHomeDeFiStoreSource({
           ? account.indexedAccountId === payload.indexedAccountId
           : accountId === payload.accountId);
       if (!ownerMatches) {
-        publishDeFiEvidence({
-          requestSeq,
+        completeDeFiEvidence({
+          handle,
           evidence: { kind: 'error', errorKind: 'source' },
         });
         return;
@@ -1195,8 +1193,8 @@ export function useHomeDeFiStoreSource({
         payload.accountId !== accountId ||
         payload.networkId !== networkId
       ) {
-        publishDeFiEvidence({
-          requestSeq,
+        completeDeFiEvidence({
+          handle,
           evidence: { kind: 'error', errorKind: 'source' },
         });
         return;
@@ -1219,13 +1217,12 @@ export function useHomeDeFiStoreSource({
       });
       const rowIds = getHomeDeFiProtocolRowIds(data);
       updateOverview({ overview });
-      publishDeFiEvidence({
-        requestSeq,
+      completeDeFiEvidence({
+        handle,
         evidence: {
           kind: 'complete',
           confirmedEmpty: rowIds.length === 0,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq,
             rowCount: rowIds.length,
             source: isAllNetworks ? 'allNetworks' : 'singleNetwork',
           }),
@@ -1238,9 +1235,9 @@ export function useHomeDeFiStoreSource({
       account?.indexedAccountId,
       accountId,
       buildDeFiPayload,
+      completeDeFiEvidence,
       isAllNetworks,
       networkId,
-      publishDeFiEvidence,
       updateOverview,
     ],
   );
@@ -1261,10 +1258,15 @@ export function useHomeDeFiStoreSource({
         return;
       }
       lastPositionRefreshFingerprintRef.current = fingerprint;
-      sourceRequestSeqRef.current += 1;
-      const requestSeq = sourceRequestSeqRef.current;
-      publishDeFiEvidence({ requestSeq, evidence: { kind: 'loading' } });
-      applyPositionRefresh({ payload, requestSeq });
+      const handle = beginDeFiEvidenceRequest();
+      if (!handle || !deFiSourceIdentityKey) {
+        return;
+      }
+      applyPositionRefresh({
+        handle,
+        payload,
+        sourceIdentityKey: deFiSourceIdentityKey,
+      });
     };
     const unsubscribeIntent = subscribeHomeDeFiSourceCommand(async (intent) => {
       if (intent.type !== 'positionActionSucceeded') {
@@ -1272,9 +1274,12 @@ export function useHomeDeFiStoreSource({
       }
       const target = `${intent.payload.accountId}:${intent.payload.networkId}`;
       actionRefreshTargetRef.current = target;
-      sourceRequestSeqRef.current += 1;
-      const requestSeq = sourceRequestSeqRef.current;
-      publishDeFiEvidence({ requestSeq, evidence: { kind: 'loading' } });
+      const handle = beginDeFiEvidenceRequest();
+      const requestSourceIdentityKey = deFiSourceIdentityKey;
+      if (!handle || !requestSourceIdentityKey) {
+        actionRefreshTargetRef.current = undefined;
+        return;
+      }
       try {
         const payload =
           await backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
@@ -1283,18 +1288,26 @@ export function useHomeDeFiStoreSource({
         if (payload) {
           lastPositionRefreshFingerprintRef.current =
             stringUtils.stableStringify(payload);
-          applyPositionRefresh({ payload, requestSeq });
-        } else {
-          publishDeFiEvidence({
-            requestSeq,
+          applyPositionRefresh({
+            handle,
+            payload,
+            sourceIdentityKey: requestSourceIdentityKey,
+          });
+        } else if (
+          deFiSourceIdentityKeyRef.current === requestSourceIdentityKey
+        ) {
+          completeDeFiEvidence({
+            handle,
             evidence: { kind: 'error', errorKind: 'source' },
           });
         }
       } catch {
-        publishDeFiEvidence({
-          requestSeq,
-          evidence: { kind: 'error', errorKind: 'source' },
-        });
+        if (deFiSourceIdentityKeyRef.current === requestSourceIdentityKey) {
+          completeDeFiEvidence({
+            handle,
+            evidence: { kind: 'error', errorKind: 'source' },
+          });
+        }
       } finally {
         if (actionRefreshTargetRef.current === target) {
           actionRefreshTargetRef.current = undefined;
@@ -1312,7 +1325,13 @@ export function useHomeDeFiStoreSource({
         onPositionRefreshed,
       );
     };
-  }, [applyPositionRefresh, fullSourceEnabled, publishDeFiEvidence]);
+  }, [
+    applyPositionRefresh,
+    beginDeFiEvidenceRequest,
+    completeDeFiEvidence,
+    deFiSourceIdentityKey,
+    fullSourceEnabled,
+  ]);
 
   const refresh = useCallback(async () => {
     if (refreshCacheOnly) {

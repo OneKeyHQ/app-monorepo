@@ -59,7 +59,7 @@ function projectHomeNavigation({
     navigation: {
       kind: 'ready',
       destinations: presentation.value.destinations,
-      freshness: presentation.freshness,
+      priority: presentation.priority,
       perpsDestination: presentation.value.perpsDestination,
       refresh: presentation.refresh,
       sections: presentation.value.sections,

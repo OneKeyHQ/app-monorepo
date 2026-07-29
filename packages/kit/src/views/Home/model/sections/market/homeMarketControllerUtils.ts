@@ -19,7 +19,7 @@ type IHomeMarketRequestGateway = {
           kind: 'ready';
           rowIds: readonly string[];
           data: IHomeRuntimeJsonValue;
-          freshness: 'live';
+          priority: 1;
           refresh: 'idle';
         },
   ) => void;
@@ -53,7 +53,7 @@ async function runHomeMarketStoreRequest({
             kind: 'ready',
             rowIds: getHomeMarketRowIds(payload),
             data,
-            freshness: 'live',
+            priority: 1,
             refresh: 'idle',
           }
         : { kind: 'empty' },

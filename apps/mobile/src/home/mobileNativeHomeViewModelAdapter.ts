@@ -824,8 +824,7 @@ function buildMarketSections(
     }
     return [];
   }
-  const actionsEnabled =
-    semantic?.kind === 'ready' && semantic.freshness === 'live';
+  const actionsEnabled = semantic?.kind === 'ready' && semantic.priority === 1;
   const selectedCategoryId = payload.resolvedCategoryId;
   const isRecommendation = payload.favoriteMode === 'recommendation';
   const selectedRecommendationIds = new Set(
@@ -1459,8 +1458,7 @@ export function buildMobileNativeHomeViewModelSections({
       const deFiTotal = getDeFiTotal(payloads.defi);
       return [
         ...buildPortfolioAssetSections({
-          actionsEnabled:
-            semantic.kind === 'ready' && semantic.freshness === 'live',
+          actionsEnabled: semantic.kind === 'ready' && semantic.priority === 1,
           allNetworksBadgeImageUrl,
           expanded: resolvedExpanded.portfolioAssets,
           fiatContext,

@@ -50,7 +50,7 @@ import { NativeHomePageView } from '../NativeHomePageView';
 import { EmptyWalletHomePage } from './EmptyWalletHomePage';
 import {
   HomeBackgroundRecoveryRefreshProvider,
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
+  useMarkHomeBackgroundRecoverySurfaceCommitted,
 } from './HomeBackgroundRecoveryRefreshProvider';
 import { HomeLaunchSkeleton } from './HomeLaunchSkeleton';
 import { shouldMountHomeForegroundEffects } from './homeLaunchVisibility';
@@ -244,7 +244,7 @@ export function HomeLaunchGatedContent({
       homeSession.ownerToken && !activeOwnerMatchesHomeSession,
     ),
   });
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
+  useMarkHomeBackgroundRecoverySurfaceCommitted({
     owner: {
       accountId: account?.id,
       networkId: network?.id,

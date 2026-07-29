@@ -43,6 +43,12 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  HOME_DATA_PRIORITY_CACHE,
+  HOME_DATA_PRIORITY_NETWORK,
+  type IHomeDataPriority,
+} from '../../model/core/homeDataPriority';
+
+import {
   type IAllNetworkSnapshotRound,
   type IMergedAllNetworkSnapshot,
   buildMergedAllNetworkSnapshot,
@@ -55,14 +61,14 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
 /**
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
- * (for the per-paint owner guard) and an `origin` discriminator ('cache' floor
- * seed, whose derive-merge hint is read from cached token metadata; vs 'live'
- * raw result, whose derive-merge flag is resolved before building a snapshot).
+ * (for the per-paint owner guard) and its data priority. Cache is the floor;
+ * network results may need their derive-merge flag resolved before snapshot
+ * construction.
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
   ownerAccountId?: string;
   ownerNetworkId?: string;
-  origin: 'cache' | 'live';
+  priority: IHomeDataPriority;
 };
 
 /** Owner key + hideZero inputs the `ingestRound` call reads (written in render). */
@@ -204,9 +210,11 @@ export function useTokenListReactivePipeline(
         new Set(
           rounds
             .filter(
-              (r) => r.origin === 'live' && r.mergeDeriveAssets === undefined,
+              (round) =>
+                round.priority === HOME_DATA_PRIORITY_NETWORK &&
+                round.mergeDeriveAssets === undefined,
             )
-            .map((r) => r.networkId)
+            .map((round) => round.networkId)
             .filter((id): id is string => Boolean(id)),
         ),
       );
@@ -227,13 +235,14 @@ export function useTokenListReactivePipeline(
           }
         }),
       );
-      return rounds.map((r) =>
-        r.mergeDeriveAssets !== undefined || r.origin !== 'live'
-          ? r
+      return rounds.map((round) =>
+        round.mergeDeriveAssets !== undefined ||
+        round.priority !== HOME_DATA_PRIORITY_NETWORK
+          ? round
           : {
-              ...r,
-              mergeDeriveAssets: r.networkId
-                ? liveMergeFlagByNetworkId[r.networkId]
+              ...round,
+              mergeDeriveAssets: round.networkId
+                ? liveMergeFlagByNetworkId[round.networkId]
                 : false,
             },
       );
@@ -386,7 +395,7 @@ export function useTokenListReactivePipeline(
             aggregateTokenMap: item.aggregateTokenMap,
             ownerAccountId,
             ownerNetworkId,
-            origin: 'cache',
+            priority: HOME_DATA_PRIORITY_CACHE,
             mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
           },
           generation,
@@ -427,7 +436,7 @@ export function useTokenListReactivePipeline(
           accountId: result.accountId ?? '',
           networkId: result.networkId ?? '',
         }),
-        { ...result, origin: 'live' },
+        { ...result, priority: HOME_DATA_PRIORITY_NETWORK },
         generation,
       );
       if (progressiveFlushTimerRef.current === null) {

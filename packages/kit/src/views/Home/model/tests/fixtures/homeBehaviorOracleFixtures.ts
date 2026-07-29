@@ -13,13 +13,9 @@ export const REQUIRED_HOME_BEHAVIOR_ORACLE_VECTOR_IDS = [
   'nftError',
   'marketLoading',
   'capabilityChanged',
-  'sameScopeRequestTwoFinishesBeforeOne',
   'producerRestartWithOldResponse',
   'partialPositiveWithExactZeroCache',
   'aggregationRequiredSetChanged',
-  'nativeRevisionGap',
-  'snapshotSlotOwnerMismatch',
-  'staleNativeIntent',
 ] as const;
 
 export type IHomeBehaviorOracleVectorId =
@@ -64,7 +60,6 @@ export type IHomeBehaviorOracleProbe =
   | 'stalePerpsResponse'
   | 'historyEmptyStore'
   | 'capabilityChanged'
-  | 'sameScopeRequestOutOfOrder'
   | 'partialPositiveExactZero'
   | 'aggregationRequiredSetChanged';
 
@@ -175,11 +170,6 @@ const allSurfaces: readonly IHomeBehaviorOracleSurface[] = [
 
 const mobileSurfaces: readonly IHomeBehaviorOracleSurface[] = [
   'mobileReactNative',
-  'iosNative',
-  'androidNative',
-];
-
-const nativeSurfaces: readonly IHomeBehaviorOracleSurface[] = [
   'iosNative',
   'androidNative',
 ];
@@ -923,11 +913,6 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
             'Settled Trending UI is contextual evidence only and does not prove the normalized loading-without-cache input.',
           reference: '.tmp/ui/handoff-ui-market-trending-after-debug.png',
         },
-        {
-          kind: 'test',
-          reference:
-            'packages/native-components/src/HomeContainerController.test.ts :: preserves the selected market category in an atomic tab patch',
-        },
       ],
       productExpectation: {
         status: 'open',
@@ -999,56 +984,6 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'capabilityChanged',
         resolverNames: ['projectHomeCapabilities'],
-      },
-    },
-    {
-      id: 'sameScopeRequestTwoFinishesBeforeOne',
-      surfaces: allSurfaces,
-      runtimeTopologies: allTopologies,
-      normalizedInputs: {
-        owner: {
-          sessionId: 'session-fixture-1',
-          scopeKey: 'scope-fixture-same',
-        },
-        requests: [{ sequence: 1 }, { sequence: 2 }],
-      },
-      eventSequence: [
-        'start request 1',
-        'start request 2',
-        'finish request 2',
-        'finish request 1',
-      ],
-      observed: {
-        legacy: {
-          status: 'notObserved',
-          provenance: 'codeInspection',
-          summary: 'No UI injection run captured this exact ordering.',
-        },
-        native: {
-          status: 'observed',
-          provenance: 'executableTest',
-          summary:
-            'The current portfolio request gate accepts generation 2 and rejects generation 1.',
-        },
-      },
-      classification: 'openDecision',
-      evidence: [
-        {
-          kind: 'test',
-          platform: 'iosNative',
-          reference:
-            'packages/kit/src/views/Home/nativeHomePortfolioRequestLifecycle.test.ts :: advances a monotonic owner epoch when the render scope changes',
-        },
-      ],
-      productExpectation: {
-        status: 'defined',
-        summary:
-          'Only the latest request sequence for the active source/session may commit.',
-      },
-      verification: {
-        kind: 'executable',
-        probe: 'sameScopeRequestOutOfOrder',
-        resolverNames: ['isNativeHomePortfolioRequestCurrent'],
       },
     },
     {
@@ -1213,227 +1148,6 @@ const rawHomeBehaviorOracleFixtures: readonly IRawHomeBehaviorOracleFixture[] =
         kind: 'executable',
         probe: 'aggregationRequiredSetChanged',
         resolverNames: ['resolveHomeLegacyBalanceAmountPresentation'],
-      },
-    },
-    {
-      id: 'nativeRevisionGap',
-      surfaces: nativeSurfaces,
-      runtimeTopologies: splitTopology,
-      normalizedInputs: {
-        owner: {
-          sessionId: 'session-fixture-native',
-          scopeKey: 'scope-fixture-native',
-        },
-        native: {
-          currentRevision: 4,
-          incomingBaseRevision: 5,
-          incomingRevision: 6,
-        },
-      },
-      eventSequence: [
-        'apply revision 4',
-        'lose revision 5',
-        'receive revision 6 patch',
-      ],
-      observed: {
-        legacy: {
-          status: 'notObserved',
-          provenance: 'codeInspection',
-          summary:
-            'The React renderer does not consume the Native DTO patch protocol.',
-        },
-        native: {
-          status: 'observed',
-          provenance: 'codeInspection',
-          summary:
-            'Protocol v1 has revision but no baseRevision/resync identity for a gap.',
-        },
-      },
-      classification: 'defect',
-      evidence: [
-        {
-          kind: 'code',
-          platform: 'shared',
-          reference:
-            'packages/native-components/src/HomeContainer.types.ts :: IHomeContainerSnapshot and IHomeContainerPatch expose revision but no baseRevision or resync identity',
-        },
-        {
-          kind: 'code',
-          platform: 'iosNative',
-          reference:
-            'packages/native-components/ios/HomeContainerView.swift :: applySnapshot/applyPatch reject only lower revisions and do not detect a missing intermediate revision',
-        },
-        {
-          kind: 'code',
-          platform: 'androidNative',
-          reference:
-            'packages/native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt :: applySnapshot/applyPatch accept any non-decreasing revision without a gap check',
-        },
-        {
-          kind: 'test',
-          reference:
-            'packages/native-components/src/HomeContainerController.test.ts :: coalesces same-turn tab updates into one patch',
-        },
-      ],
-      productExpectation: {
-        status: 'defined',
-        summary:
-          'Reject a revision gap and request one validated full snapshot.',
-      },
-      verification: {
-        kind: 'observationOnly',
-        reason:
-          'No exported pure protocol-v2 patch acceptance resolver exists yet.',
-      },
-    },
-    {
-      id: 'snapshotSlotOwnerMismatch',
-      surfaces: nativeSurfaces,
-      runtimeTopologies: splitTopology,
-      normalizedInputs: {
-        snapshotOwner: {
-          sessionId: 'session-fixture-b',
-          scopeKey: 'scope-fixture-b',
-        },
-        slotOwner: {
-          sessionId: 'session-fixture-a',
-          scopeKey: 'scope-fixture-a',
-        },
-      },
-      eventSequence: [
-        'replace snapshot with owner B',
-        'receive or retain owner A slot content',
-      ],
-      observed: {
-        legacy: {
-          status: 'notObserved',
-          provenance: 'codeInspection',
-          summary:
-            'Legacy React does not use the separate Native snapshot and RN slot channels.',
-        },
-        native: {
-          status: 'observed',
-          provenance: 'codeInspection',
-          summary:
-            'Current slot lifecycle stabilizes rows, but the public slot bundle has no owner identity.',
-        },
-      },
-      classification: 'defect',
-      evidence: [
-        {
-          kind: 'code',
-          platform: 'shared',
-          reference:
-            'packages/native-components/src/HomeContainer.types.ts :: IHomeContainerSlots carries keyed content, height, and interaction but no owner, session, or scope identity',
-        },
-        {
-          kind: 'code',
-          platform: 'shared',
-          reference:
-            'packages/native-components/src/HomeContainer.native.tsx :: slotViews materializes slot hosts solely from slot keys without validating them against a snapshot owner',
-        },
-        {
-          kind: 'code',
-          platform: 'iosNative',
-          reference:
-            'packages/native-components/ios/HomeContainerView.swift :: slotHostView(forKey:) and mountedSlotKeys bind Native slot hosts by key without an owner identity',
-        },
-        {
-          kind: 'test',
-          reference:
-            'packages/kit/src/views/Home/nativeHomeSlotLifecycle.test.ts :: keeps loading and empty on the same diffable row and slot-host cell',
-        },
-        {
-          kind: 'test',
-          reference:
-            'packages/native-components/src/HomeContainerBackground.test.ts :: keeps the snapshot authoritative over a fallback slot color',
-        },
-      ],
-      productExpectation: {
-        status: 'defined',
-        summary:
-          'Reject owner-mismatched slot content and render the current owner placeholder or resync.',
-      },
-      verification: {
-        kind: 'observationOnly',
-        reason:
-          'No exported pure resolver currently validates snapshot and slot owner identity.',
-      },
-    },
-    {
-      id: 'staleNativeIntent',
-      surfaces: nativeSurfaces,
-      runtimeTopologies: splitTopology,
-      normalizedInputs: {
-        renderedOwner: {
-          sessionId: 'session-fixture-a',
-          scopeKey: 'scope-fixture-a',
-        },
-        currentOwner: {
-          sessionId: 'session-fixture-b',
-          scopeKey: 'scope-fixture-b',
-        },
-        intent: { commandId: 'command-fixture-send', renderedRevision: 8 },
-      },
-      eventSequence: [
-        'render owner A command',
-        'activate owner B',
-        'deliver the owner A tap callback',
-      ],
-      observed: {
-        legacy: {
-          status: 'notObserved',
-          provenance: 'codeInspection',
-          summary:
-            'Legacy callbacks are not transported through the Native intent envelope.',
-        },
-        native: {
-          status: 'observed',
-          provenance: 'codeInspection',
-          summary:
-            'Current callbacks do not carry owner and rendered revision for dispatcher validation.',
-        },
-      },
-      classification: 'defect',
-      evidence: [
-        {
-          kind: 'code',
-          platform: 'shared',
-          reference:
-            'packages/native-components/src/HomeContainer.types.ts :: IHomeContainerProps.onAction carries only actionId, itemId, and tabId, with no owner or rendered revision',
-        },
-        {
-          kind: 'code',
-          platform: 'shared',
-          reference:
-            'packages/native-components/src/HomeContainer.native.tsx :: stableOnAction forwards the three callback strings without stale-owner or rendered-revision validation',
-        },
-        {
-          kind: 'code',
-          platform: 'iosNative',
-          reference:
-            'packages/native-components/ios/HomeContainerView.swift :: Native action handlers emit actionId, itemId, and selectedTabId without owner or rendered revision',
-        },
-        {
-          kind: 'code',
-          platform: 'androidNative',
-          reference:
-            'packages/native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt :: onAction emits three strings and performs no stale intent identity check',
-        },
-        {
-          kind: 'test',
-          reference:
-            'packages/native-components/src/HomeContainerController.test.ts :: records native paging without issuing a second native command',
-        },
-      ],
-      productExpectation: {
-        status: 'defined',
-        summary:
-          'Reject an intent whose owner, capability, command registration, or sensitive revision is stale.',
-      },
-      verification: {
-        kind: 'observationOnly',
-        reason: 'No exported pure stale-intent dispatcher contract exists yet.',
       },
     },
   ];

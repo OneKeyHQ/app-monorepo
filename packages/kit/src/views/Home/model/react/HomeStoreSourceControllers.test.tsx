@@ -11,12 +11,10 @@ let mockHomeRuntime: {
   topology: 'split';
   connection: 'ready' | 'waiting';
   producerInstanceId?: string;
-  protocolVersion: number;
 } = {
   topology: 'split' as const,
   connection: 'ready' as const,
   producerInstanceId: 'producer-a',
-  protocolVersion: 1,
 };
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/home', () => ({
@@ -168,7 +166,6 @@ describe('HomeStoreSourceControllers', () => {
       topology: 'split',
       connection: 'ready',
       producerInstanceId: 'producer-a',
-      protocolVersion: 1,
     };
   });
 
@@ -261,7 +258,6 @@ describe('HomeStoreSourceControllers', () => {
       topology: 'split',
       connection: 'waiting',
       producerInstanceId: undefined,
-      protocolVersion: 0,
     };
     let view!: ReactTestRenderer;
     const render = () => <HomeStoreSourceControllers enableWalletSources />;
@@ -286,7 +282,6 @@ describe('HomeStoreSourceControllers', () => {
       topology: 'split',
       connection: 'ready',
       producerInstanceId: 'producer-after-handshake',
-      protocolVersion: 1,
     };
     await act(async () => {
       view.update(render());
@@ -310,7 +305,6 @@ describe('HomeStoreSourceControllers', () => {
       topology: 'split',
       connection: 'waiting',
       producerInstanceId: undefined,
-      protocolVersion: 0,
     };
     act(() => view.update(render()));
 

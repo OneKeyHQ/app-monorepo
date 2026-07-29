@@ -1,5 +1,4 @@
 import type { IHomeRuntimeHandshake } from '@onekeyhq/shared/src/types/homeRuntime';
-import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { createHomeAuthorityId } from '../core/homeIdentity';
 
@@ -31,7 +30,6 @@ export class SingleRuntimeHomeAdapter extends HomeRuntimeAdapterBase {
 
   private getHandshake(): IHomeRuntimeHandshake {
     return {
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: this.producerInstanceId,
     };
   }

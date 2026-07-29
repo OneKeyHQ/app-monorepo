@@ -122,7 +122,6 @@ describe('home DeFi section authority', () => {
       kind: 'complete' as const,
       confirmedEmpty: false,
       coverageFingerprint: buildHomeDeFiCoverage({
-        requestSeq: 1,
         rowCount: rowIds.length,
         source: 'singleNetwork',
       }),
@@ -134,18 +133,16 @@ describe('home DeFi section authority', () => {
       projectHomeDeFiSectionSource({
         authorityReady: false,
         scopeMatches: true,
-        requestSeq: 1,
         evidence,
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 1 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomeDeFiSectionSource({
         authorityReady: true,
         scopeMatches: false,
-        requestSeq: 2,
         evidence,
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 2 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('requires authoritative payload rows for ready and preserves exact row ids', () => {
@@ -157,12 +154,10 @@ describe('home DeFi section authority', () => {
       projectHomeDeFiSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 3,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq: 3,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -172,9 +167,7 @@ describe('home DeFi section authority', () => {
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 3,
       coverageFingerprint: buildHomeDeFiCoverage({
-        requestSeq: 3,
         rowCount: rowIds.length,
         source: 'singleNetwork',
       }),
@@ -184,12 +177,10 @@ describe('home DeFi section authority', () => {
       projectHomeDeFiSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 4,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq: 4,
             rowCount: 0,
             source: 'singleNetwork',
           }),
@@ -197,7 +188,7 @@ describe('home DeFi section authority', () => {
           rowIds: [],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 4 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('maps confirmed empty only from terminal empty evidence', () => {
@@ -205,12 +196,10 @@ describe('home DeFi section authority', () => {
       projectHomeDeFiSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 5,
         evidence: {
           kind: 'complete',
           confirmedEmpty: true,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq: 5,
             rowCount: 0,
             source: 'allNetworks',
           }),
@@ -220,9 +209,7 @@ describe('home DeFi section authority', () => {
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 5,
       coverageFingerprint: buildHomeDeFiCoverage({
-        requestSeq: 5,
         rowCount: 0,
         source: 'allNetworks',
       }),
@@ -230,7 +217,7 @@ describe('home DeFi section authority', () => {
     });
   });
 
-  it('keeps cached DeFi rows through loading partial and error refresh states', () => {
+  it('keeps network DeFi rows through refresh states', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomeDeFiLegacyPayload>(
       identity,
@@ -243,9 +230,7 @@ describe('home DeFi section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 1,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq: 1,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -257,16 +242,16 @@ describe('home DeFi section authority', () => {
       coordinator.dispatch(
         adaptHomeDeFiSourceSnapshot({
           identity,
-          snapshot: { kind: 'loading', requestSeq: 2 },
+          snapshot: { kind: 'loading' },
         }),
       ),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
-      authoritative: { kind: 'confirmedCache', data: live },
+      authoritative: { kind: 'live', data: live },
     });
     expect(
       coordinator.dispatch(
@@ -274,8 +259,7 @@ describe('home DeFi section authority', () => {
           identity,
           snapshot: {
             kind: 'partial',
-            requestSeq: 3,
-            coverageFingerprint: 'defi:singleNetwork:3:partial',
+            coverageFingerprint: 'defi:singleNetwork:partial',
             data: live,
           },
         }),
@@ -283,7 +267,7 @@ describe('home DeFi section authority', () => {
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
     });
@@ -293,7 +277,6 @@ describe('home DeFi section authority', () => {
           identity,
           snapshot: {
             kind: 'error',
-            requestSeq: 4,
             errorKind: 'transport',
           },
         }),
@@ -301,14 +284,14 @@ describe('home DeFi section authority', () => {
     ).toMatchObject({
       semantic: {
         kind: 'ready',
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'failed',
       },
-      authoritative: { kind: 'confirmedCache', data: live },
+      authoritative: { kind: 'live', data: live },
     });
   });
 
-  it('rejects stale owner and request responses without cross-owner contamination', () => {
+  it('accepts later same-source responses but rejects a different owner', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomeDeFiLegacyPayload>(
       identity,
@@ -321,9 +304,7 @@ describe('home DeFi section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 2,
           coverageFingerprint: buildHomeDeFiCoverage({
-            requestSeq: 2,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -337,12 +318,14 @@ describe('home DeFi section authority', () => {
           identity,
           snapshot: {
             kind: 'error',
-            requestSeq: 1,
             errorKind: 'transport',
           },
         }),
       ),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
+    ).toMatchObject({
+      accepted: true,
+      semantic: { kind: 'ready', priority: 1, refresh: 'failed' },
+    });
 
     const changedOwnerIdentity = createHomeDeFiSourceIdentity({
       owner: { scopeKey: 'account:account-b', sessionId: 'session-b' },
@@ -355,9 +338,7 @@ describe('home DeFi section authority', () => {
           identity: changedOwnerIdentity,
           snapshot: {
             kind: 'complete',
-            requestSeq: 3,
             coverageFingerprint: buildHomeDeFiCoverage({
-              requestSeq: 3,
               rowCount: 1,
               source: 'singleNetwork',
             }),

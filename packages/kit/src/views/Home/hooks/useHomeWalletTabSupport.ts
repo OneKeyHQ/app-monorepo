@@ -269,7 +269,7 @@ export function useHomeWalletTabSupport({
         nft: isNFTEnabled,
         perps: perpConfigLoaded ? !perpDisabled : 'unknown',
       },
-      sourceRevision: 'capability-v1',
+      sourceRevision: 'capability',
       sourceScopeKey: capabilityReady ? scopeKey : undefined,
     });
   }, [

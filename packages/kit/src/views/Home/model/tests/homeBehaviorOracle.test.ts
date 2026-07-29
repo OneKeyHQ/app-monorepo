@@ -1,4 +1,3 @@
-import { isNativeHomePortfolioRequestCurrent } from '../../nativeHomePortfolioRequestLifecycle';
 import { resolveHomeWalletPageSurface } from '../../pages/homeWalletPageSurface';
 import {
   type IPerpsHomePortfolioResult,
@@ -108,7 +107,6 @@ function createCapabilityFacts(
     runtime: {
       topology: 'single',
       connection: 'ready',
-      protocolVersion: 1,
     },
     capabilityInputs,
     sources: createIdleHomeSourceFacts(),
@@ -397,24 +395,6 @@ function runExecutableProbe(probe: IHomeBehaviorOracleProbe) {
       });
       return;
     }
-    case 'sameScopeRequestOutOfOrder': {
-      const owner = { epoch: 3, scopeKey: 'scope-fixture-same' };
-      expect(
-        isNativeHomePortfolioRequestCurrent({
-          currentGeneration: 2,
-          currentOwner: owner,
-          request: { ...owner, generation: 2 },
-        }),
-      ).toBe(true);
-      expect(
-        isNativeHomePortfolioRequestCurrent({
-          currentGeneration: 2,
-          currentOwner: owner,
-          request: { ...owner, generation: 1 },
-        }),
-      ).toBe(false);
-      return;
-    }
     case 'partialPositiveExactZero': {
       const state = resolveHomeLegacyBalanceState({
         currentScopeKey: scopeB,
@@ -693,7 +673,6 @@ describe('Home behavior oracle fixture contract', () => {
       'staleDefiResponse',
       'historyEmpty',
       'capabilityChanged',
-      'sameScopeRequestTwoFinishesBeforeOne',
     ] as const) {
       expect(byId.get(id)?.classification).toBe('openDecision');
     }
@@ -830,9 +809,6 @@ describe('Home behavior oracle executable observations', () => {
       'nftError',
       'marketLoading',
       'producerRestartWithOldResponse',
-      'nativeRevisionGap',
-      'snapshotSlotOwnerMismatch',
-      'staleNativeIntent',
     ]);
   });
 });

@@ -50,32 +50,22 @@ namespace margelo::nitro::onekeynativecomponents {
 
   public:
     // Properties
-    std::string getInitialSnapshotJson() override;
-    void setInitialSnapshotJson(const std::string& initialSnapshotJson) override;
+    std::string getInitialStateJson() override;
+    void setInitialStateJson(const std::string& initialStateJson) override;
     std::string getBackgroundColor() override;
     void setBackgroundColor(const std::string& backgroundColor) override;
     bool getDebugOverlayEnabled() override;
     void setDebugOverlayEnabled(bool debugOverlayEnabled) override;
-    std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>> getOnAction() override;
-    void setOnAction(const std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>& onAction) override;
-    std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>> getOnRefresh() override;
-    void setOnRefresh(const std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>& onRefresh) override;
-    std::optional<std::function<void(const std::string& /* tabId */)>> getOnVisibleTabChange() override;
-    void setOnVisibleTabChange(const std::optional<std::function<void(const std::string& /* tabId */)>>& onVisibleTabChange) override;
     std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>> getOnRenderError() override;
     void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) override;
     std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() override;
     void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) override;
-    std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() override;
-    void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) override;
 
   public:
     // Methods
-    void setSnapshot(const std::string& snapshotJson) override;
-    void applyPatch(const std::string& patchJson) override;
+    void setState(const std::string& stateJson) override;
     void completeRefresh(const std::string& requestId) override;
     void selectTab(const std::string& tabId, bool animated) override;
-    std::string getCapabilities() override;
 
   private:
     friend HybridBase;

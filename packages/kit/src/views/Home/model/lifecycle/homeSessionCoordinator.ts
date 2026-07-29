@@ -31,8 +31,6 @@ export class HomeSessionCoordinator {
 
   private revision = 0;
 
-  private handshakeRequestSequence = 0;
-
   private readonly listeners = new Set<() => void>();
 
   constructor({
@@ -114,34 +112,23 @@ export class HomeSessionCoordinator {
     request: () => Promise<IHomeRuntimeHandshake>,
   ): Promise<void> {
     const session = this.session;
-    const requestSequence = this.handshakeRequestSequence + 1;
-    this.handshakeRequestSequence = requestSequence;
     if (!session) {
       return;
     }
     for (let attempt = 0; attempt <= this.retryDelaysMs.length; attempt += 1) {
-      if (
-        session !== this.session ||
-        requestSequence !== this.handshakeRequestSequence
-      ) {
+      if (session !== this.session) {
         return;
       }
       try {
         const handshake = await request();
-        if (
-          session !== this.session ||
-          requestSequence !== this.handshakeRequestSequence
-        ) {
+        if (session !== this.session) {
           return;
         }
         session.applyHandshake(handshake);
         this.bumpRevision();
         return;
       } catch (_error) {
-        if (
-          session !== this.session ||
-          requestSequence !== this.handshakeRequestSequence
-        ) {
+        if (session !== this.session) {
           return;
         }
         const retryDelayMs = this.retryDelaysMs[attempt];
@@ -150,10 +137,7 @@ export class HomeSessionCoordinator {
         }
       }
     }
-    if (
-      session === this.session &&
-      requestSequence === this.handshakeRequestSequence
-    ) {
+    if (session === this.session && session.getSnapshot().status !== 'active') {
       session.markDegraded();
       this.bumpRevision();
     }

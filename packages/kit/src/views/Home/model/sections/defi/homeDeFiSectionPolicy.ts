@@ -35,41 +35,37 @@ type IHomeDeFiEvidence =
 function projectHomeDeFiSectionSource({
   authorityReady,
   evidence,
-  requestSeq,
   scopeMatches,
 }: {
   authorityReady: boolean;
   evidence: IHomeDeFiEvidence;
-  requestSeq: number;
   scopeMatches: boolean;
 }): IHomeDeFiSourceSnapshot {
   if (!authorityReady || !scopeMatches) {
-    return { kind: 'loading', requestSeq };
+    return { kind: 'loading' };
   }
   switch (evidence.kind) {
     case 'loading':
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
     case 'confirmedCache':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'partial':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'error':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'complete':
       if (evidence.confirmedEmpty) {
         return {
           kind: 'complete',
-          requestSeq,
           coverageFingerprint: evidence.coverageFingerprint,
           result: { kind: 'empty' },
         };
       }
       if (!evidence.data || evidence.rowIds.length === 0) {
-        return { kind: 'loading', requestSeq };
+        return { kind: 'loading' };
       }
       return {
         kind: 'complete',
-        requestSeq,
         coverageFingerprint: evidence.coverageFingerprint,
         result: {
           kind: 'success',
@@ -78,20 +74,18 @@ function projectHomeDeFiSectionSource({
         },
       };
     default:
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
   }
 }
 
 function buildHomeDeFiCoverage({
-  requestSeq,
   rowCount,
   source,
 }: {
-  requestSeq: number;
   rowCount: number;
   source: 'allNetworks' | 'singleNetwork';
 }): string {
-  return `defi:${source}:${requestSeq}:rows:${rowCount}:complete`;
+  return `defi:${source}:rows:${rowCount}:complete`;
 }
 
 export { buildHomeDeFiCoverage, projectHomeDeFiSectionSource };

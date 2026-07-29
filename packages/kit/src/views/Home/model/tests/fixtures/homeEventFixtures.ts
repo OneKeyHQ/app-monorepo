@@ -54,24 +54,6 @@ export const phase0HomeEventScenarios: Readonly<
       runtime: {
         topology: 'split',
         connection: 'waiting',
-        protocolVersion: 0,
-      },
-    },
-  ],
-  nativeRevisionGap: [
-    {
-      type: 'ownerChanged',
-      owner: phase0HomeOwner,
-      ownerToken: phase0HomeOwnerToken,
-      topology: 'split',
-    },
-    {
-      type: 'runtimeChanged',
-      runtime: {
-        topology: 'split',
-        connection: 'ready',
-        producerInstanceId: 'phase0-producer-a',
-        protocolVersion: 3,
       },
     },
   ],
@@ -116,15 +98,6 @@ export const phase0HomeEventScenarios: Readonly<
   ],
 };
 
-export const phase0NativeRevisionGapOracle = {
-  initialTransportRevision: 1,
-  receivedBaseTransportRevision: 2,
-  receivedTransportRevision: 3,
-  expected: { kind: 'needSnapshot', reason: 'revisionGap' },
-  contractTest:
-    'packages/native-components/src/HomeContainerProtocolV3.test.ts',
-} as const;
-
 export const phase0HomeFailureBaseline = {
   capturedAt: '2026-07-21T18:41:25+08:00',
   captureKind: 'userSupplied' as const,
@@ -157,7 +130,5 @@ export const phase0HomeFailureBaseline = {
     rapidTabAcceptedCount: 5,
     rapidTabRejectedCount: 0,
     ownerReplacementEventCount: 2,
-    nativeRevisionGapEventCount: 2,
-    expectedNativeResyncCount: 1,
   },
 } as const;

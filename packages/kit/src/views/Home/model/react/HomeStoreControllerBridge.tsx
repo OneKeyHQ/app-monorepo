@@ -12,7 +12,7 @@ import type {
 import {
   type IPreparedHomeDisplaySnapshot,
   loadPreparedHomeDisplaySnapshot,
-} from '../cacheV2/loadPreparedHomeDisplaySnapshot';
+} from '../cache/loadPreparedHomeDisplaySnapshot';
 import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
 import { adaptCurrentHomeFacts } from '../facts/currentHomeFactsAdapter';
 import { HomeSessionCoordinator } from '../lifecycle/homeSessionCoordinator';
@@ -123,7 +123,6 @@ export function HomeStoreControllerBridge() {
           topology: session.topology,
           connection,
           producerInstanceId: session.producerInstanceId,
-          protocolVersion: session.status === 'active' ? 1 : 0,
         },
       } as const;
       const facts =

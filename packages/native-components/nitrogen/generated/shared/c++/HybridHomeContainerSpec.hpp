@@ -46,32 +46,22 @@ namespace margelo::nitro::onekeynativecomponents {
 
     public:
       // Properties
-      virtual std::string getInitialSnapshotJson() = 0;
-      virtual void setInitialSnapshotJson(const std::string& initialSnapshotJson) = 0;
+      virtual std::string getInitialStateJson() = 0;
+      virtual void setInitialStateJson(const std::string& initialStateJson) = 0;
       virtual std::string getBackgroundColor() = 0;
       virtual void setBackgroundColor(const std::string& backgroundColor) = 0;
       virtual bool getDebugOverlayEnabled() = 0;
       virtual void setDebugOverlayEnabled(bool debugOverlayEnabled) = 0;
-      virtual std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>> getOnAction() = 0;
-      virtual void setOnAction(const std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>& onAction) = 0;
-      virtual std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>> getOnRefresh() = 0;
-      virtual void setOnRefresh(const std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>& onRefresh) = 0;
-      virtual std::optional<std::function<void(const std::string& /* tabId */)>> getOnVisibleTabChange() = 0;
-      virtual void setOnVisibleTabChange(const std::optional<std::function<void(const std::string& /* tabId */)>>& onVisibleTabChange) = 0;
       virtual std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>> getOnRenderError() = 0;
       virtual void setOnRenderError(const std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>& onRenderError) = 0;
       virtual std::optional<std::function<void(const std::string& /* intentJson */)>> getOnIntent() = 0;
       virtual void setOnIntent(const std::optional<std::function<void(const std::string& /* intentJson */)>>& onIntent) = 0;
-      virtual std::optional<std::function<void(const std::string& /* resultJson */)>> getOnTransportResult() = 0;
-      virtual void setOnTransportResult(const std::optional<std::function<void(const std::string& /* resultJson */)>>& onTransportResult) = 0;
 
     public:
       // Methods
-      virtual void setSnapshot(const std::string& snapshotJson) = 0;
-      virtual void applyPatch(const std::string& patchJson) = 0;
+      virtual void setState(const std::string& stateJson) = 0;
       virtual void completeRefresh(const std::string& requestId) = 0;
       virtual void selectTab(const std::string& tabId, bool animated) = 0;
-      virtual std::string getCapabilities() = 0;
 
     protected:
       // Hybrid Setup

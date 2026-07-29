@@ -39,7 +39,7 @@ function projectHomeCapabilityAuthority({
         value,
       },
       presentation: {
-        freshness: 'live',
+        priority: 1,
         kind: 'ready',
         refresh: 'idle',
         value,
@@ -49,7 +49,7 @@ function projectHomeCapabilityAuthority({
   if (confirmed) {
     return {
       presentation: {
-        freshness: 'confirmedCache',
+        priority: 0,
         kind: 'ready',
         refresh: facts.resource.kind === 'error' ? 'failed' : 'refreshing',
         value: confirmed.value,
@@ -108,7 +108,7 @@ export function projectHomeCapabilities({
       destinations: Object.fromEntries(
         tabs.map((tabId) => [tabId, 'inline'] as const),
       ),
-      freshness: 'live',
+      priority: 1,
       perpsDestination: enabled('perps') ? 'inline' : 'unavailable',
       refresh: 'idle',
       sections: {

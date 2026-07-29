@@ -46,7 +46,7 @@ abstract class HybridHomeContainerSpec: HybridView() {
   @get:Keep
   @set:DoNotStrip
   @set:Keep
-  abstract var initialSnapshotJson: String
+  abstract var initialStateJson: String
 
   @get:DoNotStrip
   @get:Keep
@@ -59,48 +59,6 @@ abstract class HybridHomeContainerSpec: HybridView() {
   @set:DoNotStrip
   @set:Keep
   abstract var debugOverlayEnabled: Boolean
-
-  abstract var onAction: ((actionId: String, itemId: String, tabId: String) -> Unit)?
-
-  private var onAction_cxx: Func_void_std__string_std__string_std__string?
-    @Keep
-    @DoNotStrip
-    get() {
-      return onAction?.let { Func_void_std__string_std__string_std__string_java(it) }
-    }
-    @Keep
-    @DoNotStrip
-    set(value) {
-      onAction = value?.let { it }
-    }
-
-  abstract var onRefresh: ((tabId: String, requestId: String) -> Unit)?
-
-  private var onRefresh_cxx: Func_void_std__string_std__string?
-    @Keep
-    @DoNotStrip
-    get() {
-      return onRefresh?.let { Func_void_std__string_std__string_java(it) }
-    }
-    @Keep
-    @DoNotStrip
-    set(value) {
-      onRefresh = value?.let { it }
-    }
-
-  abstract var onVisibleTabChange: ((tabId: String) -> Unit)?
-
-  private var onVisibleTabChange_cxx: Func_void_std__string?
-    @Keep
-    @DoNotStrip
-    get() {
-      return onVisibleTabChange?.let { Func_void_std__string_java(it) }
-    }
-    @Keep
-    @DoNotStrip
-    set(value) {
-      onVisibleTabChange = value?.let { it }
-    }
 
   abstract var onRenderError: ((code: String, message: String) -> Unit)?
 
@@ -130,28 +88,10 @@ abstract class HybridHomeContainerSpec: HybridView() {
       onIntent = value?.let { it }
     }
 
-  abstract var onTransportResult: ((resultJson: String) -> Unit)?
-
-  private var onTransportResult_cxx: Func_void_std__string?
-    @Keep
-    @DoNotStrip
-    get() {
-      return onTransportResult?.let { Func_void_std__string_java(it) }
-    }
-    @Keep
-    @DoNotStrip
-    set(value) {
-      onTransportResult = value?.let { it }
-    }
-
   // Methods
   @DoNotStrip
   @Keep
-  abstract fun setSnapshot(snapshotJson: String): Unit
-
-  @DoNotStrip
-  @Keep
-  abstract fun applyPatch(patchJson: String): Unit
+  abstract fun setState(stateJson: String): Unit
 
   @DoNotStrip
   @Keep
@@ -160,10 +100,6 @@ abstract class HybridHomeContainerSpec: HybridView() {
   @DoNotStrip
   @Keep
   abstract fun selectTab(tabId: String, animated: Boolean): Unit
-
-  @DoNotStrip
-  @Keep
-  abstract fun getCapabilities(): String
 
   private external fun initHybrid(): HybridData
 

@@ -1,5 +1,3 @@
-export const HOME_RUNTIME_PROTOCOL_VERSION = 1 as const;
-
 export type IHomeRuntimeTopology = 'single' | 'split';
 
 export type IHomeRuntimeSourceId =
@@ -47,16 +45,13 @@ export interface IHomeRuntimeSourceKey {
 }
 
 export interface IHomeRuntimeRequestToken {
-  protocolVersion: typeof HOME_RUNTIME_PROTOCOL_VERSION;
   clientInstanceId: string;
   producerInstanceId: string;
   sessionId: string;
   sourceKey: IHomeRuntimeSourceKey;
-  requestSeq: number;
 }
 
 export interface IHomeRuntimeHandshake {
-  protocolVersion: typeof HOME_RUNTIME_PROTOCOL_VERSION;
   producerInstanceId: string;
 }
 
@@ -64,6 +59,7 @@ export type IHomeRuntimeSourceResult<T extends IHomeRuntimeJsonValue> =
   | { kind: 'partial'; data: T; coverageFingerprint: string }
   | { kind: 'success'; data: T; coverageFingerprint: string }
   | { kind: 'empty'; coverageFingerprint: string }
+  | { kind: 'hidden'; reason: 'notApplicable' | 'capabilityNotReady' }
   | {
       kind: 'error';
       errorKind:
@@ -115,7 +111,6 @@ export function isHomeRuntimeHandshake(
     return false;
   }
   return (
-    value.protocolVersion === HOME_RUNTIME_PROTOCOL_VERSION &&
     typeof value.producerInstanceId === 'string' &&
     value.producerInstanceId.length > 0
   );
@@ -162,16 +157,13 @@ export function isHomeRuntimeRequestToken(
     return false;
   }
   return (
-    value.protocolVersion === HOME_RUNTIME_PROTOCOL_VERSION &&
     typeof value.clientInstanceId === 'string' &&
     value.clientInstanceId.length > 0 &&
     typeof value.producerInstanceId === 'string' &&
     value.producerInstanceId.length > 0 &&
     typeof value.sessionId === 'string' &&
     value.sessionId.length > 0 &&
-    isHomeRuntimeSourceKey(value.sourceKey) &&
-    Number.isSafeInteger(value.requestSeq) &&
-    Number(value.requestSeq) > 0
+    isHomeRuntimeSourceKey(value.sourceKey)
   );
 }
 
@@ -192,6 +184,12 @@ export function isHomeRuntimeResponseEnvelope(
       'schemaMismatch',
       'runtimeUnavailable',
     ].includes(String(result.errorKind));
+  }
+  if (result.kind === 'hidden') {
+    return (
+      result.reason === 'notApplicable' ||
+      result.reason === 'capabilityNotReady'
+    );
   }
   if (
     typeof result.coverageFingerprint !== 'string' ||

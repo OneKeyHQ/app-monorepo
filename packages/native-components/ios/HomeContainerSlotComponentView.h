@@ -7,8 +7,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, readonly) NSString *slotKey;
 @property(nonatomic, copy, readonly) NSString *ownerScopeKey;
 @property(nonatomic, copy, readonly) NSString *ownerSessionId;
-@property(nonatomic, readonly) double slotRevision;
-@property(nonatomic, readonly) double producedByStoreCommitId;
 
 @end
 

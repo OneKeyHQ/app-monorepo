@@ -1,11 +1,18 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  type IHomeRuntimeJsonValue,
-  isHomeRuntimeJsonValue,
-} from '@onekeyhq/shared/src/types/homeRuntime';
+import { type IHomeRuntimeJsonValue } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { aggregateHomeBalanceFacts } from '../balance/homeBalanceAggregation';
+import {
+  HOME_DATA_PRIORITY_CACHE,
+  HOME_DATA_PRIORITY_NETWORK,
+  type IHomeDataPriority,
+  isHomeDataPriority,
+} from '../core/homeDataPriority';
+import {
+  areHomeSourceKeysEqual,
+  getHomeSourceKeyIdentity,
+} from '../core/homeIdentity';
 import { projectHomeNavigation } from '../navigation/homeNavigationProjector';
 import { projectHomeBalanceAuthority } from '../policies/homeBalanceAuthorityPolicy';
 import { projectHomeDisplayModel } from '../policies/homeDisplayModelPolicy';
@@ -183,48 +190,61 @@ function sectionCommandSignature(value: IHomeSectionSemanticModel): unknown {
     : { kind: value.kind };
 }
 
-function serializeSectionForResource(
-  value: IHomeSectionSemanticModel,
-  data?: IHomeRuntimeJsonValue,
-):
-  | IHomeStoreResourceSlot<
-      IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
-        infer TPayload
-      >
-        ? TPayload
-        : never
-    >
+function readSectionPayloadMetadata(payload: IHomeRuntimeJsonValue):
+  | {
+      priority: IHomeDataPriority;
+      refresh: 'failed' | 'idle' | 'refreshing';
+    }
   | undefined {
-  if (value.kind === 'empty') {
-    return {
-      kind: 'empty',
-      coverageFingerprint: stringUtils.stableStringify(value),
-      freshness: 'live',
-      refresh: 'idle',
-    };
-  }
-  if (value.kind !== 'ready') {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return undefined;
   }
-  const parsed: unknown = JSON.parse(
-    stringUtils.stableStringify({ payload: data, section: value }),
-  );
-  if (!isHomeRuntimeJsonValue(parsed)) {
+  const section = (payload as { section?: unknown }).section;
+  if (!section || typeof section !== 'object' || Array.isArray(section)) {
     return undefined;
   }
-  return {
-    kind: 'ready',
-    data: parsed,
-    coverageFingerprint: stringUtils.stableStringify(value.rowIds),
-    freshness: 'live',
-    refresh: value.refresh,
+  const { priority, refresh } = section as {
+    priority?: unknown;
+    refresh?: unknown;
   };
+  return isHomeDataPriority(priority) &&
+    (refresh === 'failed' || refresh === 'idle' || refresh === 'refreshing')
+    ? { priority, refresh }
+    : undefined;
+}
+
+function hasHigherDataPriority(
+  current: IHomeStoreResourceSlot<IHomeRuntimeJsonValue>,
+  incomingPriority: IHomeDataPriority,
+): boolean {
+  return (
+    (current.kind === 'ready' || current.kind === 'empty') &&
+    current.priority > incomingPriority
+  );
+}
+
+function getShellDataPriority(
+  shell: IHomeShellSemanticModel,
+): IHomeDataPriority | undefined {
+  if (shell.kind !== 'portfolio') {
+    return undefined;
+  }
+  const { presentation } = shell;
+  return presentation.kind === 'funded' || presentation.kind === 'zero'
+    ? presentation.priority
+    : undefined;
+}
+
+function getNavigationDataPriority(
+  navigation: IHomeNavigationSemanticModel,
+): IHomeDataPriority | undefined {
+  return navigation.kind === 'ready' ? navigation.priority : undefined;
 }
 
 function parseSectionPayload(
   sectionId: IHomeSectionId,
   payload: unknown,
-  freshness: 'confirmedCache' | 'live',
+  priority: IHomeDataPriority,
   refresh: 'failed' | 'idle' | 'refreshing',
 ): IHomeSectionSemanticModel | undefined {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -246,7 +266,7 @@ function parseSectionPayload(
     return {
       kind: 'ready',
       rowIds: candidate.rowIds,
-      freshness,
+      priority,
       refresh,
     };
   }
@@ -330,8 +350,7 @@ function advanceShellPreservingConfirmedCache(
   const currentHasStableVerdict =
     (currentPresentation?.kind === 'funded' ||
       currentPresentation?.kind === 'zero') &&
-    (currentPresentation.freshness === 'confirmedCache' ||
-      currentPresentation.freshness === 'live');
+    (currentPresentation.priority === 0 || currentPresentation.priority === 1);
   if (currentHasStableVerdict && nextPresentation?.kind === 'loading') {
     if (nextPresentation?.refresh === 'failed') {
       return advanceShell(current, {
@@ -457,7 +476,7 @@ function createConfirmedCacheMutations({
               token,
               coverageFingerprint: record.coverageFingerprint,
               confirmedCacheSourceKeyIdentity: record.sourceKeyIdentity,
-              freshness: 'confirmedCache',
+              priority: 0,
               refresh,
             }
           : {
@@ -466,7 +485,7 @@ function createConfirmedCacheMutations({
               data: record.payload,
               coverageFingerprint: record.coverageFingerprint,
               confirmedCacheSourceKeyIdentity: record.sourceKeyIdentity,
-              freshness: 'confirmedCache',
+              priority: 0,
               refresh,
             },
       },
@@ -476,7 +495,7 @@ function createConfirmedCacheMutations({
       const cachedSectionValue = parseSectionPayload(
         sectionId,
         record.payload,
-        'confirmedCache',
+        HOME_DATA_PRIORITY_CACHE,
         refresh,
       );
       if (cachedSectionValue) {
@@ -642,7 +661,7 @@ function getResourceToken(
   return current.kind === 'idle' ? undefined : current.token;
 }
 
-function tokensMatch(
+function sourceOwnershipMatches(
   current: IHomeStoreResourceSlot<
     IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
       infer TPayload
@@ -650,10 +669,16 @@ function tokensMatch(
       ? TPayload
       : never
   >,
-  candidate: object,
+  candidate: NonNullable<ReturnType<typeof getResourceToken>>,
 ): boolean {
   const token = getResourceToken(current);
-  return Boolean(token && equal(token, candidate));
+  return Boolean(
+    token &&
+    token.clientInstanceId === candidate.clientInstanceId &&
+    token.producerInstanceId === candidate.producerInstanceId &&
+    token.sessionId === candidate.sessionId &&
+    areHomeSourceKeysEqual(token.sourceKey, candidate.sourceKey),
+  );
 }
 
 function validateIntent(
@@ -996,7 +1021,7 @@ export function reduceHomeStore(
           kind: 'ready' as const,
           data: confirmedCapability.value,
           coverageFingerprint: confirmedCapability.coverageFingerprint,
-          freshness: 'live' as const,
+          priority: 1 as const,
           refresh: 'idle' as const,
         };
         if (!equal(currentCapability, capabilityResource)) {
@@ -1057,67 +1082,6 @@ export function reduceHomeStore(
       }
       return acceptedTransition(state, mutations);
     }
-    case 'sectionSourceChanged': {
-      if (!ownerTokensMatch(state, event.ownerToken)) {
-        return rejectedTransition(state, 'ownerMismatch');
-      }
-      const current = state.sections[event.sectionId];
-      let value: IHomeSectionSemanticModel;
-      if (event.result.kind === 'ready') {
-        value = {
-          kind: 'ready',
-          rowIds: event.result.rowIds,
-          freshness: event.result.freshness,
-          refresh: event.result.refresh,
-        };
-      } else if (event.result.kind === 'hidden') {
-        value = event.result;
-      } else if (event.result.kind === 'empty') {
-        value = { kind: 'empty', emptyState: event.sectionId };
-      } else if (event.result.kind === 'error') {
-        value =
-          current.value.kind === 'ready'
-            ? { ...current.value, refresh: 'failed' }
-            : { kind: 'error', errorState: event.sectionId };
-      } else {
-        value =
-          current.value.kind === 'ready'
-            ? { ...current.value, refresh: 'refreshing' }
-            : { kind: 'loading', placeholder: event.sectionId };
-      }
-      const next = advanceSection(current, value);
-      const mutations: IHomeStoreMutation[] = [];
-      if (next !== current) {
-        mutations.push({
-          slice: 'section',
-          sectionId: event.sectionId,
-          operation: { kind: 'set', value: next },
-        });
-      }
-      let resource = serializeSectionForResource(
-        value,
-        event.result.kind === 'ready' ? event.result.data : undefined,
-      );
-      const currentResource = state.resources[event.sectionId];
-      if (
-        !resource &&
-        (event.result.kind === 'loading' || event.result.kind === 'error') &&
-        (currentResource.kind === 'ready' || currentResource.kind === 'empty')
-      ) {
-        resource = {
-          ...currentResource,
-          refresh: event.result.kind === 'loading' ? 'refreshing' : 'failed',
-        };
-      }
-      if (resource && !equal(currentResource, resource)) {
-        mutations.push({
-          slice: 'resource',
-          sourceId: event.sectionId,
-          operation: { kind: 'set', value: resource },
-        });
-      }
-      return acceptedTransition(state, mutations);
-    }
     case 'sectionReset': {
       if (!ownerTokensMatch(state, event.ownerToken)) {
         return rejectedTransition(state, 'ownerMismatch');
@@ -1126,12 +1090,9 @@ export function reduceHomeStore(
       const resource = state.resources[event.sectionId];
       if (
         (resource.kind === 'ready' || resource.kind === 'empty') &&
-        resource.freshness === 'confirmedCache'
+        resource.priority === 0
       ) {
-        // V3 can hydrate a visible source before its lazy producer has loaded
-        // stable business inputs. Keep that display-only value through the
-        // producer's setup reset; the first exact request will retain it, while
-        // a mismatched request keeps it until live data can replace it.
+        // Keep exact display cache through lazy producer setup.
         return emptyTransition();
       }
       if (
@@ -1181,15 +1142,6 @@ export function reduceHomeStore(
       ) {
         return rejectedTransition(state, 'producerMismatch');
       }
-      const currentSeq =
-        current.kind === 'idle' ? 0 : (current.token?.requestSeq ?? 0);
-      if (event.token.requestSeq <= currentSeq) {
-        return event.token.requestSeq === currentSeq &&
-          currentToken &&
-          equal(currentToken, event.token)
-          ? emptyTransition()
-          : rejectedTransition(state, 'requestSequenceStale');
-      }
       let next: IHomeStoreResourceSlot<
         IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
           infer TPayload
@@ -1197,8 +1149,21 @@ export function reduceHomeStore(
           ? TPayload
           : never
       >;
+      const incomingSourceKeyIdentity = getHomeSourceKeyIdentity(
+        event.token.sourceKey,
+      );
+      const currentSourceMatches =
+        (currentToken &&
+          areHomeSourceKeysEqual(
+            currentToken.sourceKey,
+            event.token.sourceKey,
+          )) ||
+        ((current.kind === 'ready' || current.kind === 'empty') &&
+          current.confirmedCacheSourceKeyIdentity ===
+            incomingSourceKeyIdentity);
       const canPreserveCurrent =
-        current.kind === 'ready' || current.kind === 'empty';
+        (current.kind === 'ready' || current.kind === 'empty') &&
+        Boolean(currentSourceMatches);
       if (canPreserveCurrent) {
         next = { ...current, token: event.token, refresh: 'refreshing' };
       } else {
@@ -1251,10 +1216,23 @@ export function reduceHomeStore(
         return rejectedTransition(state, 'producerMismatch');
       }
       const current = state.resources[sourceId];
-      if (!tokensMatch(current, event.envelope.token)) {
-        return rejectedTransition(state, 'requestSequenceStale');
+      if (!sourceOwnershipMatches(current, event.envelope.token)) {
+        return rejectedTransition(state, 'sourceMismatch');
       }
       const { result } = event.envelope;
+      const responseMetadata =
+        result.kind === 'success' && isHomeSectionId(sourceId)
+          ? readSectionPayloadMetadata(result.data)
+          : undefined;
+      const responsePriority =
+        responseMetadata?.priority ?? HOME_DATA_PRIORITY_NETWORK;
+      const responseRefresh = responseMetadata?.refresh ?? 'idle';
+      if (
+        (result.kind === 'success' || result.kind === 'empty') &&
+        hasHigherDataPriority(current, responsePriority)
+      ) {
+        return emptyTransition();
+      }
       let next: IHomeStoreResourceSlot<
         IHomeStoreState['resources'][IHomeStoreSourceId] extends IHomeStoreResourceSlot<
           infer TPayload
@@ -1262,7 +1240,9 @@ export function reduceHomeStore(
           ? TPayload
           : never
       >;
-      if (result.kind === 'partial') {
+      if (result.kind === 'hidden') {
+        next = { kind: 'idle' };
+      } else if (result.kind === 'partial') {
         if (current.kind === 'ready' || current.kind === 'empty') {
           return rejectedTransition(state, 'requestPhaseRegression');
         }
@@ -1278,15 +1258,15 @@ export function reduceHomeStore(
           token: event.envelope.token,
           data: result.data,
           coverageFingerprint: result.coverageFingerprint,
-          freshness: 'live',
-          refresh: 'idle',
+          priority: responsePriority,
+          refresh: responseRefresh,
         };
       } else if (result.kind === 'empty') {
         next = {
           kind: 'empty',
           token: event.envelope.token,
           coverageFingerprint: result.coverageFingerprint,
-          freshness: 'live',
+          priority: responsePriority,
           refresh: 'idle',
         };
       } else if (current.kind === 'ready' || current.kind === 'empty') {
@@ -1310,14 +1290,16 @@ export function reduceHomeStore(
       ];
       if (isHomeSectionId(sourceId)) {
         let section: IHomeSectionSemanticModel | undefined;
-        if (result.kind === 'empty') {
+        if (result.kind === 'hidden') {
+          section = { kind: 'hidden', reason: result.reason };
+        } else if (result.kind === 'empty') {
           section = { kind: 'empty', emptyState: sourceId };
         } else if (result.kind === 'partial' || result.kind === 'success') {
           section = parseSectionPayload(
             sourceId,
             result.data,
-            'live',
-            result.kind === 'partial' ? 'refreshing' : 'idle',
+            responsePriority,
+            result.kind === 'partial' ? 'refreshing' : responseRefresh,
           );
         } else if (result.kind === 'error') {
           const currentSection = state.sections[sourceId];
@@ -1351,8 +1333,8 @@ export function reduceHomeStore(
         return (
           current.kind === 'idle' ||
           current.kind === 'partial' ||
-          current.kind === 'ready' ||
-          current.kind === 'empty' ||
+          ((current.kind === 'ready' || current.kind === 'empty') &&
+            current.priority > HOME_DATA_PRIORITY_CACHE) ||
           !current.token ||
           !isHomeCachedRecordExactForToken(record, current.token)
         );
@@ -1378,7 +1360,7 @@ export function reduceHomeStore(
         if (
           current.kind === 'partial' ||
           ((current.kind === 'ready' || current.kind === 'empty') &&
-            current.freshness === 'live')
+            current.priority === 1)
         ) {
           return false;
         }
@@ -1386,12 +1368,19 @@ export function reduceHomeStore(
         return !token || isHomeCachedRecordExactForToken(record, token);
       });
       const mutations = createConfirmedCacheMutations({ records, state });
+      const currentShellPriority = getShellDataPriority(state.shell.value);
+      const incomingShellPriority = event.shell
+        ? getShellDataPriority(event.shell)
+        : undefined;
       const currentShellCanUseCache =
         state.shell.value.kind === 'loading' ||
         (state.shell.value.kind === 'portfolio' &&
           (state.shell.value.presentation.kind === 'loading' ||
             state.shell.value.presentation.kind === 'fundedPendingTotal' ||
-            state.shell.value.presentation.kind === 'unavailable'));
+            state.shell.value.presentation.kind === 'unavailable')) ||
+        (incomingShellPriority !== undefined &&
+          currentShellPriority !== undefined &&
+          incomingShellPriority >= currentShellPriority);
       if (event.shell && currentShellCanUseCache) {
         const currentPresentation =
           state.shell.value.kind === 'portfolio'
@@ -1411,11 +1400,17 @@ export function reduceHomeStore(
           });
         }
       }
-      const capability = state.resources.capability;
-      const hasLiveCapability =
-        (capability.kind === 'ready' || capability.kind === 'empty') &&
-        capability.freshness === 'live';
-      if (event.navigation && !hasLiveCapability) {
+      const currentNavigationPriority = getNavigationDataPriority(
+        state.navigation.value,
+      );
+      const incomingNavigationPriority = event.navigation
+        ? getNavigationDataPriority(event.navigation)
+        : undefined;
+      const canUseCachedNavigation =
+        currentNavigationPriority === undefined ||
+        (incomingNavigationPriority !== undefined &&
+          incomingNavigationPriority >= currentNavigationPriority);
+      if (event.navigation && canUseCachedNavigation) {
         const navigation = advanceNavigation(
           state.navigation,
           event.navigation,

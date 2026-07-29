@@ -70,6 +70,12 @@ describe('Native Home runtime surface', () => {
         '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
       ),
     );
+    const nativeSpecSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/src/HomeContainer.nitro.ts',
+      ),
+    );
     const homeUiLoggerSource = readSource(
       path.resolve(
         __dirname,
@@ -123,16 +129,21 @@ describe('Native Home runtime surface', () => {
       "from '@onekeyhq/kit/src/views/Home/pages/HomePageView';",
     );
     expect(mobileRendererSource).toContain('<HomeContainer');
-    expect(mobileRendererSource).toContain('initialSnapshot={initialSnapshot}');
+    expect(mobileRendererSource).toContain('state={nativeState}');
+    expect(mobileRendererSource).toContain('onIntent={handleIntent}');
+    expect(mobileRendererSource).not.toContain('onVisibleTabChange=');
     expect(mobileRendererSource).toContain(
-      'onVisibleTabChange={handleVisibleTabChange}',
-    );
-    expect(mobileRendererSource).toContain(
-      'acceptTabSelection(tabId, homeNavigation.tabApplicabilityRevision);',
+      'acceptTabSelection(parsed.intent.tabId);',
     );
     expect(mobileRendererSource).not.toContain('nativeUnavailable');
     expect(mobileRendererSource).not.toContain('fallback=');
     expect(mobileRendererSource).not.toContain('nativeSurfaceRevealed');
+    expect(nativeSpecSource).toContain(
+      'onIntent?: (intentJson: string) => void;',
+    );
+    expect(nativeSpecSource).not.toMatch(
+      /on(?:Action|Refresh|VisibleTabChange)\?:/,
+    );
     expect(mobileRendererSource).toMatch(
       /useEffect\(\(\) => \(\) => disposeNativeSession\(\), \[disposeNativeSession\]\);/,
     );
@@ -153,20 +164,9 @@ describe('Native Home runtime surface', () => {
     expect(mobileRendererSource).not.toContain('seenRefreshing');
     expect(mobileRendererSource).not.toContain('15_000');
     expect(mobileRendererSource).toContain('headerActionRow:');
-    expect(mobileRendererSource).toContain(
-      "slotId: 'header.balance' as IHomeContainerSlotKey",
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.balancePresentationRevision',
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.actionsPresentationRevision',
-    );
-    expect(mobileRendererSource).toContain(
-      'slotRevision: shell.bodyPresentationRevision',
-    );
+    expect(mobileRendererSource).not.toContain('slotRevision:');
     expect(mobileRendererSource).toMatch(
-      /balance:\s*\{\s*interaction:\s*'tap',\s*authority:\s*balanceAuthority,\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
+      /balance:\s*\{\s*interaction:\s*'tap',\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
     );
     expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
     expect(mobileRendererSource).toContain('<WalletActions');
@@ -196,9 +196,6 @@ describe('Native Home runtime surface', () => {
       'resolveMobileNativeHomeBodySections({',
     );
     expect(mobileRendererSource).toContain('contentStates:');
-    expect(mobileRendererSource).toContain(
-      "slotId: 'content.state.defi' as IHomeContainerSlotKey",
-    );
     expect(mobileRendererSource).toMatch(
       /defiSection\.value\.kind === 'empty'[\s\S]*defiSection\.value\.kind === 'error'/,
     );
@@ -221,9 +218,7 @@ describe('Native Home runtime surface', () => {
       'portfolioAssetsLoading: lpTokenSwitch.loading',
     );
     expect(mobileRendererSource).toContain('height: header.actionRowHeight');
-    expect(mobileRendererSource).toContain(
-      'slotRevisions: collectSlotRevisions(slots)',
-    );
+    expect(mobileRendererSource).not.toContain('collectSlotRevisions');
     expect(mobileRendererSource).toContain(
       'defaultLogger.wallet.homeUi.homeNativeContentDecision(decision)',
     );

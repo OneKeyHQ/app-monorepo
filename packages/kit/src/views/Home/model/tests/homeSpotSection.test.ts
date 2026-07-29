@@ -91,7 +91,6 @@ describe('home Spot section authority', () => {
       projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
         authorityReady: false,
         scopeMatches: true,
-        requestSeq: 1,
         evidence: {
           kind: 'confirmedCache',
           data,
@@ -99,12 +98,11 @@ describe('home Spot section authority', () => {
           refresh: 'idle',
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 1 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
         authorityReady: true,
         scopeMatches: false,
-        requestSeq: 1,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
@@ -113,7 +111,7 @@ describe('home Spot section authority', () => {
           rowIds: data.displayIds,
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 1 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('keeps cold no-cache loading and seeds exact cache losslessly', () => {
@@ -123,7 +121,6 @@ describe('home Spot section authority', () => {
     const cold = projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
       authorityReady: true,
       scopeMatches: true,
-      requestSeq: 1,
       evidence: { kind: 'loading' },
     });
     expect(
@@ -136,7 +133,6 @@ describe('home Spot section authority', () => {
     const confirmed = projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
       authorityReady: true,
       scopeMatches: true,
-      requestSeq: 2,
       evidence: {
         kind: 'confirmedCache',
         data,
@@ -149,7 +145,7 @@ describe('home Spot section authority', () => {
     );
     expect(resolution.semantic).toMatchObject({
       kind: 'ready',
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
     if (resolution.authoritative.kind === 'confirmedCache') {
@@ -164,11 +160,9 @@ describe('home Spot section authority', () => {
     const partial = projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
       authorityReady: true,
       scopeMatches: true,
-      requestSeq: 1,
       evidence: {
         kind: 'partial',
         coverageFingerprint: buildHomeSpotAllCoverage({
-          requestSeq: 1,
           settled: 1,
           expected: 2,
           failed: 0,
@@ -190,7 +184,6 @@ describe('home Spot section authority', () => {
         identity,
         snapshot: {
           kind: 'confirmedCache',
-          requestSeq: 1,
           data: cached,
           rowIds: cached.displayIds,
           refresh: 'refreshing',
@@ -202,7 +195,7 @@ describe('home Spot section authority', () => {
     );
     expect(resolution.semantic).toMatchObject({
       kind: 'ready',
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
     if (resolution.authoritative.kind === 'confirmedCache') {
@@ -216,11 +209,10 @@ describe('home Spot section authority', () => {
       projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 1,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
-          coverageFingerprint: buildHomeSpotSingleCoverage(1),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           data,
           rowIds: data.displayIds,
         },
@@ -230,11 +222,10 @@ describe('home Spot section authority', () => {
       projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 2,
         evidence: {
           kind: 'complete',
           confirmedEmpty: true,
-          coverageFingerprint: buildHomeSpotSingleCoverage(2),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           data: payload('ignored'),
           rowIds: [],
         },
@@ -244,16 +235,15 @@ describe('home Spot section authority', () => {
       projectHomeSpotSectionSource<IHomeSpotLegacyPayload>({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 3,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
-          coverageFingerprint: buildHomeSpotSingleCoverage(3),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           data: payload('transient'),
           rowIds: [],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 3 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('keeps refresh rows stable and handles error with or without cache', () => {
@@ -266,8 +256,7 @@ describe('home Spot section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 1,
-          coverageFingerprint: buildHomeSpotSingleCoverage(1),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           result: { kind: 'success', data: live, rowIds: live.displayIds },
         },
       }),
@@ -275,7 +264,7 @@ describe('home Spot section authority', () => {
     const refreshing = coordinator.dispatch(
       adaptHomeSpotSourceSnapshot({
         identity,
-        snapshot: { kind: 'loading', requestSeq: 2 },
+        snapshot: { kind: 'loading' },
       }),
     );
     expect(refreshing.semantic).toMatchObject({
@@ -286,7 +275,7 @@ describe('home Spot section authority', () => {
     const failed = coordinator.dispatch(
       adaptHomeSpotSourceSnapshot({
         identity,
-        snapshot: { kind: 'error', requestSeq: 2, errorKind: 'source' },
+        snapshot: { kind: 'error', errorKind: 'source' },
       }),
     );
     expect(failed.semantic).toMatchObject({
@@ -300,13 +289,13 @@ describe('home Spot section authority', () => {
       cold.dispatch(
         adaptHomeSpotSourceSnapshot({
           identity,
-          snapshot: { kind: 'error', requestSeq: 1, errorKind: 'source' },
+          snapshot: { kind: 'error', errorKind: 'source' },
         }),
       ),
     ).toMatchObject({ semantic: { kind: 'error' } });
   });
 
-  it('rejects a stale completion and preserves the current payload', () => {
+  it('uses the last same-source completion to arrive', () => {
     const coordinator = new HomeSectionCoordinator<IHomeSpotLegacyPayload>(
       identity,
     );
@@ -316,8 +305,7 @@ describe('home Spot section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 2,
-          coverageFingerprint: buildHomeSpotSingleCoverage(2),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           result: {
             kind: 'success',
             data: current,
@@ -326,28 +314,25 @@ describe('home Spot section authority', () => {
         },
       }),
     );
-    const stale = coordinator.dispatch(
+    const later = payload('later');
+    const resolution = coordinator.dispatch(
       adaptHomeSpotSourceSnapshot({
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 1,
-          coverageFingerprint: buildHomeSpotSingleCoverage(1),
+          coverageFingerprint: buildHomeSpotSingleCoverage(),
           result: {
             kind: 'success',
-            data: payload('stale'),
-            rowIds: ['stale'],
+            data: later,
+            rowIds: later.displayIds,
           },
         },
       }),
     );
-    expect(stale).toMatchObject({
-      accepted: false,
-      staleReason: 'requestStale',
-    });
+    expect(resolution).toMatchObject({ accepted: true });
     const snapshot = coordinator.getSnapshot();
     if (snapshot.authoritative.kind === 'live') {
-      expect(snapshot.authoritative.data).toBe(current);
+      expect(snapshot.authoritative.data).toBe(later);
     }
   });
 });

@@ -17,23 +17,22 @@ describe('homeSectionSourceAdapter', () => {
     expect(
       adaptHomeSectionSourceState({
         identity,
-        state: { status: 'idle', requestSeq: 0 },
+        state: { status: 'idle' },
         getRowIds: (data: { rows: { id: string }[] }) =>
           data.rows.map((row) => row.id),
       }),
-    ).toMatchObject({ kind: 'loading', requestSeq: 0 });
+    ).toMatchObject({ kind: 'loading' });
     expect(
       adaptHomeSectionSourceState({
         identity,
         state: {
           status: 'partial',
-          requestSeq: 1,
           data: { rows: [{ id: 'partial' }] },
           coverageFingerprint: 'partial-1',
         },
         getRowIds: (data) => data.rows.map((row) => row.id),
       }),
-    ).toMatchObject({ kind: 'partial', coverageFingerprint: 'partial-1' });
+    ).toMatchObject({ kind: 'partial' });
   });
 
   it('preserves live payload only for complete success', () => {
@@ -42,7 +41,6 @@ describe('homeSectionSourceAdapter', () => {
         identity,
         state: {
           status: 'success',
-          requestSeq: 2,
           data: { rows: [{ id: 'row-1' }] },
           coverageFingerprint: 'complete-1',
         },
@@ -64,7 +62,6 @@ describe('homeSectionSourceAdapter', () => {
       getRowIds: (value) => value.rows.map((row) => row.id),
       identity,
       refresh: 'refreshing',
-      requestSeq: 1,
     });
     expect(event).toMatchObject({
       kind: 'seedConfirmed',

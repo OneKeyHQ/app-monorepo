@@ -61,7 +61,7 @@ function createShellFromPortfolioRecord(
         },
         actions: { kind: 'zero', items: ZERO_ACTIONS },
         banner: { kind: 'none' },
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
     };
@@ -83,7 +83,7 @@ function createShellFromPortfolioRecord(
       },
       actions: { kind: 'funded', items: FUNDED_ACTIONS },
       banner: hasBannerContent ? { kind: 'positive' } : { kind: 'none' },
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     },
   };

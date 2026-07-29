@@ -1,5 +1,3 @@
-import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
-
 import { HomeSessionCoordinator } from '../lifecycle/homeSessionCoordinator';
 import { SplitRuntimeHomeAdapter } from '../runtime/splitRuntimeHomeAdapter';
 
@@ -16,7 +14,6 @@ describe('Home session coordinator', () => {
       .mockRejectedValueOnce(new Error('background warming'))
       .mockRejectedValueOnce(new Error('transport reconnecting'))
       .mockResolvedValue({
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
         producerInstanceId: 'producer-1',
       });
     const wait = jest.fn(async () => undefined);
@@ -56,7 +53,7 @@ describe('Home session coordinator', () => {
     expect(coordinator.getSnapshot().status).toBe('degraded');
   });
 
-  it('does not let a superseded failed handshake overwrite a newer success', async () => {
+  it('does not let a late handshake failure overwrite an active session', async () => {
     let rejectFirst!: (reason?: unknown) => void;
     const first = new Promise<never>((_resolve, reject) => {
       rejectFirst = reject;
@@ -65,7 +62,6 @@ describe('Home session coordinator', () => {
       .fn()
       .mockImplementationOnce(() => first)
       .mockResolvedValue({
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
         producerInstanceId: 'producer-2',
       });
     const adapter = new SplitRuntimeHomeAdapter({ getHandshake });

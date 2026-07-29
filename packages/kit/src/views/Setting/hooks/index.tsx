@@ -12,7 +12,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { resetHomeDisplaySnapshotCache } from '../../Home/model/cacheV2/homeDisplaySnapshotPersistQueue';
+import { resetHomeDisplaySnapshotCache } from '../../Home/model/cache/homeDisplaySnapshotPersistQueue';
 import { SettingTestIDs } from '../testIDs';
 
 export { useLanguageSelector } from './useLanguageSelector';

@@ -8,7 +8,6 @@ import type {
   IHomeRuntimeTopology,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import {
-  HOME_RUNTIME_PROTOCOL_VERSION,
   isHomeRuntimeHandshake,
   isHomeRuntimeResponseEnvelope,
 } from '@onekeyhq/shared/src/types/homeRuntime';
@@ -17,12 +16,10 @@ import { areHomeSourceKeysEqual } from '../core/homeIdentity';
 
 export type IHomeRuntimeRejectReason =
   | 'malformedEnvelope'
-  | 'protocolMismatch'
   | 'clientMismatch'
   | 'producerMismatch'
   | 'sessionMismatch'
-  | 'sourceMismatch'
-  | 'requestSequenceMismatch';
+  | 'sourceMismatch';
 
 export type IHomeRuntimeValidationResult =
   | { accepted: true }
@@ -32,7 +29,6 @@ export interface IHomeRuntimeExpectedAuthority {
   producerInstanceId: string;
   sessionId: string;
   sourceKey: IHomeRuntimeSourceKey;
-  requestSeq: number;
 }
 
 export interface IHomeRuntimeAdapter {
@@ -62,12 +58,10 @@ export abstract class HomeRuntimeAdapterBase implements IHomeRuntimeAdapter {
     expected: IHomeRuntimeExpectedAuthority,
   ): IHomeRuntimeRequestToken {
     return {
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       clientInstanceId: this.clientInstanceId,
       producerInstanceId: expected.producerInstanceId,
       sessionId: expected.sessionId,
       sourceKey: expected.sourceKey,
-      requestSeq: expected.requestSeq,
     };
   }
 
@@ -75,24 +69,10 @@ export abstract class HomeRuntimeAdapterBase implements IHomeRuntimeAdapter {
     envelope: unknown,
     expected: IHomeRuntimeExpectedAuthority,
   ): IHomeRuntimeValidationResult {
-    if (
-      typeof envelope === 'object' &&
-      envelope !== null &&
-      'token' in envelope &&
-      typeof envelope.token === 'object' &&
-      envelope.token !== null &&
-      'protocolVersion' in envelope.token &&
-      envelope.token.protocolVersion !== HOME_RUNTIME_PROTOCOL_VERSION
-    ) {
-      return { accepted: false, reason: 'protocolMismatch' };
-    }
     if (!isHomeRuntimeResponseEnvelope(envelope)) {
       return { accepted: false, reason: 'malformedEnvelope' };
     }
     const { token } = envelope;
-    if (token.protocolVersion !== HOME_RUNTIME_PROTOCOL_VERSION) {
-      return { accepted: false, reason: 'protocolMismatch' };
-    }
     if (token.clientInstanceId !== this.clientInstanceId) {
       return { accepted: false, reason: 'clientMismatch' };
     }
@@ -104,9 +84,6 @@ export abstract class HomeRuntimeAdapterBase implements IHomeRuntimeAdapter {
     }
     if (!areHomeSourceKeysEqual(token.sourceKey, expected.sourceKey)) {
       return { accepted: false, reason: 'sourceMismatch' };
-    }
-    if (token.requestSeq !== expected.requestSeq) {
-      return { accepted: false, reason: 'requestSequenceMismatch' };
     }
     return { accepted: true };
   }

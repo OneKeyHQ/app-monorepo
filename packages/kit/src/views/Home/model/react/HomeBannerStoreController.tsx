@@ -94,7 +94,6 @@ export function HomeBannerStoreController() {
   const { markHomeSectionCommandHandled } = useHomeStoreControllerActions();
   const payloadRef = useRef<IHomeBannerStorePayload | undefined>(undefined);
   const dismissedIdsRef = useRef(new Set<string>());
-  const requestGenerationRef = useRef(0);
   const processingCommandIdsRef = useRef(new Set<string>());
 
   const resourcePayload =
@@ -162,6 +161,17 @@ export function HomeBannerStoreController() {
       walletId,
     ],
   );
+  const bannerSourceIdentityKey =
+    stableOwner && identityKey
+      ? stringUtils.stableStringify({
+          ownerScopeKey: stableOwner.ownerToken.scopeKey,
+          ownerSessionId: stableOwner.ownerToken.sessionId,
+          paramsFingerprint: identityKey,
+          sourceId: 'banner',
+        })
+      : undefined;
+  const bannerSourceIdentityKeyRef = useRef(bannerSourceIdentityKey);
+  bannerSourceIdentityKeyRef.current = bannerSourceIdentityKey;
 
   const gateway = useMemo(
     () => ({
@@ -176,11 +186,17 @@ export function HomeBannerStoreController() {
   );
 
   const refresh = useCallback(async () => {
-    if (!enabled || !identityKey || !stableOwner || !accountId || !networkId) {
+    if (
+      !enabled ||
+      !identityKey ||
+      !bannerSourceIdentityKey ||
+      !stableOwner ||
+      !accountId ||
+      !networkId
+    ) {
       return;
     }
-    requestGenerationRef.current += 1;
-    const generation = requestGenerationRef.current;
+    const requestSourceIdentityKey = bannerSourceIdentityKey;
     const payload = await runHomeBannerStoreRequest({
       api: {
         readLocal: async () =>
@@ -232,11 +248,15 @@ export function HomeBannerStoreController() {
       sessionDismissedIds: [...dismissedIdsRef.current],
       tronResource,
     });
-    if (payload && generation === requestGenerationRef.current) {
+    if (
+      payload &&
+      requestSourceIdentityKey === bannerSourceIdentityKeyRef.current
+    ) {
       payloadRef.current = payload;
     }
   }, [
     accountId,
+    bannerSourceIdentityKey,
     enabled,
     gateway,
     hasBotWallet,

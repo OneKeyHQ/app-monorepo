@@ -233,7 +233,6 @@ export function usePerpsHomePortfolio({
       requestHandle: IHomeSectionSourceRequestHandle;
       requestResult: IPerpsHomePortfolioSourceResult;
     }) => {
-      const requestSeq = requestHandle.token.requestSeq;
       const evidence = projectPerpsHomePortfolioEvidence(requestResult);
       const snapshot = projectHomePerpsSectionSource({
         authorityReady: true,
@@ -241,10 +240,9 @@ export function usePerpsHomePortfolio({
           evidence.kind === 'complete'
             ? {
                 ...evidence,
-                coverageFingerprint: buildHomePerpsCoverage(requestSeq),
+                coverageFingerprint: buildHomePerpsCoverage(),
               }
             : evidence,
-        requestSeq,
         scopeMatches: true,
       });
       let coordinator = perpsCoordinatorRef.current;
@@ -291,7 +289,6 @@ export function usePerpsHomePortfolio({
       }
     | undefined
   >(undefined);
-  const sourceExecutionSeqRef = useRef(0);
   const perpsRequestParamsFingerprint = useMemo(
     () =>
       stringUtils.stableStringify({
@@ -327,13 +324,10 @@ export function usePerpsHomePortfolio({
           quoteBasis: { currency: 'USD' },
           sectionId: 'perps',
         });
-        sourceExecutionSeqRef.current += 1;
-        const sourceExecutionSeq = sourceExecutionSeqRef.current;
         const requestOwnerToken = stableHomeFactsOwner.ownerToken;
         const isRequestCurrent = () => {
           const liveOwnerToken = liveHomeOwnerTokenRef.current;
           return !(
-            sourceExecutionSeqRef.current !== sourceExecutionSeq ||
             deriveTypeRevisionRef.current !== deriveTypeRevision ||
             liveAccountScopeKeyRef.current !== requestScopeKey ||
             liveOwnerToken?.scopeKey !== requestOwnerToken.scopeKey ||
@@ -694,14 +688,11 @@ export function usePerpsHomePortfolio({
         quoteBasis: { currency: 'USD' },
         sectionId: 'perps',
       });
-      sourceExecutionSeqRef.current += 1;
-      const sourceExecutionSeq = sourceExecutionSeqRef.current;
       const setTrackedResult = (
         requestResult: IPerpsHomePortfolioSourceResult,
       ) => {
         const liveOwnerToken = liveHomeOwnerTokenRef.current;
         if (
-          sourceExecutionSeqRef.current !== sourceExecutionSeq ||
           liveAccountScopeKeyRef.current !== scope.accountScopeKey ||
           liveOwnerToken?.scopeKey !== requestHandle.token.sourceKey.scopeKey ||
           liveOwnerToken?.sessionId !== requestHandle.token.sessionId

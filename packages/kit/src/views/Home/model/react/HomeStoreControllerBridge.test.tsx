@@ -10,7 +10,7 @@ import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 import {
   type IPreparedHomeDisplaySnapshot,
   loadPreparedHomeDisplaySnapshot,
-} from '../cacheV2/loadPreparedHomeDisplaySnapshot';
+} from '../cache/loadPreparedHomeDisplaySnapshot';
 
 import { HomeStoreControllerBridge } from './HomeStoreControllerBridge';
 
@@ -153,7 +153,7 @@ jest.mock('../facts/currentHomeFactsAdapter', () => ({
   adaptCurrentHomeFacts: jest.fn(() => undefined),
 }));
 
-jest.mock('../cacheV2/loadPreparedHomeDisplaySnapshot', () => ({
+jest.mock('../cache/loadPreparedHomeDisplaySnapshot', () => ({
   loadPreparedHomeDisplaySnapshot: jest.fn(async () => undefined),
 }));
 

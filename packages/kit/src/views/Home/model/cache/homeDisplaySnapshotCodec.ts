@@ -199,7 +199,7 @@ function restoreHomeDisplaySnapshotShell(
           ...presentation.header,
           authority: 'confirmedCache',
         },
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
     };
@@ -209,7 +209,7 @@ function restoreHomeDisplaySnapshotShell(
       kind: 'portfolio',
       presentation: {
         ...presentation,
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'refreshing',
       },
     };
@@ -243,7 +243,7 @@ function restoreHomeDisplaySnapshotNavigation(
       tabs,
       selectedTabId,
       destinations: navigation.destinations ?? {},
-      freshness: 'confirmedCache',
+      priority: 0,
       perpsDestination: navigation.perpsDestination as NonNullable<
         typeof navigation.perpsDestination
       >,

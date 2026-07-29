@@ -29,8 +29,8 @@ import {
   getHomeBackgroundRecoveryRefreshDomains,
   isHomeBackgroundRecoveryTransactionCurrent,
   runHomeBackgroundRecoveryRefresh,
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit,
   useHomeBackgroundRecoveryStableCallback,
+  useMarkHomeBackgroundRecoverySurfaceCommitted,
   useRegisterHomeBackgroundRecoveryRefresh,
 } from './HomeBackgroundRecoveryRefreshProvider';
 
@@ -169,7 +169,7 @@ function createSurfaceCommitRequester({
   let revision = 0;
   return jest.fn(() => {
     revision += 1;
-    registry.acknowledgeSurfaceCommit({
+    registry.markSurfaceCommitted({
       owner,
       ownerActivation,
       surfaceHasRenderer,
@@ -210,7 +210,7 @@ function Probe() {
 }
 
 function CommittedSurface({ surfaceHasRenderer = true }) {
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
+  useMarkHomeBackgroundRecoverySurfaceCommitted({
     owner: getMockOwner(),
     surfaceHasRenderer,
   });
@@ -221,7 +221,7 @@ let revealDeferredRenderer: (() => void) | undefined;
 function DeferredRendererSurface() {
   const [surfaceHasRenderer, setSurfaceHasRenderer] = useState(false);
   revealDeferredRenderer = () => setSurfaceHasRenderer(true);
-  useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
+  useMarkHomeBackgroundRecoverySurfaceCommitted({
     owner: getMockOwner(),
     surfaceHasRenderer,
   });
@@ -503,7 +503,7 @@ describe('Home background recovery refresh registry', () => {
     registry.cancelPendingSurfaceCommitWaiters();
     const newerRequestSurfaceCommit = jest.fn(() => {
       revision += 1;
-      registry.acknowledgeSurfaceCommit({
+      registry.markSurfaceCommitted({
         owner,
         ownerActivation,
         surfaceHasRenderer: true,

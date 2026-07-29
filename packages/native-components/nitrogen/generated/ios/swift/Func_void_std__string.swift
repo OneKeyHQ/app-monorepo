@@ -9,21 +9,21 @@ import Foundation
 import NitroModules
 
 /**
- * Wraps a Swift `(_ tabId: String) -> Void` as a class.
+ * Wraps a Swift `(_ intentJson: String) -> Void` as a class.
  * This class can be used from C++, e.g. to wrap the Swift closure as a `std::function`.
  */
 public final class Func_void_std__string {
   public typealias bridge = margelo.nitro.onekeynativecomponents.bridge.swift
 
-  private let closure: (_ tabId: String) -> Void
+  private let closure: (_ intentJson: String) -> Void
 
-  public init(_ closure: @escaping (_ tabId: String) -> Void) {
+  public init(_ closure: @escaping (_ intentJson: String) -> Void) {
     self.closure = closure
   }
 
   @inline(__always)
-  public func call(tabId: std.string) -> Void {
-    self.closure(String(tabId))
+  public func call(intentJson: std.string) -> Void {
+    self.closure(String(intentJson))
   }
 
   /**

@@ -65,22 +65,19 @@ function createHomeHistorySnapshotDefaults(): IHomeHistoryStorePayload {
 }
 
 type IHomeHistorySourceSnapshot =
-  | { kind: 'loading'; requestSeq: number }
+  | { kind: 'loading' }
   | {
       kind: 'confirmedCache';
-      requestSeq: number;
       data: IHomeHistoryLegacyPayload;
       rowIds: readonly string[];
       refresh: 'idle' | 'refreshing';
     }
   | {
       kind: 'partial';
-      requestSeq: number;
       coverageFingerprint: string;
     }
   | {
       kind: 'complete';
-      requestSeq: number;
       coverageFingerprint: string;
       result:
         | { kind: 'empty' }
@@ -92,7 +89,6 @@ type IHomeHistorySourceSnapshot =
     }
   | {
       kind: 'error';
-      requestSeq: number;
       errorKind:
         | 'source'
         | 'transport'
@@ -140,23 +136,22 @@ function adaptHomeHistorySourceSnapshot({
 }): IHomeSectionCoordinatorEvent<IHomeHistoryLegacyPayload> {
   switch (snapshot.kind) {
     case 'loading':
-      return { ...identity, kind: 'loading', requestSeq: snapshot.requestSeq };
+      return { ...identity, kind: 'loading' };
     case 'confirmedCache':
       return createHomeSectionConfirmedSeed({
         data: snapshot.data,
         getRowIds: () => snapshot.rowIds,
         identity,
         refresh: snapshot.refresh,
-        requestSeq: snapshot.requestSeq,
       });
     case 'partial':
-      return { ...identity, ...snapshot };
+      return { ...identity, kind: 'partial' };
     case 'complete':
-      return { ...identity, ...snapshot };
+      return { ...identity, kind: 'complete', result: snapshot.result };
     case 'error':
-      return { ...identity, ...snapshot };
+      return { ...identity, kind: 'error' };
     default:
-      return { ...identity, kind: 'loading', requestSeq: 0 };
+      return { ...identity, kind: 'loading' };
   }
 }
 

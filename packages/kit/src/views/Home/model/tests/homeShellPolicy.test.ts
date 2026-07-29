@@ -1,5 +1,3 @@
-import { HOME_RUNTIME_PROTOCOL_VERSION } from '@onekeyhq/shared/src/types/homeRuntime';
-
 import { createIdleHomeSourceFacts } from '../facts/homeFacts';
 import { projectHomeShell } from '../policies/homeShellPolicy';
 
@@ -11,7 +9,7 @@ const presentation: IHomePortfolioPresentation = {
   header: { kind: 'zero', balance: { amount: '0', currency: 'usd' } },
   actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
   banner: { kind: 'none' },
-  freshness: 'live',
+  priority: 1,
   refresh: 'idle',
 };
 
@@ -34,7 +32,6 @@ function buildFacts(wallet: Partial<IHomeFacts['wallet']> = {}): IHomeFacts {
     runtime: {
       connection: 'ready',
       producerInstanceId: 'producer-1',
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       topology: 'single',
     },
     capabilityInputs: {

@@ -47,7 +47,7 @@ describe('Home Store invariants', () => {
               market: false,
             },
             selectedTabId: 'defi',
-            freshness: 'live',
+            priority: 1,
             refresh: 'idle',
           },
         },

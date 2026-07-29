@@ -43,15 +43,11 @@ namespace margelo::nitro::onekeynativecomponents::views {
                              const react::RawProps& rawProps);
 
   public:
-    CachedProp<std::string> initialSnapshotJson;
+    CachedProp<std::string> initialStateJson;
     CachedProp<std::string> backgroundColor;
     CachedProp<bool> debugOverlayEnabled;
-    CachedProp<std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>> onAction;
-    CachedProp<std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>> onRefresh;
-    CachedProp<std::optional<std::function<void(const std::string& /* tabId */)>>> onVisibleTabChange;
     CachedProp<std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>> onRenderError;
     CachedProp<std::optional<std::function<void(const std::string& /* intentJson */)>>> onIntent;
-    CachedProp<std::optional<std::function<void(const std::string& /* resultJson */)>>> onTransportResult;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> hybridRef;
 
   private:

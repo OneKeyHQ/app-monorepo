@@ -135,7 +135,7 @@ describe('createStaticImportChainReport', () => {
     const root = 'packages/kit/src/nativeBridge.ts';
     const nativeEntry = 'packages/native-components/src/index.ts';
     const protocolTarget =
-      'packages/native-components/src/HomeContainerProtocolV3.ts';
+      'packages/native-components/src/HomeContainerProtocol.ts';
 
     writeFile(
       repoRoot,
@@ -150,9 +150,9 @@ describe('createStaticImportChainReport', () => {
     writeFile(
       repoRoot,
       nativeEntry,
-      "export { protocol } from './HomeContainerProtocolV3';",
+      "export { protocol } from './HomeContainerProtocol';",
     );
-    writeFile(repoRoot, protocolTarget, 'export const protocol = 3;');
+    writeFile(repoRoot, protocolTarget, 'export const protocol = true;');
 
     const report = createStaticImportChainReport({
       repoRoot,
@@ -175,7 +175,7 @@ describe('createStaticImportChainReport', () => {
           {
             from: nativeEntry,
             to: protocolTarget,
-            specifier: './HomeContainerProtocolV3',
+            specifier: './HomeContainerProtocol',
             edgeType: 'sync',
           },
         ],

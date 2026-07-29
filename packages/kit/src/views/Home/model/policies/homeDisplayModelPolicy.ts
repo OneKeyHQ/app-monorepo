@@ -93,8 +93,7 @@ function resolveHomeBalanceDisplay({
   let balance: IHomeMoneyViewModel | undefined;
 
   if (portfolio?.kind === 'zero') {
-    authority =
-      portfolio.freshness === 'confirmedCache' ? 'confirmedCache' : 'live';
+    authority = portfolio.priority === 0 ? 'confirmedCache' : 'live';
     balance = portfolio.header.balance;
   } else if (portfolio?.kind === 'funded') {
     authority = portfolio.header.authority;

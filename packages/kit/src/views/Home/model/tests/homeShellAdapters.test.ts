@@ -14,7 +14,7 @@ describe('home shell React adapter', () => {
         header: { kind: 'zero', balance: { amount: '0', currency: 'usd' } },
         actions: { kind: 'zero', items: ['addMoney', 'receive', 'more'] },
         banner: { kind: 'none' },
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     };

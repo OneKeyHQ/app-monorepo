@@ -218,7 +218,7 @@ export function createHomeBackgroundRecoveryRefreshRegistry({
     waiters.forEach((waiter) => waiter.resolve(false));
   };
 
-  const acknowledgeSurfaceCommit = ({
+  const markSurfaceCommitted = ({
     owner,
     ownerActivation,
     surfaceHasRenderer,
@@ -360,7 +360,7 @@ export function createHomeBackgroundRecoveryRefreshRegistry({
   };
 
   return {
-    acknowledgeSurfaceCommit,
+    markSurfaceCommitted,
     cancelPendingSurfaceCommitWaiters,
     hasRegistration,
     register,
@@ -674,7 +674,7 @@ export function useRegisterHomeBackgroundRecoveryRefresh({
   }, [domain, enabled, operationKey, ownerKey, registry, stableCallback]);
 }
 
-export function useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
+export function useMarkHomeBackgroundRecoverySurfaceCommitted({
   owner,
   surfaceHasRenderer,
 }: {
@@ -687,7 +687,7 @@ export function useAcknowledgeHomeBackgroundRecoverySurfaceCommit({
     if (!contextValue) {
       return;
     }
-    contextValue.registry.acknowledgeSurfaceCommit({
+    contextValue.registry.markSurfaceCommitted({
       owner,
       ownerActivation: contextValue.ownerActivation,
       surfaceHasRenderer,

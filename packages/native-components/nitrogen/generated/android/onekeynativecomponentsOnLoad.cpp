@@ -16,7 +16,6 @@
 #include <NitroModules/HybridObjectRegistry.hpp>
 
 #include "JHybridHomeContainerSpec.hpp"
-#include "JFunc_void_std__string_std__string_std__string.hpp"
 #include "JFunc_void_std__string_std__string.hpp"
 #include "JFunc_void_std__string.hpp"
 #include "views/JHybridHomeContainerStateUpdater.hpp"
@@ -32,7 +31,6 @@ int initialize(JavaVM* vm) {
   return facebook::jni::initialize(vm, [] {
     // Register native JNI methods
     margelo::nitro::onekeynativecomponents::JHybridHomeContainerSpec::registerNatives();
-    margelo::nitro::onekeynativecomponents::JFunc_void_std__string_std__string_std__string_cxx::registerNatives();
     margelo::nitro::onekeynativecomponents::JFunc_void_std__string_std__string_cxx::registerNatives();
     margelo::nitro::onekeynativecomponents::JFunc_void_std__string_cxx::registerNatives();
     margelo::nitro::onekeynativecomponents::views::JHybridHomeContainerStateUpdater::registerNatives();

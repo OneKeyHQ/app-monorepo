@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/shared/src/types/homeRuntime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-const HOME_SCOPE_KEY_VERSION = 'home-owner-v1';
+const HOME_SCOPE_KEY_NAMESPACE = 'home-owner';
 
 function encodeIdentityPart(value: string): string {
   return `${value.length}:${value}`;
@@ -19,7 +19,7 @@ export function buildHomeOwnerScopeKey(owner: IHomeRuntimeOwnerScope): string {
       ? 'all'
       : `single:${encodeIdentityPart(owner.network.networkId)}`;
   return [
-    HOME_SCOPE_KEY_VERSION,
+    HOME_SCOPE_KEY_NAMESPACE,
     encodeIdentityPart(owner.walletId),
     encodeIdentityPart(owner.accountId),
     networkIdentity,

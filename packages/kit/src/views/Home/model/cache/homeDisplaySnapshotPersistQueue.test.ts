@@ -26,11 +26,9 @@ const mockValues = new Map<string, string>();
 function createCacheableState(ownerScopeKey: string): IHomeStoreState {
   const initial = createInitialHomeStoreState();
   const token = {
-    protocolVersion: 1 as const,
     clientInstanceId: 'client-a',
     producerInstanceId: 'producer-a',
     sessionId: `session:${ownerScopeKey}`,
-    requestSeq: 1,
     sourceKey: {
       scopeKey: ownerScopeKey,
       sourceId: 'portfolio' as const,
@@ -60,7 +58,7 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
           },
         },
         coverageFingerprint: '["asset-a"]',
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       },
     },
@@ -69,7 +67,7 @@ function createCacheableState(ownerScopeKey: string): IHomeStoreState {
 
 function withFundedShell(
   state: IHomeStoreState,
-  freshness: 'confirmedCache' | 'live' = 'live',
+  priority: 0 | 1 = 1,
 ): IHomeStoreState {
   return {
     ...state,
@@ -81,7 +79,7 @@ function withFundedShell(
           kind: 'funded',
           header: {
             kind: 'funded',
-            authority: freshness === 'live' ? 'live' : 'confirmedCache',
+            authority: priority === 1 ? 'live' : 'confirmedCache',
             balance: { amount: '42.50', currency: 'usd' },
           },
           actions: {
@@ -89,8 +87,8 @@ function withFundedShell(
             items: ['send', 'receive', 'buySell', 'swap'],
           },
           banner: { kind: 'none' },
-          freshness,
-          refresh: freshness === 'live' ? 'idle' : 'refreshing',
+          priority,
+          refresh: priority === 1 ? 'idle' : 'refreshing',
         },
       },
     },
@@ -134,7 +132,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     for (let storeCommitId = 1; storeCommitId <= 100; storeCommitId += 1) {
       queue.enqueue(state, {
         storeCommitId,
-        origin: 'storeEvent',
         changedSourceIds: ['portfolio'],
       });
     }
@@ -154,7 +151,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const queue = new HomeDisplaySnapshotPersistQueue();
     queue.enqueue(createCacheableState('owner-a'), {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();
@@ -194,14 +190,13 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
             market: false,
           },
           selectedTabId: 'portfolio' as const,
-          freshness: 'live' as const,
+          priority: 1 as const,
           refresh: 'idle' as const,
         },
       },
     };
     queue.enqueue(withNavigation, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       presentationChanged: true,
     });
     await queue.flushNow();
@@ -219,7 +214,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       },
       {
         storeCommitId: 2,
-        origin: 'storeEvent',
         presentationChanged: true,
       },
     );
@@ -232,19 +226,34 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const queue = new HomeDisplaySnapshotPersistQueue();
     queue.enqueue(createCacheableState('owner-a'), {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     queue.enqueue(createCacheableState('owner-b'), {
       storeCommitId: 2,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
-    queue.enqueue(createCacheableState('owner-c'), {
-      storeCommitId: 3,
-      origin: 'cacheHydrate',
-      changedSourceIds: ['portfolio'],
-    });
+    const cachedState = createCacheableState('owner-c');
+    const cachedPortfolio = cachedState.resources.portfolio;
+    if (cachedPortfolio.kind !== 'ready') {
+      throw new OneKeyLocalError('Expected a ready portfolio fixture');
+    }
+    queue.enqueue(
+      {
+        ...cachedState,
+        resources: {
+          ...cachedState.resources,
+          portfolio: {
+            ...cachedPortfolio,
+            priority: 0,
+            refresh: 'refreshing',
+          },
+        },
+      },
+      {
+        storeCommitId: 3,
+        changedSourceIds: ['portfolio'],
+      },
+    );
     await queue.flushNow();
     expect(mockStorage.commit.mock.calls).toHaveLength(2);
     const routeKeys = mockStorage.commit.mock.calls.flatMap(([commit]) =>
@@ -260,12 +269,10 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const secondQueue = new HomeDisplaySnapshotPersistQueue();
     firstQueue.enqueue(createCacheableState('owner-a'), {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     secondQueue.enqueue(createCacheableState('owner-b'), {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
 
@@ -284,7 +291,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const queue = new HomeDisplaySnapshotPersistQueue();
     queue.enqueue(createCacheableState('owner-a'), {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushAndCompact();
@@ -311,7 +317,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const state = createCacheableState('owner-a');
     queue.enqueue(state, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     const flush = queue.flushNow();
@@ -325,7 +330,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
 
     queue.enqueue(state, {
       storeCommitId: 2,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();
@@ -338,13 +342,11 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     mockStorage.commit.mockImplementationOnce(async () => {
       queue.enqueue(state, {
         storeCommitId: 2,
-        origin: 'storeEvent',
         changedSourceIds: ['portfolio'],
       });
     });
     queue.enqueue(state, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();
@@ -358,7 +360,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const fundedState = withFundedShell(createCacheableState('owner-a'));
     queue.enqueue(fundedState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       presentationChanged: true,
     });
     await queue.flushNow();
@@ -392,7 +393,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       },
       {
         storeCommitId: 2,
-        origin: 'storeEvent',
         presentationChanged: true,
       },
     );
@@ -407,7 +407,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const fundedState = withFundedShell(createCacheableState('owner-a'));
     queue.enqueue(fundedState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       presentationChanged: true,
     });
     await queue.flushNow();
@@ -434,7 +433,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       },
       {
         storeCommitId: 2,
-        origin: 'storeEvent',
         presentationChanged: true,
       },
     );
@@ -449,7 +447,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const fundedState = withFundedShell(createCacheableState('owner-a'));
     queue.enqueue(fundedState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
       presentationChanged: true,
     });
@@ -499,7 +496,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       },
       {
         storeCommitId: 2,
-        origin: 'storeEvent',
         changedSourceIds: ['portfolio'],
         presentationChanged: true,
       },
@@ -533,7 +529,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const fundedState = withFundedShell(createCacheableState('owner-a'));
     queue.enqueue(fundedState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
       presentationChanged: true,
     });
@@ -543,7 +538,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     nowSpy.mockReturnValue(startedAt + 365 * 24 * 60 * 60 * 1000);
     queue.enqueue(fundedState, {
       storeCommitId: 2,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();
@@ -557,7 +551,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     const fundedState = withFundedShell(createCacheableState('owner-a'));
     queue.enqueue(fundedState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       presentationChanged: true,
     });
     await queue.flushNow();
@@ -575,7 +568,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
       },
       {
         storeCommitId: 2,
-        origin: 'storeEvent',
         presentationChanged: true,
       },
     );
@@ -603,7 +595,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     };
     queue.enqueue(initialState, {
       storeCommitId: 1,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();
@@ -623,7 +614,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
         },
         {
           storeCommitId: index + 2,
-          origin: 'storeEvent',
           presentationChanged: true,
         },
       );
@@ -654,7 +644,6 @@ describe('HomeDisplaySnapshotPersistQueue', () => {
     };
     queue.enqueue(nextState, {
       storeCommitId: 4,
-      origin: 'storeEvent',
       changedSourceIds: ['portfolio'],
     });
     await queue.flushNow();

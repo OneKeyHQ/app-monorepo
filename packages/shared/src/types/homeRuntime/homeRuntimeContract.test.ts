@@ -1,5 +1,4 @@
 import {
-  HOME_RUNTIME_PROTOCOL_VERSION,
   isHomeRuntimeHandshake,
   isHomeRuntimeJsonValue,
   isHomeRuntimeRequestToken,
@@ -7,7 +6,6 @@ import {
 } from '.';
 
 const requestToken = {
-  protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
   clientInstanceId: 'client-fixture-1',
   producerInstanceId: 'producer-fixture-1',
   sessionId: 'session-fixture-1',
@@ -18,13 +16,11 @@ const requestToken = {
     dataSchemaVersion: 1,
     quoteBasis: { currency: 'USD', pricingRevision: 'pricing-fixture-1' },
   },
-  requestSeq: 1,
 };
 
 describe('Home runtime transport contract', () => {
   it('round-trips the JSON-safe handshake and response envelope', () => {
     const handshake = {
-      protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION,
       producerInstanceId: 'producer-fixture-1',
     };
     const response = {
@@ -51,15 +47,6 @@ describe('Home runtime transport contract', () => {
         ...requestToken,
         producerInstanceId: undefined,
       }),
-    ).toBe(false);
-    expect(
-      isHomeRuntimeRequestToken({
-        ...requestToken,
-        protocolVersion: HOME_RUNTIME_PROTOCOL_VERSION + 1,
-      }),
-    ).toBe(false);
-    expect(
-      isHomeRuntimeRequestToken({ ...requestToken, requestSeq: null }),
     ).toBe(false);
     expect(
       isHomeRuntimeRequestToken({

@@ -19,7 +19,7 @@ namespace margelo::nitro::onekeynativecomponents {
   using namespace facebook;
 
   /**
-   * Represents the Java/Kotlin callback `(tabId: String) -> Unit`.
+   * Represents the Java/Kotlin callback `(intentJson: String) -> Unit`.
    * This can be passed around between C++ and Java/Kotlin.
    */
   struct JFunc_void_std__string: public jni::JavaClass<JFunc_void_std__string> {
@@ -30,9 +30,9 @@ namespace margelo::nitro::onekeynativecomponents {
     /**
      * Invokes the function this `JFunc_void_std__string` instance holds through JNI.
      */
-    void invoke(const std::string& tabId) const {
-      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* tabId */)>("invoke");
-      method(self(), jni::make_jstring(tabId));
+    void invoke(const std::string& intentJson) const {
+      static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* intentJson */)>("invoke");
+      method(self(), jni::make_jstring(intentJson));
     }
   };
 
@@ -41,7 +41,7 @@ namespace margelo::nitro::onekeynativecomponents {
    */
   class JFunc_void_std__string_cxx final: public jni::HybridClass<JFunc_void_std__string_cxx, JFunc_void_std__string> {
   public:
-    static jni::local_ref<JFunc_void_std__string::javaobject> fromCpp(const std::function<void(const std::string& /* tabId */)>& func) {
+    static jni::local_ref<JFunc_void_std__string::javaobject> fromCpp(const std::function<void(const std::string& /* intentJson */)>& func) {
       return JFunc_void_std__string_cxx::newObjectCxxArgs(func);
     }
 
@@ -49,13 +49,13 @@ namespace margelo::nitro::onekeynativecomponents {
     /**
      * Invokes the C++ `std::function<...>` this `JFunc_void_std__string_cxx` instance holds.
      */
-    void invoke_cxx(jni::alias_ref<jni::JString> tabId) {
-      _func(tabId->toStdString());
+    void invoke_cxx(jni::alias_ref<jni::JString> intentJson) {
+      _func(intentJson->toStdString());
     }
 
   public:
     [[nodiscard]]
-    inline const std::function<void(const std::string& /* tabId */)>& getFunction() const {
+    inline const std::function<void(const std::string& /* intentJson */)>& getFunction() const {
       return _func;
     }
 
@@ -66,11 +66,11 @@ namespace margelo::nitro::onekeynativecomponents {
     }
 
   private:
-    explicit JFunc_void_std__string_cxx(const std::function<void(const std::string& /* tabId */)>& func): _func(func) { }
+    explicit JFunc_void_std__string_cxx(const std::function<void(const std::string& /* intentJson */)>& func): _func(func) { }
 
   private:
     friend HybridBase;
-    std::function<void(const std::string& /* tabId */)> _func;
+    std::function<void(const std::string& /* intentJson */)> _func;
   };
 
 } // namespace margelo::nitro::onekeynativecomponents

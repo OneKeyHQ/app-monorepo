@@ -28,41 +28,37 @@ type IHomeSpotEvidence<T> =
 function projectHomeSpotSectionSource<T>({
   authorityReady,
   evidence,
-  requestSeq,
   scopeMatches,
 }: {
   authorityReady: boolean;
   evidence: IHomeSpotEvidence<T>;
-  requestSeq: number;
   scopeMatches: boolean;
 }): IHomeSpotSourceSnapshot<T> {
   if (!authorityReady || !scopeMatches) {
-    return { kind: 'loading', requestSeq };
+    return { kind: 'loading' };
   }
   switch (evidence.kind) {
     case 'loading':
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
     case 'confirmedCache':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'partial':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'error':
-      return { ...evidence, requestSeq };
+      return evidence;
     case 'complete':
       if (evidence.confirmedEmpty) {
         return {
           kind: 'complete',
-          requestSeq,
           coverageFingerprint: evidence.coverageFingerprint,
           result: { kind: 'empty' },
         };
       }
       if (evidence.rowIds.length === 0) {
-        return { kind: 'loading', requestSeq };
+        return { kind: 'loading' };
       }
       return {
         kind: 'complete',
-        requestSeq,
         coverageFingerprint: evidence.coverageFingerprint,
         result: {
           kind: 'success',
@@ -71,26 +67,24 @@ function projectHomeSpotSectionSource<T>({
         },
       };
     default:
-      return { kind: 'loading', requestSeq };
+      return { kind: 'loading' };
   }
 }
 
-function buildHomeSpotSingleCoverage(requestSeq: number): string {
-  return `single:${requestSeq}:complete`;
+function buildHomeSpotSingleCoverage(): string {
+  return 'single:complete';
 }
 
 function buildHomeSpotAllCoverage({
   expected,
   failed,
-  requestSeq,
   settled,
 }: {
   expected: number;
   failed: number;
-  requestSeq: number;
   settled: number;
 }): string {
-  return `all:${requestSeq}:${settled}/${expected}:${failed}`;
+  return `all:${settled}/${expected}:${failed}`;
 }
 
 export {

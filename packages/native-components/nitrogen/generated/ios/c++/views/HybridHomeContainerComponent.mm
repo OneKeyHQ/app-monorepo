@@ -71,10 +71,10 @@ using namespace margelo::nitro::onekeynativecomponents::views;
   // 2. Update each prop individually
   swiftPart.beforeUpdate();
 
-  // initialSnapshotJson: string
-  if (newViewProps.initialSnapshotJson.isDirty) {
-    swiftPart.setInitialSnapshotJson(newViewProps.initialSnapshotJson.value);
-    newViewProps.initialSnapshotJson.isDirty = false;
+  // initialStateJson: string
+  if (newViewProps.initialStateJson.isDirty) {
+    swiftPart.setInitialStateJson(newViewProps.initialStateJson.value);
+    newViewProps.initialStateJson.isDirty = false;
   }
   // backgroundColor: string
   if (newViewProps.backgroundColor.isDirty) {
@@ -86,21 +86,6 @@ using namespace margelo::nitro::onekeynativecomponents::views;
     swiftPart.setDebugOverlayEnabled(newViewProps.debugOverlayEnabled.value);
     newViewProps.debugOverlayEnabled.isDirty = false;
   }
-  // onAction: optional
-  if (newViewProps.onAction.isDirty) {
-    swiftPart.setOnAction(newViewProps.onAction.value);
-    newViewProps.onAction.isDirty = false;
-  }
-  // onRefresh: optional
-  if (newViewProps.onRefresh.isDirty) {
-    swiftPart.setOnRefresh(newViewProps.onRefresh.value);
-    newViewProps.onRefresh.isDirty = false;
-  }
-  // onVisibleTabChange: optional
-  if (newViewProps.onVisibleTabChange.isDirty) {
-    swiftPart.setOnVisibleTabChange(newViewProps.onVisibleTabChange.value);
-    newViewProps.onVisibleTabChange.isDirty = false;
-  }
   // onRenderError: optional
   if (newViewProps.onRenderError.isDirty) {
     swiftPart.setOnRenderError(newViewProps.onRenderError.value);
@@ -110,11 +95,6 @@ using namespace margelo::nitro::onekeynativecomponents::views;
   if (newViewProps.onIntent.isDirty) {
     swiftPart.setOnIntent(newViewProps.onIntent.value);
     newViewProps.onIntent.isDirty = false;
-  }
-  // onTransportResult: optional
-  if (newViewProps.onTransportResult.isDirty) {
-    swiftPart.setOnTransportResult(newViewProps.onTransportResult.value);
-    newViewProps.onTransportResult.isDirty = false;
   }
 
   swiftPart.afterUpdate();

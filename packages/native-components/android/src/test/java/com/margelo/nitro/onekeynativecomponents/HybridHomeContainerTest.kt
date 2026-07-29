@@ -6,29 +6,29 @@ import org.junit.Test
 
 class HybridHomeContainerTest {
   @Test
-  fun `initial snapshot is submitted only once per value`() {
+  fun `initial state is submitted only once per value`() {
     assertFalse(
-      homeContainerShouldSubmitInitialSnapshot(
+      homeContainerShouldSubmitInitialState(
         current = "",
         next = "",
       ),
     )
     assertTrue(
-      homeContainerShouldSubmitInitialSnapshot(
+      homeContainerShouldSubmitInitialState(
         current = "",
-        next = "snapshot-1",
+        next = "state-1",
       ),
     )
     assertFalse(
-      homeContainerShouldSubmitInitialSnapshot(
-        current = "snapshot-1",
-        next = "snapshot-1",
+      homeContainerShouldSubmitInitialState(
+        current = "state-1",
+        next = "state-1",
       ),
     )
     assertTrue(
-      homeContainerShouldSubmitInitialSnapshot(
-        current = "snapshot-1",
-        next = "snapshot-2",
+      homeContainerShouldSubmitInitialState(
+        current = "state-1",
+        next = "state-2",
       ),
     )
   }

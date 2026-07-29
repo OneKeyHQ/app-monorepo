@@ -21,7 +21,7 @@ const ownerScopeKey = 'wallet-a:account-a:network-eth';
 const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
 const now = 1000;
 
-describe('Home display snapshot V3 codec', () => {
+describe('Home display snapshot codec', () => {
   it('uses a deterministic opaque partition id and restores runtime defaults', () => {
     expect(partitionId).toHaveLength(64);
     expect(partitionId).not.toContain(ownerScopeKey);
@@ -75,7 +75,7 @@ describe('Home display snapshot V3 codec', () => {
         kind: 'portfolio',
         presentation: {
           kind: 'zero',
-          freshness: 'confirmedCache',
+          priority: 0,
           refresh: 'refreshing',
         },
       },

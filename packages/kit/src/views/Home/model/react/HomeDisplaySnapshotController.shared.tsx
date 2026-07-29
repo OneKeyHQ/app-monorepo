@@ -14,17 +14,17 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 
-import { getHomeDisplaySnapshotPartitionTag } from '../cacheV2/homeDisplaySnapshotKeys';
-import { homeDisplaySnapshotPersistQueue } from '../cacheV2/homeDisplaySnapshotPersistQueue';
+import { getHomeDisplaySnapshotPartitionTag } from '../cache/homeDisplaySnapshotKeys';
+import { homeDisplaySnapshotPersistQueue } from '../cache/homeDisplaySnapshotPersistQueue';
 import {
   loadHomeDisplaySnapshotCritical,
   loadHomeDisplaySnapshotManifest,
   loadHomeDisplaySnapshotSourceRecords,
-} from '../cacheV2/homeDisplaySnapshotRepository';
+} from '../cache/homeDisplaySnapshotRepository';
 
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
 
-import type { ILoadedHomeDisplaySnapshotManifest } from '../cacheV2/homeDisplaySnapshotTypes';
+import type { ILoadedHomeDisplaySnapshotManifest } from '../cache/homeDisplaySnapshotTypes';
 import type { IHomeStoreSourceId } from '../store/homeStoreTypes';
 
 const HOME_BACKGROUND_SNAPSHOT_SOURCE_IDS = [
@@ -51,9 +51,9 @@ function getSourceIdsText(sourceIds: readonly IHomeStoreSourceId[]): string {
 }
 
 /**
- * Home display snapshot cache V3.
+ * Home display snapshot cache.
  *
- * V3 stores only explicitly selected business fields. It waits for
+ * The cache stores only explicitly selected business fields. It waits for
  * ActiveAccount to confirm the owner, then exact-reads the critical, Banner,
  * Portfolio, and Market chunks. The remaining list chunks warm asynchronously after
  * the first display is ready, so lazy views can mount from cache without
@@ -103,7 +103,7 @@ export function HomeDisplaySnapshotControllerShared() {
     const partitionTag = getHomeDisplaySnapshotPartitionTag(
       ownerToken.scopeKey,
     );
-    defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+    defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
       stage: 'ownerReady',
       outcome: 'started',
       partitionTag,
@@ -171,7 +171,7 @@ export function HomeDisplaySnapshotControllerShared() {
               ownerScopeKey: candidateOwnerToken.scopeKey,
             }));
           if (!isCurrent()) {
-            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
               stage,
               outcome: 'stale',
               partitionTag,
@@ -182,7 +182,7 @@ export function HomeDisplaySnapshotControllerShared() {
             return 0;
           }
           if (!resolvedContext) {
-            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
               stage,
               outcome: 'miss',
               partitionTag,
@@ -197,7 +197,7 @@ export function HomeDisplaySnapshotControllerShared() {
             sourceIds: [sourceId],
           });
           if (!isCurrent()) {
-            defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+            defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
               stage,
               outcome: 'stale',
               partitionTag,
@@ -215,12 +215,12 @@ export function HomeDisplaySnapshotControllerShared() {
               sessionId: candidateOwnerToken.sessionId,
               records,
             });
-            perfMark('Home:v3Cache:sectionHydrated', {
+            perfMark('Home:displayCache:sectionHydrated', {
               sourceId,
               recordCount: records.length,
             });
           }
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
             stage,
             outcome: records.length > 0 ? 'hit' : 'miss',
             partitionTag,
@@ -237,7 +237,7 @@ export function HomeDisplaySnapshotControllerShared() {
           if (!isCurrent()) {
             return 0;
           }
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
             stage,
             outcome: 'failed',
             partitionTag,
@@ -305,13 +305,13 @@ export function HomeDisplaySnapshotControllerShared() {
 
     const loadInitialSnapshot = async () => {
       const startedAt = getNow();
-      perfMark('Home:v3Cache:loadStart');
+      perfMark('Home:displayCache:loadStart');
       try {
         const context = await loadHomeDisplaySnapshotManifest({
           ownerScopeKey: ownerToken.scopeKey,
         });
         if (!isCurrent()) {
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
             stage: 'manifest',
             outcome: 'stale',
             partitionTag,
@@ -321,14 +321,14 @@ export function HomeDisplaySnapshotControllerShared() {
           return;
         }
         if (!context) {
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
             stage: 'manifest',
             outcome: 'miss',
             partitionTag,
             elapsedMs: getElapsed(startedAt),
             recordCount: 0,
           });
-          perfMark('Home:v3Cache:miss', {
+          perfMark('Home:displayCache:miss', {
             elapsedMs: getElapsed(startedAt),
           });
           publishLoadStatus('miss');
@@ -337,7 +337,7 @@ export function HomeDisplaySnapshotControllerShared() {
         const manifestSourceIds = Object.keys(context.manifest.chunks).filter(
           (chunkId): chunkId is IHomeStoreSourceId => chunkId !== 'critical',
         );
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'manifest',
           outcome: 'hit',
           partitionTag,
@@ -356,7 +356,7 @@ export function HomeDisplaySnapshotControllerShared() {
           critical?.shell && critical.shell.kind !== 'loading',
         );
         if (!isCurrent()) {
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
             stage: 'critical',
             outcome: 'stale',
             partitionTag,
@@ -374,11 +374,11 @@ export function HomeDisplaySnapshotControllerShared() {
             shell: critical.shell,
             navigation: critical.navigation,
           });
-          perfMark('Home:v3Cache:criticalHydrated', {
+          perfMark('Home:displayCache:criticalHydrated', {
             elapsedMs: getElapsed(criticalStartedAt),
           });
         }
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'critical',
           outcome: criticalDisplayReady ? 'hit' : 'miss',
           partitionTag,
@@ -425,7 +425,7 @@ export function HomeDisplaySnapshotControllerShared() {
         if (marketRecordCount > 0) {
           loadedSourceIds.push('market');
         }
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'initialHydrate',
           outcome:
             initialDisplayReady || loadedSourceIds.length > 0
@@ -438,7 +438,7 @@ export function HomeDisplaySnapshotControllerShared() {
           generation: context.manifest.generation,
           criticalIncluded: Boolean(critical),
         });
-        perfMark('Home:v3Cache:initialHydrated', {
+        perfMark('Home:displayCache:initialHydrated', {
           elapsedMs: getElapsed(startedAt),
           recordCount: loadedSourceIds.length,
         });
@@ -448,7 +448,7 @@ export function HomeDisplaySnapshotControllerShared() {
         if (!isCurrent()) {
           return;
         }
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCacheV2({
+        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'initialHydrate',
           outcome: 'failed',
           partitionTag,
@@ -456,7 +456,7 @@ export function HomeDisplaySnapshotControllerShared() {
           recordCount: 0,
           errorName: getErrorName(error),
         });
-        perfMark('Home:v3Cache:failed', {
+        perfMark('Home:displayCache:failed', {
           elapsedMs: getElapsed(startedAt),
         });
         publishLoadStatus('miss');

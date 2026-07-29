@@ -83,10 +83,9 @@ describe('HomePortfolioStoreController source', () => {
     lifecycle.begin({ beginRequest, identityKey: 'owner-a' });
 
     expect(beginRequest).toHaveBeenCalledTimes(2);
-    expect(lifecycle.getRequestCount()).toBe(2);
   });
 
-  it('drops a stale round instead of completing a newer request token', () => {
+  it('completes same-owner requests in response arrival order', () => {
     const lifecycle = new HomePortfolioRequestLifecycle();
     const beginRequest = jest.fn(() => ({
       handle: Symbol('request'),
@@ -101,7 +100,7 @@ describe('HomePortfolioStoreController source', () => {
         result: { kind: 'empty' },
         round: stale,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       lifecycle.complete({
         completeRequest,
@@ -109,7 +108,10 @@ describe('HomePortfolioStoreController source', () => {
         round: current,
       }),
     ).toBe(true);
-    expect(completeRequest).toHaveBeenCalledTimes(1);
+    expect(completeRequest).toHaveBeenCalledTimes(2);
+    expect(completeRequest).toHaveBeenNthCalledWith(1, stale.handle, {
+      kind: 'empty',
+    });
     expect(completeRequest).toHaveBeenCalledWith(current.handle, {
       kind: 'empty',
     });

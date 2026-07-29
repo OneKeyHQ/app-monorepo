@@ -101,7 +101,6 @@ describe('home NFT section authority', () => {
       kind: 'complete' as const,
       confirmedEmpty: false,
       coverageFingerprint: buildHomeNFTCoverage({
-        requestSeq: 1,
         rowCount: rowIds.length,
         source: 'singleNetwork',
       }),
@@ -113,15 +112,13 @@ describe('home NFT section authority', () => {
       projectHomeNFTSectionSource({
         authorityReady: false,
         scopeMatches: true,
-        requestSeq: 1,
         evidence: completeEvidence,
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 1 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomeNFTSectionSource({
         authorityReady: true,
         scopeMatches: false,
-        requestSeq: 2,
         evidence: {
           kind: 'confirmedCache',
           data,
@@ -129,7 +126,7 @@ describe('home NFT section authority', () => {
           refresh: 'idle',
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 2 });
+    ).toEqual({ kind: 'loading' });
   });
 
   it('maps confirmed cache to a seed event and preserves the payload reference', () => {
@@ -139,7 +136,6 @@ describe('home NFT section authority', () => {
     const snapshot = projectHomeNFTSectionSource({
       authorityReady: true,
       scopeMatches: true,
-      requestSeq: 3,
       evidence: {
         kind: 'confirmedCache',
         data,
@@ -152,7 +148,6 @@ describe('home NFT section authority', () => {
     expect(event).toMatchObject({
       ...identity,
       kind: 'seedConfirmed',
-      requestSeq: 3,
       rowIds,
       refresh: 'refreshing',
     });
@@ -166,7 +161,7 @@ describe('home NFT section authority', () => {
     expect(resolution.semantic).toEqual({
       kind: 'ready',
       rowIds,
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
     expect(resolution.authoritative).toEqual({
@@ -203,12 +198,10 @@ describe('home NFT section authority', () => {
       projectHomeNFTSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 4,
         evidence: {
           kind: 'complete',
           confirmedEmpty: true,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 4,
             rowCount: 0,
             source: 'allNetworks',
           }),
@@ -218,9 +211,7 @@ describe('home NFT section authority', () => {
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 4,
       coverageFingerprint: buildHomeNFTCoverage({
-        requestSeq: 4,
         rowCount: 0,
         source: 'allNetworks',
       }),
@@ -230,12 +221,10 @@ describe('home NFT section authority', () => {
       projectHomeNFTSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 5,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 5,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -245,9 +234,7 @@ describe('home NFT section authority', () => {
       }),
     ).toEqual({
       kind: 'complete',
-      requestSeq: 5,
       coverageFingerprint: buildHomeNFTCoverage({
-        requestSeq: 5,
         rowCount: rowIds.length,
         source: 'singleNetwork',
       }),
@@ -266,12 +253,10 @@ describe('home NFT section authority', () => {
       projectHomeNFTSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 6,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 6,
             rowCount: 1,
             source: 'singleNetwork',
           }),
@@ -279,17 +264,15 @@ describe('home NFT section authority', () => {
           rowIds: ['evm--1:0xmissing-rows:1'],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 6 });
+    ).toEqual({ kind: 'loading' });
     expect(
       projectHomeNFTSectionSource({
         authorityReady: true,
         scopeMatches: true,
-        requestSeq: 7,
         evidence: {
           kind: 'complete',
           confirmedEmpty: false,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 7,
             rowCount: 0,
             source: 'singleNetwork',
           }),
@@ -297,40 +280,10 @@ describe('home NFT section authority', () => {
           rowIds: [],
         },
       }),
-    ).toEqual({ kind: 'loading', requestSeq: 7 });
+    ).toEqual({ kind: 'loading' });
   });
 
-  it('passes error kind through to the coordinator event and cold error semantic', () => {
-    const identity = createIdentity();
-    const snapshot = projectHomeNFTSectionSource({
-      authorityReady: true,
-      scopeMatches: true,
-      requestSeq: 8,
-      evidence: {
-        kind: 'error',
-        errorKind: 'runtimeUnavailable',
-      },
-    });
-    const event = adaptHomeNFTSourceSnapshot({ identity, snapshot });
-
-    expect(event).toMatchObject({
-      ...identity,
-      kind: 'error',
-      requestSeq: 8,
-      errorKind: 'runtimeUnavailable',
-    });
-    expect(
-      new HomeSectionCoordinator<IHomeNFTLegacyPayload>(identity).dispatch(
-        event,
-      ),
-    ).toMatchObject({
-      accepted: true,
-      semantic: { kind: 'error', errorState: 'nft' },
-      authoritative: { kind: 'none' },
-    });
-  });
-
-  it('keeps cached rows during loading partial and error refresh states', () => {
+  it('keeps network rows during refresh states', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomeNFTLegacyPayload>(
       identity,
@@ -343,9 +296,7 @@ describe('home NFT section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 1,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 1,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -357,17 +308,17 @@ describe('home NFT section authority', () => {
       coordinator.dispatch(
         adaptHomeNFTSourceSnapshot({
           identity,
-          snapshot: { kind: 'loading', requestSeq: 2 },
+          snapshot: { kind: 'loading' },
         }),
       ),
     ).toMatchObject({
       semantic: {
         kind: 'ready',
         rowIds,
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
-      authoritative: { kind: 'confirmedCache', data: live },
+      authoritative: { kind: 'live', data: live },
     });
     expect(
       coordinator.dispatch(
@@ -375,8 +326,7 @@ describe('home NFT section authority', () => {
           identity,
           snapshot: {
             kind: 'partial',
-            requestSeq: 3,
-            coverageFingerprint: 'nft:singleNetwork:3:partial',
+            coverageFingerprint: 'nft:singleNetwork:partial',
           },
         }),
       ),
@@ -384,7 +334,7 @@ describe('home NFT section authority', () => {
       semantic: {
         kind: 'ready',
         rowIds,
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'refreshing',
       },
     });
@@ -394,7 +344,6 @@ describe('home NFT section authority', () => {
           identity,
           snapshot: {
             kind: 'error',
-            requestSeq: 4,
             errorKind: 'transport',
           },
         }),
@@ -403,19 +352,20 @@ describe('home NFT section authority', () => {
       semantic: {
         kind: 'ready',
         rowIds,
-        freshness: 'confirmedCache',
+        priority: 1,
         refresh: 'failed',
       },
-      authoritative: { kind: 'confirmedCache', data: live },
+      authoritative: { kind: 'live', data: live },
     });
   });
 
-  it('rejects stale terminal and owner responses without A-B-A contamination', () => {
+  it('accepts later same-source responses but rejects a different owner', () => {
     const identity = createIdentity();
     const coordinator = new HomeSectionCoordinator<IHomeNFTLegacyPayload>(
       identity,
     );
     const current = payload('current');
+    const later = payload('later');
     const rowIds = getHomeNFTRowIds(current);
 
     coordinator.dispatch(
@@ -423,9 +373,7 @@ describe('home NFT section authority', () => {
         identity,
         snapshot: {
           kind: 'complete',
-          requestSeq: 2,
           coverageFingerprint: buildHomeNFTCoverage({
-            requestSeq: 2,
             rowCount: rowIds.length,
             source: 'singleNetwork',
           }),
@@ -439,21 +387,19 @@ describe('home NFT section authority', () => {
           identity,
           snapshot: {
             kind: 'complete',
-            requestSeq: 1,
             coverageFingerprint: buildHomeNFTCoverage({
-              requestSeq: 1,
               rowCount: 1,
               source: 'singleNetwork',
             }),
             result: {
               kind: 'success',
-              data: payload('stale'),
+              data: later,
               rowIds: ['evm--1:0xstale:1'],
             },
           },
         }),
       ),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
+    ).toMatchObject({ accepted: true });
 
     const changedOwnerIdentity = createHomeNFTSourceIdentity({
       owner: { scopeKey: 'account:account-b', sessionId: 'session-b' },
@@ -466,9 +412,7 @@ describe('home NFT section authority', () => {
           identity: changedOwnerIdentity,
           snapshot: {
             kind: 'complete',
-            requestSeq: 3,
             coverageFingerprint: buildHomeNFTCoverage({
-              requestSeq: 3,
               rowCount: 1,
               source: 'singleNetwork',
             }),
@@ -483,54 +427,7 @@ describe('home NFT section authority', () => {
     ).toMatchObject({ accepted: false, staleReason: 'ownerMismatch' });
     expect(coordinator.getSnapshot().authoritative).toEqual({
       kind: 'live',
-      data: current,
-    });
-  });
-
-  it('treats terminal events as final for their request phase', () => {
-    const identity = createIdentity();
-    const coordinator = new HomeSectionCoordinator<IHomeNFTLegacyPayload>(
-      identity,
-    );
-    const complete = payload('complete');
-    const rowIds = getHomeNFTRowIds(complete);
-
-    expect(
-      coordinator.dispatch(
-        adaptHomeNFTSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'complete',
-            requestSeq: 9,
-            coverageFingerprint: buildHomeNFTCoverage({
-              requestSeq: 9,
-              rowCount: rowIds.length,
-              source: 'singleNetwork',
-            }),
-            result: {
-              kind: 'success',
-              data: complete,
-              rowIds,
-            },
-          },
-        }),
-      ),
-    ).toMatchObject({ accepted: true });
-    expect(
-      coordinator.dispatch(
-        adaptHomeNFTSourceSnapshot({
-          identity,
-          snapshot: {
-            kind: 'error',
-            requestSeq: 9,
-            errorKind: 'transport',
-          },
-        }),
-      ),
-    ).toMatchObject({ accepted: false, staleReason: 'requestStale' });
-    expect(coordinator.getSnapshot().authoritative).toEqual({
-      kind: 'live',
-      data: complete,
+      data: later,
     });
   });
 });

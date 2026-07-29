@@ -8,4 +8,4 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT/apps/mobile/android"
 ./gradlew \
   :onekeyhq_native-components:testDebugUnitTest \
-  --tests com.margelo.nitro.onekeynativecomponents.HomeContainerProtocolV3Test
+  --tests com.margelo.nitro.onekeynativecomponents.HomeContainerStateTest

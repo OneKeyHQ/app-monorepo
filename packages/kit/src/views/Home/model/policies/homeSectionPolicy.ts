@@ -30,7 +30,7 @@ function projectConfirmed(
     : {
         kind: 'ready',
         rowIds,
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'failed',
       };
 }
@@ -68,7 +68,7 @@ export function projectHomeSection({
     : {
         kind: 'ready',
         rowIds,
-        freshness: 'live',
+        priority: 1,
         refresh: 'idle',
       };
 }

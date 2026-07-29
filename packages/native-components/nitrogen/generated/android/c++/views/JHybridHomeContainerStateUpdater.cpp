@@ -36,8 +36,8 @@ void JHybridHomeContainerStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
     throw std::runtime_error("HybridHomeContainerState's data doesn't contain any props!");
   }
   const HybridHomeContainerProps& props = maybeProps.value();
-  if (props.initialSnapshotJson.isDirty) {
-    view->setInitialSnapshotJson(props.initialSnapshotJson.value);
+  if (props.initialStateJson.isDirty) {
+    view->setInitialStateJson(props.initialStateJson.value);
     // TODO: Set isDirty = false
   }
   if (props.backgroundColor.isDirty) {
@@ -48,28 +48,12 @@ void JHybridHomeContainerStateUpdater::updateViewProps(jni::alias_ref<jni::JClas
     view->setDebugOverlayEnabled(props.debugOverlayEnabled.value);
     // TODO: Set isDirty = false
   }
-  if (props.onAction.isDirty) {
-    view->setOnAction(props.onAction.value);
-    // TODO: Set isDirty = false
-  }
-  if (props.onRefresh.isDirty) {
-    view->setOnRefresh(props.onRefresh.value);
-    // TODO: Set isDirty = false
-  }
-  if (props.onVisibleTabChange.isDirty) {
-    view->setOnVisibleTabChange(props.onVisibleTabChange.value);
-    // TODO: Set isDirty = false
-  }
   if (props.onRenderError.isDirty) {
     view->setOnRenderError(props.onRenderError.value);
     // TODO: Set isDirty = false
   }
   if (props.onIntent.isDirty) {
     view->setOnIntent(props.onIntent.value);
-    // TODO: Set isDirty = false
-  }
-  if (props.onTransportResult.isDirty) {
-    view->setOnTransportResult(props.onTransportResult.value);
     // TODO: Set isDirty = false
   }
 

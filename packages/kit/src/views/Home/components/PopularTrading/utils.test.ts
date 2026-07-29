@@ -45,31 +45,20 @@ describe('PopularTrading market token display utils', () => {
 
   test('preserves cached categories when one refresh request fails', () => {
     const cache = createHomeMarketCategoryTokensCache<string>();
-    const initialRequestId = cache.beginRequest({
-      categoryIds: ['trending', 'stocks'],
-      minLiquidity: 1000,
-    });
     cache.commitCategory({
       categoryId: 'trending',
       minLiquidity: 1000,
-      requestId: initialRequestId,
       tokens: ['BTC'],
     });
     cache.commitCategory({
       categoryId: 'stocks',
       minLiquidity: 1000,
-      requestId: initialRequestId,
       tokens: ['AAPL'],
     });
 
-    const refreshRequestId = cache.beginRequest({
-      categoryIds: ['trending', 'stocks'],
-      minLiquidity: 1000,
-    });
     cache.commitCategory({
       categoryId: 'trending',
       minLiquidity: 1000,
-      requestId: refreshRequestId,
       tokens: ['ETH'],
     });
 
@@ -89,15 +78,10 @@ describe('PopularTrading market token display utils', () => {
 
   test('makes a completed category available before its sibling settles', () => {
     const cache = createHomeMarketCategoryTokensCache<string>();
-    const requestId = cache.beginRequest({
-      categoryIds: ['trending', 'stocks'],
-      minLiquidity: 1000,
-    });
 
     cache.commitCategory({
       categoryId: 'trending',
       minLiquidity: 1000,
-      requestId,
       tokens: ['BTC'],
     });
 
@@ -115,63 +99,43 @@ describe('PopularTrading market token display utils', () => {
     ).toBeUndefined();
   });
 
-  test('rejects a stale refresh that settles after the latest request', () => {
+  test('lets the category response that settles last replace earlier data', () => {
     const cache = createHomeMarketCategoryTokensCache<string>();
-    const staleRequestId = cache.beginRequest({
-      categoryIds: ['trending'],
-      minLiquidity: 1000,
-    });
-    const latestRequestId = cache.beginRequest({
-      categoryIds: ['trending'],
-      minLiquidity: 1000,
-    });
 
     expect(
       cache.commitCategory({
         categoryId: 'trending',
         minLiquidity: 1000,
-        requestId: latestRequestId,
-        tokens: ['latest'],
+        tokens: ['settled-first'],
       }),
     ).toBe(true);
     expect(
       cache.commitCategory({
         categoryId: 'trending',
         minLiquidity: 1000,
-        requestId: staleRequestId,
-        tokens: ['stale'],
+        tokens: ['settled-last'],
       }),
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       cache.getTokens({
         minLiquidity: 1000,
         selectedMarketCategoryId: 'trending',
       }),
-    ).toEqual(['latest']);
+    ).toEqual(['settled-last']);
   });
 
   test('keeps overlapping liquidity scope requests independent', () => {
     const cache = createHomeMarketCategoryTokensCache<string>();
-    const lowLiquidityRequestId = cache.beginRequest({
-      categoryIds: ['trending'],
-      minLiquidity: 1000,
-    });
-    const highLiquidityRequestId = cache.beginRequest({
-      categoryIds: ['trending'],
-      minLiquidity: 2000,
-    });
 
     cache.commitCategory({
       categoryId: 'trending',
       minLiquidity: 2000,
-      requestId: highLiquidityRequestId,
       tokens: ['high-liquidity'],
     });
     cache.commitCategory({
       categoryId: 'trending',
       minLiquidity: 1000,
-      requestId: lowLiquidityRequestId,
       tokens: ['low-liquidity'],
     });
 

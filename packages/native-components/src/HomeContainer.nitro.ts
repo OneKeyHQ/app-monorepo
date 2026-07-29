@@ -5,23 +5,17 @@ import type {
 } from 'react-native-nitro-modules';
 
 export interface IHomeContainerNativeProps extends HybridViewProps {
-  initialSnapshotJson: string;
+  initialStateJson: string;
   backgroundColor: string;
   debugOverlayEnabled: boolean;
-  onAction?: (actionId: string, itemId: string, tabId: string) => void;
-  onRefresh?: (tabId: string, requestId: string) => void;
-  onVisibleTabChange?: (tabId: string) => void;
   onRenderError?: (code: string, message: string) => void;
   onIntent?: (intentJson: string) => void;
-  onTransportResult?: (resultJson: string) => void;
 }
 
 export interface IHomeContainerNativeMethods extends HybridViewMethods {
-  setSnapshot(snapshotJson: string): void;
-  applyPatch(patchJson: string): void;
+  setState(stateJson: string): void;
   completeRefresh(requestId: string): void;
   selectTab(tabId: string, animated: boolean): void;
-  getCapabilities(): string;
 }
 
 // Nitrogen autolinking requires this alias to match the registered HybridView name.

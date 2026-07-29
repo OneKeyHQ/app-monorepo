@@ -7,7 +7,6 @@ import {
 import {
   phase0HomeEventScenarios,
   phase0HomeFailureBaseline,
-  phase0NativeRevisionGapOracle,
 } from './fixtures/homeEventFixtures';
 
 const owner = {
@@ -31,6 +30,46 @@ function applyTransition(
   };
 }
 
+function publishPortfolioRows(
+  state: ReturnType<typeof createInitialHomeStoreState>,
+  rowIds: readonly string[],
+) {
+  const token = {
+    clientInstanceId: 'client-runtime-ordering',
+    producerInstanceId: 'producer-runtime-ordering',
+    sessionId: ownerToken.sessionId,
+    sourceKey: {
+      scopeKey: ownerToken.scopeKey,
+      sourceId: 'portfolio',
+      paramsFingerprint: 'portfolio-params',
+      dataSchemaVersion: 1,
+    },
+  } as const;
+  const requested = applyTransition(state, {
+    type: 'sourceRequested',
+    token,
+  }).state;
+  return applyTransition(requested, {
+    type: 'sourceResponded',
+    envelope: {
+      token,
+      result: {
+        kind: 'success',
+        data: {
+          payload: { rows: rowIds },
+          section: {
+            kind: 'ready',
+            rowIds,
+            priority: 1,
+            refresh: 'idle',
+          },
+        },
+        coverageFingerprint: JSON.stringify(rowIds),
+      },
+    },
+  }).state;
+}
+
 describe('Home Phase 0 runtime ordering oracle', () => {
   it('records the supplied iOS failure evidence without treating defects as expectations', () => {
     expect(phase0HomeFailureBaseline.captureKind).toBe('userSupplied');
@@ -51,8 +90,6 @@ describe('Home Phase 0 runtime ordering oracle', () => {
       rapidTabAcceptedCount: 5,
       rapidTabRejectedCount: 0,
       ownerReplacementEventCount: 2,
-      nativeRevisionGapEventCount: 2,
-      expectedNativeResyncCount: 1,
     });
   });
 
@@ -89,15 +126,6 @@ describe('Home Phase 0 runtime ordering oracle', () => {
     expect(finalState.diagnostics.rejectedEventCount).toBe(0);
   });
 
-  it('binds the native revision-gap baseline to the protocol resync oracle', () => {
-    expect(phase0HomeEventScenarios.nativeRevisionGap).toHaveLength(2);
-    expect(phase0NativeRevisionGapOracle).toMatchObject({
-      initialTransportRevision: 1,
-      receivedBaseTransportRevision: 2,
-      expected: { kind: 'needSnapshot', reason: 'revisionGap' },
-    });
-  });
-
   it('rejects an old producer response after runtime authority changes', () => {
     let state = createInitialHomeStoreState();
     state = applyTransition(state, {
@@ -112,11 +140,9 @@ describe('Home Phase 0 runtime ordering oracle', () => {
         topology: 'split',
         connection: 'ready',
         producerInstanceId: 'producer-before-restart',
-        protocolVersion: 1,
       },
     }).state;
     const token = {
-      protocolVersion: 1,
       clientInstanceId: 'client-runtime-ordering',
       producerInstanceId: 'producer-before-restart',
       sessionId: ownerToken.sessionId,
@@ -126,7 +152,6 @@ describe('Home Phase 0 runtime ordering oracle', () => {
         paramsFingerprint: 'portfolio-params',
         dataSchemaVersion: 1,
       },
-      requestSeq: 1,
     } as const;
     state = applyTransition(state, { type: 'sourceRequested', token }).state;
     state = applyTransition(state, {
@@ -135,7 +160,6 @@ describe('Home Phase 0 runtime ordering oracle', () => {
         topology: 'split',
         connection: 'ready',
         producerInstanceId: 'producer-after-restart',
-        protocolVersion: 1,
       },
     }).state;
 
@@ -166,18 +190,7 @@ describe('Home Phase 0 runtime ordering oracle', () => {
       ownerToken,
       topology: 'single',
     }).state;
-    state = applyTransition(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'portfolio',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-1'],
-        data: { rows: ['row-1'] },
-        freshness: 'live',
-        refresh: 'idle',
-      },
-    }).state;
+    state = publishPortfolioRows(state, ['row-1']);
 
     state = applyTransition(state, {
       type: 'sectionReset',
@@ -196,31 +209,9 @@ describe('Home Phase 0 runtime ordering oracle', () => {
       ownerToken,
       topology: 'single',
     }).state;
-    state = applyTransition(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'portfolio',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-before'],
-        data: { rows: ['row-before'] },
-        freshness: 'live',
-        refresh: 'idle',
-      },
-    }).state;
+    state = publishPortfolioRows(state, ['row-before']);
     const staleRevision = state.sections.portfolio.sectionCommandRevision;
-    state = applyTransition(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'portfolio',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-after'],
-        data: { rows: ['row-after'] },
-        freshness: 'live',
-        refresh: 'idle',
-      },
-    }).state;
+    state = publishPortfolioRows(state, ['row-after']);
 
     const rejected = applyTransition(state, {
       type: 'intentReceived',
@@ -255,18 +246,7 @@ describe('Home Phase 0 runtime ordering oracle', () => {
       ownerToken,
       topology: 'single',
     }).state;
-    state = applyTransition(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'portfolio',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-current'],
-        data: { rows: ['row-current'] },
-        freshness: 'live',
-        refresh: 'idle',
-      },
-    }).state;
+    state = publishPortfolioRows(state, ['row-current']);
     const authority = {
       kind: 'sectionCommands' as const,
       sectionId: 'portfolio' as const,

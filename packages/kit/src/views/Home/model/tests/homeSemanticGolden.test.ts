@@ -47,10 +47,6 @@ const phase2GoldenBindings = {
     reason: 'currentObservationUnavailable',
   },
   capabilityChanged: { kind: 'projected' },
-  sameScopeRequestTwoFinishesBeforeOne: {
-    kind: 'notComparable',
-    reason: 'normalizedFactUnavailable',
-  },
   producerRestartWithOldResponse: {
     kind: 'notComparable',
     reason: 'runtimeNotReady',
@@ -60,12 +56,6 @@ const phase2GoldenBindings = {
     kind: 'notComparable',
     reason: 'normalizedFactUnavailable',
   },
-  nativeRevisionGap: { kind: 'notComparable', reason: 'blockedFixture' },
-  snapshotSlotOwnerMismatch: {
-    kind: 'notComparable',
-    reason: 'blockedFixture',
-  },
-  staleNativeIntent: { kind: 'notComparable', reason: 'blockedFixture' },
 } as const satisfies Record<IHomeBehaviorOracleVectorId, IPhase2GoldenBinding>;
 
 function facts(): IHomeFacts {
@@ -87,7 +77,6 @@ function facts(): IHomeFacts {
       topology: 'split',
       connection: 'ready',
       producerInstanceId: 'producer-a',
-      protocolVersion: 1,
     },
     capabilityInputs: {
       ready: true,
@@ -115,11 +104,13 @@ function facts(): IHomeFacts {
 }
 
 describe('Phase 2 Home semantic golden bindings', () => {
-  it('binds every one of the 21 Phase 0 vectors without guessing unsupported semantics', () => {
+  it('binds every Phase 0 vector without guessing unsupported semantics', () => {
     expect(Object.keys(phase2GoldenBindings).toSorted()).toEqual(
       [...REQUIRED_HOME_BEHAVIOR_ORACLE_VECTOR_IDS].toSorted(),
     );
-    expect(homeBehaviorOracleFixtures).toHaveLength(21);
+    expect(homeBehaviorOracleFixtures).toHaveLength(
+      REQUIRED_HOME_BEHAVIOR_ORACLE_VECTOR_IDS.length,
+    );
     homeBehaviorOracleFixtures.forEach((fixture) => {
       expect(phase2GoldenBindings[fixture.id]).toBeDefined();
       expect([

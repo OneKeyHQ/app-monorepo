@@ -34,47 +34,22 @@ function getMarketCategoryTokensRequestKey({
 }
 
 function createHomeMarketCategoryTokensCache<T>() {
-  let nextRequestId = 0;
-  const latestRequestIdByKey: Record<string, number> = {};
   let tokensByRequestKey: Record<string, T[]> = {};
 
   return {
-    beginRequest({
-      categoryIds,
-      minLiquidity,
-    }: {
-      categoryIds: string[];
-      minLiquidity: number;
-    }) {
-      nextRequestId += 1;
-      categoryIds.forEach((categoryId) => {
-        latestRequestIdByKey[
-          getMarketCategoryTokensRequestKey({
-            minLiquidity,
-            selectedMarketCategoryId: categoryId,
-          })
-        ] = nextRequestId;
-      });
-      return nextRequestId;
-    },
     commitCategory({
       categoryId,
       minLiquidity,
-      requestId,
       tokens,
     }: {
       categoryId: string;
       minLiquidity: number;
-      requestId: number;
       tokens: T[];
     }) {
       const requestKey = getMarketCategoryTokensRequestKey({
         minLiquidity,
         selectedMarketCategoryId: categoryId,
       });
-      if (latestRequestIdByKey[requestKey] !== requestId) {
-        return false;
-      }
 
       tokensByRequestKey = {
         ...tokensByRequestKey,

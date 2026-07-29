@@ -201,10 +201,6 @@ async function fetchAndCacheHomeMarketCategoryRows({
   categoryId: string;
   minLiquidity: number;
 }): Promise<IFavoriteTokenDisplay[]> {
-  const requestId = cache.beginRequest({
-    categoryIds: [categoryId],
-    minLiquidity,
-  });
   const rows = await fetchHomeMarketCategoryRows({
     api,
     categoryId,
@@ -213,7 +209,6 @@ async function fetchAndCacheHomeMarketCategoryRows({
   cache.commitCategory({
     categoryId,
     minLiquidity,
-    requestId,
     tokens: rows,
   });
   return (

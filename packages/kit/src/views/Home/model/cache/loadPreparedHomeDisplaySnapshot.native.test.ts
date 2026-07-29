@@ -116,7 +116,7 @@ describe('loadPreparedHomeDisplaySnapshot native', () => {
             kind: 'funded',
           },
           banner: { kind: 'positive' },
-          freshness: 'confirmedCache',
+          priority: 0,
           header: {
             authority: 'confirmedCache',
             balance: { amount: '21.14', currency: 'USD' },

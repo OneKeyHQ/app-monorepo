@@ -30,115 +30,26 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
  */
 namespace margelo::nitro::onekeynativecomponents::bridge::swift {
 
-  // pragma MARK: std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>
-  /**
-   * Specialized version of `std::function<void(const std::string&, const std::string&, const std::string&)>`.
-   */
-  using Func_void_std__string_std__string_std__string = std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>;
-  /**
-   * Wrapper class for a `std::function<void(const std::string& / * actionId * /, const std::string& / * itemId * /, const std::string& / * tabId * /)>`, this can be used from Swift.
-   */
-  class Func_void_std__string_std__string_std__string_Wrapper final {
-  public:
-    explicit Func_void_std__string_std__string_std__string_Wrapper(std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>(std::move(func))) {}
-    inline void call(std::string actionId, std::string itemId, std::string tabId) const noexcept {
-      _function->operator()(actionId, itemId, tabId);
-    }
-  private:
-    std::unique_ptr<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_std__string_std__string_std__string create_Func_void_std__string_std__string_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__string_std__string_std__string_Wrapper wrap_Func_void_std__string_std__string_std__string(Func_void_std__string_std__string_std__string value) noexcept {
-    return Func_void_std__string_std__string_std__string_Wrapper(std::move(value));
-  }
-
-  // pragma MARK: std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const std::string& / * actionId * /, const std::string& / * itemId * /, const std::string& / * tabId * /)>>`.
-   */
-  using std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______ = std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>;
-  inline std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>> create_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______(const std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>& value) noexcept {
-    return std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______(const std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)> get_std__optional_std__function_void_const_std__string_____actionId_____const_std__string_____itemId_____const_std__string_____tabId______(const std::optional<std::function<void(const std::string& /* actionId */, const std::string& /* itemId */, const std::string& /* tabId */)>>& optional) noexcept {
-    return *optional;
-  }
-
-  // pragma MARK: std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>
+  // pragma MARK: std::function<void(const std::string& /* code */, const std::string& /* message */)>
   /**
    * Specialized version of `std::function<void(const std::string&, const std::string&)>`.
    */
-  using Func_void_std__string_std__string = std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>;
+  using Func_void_std__string_std__string = std::function<void(const std::string& /* code */, const std::string& /* message */)>;
   /**
-   * Wrapper class for a `std::function<void(const std::string& / * tabId * /, const std::string& / * requestId * /)>`, this can be used from Swift.
+   * Wrapper class for a `std::function<void(const std::string& / * code * /, const std::string& / * message * /)>`, this can be used from Swift.
    */
   class Func_void_std__string_std__string_Wrapper final {
   public:
-    explicit Func_void_std__string_std__string_Wrapper(std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>(std::move(func))) {}
-    inline void call(std::string tabId, std::string requestId) const noexcept {
-      _function->operator()(tabId, requestId);
+    explicit Func_void_std__string_std__string_Wrapper(std::function<void(const std::string& /* code */, const std::string& /* message */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* code */, const std::string& /* message */)>>(std::move(func))) {}
+    inline void call(std::string code, std::string message) const noexcept {
+      _function->operator()(code, message);
     }
   private:
-    std::unique_ptr<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>> _function;
+    std::unique_ptr<std::function<void(const std::string& /* code */, const std::string& /* message */)>> _function;
   } SWIFT_NONCOPYABLE;
   Func_void_std__string_std__string create_Func_void_std__string_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__string_std__string_Wrapper wrap_Func_void_std__string_std__string(Func_void_std__string_std__string value) noexcept {
     return Func_void_std__string_std__string_Wrapper(std::move(value));
-  }
-
-  // pragma MARK: std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const std::string& / * tabId * /, const std::string& / * requestId * /)>>`.
-   */
-  using std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______ = std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>;
-  inline std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>> create_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______(const std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>& value) noexcept {
-    return std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______(const std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)> get_std__optional_std__function_void_const_std__string_____tabId_____const_std__string_____requestId______(const std::optional<std::function<void(const std::string& /* tabId */, const std::string& /* requestId */)>>& optional) noexcept {
-    return *optional;
-  }
-
-  // pragma MARK: std::function<void(const std::string& /* tabId */)>
-  /**
-   * Specialized version of `std::function<void(const std::string&)>`.
-   */
-  using Func_void_std__string = std::function<void(const std::string& /* tabId */)>;
-  /**
-   * Wrapper class for a `std::function<void(const std::string& / * tabId * /)>`, this can be used from Swift.
-   */
-  class Func_void_std__string_Wrapper final {
-  public:
-    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* tabId */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* tabId */)>>(std::move(func))) {}
-    inline void call(std::string tabId) const noexcept {
-      _function->operator()(tabId);
-    }
-  private:
-    std::unique_ptr<std::function<void(const std::string& /* tabId */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
-    return Func_void_std__string_Wrapper(std::move(value));
-  }
-
-  // pragma MARK: std::optional<std::function<void(const std::string& /* tabId */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const std::string& / * tabId * /)>>`.
-   */
-  using std__optional_std__function_void_const_std__string_____tabId______ = std::optional<std::function<void(const std::string& /* tabId */)>>;
-  inline std::optional<std::function<void(const std::string& /* tabId */)>> create_std__optional_std__function_void_const_std__string_____tabId______(const std::function<void(const std::string& /* tabId */)>& value) noexcept {
-    return std::optional<std::function<void(const std::string& /* tabId */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_std__string_____tabId______(const std::optional<std::function<void(const std::string& /* tabId */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const std::string& /* tabId */)> get_std__optional_std__function_void_const_std__string_____tabId______(const std::optional<std::function<void(const std::string& /* tabId */)>>& optional) noexcept {
-    return *optional;
   }
 
   // pragma MARK: std::optional<std::function<void(const std::string& /* code */, const std::string& /* message */)>>
@@ -156,6 +67,28 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return *optional;
   }
 
+  // pragma MARK: std::function<void(const std::string& /* intentJson */)>
+  /**
+   * Specialized version of `std::function<void(const std::string&)>`.
+   */
+  using Func_void_std__string = std::function<void(const std::string& /* intentJson */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::string& / * intentJson * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__string_Wrapper final {
+  public:
+    explicit Func_void_std__string_Wrapper(std::function<void(const std::string& /* intentJson */)>&& func): _function(std::make_unique<std::function<void(const std::string& /* intentJson */)>>(std::move(func))) {}
+    inline void call(std::string intentJson) const noexcept {
+      _function->operator()(intentJson);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::string& /* intentJson */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
+    return Func_void_std__string_Wrapper(std::move(value));
+  }
+
   // pragma MARK: std::optional<std::function<void(const std::string& /* intentJson */)>>
   /**
    * Specialized version of `std::optional<std::function<void(const std::string& / * intentJson * /)>>`.
@@ -168,21 +101,6 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return optional.has_value();
   }
   inline std::function<void(const std::string& /* intentJson */)> get_std__optional_std__function_void_const_std__string_____intentJson______(const std::optional<std::function<void(const std::string& /* intentJson */)>>& optional) noexcept {
-    return *optional;
-  }
-
-  // pragma MARK: std::optional<std::function<void(const std::string& /* resultJson */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const std::string& / * resultJson * /)>>`.
-   */
-  using std__optional_std__function_void_const_std__string_____resultJson______ = std::optional<std::function<void(const std::string& /* resultJson */)>>;
-  inline std::optional<std::function<void(const std::string& /* resultJson */)>> create_std__optional_std__function_void_const_std__string_____resultJson______(const std::function<void(const std::string& /* resultJson */)>& value) noexcept {
-    return std::optional<std::function<void(const std::string& /* resultJson */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const std::string& /* resultJson */)> get_std__optional_std__function_void_const_std__string_____resultJson______(const std::optional<std::function<void(const std::string& /* resultJson */)>>& optional) noexcept {
     return *optional;
   }
 
@@ -205,15 +123,6 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
   }
   inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
     return Result<void>::withError(error);
-  }
-
-  // pragma MARK: Result<std::string>
-  using Result_std__string_ = Result<std::string>;
-  inline Result_std__string_ create_Result_std__string_(const std::string& value) noexcept {
-    return Result<std::string>::withValue(value);
-  }
-  inline Result_std__string_ create_Result_std__string_(const std::exception_ptr& error) noexcept {
-    return Result<std::string>::withError(error);
   }
 
 } // namespace margelo::nitro::onekeynativecomponents::bridge::swift

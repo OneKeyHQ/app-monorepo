@@ -45,7 +45,6 @@ function createGatewayHarness({
       topology: 'single',
       connection: 'ready',
       producerInstanceId,
-      protocolVersion: 1,
     },
   });
   const events: IHomeStoreEvent[] = [];
@@ -165,40 +164,10 @@ describe('Home Store production source gateways', () => {
     expect(harness.getState().resources.banner).toMatchObject({
       kind: 'ready',
       data: remotePayload,
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
       token: handle.token,
     });
-  });
-
-  it('rejects a stale typed response after a newer request', () => {
-    const harness = createGatewayHarness();
-    const first = harness.sourceGateway.begin({
-      ownerToken,
-      sourceId: 'banner',
-    });
-    const second = harness.sourceGateway.begin({
-      ownerToken,
-      sourceId: 'banner',
-    });
-    harness.sourceGateway.complete(first, {
-      kind: 'success',
-      data: {
-        banners: [],
-        referralEligibility: null,
-        tronResource: null,
-        isBotWalletReceiveBlocked: false,
-      },
-      coverageFingerprint: 'stale',
-    });
-
-    expect(harness.getState().resources.banner).toMatchObject({
-      kind: 'loading',
-      token: second.token,
-    });
-    expect(harness.getState().diagnostics.lastRejectReason).toBe(
-      'requestSequenceStale',
-    );
   });
 
   it('opens a section request before source work and completes the same token', () => {
@@ -215,7 +184,7 @@ describe('Home Store production source gateways', () => {
       kind: 'ready',
       rowIds: ['nft-a'],
       data: { data: [{ id: 'nft-a' }] },
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
     });
 
@@ -253,7 +222,7 @@ describe('Home Store production source gateways', () => {
       kind: 'ready',
       rowIds: ['protocol-a'],
       data: { overview: { netWorth: 6 } },
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
     });
     expect(harness.getState().resources.defi).toMatchObject({
@@ -312,7 +281,7 @@ describe('Home Store production source gateways', () => {
       kind: 'ready',
       rowIds: ['protocol-a'],
       data: { protocols: [{ id: 'protocol-a' }] },
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
     });
 
@@ -330,27 +299,5 @@ describe('Home Store production source gateways', () => {
       rowIds: ['protocol-a'],
       refresh: 'refreshing',
     });
-  });
-
-  it('rejects an explicitly completed stale section request', () => {
-    const harness = createGatewayHarness();
-    const first = harness.gateway.begin({ ownerToken, sectionId: 'history' });
-    const second = harness.gateway.begin({ ownerToken, sectionId: 'history' });
-
-    harness.gateway.complete(first, {
-      kind: 'ready',
-      rowIds: ['stale'],
-      data: { data: [{ id: 'stale' }] },
-      freshness: 'live',
-      refresh: 'idle',
-    });
-
-    expect(harness.getState().resources.history).toMatchObject({
-      kind: 'loading',
-      token: second.token,
-    });
-    expect(harness.getState().diagnostics.lastRejectReason).toBe(
-      'requestSequenceStale',
-    );
   });
 });

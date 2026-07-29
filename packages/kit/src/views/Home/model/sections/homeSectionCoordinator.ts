@@ -3,6 +3,7 @@ import type {
   IHomeRuntimeSourceId,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 
+import type { IHomeDataPriority } from '../core/homeDataPriority';
 import type {
   IHomeSectionId,
   IHomeSectionSemanticModel,
@@ -18,36 +19,21 @@ type IHomeSectionSourceIdentity = {
 };
 
 type IHomeSectionCoordinatorEvent<T> =
-  | (IHomeSectionSourceIdentity & { kind: 'loading'; requestSeq: number })
+  | (IHomeSectionSourceIdentity & { kind: 'loading' })
   | (IHomeSectionSourceIdentity & {
       kind: 'seedConfirmed';
-      requestSeq: number;
       data: T;
       rowIds: readonly string[];
       refresh: 'idle' | 'refreshing';
     })
-  | (IHomeSectionSourceIdentity & {
-      kind: 'partial';
-      requestSeq: number;
-      coverageFingerprint: string;
-    })
+  | (IHomeSectionSourceIdentity & { kind: 'partial' })
   | (IHomeSectionSourceIdentity & {
       kind: 'complete';
-      requestSeq: number;
-      coverageFingerprint: string;
       result:
         | { kind: 'empty' }
         | { kind: 'success'; data: T; rowIds: readonly string[] };
     })
-  | (IHomeSectionSourceIdentity & {
-      kind: 'error';
-      requestSeq: number;
-      errorKind:
-        | 'source'
-        | 'transport'
-        | 'schemaMismatch'
-        | 'runtimeUnavailable';
-    });
+  | (IHomeSectionSourceIdentity & { kind: 'error' });
 
 type IHomeSectionAuthoritativePayload<T> =
   | { kind: 'none' }
@@ -62,8 +48,7 @@ type IHomeSectionCoordinatorResolution<T> = {
     | 'sectionMismatch'
     | 'sourceMismatch'
     | 'producerMismatch'
-    | 'sourceRevisionStale'
-    | 'requestStale';
+    | 'sourceRevisionStale';
   semantic: IHomeSectionSemanticModel;
   authoritative: IHomeSectionAuthoritativePayload<T>;
 };
@@ -72,24 +57,41 @@ type IHomeSectionCacheRecord<T> = {
   identity: string;
   data: T;
   rowIds: readonly string[];
+  priority: IHomeDataPriority;
 };
 
 const MAX_CACHE_ENTRIES = 8;
 
-function identityKey(sectionId: IHomeSectionId, sourceKeyIdentity: string) {
-  return `${sectionId.length}:${sectionId}${sourceKeyIdentity}`;
+function identityKey(identity: IHomeSectionSourceIdentity) {
+  return [
+    identity.owner.scopeKey,
+    identity.owner.sessionId,
+    identity.sectionId,
+    identity.sourceId,
+    identity.sourceKeyIdentity,
+    identity.producerInstanceId,
+    String(identity.sourceRevision),
+  ]
+    .map((part) => `${part.length}:${part}`)
+    .join('');
+}
+
+function authoritativeFromRecord<T>(
+  record: IHomeSectionCacheRecord<T>,
+): IHomeSectionAuthoritativePayload<T> {
+  return record.priority === 1
+    ? { kind: 'live', data: record.data }
+    : { kind: 'confirmedCache', data: record.data };
 }
 
 class HomeSectionCoordinator<T> {
   private identity: IHomeSectionSourceIdentity;
 
-  private requestSeq = 0;
-
-  private requestPhase = 0;
-
   private disposed = false;
 
   private readonly cache = new Map<string, IHomeSectionCacheRecord<T>>();
+
+  private appliedPriority: IHomeDataPriority | undefined;
 
   private resolution: IHomeSectionCoordinatorResolution<T>;
 
@@ -107,8 +109,7 @@ class HomeSectionCoordinator<T> {
       return;
     }
     this.identity = identity;
-    this.requestSeq = 0;
-    this.requestPhase = 0;
+    this.appliedPriority = undefined;
     this.resolution = {
       accepted: true,
       semantic: { kind: 'loading', placeholder: identity.sectionId },
@@ -123,27 +124,26 @@ class HomeSectionCoordinator<T> {
     if (staleReason) {
       return { ...this.resolution, accepted: false, staleReason };
     }
-    if (event.requestSeq > this.requestSeq) {
-      this.requestPhase = 0;
-    }
-    this.requestSeq = event.requestSeq;
-    this.requestPhase = eventPhase(event);
     if (event.kind === 'seedConfirmed') {
-      const record = {
-        identity: identityKey(event.sectionId, event.sourceKeyIdentity),
+      if (this.appliedPriority === 1) {
+        return { ...this.resolution, accepted: true };
+      }
+      const record = this.writeCache({
+        identity: identityKey(event),
         data: event.data,
         rowIds: event.rowIds,
-      };
-      this.writeCache(record);
+        priority: 0,
+      });
+      this.appliedPriority = record.priority;
       this.resolution = {
         accepted: true,
         semantic: {
           kind: 'ready',
           rowIds: record.rowIds,
-          freshness: 'confirmedCache',
+          priority: record.priority,
           refresh: event.refresh,
         },
-        authoritative: { kind: 'confirmedCache', data: record.data },
+        authoritative: authoritativeFromRecord(record),
       };
       return this.resolution;
     }
@@ -155,10 +155,10 @@ class HomeSectionCoordinator<T> {
             semantic: {
               kind: 'ready',
               rowIds: cached.rowIds,
-              freshness: 'confirmedCache',
+              priority: cached.priority,
               refresh: 'refreshing',
             },
-            authoritative: { kind: 'confirmedCache', data: cached.data },
+            authoritative: authoritativeFromRecord(cached),
           }
         : {
             accepted: true,
@@ -175,10 +175,10 @@ class HomeSectionCoordinator<T> {
             semantic: {
               kind: 'ready',
               rowIds: cached.rowIds,
-              freshness: 'confirmedCache',
+              priority: cached.priority,
               refresh: 'failed',
             },
-            authoritative: { kind: 'confirmedCache', data: cached.data },
+            authoritative: authoritativeFromRecord(cached),
           }
         : {
             accepted: true,
@@ -189,6 +189,7 @@ class HomeSectionCoordinator<T> {
     }
     if (event.result.kind === 'empty') {
       this.deleteCache(event);
+      this.appliedPriority = 1;
       this.resolution = {
         accepted: true,
         semantic: { kind: 'empty', emptyState: event.sectionId },
@@ -196,21 +197,22 @@ class HomeSectionCoordinator<T> {
       };
       return this.resolution;
     }
-    const record = {
-      identity: identityKey(event.sectionId, event.sourceKeyIdentity),
+    const record = this.writeCache({
+      identity: identityKey(event),
       data: event.result.data,
       rowIds: event.result.rowIds,
-    };
-    this.writeCache(record);
+      priority: 1,
+    });
+    this.appliedPriority = record.priority;
     this.resolution = {
       accepted: true,
       semantic: {
         kind: 'ready',
         rowIds: record.rowIds,
-        freshness: 'live',
+        priority: record.priority,
         refresh: 'idle',
       },
-      authoritative: { kind: 'live', data: record.data },
+      authoritative: authoritativeFromRecord(record),
     };
     return this.resolution;
   }
@@ -242,17 +244,11 @@ class HomeSectionCoordinator<T> {
       return 'producerMismatch';
     if (event.sourceRevision !== this.identity.sourceRevision)
       return 'sourceRevisionStale';
-    if (
-      event.requestSeq < this.requestSeq ||
-      (event.requestSeq === this.requestSeq &&
-        (eventPhase(event) < this.requestPhase || this.requestPhase === 2))
-    )
-      return 'requestStale';
     return undefined;
   }
 
   private readCache(event: IHomeSectionSourceIdentity) {
-    const key = identityKey(event.sectionId, event.sourceKeyIdentity);
+    const key = identityKey(event);
     const record = this.cache.get(key);
     if (record) {
       this.cache.delete(key);
@@ -261,7 +257,15 @@ class HomeSectionCoordinator<T> {
     return record;
   }
 
-  private writeCache(record: IHomeSectionCacheRecord<T>) {
+  private writeCache(
+    record: IHomeSectionCacheRecord<T>,
+  ): IHomeSectionCacheRecord<T> {
+    const current = this.cache.get(record.identity);
+    if (current && current.priority > record.priority) {
+      this.cache.delete(record.identity);
+      this.cache.set(record.identity, current);
+      return current;
+    }
     this.cache.delete(record.identity);
     this.cache.set(record.identity, record);
     while (this.cache.size > MAX_CACHE_ENTRIES) {
@@ -269,12 +273,11 @@ class HomeSectionCoordinator<T> {
       if (!oldest) break;
       this.cache.delete(oldest);
     }
+    return record;
   }
 
   private deleteCache(identity: IHomeSectionSourceIdentity) {
-    this.cache.delete(
-      identityKey(identity.sectionId, identity.sourceKeyIdentity),
-    );
+    this.cache.delete(identityKey(identity));
   }
 }
 
@@ -291,12 +294,6 @@ function sameIdentity(
     first.producerInstanceId === second.producerInstanceId &&
     first.sourceRevision === second.sourceRevision
   );
-}
-
-function eventPhase<T>(event: IHomeSectionCoordinatorEvent<T>): number {
-  if (event.kind === 'loading' || event.kind === 'seedConfirmed') return 0;
-  if (event.kind === 'partial') return 1;
-  return 2;
 }
 
 export { HomeSectionCoordinator };

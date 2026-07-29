@@ -12,9 +12,11 @@ import {
 } from '../homeStoreReducer';
 
 import type { IHomeFacts } from '../../facts/homeFacts';
+import type { IHomeSectionId } from '../../semantic/homeSemanticTypes';
 import type {
   IHomeStoreEvent,
   IHomeStoreRequestToken,
+  IHomeStoreSectionSourceResult,
   IHomeStoreState,
 } from '../homeStoreTypes';
 
@@ -58,7 +60,6 @@ function createBaseFacts(): IHomeFacts {
     runtime: {
       topology: 'split',
       connection: 'ready',
-      protocolVersion: 1,
     },
     capabilityInputs: createInitialHomeStoreState().capabilityInputs,
     sources: createIdleHomeSourceFacts(),
@@ -98,13 +99,11 @@ function withCapability(
   });
 }
 
-function createToken(requestSeq: number): IHomeStoreRequestToken<'defi'> {
+function createToken(): IHomeStoreRequestToken<'defi'> {
   return {
-    protocolVersion: 1,
     clientInstanceId: 'client-a',
     producerInstanceId: 'producer-a',
     sessionId: ownerToken.sessionId,
-    requestSeq,
     sourceKey: {
       scopeKey: ownerToken.scopeKey,
       sourceId: 'defi',
@@ -112,6 +111,87 @@ function createToken(requestSeq: number): IHomeStoreRequestToken<'defi'> {
       dataSchemaVersion: 1,
     },
   };
+}
+
+function dispatchSectionResult(
+  state: IHomeStoreState,
+  sectionId: IHomeSectionId,
+  result: IHomeStoreSectionSourceResult,
+): IHomeStoreState {
+  const token: IHomeStoreRequestToken<IHomeSectionId> = {
+    ...createToken(),
+    sourceKey: {
+      ...createToken().sourceKey,
+      sourceId: sectionId,
+      paramsFingerprint: `${sectionId}-a`,
+    },
+  };
+  const requested = dispatch(state, { type: 'sourceRequested', token });
+  if (result.kind === 'loading') {
+    return requested;
+  }
+  if (result.kind === 'hidden') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'hidden', reason: result.reason },
+      },
+    });
+  }
+  if (result.kind === 'empty') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'empty', coverageFingerprint: `${sectionId}:empty` },
+      },
+    });
+  }
+  if (result.kind === 'error') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'error', errorKind: 'source' },
+      },
+    });
+  }
+  if (result.kind === 'partial') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: {
+          kind: 'partial',
+          data: {
+            payload: result.data,
+            section: { kind: 'loading' },
+          },
+          coverageFingerprint: result.coverageFingerprint,
+        },
+      },
+    });
+  }
+  return dispatch(requested, {
+    type: 'sourceResponded',
+    envelope: {
+      token,
+      result: {
+        kind: 'success',
+        data: {
+          payload: result.data ?? null,
+          section: {
+            kind: 'ready',
+            rowIds: result.rowIds,
+            priority: result.priority,
+            refresh: result.refresh,
+          },
+        },
+        coverageFingerprint: JSON.stringify(result.rowIds),
+      },
+    },
+  });
 }
 
 describe('Home Store reducer', () => {
@@ -146,7 +226,6 @@ describe('Home Store reducer', () => {
         runtime: {
           topology: 'split',
           connection: 'ready',
-          protocolVersion: 1,
         },
         capabilityInputs: state.capabilityInputs,
         sources: createIdleHomeSourceFacts(),
@@ -180,14 +259,14 @@ describe('Home Store reducer', () => {
             id: 'portfolio',
             included: true,
             positiveEvidence: true,
-            sourceIdentity: 'portfolio-v1',
+            sourceIdentity: 'portfolio-source',
             sourceScopeKey: ownerToken.scopeKey,
             status,
           },
         ],
         ownerToken,
         quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
-        requiredSetRevision: 'portfolio:v1',
+        requiredSetRevision: 'portfolio',
       });
       state = dispatch(state, {
         type: 'balanceChanged',
@@ -235,14 +314,14 @@ describe('Home Store reducer', () => {
             id: 'portfolio',
             included: true,
             positiveEvidence,
-            sourceIdentity: 'portfolio-v1',
+            sourceIdentity: 'portfolio-source',
             sourceScopeKey: ownerToken.scopeKey,
             status,
           },
         ],
         ownerToken,
         quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
-        requiredSetRevision: 'portfolio:v1',
+        requiredSetRevision: 'portfolio',
       });
 
     let state = dispatch(createOwnedState(), {
@@ -301,7 +380,7 @@ describe('Home Store reducer', () => {
     );
   });
 
-  it('hydrates a V2 cached Header during a loading balance round and lets live data replace it', () => {
+  it('hydrates a cached Header during loading and lets network data replace it', () => {
     const createBalance = (
       status: 'error' | 'loading' | 'success',
       amount?: string,
@@ -317,14 +396,14 @@ describe('Home Store reducer', () => {
             id: 'portfolio',
             included: true,
             positiveEvidence: status === 'success',
-            sourceIdentity: 'portfolio-v1',
+            sourceIdentity: 'portfolio-source',
             sourceScopeKey: ownerToken.scopeKey,
             status,
           },
         ],
         ownerToken,
         quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
-        requiredSetRevision: 'portfolio:v1',
+        requiredSetRevision: 'portfolio',
       });
 
     const loadingBalance = createBalance('loading');
@@ -333,21 +412,16 @@ describe('Home Store reducer', () => {
       facts: { ...createBaseFacts(), balance: loadingBalance },
       observedAt: 1,
     });
-    state = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'portfolio',
-      result: {
-        kind: 'ready',
-        rowIds: ['cached-asset'],
-        freshness: 'live',
-        refresh: 'idle',
-      },
+    state = dispatchSectionResult(state, 'portfolio', {
+      kind: 'ready',
+      rowIds: ['cached-asset'],
+      priority: 1,
+      refresh: 'idle',
     });
     expect(state.balanceRound).toBe(loadingBalance);
     expect(state.resources.portfolio).toMatchObject({
       kind: 'ready',
-      freshness: 'live',
+      priority: 1,
     });
     expect(state.shell.value).toMatchObject({
       kind: 'portfolio',
@@ -373,7 +447,7 @@ describe('Home Store reducer', () => {
             items: ['send', 'receive', 'buySell', 'swap'],
           },
           banner: { kind: 'none' },
-          freshness: 'confirmedCache',
+          priority: 0,
           refresh: 'refreshing',
         },
       },
@@ -399,7 +473,7 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'confirmedCache',
+        priority: 0,
         header: { balance: { amount: '42.50' } },
       },
     });
@@ -412,7 +486,7 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'confirmedCache',
+        priority: 0,
         header: { balance: { amount: '42.50' } },
       },
     });
@@ -427,7 +501,7 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'failed',
         header: { balance: { amount: '42.50' } },
       },
@@ -444,7 +518,7 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'live',
+        priority: 1,
         header: {
           authority: 'live',
           balance: { amount: '84.25', currency: 'usd' },
@@ -467,7 +541,7 @@ describe('Home Store reducer', () => {
           },
           actions: { kind: 'zero', items: ['receive'] },
           banner: { kind: 'none' },
-          freshness: 'confirmedCache',
+          priority: 0,
           refresh: 'refreshing',
         },
       },
@@ -476,13 +550,13 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'live',
+        priority: 1,
         header: { balance: { amount: '84.25' } },
       },
     });
   });
 
-  it('hydrates a failed V2 Header after an early live error but never over a hard owner state', () => {
+  it('hydrates a failed cached Header unless a hard owner state wins', () => {
     const failedBalance = adaptCurrentHomeBalanceFacts({
       bannerAvailable: false,
       contributors: [
@@ -491,14 +565,14 @@ describe('Home Store reducer', () => {
           id: 'portfolio',
           included: true,
           positiveEvidence: false,
-          sourceIdentity: 'portfolio-v1',
+          sourceIdentity: 'portfolio-source',
           sourceScopeKey: ownerToken.scopeKey,
           status: 'error',
         },
       ],
       ownerToken,
       quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
-      requiredSetRevision: 'portfolio:v1',
+      requiredSetRevision: 'portfolio',
     });
     const cachedShell = {
       kind: 'portfolio' as const,
@@ -514,7 +588,7 @@ describe('Home Store reducer', () => {
           items: ['send', 'receive', 'buySell', 'swap'] as const,
         },
         banner: { kind: 'none' as const },
-        freshness: 'confirmedCache' as const,
+        priority: 0 as const,
         refresh: 'refreshing' as const,
       },
     };
@@ -539,7 +613,7 @@ describe('Home Store reducer', () => {
       kind: 'portfolio',
       presentation: {
         kind: 'funded',
-        freshness: 'confirmedCache',
+        priority: 0,
         refresh: 'failed',
         header: { balance: { amount: '42.50' } },
       },
@@ -575,28 +649,18 @@ describe('Home Store reducer', () => {
 
   it('does not expire command authority for display-only Section changes', () => {
     let state = createOwnedState();
-    state = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'defi',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-a'],
-        freshness: 'live',
-        refresh: 'idle',
-      },
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a'],
+      priority: 1,
+      refresh: 'idle',
     });
     const authorityRevision = state.sections.defi.sectionCommandRevision;
-    state = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'defi',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-a'],
-        freshness: 'live',
-        refresh: 'refreshing',
-      },
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a'],
+      priority: 1,
+      refresh: 'refreshing',
     });
     expect(state.sections.defi.presentationRevision).toBe(2);
     expect(state.sections.defi.sectionCommandRevision).toBe(authorityRevision);
@@ -656,7 +720,7 @@ describe('Home Store reducer', () => {
             items: ['send', 'receive', 'buySell', 'swap'],
           },
           banner: { kind: 'none' },
-          freshness: 'confirmedCache',
+          priority: 0,
           refresh: 'refreshing',
         },
       },
@@ -709,7 +773,7 @@ describe('Home Store reducer', () => {
   });
 
   it('accepts valid actions, refreshes, and controls from a cached Section', () => {
-    const token = createToken(1);
+    const token = createToken();
     let state = dispatch(createOwnedState(), {
       type: 'displaySnapshotHydrated',
       ownerScopeKey: ownerToken.scopeKey,
@@ -734,7 +798,7 @@ describe('Home Store reducer', () => {
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
-      freshness: 'confirmedCache',
+      priority: 0,
     });
 
     const action = reduceHomeStore(state, {
@@ -940,7 +1004,7 @@ describe('Home Store reducer', () => {
           portfolio: 'inline',
           perps: 'web',
         },
-        freshness: 'confirmedCache',
+        priority: 0,
         perpsDestination: 'web',
         refresh: 'refreshing',
         sections: {
@@ -955,7 +1019,7 @@ describe('Home Store reducer', () => {
     });
     expect(state.navigation.value).toMatchObject({
       kind: 'ready',
-      freshness: 'confirmedCache',
+      priority: 0,
     });
 
     const transition = reduceHomeStore(state, {
@@ -986,7 +1050,7 @@ describe('Home Store reducer', () => {
 
   it('keeps ready DeFi visible during same-owner refresh', () => {
     let state = createOwnedState();
-    const firstToken = createToken(1);
+    const firstToken = createToken();
     state = dispatch(state, { type: 'sourceRequested', token: firstToken });
     state = dispatch(state, {
       type: 'sourceResponded',
@@ -999,7 +1063,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['defi-a'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1010,7 +1074,7 @@ describe('Home Store reducer', () => {
     const beforeRefresh = state;
     const transition = reduceHomeStore(state, {
       type: 'sourceRequested',
-      token: createToken(2),
+      token: createToken(),
     });
     state = applyHomeStorePatchToState(state, transition.patch.mutations);
     expect(state.resources.defi).toMatchObject({
@@ -1021,7 +1085,7 @@ describe('Home Store reducer', () => {
     expect(state.sections.defi.value).toEqual({
       kind: 'ready',
       rowIds: ['defi-a'],
-      freshness: 'live',
+      priority: 1,
       refresh: 'refreshing',
     });
     expect(
@@ -1034,7 +1098,7 @@ describe('Home Store reducer', () => {
 
   it('commits a failed response with its Section state and preserves ready rows', () => {
     let state = createOwnedState();
-    const request1 = createToken(1);
+    const request1 = createToken();
     state = dispatch(state, { type: 'sourceRequested', token: request1 });
     state = dispatch(state, {
       type: 'sourceResponded',
@@ -1047,7 +1111,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['defi-a'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1055,7 +1119,7 @@ describe('Home Store reducer', () => {
         },
       },
     });
-    const request2 = createToken(2);
+    const request2 = createToken();
     state = dispatch(state, { type: 'sourceRequested', token: request2 });
     const beforeFailure = state;
     const transition = reduceHomeStore(state, {
@@ -1074,7 +1138,7 @@ describe('Home Store reducer', () => {
     expect(state.sections.defi.value).toEqual({
       kind: 'ready',
       rowIds: ['defi-a'],
-      freshness: 'live',
+      priority: 1,
       refresh: 'failed',
     });
     expect(
@@ -1087,7 +1151,7 @@ describe('Home Store reducer', () => {
 
   it('projects a first failed response to resource and Section errors atomically', () => {
     let state = createOwnedState();
-    const token = createToken(1);
+    const token = createToken();
     state = dispatch(state, { type: 'sourceRequested', token });
     const transition = reduceHomeStore(state, {
       type: 'sourceResponded',
@@ -1110,7 +1174,7 @@ describe('Home Store reducer', () => {
 
   it('commits a source payload and its Section projection atomically', () => {
     let state = createOwnedState();
-    const token = createToken(1);
+    const token = createToken();
     state = dispatch(state, { type: 'sourceRequested', token });
     const transition = reduceHomeStore(state, {
       type: 'sourceResponded',
@@ -1123,7 +1187,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['defi-a'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1151,16 +1215,11 @@ describe('Home Store reducer', () => {
 
   it('persists and hydrates section readiness through the scoped resource', () => {
     let state = createOwnedState();
-    state = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'defi',
-      result: {
-        kind: 'ready',
-        rowIds: ['row-a', 'row-b'],
-        freshness: 'live',
-        refresh: 'idle',
-      },
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a', 'row-b'],
+      priority: 1,
+      refresh: 'idle',
     });
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
@@ -1174,7 +1233,7 @@ describe('Home Store reducer', () => {
         ? state.resources.defi.data
         : undefined;
     let hydrated = createOwnedState();
-    const hydrationToken = createToken(1);
+    const hydrationToken = createToken();
     hydrated = dispatch(hydrated, {
       type: 'sourceRequested',
       token: hydrationToken,
@@ -1199,7 +1258,7 @@ describe('Home Store reducer', () => {
     expect(hydrated.sections.defi.value).toEqual({
       kind: 'ready',
       rowIds: ['row-a', 'row-b'],
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
     hydrated = dispatch(hydrated, {
@@ -1214,7 +1273,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['row-live'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1224,19 +1283,19 @@ describe('Home Store reducer', () => {
     expect(hydrated.resources.defi).toMatchObject({
       kind: 'ready',
       coverageFingerprint: '["row-live"]',
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
       token: hydrationToken,
     });
     expect(hydrated.sections.defi.value).toMatchObject({
       kind: 'ready',
       rowIds: ['row-live'],
-      freshness: 'live',
+      priority: 1,
     });
   });
 
-  it('keeps a V3 owner snapshot visible until a mismatched live source replaces it', () => {
-    const exactToken = createToken(1);
+  it('drops cached data when a different source request starts', () => {
+    const exactToken = createToken();
     const cachedRecord = {
       sourceId: 'defi' as const,
       sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
@@ -1261,7 +1320,7 @@ describe('Home Store reducer', () => {
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
       token: undefined,
-      freshness: 'confirmedCache',
+      priority: 0,
       confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
     });
 
@@ -1273,13 +1332,13 @@ describe('Home Store reducer', () => {
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
       token: undefined,
-      freshness: 'confirmedCache',
+      priority: 0,
       confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
       rowIds: ['cached'],
-      freshness: 'confirmedCache',
+      priority: 0,
     });
 
     state = dispatch(state, {
@@ -1289,14 +1348,14 @@ describe('Home Store reducer', () => {
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
       token: exactToken,
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'refreshing',
     });
 
     const mismatchedToken = {
-      ...createToken(2),
+      ...createToken(),
       sourceKey: {
-        ...createToken(2).sourceKey,
+        ...createToken().sourceKey,
         paramsFingerprint: 'defi-b',
       },
     };
@@ -1305,17 +1364,11 @@ describe('Home Store reducer', () => {
       token: mismatchedToken,
     });
     expect(state.resources.defi).toMatchObject({
-      kind: 'ready',
+      kind: 'loading',
       token: mismatchedToken,
-      freshness: 'confirmedCache',
-      coverageFingerprint: '["cached"]',
-      refresh: 'refreshing',
     });
     expect(state.sections.defi.value).toMatchObject({
-      kind: 'ready',
-      rowIds: ['cached'],
-      freshness: 'confirmedCache',
-      refresh: 'refreshing',
+      kind: 'loading',
     });
 
     state = dispatch(state, {
@@ -1336,74 +1389,18 @@ describe('Home Store reducer', () => {
     });
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
-      freshness: 'live',
+      priority: 1,
       coverageFingerprint: '["live-b"]',
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
       rowIds: ['live-b'],
-      freshness: 'live',
+      priority: 1,
     });
   });
 
-  it('keeps a same-owner cached source while its live identity is established', () => {
-    const exactToken = createToken(1);
-    let state = dispatch(createOwnedState(), {
-      type: 'displaySnapshotHydrated',
-      ownerScopeKey: ownerToken.scopeKey,
-      sessionId: ownerToken.sessionId,
-      records: [
-        {
-          sourceId: 'defi',
-          sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
-          dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
-          coverageFingerprint: '["cached"]',
-          quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
-          confirmedAt: 1,
-          expiresAt: 2,
-          payload: {
-            section: {
-              kind: 'ready',
-              rowIds: ['cached'],
-            },
-          },
-        },
-      ],
-    });
-    const cached = state.resources.defi;
-    expect(cached.kind).toBe('ready');
-    if (cached.kind !== 'ready') {
-      return;
-    }
-    state = {
-      ...state,
-      resources: {
-        ...state.resources,
-        defi: {
-          ...cached,
-          confirmedCacheSourceKeyIdentity: undefined,
-        },
-      },
-    };
-
-    state = dispatch(state, {
-      type: 'sourceRequested',
-      token: exactToken,
-    });
-    expect(state.resources.defi).toMatchObject({
-      kind: 'ready',
-      token: exactToken,
-      freshness: 'confirmedCache',
-      refresh: 'refreshing',
-    });
-    expect(state.sections.defi.value).toMatchObject({
-      kind: 'ready',
-      rowIds: ['cached'],
-    });
-  });
-
-  it('never lets a late V3 snapshot replace a live source result', () => {
-    const request = createToken(1);
+  it('never lets a late cache snapshot replace network data', () => {
+    const request = createToken();
     let state = dispatch(createOwnedState(), {
       type: 'sourceRequested',
       token: request,
@@ -1448,19 +1445,19 @@ describe('Home Store reducer', () => {
     });
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
-      freshness: 'live',
+      priority: 1,
       coverageFingerprint: '["live"]',
     });
     expect(state.sections.defi.value).toMatchObject({
       kind: 'ready',
       rowIds: ['live'],
-      freshness: 'live',
+      priority: 1,
     });
   });
 
   it('marks an exact cached fallback failed after a live error and still lets the same request replace it', () => {
     let state = createOwnedState();
-    const request = createToken(1);
+    const request = createToken();
     state = dispatch(state, { type: 'sourceRequested', token: request });
     state = dispatch(state, {
       type: 'sourceResponded',
@@ -1487,7 +1484,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['cached'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1496,7 +1493,7 @@ describe('Home Store reducer', () => {
     });
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
-      freshness: 'confirmedCache',
+      priority: 0,
       refresh: 'failed',
       token: request,
     });
@@ -1513,7 +1510,7 @@ describe('Home Store reducer', () => {
             section: {
               kind: 'ready',
               rowIds: ['live'],
-              freshness: 'live',
+              priority: 1,
               refresh: 'idle',
             },
           },
@@ -1522,7 +1519,7 @@ describe('Home Store reducer', () => {
     });
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
-      freshness: 'live',
+      priority: 1,
       refresh: 'idle',
       coverageFingerprint: '["live"]',
     });
@@ -1530,17 +1527,12 @@ describe('Home Store reducer', () => {
 
   it('commits a normalized Section payload with its semantic slice', () => {
     const state = createOwnedState();
-    const next = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'defi',
-      result: {
-        kind: 'ready',
-        rowIds: ['protocol-a'],
-        freshness: 'live',
-        refresh: 'idle',
-        data: { protocols: [{ id: 'protocol-a' }] },
-      },
+    const next = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['protocol-a'],
+      priority: 1,
+      refresh: 'idle',
+      data: { protocols: [{ id: 'protocol-a' }] },
     });
     expect(next.sections.defi.value).toMatchObject({
       kind: 'ready',
@@ -1553,38 +1545,14 @@ describe('Home Store reducer', () => {
       },
     });
     expect(next.commitIdentity.storeCommitId).toBe(
-      state.commitIdentity.storeCommitId + 1,
+      state.commitIdentity.storeCommitId + 2,
     );
   });
 
-  it('rejects request 1 after request 2 has become authoritative', () => {
+  it('lets the last same-owner network response win', () => {
     let state = createOwnedState();
-    const request1 = createToken(1);
-    const request2 = createToken(2);
-    state = dispatch(state, { type: 'sourceRequested', token: request1 });
-    state = dispatch(state, { type: 'sourceRequested', token: request2 });
-    state = dispatch(state, {
-      type: 'sourceResponded',
-      envelope: {
-        token: request1,
-        result: {
-          kind: 'success',
-          data: { rows: [{ id: 'stale' }] },
-          coverageFingerprint: 'stale',
-        },
-      },
-    });
-    expect(state.resources.defi).toMatchObject({
-      kind: 'loading',
-      token: request2,
-    });
-    expect(state.diagnostics.lastRejectReason).toBe('requestSequenceStale');
-  });
-
-  it('keeps request 2 after its response arrives before request 1', () => {
-    let state = createOwnedState();
-    const request1 = createToken(1);
-    const request2 = createToken(2);
+    const request1 = createToken();
+    const request2 = createToken();
     state = dispatch(state, { type: 'sourceRequested', token: request1 });
     state = dispatch(state, { type: 'sourceRequested', token: request2 });
     state = dispatch(state, {
@@ -1594,71 +1562,111 @@ describe('Home Store reducer', () => {
         result: {
           kind: 'success',
           data: {
-            payload: { protocols: [{ id: 'fresh' }] },
+            payload: { protocols: [{ id: 'first' }] },
             section: {
               kind: 'ready',
-              rowIds: ['fresh'],
-              freshness: 'live',
+              rowIds: ['first'],
+              priority: 1,
               refresh: 'idle',
             },
           },
-          coverageFingerprint: 'fresh',
+          coverageFingerprint: 'first',
         },
       },
     });
-    const request2State = state;
     state = dispatch(state, {
       type: 'sourceResponded',
       envelope: {
         token: request1,
         result: {
           kind: 'success',
-          data: { payload: null, section: { kind: 'empty' } },
-          coverageFingerprint: 'stale',
+          data: {
+            payload: { protocols: [{ id: 'last' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['last'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'last',
         },
       },
     });
 
-    expect(state.resources.defi).toBe(request2State.resources.defi);
-    expect(state.sections.defi).toBe(request2State.sections.defi);
     expect(state.resources.defi).toMatchObject({
       kind: 'ready',
-      token: request2,
-      data: { payload: { protocols: [{ id: 'fresh' }] } },
+      token: request1,
+      data: { payload: { protocols: [{ id: 'last' }] } },
     });
-    expect(state.diagnostics.lastRejectReason).toBe('requestSequenceStale');
   });
 
-  it('rejects an older request sequence from the same owner and producer', () => {
-    let state = createOwnedState();
+  it('rejects a response from a replaced source client', () => {
+    const previousClient = createToken();
+    const currentClient = {
+      ...createToken(),
+      clientInstanceId: 'client-b',
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'sourceRequested',
+      token: previousClient,
+    });
     state = dispatch(state, {
       type: 'sourceRequested',
-      token: createToken(2),
+      token: currentClient,
     });
-    const staleTransition = reduceHomeStore(state, {
-      type: 'sourceRequested',
-      token: createToken(1),
+    const next = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: previousClient,
+        result: { kind: 'hidden', reason: 'notApplicable' },
+      },
     });
-    const next = applyHomeStorePatchToState(
-      state,
-      staleTransition.patch.mutations,
-    );
+    expect(next.resources).toBe(state.resources);
+    expect(next.diagnostics.lastRejectReason).toBe('sourceMismatch');
+    expect(next.resources.defi).toEqual({
+      kind: 'loading',
+      token: currentClient,
+    });
+  });
 
-    expect(next.resources.defi).toBe(state.resources.defi);
-    expect(next.diagnostics.lastRejectReason).toBe('requestSequenceStale');
-    expect(staleTransition.effects).toEqual([
-      expect.objectContaining({ reason: 'requestSequenceStale' }),
-    ]);
+  it('does not let later cache data overwrite network data', () => {
+    const state = dispatchSectionResult(createOwnedState(), 'defi', {
+      kind: 'ready',
+      rowIds: ['network'],
+      priority: 1,
+      refresh: 'idle',
+    });
+    const resource = state.resources.defi;
+    expect(resource.kind).toBe('ready');
+    if (resource.kind !== 'ready' || !resource.token) {
+      return;
+    }
+    const next = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: resource.token,
+        result: {
+          kind: 'success',
+          data: {
+            payload: null,
+            section: {
+              kind: 'ready',
+              rowIds: ['cache'],
+              priority: 0,
+              refresh: 'refreshing',
+            },
+          },
+          coverageFingerprint: 'cache',
+        },
+      },
+    });
+    expect(next).toBe(state);
   });
 
   it('atomically retires all owner-scoped data on replacement', () => {
     let state = createOwnedState();
-    state = dispatch(state, {
-      type: 'sectionSourceChanged',
-      ownerToken,
-      sectionId: 'nft',
-      result: { kind: 'empty' },
-    });
+    state = dispatchSectionResult(state, 'nft', { kind: 'empty' });
     const next = dispatch(state, {
       type: 'ownerChanged',
       owner: { ...owner, accountId: 'account-b' },

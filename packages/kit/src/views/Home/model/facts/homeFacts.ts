@@ -134,7 +134,6 @@ export type IHomeFacts = {
     topology: IHomeRuntimeTopology;
     connection: 'waiting' | 'ready' | 'degraded';
     producerInstanceId?: string;
-    protocolVersion: number;
   };
   capabilityInputs: {
     ready: boolean;

@@ -11,14 +11,16 @@ using namespace facebook::react;
 @interface UIView (HomeContainerSlotLayout)
 - (NSValue *)slotFrameForKey:(NSString *)key;
 - (UIView *)slotHostViewForKey:(NSString *)key;
-- (void)setMountedSlotMetadata:(NSArray<NSDictionary<NSString *, id> *> *)metadata;
+- (void)setMountedSlotKeys:(NSArray<NSString *> *)keys;
+- (BOOL)ownsSlotWithScopeKey:(NSString *)scopeKey sessionId:(NSString *)sessionId;
 @end
 
 static UIView *FindHomeContainerEngine(UIView *view)
 {
   if ([view respondsToSelector:@selector(slotFrameForKey:)] &&
       [view respondsToSelector:@selector(slotHostViewForKey:)] &&
-      [view respondsToSelector:@selector(setMountedSlotMetadata:)]) {
+      [view respondsToSelector:@selector(setMountedSlotKeys:)] &&
+      [view respondsToSelector:@selector(ownsSlotWithScopeKey:sessionId:)]) {
     return view;
   }
   for (UIView *child in view.subviews) {
@@ -111,25 +113,25 @@ static UIView *FindHomeContainerEngine(UIView *view)
   }
 }
 
-- (NSArray<NSDictionary<NSString *, id> *> *)mountedSlotMetadata
+- (NSArray<NSString *> *)mountedSlotKeysForEngine:(UIView *)engine
 {
-  NSMutableArray<NSDictionary<NSString *, id> *> *metadata = [NSMutableArray new];
+  NSMutableArray<NSString *> *keys = [NSMutableArray new];
   for (UIView *child in _mountedChildren) {
     if ([child isKindOfClass:HomeContainerSlotComponentView.class]) {
       HomeContainerSlotComponentView *slot =
           (HomeContainerSlotComponentView *)child;
-      if (slot.slotKey.length > 0) {
-        [metadata addObject:@{
-          @"slotId" : slot.slotKey,
-          @"ownerScopeKey" : slot.ownerScopeKey,
-          @"ownerSessionId" : slot.ownerSessionId,
-          @"slotRevision" : @(slot.slotRevision),
-          @"producedByStoreCommitId" : @(slot.producedByStoreCommitId),
-        }];
+      BOOL ownsSlot =
+          ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
+              engine,
+              @selector(ownsSlotWithScopeKey:sessionId:),
+              slot.ownerScopeKey,
+              slot.ownerSessionId);
+      if (slot.slotKey.length > 0 && ownsSlot) {
+        [keys addObject:slot.slotKey];
       }
     }
   }
-  return metadata;
+  return keys;
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
@@ -168,12 +170,11 @@ static UIView *FindHomeContainerEngine(UIView *view)
   [self connectEngineIfNeeded];
   UIView *engine = _engine;
   if (engine != nil) {
-    NSArray<NSDictionary<NSString *, id> *> *metadata =
-        [self mountedSlotMetadata];
-    ((void (*)(id, SEL, NSArray<NSDictionary<NSString *, id> *> *))objc_msgSend)(
+    NSArray<NSString *> *keys = [self mountedSlotKeysForEngine:engine];
+    ((void (*)(id, SEL, NSArray<NSString *> *))objc_msgSend)(
         engine,
-        @selector(setMountedSlotMetadata:),
-        metadata);
+        @selector(setMountedSlotKeys:),
+        keys);
   }
 
   for (UIView *child in _mountedChildren) {
@@ -184,8 +185,19 @@ static UIView *FindHomeContainerEngine(UIView *view)
     }
     HomeContainerSlotComponentView *slot =
         (HomeContainerSlotComponentView *)child;
-    if (engine == nil || slot.slotKey.length == 0) {
+    BOOL ownsSlot = engine != nil &&
+        ((BOOL (*)(id, SEL, NSString *, NSString *))objc_msgSend)(
+            engine,
+            @selector(ownsSlotWithScopeKey:sessionId:),
+            slot.ownerScopeKey,
+            slot.ownerSessionId);
+    if (engine == nil || slot.slotKey.length == 0 || !ownsSlot) {
+      if (slot.superview != _slotParkingView) {
+        [slot removeFromSuperview];
+        [_slotParkingView addSubview:slot];
+      }
       slot.hidden = YES;
+      slot.frame = CGRectZero;
       continue;
     }
     UIView *hostView =

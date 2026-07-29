@@ -20,12 +20,23 @@ describe('HomeDeFiStoreController activation', () => {
 
   it('loads single-network data before the DeFi tab becomes visible', () => {
     const initialLoadEffect = sourceHook.slice(
-      sourceHook.indexOf('requestIdRef.current += 1;'),
+      sourceHook.indexOf('const ownerScope ='),
       sourceHook.indexOf('const actionRefreshTargetRef'),
     );
 
     expect(initialLoadEffect).toContain('void loadSingle(false);');
     expect(initialLoadEffect).not.toContain('!visible');
     expect(sourceHook).toContain('if (!fullSourceEnabled || !visible)');
+  });
+
+  it('uses source identity and request handles instead of request start order', () => {
+    expect(sourceHook).not.toContain('requestSeq');
+    expect(sourceHook).not.toContain('requestIdRef');
+    expect(sourceHook).not.toContain('generation <');
+    expect(sourceHook).toContain(
+      'deFiSourceIdentityKeyRef.current === requestSourceIdentityKey',
+    );
+    expect(sourceHook).toContain('handle: IHomeSectionSourceRequestHandle');
+    expect(sourceHook).toContain('allNetworkExpectedRequestCountRef');
   });
 });

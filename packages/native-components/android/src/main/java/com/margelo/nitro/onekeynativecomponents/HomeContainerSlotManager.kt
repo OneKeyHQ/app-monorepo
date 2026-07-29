@@ -36,14 +36,6 @@ internal class HomeContainerSlotManager(
     view?.ownerSessionId = value.orEmpty()
   }
 
-  override fun setSlotRevision(view: HomeContainerSlotView?, value: Double) {
-    view?.slotRevision = value
-  }
-
-  override fun setProducedByStoreCommitId(view: HomeContainerSlotView?, value: Double) {
-    view?.producedByStoreCommitId = value
-  }
-
   override fun addView(parent: HomeContainerSlotView, child: View, index: Int) {
     parent.addReactChild(child, index)
   }
