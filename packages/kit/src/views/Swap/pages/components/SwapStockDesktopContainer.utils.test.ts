@@ -56,7 +56,12 @@ describe('SwapStockDesktopContainer utils', () => {
   });
 
   it('keeps disabled buy actions in the buy color family', () => {
-    expect(getStockDisabledActionButtonProps(ESwapStockTradeSide.Buy)).toEqual({
+    expect(
+      getStockDisabledActionButtonProps(
+        ESwapStockTradeSide.Buy,
+        ESwapStockChannelStage.MissingPayToken,
+      ),
+    ).toEqual({
       bg: '$bgSuccessStrong',
       color: '$textOnColor',
       disabledStyle: {
@@ -66,15 +71,33 @@ describe('SwapStockDesktopContainer utils', () => {
   });
 
   it('keeps disabled sell actions in the sell color family', () => {
-    expect(getStockDisabledActionButtonProps(ESwapStockTradeSide.Sell)).toEqual(
-      {
-        bg: '$bgCriticalStrong',
-        color: '$textOnColor',
-        disabledStyle: {
-          opacity: 0.6,
-        },
+    expect(
+      getStockDisabledActionButtonProps(
+        ESwapStockTradeSide.Sell,
+        ESwapStockChannelStage.MissingPayToken,
+      ),
+    ).toEqual({
+      bg: '$bgCriticalStrong',
+      color: '$textOnColor',
+      disabledStyle: {
+        opacity: 0.6,
       },
-    );
+    });
+  });
+
+  it('keeps market-status loading and closed actions neutral', () => {
+    expect(
+      getStockDisabledActionButtonProps(
+        ESwapStockTradeSide.Buy,
+        ESwapStockChannelStage.CheckingMarketStatus,
+      ),
+    ).toBeUndefined();
+    expect(
+      getStockDisabledActionButtonProps(
+        ESwapStockTradeSide.Sell,
+        ESwapStockChannelStage.MarketClosed,
+      ),
+    ).toBeUndefined();
   });
 
   it('shows market panel skeletons while Stock identity or detail initializes', () => {
