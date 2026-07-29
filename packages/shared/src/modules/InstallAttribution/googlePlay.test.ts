@@ -102,7 +102,7 @@ describe('Google Play install attribution', () => {
       utmSource: 'onekey.so',
     });
     expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v1',
+      'google_play_install_attribution_reported_v2',
       '1',
     );
   });
@@ -124,7 +124,7 @@ describe('Google Play install attribution', () => {
     expect(getInstallReferrerMock).toHaveBeenCalledTimes(2);
     expect(logAttributionMock).toHaveBeenCalledTimes(2);
     expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v1',
+      'google_play_install_attribution_reported_v2',
       '1',
     );
   });
@@ -162,7 +162,7 @@ describe('Google Play install attribution', () => {
     expect(logRawReferrerMock).not.toHaveBeenCalled();
     expect(logAttributionMock).not.toHaveBeenCalled();
     expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v1',
+      'google_play_install_attribution_reported_v2',
       '1',
     );
   });

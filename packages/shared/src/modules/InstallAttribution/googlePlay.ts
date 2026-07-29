@@ -6,7 +6,7 @@ import {
 import { defaultLogger } from '../../logger/logger';
 import appStorage from '../../storage/appStorage';
 
-const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v1';
+const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v2';
 const MAX_INSTALL_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_REFERRER_LENGTH = 2048;
 const MAX_VALUE_LENGTH = 128;
