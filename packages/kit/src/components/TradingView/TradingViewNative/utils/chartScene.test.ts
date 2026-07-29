@@ -78,7 +78,7 @@ describe('TradingViewNative shared chart scene', () => {
       ]),
     );
     expect(text).toEqual(
-      expect.arrayContaining(['O', 'H', 'L', 'C', 'Volume']),
+      expect.arrayContaining(['O', 'H', 'L', 'C', '+5 (+5.05%)', 'Volume']),
     );
     expect(
       scene.commands.filter((command) => command.kind === 'clip'),

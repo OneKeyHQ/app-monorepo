@@ -1,4 +1,5 @@
 import {
+  formatTradingViewNativePriceChange,
   formatTradingViewNativeVolume,
   getTradingViewNativeChartLegend,
   getTradingViewNativeChartLegendRowLayout,
@@ -22,6 +23,7 @@ describe('TradingViewNative chart legend', () => {
         { label: 'H', value: '125' },
         { label: 'L', value: '119.5' },
         { label: 'C', value: '123.457' },
+        { label: '', value: '+3.45679 (+2.88%)' },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
     });
@@ -38,6 +40,36 @@ describe('TradingViewNative chart legend', () => {
         v: 500,
       }).isUp,
     ).toBe(false);
+  });
+
+  it('formats signed candle price and percentage changes', () => {
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 22_866,
+        open: 22_200,
+      }),
+    ).toBe('+666 (+3%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 95,
+        open: 100,
+      }),
+    ).toBe('-5 (-5%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100,
+        open: 100,
+      }),
+    ).toBe('0 (0%)');
+  });
+
+  it('rejects a price change with an invalid open', () => {
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100,
+        open: 0,
+      }),
+    ).toBe('--');
   });
 
   it('formats volume compactly and rejects invalid values', () => {

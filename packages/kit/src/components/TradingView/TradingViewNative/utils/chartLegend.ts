@@ -58,6 +58,33 @@ function formatPrice(value: number) {
     : '--';
 }
 
+export function formatTradingViewNativePriceChange({
+  close,
+  open,
+}: {
+  close: number;
+  open: number;
+}) {
+  'worklet';
+
+  if (!Number.isFinite(open) || !Number.isFinite(close) || open === 0) {
+    return '--';
+  }
+
+  const change = close - open;
+  const percentage = (change / open) * 100;
+  if (!Number.isFinite(change) || !Number.isFinite(percentage)) {
+    return '--';
+  }
+
+  const roundedPercentage = Number(percentage.toFixed(2));
+  const changeSign = change > 0 ? '+' : '';
+  const percentageSign = roundedPercentage > 0 ? '+' : '';
+  return `${changeSign}${formatTradingViewNativePriceTick(
+    change,
+  )} (${percentageSign}${roundedPercentage.toString()}%)`;
+}
+
 export function formatTradingViewNativeVolume(volume: number) {
   'worklet';
 
@@ -86,6 +113,13 @@ export function getTradingViewNativeChartLegend(
       { label: 'H', value: formatPrice(point.h) },
       { label: 'L', value: formatPrice(point.l) },
       { label: 'C', value: formatPrice(point.c) },
+      {
+        label: '',
+        value: formatTradingViewNativePriceChange({
+          close: point.c,
+          open: point.o,
+        }),
+      },
     ],
     volumeItem: {
       label: 'Volume',
