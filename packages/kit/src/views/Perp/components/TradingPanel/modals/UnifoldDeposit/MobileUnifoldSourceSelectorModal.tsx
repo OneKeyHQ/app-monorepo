@@ -1,4 +1,10 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   StackActions,
@@ -22,7 +28,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  type IUnifoldDepositErrorType,
+  getUnifoldDepositErrorType,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -119,24 +128,52 @@ export default function MobileUnifoldSourceSelectorModal() {
     selectedChainId,
     entryFlow,
   } = route.params;
-  const { result: loadedAssets, isLoading } = usePromiseResult(
-    async () => {
+  const [loadedAssets, setLoadedAssets] = useState(assets);
+  const [isLoading, setIsLoading] = useState(!assets && Boolean(entryFlow));
+  const [loadError, setLoadError] = useState<IUnifoldDepositErrorType | null>(
+    null,
+  );
+  const [retryNonce, setRetryNonce] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
       if (assets) {
-        return assets;
+        setLoadedAssets(assets);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
       }
       if (!entryFlow) {
-        return [];
+        setLoadedAssets([]);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
       }
-      return backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
-        entryFlow.destination,
-      );
-    },
-    [assets, entryFlow],
-    {
-      initResult: assets,
-      watchLoading: true,
-    },
-  );
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const nextAssets =
+          await backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
+            entryFlow.destination,
+          );
+        if (!cancelled) {
+          setLoadedAssets(nextAssets);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadedAssets(undefined);
+          setLoadError(getUnifoldDepositErrorType(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, entryFlow, retryNonce]);
   const usableAssets = useMemo(
     () => (loadedAssets ?? []).filter((asset) => asset.chains.length > 0),
     [loadedAssets],
@@ -303,8 +340,38 @@ export default function MobileUnifoldSourceSelectorModal() {
       />
     </YStack>
   );
-  if (isLoading && !loadedAssets) {
+  if (isLoading) {
     listContent = <MobileSourceSelectorSkeleton />;
+  } else if (loadError) {
+    const isNetworkError = loadError === 'network';
+    listContent = (
+      <YStack py="$10">
+        <Empty
+          icon="ErrorOutline"
+          title={intl.formatMessage({
+            id: isNetworkError
+              ? ETranslations.global_connet_error_try_again
+              : ETranslations.provider_unavailable,
+          })}
+          description={
+            isNetworkError
+              ? undefined
+              : intl.formatMessage({
+                  id:
+                    loadError === 'geoBlocked'
+                      ? ETranslations.description_403
+                      : ETranslations.global_unknown_error_retry_message,
+                })
+          }
+          buttonProps={{
+            children: intl.formatMessage({
+              id: ETranslations.global_retry,
+            }),
+            onPress: () => setRetryNonce((value) => value + 1),
+          }}
+        />
+      </YStack>
+    );
   } else if (hasResults) {
     listContent = optionRows;
   }

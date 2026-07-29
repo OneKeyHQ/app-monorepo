@@ -12,6 +12,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useBackHandler,
@@ -346,27 +347,37 @@ export function UnifoldTransferContent({
     ) {
       return;
     }
-    handledSourceSelectorRequestIdRef.current = sourceSelectorResult.requestId;
     const asset = supportedAssets?.find(
       (item) => item.symbol === sourceSelectorResult.assetSymbol,
     );
-    if (asset) {
-      if (sourceSelectorResult.mode === 'token') {
-        selectToken(asset);
-      } else {
-        const chain = asset.chains.find(
-          (item) =>
-            item.chain_type === sourceSelectorResult.chainType &&
-            item.chain_id === sourceSelectorResult.chainId,
-        );
-        if (chain) {
-          selectToken(asset);
-          selectChain(chain);
-        }
-      }
+    const chain =
+      sourceSelectorResult.mode === 'chain'
+        ? asset?.chains.find(
+            (item) =>
+              item.chain_type === sourceSelectorResult.chainType &&
+              item.chain_id === sourceSelectorResult.chainId,
+          )
+        : undefined;
+    handledSourceSelectorRequestIdRef.current = sourceSelectorResult.requestId;
+    if (!asset || (sourceSelectorResult.mode === 'chain' && !chain)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.provider_unavailable,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+      });
+      onSourceSelectorResultHandled?.();
+      return;
+    }
+    selectToken(asset);
+    if (chain) {
+      selectChain(chain);
     }
     onSourceSelectorResultHandled?.();
   }, [
+    intl,
     onSourceSelectorResultHandled,
     selectChain,
     selectToken,
