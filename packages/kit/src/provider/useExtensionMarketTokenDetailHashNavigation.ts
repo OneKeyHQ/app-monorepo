@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { rootNavigationRef } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { fetchMarketTokenDetailWithCache } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailInFlightRequest';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -148,6 +149,7 @@ function isCurrentMarketTokenDetailTarget(
 export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
+        const currencyInfo = useCurrency();
         const handledHashRef = useRef<string | undefined>(undefined);
         const preparedHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -180,6 +182,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
             void fetchMarketTokenDetailWithCache({
               tokenAddress,
               networkId,
+              currencyId: currencyInfo.id,
             }).catch(() => undefined);
             void prefetchMarketDetailV2FirstScreenKLine({
               tokenAddress,
@@ -196,7 +199,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
               includeHeavyModules: true,
             });
           },
-          [],
+          [currencyInfo.id],
         );
 
         const navigateFromHash = useCallback((expectedHash: string) => {

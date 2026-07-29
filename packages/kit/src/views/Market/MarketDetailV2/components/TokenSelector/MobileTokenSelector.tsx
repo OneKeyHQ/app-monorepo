@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -47,6 +48,7 @@ function MobileTokenSelectorContent() {
   const route = useRoute();
   const navigation = useAppNavigation();
   const tokenDetailActions = useTokenDetailActions();
+  const currencyInfo = useCurrency();
   const { navigateToPerps } = usePerpsNavigation();
   const routeParams = route.params as
     | { showFavoriteButton?: boolean | string }
@@ -119,12 +121,19 @@ function MobileTokenSelectorContent() {
 
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
+        currencyId: currencyInfo.id,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
+    [
+      tokenDetailActions,
+      currencyInfo.id,
+      navigation,
+      navigateToPerps,
+      showFavoriteButton,
+    ],
   );
 
   const handleTokenSelect = useCallback(

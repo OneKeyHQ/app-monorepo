@@ -29,13 +29,14 @@ describe('ServiceMarketV2 kline by count', () => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
   });
 
-  it('uses the backend by-count endpoint for a complete OneKey request', async () => {
+  it('preserves a terminal sparse-history response from the backend', async () => {
     const expectedResult: IMarketTokenKLineResponse = {
       points: [{ t: 999, o: 1, h: 1, l: 1, c: 1, v: 1 }],
       total: 1,
       historyMeta: {
-        noData: false,
-        isPartial: true,
+        noData: true,
+        isPartial: false,
+        stopReason: 'page_budget_exhausted',
         requestedCount: 299,
         returnedCount: 1,
         coveredFrom: 800,
@@ -73,25 +74,86 @@ describe('ServiceMarketV2 kline by count', () => {
     });
   });
 
-  it('does not fall back to the legacy range endpoint when v3 returns 404', async () => {
-    const get = jest.fn().mockRejectedValue(buildHttpError(404));
+  it('falls back to the legacy range endpoint when v3 returns 404', async () => {
+    const legacyResult: IMarketTokenKLineResponse = {
+      points: [
+        { t: 900, o: 1, h: 2, l: 1, c: 2, v: 3 },
+        { t: 960, o: 2, h: 3, l: 2, c: 3, v: 4 },
+      ],
+      total: 2,
+    };
+    const get = jest
+      .fn()
+      .mockRejectedValueOnce(buildHttpError(404))
+      .mockResolvedValueOnce({
+        data: { code: 0, message: 'ok', data: legacyResult },
+      });
     const service = createService();
     service.getClient = jest.fn().mockResolvedValue({ get });
 
-    await expect(
-      service.fetchMarketTokenKlineByCount({
+    const result = await service.fetchMarketTokenKlineByCount({
+      tokenAddress: '0xtoken',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeTo: 1000,
+      targetCount: 2,
+      stopAfterCount: 2,
+      historyStartTime: 880,
+    });
+
+    expect(result.points).toEqual(legacyResult.points);
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/utility/v3/market/token/kline',
+      expect.any(Object),
+    );
+    expect(get).toHaveBeenNthCalledWith(2, '/utility/v2/market/token/kline', {
+      params: {
         tokenAddress: '0xtoken',
         networkId: 'evm--1',
         interval: '1m',
+        timeFrom: 880,
         timeTo: 1000,
-        targetCount: 2,
-        stopAfterCount: 2,
-        historyStartTime: 0,
-      }),
-    ).rejects.toMatchObject({ httpStatusCode: 404 });
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(get).toHaveBeenCalledWith(
+        currency: 'usd',
+      },
+    });
+  });
+
+  it('falls back to the legacy range endpoint for an incompatible v3 response', async () => {
+    const legacyResult: IMarketTokenKLineResponse = {
+      points: [{ t: 960, o: 1, h: 2, l: 1, c: 2, v: 3 }],
+      total: 1,
+    };
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: { code: 0, message: 'ok', data: { candles: [] } },
+      })
+      .mockResolvedValueOnce({
+        data: { code: 0, message: 'ok', data: legacyResult },
+      });
+    const service = createService();
+    service.getClient = jest.fn().mockResolvedValue({ get });
+
+    const result = await service.fetchMarketTokenKlineByCount({
+      tokenAddress: '0xtoken',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeTo: 1000,
+      targetCount: 1,
+      stopAfterCount: 1,
+      historyStartTime: 940,
+    });
+
+    expect(result.points).toEqual(legacyResult.points);
+    expect(get).toHaveBeenNthCalledWith(
+      1,
       '/utility/v3/market/token/kline',
+      expect.any(Object),
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/utility/v2/market/token/kline',
       expect.any(Object),
     );
   });

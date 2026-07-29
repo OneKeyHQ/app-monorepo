@@ -105,8 +105,15 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   useEffect(() => {
     tokenDetailActions.setTokenAddress(data.tokenAddress);
     tokenDetailActions.setNetworkId(data.networkId);
+    tokenDetailActions.setTokenDetailCurrencyId(currencyInfo.id);
     tokenDetailActions.setIsNative(data.isNative);
-  }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
+  }, [
+    currencyInfo.id,
+    data.tokenAddress,
+    data.networkId,
+    data.isNative,
+    tokenDetailActions,
+  ]);
 
   return usePromiseResult(
     async () => {
@@ -117,6 +124,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
+        currencyInfo.id,
       );
     },
     [

@@ -111,10 +111,15 @@ export function useMarketSymbolSync({
   const identityKey = buildMarketTradingViewIdentityKey(identity);
   const frameIdentityKey = buildMarketTradingViewIdentityKey(frameIdentity);
   const deliveredIdentityKeyRef = useRef(frameIdentityKey);
+  const lastFrameIdentityKeyRef = useRef(frameIdentityKey);
 
   useEffect(() => {
-    if (!enabled) {
+    if (lastFrameIdentityKeyRef.current !== frameIdentityKey) {
+      lastFrameIdentityKeyRef.current = frameIdentityKey;
       deliveredIdentityKeyRef.current = frameIdentityKey;
+    }
+
+    if (!enabled) {
       return;
     }
 

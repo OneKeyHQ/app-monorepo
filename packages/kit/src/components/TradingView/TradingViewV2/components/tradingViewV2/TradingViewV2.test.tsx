@@ -34,6 +34,12 @@ const mockWebViewProps: Record<string, unknown>[] = [];
 const mockUseAutoKLineUpdate = jest.fn();
 const mockUseAutoTokenDetailUpdate = jest.fn();
 const mockUseMarketSymbolSync = jest.fn();
+const mockUseMarketTradingViewFrameIdentity = jest.fn(
+  ({ staticTradingViewUrl, identity }) => ({
+    staticTradingViewUrl,
+    identity,
+  }),
+);
 const mockUseTradingViewV2WebSocket = jest.fn();
 const mockUseTradingViewMessageHandler = jest.fn();
 const mockSubscribeTradingViewV2FirstScreenPrefetch = jest.fn();
@@ -136,13 +142,11 @@ jest.mock('./hooks', () => ({
   useMarketSymbolSync: (params: unknown) => {
     mockUseMarketSymbolSync(params);
   },
-  useMarketTradingViewFrameIdentity: ({
-    staticTradingViewUrl,
-    identity,
-  }: {
+  useMarketTradingViewFrameIdentity: (params: {
     staticTradingViewUrl: string;
     identity: unknown;
-  }) => ({ staticTradingViewUrl, identity }),
+    symbolSyncSupport: boolean | undefined;
+  }) => mockUseMarketTradingViewFrameIdentity(params),
   useTradingViewV2WebSocket: (params: unknown) => {
     mockUseTradingViewV2WebSocket(params);
   },
@@ -170,6 +174,7 @@ describe('TradingViewV2 native source discovery', () => {
     mockUseAutoKLineUpdate.mockClear();
     mockUseAutoTokenDetailUpdate.mockClear();
     mockUseMarketSymbolSync.mockClear();
+    mockUseMarketTradingViewFrameIdentity.mockClear();
     mockUseTradingViewV2WebSocket.mockClear();
     mockUseTradingViewMessageHandler.mockClear();
     mockSubscribeTradingViewV2FirstScreenPrefetch.mockReset();
@@ -181,6 +186,10 @@ describe('TradingViewV2 native source discovery', () => {
     };
     mockTradingViewLogger.dexTVFirstPaint.mockClear();
     mockRouteIsFocused = true;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('mounts the native WebView while the K-line source is still loading', () => {
@@ -492,6 +501,185 @@ describe('TradingViewV2 native source discovery', () => {
     expect(mockUseAutoTokenDetailUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: true }),
     );
+  });
+
+  it('falls back to legacy capabilities when chart-ready handshake times out', () => {
+    jest.useFakeTimers();
+    mockHyperLiquidKlineSource = {
+      isHyperLiquidSource: false,
+      symbol: undefined,
+      isLoading: false,
+    };
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        dataSource="polling"
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          isKLineHistoryReady?: boolean;
+          onKLineDataReady?: (data: {
+            period: string;
+            requestRange: {
+              from: number;
+              to: number;
+              firstDataRequest: boolean;
+            };
+          }) => void;
+        }
+      | undefined;
+
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      messageHandlerParams?.onKLineDataReady?.({
+        period: '1m',
+        requestRange: {
+          from: 0,
+          to: 60,
+          firstDataRequest: true,
+        },
+      });
+    });
+
+    expect(mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ isKLineHistoryReady: false }),
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: false }));
+    expect(mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ isKLineHistoryReady: true }),
+    );
+    expect(mockUseAutoKLineUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  it('keeps explicit chart capabilities after the handshake deadline', () => {
+    jest.useFakeTimers();
+    const onChartReady = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onChartReady={onChartReady}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    });
+
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          onMarketAppKlineTransportSupportChange?: (supported: boolean) => void;
+          onIntervalAckSupportChange?: (supported: boolean) => void;
+          onHistoryReadyAckSupportChange?: (supported: boolean) => void;
+          onChartReady?: (data: { capabilities: object }) => void;
+        }
+      | undefined;
+    const chartReadyData = {
+      capabilities: {
+        marketSymbolSync: true,
+        marketAppKlineTransport: true,
+        intervalAck: true,
+        historyReadyAck: true,
+      },
+    };
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+      messageHandlerParams?.onMarketAppKlineTransportSupportChange?.(true);
+      messageHandlerParams?.onIntervalAckSupportChange?.(true);
+      messageHandlerParams?.onHistoryReadyAckSupportChange?.(true);
+      messageHandlerParams?.onChartReady?.(chartReadyData);
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(onChartReady).toHaveBeenCalledWith(chartReadyData);
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: true }));
+  });
+
+  it('ignores the previous document handshake timer after a reload starts', () => {
+    jest.useFakeTimers();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const startLoad = () => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    };
+
+    act(() => {
+      startLoad();
+      jest.advanceTimersByTime(2500);
+      startLoad();
+      jest.advanceTimersByTime(2500);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: undefined }));
+
+    act(() => {
+      jest.advanceTimersByTime(2500);
+    });
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: false }));
   });
 
   it('tracks first paint again after the same WebView document reloads', () => {

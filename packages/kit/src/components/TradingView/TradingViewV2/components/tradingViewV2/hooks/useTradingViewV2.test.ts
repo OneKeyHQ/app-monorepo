@@ -392,7 +392,7 @@ describe('first-screen K-line prefetch subscription', () => {
     unsubscribe();
   });
 
-  it('publishes a single viewport-complete prefetch package to chart subscribers', async () => {
+  it('publishes a request-budget terminal package without retrying', async () => {
     const onResult = jest.fn();
     const tokenAddress = '0x0000000000000000000000000000000000000345';
     const completedResponse: IMarketTokenKLineResponse = {
@@ -401,6 +401,7 @@ describe('first-screen K-line prefetch subscription', () => {
       historyMeta: {
         noData: true,
         isPartial: false,
+        stopReason: 'page_budget_exhausted',
         requestedCount: 200,
         returnedCount: 2,
         coveredFrom: 940,

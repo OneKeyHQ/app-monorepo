@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
 import { prefetchMarketTokenSelection } from './navigateToMarketTokenDetail';
@@ -9,6 +11,7 @@ import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenL
 export const MARKET_TOKEN_SELECTOR_HOVER_PREFETCH_DELAY_MS = 150;
 
 export function useMarketTokenSelectorRowPrefetch(item: IMarketToken) {
+  const currencyInfo = useCurrency();
   const hoverPrefetchTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -28,9 +31,16 @@ export function useMarketTokenSelectorRowPrefetch(item: IMarketToken) {
     prefetchMarketTokenSelection({
       address: item.address,
       networkId: item.networkId,
+      currencyId: currencyInfo.id,
       firstTradeTime: item.firstTradeTime,
     });
-  }, [item.address, item.firstTradeTime, item.networkId, item.perpsCoin]);
+  }, [
+    currencyInfo.id,
+    item.address,
+    item.firstTradeTime,
+    item.networkId,
+    item.perpsCoin,
+  ]);
 
   const handleHoverIn = useCallback(() => {
     prewarmMarketTokenImages(item);

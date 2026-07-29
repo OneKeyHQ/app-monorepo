@@ -76,6 +76,7 @@ describe('prefetchMarketTokenSelection', () => {
     prefetchMarketTokenSelection({
       address: '0x1234',
       networkId: 'evm--1',
+      currencyId: 'cny',
       firstTradeTime: 123,
     });
 
@@ -86,6 +87,7 @@ describe('prefetchMarketTokenSelection', () => {
     expect(fetchMarketTokenDetailWithCache).toHaveBeenCalledWith({
       tokenAddress: '0x1234',
       networkId: 'evm--1',
+      currencyId: 'cny',
     });
     expect(prefetchMarketDetailV2FirstScreenKLine).toHaveBeenCalledWith({
       tokenAddress: '0x1234',
@@ -115,6 +117,7 @@ describe('prefetchMarketTokenSelection', () => {
       },
       {
         beforeNavigate,
+        currencyId: 'cny',
         tokenDetailActions: {
           current: {
             changeActiveToken,
@@ -124,6 +127,9 @@ describe('prefetchMarketTokenSelection', () => {
     );
 
     expect(prefetchMarketDetailV2FirstScreenKLine).toHaveBeenCalledTimes(1);
+    expect(changeActiveToken).toHaveBeenCalledWith(
+      expect.objectContaining({ currencyId: 'cny' }),
+    );
     expect(beforeNavigate).toHaveBeenCalledTimes(1);
     expect(mockRootNavigationRef.current.navigate).not.toHaveBeenCalled();
 

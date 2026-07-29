@@ -26,6 +26,10 @@ jest.mock('@onekeyhq/components', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  useCurrency: jest.fn(() => ({ id: 'cny' })),
+}));
+
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailInFlightRequest',
   () => ({

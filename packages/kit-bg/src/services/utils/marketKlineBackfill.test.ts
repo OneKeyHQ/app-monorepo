@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  MARKET_KLINE_MAX_BACKFILL_REQUESTS,
   MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS,
   fetchMarketKlineBackfill,
   getMarketKlineHistoryFloor,
@@ -284,6 +285,35 @@ describe('fetchMarketKlineBackfill', () => {
       noData: false,
       isPartial: true,
       cancelled: true,
+    });
+  });
+
+  test('treats the request budget as terminal for extremely sparse history', async () => {
+    let requestCount = 0;
+
+    const result = await fetchMarketKlineBackfill({
+      targetCount: 299,
+      stopAfterCount: 299,
+      intervalSeconds: 1,
+      requestTimeFrom: 99_701,
+      requestTimeTo: 100_000,
+      historyFloor: 0,
+      fetchPage: async () => {
+        requestCount += 1;
+        return buildResponse([]);
+      },
+      isCancelled: () => false,
+    });
+
+    expect(requestCount).toBe(MARKET_KLINE_MAX_BACKFILL_REQUESTS);
+    expect(result.points).toEqual([]);
+    expect(result.historyMeta).toMatchObject({
+      noData: true,
+      isPartial: false,
+      stopReason: 'page_budget_exhausted',
+      requestedCount: 299,
+      returnedCount: 0,
+      coveredTo: 100_000,
     });
   });
 });

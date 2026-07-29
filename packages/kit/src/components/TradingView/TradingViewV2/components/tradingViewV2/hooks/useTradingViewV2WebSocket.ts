@@ -1,10 +1,4 @@
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
@@ -37,14 +31,6 @@ interface IMarketPriceUpdatePayload {
   data: unknown;
   originalData?: unknown;
 }
-
-export type ITradingViewV2WebSocketStatus =
-  | 'disabled'
-  | 'connecting'
-  | 'active'
-  | 'stale';
-
-const MARKET_KLINE_WEBSOCKET_STALE_TIMEOUT_MS = 10_000;
 
 function normalizeMarketWsKLineInterval(interval: string | undefined): string {
   switch (interval) {
@@ -97,16 +83,10 @@ export function useTradingViewV2WebSocket({
   chartType = '1m',
   currency = 'usd',
   symbol,
-}: IUseTradingViewV2WebSocketProps): ITradingViewV2WebSocketStatus {
+}: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
-  const staleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
   const subscriptionOperationQueueRef = useRef<Promise<void>>(
     Promise.resolve(),
-  );
-  const [status, setStatus] = useState<ITradingViewV2WebSocketStatus>(
-    enabled ? 'connecting' : 'disabled',
   );
   const wsChartType = normalizeMarketWsKLineInterval(chartType);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
@@ -118,33 +98,12 @@ export function useTradingViewV2WebSocket({
     channel: 'ohlcv',
   });
 
-  const clearStaleTimer = useCallback(() => {
-    if (staleTimerRef.current) {
-      clearTimeout(staleTimerRef.current);
-      staleTimerRef.current = undefined;
-    }
-  }, []);
-
-  const scheduleStaleTimeout = useCallback(() => {
-    clearStaleTimer();
-    staleTimerRef.current = setTimeout(() => {
-      setStatus('stale');
-    }, MARKET_KLINE_WEBSOCKET_STALE_TIMEOUT_MS);
-  }, [clearStaleTimer]);
-
-  const markRealtimeActivity = useCallback(() => {
-    setStatus('active');
-    scheduleStaleTimeout();
-  }, [scheduleStaleTimeout]);
-
   useEffect(() => {
     lastUpdateTime.current = 0;
   }, [currency, networkId, tokenAddress, wsChartType]);
 
   useEffect(() => {
     if (!networkId || !tokenAddress) {
-      clearStaleTimer();
-      setStatus('disabled');
       return;
     }
 
@@ -185,38 +144,21 @@ export function useTradingViewV2WebSocket({
           currency,
         });
       } catch (error) {
-        if (!disposed) {
-          setStatus('stale');
-        }
         console.error('Failed to initialize market WebSocket:', error);
       }
     }
 
     if (enabled) {
-      setStatus('connecting');
-      scheduleStaleTimeout();
       void enqueueSubscriptionOperation(initWebSocket);
-    } else {
-      clearStaleTimer();
-      setStatus('disabled');
     }
 
     return () => {
       disposed = true;
-      clearStaleTimer();
       if (enabled) {
         void enqueueSubscriptionOperation(cleanup);
       }
     };
-  }, [
-    clearStaleTimer,
-    currency,
-    enabled,
-    networkId,
-    scheduleStaleTimeout,
-    tokenAddress,
-    wsChartType,
-  ]);
+  }, [currency, enabled, networkId, tokenAddress, wsChartType]);
 
   useEffect(() => {
     if (!enabled) {
@@ -252,7 +194,6 @@ export function useTradingViewV2WebSocket({
       }
 
       markSubscriptionActivity();
-      markRealtimeActivity();
 
       const now = Math.floor(Date.now() / 1000);
       if (now - lastUpdateTime.current < 4) {
@@ -324,7 +265,6 @@ export function useTradingViewV2WebSocket({
     };
   }, [
     markSubscriptionActivity,
-    markRealtimeActivity,
     networkId,
     tokenAddress,
     chartType,
@@ -334,6 +274,4 @@ export function useTradingViewV2WebSocket({
     wsChartType,
     symbol,
   ]);
-
-  return status;
 }

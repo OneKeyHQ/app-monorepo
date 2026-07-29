@@ -107,6 +107,14 @@ const MARKET_KLINE_MAX_TARGET_COUNT = 2000;
 const MARKET_KLINE_CANCELLED_REQUEST_TTL_MS = 5 * 60 * 1000;
 const MARKET_KLINE_MAX_CANCELLED_REQUESTS = 100;
 
+function isMarketKlineByCountEndpointUnavailable(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const httpStatusCode = (error as { httpStatusCode?: unknown }).httpStatusCode;
+  return httpStatusCode === 404;
+}
+
 const HYPERLIQUID_KLINE_INTERVAL_MAP: Record<
   string,
   ICandleSnapshotParameters['interval']
@@ -365,11 +373,18 @@ class ServiceMarketV2 extends ServiceBase {
     options?: {
       autoHandleError?: boolean;
       skipConvertCurrency?: boolean;
+      currencyId?: string;
     },
   ) {
-    const selectedCurrencyId = options?.skipConvertCurrency
-      ? 'usd'
-      : ((await settingsPersistAtom.get()).currencyInfo?.id ?? 'usd');
+    const selectedCurrencyId =
+      (options?.skipConvertCurrency
+        ? 'usd'
+        : (options?.currencyId ??
+          (await settingsPersistAtom.get()).currencyInfo?.id ??
+          'usd')
+      )
+        .trim()
+        .toLowerCase() || 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const requestTokenAddress =
       await resolveMarketTokenDetailRequestTokenAddress({
@@ -391,9 +406,8 @@ class ServiceMarketV2 extends ServiceBase {
       '/utility/v2/market/token/detail',
       {
         params,
-        ...(options?.skipConvertCurrency
-          ? { headers: { 'x-onekey-request-currency': 'usd' } }
-          : {}),
+        // Keep interceptor currency aligned with the captured request scope.
+        headers: { 'x-onekey-request-currency': selectedCurrencyId },
         ...(options?.autoHandleError === false
           ? { autoHandleError: false }
           : {}),
@@ -683,32 +697,37 @@ class ServiceMarketV2 extends ServiceBase {
     const canUseBackendBackfill =
       params.provider !== 'hyperliquid' && stopAfterCount === targetCount;
     if (canUseBackendBackfill) {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const requestConfig = {
-        params: {
-          tokenAddress: params.tokenAddress,
-          networkId: params.networkId,
-          interval: normalizeUtilityKlineInterval(params.interval),
-          targetCount,
-          timeTo: requestTo,
-          historyStartTime: normalizedHistoryStartTime,
-          currency: 'usd',
-        },
-        autoHandleError: false,
-      };
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: unknown;
-      }>('/utility/v3/market/token/kline', requestConfig);
-      if (this.isKlineRequestCancelled(requestId)) {
-        return buildCancelledResponse();
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Utility);
+        const requestConfig = {
+          params: {
+            tokenAddress: params.tokenAddress,
+            networkId: params.networkId,
+            interval: normalizeUtilityKlineInterval(params.interval),
+            targetCount,
+            timeTo: requestTo,
+            historyStartTime: normalizedHistoryStartTime,
+            currency: 'usd',
+          },
+          autoHandleError: false,
+        };
+        const response = await client.get<{
+          code: number;
+          message: string;
+          data: unknown;
+        }>('/utility/v3/market/token/kline', requestConfig);
+        if (this.isKlineRequestCancelled(requestId)) {
+          return buildCancelledResponse();
+        }
+        const responseData: unknown = response.data.data;
+        if (isMarketTokenKLineResponse(responseData)) {
+          return responseData;
+        }
+      } catch (error) {
+        if (!isMarketKlineByCountEndpointUnavailable(error)) {
+          throw error;
+        }
       }
-      const responseData: unknown = response.data.data;
-      if (!isMarketTokenKLineResponse(responseData)) {
-        throw new OneKeyLocalError('Invalid market K-line by-count response');
-      }
-      return responseData;
     }
 
     return fetchMarketKlineBackfill({

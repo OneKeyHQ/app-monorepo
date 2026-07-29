@@ -15,17 +15,20 @@ const tokenDetailRequestEntries = new Map<string, ITokenDetailRequestEntry>();
 function buildTokenDetailRequestKey({
   tokenAddress,
   networkId,
+  currencyId,
 }: {
   tokenAddress: string;
   networkId: string;
+  currencyId: string;
 }) {
   const normalizedNetworkId = networkId.trim();
+  const normalizedCurrencyId = currencyId.trim().toLowerCase() || 'usd';
   const normalizedTokenAddress =
     normalizeTokenContractAddress({
       networkId: normalizedNetworkId,
       contractAddress: tokenAddress.trim(),
     }) ?? '';
-  return `${normalizedNetworkId}:${normalizedTokenAddress}`;
+  return `${normalizedNetworkId}:${normalizedTokenAddress}:${normalizedCurrencyId}`;
 }
 
 function pruneTokenDetailRequestEntries(now = Date.now()) {
@@ -53,12 +56,19 @@ function limitTokenDetailSuccessCache() {
 export function fetchMarketTokenDetailWithCache({
   tokenAddress,
   networkId,
+  currencyId,
 }: {
   tokenAddress: string;
   networkId: string;
+  currencyId: string;
 }): Promise<IMarketTokenDetailResponse> {
   pruneTokenDetailRequestEntries();
-  const key = buildTokenDetailRequestKey({ tokenAddress, networkId });
+  const normalizedCurrencyId = currencyId.trim().toLowerCase() || 'usd';
+  const key = buildTokenDetailRequestKey({
+    tokenAddress,
+    networkId,
+    currencyId: normalizedCurrencyId,
+  });
   const existingEntry = tokenDetailRequestEntries.get(key);
   if (existingEntry) {
     return existingEntry.request;
@@ -68,6 +78,7 @@ export function fetchMarketTokenDetailWithCache({
     backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
       tokenAddress,
       networkId,
+      { currencyId: normalizedCurrencyId },
     );
   const entry: ITokenDetailRequestEntry = { request };
   tokenDetailRequestEntries.set(key, entry);

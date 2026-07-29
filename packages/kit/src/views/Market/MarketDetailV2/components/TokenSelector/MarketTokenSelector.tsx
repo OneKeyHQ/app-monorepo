@@ -12,6 +12,7 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -84,6 +85,7 @@ function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
   const route = useRoute();
   const tokenDetailActions = useTokenDetailActions();
+  const currencyInfo = useCurrency();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
   const routeParams = route.params as
@@ -162,12 +164,19 @@ function BaseMarketTokenSelectorContent() {
 
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
+        currencyId: currencyInfo.id,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
+    [
+      tokenDetailActions,
+      currencyInfo.id,
+      closePopover,
+      navigateToPerps,
+      showFavoriteButton,
+    ],
   );
 
   const handleSelectToken = useCallback(

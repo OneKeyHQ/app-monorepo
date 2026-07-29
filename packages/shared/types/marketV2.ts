@@ -307,6 +307,11 @@ export type IMarketKLineProvider = 'onekey' | 'hyperliquid';
 export interface IMarketTokenKLineHistoryMeta {
   noData: boolean;
   isPartial?: boolean;
+  stopReason?:
+    | 'target_reached'
+    | 'history_exhausted'
+    | 'page_budget_exhausted'
+    | 'time_budget_exhausted';
   cancelled?: boolean;
   error?: string;
   requestedCount?: number;

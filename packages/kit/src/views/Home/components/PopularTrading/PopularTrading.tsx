@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -189,6 +190,7 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   const { md } = useMedia();
   const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
@@ -863,6 +865,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       void fetchMarketTokenDetailWithCache({
         tokenAddress: record.contractAddress,
         networkId: record.chainId,
+        currencyId: currencyInfo.id,
       }).catch(() => undefined);
       void prefetchMarketDetailV2FirstScreenKLine({
         tokenAddress: record.contractAddress,
@@ -893,7 +896,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }, 300);
     },
-    [marketTab, navigateToPerps, navigation],
+    [currencyInfo.id, marketTab, navigateToPerps, navigation],
   );
 
   const renderEmptyStateCards = useCallback(() => {

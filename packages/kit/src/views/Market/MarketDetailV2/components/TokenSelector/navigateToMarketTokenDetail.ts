@@ -22,6 +22,7 @@ const NATIVE_MARKET_DETAIL_NAVIGATION_DEFER_MS = 100;
 export interface IMarketTokenSelectionPrefetchTarget {
   address: string;
   networkId: string;
+  currencyId: string;
   firstTradeTime?: number;
 }
 
@@ -35,6 +36,7 @@ export function prefetchMarketTokenSelection(
   void fetchMarketTokenDetailWithCache({
     tokenAddress: token.address,
     networkId: token.networkId,
+    currencyId: token.currencyId,
   }).catch(() => undefined);
   void prefetchMarketDetailV2FirstScreenKLine({
     tokenAddress: token.address,
@@ -51,6 +53,7 @@ export function navigateToMarketTokenDetail(
   token: { address: string; networkId: string; isNative?: boolean },
   opts: {
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
+    currencyId: string;
     beforeNavigate?: () => void;
     showFavoriteButton?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -58,6 +61,7 @@ export function navigateToMarketTokenDetail(
 ) {
   prefetchMarketTokenSelection({
     ...token,
+    currencyId: opts.currencyId,
     firstTradeTime: opts.tokenDetailPreview?.firstTradeTime,
   });
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
@@ -69,6 +73,7 @@ export function navigateToMarketTokenDetail(
   void opts.tokenDetailActions.current.changeActiveToken({
     tokenAddress: token.address,
     networkId: token.networkId,
+    currencyId: opts.currencyId,
     historyStartTime: opts.tokenDetailPreview?.firstTradeTime,
     isNative: token.isNative ?? false,
     tokenDetailPreview: opts.tokenDetailPreview,

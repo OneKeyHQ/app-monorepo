@@ -7,6 +7,7 @@ import {
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
@@ -80,6 +81,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
+  const currencyInfo = useCurrency();
   const splitViewType = useSplitViewType();
   const media = useMedia();
   const preloadLayout =
@@ -125,6 +127,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       void tokenDetailActions.current.changeActiveToken({
         tokenAddress: item.tokenAddress,
         networkId: item.networkId,
+        currencyId: currencyInfo.id,
         historyStartTime: item.firstTradeTime,
         isNative: item.isNative ?? false,
         tokenDetailPreview,
@@ -141,7 +144,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         }).catch(() => undefined);
       }
     },
-    [tokenDetailActions],
+    [currencyInfo.id, tokenDetailActions],
   );
 
   const toMarketDetailPage = useCallback(

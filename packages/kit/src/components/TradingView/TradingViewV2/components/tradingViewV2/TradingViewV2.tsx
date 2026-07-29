@@ -108,6 +108,7 @@ const TRADINGVIEW_CALENDAR_PANEL_SUBMIT_MESSAGE =
 const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
 const TRADINGVIEW_REDO_MESSAGE = 'TRADINGVIEW_REDO';
 const KLINE_BOOTSTRAP_PROTOCOL_VERSION = 1;
+const TRADINGVIEW_CAPABILITY_HANDSHAKE_TIMEOUT_MS = 5000;
 
 function buildKLineHistoryReadyKey({
   networkId,
@@ -209,6 +210,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     : initialKLineResolutionProp;
   const webRef = useRef<IWebViewRef | null>(null);
   const webViewLoadGeneration = useRef(0);
+  const capabilityHandshakeTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const capabilityHandshakeSettledGenerationRef = useRef<number | null>(null);
   const cancelInitialHistoryBootstrapSubscriptionRef = useRef<
     (() => void) | undefined
   >(undefined);
@@ -313,6 +318,32 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const isDataRequestEnabled = useCallback(
     () => isDataRequestEnabledRef.current,
     [],
+  );
+  const clearCapabilityHandshakeTimer = useCallback(() => {
+    if (capabilityHandshakeTimerRef.current !== undefined) {
+      clearTimeout(capabilityHandshakeTimerRef.current);
+      capabilityHandshakeTimerRef.current = undefined;
+    }
+  }, []);
+  const fallbackToLegacyCapabilities = useCallback((loadGeneration: number) => {
+    if (webViewLoadGeneration.current !== loadGeneration) {
+      return;
+    }
+
+    capabilityHandshakeSettledGenerationRef.current = loadGeneration;
+    setIsMarketSymbolSyncSupported((supported) => supported ?? false);
+    setIsMarketAppKlineTransportSupported((supported) => supported ?? false);
+    setIsIntervalAckSupported((supported) => supported ?? false);
+    setIsHistoryReadyAckSupported((supported) => supported ?? false);
+  }, []);
+  const handleChartReady = useCallback(
+    (data: ITradingViewChartReadyData) => {
+      capabilityHandshakeSettledGenerationRef.current =
+        webViewLoadGeneration.current;
+      clearCapabilityHandshakeTimer();
+      onChartReady?.(data);
+    },
+    [clearCapabilityHandshakeTimer, onChartReady],
   );
   const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
   const enableNativeIntervalSelector =
@@ -754,7 +785,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       setIsMarketAppKlineTransportSupported,
     onIntervalAckSupportChange: setIsIntervalAckSupported,
     onHistoryReadyAckSupportChange: setIsHistoryReadyAckSupported,
-    onChartReady,
+    onChartReady: handleChartReady,
     onHistoryReady: handleHistoryReady,
     onFirstPaintReady: handleFirstPaintReady,
     isKLineHistoryReady,
@@ -1016,9 +1047,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
+      clearCapabilityHandshakeTimer();
       cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
       webViewLoadGeneration.current += 1;
+      capabilityHandshakeSettledGenerationRef.current = null;
       firstPaintTrackingRef.current.startedAt = Date.now();
       firstPaintTrackingRef.current.hasTracked = false;
       firstPaintTrackingRef.current.requestIds.clear();
@@ -1033,7 +1066,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       resetInteractionLocks();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetInteractionLocks, webViewLoadGeneration],
+    [
+      clearCapabilityHandshakeTimer,
+      onLoadStart,
+      resetInteractionLocks,
+      webViewLoadGeneration,
+    ],
   );
 
   const deliverInitialHistoryBootstrap = useCallback(
@@ -1166,6 +1204,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
+        clearCapabilityHandshakeTimer();
         cancelInitialHistoryBootstrapSubscriptionRef.current?.();
         cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
         resetInteractionLocks();
@@ -1175,17 +1214,38 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         deliverInitialHistoryBootstrap(ref);
       }
     },
-    [deliverInitialHistoryBootstrap, resetInteractionLocks, webRef],
+    [
+      clearCapabilityHandshakeTimer,
+      deliverInitialHistoryBootstrap,
+      resetInteractionLocks,
+      webRef,
+    ],
   );
 
   const handleLoadEnd = useCallback(
     (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      const loadGeneration = webViewLoadGeneration.current;
+      if (
+        capabilityHandshakeSettledGenerationRef.current !== loadGeneration &&
+        capabilityHandshakeTimerRef.current === undefined
+      ) {
+        capabilityHandshakeTimerRef.current = setTimeout(() => {
+          capabilityHandshakeTimerRef.current = undefined;
+          fallbackToLegacyCapabilities(loadGeneration);
+        }, TRADINGVIEW_CAPABILITY_HANDSHAKE_TIMEOUT_MS);
+      }
       if (webRef.current) {
         deliverInitialHistoryBootstrap(webRef.current);
       }
       onLoadEnd?.(event);
     },
-    [deliverInitialHistoryBootstrap, onLoadEnd, webRef],
+    [
+      deliverInitialHistoryBootstrap,
+      fallbackToLegacyCapabilities,
+      onLoadEnd,
+      webRef,
+      webViewLoadGeneration,
+    ],
   );
 
   useEffect(() => {
@@ -1229,10 +1289,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   useEffect(() => {
     return () => {
+      clearCapabilityHandshakeTimer();
       cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       resetInteractionLocks();
     };
-  }, [resetInteractionLocks]);
+  }, [clearCapabilityHandshakeTimer, resetInteractionLocks]);
 
   useEffect(() => {
     if (!onNativeIndicatorQuickBarChange) {

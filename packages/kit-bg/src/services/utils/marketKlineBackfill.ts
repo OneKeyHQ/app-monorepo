@@ -1,5 +1,6 @@
 import type {
   IMarketTokenKLineDataPoint,
+  IMarketTokenKLineHistoryMeta,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -8,6 +9,7 @@ const MARKET_KLINE_MIN_REMOTE_PAGE_CAPACITY = 200;
 const MARKET_KLINE_SPARSE_RANGE_BUFFER = 1.25;
 const MARKET_KLINE_RANGE_EXPANSION_FACTOR = 4;
 
+export const MARKET_KLINE_MAX_BACKFILL_REQUESTS = 30;
 export const MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS = 5 * 365 * 24 * 60 * 60;
 
 interface IMarketKlineRange {
@@ -120,23 +122,28 @@ export async function fetchMarketKlineBackfill({
   let coveredFrom = requestTimeTo;
   let reachedHistoryFloor = false;
   let cancelled = isCancelled();
+  let requestCount = 0;
 
   while (
     !cancelled &&
     pointsByTimestamp.size < stopAfterCount &&
-    pageToExclusive > historyFloor
+    pageToExclusive > historyFloor &&
+    requestCount < MARKET_KLINE_MAX_BACKFILL_REQUESTS
   ) {
+    const remainingRequestCount =
+      MARKET_KLINE_MAX_BACKFILL_REQUESTS - requestCount;
     const ranges = buildMarketKlineRangeWave({
       pageToExclusive,
       pageSpan,
       maxRangeSpan,
       historyFloor,
-      maxRanges: maxRangesPerWave,
+      maxRanges: Math.min(maxRangesPerWave, remainingRequestCount),
     });
     if (ranges.length === 0) {
       break;
     }
 
+    requestCount += ranges.length;
     const pageResults = await Promise.all(
       ranges.map((range) => fetchPage(range)),
     );
@@ -251,13 +258,30 @@ export async function fetchMarketKlineBackfill({
   const allPoints = Array.from(pointsByTimestamp.values()).toSorted(
     (a, b) => a.t - b.t,
   );
+  const targetReached = allPoints.length >= targetCount;
+  const stopAfterCountReached = allPoints.length >= stopAfterCount;
+  const requestBudgetExhausted =
+    !cancelled &&
+    !reachedHistoryFloor &&
+    !stopAfterCountReached &&
+    requestCount >= MARKET_KLINE_MAX_BACKFILL_REQUESTS;
+  const noData = !cancelled && (reachedHistoryFloor || requestBudgetExhausted);
+  let stopReason: IMarketTokenKLineHistoryMeta['stopReason'];
+  if (reachedHistoryFloor) {
+    stopReason = 'history_exhausted';
+  } else if (targetReached) {
+    stopReason = 'target_reached';
+  } else if (requestBudgetExhausted) {
+    stopReason = 'page_budget_exhausted';
+  }
+
   return {
     points: allPoints,
     total: allPoints.length,
     historyMeta: {
-      noData: !cancelled && reachedHistoryFloor,
-      isPartial:
-        cancelled || (!reachedHistoryFloor && allPoints.length < targetCount),
+      noData,
+      isPartial: cancelled || (!noData && !targetReached),
+      ...(stopReason ? { stopReason } : {}),
       ...(cancelled ? { cancelled: true } : {}),
       requestedCount: targetCount,
       returnedCount: allPoints.length,

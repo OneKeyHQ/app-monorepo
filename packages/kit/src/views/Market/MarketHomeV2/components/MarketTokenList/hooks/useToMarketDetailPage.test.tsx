@@ -66,6 +66,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  useCurrency: jest.fn(() => ({ id: 'cny' })),
+}));
+
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
   () => ({
