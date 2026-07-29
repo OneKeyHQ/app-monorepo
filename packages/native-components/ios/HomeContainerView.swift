@@ -4255,8 +4255,8 @@ private final class HomeContainerTabsView: UIView {
     stack.alignment = .center
     stack.spacing = 20
     stack.translatesAutoresizingMaskIntoConstraints = false
-    toolbarButton.titleLabel?.font = HomeContainerTypography.system(22, weight: .medium)
-    toolbarButton.setTitle("≡", for: .normal)
+    toolbarButton.alpha = 0
+    toolbarButton.isUserInteractionEnabled = false
     toolbarButton.addAction(UIAction { [weak self] _ in
       guard let self,
             let action = self.tabsById[self.selectedTabId]?.toolbarAction else { return }

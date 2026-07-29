@@ -1903,6 +1903,42 @@ describe('iOS HomeContainer tab automation identifiers', () => {
   });
 });
 
+describe('native HomeContainer tab accessory placeholders', () => {
+  const iosSource = fs.readFileSync(
+    path.join(__dirname, '../ios/HomeContainerView.swift'),
+    'utf8',
+  );
+  const androidSource = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+    ),
+    'utf8',
+  );
+  const iosTabsSource = iosSource.slice(
+    iosSource.indexOf('private final class HomeContainerTabsView'),
+    iosSource.indexOf('private final class HomeContainerHorizontalCell'),
+  );
+  const androidTabsSource = androidSource.slice(
+    androidSource.indexOf('private class HomeTabsView'),
+    androidSource.indexOf('private class HomeHorizontalView'),
+  );
+
+  it('keeps the iOS accessory anchor invisible before the first snapshot', () => {
+    expect(iosTabsSource).not.toContain('setTitle("≡"');
+    expect(iosTabsSource).toMatch(
+      /override init\(frame: CGRect\)[\s\S]*?toolbarButton\.alpha = 0[\s\S]*?toolbarButton\.isUserInteractionEnabled = false[\s\S]*?addSubview\(toolbarButton\)/,
+    );
+  });
+
+  it('keeps the Android accessory anchor invisible before the first snapshot', () => {
+    expect(androidTabsSource).not.toContain('toolbar.text = "≡"');
+    expect(androidTabsSource).toMatch(
+      /init \{[\s\S]*?toolbar\.alpha = 0f[\s\S]*?toolbar\.isClickable = false[\s\S]*?toolbarSlotHost\.addView/,
+    );
+  });
+});
+
 describe('native HomeContainer background authority', () => {
   const iosSource = fs.readFileSync(
     path.join(__dirname, '../ios/HomeContainerView.swift'),

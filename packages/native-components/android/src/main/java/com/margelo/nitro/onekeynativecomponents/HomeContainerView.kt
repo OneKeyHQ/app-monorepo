@@ -3527,9 +3527,8 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
     addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
       marginEnd = dp(52)
     })
-    toolbar.text = "≡"
-    toolbar.gravity = Gravity.CENTER
-    toolbar.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+    toolbar.alpha = 0f
+    toolbar.isClickable = false
     toolbar.setOnClickListener {
       tabsById[selectedTabId]?.toolbarAction?.let { action ->
         onAction?.invoke(action.actionId, action.id)
