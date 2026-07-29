@@ -728,6 +728,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       plan: releaseInfo.firmwareUpdatePlan,
       connectId: updatingConnectId,
       transportType: currentTransportType,
+      expectedTargets: [
+        ...new Set<FirmwareUpdatePlanForceTarget>([
+          ...forceUpdateTargets,
+          ...(firmware?.hasUpgrade ? (['firmware'] as const) : []),
+          ...(ble?.hasUpgrade ? (['ble'] as const) : []),
+          ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
+        ]),
+      ],
     });
 
     return {
@@ -1446,9 +1454,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
       const forceUpdateResEvenIfSameVersion =
-        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        executionArtifacts.preparedArtifacts?.plan.targetsToUpdate.includes(
+          'resource',
+        ) ??
+        (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
           'forceUpdateResEvenSameVersion',
-        );
+        ));
       const versionArr = version.split('.').map((v) => parseInt(v, 10)); // TODO move to utils
       await firmwareUpdateStepInfoAtom.set({
         step: EFirmwareUpdateSteps.installing,

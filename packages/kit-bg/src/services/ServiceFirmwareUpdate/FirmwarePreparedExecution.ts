@@ -227,7 +227,8 @@ export const executePreparedFirmwareUpdateV2 = ({
     )(connectId, {
       preparedPlan: preparedArtifacts.preparedPlan,
       updateType,
-      forcedUpdateRes,
+      forcedUpdateRes:
+        preparedArtifacts.plan.targetsToUpdate.includes('resource'),
       platform,
       firmwareType,
       artifact,

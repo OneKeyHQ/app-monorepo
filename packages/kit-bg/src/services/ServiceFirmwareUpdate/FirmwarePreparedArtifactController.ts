@@ -18,7 +18,11 @@ import type {
   IBridgeFirmwareBinaries,
   IPreparedFirmwareArtifacts,
 } from './FirmwareArtifactPreflight';
-import type { CoreApi, FirmwareUpdatePlan } from '@onekeyfe/hd-core';
+import type {
+  CoreApi,
+  FirmwareUpdatePlan,
+  FirmwareUpdatePlanForceTarget,
+} from '@onekeyfe/hd-core';
 
 export type IFirmwareWorkflowArtifacts =
   | IPreparedFirmwareArtifacts
@@ -92,6 +96,76 @@ const getBridgeArtifactTraceSummary = (bridge: IBridgeFirmwareBinaries) => {
   };
 };
 
+const assertFirmwareUpdatePlanCoverage = ({
+  plan,
+  expectedTargets,
+}: {
+  plan: FirmwareUpdatePlan;
+  expectedTargets: readonly FirmwareUpdatePlanForceTarget[];
+}): void => {
+  if (
+    !Array.isArray(plan.artifacts) ||
+    plan.artifacts.length === 0 ||
+    !Array.isArray(plan.targetsToUpdate) ||
+    plan.targetsToUpdate.length === 0
+  ) {
+    throw new OneKeyLocalError(
+      'Firmware update plan has no executable artifacts',
+    );
+  }
+
+  const artifactTargets = new Set(
+    plan.artifacts.map((artifact) => artifact.target),
+  );
+  const planTargets = new Set(plan.targetsToUpdate);
+  if (
+    [...artifactTargets].some((target) => !planTargets.has(target)) ||
+    [...planTargets].some((target) => !artifactTargets.has(target))
+  ) {
+    throw new OneKeyLocalError(
+      'Firmware update plan target coverage is incomplete',
+    );
+  }
+
+  const coversExpectedTarget = (
+    expectedTarget: FirmwareUpdatePlanForceTarget,
+  ) => {
+    switch (expectedTarget) {
+      case 'firmware':
+        return plan.artifacts.some(
+          (artifact) =>
+            artifact.role === 'firmware' ||
+            (artifact.role === 'component' && artifact.target !== 'resource'),
+        );
+      case 'ble':
+        return plan.artifacts.some((artifact) => artifact.role === 'ble');
+      case 'bootloader':
+        return plan.artifacts.some(
+          (artifact) =>
+            artifact.role === 'bootloader' ||
+            (artifact.role === 'component' && artifact.target === 'boot'),
+        );
+      case 'resource':
+        return plan.artifacts.some(
+          (artifact) =>
+            artifact.role === 'resource' || artifact.role === 'resourceBundle',
+        );
+      default:
+        return false;
+    }
+  };
+
+  if (
+    [...new Set(expectedTargets)].some(
+      (expectedTarget) => !coversExpectedTarget(expectedTarget),
+    )
+  ) {
+    throw new OneKeyLocalError(
+      'Firmware update plan does not cover every selected target',
+    );
+  }
+};
+
 export class FirmwarePreparedArtifactController {
   private plans = new Map<string, FirmwareUpdatePlan>();
 
@@ -133,10 +207,12 @@ export class FirmwarePreparedArtifactController {
     plan,
     connectId,
     transportType,
+    expectedTargets = [],
   }: {
     plan: FirmwareUpdatePlan;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
+    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
   }): Promise<boolean> {
     const externalSdk = await this.getExternalSdk(connectId);
     const bridgeCapabilityReady =
@@ -146,6 +222,7 @@ export class FirmwarePreparedArtifactController {
     if (!bridgeCapabilityReady && !externalSdk) {
       return false;
     }
+    assertFirmwareUpdatePlanCoverage({ plan, expectedTargets });
     this.plans.set(plan.planDigest, plan);
     if (this.plans.size > 16) {
       const oldestDigest = this.plans.keys().next().value as string | undefined;
@@ -161,11 +238,13 @@ export class FirmwarePreparedArtifactController {
     plan,
     connectId,
     transportType,
+    expectedTargets = [],
   }: {
     hasUpgrade: boolean | undefined;
     plan: FirmwareUpdatePlan | undefined;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
+    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
   }): Promise<string | undefined> {
     return hasUpgrade &&
       plan &&
@@ -173,6 +252,7 @@ export class FirmwarePreparedArtifactController {
         plan,
         connectId,
         transportType,
+        expectedTargets,
       }))
       ? plan.planDigest
       : undefined;

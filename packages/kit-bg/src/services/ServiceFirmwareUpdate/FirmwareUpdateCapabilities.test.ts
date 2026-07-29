@@ -93,7 +93,11 @@ describe('prepared firmware execution', () => {
       transactionId: 'fwtx:test',
       leaseRef: 'fwlease:test',
       preparedPlan: {},
-      plan: { deviceIdentity: 'device', artifacts: [] },
+      plan: {
+        deviceIdentity: 'device',
+        artifacts: [],
+        targetsToUpdate: [],
+      },
       selected: {
         componentArtifacts: {},
         resourceBundleArtifacts: [],
@@ -155,6 +159,69 @@ describe('prepared firmware execution', () => {
       }),
     ).toThrow('Firmware host binding is unavailable');
     expect(firmwareUpdateV2).not.toHaveBeenCalled();
+  });
+
+  test('derives prepared V2 resource mode from the immutable Plan', async () => {
+    const firmwareUpdateV2 = jest.fn();
+    const sdk = { firmwareUpdateV2 } as unknown as CoreApi;
+    const firmware = {
+      artifactRef: 'fw:firmware',
+      size: 4,
+      sha256: 'a'.repeat(64),
+    };
+    const resource = {
+      artifactRef: 'fw:resource',
+      size: 6,
+      sha256: 'b'.repeat(64),
+    };
+    const baseParams = {
+      sdk,
+      connectId: 'device',
+      updateType: 'firmware' as const,
+      platform: 'native' as const,
+      firmwareType: EFirmwareType.Universal,
+      version: [1, 0, 0],
+      hostBindingGeneration: 1,
+    };
+    const preparedWithResource = createPreparedArtifacts({
+      firmware,
+      resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
+    });
+    preparedWithResource.plan.targetsToUpdate = ['firmware', 'resource'];
+
+    await executePreparedFirmwareUpdateV2({
+      ...baseParams,
+      preparedArtifacts: preparedWithResource,
+      forcedUpdateRes: false,
+    });
+
+    const preparedWithoutResource = createPreparedArtifacts({ firmware });
+    preparedWithoutResource.plan.targetsToUpdate = ['firmware'];
+    await executePreparedFirmwareUpdateV2({
+      ...baseParams,
+      preparedArtifacts: preparedWithoutResource,
+      forcedUpdateRes: true,
+    });
+    await executePreparedFirmwareUpdateV2({
+      ...baseParams,
+      forcedUpdateRes: true,
+    });
+
+    expect(firmwareUpdateV2).toHaveBeenNthCalledWith(
+      1,
+      'device',
+      expect.objectContaining({ forcedUpdateRes: true }),
+    );
+    expect(firmwareUpdateV2).toHaveBeenNthCalledWith(
+      2,
+      'device',
+      expect.objectContaining({ forcedUpdateRes: false }),
+    );
+    expect(firmwareUpdateV2).toHaveBeenNthCalledWith(
+      3,
+      'device',
+      expect.objectContaining({ forcedUpdateRes: true }),
+    );
   });
 
   test('logs and passes matching prepared firmware and resource inputs to V3', async () => {
@@ -267,7 +334,7 @@ describe('prepared firmware execution', () => {
     );
   });
 
-  test('uses artifact capability to enable Desktop Bridge plan caching', async () => {
+  test('uses artifact capability to enable non-empty Desktop Bridge plan caching', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
       appPlatform: platformEnv.appPlatform,
@@ -294,7 +361,16 @@ describe('prepared firmware execution', () => {
         deviceIdentity: 'device',
         deviceModel: 'pro',
         platform: 'desktop',
-        artifacts: [],
+        artifacts: [
+          {
+            artifactId: 'firmware',
+            role: 'firmware',
+            target: 'firmware',
+            url: 'https://common.onekey-asset.com/firmware.bin',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['firmware'],
       } as unknown as FirmwareUpdatePlan;
 
       await expect(
@@ -302,16 +378,81 @@ describe('prepared firmware execution', () => {
           plan,
           connectId: 'device',
           transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['firmware'],
         }),
       ).resolves.toBe(true);
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('rejects empty and partial Desktop Bridge plans before preparation', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest
+        .spyOn(loggerUtils, 'consoleFunc')
+        .mockImplementation(() => undefined);
+      jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+        firmwareArtifactProtocolVersion: 2,
+        maxReadBytes: 256 * 1024,
+        supportsArchiveMaterialization: true,
+        supportedRouteTypes: ['domain', 'pinnedIp'],
+      });
+      const download = jest.spyOn(firmwareArtifactAdapter, 'download');
+      const controller = createController();
+      const emptyPlan = {
+        planDigest: 'a'.repeat(64),
+        deviceIdentity: 'device',
+        deviceModel: 'pro',
+        platform: 'desktop',
+        artifacts: [],
+        targetsToUpdate: [],
+      } as unknown as FirmwareUpdatePlan;
+      const firmwareOnlyPlan = {
+        ...emptyPlan,
+        planDigest: 'b'.repeat(64),
+        artifacts: [
+          {
+            artifactId: 'firmware',
+            role: 'firmware',
+            target: 'firmware',
+            url: 'https://common.onekey-asset.com/firmware.bin',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['firmware'],
+      } as unknown as FirmwareUpdatePlan;
 
       await expect(
-        controller.prepareWorkflowArtifacts({
-          firmwareUpdatePlanDigest: plan.planDigest,
-          deviceUUID: 'device',
-          deviceType: 'pro',
-        } as unknown as ICheckAllFirmwareReleaseResult),
-      ).resolves.toBeUndefined();
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan: emptyPlan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['firmware'],
+        }),
+      ).rejects.toThrow('Firmware update plan has no executable artifacts');
+      await expect(
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan: firmwareOnlyPlan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['firmware', 'ble'],
+        }),
+      ).rejects.toThrow(
+        'Firmware update plan does not cover every selected target',
+      );
+      expect(download).not.toHaveBeenCalled();
     } finally {
       Object.assign(platformEnv, previousPlatform);
     }
