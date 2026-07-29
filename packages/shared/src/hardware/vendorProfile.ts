@@ -6,7 +6,6 @@ export type IHardwareVendorAddAccountDefaultNetworkMode =
   | 'onekeyDefault'
   | 'ledgerAppAware';
 
-
 export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;
   /** Whether this is a third-party (non-OneKey) vendor */
