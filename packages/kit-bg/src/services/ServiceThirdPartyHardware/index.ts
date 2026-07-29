@@ -35,8 +35,6 @@ import {
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
 
-import { pickThirdPartyRebindDevice } from './rebindUtils';
-
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
@@ -639,38 +637,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return accountUtils.buildFullXfp({
       xfp: fingerprintResult.payload.masterFingerprint.replace(/^0x/, ''),
       firstTaprootXpub: publicKeyResult.payload.xpub,
-    });
-  }
-
-  /**
-   * Same-mnemonic re-bind for a third-party device: when device-identity
-   * matching finds nothing (e.g. a Trezor was wiped and its device_id changed),
-   * resolve the existing device to reuse by seed (XFP) + model, so the old
-   * (possibly deprecated) wallet is reused instead of creating a duplicate.
-   * Wired into createHwWallet as the resolveReuseDeviceFn hook. Returns the
-   * device row to reuse, or undefined to create a new device.
-   */
-  async resolveRebindDevice(params: {
-    xfp: string | undefined;
-    vendor: EHardwareVendor | undefined;
-    vendorModel: string | undefined;
-  }): Promise<IDBDevice | undefined> {
-    const { xfp, vendor, vendorModel } = params;
-    // Gated by vendor capability, not a hardcoded vendor (see vendorProfile).
-    if (!xfp || !vendor || getVendorProfile(vendor)?.reseedRecovery !== 'xfp') {
-      return undefined;
-    }
-    const db = this.backgroundApi.localDb;
-    const walletsWithXfp = await db.getWalletsByXfp({ xfp });
-    if (walletsWithXfp.length === 0) {
-      return undefined;
-    }
-    const { devices } = await db.getAllDevices();
-    return pickThirdPartyRebindDevice({
-      walletsWithXfp,
-      devices,
-      vendor,
-      vendorModel,
     });
   }
 

@@ -3812,26 +3812,6 @@ class ServiceAccount extends ServiceBase {
               compatibleConnectId,
             )
         : undefined,
-      // Seed-rebind on identity miss, gated by vendor capability (Trezor only
-      // today; Ledger/OneKey opt out via profile). xfp is closed over (SDK-
-      // derived, absent from the DB layer); the rest comes from the hook ctx.
-      resolveReuseDeviceFn:
-        vendorProfile?.reseedRecovery === 'xfp' && !passphraseState
-          ? async (ctx) =>
-              this.backgroundApi.serviceThirdPartyHardware.resolveRebindDevice({
-                xfp,
-                vendor: ctx.vendor,
-                // The SDK's internal model code (e.g. 'T3W1' for a Trezor Safe
-                // 7) — NOT deviceType, which is an hd-core classification that
-                // only understands OneKey's own encoding and always resolves
-                // to 'unknown' for a third-party device.
-                vendorModel: (
-                  ctx.features as IOneKeyDeviceFeatures & {
-                    internal_model?: string;
-                  }
-                ).internal_model,
-              })
-          : undefined,
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.

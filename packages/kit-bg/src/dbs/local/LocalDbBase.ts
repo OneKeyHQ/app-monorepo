@@ -729,7 +729,6 @@ type IResolveExistingDeviceParams = {
   ) => Promise<'match' | 'mismatch' | 'unknown'>;
   // Vendor-declared reseed recovery, invoked only on the third-party path when
   // identity matching misses. OneKey never reaches it.
-  resolveReuseDeviceFn?: () => Promise<IDBDevice | undefined>;
   vendor?: EHardwareVendor;
 };
 
@@ -5730,24 +5729,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       features,
       isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
-    const resolveReuseDeviceFn = params.resolveReuseDeviceFn;
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
       connectId: device.connectId ?? undefined,
       getFirstEvmAddressFn: params.getFirstEvmAddressFn,
       verifySeedMatchFn: params.verifySeedMatchFn,
-      // Reseed recovery is applied inside the third-party resolution path; the
-      // caller owns the rule, this layer only supplies the identity context.
-      resolveReuseDeviceFn: resolveReuseDeviceFn
-        ? () =>
-            resolveReuseDeviceFn({
-              vendor,
-              features,
-              rawDeviceId,
-              deviceUUID,
-            })
-        : undefined,
       vendor,
     });
 
@@ -8226,9 +8213,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   /**
    * Resolve which existing device record (if any) a connecting device maps to.
    *
-   * OneKey (HD) and third-party vendors are dispatched separately on purpose:
-   * only the third-party path can run vendor reseed recovery, so OneKey stays
-   * reachable no matter what that recovery does.
+   * OneKey (HD) and third-party vendors are dispatched separately on purpose,
+   * so third-party resolution can never affect OneKey's own path.
    */
   async getExistingDevice(
     params: IResolveExistingDeviceParams,
@@ -8237,36 +8223,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!profile.isThirdParty) {
       return this._resolveExistingOneKeyDevice(params);
     }
-    return this._resolveExistingThirdPartyDevice(params, profile);
+    return this._resolveExistingThirdPartyDevice(params);
   }
 
-  /** OneKey (HD): identity match only — it never runs reseed recovery. */
+  /** OneKey (HD): identity match only. */
   private async _resolveExistingOneKeyDevice(
     params: IResolveExistingDeviceParams,
   ): Promise<IDBDevice | undefined> {
     return this._matchExistingDeviceRecord(params);
   }
 
-  /**
-   * Third-party (Trezor / Ledger): identity match, then the vendor's declared
-   * reseed recovery when the match misses (e.g. a wiped Trezor whose device id
-   * changed but whose seed still maps to the old wallet).
-   */
+  /** Third-party (Trezor / Ledger) device identity match. */
   private async _resolveExistingThirdPartyDevice(
     params: IResolveExistingDeviceParams,
-    profile: IHardwareVendorProfile,
   ): Promise<IDBDevice | undefined> {
-    const matched = await this._matchExistingDeviceRecord(params);
-    if (matched) {
-      return matched;
-    }
-    if (profile.reseedRecovery === 'none' || !params.resolveReuseDeviceFn) {
-      return undefined;
-    }
-    // Errors deliberately propagate: recovery exists to stop a re-seeded device
-    // from duplicating its wallet, so treating a failure as "no match" would
-    // produce the very duplicate it prevents. Fail loudly and let the user retry.
-    return params.resolveReuseDeviceFn();
+    return this._matchExistingDeviceRecord(params);
   }
 
   private async _matchExistingDeviceRecord({

@@ -6,7 +6,6 @@ export type IHardwareVendorAddAccountDefaultNetworkMode =
   | 'onekeyDefault'
   | 'ledgerAppAware';
 
-export type IHardwareVendorReseedRecovery = 'none' | 'xfp';
 
 export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;
@@ -50,15 +49,6 @@ export interface IHardwareVendorProfile {
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
   /**
-   * How to recover the existing device record when identity matching misses —
-   * e.g. a wipe changed the device id, but the seed is the same physical device.
-   * Declared per vendor so resolution stays capability-driven: a new vendor opts
-   * in here instead of adding a `vendor === x` branch to the resolver.
-   *  - 'none': no recovery, a miss creates a new device
-   *  - 'xfp': match the seed fingerprint of an existing wallet (Trezor)
-   */
-  reseedRecovery: IHardwareVendorReseedRecovery;
-  /**
    * Whether a connectId-based match must be confirmed by an independent seed
    * check before the record is reused — a connectId that isn't a stable
    * per-device identity (see `hasPersistentConnectId`) can coincide across
@@ -89,8 +79,6 @@ const onekeyProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
-  // OneKey resolves on its own isolated path and never uses this.
-  reseedRecovery: 'none',
   // OneKey always matches by deviceId, never by connectId alone.
   requiresSeedVerifyOnConnectIdMatch: false,
 };
@@ -117,8 +105,6 @@ const ledgerProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'ledgerAppAware',
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-  // Two same-seed Ledgers are distinct devices; never merge them by seed.
-  reseedRecovery: 'none',
   // USB connectId is ephemeral and BLE's, while persistent, isn't a proof of
   // identity by itself — require a seed check before reusing the record.
   requiresSeedVerifyOnConnectIdMatch: true,
@@ -157,8 +143,6 @@ const trezorProfile: IHardwareVendorProfile = {
   supportsHiddenWalletCreation: true,
   addAccountDefaultNetworkMode: 'onekeyDefault',
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-  // A wipe changes device_id; the re-flashed same-seed device re-binds its wallet.
-  reseedRecovery: 'xfp',
   // Trezor always matches by deviceId, never by connectId alone.
   requiresSeedVerifyOnConnectIdMatch: false,
 };
