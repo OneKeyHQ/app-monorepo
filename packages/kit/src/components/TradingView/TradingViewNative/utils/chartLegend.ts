@@ -11,7 +11,6 @@ import {
 } from '../chartConstants';
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
-import { isTradingViewNativePriceUp } from './chartStyle';
 
 export interface ITradingViewNativeLegendItem {
   label: string;
@@ -180,7 +179,7 @@ export function getTradingViewNativeChartLegend(
   const changeReference = previousClose ?? point.o;
 
   return {
-    isUp: isTradingViewNativePriceUp(point),
+    isUp: point.c >= changeReference,
     priceItems: [
       { label: 'O', value: formatPrice(point.o) },
       { label: 'H', value: formatPrice(point.h) },

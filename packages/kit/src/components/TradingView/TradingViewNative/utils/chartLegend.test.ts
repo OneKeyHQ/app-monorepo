@@ -42,20 +42,24 @@ describe('TradingViewNative chart legend', () => {
     ).toBe(false);
   });
 
-  it('uses the previous close as the TradingView bar-change baseline', () => {
-    expect(
-      getTradingViewNativeChartLegend(
-        {
-          c: 101,
-          h: 103,
-          l: 99,
-          o: 102,
-          t: 1,
-          v: 10,
-        },
-        100,
-      ).priceItems.at(-1),
-    ).toEqual({ label: '', value: '+1 (+1%)' });
+  it('uses the previous close for the TradingView bar-change value and color', () => {
+    const legend = getTradingViewNativeChartLegend(
+      {
+        c: 101,
+        h: 103,
+        l: 99,
+        o: 102,
+        t: 1,
+        v: 10,
+      },
+      100,
+    );
+
+    expect(legend.isUp).toBe(true);
+    expect(legend.priceItems.at(-1)).toEqual({
+      label: '',
+      value: '+1 (+1%)',
+    });
   });
 
   it('formats signed candle price and percentage changes', () => {
