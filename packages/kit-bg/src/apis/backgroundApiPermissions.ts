@@ -3,10 +3,22 @@ import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appCo
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EAtomNames } from '../states/jotai/atomNames';
+
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+
+// These values are authoritative in bg and must never accept the generic
+// UI-to-bg Jotai synchronization write path.
+const BACKGROUND_OWNED_ATOM_NAMES = new Set<EAtomNames>([
+  EAtomNames.perpsUnifoldActiveRecipientAtom,
+]);
+
+export function isBackgroundApiAtomWritable(atomName: EAtomNames) {
+  return !BACKGROUND_OWNED_ATOM_NAMES.has(atomName);
+}
 
 export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
   // iOS/Android origin in PRD for web-embed (local storage file).

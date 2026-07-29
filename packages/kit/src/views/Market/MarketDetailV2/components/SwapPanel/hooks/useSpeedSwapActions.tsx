@@ -340,6 +340,7 @@ export function buildMarketSwapHistoryItem({
       socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
       oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
       protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
+      hideProtocolFee: true,
       otherFeeInfos: swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
       orderId: serviceOrderId,
       supportUrl: swapInfo.swapBuildResData.result?.supportUrl,

@@ -18,7 +18,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchUSMarketStatusResult,
   ISwapToken,
@@ -41,6 +40,8 @@ import {
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokensForTradeSideSwitch,
+  resolveStockExecutionTokensToSync,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import {
@@ -63,22 +64,6 @@ let stockExecutionTokenSyncSerial = 0;
 function nextStockExecutionTokenSyncId() {
   stockExecutionTokenSyncSerial += 1;
   return stockExecutionTokenSyncSerial;
-}
-
-function buildStockExecutionTokens({
-  payToken,
-  stockToken,
-  tradeSide,
-}: {
-  payToken?: ISwapToken;
-  stockToken?: ISwapToken;
-  tradeSide: ESwapStockTradeSide;
-}) {
-  const fromToken =
-    tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
-  const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
-
-  return { fromToken, toToken };
 }
 
 function normalizeSelectedStockSwapToken(token: ISwapToken) {
@@ -446,21 +431,25 @@ export function useSwapStockChannel() {
       if (nextTradeSide === tradeSide) {
         return;
       }
-      const stockTokenForSwitch =
-        stockTokenSnapshotRef.current ?? currentStockToken;
-      const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
+      const executionTokensForSwitch =
+        resolveStockExecutionTokensForTradeSideSwitch({
+          stockToken: stockTokenSnapshotRef.current ?? currentStockToken,
+          payToken: payTokenSnapshotRef.current ?? selectedPayToken,
+        });
       setTradeSideState(nextTradeSide);
       resetStockTradeAmounts();
+      if (!executionTokensForSwitch) {
+        return;
+      }
       await syncStockExecutionTokens({
         nextTradeSide,
-        stockToken: stockTokenForSwitch,
-        payToken: payTokenForSwitch,
+        ...executionTokensForSwitch,
       });
     },
     [
       currentStockToken,
-      payToken,
       resetStockTradeAmounts,
+      selectedPayToken,
       syncStockExecutionTokens,
       tradeSide,
     ],
@@ -585,31 +574,15 @@ export function useSwapStockChannel() {
   });
 
   useEffect(() => {
-    if (!readyForQuote) {
-      return;
-    }
-
-    const {
-      fromToken: stockExecutionFromToken,
-      toToken: stockExecutionToToken,
-    } = buildStockExecutionTokens({
+    const executionTokensToSync = resolveStockExecutionTokensToSync({
+      currentFromToken: fromToken,
+      currentToToken: toToken,
       payToken,
+      readyForQuote,
       stockToken: currentStockToken,
       tradeSide,
     });
-    const executionPairSynced = Boolean(
-      stockExecutionFromToken &&
-      stockExecutionToToken &&
-      equalTokenNoCaseSensitive({
-        token1: fromToken,
-        token2: stockExecutionFromToken,
-      }) &&
-      equalTokenNoCaseSensitive({
-        token1: toToken,
-        token2: stockExecutionToToken,
-      }),
-    );
-    if (executionPairSynced) {
+    if (!executionTokensToSync) {
       return;
     }
 

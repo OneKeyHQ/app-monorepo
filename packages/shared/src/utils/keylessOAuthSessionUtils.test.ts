@@ -19,6 +19,16 @@ describe('shouldClearKeylessOAuthSessionAfterError', () => {
     expect(shouldClearKeylessOAuthSessionAfterError(error)).toBe(false);
   });
 
+  test('clears this flow own provisional session after a legacy-bind state change', () => {
+    // Definitive abort, and the caller's rollback is ownership-guarded, so
+    // exempting this class would only leak the session this flow persisted.
+    const error = {
+      className:
+        EOneKeyErrorClassNames.OneKeyErrorOneKeyIdLegacyBindStateChanged,
+    };
+    expect(shouldClearKeylessOAuthSessionAfterError(error)).toBe(true);
+  });
+
   test.each([
     { httpStatusCode: 401 },
     { name: 'AuthApiError', status: 400 },

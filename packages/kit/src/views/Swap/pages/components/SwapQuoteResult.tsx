@@ -82,7 +82,7 @@ const SwapQuoteResult = ({
   quoteResult,
   refreshAction,
 }: ISwapQuoteResultProps) => {
-  const [openResult, setOpenResult] = useState(false);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -223,7 +223,9 @@ const SwapQuoteResult = ({
     !hasQuoteResultForDisplay;
 
   const onValueChange = useCallback((value: string) => {
-    if (value === SWAP_ACCORDION_VALUE) {
+    const isOpen = value === SWAP_ACCORDION_VALUE;
+    setIsAccordionOpen(isOpen);
+    if (isOpen) {
       Keyboard.dismiss();
     }
   }, []);
@@ -351,6 +353,7 @@ const SwapQuoteResult = ({
         <Accordion.Item value={SWAP_ACCORDION_VALUE}>
           <Accordion.Trigger
             unstyled
+            testID={SwapTestIDs.quoteDetailsToggle}
             borderWidth={0}
             bg="$transparent"
             p="$0"
@@ -376,16 +379,15 @@ const SwapQuoteResult = ({
                 isLoading={isQuotePresentationLoading}
                 showNoProvider={showNoProvider}
                 refreshAction={refreshAction}
-                onOpenResult={
-                  quoteResultForDisplay?.info.provider
-                    ? () => setOpenResult(!openResult)
-                    : undefined
-                }
+                canOpenResult={Boolean(quoteResultForDisplay?.info.provider)}
                 openResult={open}
               />
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator
+            animation="quick"
+            overflow={isAccordionOpen ? 'visible' : 'hidden'}
+          >
             <Accordion.Content
               gap="$4"
               p="$0"

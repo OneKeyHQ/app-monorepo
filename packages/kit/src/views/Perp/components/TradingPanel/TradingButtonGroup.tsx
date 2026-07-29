@@ -832,8 +832,6 @@ function SideButtonInternal({
       shouldValidateBboPriceError: boolean;
     }) => {
       const {
-        activeAsset: latestActiveAsset,
-        activeTradeInstrument: latestActiveTradeInstrument,
         computedSizeForSide: latestComputedSizeForSide,
         effectivePriceBN: latestEffectivePriceBN,
         formData: latestFormData,
@@ -843,10 +841,8 @@ function SideButtonInternal({
         isScaleMode: latestIsScaleMode,
         isTriggerMode: latestIsTriggerMode,
         isTwapMode: latestIsTwapMode,
-        leverage: latestLeverage,
         midPriceBN: latestMidPriceBN,
         priceError: latestPriceError,
-        resolvedSizeInputUnit: latestResolvedSizeInputUnit,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
       } = orderPanelState;
@@ -1000,41 +996,16 @@ function SideButtonInternal({
           (!latestComputedSizeForSide.gt(0) ||
             latestIsMinimumOrderNotMetForSide))
       ) {
-        let minAmount = '$10';
-        if (latestEffectivePriceBN.gt(0)) {
-          const minSize = new BigNumber(10)
-            .dividedBy(latestEffectivePriceBN)
-            .decimalPlaces(latestSzDecimals, BigNumber.ROUND_UP);
-          if (latestResolvedSizeInputUnit === 'token') {
-            const coinSymbol = (() => {
-              if (latestIsSpot && latestActiveTradeInstrument.mode === 'spot') {
-                const u = latestActiveTradeInstrument.universe;
-                return u
-                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
-                  : '';
-              }
-              return latestActiveAsset?.coin
-                ? parseDexCoin(latestActiveAsset.coin).displayName
-                : '';
-            })();
-            minAmount = `${minSize.toFixed(latestSzDecimals)} ${coinSymbol}`;
-          } else if (latestResolvedSizeInputUnit === 'margin') {
-            const leverageBN = new BigNumber(latestLeverage || 1);
-            if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              const minMargin = minSize
-                .multipliedBy(latestEffectivePriceBN)
-                .dividedBy(leverageBN)
-                .decimalPlaces(2, BigNumber.ROUND_UP)
-                .toFixed(2);
-              minAmount = `$${minMargin}`;
-            }
-          }
-        }
         Toast.message({
           title: intl.formatMessage(
-            { id: ETranslations.perp_size_least },
-            { amount: minAmount },
+            { id: ETranslations.perp_order_size_small },
+            { amount: '$10' },
           ),
+          message: latestIsSpot
+            ? undefined
+            : intl.formatMessage({
+                id: ETranslations.perp_order_size_small__desc,
+              }),
         });
         return hasSizeEmpty
           ? ('emptySize' as const)
@@ -2138,9 +2109,14 @@ function EmptySizeSideButton({
       }
       Toast.message({
         title: intl.formatMessage(
-          { id: ETranslations.perp_size_least },
+          { id: ETranslations.perp_order_size_small },
           { amount: '$10' },
         ),
+        message: isSpot
+          ? undefined
+          : intl.formatMessage({
+              id: ETranslations.perp_order_size_small__desc,
+            }),
       });
     },
     1000,

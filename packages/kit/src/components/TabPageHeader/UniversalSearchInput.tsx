@@ -19,6 +19,14 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
+import { HEADER_SEARCH_MIN_WIDTH, HEADER_WIDE_MEDIA_KEY } from './headerLayout';
+
+// Paired with HeaderUpdateButton's collapse — see headerLayout.ts for why both
+// must flip at the same breakpoint (OK-58363).
+const searchBarMinWidth = {
+  [`$${HEADER_WIDE_MEDIA_KEY}`]: { minWidth: HEADER_SEARCH_MIN_WIDTH },
+};
+
 export function UniversalSearchInput({
   containerProps,
   size = 'large',
@@ -52,7 +60,7 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      $gtLg={{ minWidth: 320 } as any}
+      {...(searchBarMinWidth as any)}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
@@ -96,7 +104,9 @@ export function MDUniversalSearchInput() {
         size="medium"
         containerProps={{
           width: '100%',
+          // Clear whichever breakpoint HEADER_WIDE_MEDIA_KEY resolved to.
           $gtLg: undefined,
+          $gtXl: undefined,
         }}
       />
     </XStack>
