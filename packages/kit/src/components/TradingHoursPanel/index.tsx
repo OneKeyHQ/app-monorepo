@@ -528,9 +528,9 @@ function getNodeRect(node: unknown): DOMRect | null {
 }
 
 /**
- * Desktop hover-card behavior: hovering the badge opens the popover; it stays
- * open while the pointer is inside the badge or the panel and closes shortly
- * after the pointer leaves both. Closing is driven by GEOMETRY (a global
+ * Desktop hover-card behavior: dwelling on the badge opens the popover; it
+ * stays open while the pointer is inside the badge or the panel and closes
+ * shortly after the pointer leaves both. Closing is driven by GEOMETRY (a global
  * mousemove hit-test against both rects) instead of enter/leave events —
  * opening the popover remounts nodes under a stationary cursor, and the
  * resulting synthetic leave/enter storm made event-based closing flicker.
@@ -547,8 +547,29 @@ function TradingHoursHoverPopover({
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
-  // Opening is idempotent — repeated hover-in events are harmless.
-  const handleHoverIn = useCallback(() => setIsOpen(true), []);
+  // Hover-intent delay (OK-58513): the badge sits inside the token-selector
+  // header, so a pointer merely passing through (typically <150 ms) must not
+  // open the card. Opening waits for a short dwell; leaving the badge before
+  // it elapses cancels the open. Clicking still opens instantly via the
+  // Popover's own trigger press.
+  const HOVER_OPEN_DELAY_MS = 300;
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingOpen = useCallback(() => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  }, []);
+  const handleHoverIn = useCallback(() => {
+    if (openTimerRef.current) {
+      return;
+    }
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      setIsOpen(true);
+    }, HOVER_OPEN_DELAY_MS);
+  }, []);
+  useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') {
@@ -611,7 +632,11 @@ function TradingHoursHoverPopover({
       onOpenChange={setIsOpen}
       title={<TradingHoursTitle />}
       renderTrigger={
-        <Stack {...({ ref: triggerRef } as object)} onHoverIn={handleHoverIn}>
+        <Stack
+          {...({ ref: triggerRef } as object)}
+          onHoverIn={handleHoverIn}
+          onHoverOut={cancelPendingOpen}
+        >
           {renderTrigger}
         </Stack>
       }
