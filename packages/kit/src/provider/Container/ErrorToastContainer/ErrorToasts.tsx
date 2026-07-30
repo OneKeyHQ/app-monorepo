@@ -21,13 +21,18 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalFirmwareUpdateRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface IErrorActionParams {
   errorCode?: number | string;
+  connectId?: string;
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
@@ -152,6 +157,31 @@ function NeedFirmwareUpgradeFromWebButton() {
   );
 }
 
+// connectId is stamped onto the error by withHardwareProcessing when the call
+// ran under it; the ChangeLog page resolves the device itself when it is absent
+// (getCompatibleConnectId returns '' for UPDATE_FIRMWARE without a connectId).
+function CheckFirmwareUpdateButton({ connectId }: { connectId?: string }) {
+  const intl = useIntl();
+
+  return (
+    <Button
+      testID="error-toast-check-firmware-update-btn"
+      size="small"
+      onPress={() => {
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.FirmwareUpdateModal,
+          params: {
+            screen: EModalFirmwareUpdateRoutes.ChangeLog,
+            params: { connectId, firmwareType: undefined },
+          },
+        });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_check_for_updates })}
+    </Button>
+  );
+}
+
 function NavigateToCloudSyncSwitchButton() {
   const intl = useIntl();
 
@@ -217,6 +247,7 @@ function ClearPendingTransactionsButton() {
 
 export function getErrorAction({
   errorCode,
+  connectId,
   requestId,
   diagnosticText,
   i18nKey,
@@ -224,6 +255,12 @@ export function getErrorAction({
   // Special case: firmware upgrade button
   if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
     return <NeedFirmwareUpgradeFromWebButton />;
+  }
+
+  // Generic hardware fallback: advises staying up to date, so send the user to
+  // the in-app firmware update flow rather than the web tool.
+  if (errorCode === ECustomOneKeyHardwareError.UnknownHardwareError) {
+    return <CheckFirmwareUpdateButton connectId={connectId} />;
   }
 
   // Cloud sync: navigate to Cloud Sync settings page

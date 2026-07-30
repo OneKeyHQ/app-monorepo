@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -743,6 +744,16 @@ class ServiceHardwareUI extends ServiceBase {
         'withHardwareProcessing ERROR stack: ',
         (error as Error)?.stack,
       );
+      // The SDK error payload never carries the device it came from, so stamp
+      // the connectId this call was made with — UI actions (firmware update)
+      // can then target the failing device instead of resolving one.
+      if (connectId && isHardwareError({ error: error as IOneKeyError })) {
+        const hardwareError = error as IOneKeyError;
+        hardwareError.payload = {
+          ...hardwareError.payload,
+          connectId: hardwareError.payload?.connectId ?? connectId,
+        };
+      }
       if (
         isHardwareErrorByCode({
           error: error as any,

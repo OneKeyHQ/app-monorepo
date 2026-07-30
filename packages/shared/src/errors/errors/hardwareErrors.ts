@@ -1087,6 +1087,11 @@ export class UnknownHardwareError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          // Keep the raw payload so downstream UI can reach connectId/deviceId.
+          // `message` is passed explicitly so payload presence cannot change
+          // how the message is resolved.
+          payload: props?.payload,
+          message,
           info: { 'message': message },
         },
         {
@@ -1098,6 +1103,8 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       ),
     );
   }
+
+  override code = ECustomOneKeyHardwareError.UnknownHardwareError;
 }
 
 // TODO
