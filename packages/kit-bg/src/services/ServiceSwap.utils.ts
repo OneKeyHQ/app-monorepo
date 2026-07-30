@@ -1,7 +1,14 @@
-import type {
-  IFetchBuildTxParams,
-  ISwapToken,
+import {
+  EProtocolOfExchange,
+  type IFetchBuildTxParams,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+export function shouldAttachSwapReferralBuildTxParams(
+  protocol: EProtocolOfExchange,
+) {
+  return protocol === EProtocolOfExchange.SWAP;
+}
 
 export function buildSwapReferralBuildTxParams(referralInfo?: {
   address: string;

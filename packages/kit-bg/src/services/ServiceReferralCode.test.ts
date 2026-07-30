@@ -336,6 +336,58 @@ describe('ServiceReferralCode.checkWalletBindStatus', () => {
       }),
     ).rejects.toThrow('Missing wallet referral bind status');
   });
+
+  test('aborts a bounded bind-status request when its timeout expires', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service } = createService();
+      const post = jest.fn(
+        (
+          _url: string,
+          _body: unknown,
+          config: { signal: AbortSignal; timeout: number },
+        ) =>
+          new Promise((_resolve, reject) => {
+            config.signal.addEventListener('abort', () => {
+              reject(new Error('request aborted'));
+            });
+          }),
+      );
+      (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+        post,
+      });
+
+      const request = service.checkWalletBindStatus(
+        {
+          address: '0xabc',
+          networkId: 'evm--1',
+        },
+        3000,
+      );
+      await Promise.all([
+        expect(request).rejects.toThrow('request aborted'),
+        jest.advanceTimersByTimeAsync(3000),
+      ]);
+
+      expect(post).toHaveBeenCalledWith(
+        '/rebate/v1/wallet/batch-check-v2',
+        {
+          items: [
+            {
+              address: '0xabc',
+              networkId: 'evm--1',
+            },
+          ],
+        },
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+          timeout: 3000,
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('ServiceReferralCode.checkAndUpdateReferralCode', () => {
@@ -500,6 +552,30 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
       accountId: "hd-1--m/44'/60'/0'/0/7",
       networkId: 'evm--1',
     });
+  });
+
+  test('passes the Swap request budget to the authoritative bind check', async () => {
+    const { service } = createService();
+    const checkWalletBindStatusSpy = jest
+      .spyOn(service, 'checkWalletBindStatus')
+      .mockResolvedValue({
+        data: true,
+        bindable: false,
+        reason: undefined,
+      });
+
+    await service.getBoundEvmReferralCodeWalletInfo({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      requestTimeoutMs: 3000,
+    });
+
+    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith(
+      {
+        address: '0xabc',
+        networkId: 'evm--1',
+      },
+      3000,
+    );
   });
 
   test('omits the EVM attribution when the server does not confirm binding', async () => {

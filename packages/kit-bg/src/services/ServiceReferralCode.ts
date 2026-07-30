@@ -581,8 +581,10 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async getBoundEvmReferralCodeWalletInfo({
     accountId,
+    requestTimeoutMs,
   }: {
     accountId: string;
+    requestTimeoutMs?: number;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
@@ -591,10 +593,13 @@ class ServiceReferralCode extends ServiceBase {
       return undefined;
     }
 
-    const bindStatus = await this.checkWalletBindStatus({
+    const bindStatusParams = {
       address: walletInfo.address,
       networkId: walletInfo.networkId,
-    });
+    };
+    const bindStatus = requestTimeoutMs
+      ? await this.checkWalletBindStatus(bindStatusParams, requestTimeoutMs)
+      : await this.checkWalletBindStatus(bindStatusParams);
     if (!bindStatus.data) {
       return undefined;
     }
@@ -830,35 +835,69 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    // Bind-status checks gate dialogs / nudges; skip the prompt silently in
-    // production rather than toast a backend error to the user.
-    const response = await client.post<{
-      data: IBatchCheckWalletV2Response;
-    }>('/rebate/v1/wallet/batch-check-v2', { items }, SILENT_IN_PROD);
-    return response.data.data;
+  async batchCheckWalletsBoundReferralCodeV2(
+    items: IBatchCheckWalletItem[],
+    requestTimeoutMs?: number,
+  ) {
+    const requestAbortController =
+      requestTimeoutMs && requestTimeoutMs > 0
+        ? new AbortController()
+        : undefined;
+    const requestTimeout = requestAbortController
+      ? setTimeout(() => requestAbortController.abort(), requestTimeoutMs)
+      : undefined;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      // Bind-status checks gate dialogs / nudges; skip the prompt silently in
+      // production rather than toast a backend error to the user.
+      const response = await client.post<{
+        data: IBatchCheckWalletV2Response;
+      }>(
+        '/rebate/v1/wallet/batch-check-v2',
+        { items },
+        {
+          ...SILENT_IN_PROD,
+          ...(requestAbortController
+            ? {
+                signal: requestAbortController.signal,
+                timeout: requestTimeoutMs,
+              }
+            : {}),
+        },
+      );
+      return response.data.data;
+    } finally {
+      if (requestTimeout) {
+        clearTimeout(requestTimeout);
+      }
+    }
   }
 
   @backgroundMethod()
-  async checkWalletBindStatus({
-    address,
-    networkId,
-  }: {
-    address: string;
-    networkId: string;
-  }) {
+  async checkWalletBindStatus(
+    {
+      address,
+      networkId,
+    }: {
+      address: string;
+      networkId: string;
+    },
+    requestTimeoutMs?: number,
+  ) {
     const requestAddress =
       normalizeTokenContractAddress({
         networkId,
         contractAddress: address,
       }) || address;
-    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2([
-      {
-        address: requestAddress,
-        networkId,
-      },
-    ]);
+    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2(
+      [
+        {
+          address: requestAddress,
+          networkId,
+        },
+      ],
+      requestTimeoutMs,
+    );
     const requestedKey = `${networkId}:${requestAddress}`;
     const serverData = batchResult[requestedKey];
     if (!serverData) {
