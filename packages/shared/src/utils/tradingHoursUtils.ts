@@ -13,8 +13,9 @@ import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
  *   Overnight   20:05 – 03:55 ET (next day)
  *
  * Sessions are NOT contiguous: the minutes between them (e.g. 09:30, the
- * opening cross) belong to no session and are rendered as part of neither
- * range.
+ * opening cross) belong to no session — the underlying venues pause trading
+ * while switching session state, so the UI surfaces those windows as trading
+ * halts.
  *
  * A "cycle" is one full loop from the pre-market open to the overnight close
  * the next ET day. On DST transition days a cycle is ±1h long; ratios are
@@ -236,9 +237,16 @@ export interface IUSMarketTradingHours {
   nowRatio: number;
   /**
    * Session containing `now` by pure clock math (ignores holidays/halts).
-   * A `now` inside an inter-session gap resolves to the upcoming session.
+   * A `now` inside an inter-session gap resolves to the upcoming session —
+   * check `isNowInSessionGap` to tell the two cases apart.
    */
   currentSessionKey: EUSMarketSessionKey;
+  /**
+   * True when `now` falls between two sessions (e.g. 03:56 – 04:00 ET):
+   * the underlying venues pause trading while switching session state, so
+   * these minutes surface as a market-wide trading halt.
+   */
+  isNowInSessionGap: boolean;
   /** Current-or-upcoming weekend closure: Friday 20:00 ET */
   weekendStartInstant: number;
   /** Weekend closure end: Sunday 20:00 ET */
@@ -302,6 +310,9 @@ export function getUSMarketTradingHours(
   const currentSegment =
     segments.find((s) => clampedNow < s.endInstant) ??
     segments[segments.length - 1];
+  const isNowInSessionGap = !segments.some(
+    (s) => nowMs >= s.startInstant && nowMs < s.endInstant,
+  );
 
   // Weekend closure runs Friday 20:00 ET → Sunday 20:00 ET. Pick the ongoing
   // weekend when the cycle day sits inside one, otherwise the upcoming one.
@@ -331,6 +342,7 @@ export function getUSMarketTradingHours(
     cycleEndInstant,
     nowRatio: (clampedNow - cycleStartInstant) / cycleDuration,
     currentSessionKey: currentSegment.key,
+    isNowInSessionGap,
     weekendStartInstant,
     weekendEndInstant,
   };
@@ -431,9 +443,11 @@ export function isOndoUSMarketStock(
  * Signal priority:
  *   1. per-stock halt (`isPaused`) — overlays everything;
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
- *   3. market-wide session refines HOW it is open. A tradable instrument
- *      (`isOpen === true`) while the US market is closed is the special
- *      7×24-Ondo case → ClosedTradable ("Closed · Tradable").
+ *   3. market-wide closure (backend CLOSED / weekend) → ClosedTradable for a
+ *      tradable instrument (`isOpen === true`) — the special 7×24-Ondo case;
+ *   4. inter-session gap (clock math) → Halted: the underlying venues pause
+ *      trading while switching session state;
+ *   5. market-wide session refines HOW it is open.
  *
  * When the market-status API is unavailable, falls back to pure clock math:
  * weekends are detectable locally, holidays are not.
@@ -476,24 +490,30 @@ export function resolveUSMarketStatusVariant({
         return EUSMarketStatusVariant.Open;
     }
   };
+  const tradingHours = getUSMarketTradingHours(now);
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
       return EUSMarketStatusVariant.ClosedTradable;
     }
+    // Inter-session gap: the underlying venues pause trading while switching
+    // session state (OK-58509), overriding the backend session refinement.
+    if (tradingHours.isNowInSessionGap) {
+      return EUSMarketStatusVariant.Halted;
+    }
     const sessionKey = usMarketSessionKeyFromBackendSession(status.session);
     // Unknown session value (future contract addition): fall back to the
     // clock session, matching resolveUSTradingHoursActiveRow.
-    return sessionKeyToVariant(
-      sessionKey ?? getUSMarketTradingHours(now).currentSessionKey,
-    );
+    return sessionKeyToVariant(sessionKey ?? tradingHours.currentSessionKey);
   }
-  const tradingHours = getUSMarketTradingHours(now);
   const nowMs = now.getTime();
   if (
     nowMs >= tradingHours.weekendStartInstant &&
     nowMs < tradingHours.weekendEndInstant
   ) {
     return EUSMarketStatusVariant.ClosedTradable;
+  }
+  if (tradingHours.isNowInSessionGap) {
+    return EUSMarketStatusVariant.Halted;
   }
   return sessionKeyToVariant(tradingHours.currentSessionKey);
 }
@@ -532,6 +552,11 @@ export function resolveUSTradingHoursActiveRow({
     if (!status.open || status.session === 'CLOSED') {
       return 'closed';
     }
+    // Inter-session gap: the underlying venues pause trading while switching
+    // session state (OK-58509), overriding the backend session refinement.
+    if (tradingHours.isNowInSessionGap) {
+      return 'halts';
+    }
     return (
       usMarketSessionKeyFromBackendSession(status.session) ??
       tradingHours.currentSessionKey
@@ -546,6 +571,9 @@ export function resolveUSTradingHoursActiveRow({
     nowMs < tradingHours.weekendEndInstant
   ) {
     return 'closed';
+  }
+  if (tradingHours.isNowInSessionGap) {
+    return 'halts';
   }
   return tradingHours.currentSessionKey;
 }
