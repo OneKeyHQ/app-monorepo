@@ -24,6 +24,9 @@ const EarnProtocols = LazyLoadRootTabPage(
 const EarnTokens = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnTokens'),
 );
+const EarnFixedRateTokens = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnFixedRateTokens'),
+);
 const EarnAllProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnAllProtocols'),
 );
@@ -66,6 +69,11 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnTokens,
     component: EarnTokens,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnFixedRateTokens,
+    component: EarnFixedRateTokens,
     headerShown: !platformEnv.isNative,
   },
   {

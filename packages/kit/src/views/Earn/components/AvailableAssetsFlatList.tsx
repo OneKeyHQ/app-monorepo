@@ -91,17 +91,16 @@ export function AvailableAssetItem({
             </XStack>
           </XStack>
         }
-        secondary={
-          showLiquidity ? (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
-            </SizableText>
-          ) : undefined
-        }
       />
-      <XStack flex={1} ai="center" jc="flex-end">
+      {/* 固定收益: 右侧 APY/APR 作 title、Liquidity 作 subtitle (OK-58879) */}
+      <YStack flex={1} ai="flex-end" jc="center" gap="$0.5">
         <AprText asset={asset} />
-      </XStack>
+        {showLiquidity ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+          </SizableText>
+        ) : null}
+      </YStack>
     </ListItem>
   );
 }
@@ -123,6 +122,13 @@ function AvailableAssetsFlatListComponent() {
     const simpleEarnSymbols = new Set(
       simpleEarnAssets.map((asset) => asset.symbol),
     );
+    // 热门代币不含固定收益 (OK-58879)：固定收益资产 (PT 类，symbol 独立)
+    // 单独成区/成页，从 Trending 合并结果中剔除
+    const fixedRateSymbols = new Set(
+      (availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? []).map(
+        (asset) => asset.symbol,
+      ),
+    );
     const merged: typeof availableAssetsByType = {
       ...availableAssetsByType,
       [EAvailableAssetsTypeEnum.SimpleEarn]: [
@@ -130,7 +136,7 @@ function AvailableAssetsFlatListComponent() {
         ...stakingAssets.filter(
           (asset) => !simpleEarnSymbols.has(asset.symbol),
         ),
-      ],
+      ].filter((asset) => !fixedRateSymbols.has(asset.symbol)),
     };
     return merged;
   }, [availableAssetsByType]);
@@ -149,10 +155,18 @@ function AvailableAssetsFlatListComponent() {
     [navigateToAsset],
   );
 
-  const handleOpenSection = useCallback(() => {
-    // 分区点击进入独立的 Tokens 页面，不再用 Dialog (OK-58508)
-    EarnNavigation.pushToEarnTokens(navigation);
-  }, [navigation]);
+  const handleOpenSection = useCallback(
+    (categoryType: EAvailableAssetsTypeEnum) => {
+      // 分区点击进入独立页面，不再用 Dialog (OK-58508)；
+      // 固定收益有单独列表页 (OK-58879)
+      if (categoryType === EAvailableAssetsTypeEnum.FixedRate) {
+        EarnNavigation.pushToEarnFixedRateTokens(navigation);
+        return;
+      }
+      EarnNavigation.pushToEarnTokens(navigation);
+    },
+    [navigation],
+  );
 
   return (
     <YStack gap="$8">
@@ -187,7 +201,7 @@ function AvailableAssetsFlatListComponent() {
               cursor="pointer"
               userSelect="none"
               pressStyle={{ opacity: 0.5 }}
-              onPress={handleOpenSection}
+              onPress={() => handleOpenSection(type)}
             >
               <SizableText size="$headingLg" pointerEvents="none">
                 {title}

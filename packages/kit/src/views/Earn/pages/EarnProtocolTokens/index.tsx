@@ -10,10 +10,12 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,7 +25,9 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -79,8 +83,26 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const { provider, providerName } = route.params;
+  const { provider, providerName, logoURI } = route.params;
   const { providers, isLoading } = useEarnAllProtocols();
+
+  // 资产 logo 映射 (OK-58881)：协议列表行数据里没有 token logo，
+  // 从 available-assets(all) 建 symbol→logoURI 映射（5 分钟缓存）
+  const { result: allAssets } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getAvailableAssets({
+        type: EAvailableAssetsTypeEnum.All,
+      }),
+    [],
+    { undefinedResultIfError: true },
+  );
+  const assetLogoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const asset of allAssets ?? []) {
+      map.set(asset.symbol.toLowerCase(), asset.logoURI);
+    }
+    return map;
+  }, [allAssets]);
 
   const [sortKey, setSortKey] = useState<IProtocolTokensSortKey>('tvl');
   const [sortDirection, setSortDirection] =
@@ -161,9 +183,15 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={
-        <SizableText size="$headingLg" numberOfLines={1}>
-          {providerName || provider}
-        </SizableText>
+        // 标题带协议 logo (OK-58881)
+        <XStack ai="center" gap="$2">
+          {logoURI ? (
+            <Token size="sm" tokenImageUri={logoURI} borderRadius="$full" />
+          ) : null}
+          <SizableText size="$headingLg" numberOfLines={1}>
+            {providerName || provider}
+          </SizableText>
+        </XStack>
       }
       showBackButton
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
@@ -189,9 +217,13 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
               userSelect="none"
               onPress={() => handleRowPress(row)}
               renderAvatar={
+                // 资产 logo，而非网络/协议 logo (OK-58881)
                 <Token
                   size="md"
-                  tokenImageUri={row.item.network.logoURI}
+                  tokenImageUri={
+                    assetLogoMap.get(row.symbol.toLowerCase()) ??
+                    row.item.network.logoURI
+                  }
                   borderRadius="$full"
                 />
               }
@@ -200,30 +232,41 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                 flex={1}
                 primary={
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                    {row.item.provider.vaultName || row.symbol}
+                    {row.symbol}
                   </SizableText>
                 }
                 secondary={
+                  // 即使同一网络也恒定显示 network (OK-58881)
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
                     numberOfLines={1}
                   >
-                    {row.item.tvl?.text
-                      ? `${intl.formatMessage({
-                          id: ETranslations.earn_tvl,
-                        })} ${row.item.tvl.text}`
-                      : row.item.network.name}
+                    {row.item.network.name}
                   </SizableText>
                 }
               />
-              <XStack ai="center" jc="flex-end">
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {row.item.aprInfo?.highlight?.text ??
+              <YStack ai="flex-end" jc="center" gap="$0.5">
+                <EarnAprSuffixText
+                  text={
+                    row.item.aprInfo?.highlight?.text ??
                     row.item.aprInfo?.normal?.text ??
-                    ''}
-                </SizableText>
-              </XStack>
+                    ''
+                  }
+                  color={
+                    row.item.aprInfo?.highlight
+                      ? row.item.aprInfo.highlight.color ?? '$textSuccess'
+                      : row.item.aprInfo?.normal?.color ?? '$text'
+                  }
+                />
+                {row.item.tvl?.text ? (
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {`${row.item.tvl.text} ${intl.formatMessage({
+                      id: ETranslations.earn_tvl,
+                    })}`}
+                  </SizableText>
+                ) : null}
+              </YStack>
             </ListItem>
           ))}
         </Stack>

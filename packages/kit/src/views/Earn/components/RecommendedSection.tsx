@@ -251,6 +251,18 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
             />
           </XStack>
         }
+        secondary={
+          // 钱包持仓余额 subtitle (OK-58877)，服务端 available 字段直出
+          token.available?.text ? (
+            <SizableText
+              size="$bodyMd"
+              color={token.available.color || '$textSubdued'}
+              numberOfLines={1}
+            >
+              {token.available.text}
+            </SizableText>
+          ) : undefined
+        }
       />
       <YStack alignItems="flex-end" justifyContent="center">
         <AprText

@@ -29,27 +29,14 @@ import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
+import { parseFormattedLiquidityValue } from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
   IEarnSortOption,
 } from '../../components/EarnMobileSortControl';
 
-type IEarnTokensSortKey = 'apy' | 'apr';
-
-// Tokens 首页三分类 (设计稿：All / Stable Tokens / Non-Stable Tokens)
-const TOKEN_CATEGORY_TYPES = [
-  EAvailableAssetsTypeEnum.All,
-  EAvailableAssetsTypeEnum.StableCoins,
-  EAvailableAssetsTypeEnum.NativeTokens,
-] as const;
-
-// FIXME: Replace with product-approved i18n keys once available.
-const TOKEN_CATEGORY_LABELS: Record<string, string> = {
-  [EAvailableAssetsTypeEnum.All]: 'All',
-  [EAvailableAssetsTypeEnum.StableCoins]: 'Stable Tokens',
-  [EAvailableAssetsTypeEnum.NativeTokens]: 'Non-Stable Tokens',
-};
+type IFixedRateSortKey = 'liquidity' | 'apy';
 
 function parseRate(value?: string): number {
   const parsed = Number(value);
@@ -58,15 +45,14 @@ function parseRate(value?: string): number {
 
 function getAssetSortValue(
   asset: IEarnAvailableAsset,
-  sortKey: IEarnTokensSortKey,
+  sortKey: IFixedRateSortKey,
 ): number {
-  // APY = 含奖励综合年化 (apr 字段)；APR = 基础年化 (aprWithoutFee 字段)
-  return sortKey === 'apy'
-    ? parseRate(asset.apr)
-    : parseRate(asset.aprWithoutFee);
+  return sortKey === 'liquidity'
+    ? parseFormattedLiquidityValue(asset.liquidity)
+    : parseRate(asset.aprWithoutFee || asset.apr);
 }
 
-function EarnTokensSkeleton() {
+function EarnFixedRateTokensSkeleton() {
   return (
     <YStack px="$pagePadding" gap="$4" pt="$4">
       {Array.from({ length: 8 }).map((_, index) => (
@@ -74,52 +60,36 @@ function EarnTokensSkeleton() {
           <Skeleton w="$10" h="$10" borderRadius="$full" />
           <YStack gap="$1.5" flex={1}>
             <Skeleton h="$4" w="$24" />
-            <Skeleton h="$3" w="$16" />
           </YStack>
-          <Skeleton h="$4" w="$20" />
+          <YStack ai="flex-end" gap="$1.5">
+            <Skeleton h="$4" w="$16" />
+            <Skeleton h="$3" w="$20" />
+          </YStack>
         </XStack>
       ))}
     </YStack>
   );
 }
 
-function EarnTokensContent() {
+function EarnFixedRateTokensContent() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
   const navigateToAsset = useNavigateToEarnAsset();
 
-  const [categoryType, setCategoryType] = useState<EAvailableAssetsTypeEnum>(
-    EAvailableAssetsTypeEnum.All,
-  );
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<IEarnTokensSortKey>('apy');
+  const [sortKey, setSortKey] = useState<IFixedRateSortKey>('liquidity');
+  // 默认 Liquidity High to Low (OK-58879)
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
-  // Tokens 首页仅 APY/APR 排序，不展示/不排序 TVL (汇总 TVL 无实际意义，产品确认)
   const { result: assets, isLoading } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: categoryType,
-      }),
-    [categoryType],
-    { watchLoading: true, undefinedResultIfError: true },
-  );
-
-  // Tokens 列表不含固定收益 (OK-58879)：固定收益 (PT 类，symbol 独立)
-  // 有单独的列表页，这里按 fixedRate symbol 集合剔除
-  const { result: fixedRateAssets } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
         type: EAvailableAssetsTypeEnum.FixedRate,
       }),
     [],
-    { undefinedResultIfError: true },
-  );
-  const fixedRateSymbols = useMemo(
-    () => new Set((fixedRateAssets ?? []).map((asset) => asset.symbol)),
-    [fixedRateAssets],
+    { watchLoading: true, undefinedResultIfError: true },
   );
 
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
@@ -143,9 +113,6 @@ function EarnTokensContent() {
     const selectedSet = new Set(selectedNetworkIds);
     const keyword = searchText.trim().toLowerCase();
     return list.filter((asset) => {
-      if (fixedRateSymbols.has(asset.symbol)) {
-        return false;
-      }
       if (
         selectedSet.size > 0 &&
         !(asset.protocols ?? []).some((protocol) =>
@@ -163,7 +130,7 @@ function EarnTokensContent() {
       }
       return true;
     });
-  }, [assets, fixedRateSymbols, searchText, selectedNetworkIds]);
+  }, [assets, searchText, selectedNetworkIds]);
 
   const sortedAssets = useMemo(
     () =>
@@ -175,45 +142,6 @@ function EarnTokensContent() {
     [filteredAssets, sortDirection, sortKey],
   );
 
-  const sortOptions = useMemo<IEarnSortOption[]>(() => {
-    const apyLabel = 'APY';
-    const aprLabel = 'APR';
-    return [
-      {
-        label: `${apyLabel} ↓`,
-        triggerLabel: apyLabel,
-        value: 'apy',
-        direction: 'desc',
-      },
-      {
-        label: `${apyLabel} ↑`,
-        triggerLabel: apyLabel,
-        value: 'apy',
-        direction: 'asc',
-      },
-      {
-        label: `${aprLabel} ↓`,
-        triggerLabel: aprLabel,
-        value: 'apr',
-        direction: 'desc',
-      },
-      {
-        label: `${aprLabel} ↑`,
-        triggerLabel: aprLabel,
-        value: 'apr',
-        direction: 'asc',
-      },
-    ];
-  }, []);
-
-  const handleSortChange = useCallback(
-    (key: string, direction: IEarnSortDirection) => {
-      setSortKey(key as IEarnTokensSortKey);
-      setSortDirection(direction);
-    },
-    [],
-  );
-
   const totalLiquidityLabel = useMemo(
     () =>
       intl.formatMessage({
@@ -222,9 +150,48 @@ function EarnTokensContent() {
     [intl],
   );
 
+  const sortOptions = useMemo<IEarnSortOption[]>(() => {
+    const liquidityLabel = totalLiquidityLabel;
+    const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
+    return [
+      {
+        label: `${liquidityLabel} ↓`,
+        triggerLabel: liquidityLabel,
+        value: 'liquidity',
+        direction: 'desc',
+      },
+      {
+        label: `${liquidityLabel} ↑`,
+        triggerLabel: liquidityLabel,
+        value: 'liquidity',
+        direction: 'asc',
+      },
+      {
+        label: `${yieldLabel} ↓`,
+        triggerLabel: yieldLabel,
+        value: 'apy',
+        direction: 'desc',
+      },
+      {
+        label: `${yieldLabel} ↑`,
+        triggerLabel: yieldLabel,
+        value: 'apy',
+        direction: 'asc',
+      },
+    ];
+  }, [intl, totalLiquidityLabel]);
+
+  const handleSortChange = useCallback(
+    (key: string, direction: IEarnSortDirection) => {
+      setSortKey(key as IFixedRateSortKey);
+      setSortDirection(direction);
+    },
+    [],
+  );
+
   const handleAssetPress = useCallback(
     (asset: IEarnAvailableAsset) => {
-      void navigateToAsset(asset);
+      void navigateToAsset(asset, EAvailableAssetsTypeEnum.FixedRate);
     },
     [navigateToAsset],
   );
@@ -233,16 +200,18 @@ function EarnTokensContent() {
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
-      // FIXME: Replace with product-approved i18n key once available (与
-      // EarnHomeShortcuts 的 "Tokens" 标签保持一致)。
-      pageTitle={<SizableText size="$headingLg">Tokens</SizableText>}
+      pageTitle={
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_fixed_income })}
+        </SizableText>
+      }
       showBackButton
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       contentContainerStyle={{ pb: tabBarHeight }}
     >
       <YStack px="$pagePadding" pb="$2">
         <SearchBar
-          testID={EarnTestIDs.tokensSearchInput}
+          testID={EarnTestIDs.fixedRateSearchInput}
           value={searchText}
           onChangeText={setSearchText}
           placeholder={intl.formatMessage({
@@ -252,7 +221,7 @@ function EarnTokensContent() {
       </YStack>
       <XStack px="$pagePadding" py="$2" ai="center" jc="space-between">
         <NetworkFilterControl
-          testID={EarnTestIDs.tokensNetworkFilter}
+          testID={EarnTestIDs.fixedRateNetworkFilter}
           variant="compact"
           availableNetworkIds={availableNetworkIds}
           selectedNetworkIds={selectedNetworkIds}
@@ -265,47 +234,20 @@ function EarnTokensContent() {
           options={sortOptions}
           onSortChange={handleSortChange}
           compact
-          testID={EarnTestIDs.tokensSortControl}
+          testID={EarnTestIDs.fixedRateSortControl}
         />
       </XStack>
-      <XStack px="$pagePadding" py="$2" gap="$2">
-        {TOKEN_CATEGORY_TYPES.map((type) => {
-          const isActive = categoryType === type;
-          return (
-            <XStack
-              key={type}
-              testID={EarnTestIDs.tokensCategoryChip(type)}
-              role="button"
-              px="$3"
-              py="$1"
-              borderRadius="$full"
-              bg={isActive ? '$bgStrong' : '$bgSubdued'}
-              cursor="pointer"
-              userSelect="none"
-              pressStyle={{ opacity: 0.7 }}
-              onPress={() => setCategoryType(type)}
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color={isActive ? '$text' : '$textSubdued'}
-              >
-                {TOKEN_CATEGORY_LABELS[type]}
-              </SizableText>
-            </XStack>
-          );
-        })}
-      </XStack>
       {isLoading && sortedAssets.length === 0 ? (
-        <EarnTokensSkeleton />
+        <EarnFixedRateTokensSkeleton />
       ) : (
         <Stack>
           {sortedAssets.map((asset) => (
             <AvailableAssetItem
               key={asset.symbol}
               asset={asset}
-              categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
+              categoryType={EAvailableAssetsTypeEnum.FixedRate}
               totalLiquidityLabel={totalLiquidityLabel}
-              testID={EarnTestIDs.tokensPageItem(asset.symbol)}
+              testID={EarnTestIDs.fixedRateItem(asset.symbol)}
               onPress={() => handleAssetPress(asset)}
             />
           ))}
@@ -315,7 +257,7 @@ function EarnTokensContent() {
   );
 }
 
-export default function EarnTokens() {
+export default function EarnFixedRateTokens() {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -325,7 +267,7 @@ export default function EarnTokens() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <EarnTokensContent />
+        <EarnFixedRateTokensContent />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

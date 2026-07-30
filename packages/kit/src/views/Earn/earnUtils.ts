@@ -156,6 +156,7 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnHome ||
     route === ETabEarnRoutes.EarnPositions ||
     route === ETabEarnRoutes.EarnTokens ||
+    route === ETabEarnRoutes.EarnFixedRateTokens ||
     route === ETabEarnRoutes.EarnAllProtocols ||
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
@@ -517,6 +518,11 @@ export const EarnNavigation = {
   // Tokens 首页 (OK-58505/OK-58562/OK-58508)
   pushToEarnTokens(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnTokens);
+  },
+
+  // 固定收益列表 (OK-58879)
+  pushToEarnFixedRateTokens(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnFixedRateTokens);
   },
 
   // Protocols 首页 (OK-58505/OK-58562)

@@ -11,6 +11,11 @@ const preservedChildRoutes: Partial<
     ETabEarnRoutes.EarnProtocols,
     ETabEarnRoutes.EarnProtocolDetails,
   ]),
+  // 固定收益列表 → 协议列表 / 协议详情 (OK-58879)
+  [ETabEarnRoutes.EarnFixedRateTokens]: new Set([
+    ETabEarnRoutes.EarnProtocols,
+    ETabEarnRoutes.EarnProtocolDetails,
+  ]),
   // Protocols 首页 → 协议的代币列表 / 协议详情 (OK-58505)
   [ETabEarnRoutes.EarnAllProtocols]: new Set([
     ETabEarnRoutes.EarnProtocolTokens,
