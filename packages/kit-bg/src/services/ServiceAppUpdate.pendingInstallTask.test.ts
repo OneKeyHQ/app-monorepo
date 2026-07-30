@@ -66,6 +66,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     version: '1.0.0',
     bundleVersion: '1',
+    isDesktop: true,
     isExtension: false,
     isNativeAndroid: false,
   },
@@ -73,6 +74,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   AppUpdate: {
+    checkPackageAvailability: jest.fn(async () => ({
+      status: 'notApplicable',
+    })),
     downloadPackage: jest.fn(async () => ({
       downloadedFile: '/tmp/app.pkg',
     })),
@@ -820,7 +824,7 @@ describe('processPendingInstallTask', () => {
     });
   });
 
-  test('appshell APP_PACKAGE_MISSING when no downloadedFile triggers retry', async () => {
+  test('appshell APP_PACKAGE_MISSING triggers full-flow re-download', async () => {
     // Clear downloadedEvent from atom
     resetAppUpdateState({
       downloadedEvent: undefined,
@@ -847,11 +851,8 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'pending',
-      retryCount: 1,
-      lastError: 'APP_PACKAGE_MISSING',
-    });
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
   test('app-install in applied_waiting_verify within grace period is skipped', async () => {

@@ -13,6 +13,7 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  getUpdateFileType,
   isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
   normalizeFeaturedChangelog,
@@ -35,6 +36,10 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  type IAppUpdatePackageAvailability,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -50,6 +55,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 import ServiceBase from './ServiceBase';
 import {
   PLACEHOLDER_SIGNATURE,
+  clearPendingInstallTask,
   getPendingInstallTask,
   setPendingInstallTask,
 } from './servicePendingInstallTask';
@@ -395,6 +401,83 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async processPendingInstallTask() {
     await this.pendingInstallTaskService.processPendingInstallTask();
+  }
+
+  @backgroundMethod()
+  async reconcileReadyAppShellPackage() {
+    const snapshot = await appUpdatePersistAtom.get();
+    if (
+      snapshot.status !== EAppUpdateStatus.ready ||
+      snapshot.storeUrl ||
+      getUpdateFileType(snapshot) !== EUpdateFileType.appShell
+    ) {
+      return snapshot;
+    }
+
+    let availability: IAppUpdatePackageAvailability;
+    try {
+      availability = await AppUpdate.checkPackageAvailability(snapshot);
+    } catch {
+      defaultLogger.app.appUpdate.log(
+        'reconcileReadyAppShellPackage: package availability check failed',
+      );
+      return snapshot;
+    }
+    if (availability.status !== EAppUpdatePackageAvailabilityStatus.missing) {
+      if (
+        availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `reconcileReadyAppShellPackage: package availability check failed (${
+            availability.errorCode || 'IO_ERROR'
+          })`,
+        );
+      }
+      return snapshot;
+    }
+
+    const nextStatus = isAutoUpdateStrategy(snapshot.updateStrategy)
+      ? EAppUpdateStatus.notify
+      : EAppUpdateStatus.updateIncomplete;
+    let invalidated = false;
+    await appUpdatePersistAtom.set((current) => {
+      const isSameReadyPackage =
+        current.status === EAppUpdateStatus.ready &&
+        current.latestVersion === snapshot.latestVersion &&
+        current.downloadedEvent?.downloadedFile ===
+          snapshot.downloadedEvent?.downloadedFile;
+      if (!isSameReadyPackage) {
+        return current;
+      }
+      invalidated = true;
+      return {
+        ...current,
+        status: nextStatus,
+        errorText: undefined,
+        downloadedEvent: undefined,
+      };
+    });
+
+    if (invalidated) {
+      const latest = await appUpdatePersistAtom.get();
+      if (
+        latest.status === nextStatus &&
+        latest.latestVersion === snapshot.latestVersion &&
+        !latest.downloadedEvent
+      ) {
+        const pendingTask = await getPendingInstallTask();
+        if (
+          pendingTask?.type === EPendingInstallTaskType.appInstall &&
+          pendingTask.targetAppVersion === snapshot.latestVersion
+        ) {
+          await clearPendingInstallTask();
+        }
+      }
+      defaultLogger.app.appUpdate.log(
+        `reconcileReadyAppShellPackage: missing package invalidated ready state (${nextStatus})`,
+      );
+    }
+    return appUpdatePersistAtom.get();
   }
 
   @backgroundMethod()

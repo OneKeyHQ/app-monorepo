@@ -25,6 +25,7 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -93,15 +94,17 @@ export const useDownloadPackage = () => {
         defaultLogger.app.appUpdate.endInstallPackage(true);
         onSuccess();
       } catch (e: unknown) {
+        const errorCode = extractUpdateErrorCode(e);
         defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
         defaultLogger.app.appUpdate.softwareUpdateResult({
           ...buildSoftwareUpdateParams(fileType, data, getUpdateAttemptId()),
           status: 'failed',
           failedStep: 'install',
           errorMessage: sanitizeUpdateErrorMessage(e),
-          errorCode: extractUpdateErrorCode(e),
+          errorCode,
         });
-        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+        if (errorCode === EAppUpdatePackageErrorCode.packageMissing) {
+          await backgroundApiProxy.serviceAppUpdate.reconcileReadyAppShellPackage();
           onFail();
         } else if (showToastError) {
           Toast.error({ title: resolveErrorI18nMessage(e, intl) });

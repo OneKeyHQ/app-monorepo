@@ -23,6 +23,7 @@
 jest.mock('../../background/instance/backgroundApiProxy', () => {
   const svc = {
     getUpdateInfo: jest.fn(),
+    reconcileReadyAppShellPackage: jest.fn(),
     getDownloadEvent: jest.fn(),
     downloadPackage: jest.fn(),
     downloadPackageFailed: jest.fn(),
@@ -374,6 +375,9 @@ function resetAllMocks() {
   // call time and would not see post-setAtom reassignments.)
   svc.getUpdateInfo.mockImplementation(() =>
     Promise.resolve(mockAtomHolder.value),
+  );
+  svc.reconcileReadyAppShellPackage.mockImplementation(() =>
+    svc.getUpdateInfo(),
   );
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
@@ -998,6 +1002,24 @@ describe('sanitizeUpdateErrorMessage', () => {
 // A.x extractUpdateErrorCode — error → stable mixpanel code mapping
 // =========================================================================
 describe('extractUpdateErrorCode', () => {
+  test('normalizes missing app package errors across IPC and native bridges', () => {
+    expect(
+      extractUpdateErrorCode(
+        new Error(
+          "Error invoking remote method 'appUpdate.installPackage': APP_PACKAGE_MISSING",
+        ),
+      ),
+    ).toBe('APP_PACKAGE_MISSING');
+    expect(extractUpdateErrorCode(new Error('NOT_FOUND_PACKAGE'))).toBe(
+      'APP_PACKAGE_MISSING',
+    );
+    expect(
+      extractUpdateErrorCode(
+        new Error("ENOENT: no such file, open '/tmp/app.zip'"),
+      ),
+    ).toBe('APP_PACKAGE_MISSING');
+  });
+
   test('iOS / Android SHA256 verification failure → SHA256_<reason>', () => {
     expect(
       extractUpdateErrorCode(
@@ -1873,6 +1895,7 @@ describe('useDownloadPackage', () => {
 
       expect(onFail).toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
+      expect(svc.reconcileReadyAppShellPackage).toHaveBeenCalled();
     });
 
     test('install throws + silent → no Toast and no onFail', async () => {

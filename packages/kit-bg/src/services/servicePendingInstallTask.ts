@@ -5,6 +5,7 @@ import type {
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
+  EAppUpdateStatus,
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
@@ -25,6 +26,10 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -901,11 +906,37 @@ class ServicePendingInstallTask {
     requestSeq?: number,
   ) {
     const targetKey = this.getTargetKey(task);
+    const isAppPackageMissing =
+      platformEnv.isDesktop &&
+      message.includes(EAppUpdatePackageErrorCode.packageMissing);
     const isFullFlowRetryTrigger =
       message.includes(RETRY_TRIGGER_BUNDLE_MISSING) ||
-      message.includes(RETRY_TRIGGER_VERIFY_FAILED);
+      message.includes(RETRY_TRIGGER_VERIFY_FAILED) ||
+      isAppPackageMissing;
 
     if (isFullFlowRetryTrigger) {
+      let fullFlowTrigger = 'verify_failed';
+      if (isAppPackageMissing) {
+        fullFlowTrigger = 'app_package_missing';
+      } else if (message.includes(RETRY_TRIGGER_BUNDLE_MISSING)) {
+        fullFlowTrigger = 'bundle_missing';
+      }
+      if (isAppPackageMissing) {
+        await appUpdatePersistAtom.set((current) => {
+          if (
+            current.latestVersion !== task.targetAppVersion ||
+            current.status !== EAppUpdateStatus.ready
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            status: EAppUpdateStatus.notify,
+            errorText: undefined,
+            downloadedEvent: undefined,
+          };
+        });
+      }
       const fullFlowRetryCount = await this.incrementFullFlowRetry(targetKey);
       defaultLogger.app.appUpdate.fullFlowRetryTriggered(
         {
@@ -914,9 +945,7 @@ class ServicePendingInstallTask {
           taskId: task.taskId,
           revision: task.revision,
           action: task.action,
-          trigger: message.includes(RETRY_TRIGGER_BUNDLE_MISSING)
-            ? 'bundle_missing'
-            : 'verify_failed',
+          trigger: fullFlowTrigger,
           fullFlowRetryCount,
           target: targetKey,
         },
@@ -1101,7 +1130,20 @@ class ServicePendingInstallTask {
     const downloadUrl =
       appInfo.downloadedEvent?.downloadUrl || payload.downloadUrl;
     if (!appInfo.downloadedEvent?.downloadedFile || !downloadUrl) {
-      throw new OneKeyLocalError('APP_PACKAGE_MISSING');
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    const availability = await AppUpdate.checkPackageAvailability(appInfo);
+    if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
+    ) {
+      throw new OneKeyLocalError(
+        `${EAppUpdatePackageErrorCode.packageUnavailable}:${
+          availability.errorCode || 'IO_ERROR'
+        }`,
+      );
     }
     await AppUpdate.installPackage({
       ...appInfo,

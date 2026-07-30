@@ -30,6 +30,37 @@ export type IDownloadPackage = (
 
 export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
 
+export enum EAppUpdatePackageAvailabilityStatus {
+  available = 'available',
+  missing = 'missing',
+  unavailable = 'unavailable',
+  notApplicable = 'notApplicable',
+}
+
+export enum EAppUpdatePackageErrorCode {
+  packageMissing = 'APP_PACKAGE_MISSING',
+  packageUnavailable = 'APP_PACKAGE_UNAVAILABLE',
+}
+
+export type IAppUpdatePackageAvailability =
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.available;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.missing;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.unavailable;
+      errorCode?: string;
+    }
+  | {
+      status: EAppUpdatePackageAvailabilityStatus.notApplicable;
+    };
+
+export type ICheckPackageAvailability = (
+  params: IAppUpdateInfo,
+) => Promise<IAppUpdatePackageAvailability>;
+
 export type IDownloadASC = (params: IUpdateDownloadedEvent) => Promise<void>;
 
 export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
@@ -49,6 +80,7 @@ export interface IAppUpdate {
   verifyPackage: IVerifyPackage;
   verifyASC: IVerifyASC;
   downloadASC: IDownloadASC;
+  checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;

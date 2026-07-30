@@ -10,7 +10,11 @@ import {
 } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import { CancellationToken, autoUpdater } from 'electron-updater';
+import {
+  CancellationToken,
+  type UpdateCheckResult,
+  autoUpdater,
+} from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
@@ -26,12 +30,18 @@ import {
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+  type IAppUpdatePackageAvailability,
+  type IUpdateDownloadedEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { getDownloadedFileAvailability as resolveDownloadedFileAvailability } from './appUpdatePackageAvailability';
+
 import type { IDesktopApi } from './base/types';
-import type { UpdateCheckResult } from 'electron-updater';
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -303,7 +313,40 @@ class DesktopApiAppUpdate {
   }
 
   async checkDownloadedFileExists(downloadedFile: string): Promise<boolean> {
-    return fs.existsSync(downloadedFile);
+    const availability =
+      await this.getDownloadedFileAvailability(downloadedFile);
+    return (
+      availability.status === EAppUpdatePackageAvailabilityStatus.available
+    );
+  }
+
+  async getDownloadedFileAvailability(
+    downloadedFile?: string,
+  ): Promise<IAppUpdatePackageAvailability> {
+    return resolveDownloadedFileAvailability(downloadedFile);
+  }
+
+  private async assertDownloadedFileAvailable(
+    downloadedFile?: string,
+  ): Promise<string> {
+    const availability =
+      await this.getDownloadedFileAvailability(downloadedFile);
+    if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    if (
+      availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
+    ) {
+      throw new OneKeyLocalError(
+        `${EAppUpdatePackageErrorCode.packageUnavailable}:${
+          availability.errorCode || 'IO_ERROR'
+        }`,
+      );
+    }
+    if (!downloadedFile) {
+      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    }
+    return downloadedFile;
   }
 
   async clearUpdateCache(): Promise<void> {
@@ -557,15 +600,20 @@ class DesktopApiAppUpdate {
 
   async verifyFile(verifyParams: IInstallUpdateParams): Promise<boolean> {
     const { downloadedFile, downloadUrl } = verifyParams;
-    if (!downloadedFile || !downloadUrl) {
+    if (!downloadUrl) {
       logger.info('auto-updater', 'no such file');
       return false;
     }
+    const verifiedDownloadedFile =
+      await this.assertDownloadedFileAvailable(downloadedFile);
     if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
       logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
       return true;
     }
-    logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
+    logger.info(
+      'auto-updater',
+      `verifyFile ${verifiedDownloadedFile} ${downloadUrl}`,
+    );
 
     const sha256 = await this.getSha256();
     if (!sha256) {
@@ -574,13 +622,22 @@ class DesktopApiAppUpdate {
     }
 
     try {
-      const verified = await this.verifySha256(downloadedFile, sha256);
+      const verified = await this.verifySha256(verifiedDownloadedFile, sha256);
       if (!verified) {
         // sendValidError();
         return false;
       }
     } catch (error) {
       logger.info('auto-updater', 'verifyFile error', error);
+      const errorCode = (error as NodeJS.ErrnoException)?.code;
+      if (errorCode === 'ENOENT' || errorCode === 'ENOTDIR') {
+        throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+      }
+      if (errorCode) {
+        throw new OneKeyLocalError(
+          `${EAppUpdatePackageErrorCode.packageUnavailable}:${errorCode}`,
+        );
+      }
       throw new OneKeyLocalError(
         ElectronTranslations.update_installation_package_possibly_compromised,
       );
@@ -643,6 +700,7 @@ class DesktopApiAppUpdate {
       message: i18nText(ElectronTranslations.update_new_update_downloaded),
     });
     if (selection.response === 0) {
+      await this.assertDownloadedFileAvailable(verifyParams.downloadedFile);
       store.setUpdateBuildNumber(buildNumber);
       logger.info('auto-update', 'button[0] was clicked', buildNumber);
       // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357

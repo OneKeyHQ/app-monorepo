@@ -326,7 +326,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // guard prevents any retry — so the dialog ends up surfacing on the
     // following cold launch instead of the one right after the install.
     void (async () => {
-      const info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const info =
+        await backgroundApiProxy.serviceAppUpdate.reconcileReadyAppShellPackage();
       if (cancelled) return;
 
       if (isFirstLaunchAfterUpdated(info)) {

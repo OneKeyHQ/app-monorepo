@@ -4,6 +4,8 @@
 // PII scrubber can be unit-tested independently of the React hooks
 // that wire them into download / verify / install flows.
 
+import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+
 /**
  * Defense-in-depth scrubber for free-text error messages before they leave
  * the client. The native modules try not to embed PII, but Node.js fs errors
@@ -88,6 +90,15 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
       ? error
       : ((error as { message?: string } | null)?.message ?? '');
   if (!msg) return undefined;
+
+  if (
+    /\b(?:APP_PACKAGE_MISSING|NOT_FOUND_PACKAGE|ENOENT|ENOTDIR)\b/i.test(msg)
+  ) {
+    return EAppUpdatePackageErrorCode.packageMissing;
+  }
+  if (/\b(?:APP_PACKAGE_UNAVAILABLE|EACCES|EPERM|EIO|EROFS)\b/i.test(msg)) {
+    return EAppUpdatePackageErrorCode.packageUnavailable;
+  }
 
   // SHA reasons can include native error class names mixed with digits
   // and dashes (e.g. iOS "IO_NSCocoaErrorDomain_257" or Android

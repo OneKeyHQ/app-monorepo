@@ -53,6 +53,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     version: '1.0.0',
     bundleVersion: '1',
+    isDesktop: true,
   },
 }));
 
@@ -72,6 +73,9 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   AppUpdate: {
+    checkPackageAvailability: jest.fn(async () => ({
+      status: 'notApplicable',
+    })),
     installPackage: jest.fn(async () => undefined),
   },
   BundleUpdate: {
@@ -486,6 +490,31 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
   });
 
+  test('missing app shell package triggers full-flow re-download', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+      status: 'missing',
+    });
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe('notify');
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+  });
+
   test('bundle missing triggers full-flow retry and clears task', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
@@ -680,8 +709,15 @@ describe('servicePendingInstallTask', () => {
 
   test('app-install retry exhausted freezes target', async () => {
     const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.installPackage.mockRejectedValueOnce(
+      new Error('install failed'),
+    );
     setState({
-      downloadedEvent: undefined,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
     });
     pendingTaskValue = makeAppShellInstallTask({ retryCount: 2 });
 
