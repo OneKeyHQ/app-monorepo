@@ -54,7 +54,6 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
-import type { IDesktopCustomInjectedTab } from '@onekeyhq/shared/types/desktop';
 
 import {
   activeTabIdAtom,
@@ -122,10 +121,7 @@ export enum EBrowserTabPersistMode {
 // underlying setRawData promise so callers (and the debounced wrapper's
 // `.flush()`) can await durability before the JS runtime is suspended.
 function persistTabsToSimpleDb(tabs: IWebTab[]) {
-  const persistentTabs = tabs.map(({ customInjected: _, ...tab }) => tab);
-  return backgroundApiProxy.simpleDb.browserTabs.setRawData({
-    tabs: persistentTabs,
-  });
+  return backgroundApiProxy.simpleDb.browserTabs.setRawData({ tabs });
 }
 
 // Coalesce rapid persistence of browser-tab state. Each user action (open,
@@ -650,7 +646,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         favicon?: string;
         isBookmark?: boolean;
         siteMode?: ESiteMode;
-        customInjected?: IDesktopCustomInjectedTab;
       },
     ) => {
       const { tabs } = get(webTabsAtom());
@@ -667,7 +662,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         favicon: payload.favicon ?? previousTab.favicon,
         isBookmark: payload.isBookmark,
         siteMode: payload.siteMode,
-        customInjected: payload.customInjected ?? previousTab.customInjected,
         type: 'normal',
         timestamp: previousTab.timestamp ?? Date.now(),
       };
@@ -1155,7 +1149,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         siteMode,
         isNewWindow,
         isInPlace,
-        customInjected,
       }: IGotoSiteFnParams,
     ) => {
       if (url) {
@@ -1211,7 +1204,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             isBookmark,
             siteMode,
             type: 'normal',
-            customInjected,
           });
         } else if (shouldOpenInHomeTab && tabId) {
           this.openUrlInHomeTab.call(set, {
@@ -1221,7 +1213,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             favicon,
             isBookmark,
             siteMode,
-            customInjected,
           });
           if (!isInPlace) {
             this.setCurrentWebTab.call(set, tabId);
@@ -1234,7 +1225,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             favicon,
             isBookmark,
             type: 'normal',
-            customInjected,
           });
           if (!isInPlace) {
             this.setCurrentWebTab.call(set, tabId ?? '');
@@ -1257,7 +1247,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     async (
       _,
       set,
-      { dApp, webSite, isNewWindow, tabId, customInjected }: IMatchDAppItemType,
+      { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
     ) => {
       if (webSite) {
         return this.gotoSite.call(set, {
@@ -1269,7 +1259,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               webSite.url,
             ),
           isNewWindow,
-          customInjected,
         });
       }
       if (dApp) {
@@ -1280,7 +1269,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
           isNewWindow,
-          customInjected,
         });
       }
     },
@@ -1296,14 +1284,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation: _navigation,
         webSite,
         dApp,
-        customInjected,
       }: {
         navigation?: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
-        customInjected?: IDesktopCustomInjectedTab;
       },
     ) => {
       const url = dApp?.url ?? webSite?.url;
@@ -1363,7 +1349,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           dApp,
           isNewWindow,
           tabId,
-          customInjected,
         });
         if (opened) {
           this.setDisplayHomePage.call(set, false);

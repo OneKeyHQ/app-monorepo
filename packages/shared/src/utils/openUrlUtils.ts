@@ -18,7 +18,7 @@ import { ETranslations } from '../locale';
 
 import { parseUrl } from './uriUtils';
 
-import type { IDesktopCustomInjectedTab, IPrefType } from '../../types/desktop';
+import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 
 // ========== Discovery Browser ==========
@@ -26,14 +26,13 @@ import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 export interface IOpenUrlInDiscoveryParams {
   url: string;
   title?: string;
-  customInjected?: IDesktopCustomInjectedTab;
 }
 
 /**
  * Pending URL to be opened in Discovery browser
  * This is checked by the Discovery component on mount/focus
  */
-let pendingDiscoveryUrl: IOpenUrlInDiscoveryParams | null = null;
+let pendingDiscoveryUrl: { url: string; title?: string } | null = null;
 
 /**
  * Get and clear the pending Discovery URL
@@ -42,7 +41,6 @@ let pendingDiscoveryUrl: IOpenUrlInDiscoveryParams | null = null;
 export function getPendingDiscoveryUrl(): {
   url: string;
   title?: string;
-  customInjected?: IDesktopCustomInjectedTab;
 } | null {
   const pending = pendingDiscoveryUrl;
   pendingDiscoveryUrl = null;
@@ -53,12 +51,8 @@ export function getPendingDiscoveryUrl(): {
  * Set a pending Discovery URL to be opened
  * Used internally by openUrlInDiscovery
  */
-export function setPendingDiscoveryUrl(
-  url: string,
-  title?: string,
-  customInjected?: IDesktopCustomInjectedTab,
-): void {
-  pendingDiscoveryUrl = { url, title, customInjected };
+export function setPendingDiscoveryUrl(url: string, title?: string): void {
+  pendingDiscoveryUrl = { url, title };
 }
 
 export function clearPendingDiscoveryUrl(): void {
@@ -315,10 +309,10 @@ export function gotoDiscoveryTab(): void {
  * ```
  */
 export function openUrlInDiscovery(params: IOpenUrlInDiscoveryParams): void {
-  const { url, title, customInjected } = params;
+  const { url, title } = params;
 
   // Store URL and navigate to Discovery tab
-  setPendingDiscoveryUrl(url, title, customInjected);
+  setPendingDiscoveryUrl(url, title);
   gotoDiscoveryTab();
 }
 

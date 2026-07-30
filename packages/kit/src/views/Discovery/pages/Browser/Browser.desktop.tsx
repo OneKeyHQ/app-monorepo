@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, Stack } from '@onekeyhq/components';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -10,6 +10,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  getActiveCustomInjectedWorkspace,
+  setActiveCustomInjectedWorkspace,
+  subscribeActiveCustomInjectedWorkspace,
+} from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import CustomInjectedToolbar from '../../components/CustomInjectedToolbar';
@@ -19,12 +24,12 @@ import {
   useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
+import { webviewRefs } from '../../utils/explorerUtils';
 import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
 import { withBrowserProvider } from './WithBrowserProvider';
-import { webviewRefs } from '../../utils/explorerUtils';
 
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
@@ -32,6 +37,51 @@ function DesktopBrowser() {
   const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
   const isHomeType = activeTab?.type === 'home';
   const { addBrowserHomeTab, setWebTabData } = useBrowserTabActions().current;
+  const [customSession, setCustomSession] = useState(
+    getActiveCustomInjectedWorkspace,
+  );
+  const [selectedProtocolId, setSelectedProtocolId] = useState<string>();
+
+  useEffect(
+    () =>
+      subscribeActiveCustomInjectedWorkspace((session) => {
+        setCustomSession(session);
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    void globalThis.desktopApiProxy.webview
+      .getActiveCustomInjectedWorkspace()
+      .then((session) => {
+        if (mounted) {
+          setActiveCustomInjectedWorkspace(session ?? undefined);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setSelectedProtocolId((currentProtocolId) => {
+      if (
+        currentProtocolId &&
+        customSession?.protocols.some(
+          (protocol) => protocol.id === currentProtocolId,
+        )
+      ) {
+        return currentProtocolId;
+      }
+      return (
+        customSession?.protocols.find(
+          (protocol) => protocol.manualReview.state === 'pending',
+        )?.id ?? customSession?.protocols[0]?.id
+      );
+    });
+  }, [customSession]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.CreateNewBrowserTab, addBrowserHomeTab);
@@ -58,61 +108,40 @@ function DesktopBrowser() {
   const selectCustomInjectedProtocol = useCallback(
     (
       protocol: ICustomInjectedProtocol,
-      customSession: ICustomInjectedSession,
+      nextCustomSession: ICustomInjectedSession,
     ) => {
-      if (!activeTab?.id || !activeTab.customInjected) {
+      if (!activeTab?.id) {
         return;
       }
       const shouldRemountWebView =
-        activeTab.customInjected.preloadUrl !== customSession.preloadUrl;
+        customSession?.preloadUrl !== nextCustomSession.preloadUrl;
+      setActiveCustomInjectedWorkspace(nextCustomSession);
+      setSelectedProtocolId(protocol.id);
       setWebTabData({
         id: activeTab.id,
         url: protocol.url,
         title: protocol.name,
-        customInjected: {
-          sessionId: customSession.sessionId,
-          protocolId: protocol.id,
-          preloadUrl: customSession.preloadUrl,
-          bundleSha256: customSession.bundleSha256,
-          registrySha256: customSession.registrySha256,
-        },
       });
       if (!shouldRemountWebView) {
         webviewRefs[activeTab.id]?.loadURL(protocol.url);
       }
     },
-    [activeTab, setWebTabData],
+    [activeTab?.id, customSession?.preloadUrl, setWebTabData],
   );
 
   const reloadCustomInjectedWebView = useCallback(
-    (customSession: ICustomInjectedSession) => {
-      if (!activeTab?.id || !activeTab.customInjected) {
-        return;
-      }
-      const protocol = customSession.protocols.find(
-        (candidate) => candidate.id === activeTab.customInjected?.protocolId,
-      );
-      if (!protocol) {
+    (nextCustomSession: ICustomInjectedSession) => {
+      if (!activeTab?.id) {
         return;
       }
       const shouldRemountWebView =
-        activeTab.customInjected.preloadUrl !== customSession.preloadUrl;
-      setWebTabData({
-        id: activeTab.id,
-        url: protocol.url,
-        title: protocol.name,
-        customInjected: {
-          ...activeTab.customInjected,
-          preloadUrl: customSession.preloadUrl,
-          bundleSha256: customSession.bundleSha256,
-          registrySha256: customSession.registrySha256,
-        },
-      });
+        customSession?.preloadUrl !== nextCustomSession.preloadUrl;
+      setActiveCustomInjectedWorkspace(nextCustomSession);
       if (!shouldRemountWebView) {
         webviewRefs[activeTab.id]?.reload();
       }
     },
-    [activeTab, setWebTabData],
+    [activeTab?.id, customSession?.preloadUrl],
   );
 
   return (
@@ -139,14 +168,15 @@ function DesktopBrowser() {
               key={t.id}
               id={t.id}
               activeTabId={activeTabId}
+              desktopPreloadUrl={customSession?.preloadUrl}
             />
           ))}
         </Stack>
-        {activeTab?.customInjected ? (
+        {customSession && selectedProtocolId ? (
           <CustomInjectedToolbar
-            activeBundleSha256={activeTab.customInjected.bundleSha256}
-            selectedProtocolId={activeTab.customInjected.protocolId}
-            sessionId={activeTab.customInjected.sessionId}
+            activeBundleSha256={customSession.bundleSha256}
+            selectedProtocolId={selectedProtocolId}
+            sessionId={customSession.sessionId}
             onReload={reloadCustomInjectedWebView}
             onSelectProtocol={selectCustomInjectedProtocol}
           />

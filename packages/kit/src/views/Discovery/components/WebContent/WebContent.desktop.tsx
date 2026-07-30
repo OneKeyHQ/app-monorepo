@@ -34,6 +34,7 @@ import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTyp
 type IWebContentProps = IWebTab &
   WebViewProps & {
     isCurrent?: boolean;
+    desktopPreloadUrl?: string;
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
@@ -48,7 +49,7 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
 function WebContent({
   id,
   url,
-  customInjected,
+  desktopPreloadUrl,
   customReceiveHandler,
 }: IWebContentProps) {
   const navigation = useAppNavigation();
@@ -236,11 +237,13 @@ function WebContent({
       return (
         <WebView
           key={
-            customInjected ? `custom-injected-${customInjected.preloadUrl}` : id
+            desktopPreloadUrl
+              ? `custom-injected-${id}-${desktopPreloadUrl}`
+              : id
           }
           id={id}
           src={url}
-          desktopPreloadUrl={customInjected?.preloadUrl}
+          desktopPreloadUrl={desktopPreloadUrl}
           customReceiveHandler={customReceiveHandler}
           onWebViewRef={(ref) => {
             if (ref && ref.innerRef) {
@@ -277,7 +280,7 @@ function WebContent({
       onDomReady,
       shouldBlockCurrentUrl,
       customReceiveHandler,
-      customInjected?.preloadUrl,
+      desktopPreloadUrl,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],

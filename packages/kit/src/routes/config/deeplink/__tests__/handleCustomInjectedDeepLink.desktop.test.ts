@@ -1,5 +1,6 @@
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { setActiveCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleCustomInjectedDeepLink } from '../handleCustomInjectedDeepLink.desktop';
@@ -23,10 +24,18 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlInDiscovery: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime', () => ({
+  setActiveCustomInjectedWorkspace: jest.fn(),
+}));
+
 const showDialog = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 const mockedOpenUrlInDiscovery = openUrlInDiscovery as jest.MockedFunction<
   typeof openUrlInDiscovery
 >;
+const mockedSetActiveCustomInjectedWorkspace =
+  setActiveCustomInjectedWorkspace as jest.MockedFunction<
+    typeof setActiveCustomInjectedWorkspace
+  >;
 const mockedDevSettingService =
   backgroundApiProxy.serviceDevSetting as unknown as {
     getDevSetting: jest.Mock;
@@ -132,16 +141,13 @@ describe('handleCustomInjectedDeepLink', () => {
       true,
     );
     expect(activateCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
-    expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: 'https://pending.example',
-        title: 'Pending',
-        customInjected: expect.objectContaining({
-          sessionId: 'session-1',
-          protocolId: 'pending',
-        }),
-      }),
+    expect(mockedSetActiveCustomInjectedWorkspace).toHaveBeenCalledWith(
+      customSession,
     );
+    expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith({
+      url: 'https://pending.example',
+      title: 'Pending',
+    });
   });
 
   it('closes the prepared session when confirmation is canceled', async () => {

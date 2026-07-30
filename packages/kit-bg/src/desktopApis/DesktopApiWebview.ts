@@ -111,6 +111,7 @@ const customInjectedSessions = new Map<
   string,
   ICustomInjectedWorkspaceSession
 >();
+let activeCustomInjectedSessionId: string | undefined;
 
 function sha256(value: string | Buffer): string {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -534,7 +535,35 @@ class DesktopApiNetwork {
     if (!customSession) {
       throw new OneKeyLocalError('Custom injection session not found');
     }
+    await refreshCustomInjectedSession(customSession);
+    if (
+      activeCustomInjectedSessionId &&
+      activeCustomInjectedSessionId !== sessionId
+    ) {
+      const previousSession = customInjectedSessions.get(
+        activeCustomInjectedSessionId,
+      );
+      if (previousSession) {
+        previousSession.active = false;
+      }
+      customInjectedSessions.delete(activeCustomInjectedSessionId);
+    }
     customSession.active = true;
+    activeCustomInjectedSessionId = sessionId;
+    return publicCustomInjectedSession(customSession);
+  }
+
+  async getActiveCustomInjectedWorkspace(): Promise<ICustomInjectedSession | null> {
+    if (!activeCustomInjectedSessionId) {
+      return null;
+    }
+    const customSession = customInjectedSessions.get(
+      activeCustomInjectedSessionId,
+    );
+    if (!customSession?.active) {
+      activeCustomInjectedSessionId = undefined;
+      return null;
+    }
     await refreshCustomInjectedSession(customSession);
     return publicCustomInjectedSession(customSession);
   }
@@ -620,6 +649,9 @@ class DesktopApiNetwork {
   }
 
   async closeCustomInjectedWorkspace(sessionId: string): Promise<void> {
+    if (activeCustomInjectedSessionId === sessionId) {
+      activeCustomInjectedSessionId = undefined;
+    }
     customInjectedSessions.delete(sessionId);
   }
 }

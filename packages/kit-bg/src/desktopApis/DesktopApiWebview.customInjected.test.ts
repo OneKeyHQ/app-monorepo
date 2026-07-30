@@ -166,6 +166,25 @@ describe('DesktopApiWebview custom injection', () => {
       expect(session.preloadUrl).toMatch(
         /^file:.*injectedDesktopPreload\.js\?sha256=[a-f0-9]{64}$/u,
       );
+      await expect(api.getActiveCustomInjectedWorkspace()).resolves.toEqual(
+        expect.objectContaining({
+          sessionId: preview.sessionId,
+          preloadUrl: session.preloadUrl,
+        }),
+      );
+      const replacementPreview = await api.prepareCustomInjectedWorkspace(
+        workspace,
+        true,
+      );
+      await api.activateCustomInjectedWorkspace(replacementPreview.sessionId);
+      await expect(
+        api.getCustomInjectedWorkspace(preview.sessionId),
+      ).rejects.toThrow('not active');
+      await expect(api.getActiveCustomInjectedWorkspace()).resolves.toEqual(
+        expect.objectContaining({
+          sessionId: replacementPreview.sessionId,
+        }),
+      );
 
       await fs.writeFile(
         path.join(temporaryRoot, 'outside.json'),
@@ -184,6 +203,8 @@ describe('DesktopApiWebview custom injection', () => {
       await expect(
         api.prepareCustomInjectedWorkspace(workspace, true),
       ).rejects.toThrow('protocolRegistry escapes the selected workspace');
+      await api.closeCustomInjectedWorkspace(replacementPreview.sessionId);
+      await expect(api.getActiveCustomInjectedWorkspace()).resolves.toBeNull();
     } finally {
       await fs.rm(temporaryRoot, { force: true, recursive: true });
     }

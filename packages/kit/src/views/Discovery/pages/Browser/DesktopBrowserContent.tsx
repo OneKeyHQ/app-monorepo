@@ -238,9 +238,11 @@ const DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS = 200;
 function BasicDesktopBrowserContent({
   id,
   activeTabId,
+  desktopPreloadUrl,
 }: {
   id: string;
   activeTabId: string | null;
+  desktopPreloadUrl?: string;
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
@@ -292,7 +294,7 @@ function BasicDesktopBrowserContent({
       <WebContent
         id={id}
         url={tab.url}
-        customInjected={tab.customInjected}
+        desktopPreloadUrl={desktopPreloadUrl}
         isCurrent={isActive}
         customReceiveHandler={customReceiveHandler}
       />

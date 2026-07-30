@@ -16,10 +16,16 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled?: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
+    desktopPreloadUrl?: string;
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
-function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
+function WebContent({
+  id,
+  url,
+  desktopPreloadUrl,
+  customReceiveHandler,
+}: IWebContentProps) {
   const { setWebTabData } = useBrowserTabActions().current;
 
   const handleMessage = useCallback(
@@ -34,6 +40,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       <WebView
         id={id}
         src={url}
+        desktopPreloadUrl={desktopPreloadUrl}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
         onWebViewRef={(ref) => {
@@ -51,7 +58,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, customReceiveHandler],
+    [id, customReceiveHandler, desktopPreloadUrl],
   );
 
   return webview;

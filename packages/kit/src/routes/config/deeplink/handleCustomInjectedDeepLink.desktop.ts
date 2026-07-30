@@ -1,4 +1,5 @@
 import { Dialog } from '@onekeyhq/components';
+import { setActiveCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -62,6 +63,7 @@ export async function handleCustomInjectedDeepLink(query: {
   }
 
   let sessionId: string | undefined;
+  let activated = false;
   try {
     const preview =
       await globalThis.desktopApiProxy.webview.prepareCustomInjectedWorkspace(
@@ -92,6 +94,8 @@ export async function handleCustomInjectedDeepLink(query: {
       await globalThis.desktopApiProxy.webview.activateCustomInjectedWorkspace(
         preview.sessionId,
       );
+    activated = true;
+    setActiveCustomInjectedWorkspace(customSession);
     const initialProtocol =
       customSession.protocols.find(
         (protocol) => protocol.manualReview.state === 'pending',
@@ -102,19 +106,15 @@ export async function handleCustomInjectedDeepLink(query: {
     openUrlInDiscovery({
       url: initialProtocol.url,
       title: initialProtocol.name,
-      customInjected: {
-        sessionId: customSession.sessionId,
-        protocolId: initialProtocol.id,
-        preloadUrl: customSession.preloadUrl,
-        bundleSha256: customSession.bundleSha256,
-        registrySha256: customSession.registrySha256,
-      },
     });
   } catch (error) {
     if (sessionId) {
       await globalThis.desktopApiProxy.webview
         .closeCustomInjectedWorkspace(sessionId)
         .catch(() => undefined);
+    }
+    if (activated) {
+      setActiveCustomInjectedWorkspace(undefined);
     }
     showError(
       'Unable to load custom injection workspace',

@@ -5,7 +5,6 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IDesktopCustomInjectedTab } from '@onekeyhq/shared/types/desktop';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { useActiveTabId } from './useWebTabs';
@@ -19,7 +18,6 @@ interface IHandleWebSiteParams {
   useCurrentWindow?: boolean;
   enterMethod: EEnterMethod;
   tabId?: string;
-  customInjected?: IDesktopCustomInjectedTab;
 }
 
 export const useWebSiteHandler = () => {
@@ -36,7 +34,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
         useCurrentWindow,
         tabId,
-        customInjected,
       } = props;
 
       const isDapp = !!dApp;
@@ -57,7 +54,6 @@ export const useWebSiteHandler = () => {
           navigation,
           useCurrentWindow,
           tabId: effectiveTabId,
-          customInjected,
         });
       }
 
