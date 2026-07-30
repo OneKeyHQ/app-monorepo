@@ -2,6 +2,8 @@ import { ClassicDevice } from '.';
 
 import { XStack } from '../../primitives';
 
+import { ConfirmOnClassic } from './ConfirmOnClassic';
+
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // PoC story: 1:1 code recreation of the Classic hardware device
@@ -32,4 +34,10 @@ export const Sizes: Story = {
       <ClassicDevice width={240} />
     </XStack>
   ),
+};
+
+// Confirm scene: skeleton screen, 3s loop of wake -> content fade-in ->
+// physical OK press -> sleep.
+export const Confirm: Story = {
+  render: (args) => <ConfirmOnClassic width={args.width} />,
 };
