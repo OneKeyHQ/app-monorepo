@@ -1151,6 +1151,12 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   private var userScrollActive = false
   private var pendingSynchronizedCollapseOffset: Int? = null
   private var lastDispatchedCollapseOffset: Int? = null
+  private var hasPendingListLayoutCommit = false
+  private var isListLayoutCommitScheduled = false
+  private val listLayoutCommitRunnable = Runnable {
+    isListLayoutCommitScheduled = false
+    commitPendingListLayout()
+  }
 
   val collapseOffset: Int
     get() {
@@ -1172,17 +1178,26 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       onAction?.invoke(actionId, itemId)
     }
     listAdapter.onRowsSubmitted = {
-      recycler.requestLayout()
-      this@HomePageView.requestLayout()
-      recycler.postOnAnimation {
-        recycler.requestLayout()
-        this@HomePageView.requestLayout()
-        if (recycler.hasPendingAdapterUpdates()) {
-          rootView.requestLayout()
-        }
-        scheduleSlotLayoutAfterListMutation()
-      }
+      hasPendingListLayoutCommit = true
+      schedulePendingListLayoutCommit()
+      scheduleSlotLayoutAfterListMutation()
     }
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    schedulePendingListLayoutCommit()
+  }
+
+  override fun onDetachedFromWindow() {
+    recycler.removeCallbacks(listLayoutCommitRunnable)
+    isListLayoutCommitScheduled = false
+    super.onDetachedFromWindow()
+  }
+
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    super.onLayout(changed, left, top, right, bottom)
+    schedulePendingListLayoutCommit()
   }
 
   fun bind(
@@ -1239,6 +1254,9 @@ private class HomePageView(context: Context) : FrameLayout(context) {
 
   fun recycle() {
     pendingSynchronizedCollapseOffset = null
+    hasPendingListLayoutCommit = false
+    recycler.removeCallbacks(listLayoutCommitRunnable)
+    isListLayoutCommitScheduled = false
     recycler.adapter = null
     listAdapter.onAction = null
     listAdapter.onRowsSubmitted = null
@@ -1295,6 +1313,8 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   private fun configureRecycler(target: RecyclerView) {
     target.layoutManager = LinearLayoutManager(context)
     target.adapter = listAdapter
+    // Adapter content cannot change the page-sized RecyclerView bounds.
+    target.setHasFixedSize(true)
     target.itemAnimator = DefaultItemAnimator().apply {
       supportsChangeAnimations = false
       addDuration = 180
@@ -1325,6 +1345,8 @@ private class HomePageView(context: Context) : FrameLayout(context) {
         userScrollActive = newState != RecyclerView.SCROLL_STATE_IDLE
         if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
           pendingSynchronizedCollapseOffset = null
+        } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+          schedulePendingListLayoutCommit()
         }
       }
 
@@ -1343,6 +1365,43 @@ private class HomePageView(context: Context) : FrameLayout(context) {
         }
       }
     })
+  }
+
+  private fun schedulePendingListLayoutCommit() {
+    if (!hasPendingListLayoutCommit || isListLayoutCommitScheduled) return
+    isListLayoutCommitScheduled = true
+    recycler.postOnAnimation(listLayoutCommitRunnable)
+  }
+
+  private fun commitPendingListLayout() {
+    if (!hasPendingListLayoutCommit) return
+    if (
+      !recycler.isAttachedToWindow ||
+      recycler.width <= 0 ||
+      recycler.height <= 0
+    ) {
+      return
+    }
+    if (recycler.isComputingLayout) {
+      schedulePendingListLayoutCommit()
+      return
+    }
+    if (recycler.scrollState != RecyclerView.SCROLL_STATE_IDLE) return
+    if (!recycler.hasPendingAdapterUpdates()) {
+      hasPendingListLayoutCommit = false
+      return
+    }
+    // React Native owns the outer bounds, so a nested requestLayout() may not
+    // receive another ViewRoot traversal. Complete the RecyclerView's pending
+    // update with the exact same bounds without changing its scroll position.
+    recycler.forceLayout()
+    recycler.measure(
+      MeasureSpec.makeMeasureSpec(recycler.width, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(recycler.height, MeasureSpec.EXACTLY),
+    )
+    recycler.layout(recycler.left, recycler.top, recycler.right, recycler.bottom)
+    hasPendingListLayoutCommit = recycler.hasPendingAdapterUpdates()
+    schedulePendingListLayoutCommit()
   }
 
   private fun applyPendingSynchronizedCollapseOffset() {
@@ -1474,55 +1533,12 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
 
   private fun submitRows(themeChanged: Boolean = false) {
     val currentRows = rows
-    val currentHasLoadingRows = currentRows.any { it.item?.renderer == "loading" }
     val nextRows = buildRows()
-    val transitionsFromLoading =
-      currentHasLoadingRows && nextRows.none { it.item?.renderer == "loading" }
-    val hydratesDeferredPortfolioSections =
-      tabId == "portfolio" &&
-        currentRows.none { it.item?.renderer == "marketTabs" } &&
-        nextRows.any { it.item?.renderer == "marketTabs" }
-    val structureChanged =
-      currentRows.map { row -> row.kind to row.stableId } !=
-        nextRows.map { row -> row.kind to row.stableId }
-    val currentRowsByStableId = currentRows.associateBy(HomeListRow::stableId)
-    val interactiveContentChanged = nextRows.any { nextRow ->
-      val currentItem = currentRowsByStableId[nextRow.stableId]?.item
-      val nextItem = nextRow.item
-      when (nextItem?.renderer) {
-        "showMore" -> currentItem?.title != nextItem.title
-        "market" ->
-          currentItem?.favorite != nextItem.favorite ||
-            currentItem?.favoriteLabel != nextItem.favoriteLabel
-        "marketTabs" -> currentItem?.segments != nextItem.segments
-        else -> false
-      }
-    }
-    val requiresFullRebind =
-      transitionsFromLoading ||
-        hydratesDeferredPortfolioSections ||
-        structureChanged ||
-        interactiveContentChanged
+    val diff = DiffUtil.calculateDiff(RowDiffCallback(currentRows, nextRows))
+    rows = nextRows
+    diff.dispatchUpdatesTo(this)
 
-    if (requiresFullRebind) {
-      rows = nextRows
-      // Skeleton views continuously invalidate while shimmering. A full,
-      // synchronous rebind is required for loading-to-content and for the
-      // one-time deferred portfolio-section hydration. Keep the recycler
-      // mounted while rebinding so data polling cannot expose an empty frame.
-      // Ordinary content updates below still use DiffUtil animations.
-      notifyDataSetChanged()
-    } else {
-      val diff = DiffUtil.calculateDiff(RowDiffCallback(currentRows, nextRows))
-      rows = nextRows
-      diff.dispatchUpdatesTo(this)
-    }
-
-    if (
-      themeChanged &&
-      itemCount > 0 &&
-      !requiresFullRebind
-    ) {
+    if (themeChanged && itemCount > 0) {
       notifyItemRangeChanged(0, itemCount, PAYLOAD_THEME)
     }
     onRowsSubmitted?.invoke()

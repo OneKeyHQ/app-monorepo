@@ -1,0 +1,234 @@
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/cpp/cpp-adapter.cpp b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/cpp/cpp-adapter.cpp
+index f19e02f..5a80498 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/cpp/cpp-adapter.cpp
++++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/cpp/cpp-adapter.cpp
+@@ -1,5 +1,6 @@
+ #include <jni.h>
+ #include <jsi/jsi.h>
++#include <react/jni/JRuntimeExecutor.h>
+ #include <android/log.h>
+ #include <atomic>
+ #include <chrono>
+@@ -22,6 +23,8 @@
+ #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+ 
+ namespace jsi = facebook::jsi;
++namespace jni = facebook::jni;
++namespace react = facebook::react;
+ 
+ static JavaVM *gJavaVM = nullptr;
+ 
+@@ -155,9 +158,19 @@ static bool callScheduleOnJSThread(const JavaObjectRef &ref, bool isMain, int64_
+ 
+ static void drainPendingBgEvals(const std::string &reason);
+ 
+-static void scheduleRuntimeDrain(const JavaObjectRef &ref, bool isMain);
++using ReactRuntimeExecutorRef =
++    std::shared_ptr<react::RuntimeExecutor>;
+ 
+-static void drainRuntimeWorkQueue(jsi::Runtime &rt, JavaObjectRef ref, bool isMain) {
++static void scheduleRuntimeDrain(
++    const JavaObjectRef &ref,
++    bool isMain,
++    const ReactRuntimeExecutorRef &reactRuntimeExecutor);
++
++static void drainRuntimeWorkQueue(
++    jsi::Runtime &rt,
++    JavaObjectRef ref,
++    bool isMain,
++    ReactRuntimeExecutorRef reactRuntimeExecutor) {
+     size_t drained = 0;
+ 
+     while (drained < kRuntimeDrainBatchSize) {
+@@ -206,11 +219,52 @@ static void drainRuntimeWorkQueue(jsi::Runtime &rt, JavaObjectRef ref, bool isMa
+     }
+ 
+     if (shouldReschedule) {
+-        scheduleRuntimeDrain(ref, isMain);
++        scheduleRuntimeDrain(ref, isMain, reactRuntimeExecutor);
+     }
+ }
+ 
+-static void scheduleRuntimeDrain(const JavaObjectRef &ref, bool isMain) {
++static void drainRuntimeMicrotasks(jsi::Runtime &rt) {
++    try {
++        rt.drainMicrotasks();
++    } catch (const jsi::JSError &e) {
++        LOGE("JSError draining runtime-executor microtasks: %s", e.getMessage().c_str());
++    } catch (const std::exception &e) {
++        LOGE("Error draining runtime-executor microtasks: %s", e.what());
++    }
++}
++
++static void scheduleRuntimeDrain(
++    const JavaObjectRef &ref,
++    bool isMain,
++    const ReactRuntimeExecutorRef &reactRuntimeExecutor) {
++    if (reactRuntimeExecutor) {
++        {
++            std::lock_guard<std::mutex> lock(gWorkMutex);
++            auto &queue = getRuntimeWorkQueue(isMain);
++            if (queue.items.empty()) {
++                queue.drainScheduled = false;
++                queue.scheduledDrainWorkId = -1;
++                return;
++            }
++            queue.scheduledDrainWorkId = -1;
++        }
++
++        // OneKey patch: main-runtime SharedRPC callbacks must enter React
++        // Native through RuntimeExecutor so React's RuntimeScheduler is woken.
++        // Keep the explicit microtask drain from nativeExecuteWork: SharedRPC
++        // delivery resolves promises whose continuations publish React state.
++        (*reactRuntimeExecutor)(
++            [ref, isMain, reactRuntimeExecutor](jsi::Runtime &rt) {
++                drainRuntimeWorkQueue(
++                    rt,
++                    ref,
++                    isMain,
++                    reactRuntimeExecutor);
++                drainRuntimeMicrotasks(rt);
++            });
++        return;
++    }
++
+     int64_t workId;
+     size_t queued = 0;
+     {
+@@ -234,7 +288,7 @@ static void scheduleRuntimeDrain(const JavaObjectRef &ref, bool isMain) {
+         // orphaned gPendingWork entry if the post is dropped during reload.
+         queue.scheduledDrainWorkId = workId;
+         gPendingWork[workId] = [ref, isMain](jsi::Runtime &rt) {
+-            drainRuntimeWorkQueue(rt, ref, isMain);
++            drainRuntimeWorkQueue(rt, ref, isMain, nullptr);
+         };
+     }
+ 
+@@ -260,7 +314,11 @@ static void scheduleRuntimeDrain(const JavaObjectRef &ref, bool isMain) {
+     }
+ }
+ 
+-static void enqueueRuntimeWork(JavaObjectRef ref, bool isMain, std::function<void(jsi::Runtime &)> work) {
++static void enqueueRuntimeWork(
++    JavaObjectRef ref,
++    bool isMain,
++    ReactRuntimeExecutorRef reactRuntimeExecutor,
++    std::function<void(jsi::Runtime &)> work) {
+     bool shouldSchedule = false;
+     size_t queued = 0;
+     {
+@@ -279,7 +337,7 @@ static void enqueueRuntimeWork(JavaObjectRef ref, bool isMain, std::function<voi
+     }
+ 
+     if (shouldSchedule) {
+-        scheduleRuntimeDrain(ref, isMain);
++        scheduleRuntimeDrain(ref, isMain, reactRuntimeExecutor);
+     }
+ }
+ 
+@@ -1009,7 +1067,11 @@ Java_com_backgroundthread_BackgroundThreadManager_nativeDropScheduledWork(
+ // Install SharedStore and SharedRPC into a runtime.
+ extern "C" JNIEXPORT void JNICALL
+ Java_com_backgroundthread_BackgroundThreadManager_nativeInstallSharedBridge(
+-    JNIEnv *env, jobject thiz, jlong runtimePtr, jboolean isMain) {
++    JNIEnv *env,
++    jobject thiz,
++    jlong runtimePtr,
++    jboolean isMain,
++    jobject runtimeExecutorHolder) {
+ 
+     auto *rt = reinterpret_cast<jsi::Runtime *>(runtimePtr);
+     if (!rt) return;
+@@ -1026,14 +1088,31 @@ Java_com_backgroundthread_BackgroundThreadManager_nativeInstallSharedBridge(
+         }
+     });
+     bool capturedIsMain = static_cast<bool>(isMain);
++    ReactRuntimeExecutorRef reactRuntimeExecutor;
++    if (capturedIsMain && runtimeExecutorHolder) {
++        auto executorHolder = jni::static_ref_cast<
++            react::JRuntimeExecutor::javaobject>(
++            jni::wrap_alias(runtimeExecutorHolder));
++        reactRuntimeExecutor =
++            std::make_shared<react::RuntimeExecutor>(
++                executorHolder->cthis()->get());
++    }
+ 
+-    RPCRuntimeExecutor executor = [ref, capturedIsMain](std::function<void(jsi::Runtime &)> work) {
++    RPCRuntimeExecutor executor = [
++        ref,
++        capturedIsMain,
++        reactRuntimeExecutor
++    ](std::function<void(jsi::Runtime &)> work) {
+         // Coalesce per-runtime work into a single batched drain (see
+         // enqueueRuntimeWork) instead of one Kotlin scheduleOnJSThread hop per
+         // item. The bg-eval failure-drain that previously lived inline here now
+         // runs in scheduleRuntimeDrain's schedule-failure path — under the
+         // coalesced model that is the single place a schedule can fail.
+-        enqueueRuntimeWork(ref, capturedIsMain, std::move(work));
++        enqueueRuntimeWork(
++            ref,
++            capturedIsMain,
++            reactRuntimeExecutor,
++            std::move(work));
+     };
+ 
+     std::string runtimeId = isMain ? "main" : "background";
+@@ -1088,7 +1167,10 @@ Java_com_backgroundthread_BackgroundThreadManager_nativeInstallSharedBridge(
+         }
+     }
+     if (shouldRecoverDrain) {
+-        scheduleRuntimeDrain(ref, capturedIsMain);
++        scheduleRuntimeDrain(
++            ref,
++            capturedIsMain,
++            reactRuntimeExecutor);
+     }
+ }
+ 
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+index 63c295b..752fcef 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
++++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
+@@ -13,6 +13,7 @@ import com.facebook.react.ReactInstanceEventListener
+ import com.facebook.react.bridge.JSBundleLoader
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReactContext
++import com.facebook.react.bridge.RuntimeExecutor
+ import com.facebook.react.common.annotations.UnstableReactNativeAPI
+ import com.facebook.react.defaults.DefaultComponentsRegistry
+ import com.facebook.react.defaults.DefaultReactHostDelegate
+@@ -101,7 +102,11 @@ class BackgroundThreadManager private constructor() {
+ 
+     // ── JNI declarations ────────────────────────────────────────────────────
+ 
+-    private external fun nativeInstallSharedBridge(runtimePtr: Long, isMain: Boolean)
++    private external fun nativeInstallSharedBridge(
++        runtimePtr: Long,
++        isMain: Boolean,
++        runtimeExecutor: RuntimeExecutor?
++    )
+     private external fun nativeSetupErrorHandler(runtimePtr: Long)
+     private external fun nativeDestroy()
+     private external fun nativeExecuteWork(runtimePtr: Long, workId: Long)
+@@ -183,7 +188,11 @@ class BackgroundThreadManager private constructor() {
+                 val ptr = context.javaScriptContextHolder?.get() ?: 0L
+                 if (ptr != 0L) {
+                     mainRuntimePtr = ptr
+-                    nativeInstallSharedBridge(ptr, true)
++                    nativeInstallSharedBridge(
++                        ptr,
++                        true,
++                        context.catalystInstance.runtimeExecutor
++                    )
+                     BTLogger.info("SharedBridge installed in main runtime")
+                 } else {
+                     BTLogger.warn("Main runtime pointer is 0, cannot install SharedBridge")
+@@ -441,7 +450,7 @@ class BackgroundThreadManager private constructor() {
+                         val ptr = context.javaScriptContextHolder?.get() ?: 0L
+                         if (ptr != 0L) {
+                             bgRuntimePtr = ptr
+-                            nativeInstallSharedBridge(ptr, false)
++                            nativeInstallSharedBridge(ptr, false, null)
+                             nativeSetupErrorHandler(ptr)
+                             BTLogger.info("SharedBridge and error handler installed in background runtime")
+                         } else {

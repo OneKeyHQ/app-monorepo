@@ -369,6 +369,27 @@ describe('Native Home runtime surface', () => {
     expect(androidNativeSource).not.toContain('balanceSkeletonView');
   });
 
+  it('commits Android list updates without synthesizing a scroll gesture', () => {
+    const androidNativeSource = readSource(
+      path.resolve(
+        __dirname,
+        '../../../../native-components/android/src/main/java/com/margelo/nitro/onekeynativecomponents/HomeContainerView.kt',
+      ),
+    );
+
+    expect(androidNativeSource).toContain('target.setHasFixedSize(true)');
+    expect(androidNativeSource).toContain(
+      'DiffUtil.calculateDiff(RowDiffCallback(currentRows, nextRows))',
+    );
+    expect(androidNativeSource).toContain('commitPendingListLayout()');
+    expect(androidNativeSource).toContain('recycler.forceLayout()');
+    expect(androidNativeSource).toContain(
+      'recycler.scrollState != RecyclerView.SCROLL_STATE_IDLE',
+    );
+    expect(androidNativeSource).not.toContain('notifyDataSetChanged()');
+    expect(androidNativeSource).not.toContain('recycler.scrollBy(0, 0)');
+  });
+
   it('physically retires the old Native business host and source adapters', () => {
     const retiredFiles = [
       'NativeHomePage.native.tsx',
