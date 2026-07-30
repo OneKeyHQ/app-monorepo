@@ -88,6 +88,11 @@ function CheckAndUpdatePage({
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
+  // Generation counter for checkFirmwareUpdate: each call claims a new id, so
+  // a previous round that out-lived its 30s watchdog (hung transport call)
+  // cannot write its late result, error, or timeout over the state a newer
+  // retry round owns — step state alone can't tell two rounds apart.
+  const firmwareCheckRunIdRef = useRef(0);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -203,26 +208,33 @@ function CheckAndUpdatePage({
 
   // 30s watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
-  // genuine row when both steps are momentarily in progress.
-  const createStepTimeout = useCallback(() => {
-    const timeout = setTimeout(() => {
-      setSteps((prev) => {
-        if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
-          return prev;
-        }
-        const newSteps = [...prev];
-        newSteps[1] = {
-          ...newSteps[1],
-          state: ECheckAndUpdateStepState.Error,
-          errorMessage: intl.formatMessage({
-            id: ETranslations.hardware_connect_timeout_error,
-          }),
-        };
-        return newSteps;
-      });
-    }, 30 * 1000);
-    return () => clearTimeout(timeout);
-  }, [intl]);
+  // genuine row when both steps are momentarily in progress — and it checks
+  // its round is still the active one before writing.
+  const createStepTimeout = useCallback(
+    (isStale: () => boolean) => {
+      const timeout = setTimeout(() => {
+        setSteps((prev) => {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
+            return prev;
+          }
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.hardware_connect_timeout_error,
+            }),
+          };
+          return newSteps;
+        });
+      }, 30 * 1000);
+      return () => clearTimeout(timeout);
+    },
+    [intl],
+  );
 
   // Firmware check is done — hand off to the dedicated DeviceSetup page, which
   // runs the device-status check and shows the on-device setup instructions
@@ -282,24 +294,13 @@ function CheckAndUpdatePage({
           },
         );
       } catch (error) {
-        // If all retries failed, set error state and throw
         console.error(
           'Failed to connect to device after firmware update, all retries exhausted',
           error,
         );
 
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.Error,
-            errorMessage: intl.formatMessage({
-              id: ETranslations.hardware_device_not_find_error,
-            }),
-          };
-          return newSteps;
-        });
-
+        // No direct step write here — the thrown message reaches the row via
+        // checkFirmwareUpdate's guarded catch, which also drops stale rounds.
         throw new OneKeyLocalError(
           intl.formatMessage({
             id: ETranslations.hardware_device_not_find_error,
@@ -312,8 +313,19 @@ function CheckAndUpdatePage({
 
   const checkFirmwareUpdate = useCallback(
     async (params?: { checkAfterUpdate: boolean }) => {
+      // Claim the active round; any still-running older round becomes stale
+      // and all of its step writes below are dropped.
+      firmwareCheckRunIdRef.current += 1;
+      const runId = firmwareCheckRunIdRef.current;
+      const isStale = () => runId !== firmwareCheckRunIdRef.current;
       const setDeviceNotFoundErrorMessageStep = () => {
         setSteps((prev) => {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
+            return prev;
+          }
           const newSteps = [...prev];
           newSteps[1] = {
             ...newSteps[1],
@@ -328,7 +340,8 @@ function CheckAndUpdatePage({
       // Re-entry (retry / recheck) may find the step still in Error from the
       // previous attempt; flip it back to InProgress right away and drop the
       // stale message so the UI shows the loading beam instead of the old
-      // failure while the new request runs.
+      // failure while the new request runs. Unguarded on purpose — the newest
+      // round takes over the row.
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[1] = {
@@ -338,7 +351,7 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      const cancelTimeout = createStepTimeout();
+      const cancelTimeout = createStepTimeout(isStale);
       try {
         await ensureTransportType();
         const baseDevice =
@@ -374,6 +387,11 @@ function CheckAndUpdatePage({
               firmwareType: undefined,
             },
           );
+        if (isStale()) {
+          // A newer retry owns the UI (and the refs feeding DeviceSetup);
+          // this late result must not overwrite it.
+          return;
+        }
         if (r) {
           if (r.features) {
             deviceFeaturesRef.current = r.features;
@@ -410,12 +428,15 @@ function CheckAndUpdatePage({
         }
       } catch (error) {
         // Surface the real failure instead of leaving the row spinning until
-        // the watchdog replaces it with a generic timeout. Deeper layers may
-        // already have stamped a specific Error (connect-error events, the
-        // post-update reconnect retry) — only claim the failure while the
-        // step is still in progress.
+        // the watchdog replaces it with a generic timeout. Skip when this
+        // round went stale, and when a deeper layer already stamped a
+        // specific Error (connect-error events) — only claim the failure
+        // while the step is still in progress.
         setSteps((prev) => {
-          if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
             return prev;
           }
           const newSteps = [...prev];
