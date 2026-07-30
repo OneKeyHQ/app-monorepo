@@ -1,6 +1,8 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+
+import { showPrimeInfiniPaymentErrorToast } from './primeInfiniPaymentError';
+import { logPrimeInfiniPaymentFlow } from './primeInfiniPaymentLogger';
 
 let eligibilityRequest:
   | {
@@ -39,8 +41,16 @@ async function checkPrimePurchaseEligibility({
     }
     return true;
   } catch (error) {
-    errorToastUtils.toastIfError(error);
-    errorToastUtils.showToastOfError(error);
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      reason: 'purchaseEligibilityCheckFailed',
+      error,
+    });
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: 'Unable to verify purchase eligibility',
+    });
     return false;
   }
 }

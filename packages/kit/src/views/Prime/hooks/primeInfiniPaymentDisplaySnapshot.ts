@@ -1,18 +1,47 @@
 /* cspell:ignore Infini */
+export function resolvePrimeInfiniPaymentPinnedAssetKey({
+  selectedAssetKey,
+  pendingAssetKey,
+}: {
+  selectedAssetKey: string;
+  pendingAssetKey?: string;
+}) {
+  return selectedAssetKey || pendingAssetKey || '';
+}
+
+export function isPrimeInfiniPaymentAccountSyncReady({
+  syncedNetworkId,
+  selectedNetworkId,
+}: {
+  syncedNetworkId: string;
+  selectedNetworkId: string;
+}) {
+  return Boolean(
+    syncedNetworkId && syncedNetworkId.trim() === selectedNetworkId.trim(),
+  );
+}
+
 export function resolvePrimeInfiniPaymentDisplaySnapshot<
   TSelectionSnapshot,
   TPayment,
 >({
   selectionSnapshot,
+  lastReadySelectionSnapshot,
+  isSelectionReady = true,
   payment,
   isPaymentCurrent,
 }: {
   selectionSnapshot: TSelectionSnapshot;
+  lastReadySelectionSnapshot?: TSelectionSnapshot;
+  isSelectionReady?: boolean;
   payment: TPayment | undefined;
   isPaymentCurrent: boolean;
 }) {
   return {
-    selectionSnapshot,
+    selectionSnapshot:
+      isSelectionReady || !lastReadySelectionSnapshot
+        ? selectionSnapshot
+        : lastReadySelectionSnapshot,
     payment: isPaymentCurrent ? payment : undefined,
   };
 }
