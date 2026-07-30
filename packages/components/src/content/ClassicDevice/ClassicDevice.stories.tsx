@@ -2,10 +2,6 @@ import { ClassicDevice } from '.';
 
 import { XStack } from '../../primitives';
 
-import { ConfirmOnClassic } from './ConfirmOnClassic';
-import { EnterPassphraseOnClassic } from './EnterPassphraseOnClassic';
-import { EnterPinOnClassic } from './EnterPinOnClassic';
-
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // PoC story: 1:1 code recreation of the Classic hardware device
@@ -17,6 +13,14 @@ const meta = {
   args: { width: 327 },
   argTypes: {
     width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
+    // The union type (scene names | animation contract) defeats docgen's
+    // control inference, so declare the scene radio explicitly; the contract
+    // object is a code-level API, not a controls-panel one.
+    animation: {
+      control: 'radio',
+      options: ['confirm', 'enterPin', 'enterPassphrase'],
+    },
+    screenContent: { control: false },
   },
 } satisfies Meta<typeof ClassicDevice>;
 
@@ -38,20 +42,9 @@ export const Sizes: Story = {
   ),
 };
 
-// Confirm scene: skeleton screen, 3s loop of wake -> content fade-in ->
-// physical OK press -> sleep.
-export const Confirm: Story = {
-  render: (args) => <ConfirmOnClassic width={args.width} />,
-};
-
-// Enter PIN scene: 5.6s loop of wake -> six OK presses filling diamonds ->
-// check appears -> final confirming press -> sleep.
-export const EnterPin: Story = {
-  render: (args) => <EnterPinOnClassic width={args.width} />,
-};
-
-// Enter Passphrase scene: same schedule as Enter PIN, asterisk/underscore
-// glyphs.
-export const EnterPassphrase: Story = {
-  render: (args) => <EnterPassphraseOnClassic width={args.width} />,
+// One component, one `animation` prop: confirm (3s loop), enterPin /
+// enterPassphrase (5.6s shared entry schedule). Switching remounts and
+// restarts the loop.
+export const Animations: Story = {
+  args: { animation: 'confirm' },
 };
