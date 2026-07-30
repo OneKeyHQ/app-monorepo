@@ -250,7 +250,50 @@ describe('SwapStockDesktopContainer utils', () => {
       }),
     ).toEqual({
       chartData: [],
+      shouldShowChartError: false,
       shouldShowChartLoading: true,
+    });
+  });
+
+  it('keeps a current pending chart request in loading state', () => {
+    expect(
+      getStockChartDisplayState({
+        baseChartData: [],
+        isChartStateForCurrentScope: true,
+        isLoading: false,
+        requestStatus: 'pending',
+      }),
+    ).toEqual({
+      chartData: [],
+      shouldShowChartError: false,
+      shouldShowChartLoading: true,
+    });
+  });
+
+  it('shows chart errors separately from successful empty responses', () => {
+    expect(
+      getStockChartDisplayState({
+        baseChartData: [],
+        isChartStateForCurrentScope: true,
+        isLoading: false,
+        requestStatus: 'error',
+      }),
+    ).toEqual({
+      chartData: [],
+      shouldShowChartError: true,
+      shouldShowChartLoading: false,
+    });
+    expect(
+      getStockChartDisplayState({
+        baseChartData: [],
+        isChartStateForCurrentScope: true,
+        isLoading: false,
+        requestStatus: 'success',
+      }),
+    ).toEqual({
+      chartData: [],
+      shouldShowChartError: false,
+      shouldShowChartLoading: false,
     });
   });
 
@@ -269,6 +312,7 @@ describe('SwapStockDesktopContainer utils', () => {
       }),
     ).toEqual({
       chartData: previousChartData,
+      shouldShowChartError: false,
       shouldShowChartLoading: false,
     });
   });
@@ -287,6 +331,7 @@ describe('SwapStockDesktopContainer utils', () => {
       }),
     ).toEqual({
       chartData: cachedChartData,
+      shouldShowChartError: false,
       shouldShowChartLoading: false,
     });
   });
@@ -308,6 +353,7 @@ describe('SwapStockDesktopContainer utils', () => {
         [1_725_003_600, 311],
         [1_725_007_200, 312.15],
       ],
+      shouldShowChartError: false,
       shouldShowChartLoading: false,
     });
   });
