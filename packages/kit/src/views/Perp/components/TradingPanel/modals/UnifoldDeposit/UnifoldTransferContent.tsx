@@ -372,6 +372,7 @@ export const UnifoldTransferContent = forwardRef<
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
     const [historyCardHeight, setHistoryCardHeight] = useState(0);
+    const [historyCardNow, setHistoryCardNow] = useState(() => Date.now());
 
     useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
 
@@ -498,8 +499,8 @@ export const UnifoldTransferContent = forwardRef<
       async () => {
         if (!historyCardEnabled || !recipientAddress) {
           return {
+            recipientAddress: null,
             executions: [],
-            observedAt: Date.now(),
           };
         }
         const executions =
@@ -507,8 +508,8 @@ export const UnifoldTransferContent = forwardRef<
             recipientAddress,
           });
         return {
+          recipientAddress,
           executions,
-          observedAt: Date.now(),
         };
       },
       [historyCardEnabled, recipientAddress],
@@ -519,13 +520,32 @@ export const UnifoldTransferContent = forwardRef<
           : undefined,
       },
     );
+
+    useEffect(() => {
+      if (!historyCardEnabled) {
+        return;
+      }
+      setHistoryCardNow(Date.now());
+      const timer = setInterval(() => {
+        setHistoryCardNow(Date.now());
+      }, HISTORY_CARD_POLL_INTERVAL_MS);
+      return () => clearInterval(timer);
+    }, [historyCardEnabled]);
+
     const trackedExecutionCount = useMemo(() => {
-      if (!executionHistorySnapshot) {
+      if (
+        !recipientAddress ||
+        executionHistorySnapshot?.recipientAddress !== recipientAddress
+      ) {
         return 0;
       }
-      const recentSucceededCutoff =
-        executionHistorySnapshot.observedAt - RECENT_SUCCEEDED_WINDOW_MS;
+      const recentSucceededCutoff = historyCardNow - RECENT_SUCCEEDED_WINDOW_MS;
+      const seenExecutionIds = new Set<string>();
       return executionHistorySnapshot.executions.filter((item) => {
+        if (seenExecutionIds.has(item.executionId)) {
+          return false;
+        }
+        seenExecutionIds.add(item.executionId);
         if (!item.terminal) {
           return true;
         }
@@ -535,7 +555,7 @@ export const UnifoldTransferContent = forwardRef<
         const createdAtMs = parseUnifoldExecutionCreatedAtMs(item.createdAt);
         return createdAtMs !== null && createdAtMs >= recentSucceededCutoff;
       }).length;
-    }, [executionHistorySnapshot]);
+    }, [executionHistorySnapshot, historyCardNow, recipientAddress]);
 
     useEffect(() => {
       succeededExecutions.forEach(acknowledgePresentedExecution);
