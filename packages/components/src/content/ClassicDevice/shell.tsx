@@ -23,6 +23,7 @@ import { LinearGradient } from '../LinearGradient';
 import {
   CLASSIC_DEVICE_SCREEN_OFF,
   CLASSIC_DEVICE_SCREEN_ON,
+  PRESS_RELEASED,
 } from './animation';
 import { DownIcon, OkIcon, PowerIcon, UpIcon } from './icons';
 
@@ -66,6 +67,9 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const DEVICE_W = 327;
 const DEVICE_H = 539;
+
+/** Top inset of the lit panel within the glass; screen content starts here. */
+export const SCREEN_SLOT_TOP = 12;
 
 const styles = StyleSheet.create({
   frame: {
@@ -111,7 +115,7 @@ const styles = StyleSheet.create({
   screenSlot: {
     position: 'absolute',
     left: 4,
-    top: 12,
+    top: SCREEN_SLOT_TOP,
     width: 256,
     height: 128,
   },
@@ -342,6 +346,8 @@ function ScreenBevels() {
   );
 }
 
+const SCREEN_BEVELS = <ScreenBevels />;
+
 // USB cutout: a blurred gradient glow (sigma 3) with the body color painted
 // back on top (sigma 1), leaving a soft rim. The Figma "USB port" frame does
 // not clip, so the 90x79 canvas pads the 66x67 art by 12pt (4 sigma) on
@@ -405,6 +411,16 @@ function UsbCutout() {
     </Svg>
   );
 }
+
+// The static chrome is built once, like the noise: these are 71 of the body's
+// 76 react-native-svg elements, and rn-svg re-runs transform/viewBox
+// extraction on every render. Element constants keep them out of any
+// re-render the DeviceBody memo does not absorb.
+const USB_CUTOUT = <UsbCutout />;
+const POWER_ICON = <PowerIcon />;
+const UP_ICON = <UpIcon />;
+const DOWN_ICON = <DownIcon />;
+const OK_ICON = <OkIcon />;
 
 function DeviceButton({
   press,
@@ -536,25 +552,25 @@ const DeviceBody = memo(function DeviceBody({
             style={ABSOLUTE_FILL}
           />
         </View>
-        <ScreenBevels />
+        {SCREEN_BEVELS}
       </View>
 
       <View style={styles.buttons}>
-        <DeviceButton press={animation.press.power}>
-          <PowerIcon />
+        <DeviceButton press={animation.press?.power ?? PRESS_RELEASED}>
+          {POWER_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press.up}>
-          <UpIcon />
+        <DeviceButton press={animation.press?.up ?? PRESS_RELEASED}>
+          {UP_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press.down}>
-          <DownIcon />
+        <DeviceButton press={animation.press?.down ?? PRESS_RELEASED}>
+          {DOWN_ICON}
         </DeviceButton>
-        <DeviceButton press={animation.press.ok}>
-          <OkIcon />
+        <DeviceButton press={animation.press?.ok ?? PRESS_RELEASED}>
+          {OK_ICON}
         </DeviceButton>
       </View>
 
-      <UsbCutout />
+      {USB_CUTOUT}
       {NOISE_OVERLAY}
       {/* Body ambient light: Figma frame inner shadows render above children,
           so this overlay is the last child, above the noise. */}
@@ -570,7 +586,11 @@ export interface IClassicDeviceShellProps {
    * beyond that (see the scaling note above).
    */
   width?: number;
-  /** Node lit on the 256x128 OLED area (an integer 2x of the 128x64 panel). */
+  /**
+   * Node lit on the 256x128 OLED area (an integer 2x of the 128x64 panel).
+   * Keep it referentially stable (a module constant or useMemo): the body
+   * memoizes on it, and a fresh node re-renders all 76 SVG elements.
+   */
   screenContent?: ReactNode;
   /**
    * Scene-produced animation contract (see ./animation.ts). Omitted: a bare
