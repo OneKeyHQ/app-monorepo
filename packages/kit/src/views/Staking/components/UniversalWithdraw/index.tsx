@@ -297,7 +297,11 @@ function WithdrawPathDialogContent({
                   wraps to multiple lines and wrapped lines default to
                   left-alignment inside the text box (OK-58722) */}
               <YStack flex={1} gap="$1" ai="flex-end">
-                <EarnAmountText size="$headingMd" color="$text" textAlign="right">
+                <EarnAmountText
+                  size="$headingMd"
+                  color="$text"
+                  textAlign="right"
+                >
                   {box.description.text}
                 </EarnAmountText>
                 {box.subtitleDescription?.text ? (
