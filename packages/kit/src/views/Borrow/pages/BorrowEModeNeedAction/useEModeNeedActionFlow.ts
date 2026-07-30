@@ -184,6 +184,19 @@ export function useEModeNeedActionFlow({
   const [balancesLoading, setBalancesLoading] = useState(false);
   const balanceSeqRef = useRef(0);
   const balanceRequestPendingRef = useRef(false);
+  const balanceRefreshQueuedRef = useRef(false);
+  // Re-drives the fetch below without a full blocker recheck. The Get-funds
+  // detour (swap/receive) tops the wallet up outside this screen and the
+  // balance indexer lags the chain, so the page bumps this (shortfall poll +
+  // swap-success event) until the shortfall row clears.
+  const [balanceRefreshTick, setBalanceRefreshTick] = useState(0);
+  const refreshFundingBalances = useCallback(() => {
+    if (balanceRequestPendingRef.current) {
+      balanceRefreshQueuedRef.current = true;
+      return;
+    }
+    setBalanceRefreshTick((tick) => tick + 1);
+  }, []);
   // JSON key (not join(',')): this string is both the effect's dependency key
   // and the exact list JSON.parsed back to string[] below — a round-trip a
   // joined string could not survive.
@@ -196,14 +209,27 @@ export function useEModeNeedActionFlow({
       ),
     ).toSorted(),
   );
+  const fundingBalanceScopeKey = JSON.stringify([
+    accountId,
+    networkId,
+    fundingAddressesKey,
+  ]);
+  const fundingBalanceScopeKeyRef = useRef(fundingBalanceScopeKey);
+  fundingBalanceScopeKeyRef.current = fundingBalanceScopeKey;
   useEffect(() => {
-    const seq = balanceSeqRef.current + 1;
-    balanceSeqRef.current = seq;
     if (!accountId || fundingAddressesKey === '[]') {
-      balanceRequestPendingRef.current = false;
+      balanceRefreshQueuedRef.current = false;
       setBalancesLoading(false);
       return;
     }
+    if (balanceRequestPendingRef.current) {
+      balanceRefreshQueuedRef.current = true;
+      setBalancesLoading(true);
+      return;
+    }
+    const seq = balanceSeqRef.current + 1;
+    balanceSeqRef.current = seq;
+    const requestScopeKey = fundingBalanceScopeKey;
     balanceRequestPendingRef.current = true;
     setBalancesLoading(true);
     void (async () => {
@@ -214,7 +240,11 @@ export function useEModeNeedActionFlow({
             networkId,
             contractList: JSON.parse(fundingAddressesKey) as string[],
           });
-        if (balanceSeqRef.current !== seq) {
+        if (
+          !mountedRef.current ||
+          balanceSeqRef.current !== seq ||
+          fundingBalanceScopeKeyRef.current !== requestScopeKey
+        ) {
           return;
         }
         const next: Record<string, string> = {};
@@ -227,11 +257,25 @@ export function useEModeNeedActionFlow({
       } finally {
         if (balanceSeqRef.current === seq) {
           balanceRequestPendingRef.current = false;
-          setBalancesLoading(false);
+          if (mountedRef.current) {
+            if (balanceRefreshQueuedRef.current) {
+              balanceRefreshQueuedRef.current = false;
+              setBalanceRefreshTick((tick) => tick + 1);
+            } else {
+              setBalancesLoading(false);
+            }
+          }
         }
       }
     })();
-  }, [check, accountId, networkId, fundingAddressesKey]);
+  }, [
+    check,
+    accountId,
+    networkId,
+    fundingAddressesKey,
+    fundingBalanceScopeKey,
+    balanceRefreshTick,
+  ]);
 
   const shortfallByKey: Record<string, string> = {};
   // Known wallet balances per repay step (raw balanceParsed); unknown entries
@@ -344,6 +388,7 @@ export function useEModeNeedActionFlow({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      balanceRefreshQueuedRef.current = false;
       approvalRepayContextRef.current = null;
       approvalContinuationRef.current = false;
       refreshSeqRef.current += 1;
@@ -1156,6 +1201,7 @@ export function useEModeNeedActionFlow({
     submittedKey,
     run,
     disarm,
+    refreshFundingBalances,
     // Reuse the page's existing check-error Retry footer after automatic
     // settlement recovery is exhausted. `refresh` still checks the exact txid
     // first, and the submitted ref remains locked, so this cannot resend.

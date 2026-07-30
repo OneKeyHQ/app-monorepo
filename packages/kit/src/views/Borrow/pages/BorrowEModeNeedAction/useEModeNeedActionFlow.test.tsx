@@ -200,6 +200,14 @@ function tokenBalance(balanceParsed: string, address = '0xToken') {
   ];
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function createCheck(
   repayAssets: IBorrowEModeBlockerAsset[],
 ): IBorrowEModeSwitchCheck {
@@ -394,6 +402,92 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       expect(result.current.isBusy).toBe(false);
     });
     expect(universalMock.repay).not.toHaveBeenCalled();
+  });
+
+  it('refetches the funding balance on refreshFundingBalances until the shortfall clears', async () => {
+    tokenMock.fetchTokensDetails
+      .mockReset()
+      .mockResolvedValueOnce(tokenBalance('0', '0xReserve'))
+      .mockResolvedValueOnce(tokenBalance('12', '0xReserve'));
+    const { result } = renderFlow();
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+      expect(result.current.activeShortfall).not.toBeNull();
+    });
+    expect(result.current.balanceByKey['repay:0xreserve']).toBe('0');
+
+    act(() => {
+      result.current.refreshFundingBalances();
+    });
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('12');
+    });
+    expect(result.current.activeShortfall).toBeNull();
+  });
+
+  it('serializes slow balance refreshes and applies the queued result', async () => {
+    const first = createDeferred<ReturnType<typeof tokenBalance>>();
+    const second = createDeferred<ReturnType<typeof tokenBalance>>();
+    let concurrentRequests = 0;
+    let maxConcurrentRequests = 0;
+    tokenMock.fetchTokensDetails
+      .mockReset()
+      .mockImplementationOnce(async () => {
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(
+          maxConcurrentRequests,
+          concurrentRequests,
+        );
+        const details = await first.promise;
+        concurrentRequests -= 1;
+        return details;
+      })
+      .mockImplementationOnce(async () => {
+        concurrentRequests += 1;
+        maxConcurrentRequests = Math.max(
+          maxConcurrentRequests,
+          concurrentRequests,
+        );
+        const details = await second.promise;
+        concurrentRequests -= 1;
+        return details;
+      });
+    const { result } = renderFlow();
+
+    await waitFor(() => {
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+    });
+    act(() => {
+      result.current.refreshFundingBalances();
+      result.current.refreshFundingBalances();
+    });
+    expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(1);
+    expect(maxConcurrentRequests).toBe(1);
+
+    await act(async () => {
+      first.resolve(tokenBalance('12', '0xReserve'));
+      await first.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('12');
+      expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+    });
+    expect(maxConcurrentRequests).toBe(1);
+
+    await act(async () => {
+      second.resolve(tokenBalance('20', '0xReserve'));
+      await second.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.balanceByKey['repay:0xreserve']).toBe('20');
+    });
+    expect(tokenMock.fetchTokensDetails).toHaveBeenCalledTimes(2);
+    expect(maxConcurrentRequests).toBe(1);
   });
 
   it('stops after approval when fresh debt has grown beyond fresh funding', async () => {

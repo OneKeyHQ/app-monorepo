@@ -2,14 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Alert,
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Alert, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -101,7 +94,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         renderHeader: () => (
           <CapabilityHeader
             label={intl.formatMessage({
-              id: ETranslations.defi_max_ltv,
+              id: ETranslations.boosted_ltv__title,
             })}
             tooltip={intl.formatMessage({
               id: ETranslations.defi_emode_collateral_capability__tooltip,
@@ -113,7 +106,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
             available={asset.boostedLTV}
             accessibilityLabel={[
               asset.token.symbol,
-              intl.formatMessage({ id: ETranslations.defi_max_ltv }),
+              intl.formatMessage({ id: ETranslations.boosted_ltv__title }),
               intl.formatMessage({
                 id: asset.boostedLTV
                   ? ETranslations.global_available
@@ -155,41 +148,36 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
     [intl],
   );
 
-  return (
-    <YStack gap="$3">
-      <SizableText size="$headingSm">
-        {intl.formatMessage({
-          id: ETranslations.defi_emode_supported_assets,
+  if (row.isOff) {
+    return (
+      <Alert
+        type="default"
+        title={intl.formatMessage({
+          id: ETranslations.defi_emode_off_assets__desc,
         })}
-      </SizableText>
-      {row.isOff ? (
-        <Alert
-          type="default"
-          title={intl.formatMessage({
-            id: ETranslations.defi_emode_off_assets__desc,
-          })}
-        />
-      ) : (
-        <BorrowTableList<IBorrowEModeAsset>
-          columns={columns}
-          data={row.assets ?? []}
-          emptyContent={intl.formatMessage({
-            id: ETranslations.defi_emode_no_supported_assets,
-          })}
-          listProps={{
-            keyExtractor: (asset) => asset.reserveAddress,
-            rowGap: '$2',
-            headerProps: {
-              px: '$1.5',
-              mx: '$0',
-            },
-            listItemProps: {
-              px: '$1.5',
-              mx: '$0',
-            },
-          }}
-        />
-      )}
-    </YStack>
+      />
+    );
+  }
+
+  return (
+    <BorrowTableList<IBorrowEModeAsset>
+      columns={columns}
+      data={row.assets ?? []}
+      emptyContent={intl.formatMessage({
+        id: ETranslations.defi_emode_no_supported_assets,
+      })}
+      listProps={{
+        keyExtractor: (asset) => asset.reserveAddress,
+        rowGap: '$2',
+        headerProps: {
+          px: '$1.5',
+          mx: '$0',
+        },
+        listItemProps: {
+          px: '$1.5',
+          mx: '$0',
+        },
+      }}
+    />
   );
 }

@@ -24,6 +24,11 @@ import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/compon
 import { BorrowTestIDs } from '@onekeyhq/kit/src/views/Borrow/testIDs';
 import { useStakingPendingTxsByInfo } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
@@ -41,10 +46,12 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapSource,
   ESwapTabSwitchType,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnAmountText } from '../../../Staking/components/ProtocolDetails/EarnAmountText';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import {
   E_MODE_PENDING_GUARD_ACTIONS,
@@ -53,8 +60,11 @@ import {
   isEModePendingGuardActive,
 } from '../BorrowEModeSwitch/emodeUtils';
 
-import { EModeGetFundsAction } from './EModeGetFundsAction';
-import { formatBalanceDisplay } from './needActionBalances';
+import { EModeShortfallCard } from './EModeShortfallCard';
+import {
+  balanceLookupAddress,
+  formatBalanceDisplay,
+} from './needActionBalances';
 import {
   type ICompactStepStatus,
   getAuxiliaryLineKind,
@@ -65,9 +75,19 @@ import {
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
+  shouldDisarmFundingIntentOnFocus,
+  useEModeFundingTx,
+} from './useEModeFundingTx';
+import {
   type IEModeApproveSubStatus,
   useEModeNeedActionFlow,
 } from './useEModeNeedActionFlow';
+
+// While a repay step stays underfunded the user is off topping the wallet up
+// (swap, transfer-in); the balance indexer lags those txs, so a single fetch on
+// focus return routinely lands the stale pre-top-up balance. Poll at the same
+// cadence as the flow's unlock recheck until the shortfall clears.
+const FUNDING_BALANCE_POLL_INTERVAL_MS = 5000;
 
 function StepIndicator({
   status,
@@ -120,6 +140,7 @@ function StepRow({
   walletBalance,
   categoryLabel,
   approveSubStatus,
+  funding,
   getFundsActionItems,
   onGetFundsPress,
 }: {
@@ -134,6 +155,7 @@ function StepRow({
   walletBalance?: string; // display-trimmed, e.g. "5.234567"
   categoryLabel: string;
   approveSubStatus: IEModeApproveSubStatus;
+  funding: boolean;
   getFundsActionItems: (step: IEModeStep) => IActionListItemProps[] | undefined;
   onGetFundsPress: () => void;
 }) {
@@ -157,9 +179,9 @@ function StepRow({
     );
   }
 
-  const amountText = step.amount?.text
-    ? `${step.amount.text} ${step.symbol ?? ''}`.trim()
-    : null;
+  const withSymbol = (amount: string) =>
+    `${amount} ${step.symbol ?? ''}`.trim();
+  const amountText = step.amount?.text ? withSymbol(step.amount.text) : null;
   const fiatText = step.amountFiat?.text || null;
   const isActionable = status === 'active' || status === 'failed';
   const isMuted = status === 'done' || status === 'upcoming';
@@ -169,6 +191,8 @@ function StepRow({
       confirming,
     },
   );
+  const underfunded =
+    status === 'active' && step.kind === 'repay' && !!shortfallText;
   const primaryLineKind = getPrimaryLineKind({
     active: status === 'active',
     approveSubStatus: presentationApproveSubStatus,
@@ -176,6 +200,7 @@ function StepRow({
     waitingSwitchUnlock,
     kind: step.kind,
     hasWalletBalance: walletBalance !== undefined,
+    hasShortfall: underfunded,
   });
   const auxiliaryLineKind = getAuxiliaryLineKind({
     status,
@@ -184,7 +209,6 @@ function StepRow({
   });
 
   let primaryLine: string | null = null;
-  let primaryLineIsCaution = false;
   if (primaryLineKind === 'approving') {
     primaryLine = intl.formatMessage({ id: ETranslations.swap_btn_approving });
   } else if (primaryLineKind === 'repaying') {
@@ -201,22 +225,10 @@ function StepRow({
       id: ETranslations.defi_emode_waiting_confirmation__desc,
     });
   } else if (primaryLineKind === 'walletBalance' && walletBalance) {
-    const balanceLabel = `${walletBalance} ${step.symbol ?? ''}`.trim();
-    if (shortfallText) {
-      primaryLine = intl.formatMessage(
-        { id: ETranslations.defi_emode_wallet_balance_short },
-        {
-          balance: balanceLabel,
-          short: `${shortfallText} ${step.symbol ?? ''}`.trim(),
-        },
-      );
-      primaryLineIsCaution = true;
-    } else {
-      primaryLine = intl.formatMessage(
-        { id: ETranslations.defi_emode_wallet_balance },
-        { balance: balanceLabel },
-      );
-    }
+    primaryLine = intl.formatMessage(
+      { id: ETranslations.defi_emode_wallet_balance },
+      { balance: withSymbol(walletBalance) },
+    );
   }
 
   let auxiliaryLine: string | null = null;
@@ -230,65 +242,76 @@ function StepRow({
     });
   }
 
-  const underfunded =
-    status === 'active' && step.kind === 'repay' && !!shortfallText;
-  const getFundsItems = underfunded ? getFundsActionItems(step) : undefined;
+  const balanceText =
+    underfunded && walletBalance
+      ? intl.formatMessage(
+          { id: ETranslations.defi_emode_wallet_balance_short },
+          {
+            balance: withSymbol(walletBalance),
+            short: withSymbol(shortfallText ?? ''),
+          },
+        )
+      : '';
 
   return (
     <XStack gap="$3" p="$3.5" ai="flex-start">
       <YStack w="$6" h="$6" ai="center" jc="center">
         <StepIndicator status={status} stepNumber={stepNumber} busy={isBusy} />
       </YStack>
-      <XStack gap="$2" flex={1} ai="flex-start">
-        {step.kind !== 'switch' ? (
-          <Token size="sm" tokenImageUri={step.logoURI} />
-        ) : (
-          <Stack w="$6" h="$6" />
-        )}
-        <YStack gap="$1" flex={1}>
-          <SizableText
-            size={isActionable ? '$bodyLgMedium' : '$bodyLg'}
-            color={isMuted ? '$textSubdued' : '$text'}
-          >
-            {title}
-          </SizableText>
-          {primaryLine ? (
+      {/* The shortfall card is a sibling of the title row rather than a child
+          of the text column, so it spans the full width instead of competing
+          with the amount for room. */}
+      <YStack gap="$3" flex={1}>
+        <XStack gap="$2" ai="flex-start">
+          {step.kind !== 'switch' ? (
+            <Token size="sm" tokenImageUri={step.logoURI} />
+          ) : (
+            <Stack w="$6" h="$6" />
+          )}
+          <YStack gap="$1" flex={1}>
             <SizableText
-              size="$bodyMd"
-              color={primaryLineIsCaution ? '$textCaution' : '$textSubdued'}
-            >
-              {primaryLine}
-            </SizableText>
-          ) : null}
-          {auxiliaryLine ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {auxiliaryLine}
-            </SizableText>
-          ) : null}
-          {getFundsItems?.length ? (
-            <EModeGetFundsAction
-              symbol={step.symbol ?? ''}
-              items={getFundsItems}
-              onPress={onGetFundsPress}
-            />
-          ) : null}
-        </YStack>
-        {amountText ? (
-          <YStack ai="flex-end">
-            <SizableText
-              size="$bodyMdMedium"
+              size={isActionable ? '$bodyLgMedium' : '$bodyLg'}
               color={isMuted ? '$textSubdued' : '$text'}
             >
-              {amountText}
+              {title}
             </SizableText>
-            {fiatText && status !== 'done' ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {fiatText}
+            {primaryLine ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {primaryLine}
+              </SizableText>
+            ) : null}
+            {auxiliaryLine ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {auxiliaryLine}
               </SizableText>
             ) : null}
           </YStack>
+          {amountText ? (
+            <YStack ai="flex-end">
+              <EarnAmountText
+                size="$bodyMdMedium"
+                color={isMuted ? '$textSubdued' : '$text'}
+              >
+                {amountText}
+              </EarnAmountText>
+              {fiatText && status !== 'done' ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {fiatText}
+                </SizableText>
+              ) : null}
+            </YStack>
+          ) : null}
+        </XStack>
+        {underfunded ? (
+          <EModeShortfallCard
+            symbol={step.symbol ?? ''}
+            balanceText={balanceText}
+            funding={funding}
+            items={getFundsActionItems(step)}
+            onGetFundsPress={onGetFundsPress}
+          />
         ) : null}
-      </XStack>
+      </YStack>
     </XStack>
   );
 }
@@ -333,6 +356,7 @@ function BorrowEModeNeedActionView() {
     submittedKey,
     run,
     disarm,
+    refreshFundingBalances,
     check,
     isChecking,
     hasCheckedOnce,
@@ -409,6 +433,47 @@ function BorrowEModeNeedActionView() {
     };
   }, [isFocused, accountId, refresh, refreshPending]);
 
+  // Recovery loop for the Get-funds detour: while the active repay step is
+  // underfunded, refetch its funding balance so the shortfall warning (and the
+  // disabled footer) clear on their own once the top-up lands and the indexer
+  // catches up — without forcing the user to leave and re-enter the screen.
+  useEffect(() => {
+    if (!isFocused || !activeShortfall || isBusy) {
+      return;
+    }
+    const timer = setInterval(
+      refreshFundingBalances,
+      FUNDING_BALANCE_POLL_INTERVAL_MS,
+    );
+    return () => clearInterval(timer);
+  }, [isFocused, activeShortfall, isBusy, refreshFundingBalances]);
+
+  // Fast path for the same detour: the moment a swap into this network
+  // confirms, refetch the funding balance — even while the Swap modal still
+  // covers this screen — so the user returns to an already-updated row.
+  useEffect(() => {
+    const onSwapHistoryUpdate = (
+      payload: IAppEventBusPayload[EAppEventBusNames.SwapTxHistoryStatusUpdate],
+    ) => {
+      const deliversFunds =
+        payload.status === ESwapTxHistoryStatus.SUCCESS ||
+        payload.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+      if (deliversFunds && payload.toToken?.networkId === networkId) {
+        refreshFundingBalances();
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.SwapTxHistoryStatusUpdate,
+      onSwapHistoryUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        onSwapHistoryUpdate,
+      );
+    };
+  }, [networkId, refreshFundingBalances]);
+
   const pendingGuardActive = isEModePendingGuardActive({
     pendingHistoryLoading,
     isPendingHistoryVerified,
@@ -433,6 +498,47 @@ function BorrowEModeNeedActionView() {
   const activeUnderfundedRepay =
     activeStep?.kind === 'repay' && activeShortfall ? activeStep : null;
 
+  const { fundingTxKey, funding, armFunding, disarmFunding } =
+    useEModeFundingTx({
+      networkId,
+      accountId,
+      activeStepKey: activeStep?.key,
+      activeFundingAddress: activeStep
+        ? balanceLookupAddress({ step: activeStep })
+        : null,
+    });
+
+  // Swap is armed immediately before its modal opens. If that detour returns
+  // without producing a matching pending transaction, it was cancelled; clear
+  // the intent so a later same-token swap cannot pull the user back here.
+  useEffect(() => {
+    if (
+      shouldDisarmFundingIntentOnFocus({
+        isFocused,
+        previousIsFocused,
+        fundingTxKey,
+      })
+    ) {
+      disarmFunding();
+    }
+  }, [disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
+
+  // Once the funded step clears, the intent has finished serving its purpose.
+  useEffect(() => {
+    if (isFocused && !activeShortfall) {
+      disarmFunding();
+    }
+  }, [isFocused, activeShortfall, disarmFunding]);
+
+  const handleGetFundsPress = useCallback(() => {
+    // User-initiated divergence, same rule as Manage positions: never let a
+    // focus recheck on return auto-pop a signature sheet.
+    disarm();
+    // Opening or dismissing the menu is not a funding intent. It also cancels
+    // any stale Swap detour before the user chooses the next action.
+    disarmFunding();
+  }, [disarm, disarmFunding]);
+
   const getFundsActionItems = useCallback(
     (step: IEModeStep): IActionListItemProps[] | undefined => {
       if (step.kind !== 'repay' || step.reserveAddress === undefined) {
@@ -455,6 +561,7 @@ function BorrowEModeNeedActionView() {
           label: intl.formatMessage({ id: ETranslations.global_swap }),
           icon: 'SwitchHorOutline',
           onPress: () => {
+            armFunding();
             const importToToken: ISwapToken = {
               contractAddress: token.address,
               symbol: token.symbol,
@@ -471,6 +578,7 @@ function BorrowEModeNeedActionView() {
                 importToToken,
                 swapTabSwitchType: ESwapTabSwitchType.SWAP,
                 swapSource: ESwapSource.EARN,
+                closeModalAfterSwapBroadcast: true,
               },
             });
           },
@@ -495,7 +603,7 @@ function BorrowEModeNeedActionView() {
         },
       ];
     },
-    [displayCheck, intl, navigation, networkId, accountId],
+    [accountId, armFunding, displayCheck, intl, navigation, networkId],
   );
 
   let activeActionLabel = '';
@@ -592,10 +700,9 @@ function BorrowEModeNeedActionView() {
                     }
                     categoryLabel={categoryLabel}
                     approveSubStatus={approveSubStatus}
+                    funding={funding}
                     getFundsActionItems={getFundsActionItems}
-                    // User-initiated divergence, same rule as Manage positions:
-                    // never let a focus recheck on return auto-pop a signature sheet.
-                    onGetFundsPress={disarm}
+                    onGetFundsPress={handleGetFundsPress}
                   />
                   {index < steps.length - 1 ? <Divider /> : null}
                 </YStack>

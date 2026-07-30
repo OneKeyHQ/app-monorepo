@@ -84,38 +84,46 @@ import { EModeAssetsTable } from './EModeAssetsTable';
 
 import type { IEModeRow } from './emodeUtils';
 
+const row: IEModeRow = {
+  eModeId: 1,
+  label: 'ETH correlated',
+  displayLabel: 'ETH correlated',
+  disabled: false,
+  selected: false,
+  isOff: false,
+  assets: [
+    {
+      reserveAddress: '0xweth',
+      boostedLTV: true,
+      borrowable: false,
+      token: {
+        address: '0xweth',
+        decimals: 18,
+        isNative: false,
+        logoURI: '',
+        name: 'Wrapped Ether',
+        symbol: 'WETH',
+      },
+    },
+  ],
+};
+
+const renderOutput = () =>
+  JSON.stringify(render(<EModeAssetsTable row={row} />).toJSON());
+
 describe('EModeAssetsTable', () => {
   it('labels the capability columns by their backend field semantics', () => {
-    const row: IEModeRow = {
-      eModeId: 1,
-      label: 'ETH correlated',
-      displayLabel: 'ETH correlated',
-      disabled: false,
-      selected: false,
-      isOff: false,
-      assets: [
-        {
-          reserveAddress: '0xweth',
-          boostedLTV: true,
-          borrowable: false,
-          token: {
-            address: '0xweth',
-            decimals: 18,
-            isNative: false,
-            logoURI: '',
-            name: 'Wrapped Ether',
-            symbol: 'WETH',
-          },
-        },
-      ],
-    };
+    const output = renderOutput();
 
-    const output = JSON.stringify(
-      render(<EModeAssetsTable row={row} />).toJSON(),
-    );
-
-    expect(output).toContain('defi.max_ltv');
+    // The column reflects `boostedLTV`, so it names the boosted LTV rather
+    // than the account-wide max LTV shown in the impact section.
+    expect(output).toContain('boosted_ltv__title');
+    expect(output).not.toContain('defi.max_ltv');
     expect(output).toContain('defi.borrowable');
     expect(output).not.toContain('defi.collateral');
+  });
+
+  it('renders no section heading of its own', () => {
+    expect(renderOutput()).not.toContain('defi_emode_supported_assets');
   });
 });

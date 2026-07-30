@@ -110,13 +110,7 @@ export function EModeImpactSection({
           id: ETranslations.defi_emode_position_impact,
         })}
       </SizableText>
-      <YStack
-        p="$3.5"
-        gap="$5"
-        borderWidth={1}
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-      >
+      <YStack gap="$5">
         <ImpactValue
           label={intl.formatMessage({ id: ETranslations.defi_max_ltv })}
           data={maxLtv}

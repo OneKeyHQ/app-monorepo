@@ -27,6 +27,7 @@ export const BorrowTestIDs = {
   // --- E-Mode Need Action ---
   eModeNeedActionConfirmBtn: 'borrow-e-mode-need-action-confirm-btn',
   eModeNeedActionGetFundsBtn: 'borrow-e-mode-need-action-get-funds-btn',
+  eModeNeedActionShortfallCard: 'borrow-e-mode-need-action-shortfall-card',
 
   // --- Claim Rewards Dialog ---
   claimItemBtn: 'borrow-claim-item-btn',
