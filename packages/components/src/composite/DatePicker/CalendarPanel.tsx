@@ -5,8 +5,8 @@ import { useDatePickerContext } from '@rehookify/datepicker';
 import { YStack } from '../../primitives';
 
 import { CalendarHeader } from './CalendarHeader';
-import { DayGrid } from './DayGrid';
 import { MonthGrid } from './MonthGrid';
+import { SwipeableDayGrid } from './SwipeableDayGrid';
 import { callOnClick } from './utils';
 import { YearGrid, YearRangeHeader } from './YearGrid';
 
@@ -159,10 +159,11 @@ export function CalendarPanel({
       )}
 
       {viewMode === 'day' ? (
-        <DayGrid
+        <SwipeableDayGrid
           calendarIndex={calendarIndex}
-          hideOutOfMonth={false}
           fullWidth={mode === 'range'}
+          isPrevDisabled={isPrevDisabled}
+          isNextDisabled={isNextDisabled}
         />
       ) : null}
       {viewMode === 'month' ? (
