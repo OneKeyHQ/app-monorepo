@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import { tradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  appIsLocked,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -157,15 +160,21 @@ function BaseNotificationHandlerContainer() {
           });
           // Start the reconnect now so it overlaps the ~350ms of
           // popToMainRoute + wait, rather than waiting for route focus.
-          void backgroundApiProxy.serviceHyperliquidSubscription
-            .resumeSubscriptions()
-            .catch((error) => {
-              defaultLogger.perp.hyperliquid.coldStartInitializationError({
-                type: 'prewarm_subscriptions',
-                coin: perpToken,
-                error,
+          // Never while locked: resumeSubscriptions enables the handler
+          // unconditionally, and the user has to unlock before anything
+          // renders anyway — unlock recovery resumes on its own.
+          const isAppLocked = await appIsLocked.get();
+          if (!isAppLocked) {
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .resumeSubscriptions()
+              .catch((error) => {
+                defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                  type: 'prewarm_subscriptions',
+                  coin: perpToken,
+                  error,
+                });
               });
-            });
+          }
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }
