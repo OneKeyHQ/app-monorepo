@@ -1,112 +1,95 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { G, Path, Svg } from 'react-native-svg';
 
-import { SizableText } from '../../primitives';
+import { SizableText, Stack } from '../../primitives';
 
-import { ENTRY_FILL_COUNT, entryEnteredAt } from './animation';
+import { SCREEN_SLOT_TOP } from './shell';
 
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Shared screen of the character-entry scenes (Enter PIN / Enter Passphrase):
  * a literal-text title in the app font over a nine-slot row. A scene supplies
- * only its two glyphs - entered and pending; the cursor carets, the check
- * that replaces the cursor glyph once all six characters are in (the final
- * press is the confirm), and the entered-state wiring live here.
+ * only its two glyphs, authored around the origin - this component translates
+ * each into its slot. The cursor carets, the check that replaces the cursor
+ * glyph once every character is in (the final press is the confirm), and the
+ * entered-state wiring live here.
  */
 
-export const ENTRY_ROW_CY = 38.5;
 const SLOT_N = 9;
 const SLOT_PITCH = 13;
+const ROW_CY = 38.5;
 const slotX = (i: number) => 64 + (i - 4) * SLOT_PITCH;
+const slotTransform = (i: number) => `translate(${slotX(i)} ${ROW_CY})`;
+// Title baseline sits at 20 on the glass; the slot already starts lower.
+const TITLE_TOP = 20 - SCREEN_SLOT_TOP;
 
-const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-  },
-  title: {
-    position: 'absolute',
-    // Screen-relative 20 minus the content slot's 12pt top offset.
-    top: 8,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-  },
-});
+const CHECK_GLYPH = (
+  <Path
+    d="M-3.3 0.3L-0.9 2.7L3.5 -2.9"
+    stroke="#fff"
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+);
 
-function CheckGlyph({ cx }: { cx: number }) {
-  return (
+const CARETS = (
+  <>
     <Path
-      d={`M${cx - 3.3} ${ENTRY_ROW_CY + 0.3}L${cx - 0.9} ${
-        ENTRY_ROW_CY + 2.7
-      }L${cx + 3.5} ${ENTRY_ROW_CY - 2.9}`}
+      d="M-2.7 -9.2L0 -11.6L2.7 -9.2"
       stroke="#fff"
-      strokeWidth={1.7}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-  );
-}
-
-function Carets({ cx }: { cx: number }) {
-  return (
-    <>
-      <Path
-        d={`M${cx - 2.7} ${ENTRY_ROW_CY - 9.2}L${cx} ${ENTRY_ROW_CY - 11.6}L${
-          cx + 2.7
-        } ${ENTRY_ROW_CY - 9.2}`}
-        stroke="#fff"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d={`M${cx - 2.7} ${ENTRY_ROW_CY + 9.2}L${cx} ${ENTRY_ROW_CY + 11.6}L${
-          cx + 2.7
-        } ${ENTRY_ROW_CY + 9.2}`}
-        stroke="#fff"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </>
-  );
-}
+    <Path
+      d="M-2.7 9.2L0 11.6L2.7 9.2"
+      stroke="#fff"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </>
+);
 
 export interface IEntryScreenProps {
-  /** The scene's master clock, from useEntryOnClassicAnimation. */
-  clock: Readonly<SharedValue<number>>;
+  /** Characters entered so far, from useEntryOnClassicAnimation. */
+  entered: Readonly<SharedValue<number>>;
+  /** How many characters this scenario asks for. */
+  fillCount: number;
   title: string;
-  /** Glyph of an entered character, centred on (cx, ENTRY_ROW_CY). */
-  renderEntered: (cx: number) => ReactNode;
-  /** Glyph of a pending slot (also shown under the cursor while typing). */
-  renderPending: (cx: number) => ReactNode;
+  /** Glyph of an entered character, drawn around the slot origin. */
+  enteredGlyph: ReactNode;
+  /** Glyph of a pending slot, also shown under the cursor while typing. */
+  pendingGlyph: ReactNode;
 }
 
-// Owns the discrete entered state so fills only re-render this small subtree,
+// Owns the discrete entered count so fills only re-render this small subtree,
 // never the 76-element device body (its screenContent stays referentially
 // stable).
 export function EntryScreen({
-  clock,
+  entered,
+  fillCount,
   title,
-  renderEntered,
-  renderPending,
+  enteredGlyph,
+  pendingGlyph,
 }: IEntryScreenProps) {
-  const [entered, setEntered] = useState(0);
+  const [count, setCount] = useState(0);
   useAnimatedReaction(
-    () => entryEnteredAt(clock.value),
+    () => entered.value,
     (value, previous) => {
-      if (value !== previous) runOnJS(setEntered)(value);
+      if (value !== previous) runOnJS(setCount)(value);
     },
-    [clock],
+    [entered],
   );
-  const cursor = Math.min(entered, SLOT_N - 1);
+  const cursor = Math.min(count, SLOT_N - 1);
   return (
-    <View style={styles.fill}>
+    <Stack flex={1}>
       <Svg
         width="100%"
         height="100%"
@@ -115,21 +98,23 @@ export function EntryScreen({
         style={StyleSheet.absoluteFill}
       >
         {Array.from({ length: SLOT_N }, (_, i) => {
-          const cx = slotX(i);
-          if (i < entered) return <G key={i}>{renderEntered(cx)}</G>;
-          if (i === cursor && entered >= ENTRY_FILL_COUNT) {
-            return (
-              <G key={i}>
-                <CheckGlyph cx={cx} />
-              </G>
-            );
-          }
-          return <G key={i}>{renderPending(cx)}</G>;
+          let glyph = pendingGlyph;
+          if (i < count) glyph = enteredGlyph;
+          else if (i === cursor && count >= fillCount) glyph = CHECK_GLYPH;
+          return (
+            <G key={i} transform={slotTransform(i)}>
+              {glyph}
+            </G>
+          );
         })}
-        <Carets cx={slotX(cursor)} />
+        <G transform={slotTransform(cursor)}>{CARETS}</G>
       </Svg>
       <SizableText
-        style={styles.title}
+        position="absolute"
+        top={TITLE_TOP}
+        left={0}
+        right={0}
+        textAlign="center"
         color="#fff"
         fontSize={20}
         lineHeight={24}
@@ -137,6 +122,6 @@ export function EntryScreen({
       >
         {title}
       </SizableText>
-    </View>
+    </Stack>
   );
 }

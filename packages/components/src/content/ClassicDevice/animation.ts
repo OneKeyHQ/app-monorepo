@@ -5,6 +5,7 @@ import {
   cancelAnimation,
   makeMutable,
   useDerivedValue,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -27,30 +28,26 @@ export interface IClassicDeviceAnimation {
   screenGlow: Readonly<SharedValue<number>>;
   /** 0 hidden .. 1 shown, opacity of the screenContent node. */
   screenContent: Readonly<SharedValue<number>>;
-  /** 0 released .. 1 fully pressed, per physical key. */
-  press: Record<IClassicDeviceButtonKey, Readonly<SharedValue<number>>>;
+  /** 0 released .. 1 fully pressed. Keys left out stay released. */
+  press?: Partial<
+    Record<IClassicDeviceButtonKey, Readonly<SharedValue<number>>>
+  >;
 }
+
+/** Stand-in for a key a scene does not animate. */
+export const PRESS_RELEASED = makeMutable(0);
+const SCREEN_ON_VALUE = makeMutable(1);
 
 // Static fallbacks for animation-less usages: a bare shell keeps the screen
 // dark (pixel-identical to the verified static device), a shell given static
 // screenContent shows it steady-on.
-const STATIC_ZERO = makeMutable(0);
-const STATIC_ONE = makeMutable(1);
-const STATIC_PRESS: IClassicDeviceAnimation['press'] = {
-  power: STATIC_ZERO,
-  up: STATIC_ZERO,
-  down: STATIC_ZERO,
-  ok: STATIC_ZERO,
-};
 export const CLASSIC_DEVICE_SCREEN_OFF: IClassicDeviceAnimation = {
-  screenGlow: STATIC_ZERO,
-  screenContent: STATIC_ZERO,
-  press: STATIC_PRESS,
+  screenGlow: PRESS_RELEASED,
+  screenContent: PRESS_RELEASED,
 };
 export const CLASSIC_DEVICE_SCREEN_ON: IClassicDeviceAnimation = {
-  screenGlow: STATIC_ONE,
-  screenContent: STATIC_ONE,
-  press: STATIC_PRESS,
+  screenGlow: SCREEN_ON_VALUE,
+  screenContent: SCREEN_ON_VALUE,
 };
 
 interface IKeyframe {
@@ -98,7 +95,7 @@ const PRESS_DOWN_MS = 100;
 const PRESS_HOLD_MS = 150;
 const PRESS_UP_MS = 100;
 /** Fills/state changes land mid-hold, like the Lottie's slot swaps. */
-export const PRESS_ACT_OFFSET_MS = PRESS_DOWN_MS + PRESS_HOLD_MS / 2;
+const PRESS_ACT_OFFSET_MS = PRESS_DOWN_MS + PRESS_HOLD_MS / 2;
 
 function screenGlowTrack(sleepStart: number): IKeyframe[] {
   return [
@@ -132,10 +129,43 @@ function pressPulsesTrack(startTimes: number[]): IKeyframe[] {
   return kfs;
 }
 
-/** Sawtooth master clock in milliseconds, looping over [0, loopMs). */
-function useSceneClock(loopMs: number): SharedValue<number> {
+interface ISceneTracks {
+  loopMs: number;
+  /** Clock position held when the viewer prefers reduced motion. */
+  restMs: number;
+  glow: IKeyframe[];
+  content: IKeyframe[];
+  ok: IKeyframe[];
+}
+
+function sceneTracks(
+  loopMs: number,
+  restMs: number,
+  sleepAtMs: number,
+  pressStartsMs: number[],
+): ISceneTracks {
+  return {
+    loopMs,
+    restMs,
+    glow: screenGlowTrack(sleepAtMs),
+    content: screenContentTrack(sleepAtMs),
+    ok: pressPulsesTrack(pressStartsMs),
+  };
+}
+
+/**
+ * Sawtooth master clock in milliseconds, looping over [0, loopMs). Under
+ * reduced motion it holds `restMs` instead, so the device still reads awake
+ * and mid-scenario rather than going dark.
+ */
+function useSceneClock(loopMs: number, restMs: number): SharedValue<number> {
   const clock = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
+    if (reducedMotion) {
+      clock.value = restMs;
+      return undefined;
+    }
     clock.value = 0;
     clock.value = withRepeat(
       withTiming(loopMs, { duration: loopMs, easing: Easing.linear }),
@@ -143,64 +173,62 @@ function useSceneClock(loopMs: number): SharedValue<number> {
       false,
     );
     return () => cancelAnimation(clock);
-  }, [clock, loopMs]);
+  }, [clock, loopMs, restMs, reducedMotion]);
   return clock;
+}
+
+/** Assembles one scene's tracks into the device contract. */
+function useSceneAnimation(scene: ISceneTracks): {
+  animation: IClassicDeviceAnimation;
+  clock: SharedValue<number>;
+} {
+  const clock = useSceneClock(scene.loopMs, scene.restMs);
+  const screenGlow = useDerivedValue(() => trackAt(clock.value, scene.glow));
+  const screenContent = useDerivedValue(() =>
+    trackAt(clock.value, scene.content),
+  );
+  const okPress = useDerivedValue(() => trackAt(clock.value, scene.ok));
+  const animation = useMemo(
+    () => ({ screenGlow, screenContent, press: { ok: okPress } }),
+    [screenGlow, screenContent, okPress],
+  );
+  return { animation, clock };
 }
 
 /* ---------------------------------------------------------------- *
  * Confirm, 3s loop: wake -> skeleton fades in -> one OK press -> sleep.
  * ---------------------------------------------------------------- */
 
-const CONFIRM_LOOP_MS = 3000;
-const CONFIRM_GLOW = screenGlowTrack(2100);
-const CONFIRM_CONTENT = screenContentTrack(2100);
-const CONFIRM_OK = pressPulsesTrack([1100]);
+const CONFIRM = sceneTracks(3000, 900, 2100, [1100]);
 
 export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
-  const clock = useSceneClock(CONFIRM_LOOP_MS);
-  const screenGlow = useDerivedValue(() => trackAt(clock.value, CONFIRM_GLOW));
-  const screenContent = useDerivedValue(() =>
-    trackAt(clock.value, CONFIRM_CONTENT),
-  );
-  const okPress = useDerivedValue(() => trackAt(clock.value, CONFIRM_OK));
-
-  return useMemo(
-    () => ({
-      screenGlow,
-      screenContent,
-      press: {
-        power: STATIC_ZERO,
-        up: STATIC_ZERO,
-        down: STATIC_ZERO,
-        ok: okPress,
-      },
-    }),
-    [screenGlow, screenContent, okPress],
-  );
+  return useSceneAnimation(CONFIRM).animation;
 }
 
 /* ---------------------------------------------------------------- *
  * Character-entry scenes (Enter PIN / Enter Passphrase - the original
- * Lottie files are frame-identical too), 5.6s loop: wake -> empty row fades in ->
- * six OK presses enter characters (each at mid-hold) -> the check appears at
+ * Lottie files are frame-identical too), 5.6s loop: wake -> empty row fades in
+ * -> six OK presses enter characters (each at mid-hold) -> the check appears at
  * the cursor -> one final OK press confirms -> sleep. Seven pulses total,
  * exactly like the Lottie files (their unexplained 7th press was this confirm).
  * ---------------------------------------------------------------- */
 
-const ENTRY_LOOP_MS = 5600;
 const ENTRY_PRESS_START_MS = 900;
 const ENTRY_PRESS_STEP_MS = 500;
-export const ENTRY_FILL_COUNT = 6;
-const ENTRY_PRESS_STARTS = Array.from(
-  { length: ENTRY_FILL_COUNT + 1 },
-  (_, i) => ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS,
+const ENTRY_FILL_COUNT = 6;
+const ENTRY = sceneTracks(
+  5600,
+  // Rest on the completed row: everything entered, the confirm press over.
+  4400,
+  4700,
+  Array.from(
+    { length: ENTRY_FILL_COUNT + 1 },
+    (_, i) => ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS,
+  ),
 );
-const ENTRY_GLOW = screenGlowTrack(4700);
-const ENTRY_CONTENT = screenContentTrack(4700);
-const ENTRY_OK = pressPulsesTrack(ENTRY_PRESS_STARTS);
 
 /** How many characters are entered at clock time t (fills land mid-hold). */
-export function entryEnteredAt(t: number): number {
+function entryEnteredAt(t: number): number {
   'worklet';
 
   let entered = 0;
@@ -217,30 +245,14 @@ export function entryEnteredAt(t: number): number {
 
 export function useEntryOnClassicAnimation(): {
   animation: IClassicDeviceAnimation;
-  /** The scene's master clock, for screen content that syncs to it. */
-  clock: Readonly<SharedValue<number>>;
+  /** Characters entered so far, for the screen content to follow. */
+  entered: Readonly<SharedValue<number>>;
+  fillCount: number;
 } {
-  const clock = useSceneClock(ENTRY_LOOP_MS);
-  const screenGlow = useDerivedValue(() => trackAt(clock.value, ENTRY_GLOW));
-  const screenContent = useDerivedValue(() =>
-    trackAt(clock.value, ENTRY_CONTENT),
-  );
-  const okPress = useDerivedValue(() => trackAt(clock.value, ENTRY_OK));
-
+  const { animation, clock } = useSceneAnimation(ENTRY);
+  const entered = useDerivedValue(() => entryEnteredAt(clock.value));
   return useMemo(
-    () => ({
-      animation: {
-        screenGlow,
-        screenContent,
-        press: {
-          power: STATIC_ZERO,
-          up: STATIC_ZERO,
-          down: STATIC_ZERO,
-          ok: okPress,
-        },
-      },
-      clock,
-    }),
-    [screenGlow, screenContent, okPress, clock],
+    () => ({ animation, entered, fillCount: ENTRY_FILL_COUNT }),
+    [animation, entered],
   );
 }
