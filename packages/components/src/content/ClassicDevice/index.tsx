@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
-
 import { SCENES } from './scenes';
 import { ClassicDeviceShell } from './shell';
 
 import type { IClassicDeviceAnimation } from './animation';
 import type { IClassicDeviceScene } from './scenes';
+import type { IClassicDeviceShellProps } from './shell';
 
 export type { IClassicDeviceScene } from './scenes';
 export type { IClassicDeviceAnimation } from './animation';
@@ -18,20 +17,18 @@ export type { IClassicDeviceAnimation } from './animation';
  *   <ClassicDevice />                              static shell, screen dark
  *
  * Advanced: `animation` also accepts a custom IClassicDeviceAnimation
- * contract (see ./animation.ts) paired with your own `screenContent` node.
+ * contract (see ./animation.ts) paired with your own `screenContent`.
  * Switching scene names remounts, so the loop restarts from the top.
  */
-export interface IClassicDeviceProps {
+export interface IClassicDeviceProps extends Omit<
+  IClassicDeviceShellProps,
+  'animation'
+> {
   /**
-   * Rendered width in points. Height follows the fixed 327:539 aspect ratio.
-   * Shrinking is visually free; enlarging softens beyond roughly 430 (see
-   * the scaling note in ./shell.tsx).
+   * A built-in scene name, or a custom animation contract. With a scene name
+   * the scene supplies the screen, so `screenContent` is ignored.
    */
-  width?: number;
-  /** A built-in scene name, or a custom animation contract. */
   animation?: IClassicDeviceScene | IClassicDeviceAnimation;
-  /** Custom screen content; ignored when `animation` is a scene name. */
-  screenContent?: ReactNode;
 }
 
 export function ClassicDevice({
