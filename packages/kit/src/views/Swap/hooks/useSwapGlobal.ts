@@ -1467,14 +1467,14 @@ export function useSwapInit(params?: ISwapInitParams) {
           });
           return;
         }
+        setSwapTips({
+          status: 'empty',
+          updatedAt: Date.now(),
+        });
       } catch (_error) {
-        // Tips are non-critical. Keep Swap usable when remote config or local
+        // Keep the last settled presentation when remote config or local
         // dismissal state cannot be loaded.
       }
-      setSwapTips({
-        status: 'empty',
-        updatedAt: Date.now(),
-      });
     })();
   }, [setSwapTips]);
 
