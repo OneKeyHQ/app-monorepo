@@ -300,10 +300,13 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const shouldShowQuoteActionLoading =
+    !swapActionState.isRefreshQuote &&
+    (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled =
     swapActionState.disabled ||
     swapActionState.isLoading ||
-    forceQuoteActionLoading ||
+    shouldShowQuoteActionLoading ||
     shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -834,7 +837,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      swapActionState.isQuoteActionLoading || forceQuoteActionLoading ? (
+      shouldShowQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -861,12 +864,7 @@ const SwapActionsState = ({
           {swapActionState.label}
         </SizableText>
       ),
-    [
-      forceQuoteActionLoading,
-      swapActionState.isQuoteActionLoading,
-      swapActionState.label,
-      themeVariant,
-    ],
+    [swapActionState.label, shouldShowQuoteActionLoading, themeVariant],
   );
 
   const actionRowComponent = useMemo(

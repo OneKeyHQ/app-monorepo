@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
   DashText,
   Icon,
@@ -28,7 +29,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -832,7 +832,6 @@ function PerpsDepositButton({
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { prepareDeposit } = useHomePerpsIntents();
-  const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
 
   const handleDeposit = useCallback(async () => {
     if (!canDeposit || isDepositDisabled) {
@@ -850,31 +849,27 @@ function PerpsDepositButton({
   }
 
   return (
-    <Button
+    <Badge
       testID={testID}
-      size="small"
+      borderRadius="$full"
+      size="medium"
       variant="primary"
+      alignItems="center"
+      justifyContent="center"
+      flexDirection="row"
+      gap="$2"
+      px="$3"
+      h={28}
       bg="$bgAccent"
-      minHeight={32}
-      color={buttonStyles.textColor}
+      opacity={isDepositDisabled ? 0.5 : 1}
       cursor={isDepositDisabled ? 'default' : 'pointer'}
-      disabled={isDepositDisabled}
-      hoverStyle={{ bg: '$bgAccentHover' }}
-      pressStyle={{ bg: '$bgAccentActive' }}
-      onPress={() => void handleDeposit()}
-      childrenAsText={false}
+      onPress={isDepositDisabled ? undefined : () => void handleDeposit()}
     >
-      <XStack alignItems="center" gap="$2">
-        <Icon
-          name="AlignBottomOutline"
-          size="$4"
-          color={buttonStyles.textColor}
-        />
-        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </XStack>
-    </Button>
+      <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
+      <SizableText size="$bodySmMedium" color="$textInverse">
+        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+      </SizableText>
+    </Badge>
   );
 }
 

@@ -345,6 +345,7 @@ function widenCompactFiat(compact: ICompactFiat, currency: string): ITokenFiat {
     price: compact.price,
     price24h: compact.price24h,
     currency: compact.currency ?? currency,
+    balanceMultiplier: compact.balanceMultiplier,
   };
 }
 

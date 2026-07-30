@@ -132,6 +132,17 @@ function hasSwapStockSelectedTokenSnapshot(snapshot: Record<string, unknown>) {
   );
 }
 
+function isValidStockPayTokenDisplaySeed(token: ISwapToken | null | undefined) {
+  return Boolean(
+    token?.networkId &&
+    token.contractAddress !== undefined &&
+    token.symbol &&
+    Number.isFinite(token.decimals) &&
+    ['USDC', 'USDT'].includes(token.symbol.toUpperCase()) &&
+    !token.isStock,
+  );
+}
+
 function hasHomeSelectedAccountSnapshot(snapshot: Record<string, unknown>) {
   return Boolean(
     getSelectedAccountFromSnapshot({
@@ -194,6 +205,35 @@ export function getSwapStockColdStartDisplayTokenFromGlobalSnapshot() {
     });
     if (stockToken?.isStock) {
       return stockToken;
+    }
+  }
+
+  return undefined;
+}
+
+export function getSwapStockPayTokenDisplayFromGlobalSnapshot({
+  scope,
+}: {
+  scope: string;
+}) {
+  if (!scope) {
+    return undefined;
+  }
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+      ...snapshot,
+    });
+    const payTokenDisplayByScope = getSnapshotValue<
+      Record<string, ISwapToken | undefined>
+    >({
+      snapshot: normalizedSnapshot,
+      coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+    });
+    const token = payTokenDisplayByScope?.[scope];
+    if (isValidStockPayTokenDisplaySeed(token)) {
+      return token;
     }
   }
 
@@ -484,7 +524,25 @@ export function resolveSwapDisplayToken({
     return nextToken;
   }
 
+  const matchingDisplayTokens = [
+    matchingPreviousDisplayToken,
+    matchingFallbackToken,
+  ].filter((token): token is ISwapToken => Boolean(token));
+  const distinctTokenLogoURI = matchingDisplayTokens.find(
+    (token) =>
+      token.logoURI &&
+      token.logoURI !== token.networkLogoURI &&
+      token.logoURI !== nextToken.logoURI,
+  )?.logoURI;
+  const nextLogoMatchesNetworkLogo = Boolean(
+    nextToken.logoURI &&
+    [
+      nextToken.networkLogoURI,
+      ...matchingDisplayTokens.map((token) => token.networkLogoURI),
+    ].some((networkLogoURI) => networkLogoURI === nextToken.logoURI),
+  );
   const logoURI =
+    (nextLogoMatchesNetworkLogo ? distinctTokenLogoURI : undefined) ||
     nextToken.logoURI ||
     matchingPreviousDisplayToken?.logoURI ||
     matchingFallbackToken?.logoURI;

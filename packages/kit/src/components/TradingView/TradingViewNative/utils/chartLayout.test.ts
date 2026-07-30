@@ -1,6 +1,14 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP,
+} from '../chartConstants';
+
+import {
   formatTradingViewNativeCrosshairTime,
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
@@ -8,12 +16,11 @@ import {
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
-  getTradingViewNativePriceTransform,
+  getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeBarHeight,
-  getTradingViewNativeVolumeScale,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 
@@ -65,12 +72,46 @@ describe('TradingViewNative chart layout', () => {
     ).toBe('2025-01-15');
   });
 
+  it('places extrema labels toward the center of the chart', () => {
+    expect(
+      getTradingViewNativePriceExtremumHorizontalLayout({
+        anchorX: 0,
+        canvasWidth: 320,
+        textWidth: 40,
+      }),
+    ).toEqual({ lineEndX: 8, textX: 11 });
+    expect(
+      getTradingViewNativePriceExtremumHorizontalLayout({
+        anchorX: 320,
+        canvasWidth: 320,
+        textWidth: 40,
+      }),
+    ).toEqual({ lineEndX: 312, textX: 269 });
+  });
+
+  it('keeps the highest-price marker below the OHLC legend', () => {
+    const legendTop = Math.max(
+      TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP -
+        TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+      0,
+    );
+    const legendBottom =
+      legendTop +
+      TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+      TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
+    const extremumTextTop =
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
+      TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE / 2;
+
+    expect(extremumTextTop).toBeGreaterThan(legendBottom);
+  });
+
   it('maps crosshair height to a visible price', () => {
     const range = { maxPrice: 10, minPrice: 0, priceChartHeight: 100 };
-    expect(getTradingViewNativePriceAtY({ ...range, y: 8 })).toBe(10);
-    expect(getTradingViewNativePriceAtY({ ...range, y: 58 })).toBe(5);
-    expect(getTradingViewNativePriceAtY({ ...range, y: 108 })).toBe(0);
-    expect(getTradingViewNativePriceAtY({ ...range, y: 109 })).toBeNull();
+    expect(getTradingViewNativePriceAtY({ ...range, y: 24 })).toBe(10);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 74 })).toBe(5);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 124 })).toBe(0);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 125 })).toBeNull();
   });
 
   it('builds the shared rendering layout for native and web charts', () => {
@@ -102,14 +143,14 @@ describe('TradingViewNative chart layout', () => {
       priceAxisX: 338,
       timeAxisY: 276,
       volumeBottom: 276,
-      volumeTop: 222.4,
+      volumeTop: 225.6,
     });
     expect(layout.priceTicks).toHaveLength(7);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
-    expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(8);
+    expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
   });
 
-  it('scales volume against the currently visible candles', () => {
+  it('derives max volume from the currently visible candles', () => {
     const points = buildPoints({
       count: 4,
       startTimestamp: getLocalTimestamp(2025, 0, 15),
@@ -133,62 +174,30 @@ describe('TradingViewNative chart layout', () => {
       getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
     ).toBe(10);
     expect(layout?.maxVolume).toBe(10);
+  });
+
+  it('calculates volume bar height only for positive finite values', () => {
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 10,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 5,
+        volumeHeight: 100,
       }),
-    ).toBe(100);
+    ).toBe(50);
     expect(
-      getTradingViewNativeVolumeScale({
-        baseMaxVolume: 1000,
-        visibleMaxVolume: 0,
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 0,
+        volumeHeight: 100,
       }),
-    ).toBe(1);
-  });
-
-  it('preserves small volume ratios before applying the visible scale', () => {
-    const baseMaxVolume = 1000;
-    const visibleScale = getTradingViewNativeVolumeScale({
-      baseMaxVolume,
-      visibleMaxVolume: 10,
-    });
-    const scaledHeights = [1, 5, 10].map(
-      (volume) =>
-        getTradingViewNativeVolumeBarHeight({
-          maxVolume: baseMaxVolume,
-          volume,
-          volumeHeight: 100,
-        }) * visibleScale,
-    );
-
-    expect(scaledHeights).toEqual([10, 50, 100]);
-  });
-
-  it('maps a static price picture into the visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 8,
-      targetPriceRange: 4,
-    });
-    const mapY = (y: number) => y * transform.scaleY + transform.translateY;
-
-    expect(mapY(28)).toBeCloseTo(8);
-    expect(mapY(68)).toBeCloseTo(108);
-  });
-
-  it('centers a flat visible price range', () => {
-    const transform = getTradingViewNativePriceTransform({
-      baseMaxPrice: 10,
-      basePriceRange: 10,
-      priceChartHeight: 100,
-      targetMaxPrice: 7,
-      targetPriceRange: 0,
-    });
-
-    expect(38 * transform.scaleY + transform.translateY).toBeCloseTo(58);
+    ).toBe(0);
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: Number.POSITIVE_INFINITY,
+        volumeHeight: 100,
+      }),
+    ).toBe(0);
   });
 
   it('centers the watermark and keeps it inside small canvases', () => {
@@ -221,7 +230,7 @@ describe('TradingViewNative chart layout', () => {
         price: 7,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 28, lineY: 38 });
+    ).toEqual({ labelTop: 44, lineY: 54 });
     expect(
       getTradingViewNativeCurrentPriceLayout({
         labelHeight: 20,
@@ -230,7 +239,7 @@ describe('TradingViewNative chart layout', () => {
         price: 10,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 8, lineY: 8 });
+    ).toEqual({ labelTop: 24, lineY: 24 });
     expect(
       getTradingViewNativeCurrentPriceLayout({
         labelHeight: 20,
@@ -239,7 +248,7 @@ describe('TradingViewNative chart layout', () => {
         price: 0,
         priceChartHeight: 100,
       }),
-    ).toEqual({ labelTop: 88, lineY: 108 });
+    ).toEqual({ labelTop: 104, lineY: 124 });
   });
 
   it('hides the current price line when its value is outside the visible range', () => {
@@ -323,6 +332,69 @@ describe('TradingViewNative chart layout', () => {
     expect(initialLayout.unit).toBe('hour');
     expect(pannedLayout.unit).toBe('hour');
     expect(pannedLayout.ticks).toEqual(initialLayout.ticks);
+  });
+
+  it('limits time-axis point reads to the visible window', () => {
+    const sourcePoints = buildPoints({
+      count: 10_000,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    let pointReadCount = 0;
+    const points = sourcePoints.map((point) => ({
+      ...point,
+      get t() {
+        pointReadCount += 1;
+        return point.t;
+      },
+    }));
+
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      endIndex: 5050,
+      minimumIndexSpacing: 12,
+      points,
+      startIndex: 5000,
+    });
+
+    expect(layout.ticks.length).toBeGreaterThan(0);
+    expect(pointReadCount).toBeLessThan(200);
+    expect(
+      layout.ticks.every(({ index }) => index > 4900 && index < 5150),
+    ).toBe(true);
+  });
+
+  it('keeps visible tick anchors stable across an aligned window boundary', () => {
+    const points = buildPoints({
+      count: 240,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      minimumIndexSpacing: 12,
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 153,
+      startIndex: 107,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 154,
+      startIndex: 108,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 108 && index < 153);
+
+    expect(pannedLayout.unit).toBe(initialLayout.unit);
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
   });
 
   it('uses day ticks for a multi-week visible range', () => {

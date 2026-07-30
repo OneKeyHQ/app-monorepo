@@ -8,6 +8,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
@@ -16,6 +20,7 @@ import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue'
 import {
   ESplitViewType,
   useIsSplitView,
+  useSplitMainView,
   useSplitViewType,
   useTheme,
   useThemeName,
@@ -25,6 +30,11 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import { shouldFreezeNativeBottomTab } from './nativeBottomTabFreezePolicy';
+import {
+  rootNavigationRef,
+  tabletMainViewNavigationRef,
+  willTabFocusTransition,
+} from './NavigationContainer';
 
 import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 
@@ -104,6 +114,7 @@ export function TabStackNavigator<RouteName extends string>({
   const intl = useIntl();
   const theme = useTheme();
   const { hapticFeedbackEnabled } = useSettingConfig();
+  const isSplitMainView = useSplitMainView();
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
   useThemeName();
@@ -121,18 +132,31 @@ export function TabStackNavigator<RouteName extends string>({
   }, []);
 
   // Handle tab press events for logging and event bus notifications
-  const handleTabPress = useCallback((routeName: string) => {
-    if (routeName === ETabRoutes.Swap) {
-      defaultLogger.swap.enterSwap.enterSwap({
-        enterFrom: ESwapSource.TAB,
-      });
-    }
-    if (routeName === ETabRoutes.Market) {
-      appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
-        from: EEnterWay.HomeTab,
-      });
-    }
-  }, []);
+  const handleTabPress = useCallback(
+    (routeName: string) => {
+      if (routeName === ETabRoutes.Swap) {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+      if (routeName === ETabRoutes.Market) {
+        appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
+          from: EEnterWay.HomeTab,
+        });
+      }
+      if (
+        (routeName === ETabRoutes.Perp ||
+          routeName === ETabRoutes.WebviewPerpTrade) &&
+        willTabFocusTransition(
+          routeName,
+          isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+        )
+      ) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
+    },
+    [isSplitMainView],
+  );
 
   const tabScreens = useMemo(() => {
     const screens = config

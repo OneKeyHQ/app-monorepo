@@ -29,6 +29,7 @@ function MobileLayout() {
     senderBalances,
     senderBalancesLoading,
     senderBalancesFailed,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
@@ -69,7 +70,7 @@ function MobileLayout() {
     setPreviewState,
     balance:
       bulkSendMode === EBulkSendMode.OneToMany
-        ? tokenDetails?.balanceParsed
+        ? (displayBalance ?? tokenDetails?.balanceParsed)
         : undefined,
   });
 

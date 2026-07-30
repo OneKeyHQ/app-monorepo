@@ -74,9 +74,10 @@ export function createTradingViewNativeMarketDataProvider({
   let primaryHistoryUnavailable =
     !canUseMarketHistory ||
     unavailableMarketHistoryTokenKeys.has(marketTokenKey);
-  const marketHistoryPageSize = source.tokenAddress.trim()
-    ? MARKET_CONTRACT_HISTORY_PAGE_SIZE
-    : MARKET_NATIVE_HISTORY_PAGE_SIZE;
+  const marketHistoryPageSize =
+    source.isNative || !source.tokenAddress.trim()
+      ? MARKET_NATIVE_HISTORY_PAGE_SIZE
+      : MARKET_CONTRACT_HISTORY_PAGE_SIZE;
   const subscriptionBase = {
     networkId: source.networkId,
     tokenAddress: source.tokenAddress,

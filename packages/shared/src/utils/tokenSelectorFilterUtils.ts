@@ -66,6 +66,23 @@ export function filterTokenSelectorTokensByBackendIndexedNetworks<
   );
 }
 
+export function dedupeTokenSelectorNetworkAccounts<
+  T extends { apiAddress?: string; networkId: string },
+>(accounts: T[]): T[] {
+  const requestKeys = new Set<string>();
+  return accounts.filter((account) => {
+    if (!account.apiAddress) {
+      return false;
+    }
+    const requestKey = `${account.networkId}:${account.apiAddress.toLowerCase()}`;
+    if (requestKeys.has(requestKey)) {
+      return false;
+    }
+    requestKeys.add(requestKey);
+    return true;
+  });
+}
+
 export function buildTokenSelectorDappTokenFilterParams({
   lpToken,
 }: {

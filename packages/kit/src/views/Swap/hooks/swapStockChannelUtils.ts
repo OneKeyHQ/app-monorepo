@@ -37,6 +37,80 @@ export enum ESwapStockTradeSide {
   Sell = 'sell',
 }
 
+export const SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES = 20;
+
+export function upsertSwapStockPayTokenScopeCache<T>({
+  cache,
+  scope,
+  value,
+}: {
+  cache: Record<string, T>;
+  scope: string;
+  value: T;
+}): Record<string, T> {
+  const entries = Object.entries(cache).filter(([key]) => key !== scope);
+  entries.push([scope, value]);
+  return Object.fromEntries(
+    entries.slice(-SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES),
+  );
+}
+
+export function resolveStockExecutionTokensForTradeSideSwitch({
+  payToken,
+  stockToken,
+}: {
+  payToken?: ISwapToken;
+  stockToken?: ISwapToken;
+}): { payToken: ISwapToken; stockToken: ISwapToken } | undefined {
+  if (!payToken || !stockToken) {
+    return undefined;
+  }
+  return { payToken, stockToken };
+}
+
+export function resolveStockExecutionTokensToSync({
+  currentFromToken,
+  currentToToken,
+  payToken,
+  readyForQuote,
+  stockToken,
+  tradeSide,
+}: {
+  currentFromToken?: ISwapToken;
+  currentToToken?: ISwapToken;
+  payToken?: ISwapToken;
+  readyForQuote: boolean;
+  stockToken?: ISwapToken;
+  tradeSide: ESwapStockTradeSide;
+}): { fromToken: ISwapToken; toToken: ISwapToken } | undefined {
+  if (!readyForQuote) {
+    return undefined;
+  }
+  const fromToken =
+    tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
+  const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
+  if (!stockToken || !fromToken || !toToken) {
+    return undefined;
+  }
+  const executionPairSynced =
+    equalTokenNoCaseSensitive({
+      token1: currentFromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: currentToToken,
+      token2: toToken,
+    });
+  const currentStockToken =
+    tradeSide === ESwapStockTradeSide.Buy ? currentToToken : currentFromToken;
+  const stockExecutionMetadataSynced =
+    currentStockToken?.decimals === stockToken.decimals &&
+    Boolean(currentStockToken?.isStock) === Boolean(stockToken.isStock);
+  return executionPairSynced && stockExecutionMetadataSynced
+    ? undefined
+    : { fromToken, toToken };
+}
+
 export function isStockTradeReadyForQuote({
   currentStockToken,
   marketOpen,
@@ -81,6 +155,19 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   return `${token.networkId}:${token.contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
+}
+
+export function buildStockPayTokenDisplaySeed(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    decimals: token.decimals,
+    isNative: token.isNative,
+    symbol: token.symbol,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+  };
 }
 
 export function shouldResetStockTradeReceiveAmount({
@@ -173,6 +260,39 @@ export function buildStockSwapTokenFromMarketToken(
     isNative: !!token.isNative,
     ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
+  };
+}
+
+export function resolveStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}): ISwapToken | undefined {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: tokenDetail,
+    })
+  ) {
+    return undefined;
+  }
+  const isNative = tokenDetail.isNative ?? token.isNative;
+  if (
+    token.decimals === tokenDetail.decimals &&
+    token.isNative === isNative &&
+    token.isStock === true
+  ) {
+    return token;
+  }
+  return {
+    ...token,
+    decimals: tokenDetail.decimals,
+    isNative,
+    isStock: true,
   };
 }
 
@@ -332,6 +452,50 @@ export function isStockPayTokenReadyForTradeInput({
   );
 }
 
+export function resolveStockPayTokenState({
+  channelToken,
+  coldStartToken,
+  liveToken,
+  stockPairToken,
+  swapPairToken,
+}: {
+  channelToken?: ISwapToken;
+  coldStartToken?: ISwapToken;
+  liveToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  swapPairToken?: ISwapToken;
+}) {
+  const stockOwnedToken = channelToken ?? stockPairToken ?? coldStartToken;
+  return {
+    displayToken: liveToken ?? stockOwnedToken,
+    selectionToken: stockOwnedToken ?? swapPairToken,
+  };
+}
+
+export function resolveStockTradeInputTokenStatus({
+  isBuySide,
+  payTokenStatus,
+  stockTokenStatus,
+}: {
+  isBuySide: boolean;
+  payTokenStatus: ESwapStockChannelAsyncStatus;
+  stockTokenStatus: ESwapStockChannelAsyncStatus;
+}) {
+  if (!isBuySide) {
+    return stockTokenStatus;
+  }
+  if (stockTokenStatus === ESwapStockChannelAsyncStatus.Empty) {
+    return ESwapStockChannelAsyncStatus.Empty;
+  }
+  if (
+    stockTokenStatus !== ESwapStockChannelAsyncStatus.Ready ||
+    payTokenStatus === ESwapStockChannelAsyncStatus.Idle
+  ) {
+    return ESwapStockChannelAsyncStatus.Initializing;
+  }
+  return payTokenStatus;
+}
+
 export function shouldRenderStockTradeInputSkeleton({
   inputTokenStatus,
   inputTokenReady,
@@ -349,6 +513,21 @@ export function shouldRenderStockTradeInputSkeleton({
   return isBuySide ? !inputTokenVisible : !inputTokenReady;
 }
 
+export function isStockBalanceActionReady({
+  authoritativeBalance,
+  authoritativeStockToken,
+  isBuySide,
+}: {
+  authoritativeBalance?: string;
+  authoritativeStockToken?: ISwapToken;
+  isBuySide: boolean;
+}) {
+  return Boolean(
+    authoritativeBalance !== undefined &&
+    (isBuySide || authoritativeStockToken),
+  );
+}
+
 export function isStockBalanceInitializing({
   balance,
   requestPending,
@@ -357,6 +536,14 @@ export function isStockBalanceInitializing({
   requestPending: boolean;
 }) {
   return balance === undefined && requestPending;
+}
+
+export function hasValidStockBalanceForTrade(balance?: string) {
+  if (!balance) {
+    return false;
+  }
+  const balanceBN = new BigNumber(balance);
+  return balanceBN.isFinite() && balanceBN.gte(0);
 }
 
 export function resolveStockBalanceSeed({
@@ -426,14 +613,16 @@ export function resolveStockBalanceSnapshot({
 }
 
 export function resolveStockBalanceViewState({
+  authoritativeBalance,
   balanceSnapshot,
   cachedDisplayBalance,
 }: {
+  authoritativeBalance?: string;
   balanceSnapshot?: IStockBalanceSnapshot;
   cachedDisplayBalance?: string;
 }) {
   return {
-    balance: balanceSnapshot?.balance,
+    balance: authoritativeBalance,
     displayBalance: balanceSnapshot?.balance ?? cachedDisplayBalance,
     tokenDetail: balanceSnapshot?.tokenDetail,
   };
@@ -484,13 +673,17 @@ export function findDefaultStockPayToken({
 }
 
 export function resolveStockPayTokenDisplaySeed({
+  allowPersistedTokenFallback,
   balances,
   candidates,
+  persistedToken,
   persistedTokenKey,
   selectedToken,
 }: {
+  allowPersistedTokenFallback?: boolean;
   balances?: Record<string, string | undefined>;
   candidates: IToken[];
+  persistedToken?: ISwapToken;
   persistedTokenKey?: string;
   selectedToken?: Partial<ISwapTokenBase>;
 }) {
@@ -507,8 +700,18 @@ export function resolveStockPayTokenDisplaySeed({
         (candidate) => getTokenIdentityKey(candidate) === persistedTokenKey,
       )
     : undefined;
+  const persistedDisplayCandidate = findTokenFromCandidates({
+    candidates,
+    token: persistedToken,
+  });
+  const coldStartDisplaySeed =
+    allowPersistedTokenFallback && candidates.length === 0 && persistedToken
+      ? filterStockPayTokenCandidates([persistedToken])[0]
+      : undefined;
   return (
     persistedCandidate ??
+    persistedDisplayCandidate ??
+    coldStartDisplaySeed ??
     findDefaultStockPayToken({
       candidates,
       balances,

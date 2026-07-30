@@ -560,6 +560,9 @@ export interface IAppEventBusPayload {
     symbol: string;
     priceScale: number;
   };
+  [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
+    deliveryId: string;
+  };
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;

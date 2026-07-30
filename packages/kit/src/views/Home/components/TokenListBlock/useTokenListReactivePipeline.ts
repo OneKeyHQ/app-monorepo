@@ -87,6 +87,14 @@ export interface ICacheSeedItem {
   smallBalanceTokenList: IAccountToken[];
   riskyTokenList: IAccountToken[];
   tokenListMap: Record<string, ITokenFiat>;
+  /**
+   * Cached per-network worth counting tokens + smallBalanceTokens ONLY (risk
+   * excluded — ServiceToken computes it from the two group fiat subtotals).
+   * Seeded onto the floor round as its explicit `accountWorth` because the
+   * shared full `tokenListMap` below also contains risk-only entries a
+   * map-derived sum would wrongly include. Optional: legacy caches predate it.
+   */
+  tokenListValue?: string;
   aggregateTokenListMap?: { [key: string]: { tokens: IAccountToken[] } };
   aggregateTokenMap?: Record<string, ITokenFiat>;
   accountId: string;
@@ -391,6 +399,7 @@ export function useTokenListReactivePipeline(
               keys: item.riskyTokenList.map((t) => t.$key).join(','),
               map: item.tokenListMap,
             },
+            accountWorth: item.tokenListValue,
             aggregateTokenListMap: item.aggregateTokenListMap,
             aggregateTokenMap: item.aggregateTokenMap,
             ownerAccountId,

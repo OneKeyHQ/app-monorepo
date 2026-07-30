@@ -242,6 +242,20 @@ export const {
 );
 
 export const {
+  atom: swapStockPayTokenDisplayAtom,
+  use: useSwapStockPayTokenDisplayAtom,
+} = contextAtom<Record<string, ISwapToken>>(
+  {},
+  {
+    // Account-scoped Stock pay-token seeds are display-only. Live speed config
+    // and token details still gate selection, quote, and execution.
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+  },
+);
+
+export const {
   atom: swapBalanceDisplayCacheAtom,
   use: useSwapBalanceDisplayCacheAtom,
 } = contextAtom<ISwapBalanceDisplayCache>(EMPTY_SWAP_BALANCE_DISPLAY_CACHE, {
@@ -278,25 +292,36 @@ export const {
   use: useSwapModalSelectToTokenAtom,
 } = contextAtom<ISwapToken | undefined>(undefined);
 
+export type ISwapTokenAmountState = {
+  value: string;
+  isInput: boolean;
+};
+
+export type ISwapInputAmountDraft = {
+  fromTokenAmount: ISwapTokenAmountState;
+  toTokenAmount: ISwapTokenAmountState;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+};
+
 export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
-} = contextAtom<{
-  value: string;
-  isInput: boolean;
-}>({
+} = contextAtom<ISwapTokenAmountState>({
   value: '',
   isInput: false,
 });
 
 export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
-  contextAtom<{
-    value: string;
-    isInput: boolean;
-  }>({
+  contextAtom<ISwapTokenAmountState>({
     value: '',
     isInput: false,
   });
+
+export const {
+  atom: swapInputAmountDraftsAtom,
+  use: useSwapInputAmountDraftsAtom,
+} = contextAtom<Partial<Record<ESwapTabSwitchType, ISwapInputAmountDraft>>>({});
 
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
@@ -330,7 +355,16 @@ export const {
 export const {
   atom: swapAllNetworkActionLockAtom,
   use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<Record<string, boolean>>({});
+} = contextAtom<
+  Record<
+    string,
+    {
+      activeRequestKey: string;
+      completionPromise: Promise<void>;
+      pendingRequestKey?: string;
+    }
+  >
+>({});
 
 // swap quote
 export const {
@@ -365,6 +399,11 @@ export const {
   atom: swapQuoteIntervalCountAtom,
   use: useSwapQuoteIntervalCountAtom,
 } = contextAtom<number>(0);
+
+export const {
+  atom: swapQuoteAutoRefreshTimerAtom,
+  use: useSwapQuoteAutoRefreshTimerAtom,
+} = contextAtom<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 export const {
   atom: swapQuoteEventTotalCountAtom,

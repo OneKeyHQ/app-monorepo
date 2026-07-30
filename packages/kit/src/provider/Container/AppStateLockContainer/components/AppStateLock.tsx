@@ -205,8 +205,8 @@ const AppStateLock = ({
             <Stack gap="$4" alignItems="center">
               {/* Hidden support entry: a continuous multi-click on the logo
                   (NOT a long-press) opens the state-log upload dialog. Uses
-                  MultipleClickStack's default threshold — it fires on the 12th
-                  consecutive tap in production (5th in dev). Keep it
+                  MultipleClickStack's default threshold — it fires on the 10th
+                  consecutive tap in production (3rd in dev). Keep it
                   deliberately hard to trigger so it is not hit by accident on
                   the lock screen. (OK-56874) */}
               <MultipleClickStack onPress={handleExportLogs}>

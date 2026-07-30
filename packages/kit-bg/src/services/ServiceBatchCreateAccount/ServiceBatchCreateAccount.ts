@@ -74,6 +74,7 @@ import {
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
 
+import type { IBatchCreateCustomNetworkParams } from './batchCreateCustomNetworks';
 import type { IDBDevice } from '../../dbs/local/types';
 import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type {
@@ -194,9 +195,14 @@ export type IBatchBuildAccountsBaseParams = {
   showUIProgress?: boolean;
   createAllDeriveTypes?: boolean;
   errorMessage?: string;
-  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  customNetworks?: IBatchCreateCustomNetworkParams[];
   isAutoCreateMultiNetwork?: boolean;
 } & IWithHardwareProcessingControlParams;
+// networksParams entry: a custom network may scope the flow-level `indexes`
+// down to its own list (see IBatchCreateCustomNetworkParams.indexes).
+export type IBatchBuildAccountsNetworkParams = IBatchBuildAccountsBaseParams & {
+  indexes?: number[];
+};
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
   excludedIndexes?: {
@@ -246,7 +252,10 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   // Auto multi-network fill scene; flows to the keyring via ...params.
   isAutoCreateMultiNetwork?: boolean;
   walletId: string;
-  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  // Per-pair `indexes` scoping is honored the same way as in
+  // startBatchCreateAccountsFlow (both the hardware prefetch bundle and the
+  // per-network build loop).
+  customNetworks?: IBatchCreateCustomNetworkParams[];
   autoHandleExitError?: boolean;
   showUIProgress?: boolean;
 } & IAdvancedModeFlowParamsBase &
@@ -413,10 +422,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       | undefined;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        let customNetworks: {
-          networkId: string;
-          deriveType: IAccountDeriveTypes;
-        }[] = [
+        let customNetworks: IBatchCreateCustomNetworkParams[] = [
           {
             networkId: payload.params.networkId,
             deriveType: payload.params.deriveType,
@@ -424,10 +430,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
         ];
 
         if (payload.params.customNetworks) {
-          customNetworks = uniqBy(
-            customNetworks.concat(payload.params.customNetworks),
-            (item) => `${item.networkId}_${item.deriveType}`,
-          );
+          // Dynamic import keeps the merge helper out of the native
+          // background startup graph (Startup Graph Budget check).
+          const { mergeBatchCreateCustomNetworks } =
+            await import('./batchCreateCustomNetworks');
+          customNetworks = mergeBatchCreateCustomNetworks({
+            defaultNetworks: customNetworks,
+            customNetworks: payload.params.customNetworks,
+          });
         }
 
         if (
@@ -485,7 +495,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const resp = await this.batchBuildAccounts({
               ...payload.params,
               ...networkParams,
-              indexes,
+              // A custom network may scope the flow to its own index list —
+              // bulk copy passes one entry per derive type so each fetches
+              // exactly its existing accounts.
+              indexes: networkParams.indexes ?? indexes,
               excludedIndexes,
               saveToDb,
               saveToCache: payload.saveToCache,
@@ -798,11 +811,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
     walletId: string;
     includingDefaultNetworks?: boolean;
     isCreateWallet?: boolean;
-    customNetworks:
-      | { networkId: string; deriveType: IAccountDeriveTypes }[]
-      | undefined;
+    customNetworks: IBatchCreateCustomNetworkParams[] | undefined;
   }) {
-    let networksParams: IBatchBuildAccountsBaseParams[] = [];
+    let networksParams: IBatchBuildAccountsNetworkParams[] = [];
 
     if (params.includingDefaultNetworks) {
       networksParams = networksParams.concat(
@@ -827,7 +838,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       );
     }
 
-    const networksParamsFiltered: IBatchBuildAccountsBaseParams[] = [];
+    const networksParamsFiltered: IBatchBuildAccountsNetworkParams[] = [];
     const evmNetworksMap: {
       [implDeriveTypeWalletId: string]: boolean;
     } = {};
@@ -969,7 +980,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         }
       | undefined;
     indexes: number[];
-    networksParams: IBatchBuildAccountsBaseParams[];
+    networksParams: IBatchBuildAccountsNetworkParams[];
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     loopMode?: boolean;
@@ -1028,8 +1039,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 networkId: networkParams.networkId,
                 deriveType: networkParams.deriveType,
               });
-            // number from fromIndex to toIndex
-            for (const i of params.indexes) {
+            // number from fromIndex to toIndex; an indexes-scoped custom
+            // network prepares only its own account indexes.
+            for (const i of networkParams.indexes ?? params.indexes) {
               const key = this.buildNetworkAccountCacheKey({
                 walletId: params.walletId,
                 networkId: networkParams.networkId,
@@ -1293,7 +1305,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const networksParams: IBatchBuildAccountsBaseParams[] =
+        const networksParams: IBatchBuildAccountsNetworkParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
             customNetworks: params.customNetworks,
@@ -1377,7 +1389,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
               ...networkParams,
               showUIProgress:
                 params.showUIProgress || networkParams.showUIProgress,
-              indexes,
+              // Consume per-pair index scoping symmetrically with
+              // startBatchCreateAccountsFlow: the hardware prefetch bundle
+              // above already honors networkParams.indexes, so the build
+              // loop must too, or scoped pairs would iterate the whole
+              // flow-level range and miss the prefetch cache.
+              indexes: networkParams.indexes ?? indexes,
               excludedIndexes,
               saveToDb: true,
               hwAllNetworkPrepareAccountsResponse,

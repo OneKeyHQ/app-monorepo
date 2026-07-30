@@ -27,6 +27,7 @@ export enum EGalleryRoutes {
   ComponentPasswordDemo = 'component-PasswordDemo',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
   ComponentPerp = 'component-Perp',
+  ComponentUnifoldDeposit = 'component-UnifoldDeposit',
   ComponentCloudBackup = 'component-CloudBackup',
   ComponentCloudSync = 'component-CloudSync',
   ComponentPortal = 'component-Portal',

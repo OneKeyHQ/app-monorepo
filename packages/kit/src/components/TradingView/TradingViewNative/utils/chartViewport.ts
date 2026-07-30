@@ -17,14 +17,144 @@ export interface ITradingViewNativePriceRange {
   minPrice: number;
 }
 
+export interface ITradingViewNativePriceExtremum {
+  index: number;
+  price: number;
+}
+
+export interface ITradingViewNativePriceExtrema {
+  high: ITradingViewNativePriceExtremum;
+  low: ITradingViewNativePriceExtremum;
+}
+
 export interface ITradingViewNativeDataUpdateMetadata {
   appendedPointCount: number;
   latestTimestamp: number | undefined;
 }
 
-export interface ITradingViewNativeViewportOffsetTransition {
-  nextOffset: number;
-  offsetDelta: number;
+export type ITradingViewNativeViewportTarget =
+  | {
+      kind: 'timestamp';
+      timestamp: number;
+    }
+  | {
+      kind: 'timeRange';
+      from: number;
+      to: number;
+    };
+
+export interface ITradingViewNativeViewportRequest {
+  preserveVisibleAnchor?: boolean;
+  requestId: number;
+  target: ITradingViewNativeViewportTarget;
+}
+
+export interface ITradingViewNativeViewportPointRange {
+  firstIndex: number;
+  fitRange: boolean;
+  lastIndex: number;
+}
+
+function findFirstPointIndexAtOrAfter(
+  points: IMarketTokenKLineDataPoint[],
+  timestamp: number,
+) {
+  let startIndex = 0;
+  let endIndex = points.length;
+
+  while (startIndex < endIndex) {
+    const middleIndex = Math.floor((startIndex + endIndex) / 2);
+    if (points[middleIndex].t < timestamp) {
+      startIndex = middleIndex + 1;
+    } else {
+      endIndex = middleIndex;
+    }
+  }
+
+  return startIndex;
+}
+
+function findFirstPointIndexAfter(
+  points: IMarketTokenKLineDataPoint[],
+  timestamp: number,
+) {
+  let startIndex = 0;
+  let endIndex = points.length;
+
+  while (startIndex < endIndex) {
+    const middleIndex = Math.floor((startIndex + endIndex) / 2);
+    if (points[middleIndex].t <= timestamp) {
+      startIndex = middleIndex + 1;
+    } else {
+      endIndex = middleIndex;
+    }
+  }
+
+  return startIndex;
+}
+
+function findClosestPointIndex(
+  points: IMarketTokenKLineDataPoint[],
+  timestamp: number,
+) {
+  const nextIndex = findFirstPointIndexAtOrAfter(points, timestamp);
+  if (nextIndex <= 0) {
+    return 0;
+  }
+  if (nextIndex >= points.length) {
+    return points.length - 1;
+  }
+
+  const previousIndex = nextIndex - 1;
+  return timestamp - points[previousIndex].t <= points[nextIndex].t - timestamp
+    ? previousIndex
+    : nextIndex;
+}
+
+export function getTradingViewNativeViewportPointRange({
+  points,
+  target,
+}: {
+  points: IMarketTokenKLineDataPoint[];
+  target: ITradingViewNativeViewportTarget;
+}): ITradingViewNativeViewportPointRange | null {
+  if (!points.length) {
+    return null;
+  }
+
+  if (target.kind === 'timestamp') {
+    if (!Number.isFinite(target.timestamp)) {
+      return null;
+    }
+    const pointIndex = findClosestPointIndex(points, target.timestamp);
+    return {
+      firstIndex: pointIndex,
+      fitRange: false,
+      lastIndex: pointIndex,
+    };
+  }
+
+  if (!Number.isFinite(target.from) || !Number.isFinite(target.to)) {
+    return null;
+  }
+  const from = Math.min(target.from, target.to);
+  const to = Math.max(target.from, target.to);
+  const firstIndex = findFirstPointIndexAtOrAfter(points, from);
+  const endIndex = findFirstPointIndexAfter(points, to);
+  if (firstIndex < endIndex) {
+    return {
+      firstIndex,
+      fitRange: true,
+      lastIndex: endIndex - 1,
+    };
+  }
+
+  const closestIndex = findClosestPointIndex(points, (from + to) / 2);
+  return {
+    firstIndex: closestIndex,
+    fitRange: true,
+    lastIndex: closestIndex,
+  };
 }
 
 export function clampTradingViewNativeZoomScale(scale: number) {
@@ -36,8 +166,20 @@ export function clampTradingViewNativeZoomScale(scale: number) {
   );
 }
 
+export function getTradingViewNativeRelativePinchScale({
+  baselineScale,
+  gestureScale,
+}: {
+  baselineScale: number;
+  gestureScale: number;
+}) {
+  'worklet';
+
+  return gestureScale / Math.max(baselineScale, 0.0001);
+}
+
 export function getTradingViewNativeMaxPanOffset({
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   chartWidth,
   pointCount,
   zoomScale,
@@ -49,22 +191,26 @@ export function getTradingViewNativeMaxPanOffset({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   if (chartWidth <= 0 || pointCount <= 0) {
     return 0;
   }
 
   const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
-  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap;
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap;
   const dataWidth =
     (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + (pointCount - 1) * candleStep) *
     clampedZoomScale;
-  const visibleWidth = Math.max(chartWidth - candleGap * clampedZoomScale, 0);
+  const visibleWidth = Math.max(
+    chartWidth - resolvedCandleGap * clampedZoomScale,
+    0,
+  );
 
   return Math.max(dataWidth - visibleWidth, 0);
 }
 
 export function clampTradingViewNativePanOffset({
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   chartWidth,
   offset,
   pointCount,
@@ -78,15 +224,78 @@ export function clampTradingViewNativePanOffset({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   return Math.min(
     Math.max(offset, 0),
     getTradingViewNativeMaxPanOffset({
-      candleGap,
+      candleGap: resolvedCandleGap,
       chartWidth,
       pointCount,
       zoomScale,
     }),
   );
+}
+
+export function getTradingViewNativeViewportForPointRange({
+  candleGap,
+  chartWidth,
+  currentZoomScale,
+  firstIndex,
+  fitRange,
+  lastIndex,
+  pointCount,
+}: ITradingViewNativeViewportPointRange & {
+  candleGap?: number;
+  chartWidth: number;
+  currentZoomScale: number;
+  pointCount: number;
+}) {
+  'worklet';
+
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
+  if (chartWidth <= 0 || pointCount <= 0) {
+    return null;
+  }
+
+  const clampedFirstIndex = Math.min(
+    Math.max(Math.floor(firstIndex), 0),
+    pointCount - 1,
+  );
+  const clampedLastIndex = Math.min(
+    Math.max(Math.floor(lastIndex), clampedFirstIndex),
+    pointCount - 1,
+  );
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap;
+  const targetIndex = (clampedFirstIndex + clampedLastIndex) / 2;
+  let zoomScale = clampTradingViewNativeZoomScale(currentZoomScale);
+
+  if (fitRange) {
+    const targetDataWidth =
+      TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH +
+      (clampedLastIndex - clampedFirstIndex) * candleStep +
+      candleStep * 2;
+    zoomScale = clampTradingViewNativeZoomScale(chartWidth / targetDataWidth);
+  }
+
+  const distanceFromNewest = pointCount - targetIndex - 1;
+  const targetOffset =
+    chartWidth / 2 -
+    chartWidth +
+    (resolvedCandleGap +
+      TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2 +
+      distanceFromNewest * candleStep) *
+      zoomScale;
+
+  return {
+    offset: clampTradingViewNativePanOffset({
+      candleGap: resolvedCandleGap,
+      chartWidth,
+      offset: targetOffset,
+      pointCount,
+      zoomScale,
+    }),
+    zoomScale,
+  };
 }
 
 export function getTradingViewNativeAppendedPointCount({
@@ -131,7 +340,7 @@ export function getTradingViewNativeDataUpdateMetadata({
 
 export function getTradingViewNativePanOffsetAfterDataUpdate({
   appendedPointCount,
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   chartWidth,
   currentOffset,
   pointCount,
@@ -146,8 +355,9 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   const clampedOffset = clampTradingViewNativePanOffset({
-    candleGap,
+    candleGap: resolvedCandleGap,
     chartWidth,
     offset: currentOffset,
     pointCount,
@@ -161,46 +371,15 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
   }
 
   const candleStep =
-    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) *
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap) *
     clampTradingViewNativeZoomScale(zoomScale);
   return clampTradingViewNativePanOffset({
-    candleGap,
+    candleGap: resolvedCandleGap,
     chartWidth,
     offset: clampedOffset + safeAppendedPointCount * candleStep,
     pointCount,
     zoomScale,
   });
-}
-
-export function getTradingViewNativeViewportOffsetTransition({
-  appendedPointCount,
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
-  chartWidth,
-  currentOffset,
-  pointCount,
-  zoomScale,
-}: {
-  appendedPointCount: number;
-  candleGap?: number;
-  chartWidth: number;
-  currentOffset: number;
-  pointCount: number;
-  zoomScale: number;
-}): ITradingViewNativeViewportOffsetTransition {
-  'worklet';
-
-  const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
-    appendedPointCount,
-    candleGap,
-    chartWidth,
-    currentOffset,
-    pointCount,
-    zoomScale,
-  });
-  return {
-    nextOffset,
-    offsetDelta: nextOffset - currentOffset,
-  };
 }
 
 export function getTradingViewNativeGestureStartOffsetAfterDataUpdate({
@@ -223,8 +402,22 @@ export function getTradingViewNativeGestureStartOffsetAfterDataUpdate({
   );
 }
 
+export function getTradingViewNativePanStartOffsetAfterViewportPreservation({
+  currentTranslationX,
+  dragRatio,
+  preservedOffset,
+}: {
+  currentTranslationX: number;
+  dragRatio: number;
+  preservedOffset: number;
+}) {
+  'worklet';
+
+  return preservedOffset - currentTranslationX * dragRatio;
+}
+
 export function getTradingViewNativeVisiblePointRange({
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   chartWidth,
   offset,
   pointCount,
@@ -238,25 +431,28 @@ export function getTradingViewNativeVisiblePointRange({
 }): ITradingViewNativeVisiblePointRange {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   if (chartWidth <= 0 || pointCount <= 0) {
     return { endIndex: 0, startIndex: 0 };
   }
 
   const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
   const clampedOffset = clampTradingViewNativePanOffset({
-    candleGap,
+    candleGap: resolvedCandleGap,
     chartWidth,
     offset,
     pointCount,
     zoomScale: clampedZoomScale,
   });
   const candleStep =
-    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) * clampedZoomScale;
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap) *
+    clampedZoomScale;
   const halfCandleBodyWidth =
     (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * clampedZoomScale) / 2;
   const lastCandleCenter =
     chartWidth -
-    (candleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) * clampedZoomScale +
+    (resolvedCandleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) *
+      clampedZoomScale +
     clampedOffset;
   const newestVisibleDistance = Math.max(
     Math.ceil(
@@ -280,7 +476,7 @@ export function getTradingViewNativeVisiblePointRange({
 }
 
 export function getTradingViewNativeCandleX({
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   index,
   offset,
   pointCount,
@@ -296,6 +492,7 @@ export function getTradingViewNativeCandleX({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   if (pointCount <= 0) {
     return priceAxisX;
   }
@@ -303,11 +500,11 @@ export function getTradingViewNativeCandleX({
   const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
   const clampedIndex = Math.min(Math.max(Math.floor(index), 0), pointCount - 1);
   const distanceFromNewest = pointCount - clampedIndex - 1;
-  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap;
+  const candleStep = TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap;
 
   return (
     priceAxisX -
-    (candleGap +
+    (resolvedCandleGap +
       TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2 +
       distanceFromNewest * candleStep) *
       clampedZoomScale +
@@ -316,7 +513,7 @@ export function getTradingViewNativeCandleX({
 }
 
 export function getTradingViewNativePointIndexAtX({
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   offset,
   pointCount,
   priceAxisX,
@@ -332,6 +529,7 @@ export function getTradingViewNativePointIndexAtX({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   if (
     pointCount <= 0 ||
     priceAxisX <= 0 ||
@@ -344,15 +542,61 @@ export function getTradingViewNativePointIndexAtX({
 
   const clampedZoomScale = clampTradingViewNativeZoomScale(zoomScale);
   const candleStep =
-    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + candleGap) * clampedZoomScale;
+    (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH + resolvedCandleGap) *
+    clampedZoomScale;
   const lastCandleCenter =
     priceAxisX -
-    (candleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) * clampedZoomScale +
+    (resolvedCandleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) *
+      clampedZoomScale +
     offset;
   const distanceFromNewest = Math.round((lastCandleCenter - x) / candleStep);
   const index = pointCount - distanceFromNewest - 1;
 
   return index >= 0 && index < pointCount ? index : null;
+}
+
+export function getTradingViewNativePriceExtrema({
+  endIndex,
+  points,
+  startIndex,
+}: ITradingViewNativeVisiblePointRange & {
+  points: IMarketTokenKLineDataPoint[];
+}): ITradingViewNativePriceExtrema | null {
+  'worklet';
+
+  const clampedStartIndex = Math.min(
+    Math.max(Math.floor(startIndex), 0),
+    points.length,
+  );
+  const clampedEndIndex = Math.min(
+    Math.max(Math.floor(endIndex), clampedStartIndex),
+    points.length,
+  );
+  let highIndex = -1;
+  let highPrice = Number.NEGATIVE_INFINITY;
+  let lowIndex = -1;
+  let lowPrice = Number.POSITIVE_INFINITY;
+
+  for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
+    const point = points[index];
+    if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
+      if (point.h > highPrice) {
+        highIndex = index;
+        highPrice = point.h;
+      }
+      if (point.l < lowPrice) {
+        lowIndex = index;
+        lowPrice = point.l;
+      }
+    }
+  }
+
+  return highIndex >= 0 && lowIndex >= 0
+    ? {
+        high: { index: highIndex, price: highPrice },
+        low: { index: lowIndex, price: lowPrice },
+      }
+    : null;
 }
 
 export function getTradingViewNativePriceRange({
@@ -390,7 +634,7 @@ export function getTradingViewNativePriceRange({
 
 export function getTradingViewNativeZoomedViewport({
   anchorX,
-  candleGap = TRADING_VIEW_NATIVE_CANDLE_GAP,
+  candleGap,
   chartWidth,
   currentOffset,
   currentZoomScale,
@@ -407,18 +651,19 @@ export function getTradingViewNativeZoomedViewport({
 }) {
   'worklet';
 
+  const resolvedCandleGap = candleGap ?? TRADING_VIEW_NATIVE_CANDLE_GAP;
   const currentScale = clampTradingViewNativeZoomScale(currentZoomScale);
   const zoomScale = clampTradingViewNativeZoomScale(nextZoomScale);
   const clampedAnchorX = Math.min(Math.max(anchorX, 0), chartWidth);
   const offset = clampTradingViewNativePanOffset({
-    candleGap,
+    candleGap: resolvedCandleGap,
     chartWidth,
     offset: currentOffset,
     pointCount,
     zoomScale: currentScale,
   });
-  const currentContentRight = chartWidth - candleGap * currentScale;
-  const nextContentRight = chartWidth - candleGap * zoomScale;
+  const currentContentRight = chartWidth - resolvedCandleGap * currentScale;
+  const nextContentRight = chartWidth - resolvedCandleGap * zoomScale;
   const anchorDistance =
     (currentContentRight + offset - clampedAnchorX) / currentScale;
   const nextOffset =
@@ -426,7 +671,7 @@ export function getTradingViewNativeZoomedViewport({
 
   return {
     offset: clampTradingViewNativePanOffset({
-      candleGap,
+      candleGap: resolvedCandleGap,
       chartWidth,
       offset: nextOffset,
       pointCount,

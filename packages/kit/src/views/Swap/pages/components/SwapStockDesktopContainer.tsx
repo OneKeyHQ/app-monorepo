@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -55,7 +56,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -110,6 +111,8 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   useShouldShowSwapLocalData,
@@ -167,7 +170,10 @@ import {
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
-import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
+import {
+  isCurrentStockMarketClosedQuoteEventError,
+  isCurrentStockQuoteEventError,
+} from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -791,12 +797,14 @@ function StockEstimatedReceive({
 
 function StockActionGate({
   alerts,
+  balanceActionsReady,
   stockChannel,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
+  balanceActionsReady: boolean;
   stockChannel: IUseSwapStockChannelReturn;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
@@ -839,12 +847,12 @@ function StockActionGate({
   }, [navigation]);
   const keyboardPercentageStage = useMemo(
     () =>
-      !platformEnv.isNativeIOS ? (
+      !platformEnv.isNativeIOS && balanceActionsReady ? (
         <PercentageStageOnKeyboard
           onSelectPercentageStage={onSelectPercentageStage}
         />
       ) : null,
-    [onSelectPercentageStage],
+    [balanceActionsReady, onSelectPercentageStage],
   );
   const renderActionButton = useCallback(
     (button: ReactNode) => {
@@ -872,8 +880,6 @@ function StockActionGate({
   );
   const isStockChannelInitializing =
     stockChannel.stockTokenStatus ===
-      ESwapStockChannelAsyncStatus.Initializing ||
-    stockChannel.marketStatusStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
     stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
   const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
@@ -929,7 +935,9 @@ function StockActionGate({
         forceQuoteActionLoading={forceQuoteActionLoading}
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
-        onSelectPercentageStage={onSelectPercentageStage}
+        onSelectPercentageStage={
+          balanceActionsReady ? onSelectPercentageStage : undefined
+        }
       />
     );
   }
@@ -955,11 +963,10 @@ function StockActionGate({
     );
   }
 
-  const isMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
+  const disabledButtonProps = getStockDisabledActionButtonProps(
+    stockChannel.tradeSide,
+    stockChannel.channelStage,
+  );
 
   return renderActionButton(
     <Button
@@ -1021,7 +1028,13 @@ function StockPayTokenPopoverContent({
 function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
   const intl = useIntl();
   return (
-    <YStack h={124} bg="$bgSubdued" borderRadius="$4" overflow="hidden">
+    <YStack
+      testID={SwapTestIDs.stockAmountInputSkeleton}
+      h={124}
+      bg="$bgSubdued"
+      borderRadius="$4"
+      overflow="hidden"
+    >
       <XStack
         pt="$3.5"
         px="$3.5"
@@ -1079,6 +1092,7 @@ function StockAmountInput({
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
+    balanceActionsReady,
     balanceLoading,
     currencySymbol,
     disableNativePayToken,
@@ -1171,7 +1185,9 @@ function StockAmountInput({
         <SwapInputActions
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
-          showPercentageInput={showPercentageInputDebounce}
+          showPercentageInput={
+            showPercentageInputDebounce && balanceActionsReady
+          }
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
@@ -1191,17 +1207,18 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: onBalanceMaxPress,
+          onPress: balanceActionsReady ? onBalanceMaxPress : undefined,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: SwapTestIDs.maxButton,
+          testID: balanceActionsReady ? SwapTestIDs.maxButton : undefined,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
-          inputAccessoryViewID: platformEnv.isNativeIOS
-            ? SwapAmountInputAccessoryViewID
-            : undefined,
+          inputAccessoryViewID:
+            platformEnv.isNativeIOS && balanceActionsReady
+              ? SwapAmountInputAccessoryViewID
+              : undefined,
           onFocus: handleAmountInputFocus,
           onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
@@ -1241,9 +1258,9 @@ function StockAmountInput({
                 }
               : undefined,
         }}
-        enableMaxAmount
+        enableMaxAmount={balanceActionsReady}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOS && balanceActionsReady ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
@@ -1283,6 +1300,31 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const hasPositiveInputAmount = new BigNumber(
+    amountInputState.inputValue || 0,
+  ).gt(0);
+  const isCurrentQuoteMarketClosed = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: amountInputState.inputValue,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
+  const quoteScopeKey = [
+    getTokenIdentityKey(stockChannel.fromToken),
+    getTokenIdentityKey(stockChannel.toToken),
+    amountInputState.inputValue,
+  ].join('|');
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
+    // The normalized status stays open while detail is unavailable so quote
+    // execution can continue; reopen detection needs the raw tri-state value.
+    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
+    onRefresh: refreshAction,
+    quoteMarketClosed: isCurrentQuoteMarketClosed,
+    scopeKey: quoteScopeKey,
+  });
+
   return (
     <YStack gap={compact ? '$3' : '$4'}>
       <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
@@ -1299,6 +1341,7 @@ function StockTradeTicket({
       />
       <StockActionGate
         alerts={alerts}
+        balanceActionsReady={amountInputState.balanceActionsReady}
         stockChannel={stockChannel}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
@@ -1491,7 +1534,7 @@ function StockMarketTokenHeader({
         </SizableText>
       ) : null}
       <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      <StockMarketStatusBadge stock={stock} />
     </XStack>
   );
   const tokenInfoContent = (
