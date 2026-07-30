@@ -88,6 +88,16 @@ describe('Google Play install attribution', () => {
     });
   });
 
+  it('ignores empty and not-set referrer values without relying on brackets', () => {
+    expect(
+      parseGooglePlayInstallReferrer(
+        'utm_source=&utm_medium=(not%20set)&utm_campaign=NOT%20SET&utm_content=google_play_button',
+      ),
+    ).toEqual({
+      utmContent: 'google_play_button',
+    });
+  });
+
   it('logs the attribution and marks it as reported', async () => {
     const rawReferrer =
       'utm_source=onekey.so&utm_medium=owned_web&utm_campaign=download_page&click_id=click-123';
@@ -102,10 +112,7 @@ describe('Google Play install attribution', () => {
       utmMedium: 'owned_web',
       utmSource: 'onekey.so',
     });
-    expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v2',
-      '1',
-    );
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
   it('does not mark attribution as reported when delivery fails', async () => {
@@ -124,10 +131,7 @@ describe('Google Play install attribution', () => {
 
     expect(getInstallReferrerMock).toHaveBeenCalledTimes(2);
     expect(logAttributionMock).toHaveBeenCalledTimes(2);
-    expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v2',
-      '1',
-    );
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
   it('logs but does not report an empty raw referrer', async () => {
@@ -152,6 +156,18 @@ describe('Google Play install attribution', () => {
     expect(markReportedMock).not.toHaveBeenCalled();
   });
 
+  it('does not report attribution without a valid utm source', async () => {
+    const rawReferrer =
+      'utm_source=(not%20set)&utm_medium=(not%20set)&utm_campaign=download_page';
+    getInstallReferrerMock.mockResolvedValue(rawReferrer);
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logRawReferrerMock).toHaveBeenCalledWith(rawReferrer);
+    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(markReportedMock).not.toHaveBeenCalled();
+  });
+
   it('marks an existing installation as handled without reading referrer', async () => {
     getInstallationTimeMock.mockResolvedValue(
       new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
@@ -162,10 +178,7 @@ describe('Google Play install attribution', () => {
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
     expect(logRawReferrerMock).not.toHaveBeenCalled();
     expect(logAttributionMock).not.toHaveBeenCalled();
-    expect(markReportedMock).toHaveBeenCalledWith(
-      'google_play_install_attribution_reported_v2',
-      '1',
-    );
+    expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
   it('skips attribution already reported', async () => {

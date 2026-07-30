@@ -6,7 +6,7 @@ import {
 import { defaultLogger } from '../../logger/logger';
 import appStorage from '../../storage/appStorage';
 
-const REPORTED_STORAGE_KEY = 'google_play_install_attribution_reported_v2';
+const REPORTED_STORAGE_KEY = 'install_attr_v1';
 const MAX_INSTALL_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_REFERRER_LENGTH = 2048;
 const MAX_VALUE_LENGTH = 128;
@@ -25,6 +25,14 @@ type IParsedReferrer = Partial<
   Record<(typeof referrerFields)[number][1], string>
 >;
 
+function getValidReferrerValue(value: string | null): string | undefined {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue || normalizedValue.toLowerCase().includes('not set')) {
+    return undefined;
+  }
+  return normalizedValue;
+}
+
 export function parseGooglePlayInstallReferrer(
   rawReferrer: string,
 ): IParsedReferrer {
@@ -32,7 +40,7 @@ export function parseGooglePlayInstallReferrer(
     const searchParams = new URLSearchParams(value);
     const parsed: IParsedReferrer = {};
     for (const [referrerField, eventField] of referrerFields) {
-      const fieldValue = searchParams.get(referrerField)?.trim();
+      const fieldValue = getValidReferrerValue(searchParams.get(referrerField));
       if (fieldValue) {
         parsed[eventField] = fieldValue.slice(0, MAX_VALUE_LENGTH);
       }
@@ -77,7 +85,7 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
   }
 
   const referrer = parseGooglePlayInstallReferrer(rawReferrer);
-  if (Object.keys(referrer).length === 0) {
+  if (!referrer.utmSource) {
     return;
   }
 

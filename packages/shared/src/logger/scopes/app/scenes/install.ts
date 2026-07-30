@@ -1,7 +1,7 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-export type IGooglePlayInstallAttributionParams = {
+export type IInstallAttributionParams = {
   clickId?: string;
   utmCampaign?: string;
   utmContent?: string;
@@ -19,18 +19,14 @@ export class InstallScene extends BaseScene {
 
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'info' })
-  private googlePlayInstallAttribution(
-    params: IGooglePlayInstallAttributionParams,
-  ) {
+  private installAttribution(params: IInstallAttributionParams) {
     return params;
   }
 
   public reportGooglePlayInstallAttribution(
-    params: IGooglePlayInstallAttributionParams,
+    params: IInstallAttributionParams,
   ): Promise<void> {
-    return this.googlePlayInstallAttribution(
-      params,
-    ) as unknown as Promise<void>;
+    return this.installAttribution(params) as unknown as Promise<void>;
   }
 
   @LogToLocal({ level: 'error' })
