@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* cspell:ignore Infini */
 import { ensurePrimePurchaseEligible } from './primePurchaseEligibility';
 
 import type { IntlShape } from 'react-intl';
@@ -6,15 +6,20 @@ import type { IntlShape } from 'react-intl';
 const mockIntl = {
   formatMessage: ({ id }: { id: string }) => id,
 } as unknown as IntlShape;
-const mockApiFetchPrimeUserInfo = jest.fn();
+const mockApiFetchPrimeUserInfo = jest.fn<Promise<unknown>, [unknown]>();
 const mockToastError = jest.fn();
 const mockToastMessage = jest.fn();
-const mockShowToastOfError = jest.fn();
+const mockShowPrimeInfiniPaymentErrorToast = jest.fn();
+const mockLogPrimeInfiniPaymentFlow = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
-    error: (...args: unknown[]) => mockToastError(...args),
-    message: (...args: unknown[]) => mockToastMessage(...args),
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+    message: (...args: unknown[]) => {
+      mockToastMessage(...args);
+    },
   },
 }));
 
@@ -22,17 +27,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
-      apiFetchPrimeUserInfo: (...args: unknown[]) =>
-        mockApiFetchPrimeUserInfo(...args),
+      apiFetchPrimeUserInfo: (params: unknown): Promise<unknown> =>
+        mockApiFetchPrimeUserInfo(params),
     },
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: {
-    toastIfError: jest.fn(),
-    showToastOfError: (...args: unknown[]) => mockShowToastOfError(...args),
+jest.mock('./primeInfiniPaymentError', () => ({
+  showPrimeInfiniPaymentErrorToast: (...args: unknown[]) => {
+    mockShowPrimeInfiniPaymentErrorToast(...args);
+  },
+}));
+
+jest.mock('./primeInfiniPaymentLogger', () => ({
+  logPrimeInfiniPaymentFlow: (...args: unknown[]) => {
+    mockLogPrimeInfiniPaymentFlow(...args);
   },
 }));
 
@@ -142,7 +151,16 @@ describe('ensurePrimePurchaseEligible', () => {
       }),
     ).resolves.toBe(false);
 
-    expect(mockShowToastOfError).toHaveBeenCalledWith(error);
+    expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
+      error,
+      fallbackMessage: 'prime_payment_start_failed__msg',
+    });
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'purchaseEligibilityCheckFailed',
+        error,
+      }),
+    );
   });
 
   it('allows the user to retry after a failed server check', async () => {

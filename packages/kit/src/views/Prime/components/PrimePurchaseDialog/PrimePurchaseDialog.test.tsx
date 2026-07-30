@@ -34,7 +34,6 @@ const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
 >();
 const mockPurchaseByCrypto = jest.fn(async () => undefined);
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
-const mockToastError = jest.fn<void, [config: { title: string }]>();
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
   isNativeAndroid: false,
@@ -50,6 +49,8 @@ const mockListItem = jest.fn<
     },
   ]
 >(() => null);
+const mockShowPrimeInfiniPaymentErrorToast = jest.fn();
+const mockLogPrimeInfiniPaymentFlow = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -68,9 +69,6 @@ jest.mock('@onekeyhq/components', () => {
     },
     Skeleton: () => null,
     Stack: Passthrough,
-    Toast: {
-      error: (config: { title: string }) => mockToastError(config),
-    },
     YStack: Passthrough,
   };
 });
@@ -146,7 +144,15 @@ jest.mock('../../hooks/usePrimePayment', () => ({
 }));
 
 jest.mock('../../primeInfiniPaymentLogger', () => ({
-  logPrimeInfiniPaymentFlow: jest.fn(),
+  logPrimeInfiniPaymentFlow: (...args: unknown[]) => {
+    mockLogPrimeInfiniPaymentFlow(...args);
+  },
+}));
+
+jest.mock('../../primeInfiniPaymentError', () => ({
+  showPrimeInfiniPaymentErrorToast: (...args: unknown[]) => {
+    mockShowPrimeInfiniPaymentErrorToast(...args);
+  },
 }));
 
 jest.mock('../../primePurchaseEligibility', () => ({
@@ -174,7 +180,7 @@ type IPaymentMethodDialogContent = ReactElement<{
       periodUnit: 'day' | 'week' | 'month' | 'year';
       source: 'native' | 'web';
     };
-    onSelect: (method: 'webStripe') => Promise<boolean>;
+    onSelect: (method: 'webStripe' | 'crypto') => Promise<boolean>;
   }>;
 }>;
 
@@ -321,9 +327,8 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
   );
 
   it('blocks the purchase with a visible error when the guard request fails', async () => {
-    mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(
-      new Error('network down'),
-    );
+    const error = new Error('network down');
+    mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(error);
     const onPurchase = jest.fn(async () => undefined);
     const { result } = renderHook(() =>
       usePrimePurchaseCallback({ onPurchase }),
@@ -334,14 +339,54 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
         result.current.purchase({
           selectedSubscriptionPeriod: 'P1Y',
         }),
-      ).rejects.toThrow('Unable to verify the Infini payment session');
+      ).rejects.toBe(error);
     });
 
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
+      error,
+      fallbackMessage: 'global.failed',
+    });
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'paymentEntryGuardFailed',
+        error,
+      }),
+    );
     expect(mockDialogShow).not.toHaveBeenCalled();
     expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
     expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
     expect(onPurchase).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a crypto payment launch error from the method picker', async () => {
+    const error = new Error('wallet page failed');
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockPurchaseByCrypto.mockRejectedValueOnce(error);
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+
+    await act(async () => {
+      await result.current.purchase({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+
+    const dialogConfig = mockDialogShow.mock.calls[0][0] as {
+      renderContent: IPaymentMethodDialogContent;
+    };
+    const paymentMethodItems = dialogConfig.renderContent.props.children;
+
+    await expect(paymentMethodItems.props.onSelect('crypto')).rejects.toBe(
+      error,
+    );
+    expect(mockPurchaseByCrypto).toHaveBeenCalledTimes(1);
+    expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
+      error,
+      fallbackMessage: 'global.failed',
+    });
   });
 
   it('reroutes a payment method selection when a payment starts while the picker is open', async () => {

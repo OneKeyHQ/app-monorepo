@@ -1,7 +1,9 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { showPrimeInfiniPaymentErrorToast } from './primeInfiniPaymentError';
+import { logPrimeInfiniPaymentFlow } from './primeInfiniPaymentLogger';
 
 import type { IntlShape } from 'react-intl';
 
@@ -46,8 +48,18 @@ async function checkPrimePurchaseEligibility({
     }
     return true;
   } catch (error) {
-    errorToastUtils.toastIfError(error);
-    errorToastUtils.showToastOfError(error);
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      reason: 'purchaseEligibilityCheckFailed',
+      error,
+    });
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: intl.formatMessage({
+        id: ETranslations.prime_payment_start_failed__msg,
+      }),
+    });
     return false;
   }
 }

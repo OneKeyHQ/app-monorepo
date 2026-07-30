@@ -85,6 +85,7 @@ describe('fetchSpecifiedTokenSelectorTokens', () => {
     });
     expect(result.expectedResponseCount).toBe(1);
     expect(Object.keys(result.responsesByNetworkId)).toEqual(['evm--1']);
+    expect(result.issues).toEqual([]);
   });
 
   it('keeps the expected network count when one network refresh fails', async () => {
@@ -131,5 +132,7 @@ describe('fetchSpecifiedTokenSelectorTokens', () => {
     });
     expect(result.expectedResponseCount).toBe(2);
     expect(Object.keys(result.responsesByNetworkId)).toEqual(['evm--1']);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]).toEqual(new Error('network unavailable'));
   });
 });

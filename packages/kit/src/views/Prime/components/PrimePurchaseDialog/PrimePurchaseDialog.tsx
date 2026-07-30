@@ -4,11 +4,10 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, Toast, YStack } from '@onekeyhq/components';
+import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -19,6 +18,7 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
 import {
@@ -310,6 +310,26 @@ export function usePrimePurchaseCallback({
           paymentMethod,
         });
       };
+      const startCryptoPayment = async ({
+        subscriptionPeriod,
+      }: {
+        subscriptionPeriod: ISubscriptionPeriod;
+      }) => {
+        try {
+          await purchaseByCryptoUnchecked({
+            selectedSubscriptionPeriod: subscriptionPeriod,
+            featureName,
+          });
+        } catch (error) {
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          throw error;
+        }
+      };
       const continuePendingCryptoPayment = async ({
         beforeContinue,
       }: {
@@ -323,29 +343,35 @@ export function usePrimePurchaseCallback({
         >;
         try {
           entryGuard = await getPrimeInfiniPaymentEntryGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
+        } catch (error) {
+          logPrimeInfiniPaymentFlow({
+            stage: 'paymentContext',
+            status: 'failed',
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            featureName,
+            plan: selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly',
+            reason: 'paymentEntryGuardFailed',
+            error,
+          });
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
             }),
           });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
+          throw error;
         }
         if (!entryGuard.hasPendingPayment) {
           return false;
         }
         await beforeContinue();
-        await purchaseByCryptoUnchecked({
+        await startCryptoPayment({
           // Resume the in-flight invoice on its own period. Passing the period
           // the user just picked would restore a monthly invoice under a
           // yearly request, which the restore path tracks without complaint
           // once the payment is no longer replaceable.
-          selectedSubscriptionPeriod:
+          subscriptionPeriod:
             entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
-          featureName,
         });
         return true;
       };
@@ -461,9 +487,8 @@ export function usePrimePurchaseCallback({
                         : 'monthly',
                     checkoutType: 'internalWallet',
                   });
-                  void purchaseByCryptoUnchecked({
-                    selectedSubscriptionPeriod,
-                    featureName,
+                  await startCryptoPayment({
+                    subscriptionPeriod: selectedSubscriptionPeriod,
                   });
                 }
                 return true;

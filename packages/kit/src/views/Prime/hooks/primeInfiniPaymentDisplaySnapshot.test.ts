@@ -1,10 +1,104 @@
 import {
+  isPrimeInfiniPaymentAccountSyncReady,
   resolvePrimeInfiniPaymentDisplaySnapshot,
+  resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from './primeInfiniPaymentDisplaySnapshot';
 
+describe('resolvePrimeInfiniPaymentPinnedAssetKey', () => {
+  it('keeps the selected BSC token while an account reload temporarily loses its session', () => {
+    const pinnedAssetKey = resolvePrimeInfiniPaymentPinnedAssetKey({
+      selectedAssetKey: '',
+      pendingAssetKey: 'bsc-usdt',
+    });
+
+    expect(
+      resolvePrimeInfiniPaymentPinnedAssetKey({
+        selectedAssetKey: pinnedAssetKey,
+        pendingAssetKey: undefined,
+      }),
+    ).toBe('bsc-usdt');
+  });
+
+  it('lets an explicit token selection replace a restored session asset', () => {
+    expect(
+      resolvePrimeInfiniPaymentPinnedAssetKey({
+        selectedAssetKey: 'eth-usdc',
+        pendingAssetKey: 'bsc-usdt',
+      }),
+    ).toBe('eth-usdc');
+  });
+});
+
+describe('isPrimeInfiniPaymentAccountSyncReady', () => {
+  it('invalidates readiness synchronously when the selected token network changes', () => {
+    expect(
+      isPrimeInfiniPaymentAccountSyncReady({
+        syncedNetworkId: 'evm--56',
+        selectedNetworkId: 'evm--1',
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPaymentAccountSyncReady({
+        syncedNetworkId: 'evm--56',
+        selectedNetworkId: 'evm--56',
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('resolvePrimeInfiniPaymentDisplaySnapshot', () => {
+  it('keeps the last ready account and asset together during account network sync', () => {
+    const lastReadySelectionSnapshot = {
+      accountId: 'account-a',
+      assetKey: 'bsc-usdt',
+      networkId: 'evm--56',
+    };
+
+    expect(
+      resolvePrimeInfiniPaymentDisplaySnapshot({
+        selectionSnapshot: {
+          accountId: 'account-b',
+          assetKey: 'bsc-usdt',
+          networkId: 'evm--1',
+        },
+        lastReadySelectionSnapshot,
+        isSelectionReady: false,
+        payment: undefined,
+        isPaymentCurrent: false,
+      }),
+    ).toEqual({
+      selectionSnapshot: lastReadySelectionSnapshot,
+      payment: undefined,
+    });
+  });
+
+  it('commits the new account and asset together once their network is ready', () => {
+    const selectionSnapshot = {
+      accountId: 'account-b',
+      assetKey: 'bsc-usdt',
+      networkId: 'evm--56',
+    };
+
+    expect(
+      resolvePrimeInfiniPaymentDisplaySnapshot({
+        selectionSnapshot,
+        lastReadySelectionSnapshot: {
+          accountId: 'account-a',
+          assetKey: 'bsc-usdt',
+          networkId: 'evm--56',
+        },
+        isSelectionReady: true,
+        payment: undefined,
+        isPaymentCurrent: false,
+      }),
+    ).toEqual({
+      selectionSnapshot,
+      payment: undefined,
+    });
+  });
+
   it('switches local selection immediately while hiding a stale payment quote', () => {
     const selectionSnapshot = {
       accountId: 'account-2',

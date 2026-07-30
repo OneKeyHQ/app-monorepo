@@ -120,22 +120,7 @@ export function usePrimeInfiniPurchase() {
           });
           return false;
         }
-        let checkoutGuard: Awaited<
-          ReturnType<typeof getPrimeInfiniExternalCheckoutGuard>
-        >;
-        try {
-          checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
-        }
+        const checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (!checkoutGuard.isLoggedIn) {
           return false;
         }
@@ -163,14 +148,8 @@ export function usePrimeInfiniPurchase() {
             },
           );
         if (baselineSnapshot.onekeyUserId !== purchaserUserId) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before creation',
-            autoToast: false,
           });
         }
         const baselinePrimeSubscription = baselineSnapshot.primeSubscription;
@@ -202,38 +181,24 @@ export function usePrimeInfiniPurchase() {
             plan,
             expectedOneKeyUserId: purchaserUserId,
           });
-        const postCreateGuard =
-          await getPrimeInfiniExternalCheckoutGuard().catch(() => undefined);
+        const postCreateGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (
           !postCreateGuard?.isLoggedIn ||
           postCreateGuard.onekeyUserId !== purchaserUserId ||
           postCreateGuard.hasPendingPayment
         ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before opening',
-            autoToast: false,
           });
         }
         const checkoutUrl = checkoutResult?.checkoutUrl;
         if (!checkoutUrl) {
           // Guards the unconfirmed backend response schema: a 200 response
           // with an unexpected field name must not become a silent dead end
-          // (plan §9 requires a toast on checkout creation failure). Network
-          // and business errors are already toasted by @toastIfError on
-          // apiGetInfiniCheckoutUrl; only this local throw needs it.
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.prime_payment_start_failed__msg,
-            }),
-          });
+          // (plan §9 requires a toast on checkout creation failure). The
+          // caller preserves this message in its payment error toast.
           throw new OneKeyLocalError({
             message: 'Infini checkout url is empty',
-            autoToast: false,
           });
         }
 

@@ -618,16 +618,19 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
       ...currentSession,
       payment: latestPayment,
     }));
+    const onLatestPaymentUnavailable = jest.fn();
+    const error = new OneKeyLocalError('invoice endpoint is broken');
 
     await expect(
       resolvePrimeInfiniPaymentForcedReplacement({
         currentSession,
         fetchLatestPayment: async () => {
-          throw new OneKeyLocalError('invoice endpoint is broken');
+          throw error;
         },
         fetchPurchaseStatusSnapshot,
         archivePaymentSession,
         persistTrackedPayment,
+        onLatestPaymentUnavailable,
         shouldContinue: () => true,
       }),
     ).resolves.toEqual({
@@ -637,6 +640,7 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
     // Falls back to the locally stored payment, which is also what the
     // confirmation screen showed.
     expect(archivePaymentSession).toHaveBeenCalledWith(currentSession.payment);
+    expect(onLatestPaymentUnavailable).toHaveBeenCalledWith(error);
   });
 
   it('still refuses a completed subscription when the invoice endpoint is unavailable', async () => {
