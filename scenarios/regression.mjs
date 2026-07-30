@@ -725,6 +725,24 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
     });
 
   const wheelToBottom = async () => {
+    const scrollTarget = await defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return null;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      if (!(scroller instanceof HTMLElement)) return null;
+      const rect = scroller.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: Math.max(rect.top + 1, rect.bottom - 100),
+      };
+    });
+    if (!scrollTarget) {
+      throw new Error('Tabs wheel target is unavailable');
+    }
+    // Keep the pointer over real tab content. Leaving it on the sticky tab
+    // button bypasses Chromium's stale hit-test extent and masks this bug.
+    await page.mouse.move(scrollTarget.x, scrollTarget.y);
     let previousScrollTop = -1;
     let settledRounds = 0;
     for (let round = 0; round < 30 && settledRounds < 3; round += 1) {

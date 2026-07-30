@@ -142,6 +142,12 @@ export interface ITabContainerProps {
   initialTabName?: string;
   allowHeaderOverscroll?: boolean;
   disableScroll?: boolean;
+  /**
+   * Rebuilds the web tab content box when its measured extent changes so
+   * Chromium cannot retain a stale async-scroll range. Keep disabled unless
+   * the consumer is known to use the affected shared-scroller layout.
+   */
+  enableWebScrollExtentRecovery?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
 }
@@ -161,11 +167,15 @@ export function Container({
   ref: containerRef,
   initialTabName,
   disableScroll,
+  enableWebScrollExtentRecovery,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
-    'disableScroll' | 'useNativeHeaderAnimation' | 'renderSubHeader'
+    | 'disableScroll'
+    | 'enableWebScrollExtentRecovery'
+    | 'useNativeHeaderAnimation'
+    | 'renderSubHeader'
   >) {
   const getTabContentHeight = useCallback((element: Element | null) => {
     const htmlElement = element as HTMLElement | null;
@@ -280,18 +290,18 @@ export function Container({
   // this is "the previous tab's height" — comparing the next tab against it
   // tells us whether we just switched to a TALLER tab.
   const lastListContainerHeightRef = useRef(0);
-  // Armed during a settle window after each tab switch (see the reaction
-  // below). While armed, any growth of the focused tab's content (re)arms a
-  // debounced refresh; the window auto-expires so post-settle load-more
-  // growth never toggles display mid-scroll.
-  const extentRefreshArmedRef = useRef(false);
-  // Hard cap that disarms the settle window.
-  const extentRefreshWindowTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  // Debounce so progressive restoration and any row-measure jitter collapse
-  // into a single refresh at the final settled height — no magnitude
-  // threshold and no per-grow toggling needed.
+  // Keep a single compositor rebuild in flight while content growth settles.
+  const pendingExtentRefreshRef = useRef<{
+    animationFrameId: number;
+    focusedTabName: string;
+    listContainer: HTMLElement;
+    previousDisplay: string;
+    previousScrollTop: number;
+    previousSwitching: boolean;
+    scroller: HTMLElement | null;
+  } | null>(null);
+  // Debounce progressive restoration and row-measure jitter into one refresh
+  // without relying on a post-switch deadline.
   const extentRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -310,33 +320,57 @@ export function Container({
   // window resize refreshes the cached extent; only tearing down and
   // rebuilding the list container's layout box does. The rebuild reads the
   // CURRENT layout, so it is correct regardless of which tab we came from, and
-  // is a cheap no-op where the extent was already correct. Toggle display
-  // synchronously so no frame is painted in between (no visible flash), and
-  // restore scrollTop because display:none collapses it to 0.
+  // is a cheap no-op where the extent was already correct. Chromium can merge
+  // a same-frame display toggle before the compositor observes the teardown,
+  // so keep the box detached for one painted frame. Restore scrollTop because
+  // display:none collapses it to 0.
   const refreshScrollExtent = useCallback(() => {
+    if (!enableWebScrollExtentRecovery) return;
     const lc = listContainerRef.current as HTMLElement | null;
     const scroller = scrollElement as HTMLElement | null;
-    if (!lc) return;
+    if (!lc || pendingExtentRefreshRef.current) return;
     const prevScrollTop = scroller?.scrollTop ?? 0;
     const prevDisplay = lc.style.display;
+    const prevSwitching = isSwitchingTabRef.current;
+    const pendingRefresh = {
+      animationFrameId: 0,
+      focusedTabName: focusedTab.value,
+      listContainer: lc,
+      previousDisplay: prevDisplay,
+      previousScrollTop: prevScrollTop,
+      previousSwitching: prevSwitching,
+      scroller,
+    };
+    pendingExtentRefreshRef.current = pendingRefresh;
     // Collapsing the list box momentarily clamps the scroller to 0, which the
     // WindowScroller scroll handler would persist into scrollTopRef. Borrow
     // the same flag tab-switch uses to suppress that bookkeeping while we tear
     // the box down and restore it.
-    const prevSwitching = isSwitchingTabRef.current;
     isSwitchingTabRef.current = true;
     lc.style.display = 'none';
-    // Force a synchronous reflow so the box is actually torn down before it is
-    // restored on the next line.
-    void lc.offsetHeight;
-    lc.style.display = prevDisplay;
-    // Restoring scrollTop reads layout, which flushes the rebuilt box, so the
-    // assignment clamps against the fresh (full) extent rather than 0.
-    if (scroller && scroller.scrollTop !== prevScrollTop) {
-      scroller.scrollTop = prevScrollTop;
-    }
-    isSwitchingTabRef.current = prevSwitching;
-  }, [scrollElement]);
+    pendingRefresh.animationFrameId = globalThis.requestAnimationFrame(() => {
+      pendingRefresh.animationFrameId = globalThis.requestAnimationFrame(() => {
+        if (pendingExtentRefreshRef.current !== pendingRefresh) {
+          return;
+        }
+        pendingExtentRefreshRef.current = null;
+        pendingRefresh.listContainer.style.display =
+          pendingRefresh.previousDisplay;
+        const isSameFocusedTab =
+          focusedTab.value === pendingRefresh.focusedTabName;
+        if (
+          isSameFocusedTab &&
+          pendingRefresh.scroller &&
+          pendingRefresh.scroller.scrollTop !== pendingRefresh.previousScrollTop
+        ) {
+          pendingRefresh.scroller.scrollTop = pendingRefresh.previousScrollTop;
+        }
+        if (isSameFocusedTab) {
+          isSwitchingTabRef.current = pendingRefresh.previousSwitching;
+        }
+      });
+    });
+  }, [enableWebScrollExtentRecovery, focusedTab, scrollElement]);
   const handlerStickyHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const nextHeight = event.nativeEvent.layout.height;
@@ -436,9 +470,9 @@ export function Container({
         // pair, not only the tallest tab). Debounce so progressive react-freeze
         // / content-visibility restoration and row-measure jitter collapse into
         // a single refresh once the height stops changing, at the final height.
-        // The window auto-expires (see the tab-switch reaction) so later
-        // load-more growth on the settled tab never toggles display mid-scroll.
-        if (grew && extentRefreshArmedRef.current) {
+        // Slow data can settle at any time, so this is not tied to a fixed
+        // post-switch deadline.
+        if (grew && enableWebScrollExtentRecovery) {
           if (extentRefreshDebounceRef.current) {
             clearTimeout(extentRefreshDebounceRef.current);
           }
@@ -522,7 +556,13 @@ export function Container({
       mo.observe(registeredElement, { childList: true, subtree: true });
       mutationObserverRef.current = mo;
     }
-  }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
+  }, [
+    enableWebScrollExtentRecovery,
+    focusedTab,
+    getTabContentHeight,
+    tabNames,
+    refreshScrollExtent,
+  ]);
 
   // Keep the requestRemeasure context callback pointing at the latest
   // attach function. We use an indirection ref so contextValue identity
@@ -555,13 +595,16 @@ export function Container({
   useEffect(
     () => () => {
       isEffectValid.current = false;
-      if (extentRefreshWindowTimerRef.current) {
-        clearTimeout(extentRefreshWindowTimerRef.current);
-        extentRefreshWindowTimerRef.current = null;
-      }
       if (extentRefreshDebounceRef.current) {
         clearTimeout(extentRefreshDebounceRef.current);
         extentRefreshDebounceRef.current = null;
+      }
+      const pendingRefresh = pendingExtentRefreshRef.current;
+      if (pendingRefresh) {
+        globalThis.cancelAnimationFrame(pendingRefresh.animationFrameId);
+        pendingRefresh.listContainer.style.display =
+          pendingRefresh.previousDisplay;
+        pendingExtentRefreshRef.current = null;
       }
     },
     [],
@@ -615,23 +658,11 @@ export function Container({
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
-        // Arm the stale-scroll-extent refresh for a settle window: while armed,
-        // `apply` debounces a refresh as the newly-focused tab's content grows
-        // back to its full height. A fresh switch drops any debounce queued for
-        // the previous tab. The window auto-expires so later (load-more) growth
-        // on the settled tab does not toggle display mid-scroll.
-        extentRefreshArmedRef.current = true;
+        // A fresh switch drops any debounce queued for the previous tab.
         if (extentRefreshDebounceRef.current) {
           clearTimeout(extentRefreshDebounceRef.current);
           extentRefreshDebounceRef.current = null;
         }
-        if (extentRefreshWindowTimerRef.current) {
-          clearTimeout(extentRefreshWindowTimerRef.current);
-        }
-        extentRefreshWindowTimerRef.current = setTimeout(() => {
-          extentRefreshArmedRef.current = false;
-          extentRefreshWindowTimerRef.current = null;
-        }, 1000);
         const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
