@@ -2314,6 +2314,7 @@ class ServiceIdentityExit extends ServiceBase {
     sourceLessPreUpgradeRepair?: {
       expectedOneKeyUserId: string;
       expectedSessionTokenSub?: string;
+      expectedEmptyKeylessSessionSlot?: boolean;
     };
   }): Promise<{ cleared: boolean }> {
     await this.recoverInterruptedIdentityExitOperations();
@@ -2380,6 +2381,17 @@ class ServiceIdentityExit extends ServiceBase {
         }
         const expectedSessionTokenSub =
           sourceLessPreUpgradeRepair?.expectedSessionTokenSub;
+        const expectedEmptyKeylessSessionSlot =
+          sourceLessPreUpgradeRepair?.expectedEmptyKeylessSessionSlot;
+        if (
+          isExpectedSourceLessPreUpgradeState &&
+          expectedEmptyKeylessSessionSlot &&
+          slot.status !== 'empty'
+        ) {
+          // The probe's empty-slot proof is stale. A new OAuth flow now owns
+          // the session, so cleanup must leave it untouched.
+          return { cleared: false };
+        }
         if (
           isExpectedSourceLessPreUpgradeState &&
           slot.status === 'ok' &&
@@ -2452,7 +2464,9 @@ class ServiceIdentityExit extends ServiceBase {
             removeKeyless: false,
             clearKeylessSession:
               sourceToClear === EPrimeAuthSessionSource.KeylessOAuth,
-            ...(isExpectedSourceLessPreUpgradeState && !expectedSessionTokenSub
+            ...(isExpectedSourceLessPreUpgradeState &&
+            expectedEmptyKeylessSessionSlot &&
+            slot.status === 'empty'
               ? { allowUnknownKeylessSessionIdentity: true }
               : {}),
           },

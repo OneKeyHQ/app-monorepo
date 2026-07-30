@@ -2276,6 +2276,38 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).not.toContain('onekey-user-a');
   });
 
+  it('anchors source-less cleanup to the empty Keyless session observed by the probe', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue('');
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-a',
+    });
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({
+        callerName: 'test',
+      }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({
+      callerName: 'test',
+      sourceLessPreUpgradeRepair: {
+        expectedOneKeyUserId: 'onekey-user-a',
+        expectedEmptyKeylessSessionSlot: true,
+      },
+    });
+  });
+
   it('does not recover when the Keyless OAuth profile belongs to another OneKey ID', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     const accessToken = buildFakeJwt({ sub: 'keyless-user-b' });

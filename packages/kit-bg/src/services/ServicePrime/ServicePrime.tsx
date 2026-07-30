@@ -251,6 +251,7 @@ type ISourceLessOneKeyIdRecoveryResult =
       repair?: {
         expectedOneKeyUserId: string;
         expectedSessionTokenSub?: string;
+        expectedEmptyKeylessSessionSlot?: boolean;
       };
     };
 
@@ -2942,6 +2943,7 @@ class ServicePrime extends ServiceBase {
         | {
             expectedOneKeyUserId: string;
             expectedSessionTokenSub?: string;
+            expectedEmptyKeylessSessionSlot?: boolean;
           }
         | undefined;
       beginIdentityLifecycleReservation(operationId);
@@ -2983,6 +2985,7 @@ class ServicePrime extends ServiceBase {
         const accessToken =
           await this.backgroundApi.simpleDb.prime.getKeylessSupabaseAuthToken();
         if (!accessToken) {
+          repair.expectedEmptyKeylessSessionSlot = true;
           defaultLogger.prime.subscription.onekeyIdAuthStateMigration({
             stage: migrationStage,
             status: 'blocked',

@@ -145,4 +145,35 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       title: ETranslations.email_verification_rate_limit,
     });
   });
+
+  test('does not resend when the email step is re-entered during the server cooldown', async () => {
+    const sendCode = jest.fn().mockRejectedValue(
+      createEmailOtpRateLimitError({
+        message: 'Please retry after 33 seconds.',
+        retryAfterSeconds: 33,
+      }),
+    );
+    const props = {
+      email: 'test@example.com',
+      sendCode,
+      loginWithCode: jest.fn(),
+    };
+    const { rerender } = render(
+      <PrimeLoginEmailCodeDialogV2 {...props} active />,
+    );
+
+    await waitFor(() => {
+      expect(sendCode).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (33s)`,
+      );
+    });
+
+    rerender(<PrimeLoginEmailCodeDialogV2 {...props} active={false} />);
+    rerender(<PrimeLoginEmailCodeDialogV2 {...props} active />);
+
+    await waitFor(() => {
+      expect(sendCode).toHaveBeenCalledTimes(1);
+    });
+  });
 });

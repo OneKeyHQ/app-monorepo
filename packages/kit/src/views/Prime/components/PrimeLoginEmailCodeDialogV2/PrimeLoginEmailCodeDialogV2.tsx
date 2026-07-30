@@ -132,10 +132,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // "Sent to {email}" on re-entry, so re-entering it must actually send one.
     // Reset only while inactive so a failed send while the step is visible
     // still requires an explicit Resend press.
-    if (!active && !didSendCodeSucceedRef.current) {
+    if (!active && countdown <= 0 && !didSendCodeSucceedRef.current) {
       didRequestInitialCodeRef.current = false;
     }
-  }, [active]);
+  }, [active, countdown]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
