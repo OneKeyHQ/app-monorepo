@@ -39,8 +39,8 @@ import type {
   IHex,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';

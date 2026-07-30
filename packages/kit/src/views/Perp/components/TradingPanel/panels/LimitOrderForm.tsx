@@ -67,6 +67,7 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
@@ -76,7 +77,6 @@ import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAcc
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
-import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';

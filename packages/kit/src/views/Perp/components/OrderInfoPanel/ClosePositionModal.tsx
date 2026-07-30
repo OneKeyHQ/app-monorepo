@@ -31,8 +31,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
+import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import {
   PERP_DIALOG_BUTTON_SIZE,
