@@ -1,51 +1,53 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
-import { type DPDay, useDatePickerContext } from '@rehookify/datepicker';
+import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { SizableText, Stack, YStack } from '../../primitives';
 
 import { DayCell } from './DayCell';
 import { callOnClick } from './utils';
 
+import type { IDayCellProps } from './type';
+
 const DayCellWrapper = memo(
   ({
-    dpDay,
+    dateStr,
+    dayLabel,
+    active,
+    inCurrentMonth,
+    selected,
     disabled,
+    range,
     hideOutOfMonth,
     fullWidth,
     onPress,
   }: {
-    dpDay: DPDay;
+    dateStr: string;
+    dayLabel: string;
+    active: boolean;
+    inCurrentMonth: boolean;
+    selected: boolean;
     disabled: boolean;
+    range?: IDayCellProps['day']['range'];
     hideOutOfMonth?: boolean;
     fullWidth?: boolean;
     onPress: (date: string) => void;
   }) => {
-    const dateStr = dpDay.$date.toString();
     const day = useMemo(
       () => ({
-        day: dpDay.$date.getDate().toString(),
+        day: dayLabel,
         date: dateStr,
-        active: dpDay.now,
-        inCurrentMonth: dpDay.inCurrentMonth,
-        selected: dpDay.selected,
+        active,
+        inCurrentMonth,
+        selected,
         disabled,
-        range: dpDay.range || undefined,
+        range,
       }),
-      [
-        dateStr,
-        dpDay.$date,
-        dpDay.now,
-        dpDay.inCurrentMonth,
-        dpDay.selected,
-        dpDay.range,
-        disabled,
-      ],
+      [dayLabel, dateStr, active, inCurrentMonth, selected, disabled, range],
     );
 
     return (
       <DayCell
-        key={dateStr}
         hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
         day={day}
@@ -96,30 +98,49 @@ export function MonthDaysGrid({
   const { dayButton } = propGetters;
   const cal = calendars[calendarIndex];
 
-  const handleDayPress = useCallback(
-    (dateStr: string) => {
-      const matchedDay = cal?.days.find((d) => d.$date.toString() === dateStr);
-      if (matchedDay) {
-        callOnClick(dayButton(matchedDay));
-      }
-    },
-    [cal, dayButton],
-  );
+  // Latest-value refs keep handleDayPress identity stable across rehookify
+  // context updates (rehookify recreates cal/dayButton every render), so the
+  // memoized day cells can bail out on unchanged primitive props.
+  const calRef = useRef(cal);
+  const dayButtonRef = useRef(dayButton);
+  // Commit-time-only updates: render-time writes could leak values from an
+  // abandoned concurrent render into a press that lands on the old committed UI.
+  useLayoutEffect(() => {
+    calRef.current = cal;
+    dayButtonRef.current = dayButton;
+  });
+
+  const handleDayPress = useCallback((dateStr: string) => {
+    const matchedDay = calRef.current?.days.find(
+      (d) => d.$date.toString() === dateStr,
+    );
+    if (matchedDay) {
+      callOnClick(dayButtonRef.current(matchedDay));
+    }
+  }, []);
 
   if (!cal) return null;
 
   return (
     <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
-      {cal.days.map((day) => (
-        <DayCellWrapper
-          key={day.$date.toString()}
-          dpDay={day}
-          disabled={dayButton(day).disabled || false}
-          hideOutOfMonth={hideOutOfMonth}
-          fullWidth={fullWidth}
-          onPress={handleDayPress}
-        />
-      ))}
+      {cal.days.map((day) => {
+        const dateStr = day.$date.toString();
+        return (
+          <DayCellWrapper
+            key={dateStr}
+            dateStr={dateStr}
+            dayLabel={day.$date.getDate().toString()}
+            active={day.now}
+            inCurrentMonth={day.inCurrentMonth}
+            selected={day.selected}
+            disabled={day.disabled}
+            range={day.range || undefined}
+            hideOutOfMonth={hideOutOfMonth}
+            fullWidth={fullWidth}
+            onPress={handleDayPress}
+          />
+        );
+      })}
     </Stack>
   );
 }
