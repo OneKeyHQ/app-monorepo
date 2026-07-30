@@ -60,8 +60,10 @@ describe('Home DeFi Store authority', () => {
     expect(allNetwork.indexOf("evidence: { kind: 'loading' }")).toBeLessThan(
       allNetwork.indexOf('consumeManualDeFiForceRefreshQuota'),
     );
-    expect(sourceController).toContain('requestHandleBySeqRef.current.set');
-    expect(sourceController).toContain('completeHomeSectionRequest(');
+    expect(sourceController).toContain(
+      'const handle = beginDeFiEvidenceRequest();',
+    );
+    expect(sourceController).toContain('completeDeFiEvidence({');
     expect(sourceController).not.toContain('publishHomeSectionSource');
   });
 

@@ -91,7 +91,10 @@ describe('Home portfolio Store boundary', () => {
     );
     expect(controllerSource).toContain('ownerKey: requestOwnerKey');
     expect(controllerSource).toContain(
-      'pendingSingleNetworkReadyCompletionRef.current',
+      'pendingSingleNetworkReadyCompletionsRef.current.push',
+    );
+    expect(controllerSource).toContain(
+      'pendingSingleNetworkReadyCompletionsRef.current = stillPending',
     );
     expect(controllerSource).toContain(
       'isHomePortfolioValuationReceiptApplied({',
