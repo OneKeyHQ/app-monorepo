@@ -6,13 +6,20 @@ import type {
 export function buildSwapReferralBuildTxParams(referralInfo?: {
   address: string;
   networkId: string;
-}): Pick<IFetchBuildTxParams, 'bindedAccountAddress' | 'bindedNetworkId'> {
+  rebateAddress?: string;
+}): Pick<
+  IFetchBuildTxParams,
+  'bindedAccountAddress' | 'bindedNetworkId' | 'rebateAddress'
+> {
   if (!referralInfo) {
     return {};
   }
   return {
     bindedAccountAddress: referralInfo.address,
     bindedNetworkId: referralInfo.networkId,
+    ...(referralInfo.rebateAddress
+      ? { rebateAddress: referralInfo.rebateAddress }
+      : {}),
   };
 }
 

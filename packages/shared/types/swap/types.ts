@@ -866,6 +866,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   walletType?: string;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
+  rebateAddress?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;

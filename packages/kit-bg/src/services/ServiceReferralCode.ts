@@ -550,6 +550,34 @@ class ServiceReferralCode extends ServiceBase {
     return undefined;
   }
 
+  private async getCurrentEvmAccountAddress({
+    accountId,
+  }: {
+    accountId: string;
+  }) {
+    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    if (!dbAccount?.indexedAccountId) {
+      return undefined;
+    }
+
+    const networkId = getNetworkIdsMap().eth;
+    const evmAccountId =
+      await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
+        {
+          indexedAccountId: dbAccount.indexedAccountId,
+          networkId,
+          deriveType: 'default',
+        },
+      );
+    const evmAccount = await this.backgroundApi.serviceAccount.getAccount({
+      accountId: evmAccountId,
+      networkId,
+    });
+    return evmAccount?.address;
+  }
+
   @backgroundMethod()
   async getBoundEvmReferralCodeWalletInfo({
     accountId,
@@ -567,7 +595,17 @@ class ServiceReferralCode extends ServiceBase {
       address: walletInfo.address,
       networkId: walletInfo.networkId,
     });
-    return bindStatus.data ? walletInfo : undefined;
+    if (!bindStatus.data) {
+      return undefined;
+    }
+
+    const rebateAddress = await this.getCurrentEvmAccountAddress({
+      accountId,
+    }).catch(() => undefined);
+    return {
+      ...walletInfo,
+      ...(rebateAddress ? { rebateAddress } : {}),
+    };
   }
 
   @backgroundMethod()

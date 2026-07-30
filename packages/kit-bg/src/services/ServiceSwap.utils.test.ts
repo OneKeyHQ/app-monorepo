@@ -10,6 +10,20 @@ describe('buildSwapReferralBuildTxParams', () => {
       buildSwapReferralBuildTxParams({
         address: '0xabc',
         networkId: 'evm--1',
+        rebateAddress: '0xcurrent',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+      rebateAddress: '0xcurrent',
+    });
+  });
+
+  it('keeps bound attribution when the current EVM address is unavailable', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
       }),
     ).toEqual({
       bindedAccountAddress: '0xabc',

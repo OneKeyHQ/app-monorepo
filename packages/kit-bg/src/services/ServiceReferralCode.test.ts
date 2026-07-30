@@ -76,6 +76,16 @@ function createService() {
     serviceAccount: {
       getWallets: jest.fn(),
       getDevice: jest.fn(),
+      getDBAccountSafe: jest.fn(
+        async ({ accountId }: { accountId: string }) => ({
+          id: accountId,
+          indexedAccountId: 'hd-1--7',
+        }),
+      ),
+      getDbAccountIdFromIndexedAccountId: jest.fn(
+        async () => "hd-1--m/44'/60'/0'/0/7",
+      ),
+      getAccount: jest.fn(async () => ({ address: '0xcurrent' })),
     },
     serviceHardware: {},
   };
@@ -444,7 +454,7 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
     jest.clearAllMocks();
   });
 
-  test('derives and verifies the first EVM account without requiring local bind cache', async () => {
+  test('adds the current logical account EVM address to bound attribution', async () => {
     const { service, backgroundApi } = createService();
     const checkWalletBindStatusSpy = jest
       .spyOn(service, 'checkWalletBindStatus')
@@ -456,13 +466,14 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
 
     await expect(
       service.getBoundEvmReferralCodeWalletInfo({
-        accountId: "hd-1--m/44'/60'/0'/0/7",
+        accountId: "hd-1--m/86'/0'/7'",
       }),
     ).resolves.toEqual({
       walletId: 'hd-1',
       accountId: "hd-1--m/44'/60'/0'/0/0",
       address: '0xabc',
       networkId: 'evm--1',
+      rebateAddress: '0xcurrent',
     });
 
     expect(service.getReferralCodeWalletInfo).toHaveBeenCalledWith({
@@ -475,6 +486,20 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
     expect(
       backgroundApi.simpleDb.referralCode.getWalletReferralCode,
     ).not.toHaveBeenCalled();
+    expect(backgroundApi.serviceAccount.getDBAccountSafe).toHaveBeenCalledWith({
+      accountId: "hd-1--m/86'/0'/7'",
+    });
+    expect(
+      backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId,
+    ).toHaveBeenCalledWith({
+      indexedAccountId: 'hd-1--7',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    });
+    expect(backgroundApi.serviceAccount.getAccount).toHaveBeenCalledWith({
+      accountId: "hd-1--m/44'/60'/0'/0/7",
+      networkId: 'evm--1',
+    });
   });
 
   test('omits the EVM attribution when the server does not confirm binding', async () => {
@@ -490,6 +515,27 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
         accountId: "hd-1--m/44'/60'/0'/0/0",
       }),
     ).resolves.toBeUndefined();
+  });
+
+  test('keeps bound attribution when the current EVM account is unavailable', async () => {
+    const { service, backgroundApi } = createService();
+    jest.spyOn(service, 'checkWalletBindStatus').mockResolvedValue({
+      data: true,
+      bindable: false,
+      reason: undefined,
+    });
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue(undefined);
+
+    await expect(
+      service.getBoundEvmReferralCodeWalletInfo({
+        accountId: "hd-1--m/44'/60'/0'/0/7",
+      }),
+    ).resolves.toEqual({
+      walletId: 'hd-1',
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
   });
 
   test('skips wallets whose referral identity is not EVM', async () => {
