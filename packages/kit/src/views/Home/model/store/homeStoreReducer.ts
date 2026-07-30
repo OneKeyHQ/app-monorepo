@@ -351,7 +351,14 @@ function advanceShellPreservingConfirmedCache(
     (currentPresentation?.kind === 'funded' ||
       currentPresentation?.kind === 'zero') &&
     (currentPresentation.priority === 0 || currentPresentation.priority === 1);
-  if (currentHasStableVerdict && nextPresentation?.kind === 'loading') {
+  if (currentHasStableVerdict && value.kind === 'loading') {
+    return current;
+  }
+  if (
+    currentHasStableVerdict &&
+    (nextPresentation?.kind === 'loading' ||
+      nextPresentation?.kind === 'fundedPendingTotal')
+  ) {
     if (nextPresentation?.refresh === 'failed') {
       return advanceShell(current, {
         kind: 'portfolio',

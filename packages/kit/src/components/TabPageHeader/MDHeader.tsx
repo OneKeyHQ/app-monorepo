@@ -1,5 +1,7 @@
 import { type ReactNode, useMemo } from 'react';
 
+import { initialWindowMetrics } from 'react-native-safe-area-context';
+
 import {
   GlassButtonCapsule,
   Page,
@@ -40,6 +42,8 @@ export function HomeTabSearchHeader({
   headerPx?: string;
 }) {
   const { top } = useSafeAreaInsets();
+  const safeAreaTop =
+    top || (platformEnv.isNative ? initialWindowMetrics?.insets.top : 0) || 0;
   const headerGlassActive = isLiquidGlassAvailable();
 
   return (
@@ -49,7 +53,9 @@ export function HomeTabSearchHeader({
       h={HOME_HEADER_SEARCH_ROW_HEIGHT}
       gap={headerGlassActive ? '$3' : '$6'}
       bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
-      {...(top || platformEnv.isNativeAndroid ? { mt: top || '$2' } : {})}
+      {...(safeAreaTop || platformEnv.isNativeAndroid
+        ? { mt: safeAreaTop || '$2' }
+        : {})}
     >
       <XStack flex={1}>
         <LegacyUniversalSearchInput

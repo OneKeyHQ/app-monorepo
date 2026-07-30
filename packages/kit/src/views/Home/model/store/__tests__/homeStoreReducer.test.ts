@@ -560,6 +560,83 @@ describe('Home Store reducer', () => {
     });
   });
 
+  it('keeps a hydrated Header when the first owner facts are still loading', () => {
+    let state = createOwnedState();
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'positive' },
+          priority: 0,
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.facts).toBeUndefined();
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: createBaseFacts(),
+    });
+
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const partialBalance = adaptCurrentHomeBalanceFacts({
+      bannerAvailable: true,
+      contributors: [
+        {
+          amount: '7.50',
+          coverageFingerprint: 'portfolio-partial',
+          expectedSourceScopeKey: ownerToken.scopeKey,
+          id: 'portfolio',
+          included: true,
+          positiveEvidence: true,
+          sourceIdentity: 'portfolio-source',
+          sourceScopeKey: ownerToken.scopeKey,
+          status: 'partial',
+        },
+      ],
+      ownerToken,
+      quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+      requiredSetRevision: 'portfolio',
+    });
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: partialBalance },
+      observedAt: 1,
+    });
+
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+  });
+
   it('hydrates a failed cached Header unless a hard owner state wins', () => {
     const failedBalance = adaptCurrentHomeBalanceFacts({
       bannerAvailable: false,
