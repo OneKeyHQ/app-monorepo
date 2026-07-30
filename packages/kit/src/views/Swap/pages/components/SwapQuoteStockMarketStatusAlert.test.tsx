@@ -25,6 +25,7 @@ type IMockStockTokenDetailResult = {
     stock?: {
       description?: string;
       isOpen?: boolean;
+      isPaused?: boolean;
     };
   };
 };
@@ -32,8 +33,12 @@ const mockStockMarketStatusAlert = jest.fn(
   (_props: IMockStockMarketStatusAlertProps) => null,
 );
 const mockResolveStockMarketStatusCase = jest.fn(
-  (params: { hasOpenTime: boolean; hasPerps: boolean; isOpen?: boolean }) =>
-    JSON.stringify(params),
+  (params: {
+    hasOpenTime: boolean;
+    hasPerps: boolean;
+    isOpen?: boolean;
+    isPaused?: boolean;
+  }) => JSON.stringify(params),
 );
 const mockUseSwapStockTokenDetail = jest.fn(
   (_params: IMockStockTokenDetailParams): IMockStockTokenDetailResult => ({
@@ -92,6 +97,7 @@ jest.mock(
       hasOpenTime: boolean;
       hasPerps: boolean;
       isOpen?: boolean;
+      isPaused?: boolean;
     }) => mockResolveStockMarketStatusCase(params),
   }),
 );
@@ -262,6 +268,31 @@ describe('SwapQuoteStockMarketStatusAlert', () => {
     expect(mockStockMarketStatusAlert.mock.calls[0]?.[0].timeText).toBe(
       'Reopens in 2h',
     );
+  });
+
+  it('forwards the per-stock halt signal to the case resolver (OK-58655)', () => {
+    mockStockDetailResult = {
+      pending: false,
+      perpsInfo: {
+        hlTicker: 'AAPL',
+      },
+      tokenDetail: {
+        stock: {
+          description: 'This stock is currently halted.\nProvider description',
+          isOpen: false,
+          isPaused: true,
+        },
+      },
+    };
+
+    render(<SwapQuoteStockMarketStatusAlert onMarketReopen={jest.fn()} />);
+
+    expect(mockResolveStockMarketStatusCase).toHaveBeenCalledWith({
+      hasOpenTime: true,
+      hasPerps: true,
+      isOpen: false,
+      isPaused: true,
+    });
   });
 
   it('falls back to a generic closed alert after Market detail settles empty', () => {
