@@ -50,6 +50,7 @@ import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
+import { handleCustomInjectedDeepLink } from './handleCustomInjectedDeepLink';
 import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
@@ -386,6 +387,12 @@ async function processDeepLinkUrlAccount(
           if (webViewParams) {
             openWebView(webViewParams);
           }
+          break;
+        }
+        case EOneKeyDeepLinkPath.custom_injected: {
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.custom_injected];
+          await handleCustomInjectedDeepLink(query);
           break;
         }
         case EOneKeyDeepLinkPath.preview_featured_changelog: {

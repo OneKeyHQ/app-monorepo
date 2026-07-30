@@ -29,6 +29,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       disableBridge,
       partition,
+      desktopPreloadUrl,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -143,6 +144,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           receiveHandler={receiveHandler}
           disableBridge={disableBridge}
           partition={partition}
+          desktopPreloadUrl={desktopPreloadUrl}
           // Warning: any string work, any bool not work
           // @ts-expect-error
           allowpopups={allowpopups.toString()}

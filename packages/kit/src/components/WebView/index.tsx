@@ -91,6 +91,10 @@ export interface IWebViewProps
    * @see IInpageProviderWebViewProps.partition
    */
   partition?: string;
+  /** @platform desktop
+   * @description Confirmed developer-only Electron preload override.
+   */
+  desktopPreloadUrl?: string;
 }
 
 const WebView: FC<IWebViewProps> = ({

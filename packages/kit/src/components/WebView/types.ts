@@ -111,6 +111,11 @@ export interface IInpageProviderWebViewProps
    * `will-redirect` / `will-navigate` without renderer registration races.
    */
   partition?: string;
+  /** @platform desktop
+   * @description Confirmed developer-only preload override. The caller must
+   * remount the WebView when this URL changes.
+   */
+  desktopPreloadUrl?: string;
 }
 
 export type IWebViewRef = {

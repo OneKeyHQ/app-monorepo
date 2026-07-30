@@ -31,6 +31,7 @@ export interface IWebViewOverlayDisplay {
 }
 
 const EXTERNAL_SOURCES = new Set<IWebViewPageParams['source']>([
+  'custom-injected',
   'deeplink',
   'notification',
 ]);

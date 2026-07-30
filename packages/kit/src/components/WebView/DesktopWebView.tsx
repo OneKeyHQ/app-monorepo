@@ -109,6 +109,7 @@ const DesktopWebView = forwardRef(
       allowpopups,
       disableBridge,
       partition: partitionProp,
+      desktopPreloadUrl,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -147,6 +148,15 @@ const DesktopWebView = forwardRef(
       getPreloadJsUrlSnapshot,
     );
     const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
+    const effectivePreloadJsUrl = desktopPreloadUrl || resolvedPreloadJsUrl;
+
+    useEffect(() => {
+      if (isDev && desktopPreloadUrl) {
+        console.warn(
+          'DesktopWebView: using a confirmed developer preload override',
+        );
+      }
+    }, [desktopPreloadUrl]);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -196,7 +206,12 @@ const DesktopWebView = forwardRef(
     }, [isDomReady]);
 
     useEffect(() => {
-      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
+      if (
+        disableBridge ||
+        desktopPreloadUrl ||
+        preloadJsUrlError ||
+        resolvedPreloadJsUrl
+      ) {
         return undefined;
       }
 
@@ -212,7 +227,12 @@ const DesktopWebView = forwardRef(
       return () => {
         isMounted = false;
       };
-    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
+    }, [
+      desktopPreloadUrl,
+      disableBridge,
+      preloadJsUrlError,
+      resolvedPreloadJsUrl,
+    ]);
 
     useEffect(() => {
       if (resolvedPreloadJsUrl && preloadJsUrlError) {
@@ -411,12 +431,6 @@ const DesktopWebView = forwardRef(
       onLoadEnd,
       onShouldStartLoadWithRequest,
     ]);
-    if (isDev && props.preload) {
-      console.warn(
-        'DesktopWebView:  custom preload url may disable built-in injected function',
-      );
-    }
-
     useEffect(
       () => () => {
         isUnmountingRef.current = true;
@@ -588,7 +602,7 @@ const DesktopWebView = forwardRef(
       );
     }
 
-    if (!resolvedPreloadJsUrl && !disableBridge) {
+    if (!effectivePreloadJsUrl && !disableBridge) {
       return null;
     }
     return (
@@ -615,7 +629,7 @@ const DesktopWebView = forwardRef(
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(disableBridge ? {} : { preload: resolvedPreloadJsUrl })}
+          {...(disableBridge ? {} : { preload: effectivePreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{

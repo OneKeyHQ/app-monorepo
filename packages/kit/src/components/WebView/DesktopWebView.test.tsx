@@ -152,4 +152,32 @@ describe('DesktopWebView', () => {
     ).toBe(true);
     expect(getPreloadJsContent).toHaveBeenCalledTimes(2);
   });
+
+  it('uses a confirmed custom preload without loading the built-in preload', async () => {
+    const getPreloadJsContent = jest.fn();
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        webview: {
+          getPreloadJsContent,
+        },
+      },
+    });
+
+    render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        desktopPreloadUrl="file:///workspace/injectedDesktopPreload.js?sha256=abc"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('desktop-webview').getAttribute('preload'),
+      ).toBe('file:///workspace/injectedDesktopPreload.js?sha256=abc'),
+    );
+    expect(getPreloadJsContent).not.toHaveBeenCalled();
+  });
 });

@@ -30,7 +30,17 @@ export interface IWebViewPageParams {
   /** Address bar is hidden by default — opt-in by passing `true`. */
   showAddressBar?: boolean;
   /** Set by the entry layer (deeplink/notification handler or in-app caller); never a deeplink query param. */
-  source?: 'deeplink' | 'notification' | 'in-app';
+  source?: 'deeplink' | 'notification' | 'in-app' | 'custom-injected';
+  /** Internal-only state created after a confirmed Desktop custom injection
+   * workspace is activated. It is never copied directly from DeepLink params.
+   */
+  customInjected?: {
+    sessionId: string;
+    protocolId: string;
+    preloadUrl: string;
+    bundleSha256: string;
+    registrySha256: string;
+  };
 }
 
 export type IWebViewParamList = {
