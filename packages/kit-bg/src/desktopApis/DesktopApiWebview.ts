@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/desktop/app/bundle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
-import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
@@ -117,9 +116,8 @@ function sha256(value: string | Buffer): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-async function ensureCustomInjectedEnabled() {
-  const devSettings = await devSettingsPersistAtom.get();
-  if (!devSettings.enabled) {
+function ensureCustomInjectedEnabled(devSettingsEnabled: boolean) {
+  if (devSettingsEnabled !== true) {
     throw new OneKeyLocalError(
       'Custom injection requires enabled developer settings',
     );
@@ -444,8 +442,9 @@ class DesktopApiNetwork {
 
   async prepareCustomInjectedWorkspace(
     workspacePath: string,
+    devSettingsEnabled: boolean,
   ): Promise<ICustomInjectedWorkspacePreview> {
-    await ensureCustomInjectedEnabled();
+    ensureCustomInjectedEnabled(devSettingsEnabled);
     if (typeof workspacePath !== 'string' || !path.isAbsolute(workspacePath)) {
       throw new OneKeyLocalError(
         'Custom injection workspace must be an absolute path',
@@ -531,7 +530,6 @@ class DesktopApiNetwork {
   async activateCustomInjectedWorkspace(
     sessionId: string,
   ): Promise<ICustomInjectedSession> {
-    await ensureCustomInjectedEnabled();
     const customSession = customInjectedSessions.get(sessionId);
     if (!customSession) {
       throw new OneKeyLocalError('Custom injection session not found');
@@ -544,7 +542,6 @@ class DesktopApiNetwork {
   async getCustomInjectedWorkspace(
     sessionId: string,
   ): Promise<ICustomInjectedSession> {
-    await ensureCustomInjectedEnabled();
     const customSession = customInjectedSessions.get(sessionId);
     if (!customSession?.active) {
       throw new OneKeyLocalError('Custom injection session is not active');
@@ -556,7 +553,6 @@ class DesktopApiNetwork {
   async updateCustomInjectedProtocol(
     update: ICustomInjectedProtocolUpdate,
   ): Promise<ICustomInjectedSession> {
-    await ensureCustomInjectedEnabled();
     const customSession = customInjectedSessions.get(update.sessionId);
     if (!customSession?.active) {
       throw new OneKeyLocalError('Custom injection session is not active');

@@ -66,6 +66,7 @@ export async function handleCustomInjectedDeepLink(query: {
     const preview =
       await globalThis.desktopApiProxy.webview.prepareCustomInjectedWorkspace(
         workspace,
+        devSettings.enabled,
       );
     sessionId = preview.sessionId;
     const confirmed = await showConfirmation(

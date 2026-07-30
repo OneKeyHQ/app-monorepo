@@ -127,6 +127,10 @@ describe('handleCustomInjectedDeepLink', () => {
 
     await handleCustomInjectedDeepLink({ workspace: '/workspace' });
 
+    expect(prepareCustomInjectedWorkspace).toHaveBeenCalledWith(
+      '/workspace',
+      true,
+    );
     expect(activateCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
     expect(mockedOpenWebView).toHaveBeenCalledWith(
       expect.objectContaining({

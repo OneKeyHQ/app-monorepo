@@ -41,12 +41,6 @@ jest.mock('@onekeyhq/desktop/app/resoucePath', () => ({
   getStaticPath: jest.fn(() => '/static'),
 }));
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  devSettingsPersistAtom: {
-    get: jest.fn(async () => ({ enabled: true, settings: {} })),
-  },
-}));
-
 jest.mock('./injectedDesktopCode.text-js', () => '', { virtual: true });
 
 function registry(protocols: unknown[]) {
@@ -151,7 +145,11 @@ describe('DesktopApiWebview custom injection', () => {
 
     try {
       const api = new DesktopApiWebview({ desktopApi: {} as never });
-      const preview = await api.prepareCustomInjectedWorkspace(workspace);
+      await expect(
+        api.prepareCustomInjectedWorkspace(workspace, false),
+      ).rejects.toThrow('enabled developer settings');
+
+      const preview = await api.prepareCustomInjectedWorkspace(workspace, true);
       expect(preview).toEqual(
         expect.objectContaining({
           protocolCount: 1,
@@ -184,7 +182,7 @@ describe('DesktopApiWebview custom injection', () => {
         }),
       );
       await expect(
-        api.prepareCustomInjectedWorkspace(workspace),
+        api.prepareCustomInjectedWorkspace(workspace, true),
       ).rejects.toThrow('protocolRegistry escapes the selected workspace');
     } finally {
       await fs.rm(temporaryRoot, { force: true, recursive: true });
