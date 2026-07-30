@@ -6,8 +6,9 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Illustration,
+  LottieView,
   SizableText,
-  Spinner,
   Toast,
   YStack,
   useDialogInstance,
@@ -294,17 +295,36 @@ function usePrimeInfiniPurchaseCompletion({
 
 function PrimeInfiniWaitingStatus({
   isTerminal,
+  title,
   message,
 }: {
   isTerminal: boolean;
-  message: string;
+  title: string;
+  message?: string;
 }) {
   return (
-    <YStack gap="$4" alignItems="center">
-      {isTerminal ? null : <Spinner size="large" />}
-      <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
-        {message}
-      </SizableText>
+    <YStack gap="$5" alignItems="center" pt="$4">
+      {isTerminal ? (
+        <Illustration size={110} name="XMark" />
+      ) : (
+        // Same waiting animation the Swap pending flow uses.
+        <LottieView
+          source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
+          width={110}
+          height={110}
+          autoPlay
+        />
+      )}
+      <YStack gap="$2" alignItems="center">
+        <SizableText size="$headingLg" textAlign="center">
+          {title}
+        </SizableText>
+        {message ? (
+          <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
+            {message}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 }
@@ -482,12 +502,19 @@ function PrimeInfiniExternalWaitingMonitor({
     <YStack gap="$4" alignItems="center">
       <PrimeInfiniWaitingStatus
         isTerminal={monitor.isTimedOut}
+        title={intl.formatMessage({
+          id: monitor.isTimedOut
+            ? ETranslations.prime_payment_not_confirmed__title
+            : ETranslations.prime_waiting_for_payment__title,
+        })}
         message={
           monitor.isTimedOut
-            ? // TODO: i18n pending translation key
-              'We haven’t detected your payment yet. Confirmation may still be processing, so please check back later.'
-            : // TODO: i18n pending translation key
-              'Complete the payment in your browser. On-chain confirmation may take a few minutes, and your subscription will be activated automatically once confirmed.'
+            ? intl.formatMessage({
+                id: ETranslations.prime_payment_not_detected__desc,
+              })
+            : intl.formatMessage({
+                id: ETranslations.prime_complete_payment_in_browser__desc,
+              })
         }
       />
       <Button
@@ -533,14 +560,16 @@ function PrimeInfiniExternalWaitingMonitor({
           });
         }}
       >
-        {/* TODO: i18n pending translation key */}
-        Open checkout page
+        {intl.formatMessage({
+          id: ETranslations.prime_open_checkout__action,
+        })}
       </Button>
       <Dialog.Footer
         showCancelButton={false}
         showConfirmButton
-        // TODO: i18n pending translation key
-        onConfirmText="I’ve completed payment"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.prime_payment_completed__action,
+        })}
         onConfirm={async ({ preventClose }) => {
           preventClose();
           const refreshResult = await monitor.refresh();
@@ -557,11 +586,12 @@ function PrimeInfiniExternalWaitingMonitor({
             refreshResult === 'failed'
           ) {
             Toast.message({
-              // TODO: i18n pending translation key
-              title: 'Payment not confirmed yet',
-              // TODO: i18n pending translation key
-              message:
-                'On-chain confirmation may take a few minutes. Please try again later.',
+              title: intl.formatMessage({
+                id: ETranslations.prime_payment_not_confirmed__title,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.prime_payment_not_detected__desc,
+              }),
             });
           }
         }}
@@ -630,18 +660,34 @@ function PrimeInfiniInternalWaitingMonitor({
   });
   const isTerminal =
     polling.outcome === 'expired' || polling.outcome === 'failed';
-  let statusMessage =
-    'On-chain confirmation may take a few minutes. Your subscription will be activated automatically once confirmed.';
+  let statusTitle = intl.formatMessage({
+    id: ETranslations.prime_payment_confirming__title,
+  });
+  let statusMessage = intl.formatMessage({
+    id: ETranslations.prime_payment_confirming__desc,
+  });
   if (polling.outcome === 'expired') {
-    // TODO: i18n pending translation key
-    statusMessage = 'This payment has expired.';
+    statusTitle = intl.formatMessage({
+      id: ETranslations.send_the_invoice_has_expired,
+    });
+    statusMessage = intl.formatMessage({
+      id: ETranslations.prime_close_and_try_again__desc,
+    });
   } else if (polling.outcome === 'failed') {
-    // TODO: i18n pending translation key
-    statusMessage = 'This payment could not be confirmed.';
+    statusTitle = intl.formatMessage({
+      id: ETranslations.prime_payment_confirmation_failed__title,
+    });
+    statusMessage = intl.formatMessage({
+      id: ETranslations.prime_close_and_try_again__desc,
+    });
   }
 
   return (
-    <PrimeInfiniWaitingStatus isTerminal={isTerminal} message={statusMessage} />
+    <PrimeInfiniWaitingStatus
+      isTerminal={isTerminal}
+      title={statusTitle}
+      message={statusMessage}
+    />
   );
 }
 
@@ -670,9 +716,8 @@ export function showPrimeInfiniWaitingDialog({
 }) {
   void activeWaitingDialog?.close();
   const dialog: IDialogInstance = Dialog.show({
-    icon: 'ClockTimeHistoryOutline',
-    // TODO: i18n pending translation key
-    title: 'Waiting for payment',
+    // The title/illustration live inside the content so the whole dialog reads
+    // as one centered status card; only the corner close button stays.
     testID: 'prime-infini-waiting-dialog',
     dismissOnOverlayPress: false,
     showFooter: context.checkoutType === 'externalWallet',
