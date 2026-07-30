@@ -6,6 +6,7 @@ import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/uti
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
@@ -657,6 +658,16 @@ export type ISwapTipsState = {
   updatedAt: number;
 };
 
+// Native main/bg runtimes initialize independently. Preserve the last settled
+// presentation in the main runtime until the fresh bg result arrives so cold
+// start does not insert the banner after first paint.
+const swapTipsColdStartCacheOptions = platformEnv.isNative
+  ? {
+      coldStartCache: true as const,
+      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+    }
+  : undefined;
+
 // swap tips
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } =
   contextAtom<ISwapTipsState>(
@@ -664,10 +675,7 @@ export const { atom: swapTipsAtom, use: useSwapTipsAtom } =
       status: 'unknown',
       updatedAt: 0,
     },
-    {
-      coldStartCache: true,
-      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
-    },
+    swapTipsColdStartCacheOptions,
   );
 
 export const {

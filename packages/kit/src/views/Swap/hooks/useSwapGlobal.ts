@@ -1455,16 +1455,21 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
-      const simpleDbTips =
-        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
-      if (tips && !simpleDbTips.includes(tips.tipsId)) {
-        setSwapTips({
-          tips,
-          status: 'ready',
-          updatedAt: Date.now(),
-        });
-        return;
+      try {
+        const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+        const simpleDbTips =
+          await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+        if (tips && !simpleDbTips.includes(tips.tipsId)) {
+          setSwapTips({
+            tips,
+            status: 'ready',
+            updatedAt: Date.now(),
+          });
+          return;
+        }
+      } catch (_error) {
+        // Tips are non-critical. Keep Swap usable when remote config or local
+        // dismissal state cannot be loaded.
       }
       setSwapTips({
         status: 'empty',
