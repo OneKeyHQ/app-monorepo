@@ -52,14 +52,6 @@ const INFINI_PLAN_USD_PRICE: Record<IPrimeInfiniSubscriptionPlan, string> = {
   yearly: '239.00',
 };
 
-// Renewal invoices are generated ahead of the period end with these lead days
-// (invoice_lead_days passed at subscription creation, integration plan §7.1);
-// the user should complete the payment within this window
-const INFINI_INVOICE_LEAD_DAYS: Record<IPrimeInfiniSubscriptionPlan, number> = {
-  monthly: 3,
-  yearly: 7,
-};
-
 const INFINI_STATUS_TO_BADGE_TYPE: Record<string, IBadgeType> = {
   active: 'success',
   canceled: 'warning',
@@ -380,8 +372,8 @@ export default function PrimeInfiniSubscription() {
       const planLabel = intl.formatMessage({
         id:
           plan === 'yearly'
-            ? ETranslations.prime_yearly
-            : ETranslations.prime_monthly,
+            ? ETranslations.prime_crypto_yearly_plan__title
+            : ETranslations.prime_crypto_monthly_plan__title,
       });
       const priceAmount =
         currentSubscription.amount || INFINI_PLAN_USD_PRICE[plan];
@@ -400,7 +392,6 @@ export default function PrimeInfiniSubscription() {
       const nextInvoiceText = currentSubscription.nextInvoiceAt
         ? formatPeriodDate(currentSubscription.nextInvoiceAt)
         : undefined;
-      const leadDays = INFINI_INVOICE_LEAD_DAYS[plan];
 
       return (
         <YStack px="$5" py="$4" gap="$4">
@@ -479,12 +470,9 @@ export default function PrimeInfiniSubscription() {
               title={intl.formatMessage({
                 id: ETranslations.prime_renewal_reminder__title,
               })}
-              description={intl.formatMessage(
-                {
-                  id: ETranslations.prime_renewal_reminder__desc,
-                },
-                { date: nextInvoiceText, days: leadDays },
-              )}
+              description={intl.formatMessage({
+                id: ETranslations.prime_renewal_reminder__desc,
+              })}
             />
           ) : null}
         </YStack>
