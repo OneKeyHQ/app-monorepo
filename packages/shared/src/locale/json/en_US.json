@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "Close this window and try again.",
   "prime_complete_payment_in_browser__desc": "Complete payment in your browser. Confirmation may take a few minutes.",
   "prime_credit_card__label": "Credit card",
-  "prime_crypto_manual_renewal__desc": "Crypto payments don't support automatic renewal charges yet. Before your subscription expires, we'll send the next invoice to the email linked to your OneKey ID. Follow the invoice instructions to renew manually.",
+  "prime_crypto_manual_renewal__desc": "Crypto subscriptions aren't charged automatically. Before your subscription expires, we'll send the next invoice to the email linked to your OneKey ID. You can follow the invoice instructions to renew.",
   "prime_crypto_monthly_plan__title": "Monthly plan",
   "prime_crypto_payment__label": "Crypto",
   "prime_crypto_payment_unsupported__msg": "Crypto payments aren't available on this platform.",

@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "关闭此窗口后重试。",
   "prime_complete_payment_in_browser__desc": "请在浏览器中完成支付。确认可能需要几分钟。",
   "prime_credit_card__label": "信用卡",
-  "prime_crypto_manual_renewal__desc": "加密货币支付暂不支持自动扣款续费。当前订阅临近到期时，下期账单将发送至您的 OneKey ID 关联邮箱，请按账单提示手动续费。",
+  "prime_crypto_manual_renewal__desc": "加密货币订阅不会自动扣款。订阅到期前，我们会将下一期账单发送至与您的 OneKey ID 关联的邮箱，您可按账单指引完成续费。",
   "prime_crypto_monthly_plan__title": "月度方案",
   "prime_crypto_payment__label": "加密货币",
   "prime_crypto_payment_unsupported__msg": "此平台不支持加密货币支付。",

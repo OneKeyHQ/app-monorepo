@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "Đóng cửa sổ này và thử lại.",
   "prime_complete_payment_in_browser__desc": "Hoàn tất thanh toán trong trình duyệt. Quá trình xác nhận có thể mất vài phút.",
   "prime_credit_card__label": "Thẻ tín dụng",
-  "prime_crypto_manual_renewal__desc": "Thanh toán bằng tiền mã hóa hiện chưa hỗ trợ tự động tính phí gia hạn. Trước khi gói đăng ký hiện tại hết hạn, hóa đơn tiếp theo sẽ được gửi đến email liên kết với OneKey ID của bạn. Hãy làm theo hướng dẫn trên hóa đơn để gia hạn thủ công.",
+  "prime_crypto_manual_renewal__desc": "Gói đăng ký bằng tiền mã hóa sẽ không tự động tính phí. Trước khi gói đăng ký hết hạn, chúng tôi sẽ gửi hóa đơn tiếp theo đến email liên kết với OneKey ID của bạn. Bạn có thể làm theo hướng dẫn trên hóa đơn để gia hạn.",
   "prime_crypto_monthly_plan__title": "Gói theo tháng",
   "prime_crypto_payment__label": "Tiền mã hóa",
   "prime_crypto_payment_unsupported__msg": "Nền tảng này không hỗ trợ thanh toán bằng tiền mã hóa.",

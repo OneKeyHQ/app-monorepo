@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "この画面を閉じて、もう一度お試しください。",
   "prime_complete_payment_in_browser__desc": "ブラウザで支払いを完了してください。確認には数分かかる場合があります。",
   "prime_credit_card__label": "クレジットカード",
-  "prime_crypto_manual_renewal__desc": "暗号資産での支払いは、まだ自動課金による更新に対応していません。現在のサブスクリプションの有効期限が近づくと、次回の請求書が OneKey ID に登録されたメールアドレスに送信されます。請求書の案内に従って手動で更新してください。",
+  "prime_crypto_manual_renewal__desc": "暗号資産でのサブスクリプションは自動課金されません。サブスクリプションの有効期限前に、OneKey ID に登録されたメールアドレスへ次回の請求書を送信します。請求書の案内に沿って更新できます。",
   "prime_crypto_monthly_plan__title": "月額プラン",
   "prime_crypto_payment__label": "暗号資産",
   "prime_crypto_payment_unsupported__msg": "このプラットフォームでは暗号資産による支払いを利用できません。",

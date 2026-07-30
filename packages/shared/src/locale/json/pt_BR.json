@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "Feche esta janela e tente novamente.",
   "prime_complete_payment_in_browser__desc": "Conclua o pagamento no navegador. A confirmação pode levar alguns minutos.",
   "prime_credit_card__label": "Cartão de crédito",
-  "prime_crypto_manual_renewal__desc": "Os pagamentos em criptomoeda ainda não permitem cobranças de renovação automática. Antes de sua assinatura expirar, enviaremos a próxima fatura para o e-mail vinculado ao seu OneKey ID. Siga as instruções da fatura para renovar manualmente.",
+  "prime_crypto_manual_renewal__desc": "As assinaturas pagas em criptomoeda não são cobradas automaticamente. Antes de sua assinatura expirar, enviaremos a próxima fatura para o e-mail vinculado ao seu OneKey ID. Você poderá seguir as instruções da fatura para renovar a assinatura.",
   "prime_crypto_monthly_plan__title": "Plano mensal",
   "prime_crypto_payment__label": "Cripto",
   "prime_crypto_payment_unsupported__msg": "Pagamentos em cripto não estão disponíveis nesta plataforma.",

@@ -3433,7 +3433,7 @@
   "prime_close_and_try_again__desc": "Tutup jendela ini dan coba lagi.",
   "prime_complete_payment_in_browser__desc": "Selesaikan pembayaran di browser. Konfirmasi mungkin memerlukan beberapa menit.",
   "prime_credit_card__label": "Kartu kredit",
-  "prime_crypto_manual_renewal__desc": "Pembayaran kripto belum mendukung penagihan perpanjangan otomatis. Sebelum langganan Anda berakhir, invoice berikutnya akan dikirim ke email yang terhubung dengan OneKey ID Anda. Ikuti petunjuk pada invoice untuk memperpanjang secara manual.",
+  "prime_crypto_manual_renewal__desc": "Langganan kripto tidak ditagih secara otomatis. Sebelum langganan berakhir, kami akan mengirimkan invoice berikutnya ke email yang terhubung dengan OneKey ID Anda. Anda dapat mengikuti petunjuk pada invoice untuk memperpanjang langganan.",
   "prime_crypto_monthly_plan__title": "Paket bulanan",
   "prime_crypto_payment__label": "Kripto",
   "prime_crypto_payment_unsupported__msg": "Pembayaran kripto tidak tersedia di platform ini.",
