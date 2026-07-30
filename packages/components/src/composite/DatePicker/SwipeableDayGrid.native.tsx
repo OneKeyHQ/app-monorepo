@@ -161,7 +161,11 @@ function MonthPager({
   // JS-side mirror of the current (uncommitted-swap) row counts, so
   // commitNavigate's refusal branch can undo onEnd's speculative row-height
   // pre-shift with the values rehookify still actually reflects.
-  const rowsRef = useRef({ prev: 6, center: 6, next: 6 });
+  const rowsRef = useRef({
+    prev: prevRows,
+    center: centerRows,
+    next: nextRows,
+  });
 
   useLayoutEffect(() => {
     prevDisabledSV.value = !!isPrevDisabled;
