@@ -81,47 +81,83 @@ function trackAt(t: number, kfs: IKeyframe[]): number {
   return kfs[kfs.length - 1].v;
 }
 
-// Confirm loop, 3s: panel wakes (0-280ms) -> skeleton fades in (240-700ms) ->
-// OK presses (1100-1450ms: 100 down / 150 hold / 100 up, the envelope of the
-// original confirm-on-classic.json) -> screen sleeps (2100-2400ms) -> dark
-// rest until 3000ms. The device shell itself never enters or exits.
-const CONFIRM_LOOP_MS = 3000;
-const CONFIRM_GLOW: IKeyframe[] = [
-  { t: 0, v: 0, e: easeOutFn },
-  { t: 280, v: 1 },
-  { t: 2100, v: 1, e: easeInFn },
-  { t: 2400, v: 0 },
-];
-const CONFIRM_CONTENT: IKeyframe[] = [
-  { t: 0, v: 0 },
-  { t: 240, v: 0, e: easeOutFn },
-  { t: 700, v: 1 },
-  { t: 2100, v: 1, e: easeInFn },
-  { t: 2400, v: 0 },
-];
-const CONFIRM_OK: IKeyframe[] = [
-  { t: 0, v: 0 },
-  { t: 1100, v: 0, e: easeOutFn },
-  { t: 1200, v: 1 },
-  { t: 1350, v: 1, e: easeInFn },
-  { t: 1450, v: 0 },
-];
+/* ---------------------------------------------------------------- *
+ * Shared scene vocabulary. Every scene is built from the same three
+ * primitives, parameterized only by its own schedule:
+ *  - screen wake: glow rises over 280ms, content fades in 240-700ms
+ *  - screen sleep: glow and content drop together over 300ms
+ *  - key press: 100ms down / 150ms hold / 100ms up (the envelope of the
+ *    original Lottie files)
+ * ---------------------------------------------------------------- */
 
-export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
+const WAKE_GLOW_MS = 280;
+const CONTENT_IN_START_MS = 240;
+const CONTENT_IN_END_MS = 700;
+const SLEEP_MS = 300;
+const PRESS_DOWN_MS = 100;
+const PRESS_HOLD_MS = 150;
+const PRESS_UP_MS = 100;
+/** Fills/state changes land mid-hold, like the Lottie's slot swaps. */
+export const PRESS_ACT_OFFSET_MS = PRESS_DOWN_MS + PRESS_HOLD_MS / 2;
+
+function screenGlowTrack(sleepStart: number): IKeyframe[] {
+  return [
+    { t: 0, v: 0, e: easeOutFn },
+    { t: WAKE_GLOW_MS, v: 1 },
+    { t: sleepStart, v: 1, e: easeInFn },
+    { t: sleepStart + SLEEP_MS, v: 0 },
+  ];
+}
+
+function screenContentTrack(sleepStart: number): IKeyframe[] {
+  return [
+    { t: 0, v: 0 },
+    { t: CONTENT_IN_START_MS, v: 0, e: easeOutFn },
+    { t: CONTENT_IN_END_MS, v: 1 },
+    { t: sleepStart, v: 1, e: easeInFn },
+    { t: sleepStart + SLEEP_MS, v: 0 },
+  ];
+}
+
+function pressPulsesTrack(startTimes: number[]): IKeyframe[] {
+  const kfs: IKeyframe[] = [{ t: 0, v: 0 }];
+  for (const s of startTimes) {
+    kfs.push(
+      { t: s, v: 0, e: easeOutFn },
+      { t: s + PRESS_DOWN_MS, v: 1 },
+      { t: s + PRESS_DOWN_MS + PRESS_HOLD_MS, v: 1, e: easeInFn },
+      { t: s + PRESS_DOWN_MS + PRESS_HOLD_MS + PRESS_UP_MS, v: 0 },
+    );
+  }
+  return kfs;
+}
+
+/** Sawtooth master clock in milliseconds, looping over [0, loopMs). */
+function useSceneClock(loopMs: number): SharedValue<number> {
   const clock = useSharedValue(0);
   useEffect(() => {
     clock.value = 0;
     clock.value = withRepeat(
-      withTiming(CONFIRM_LOOP_MS, {
-        duration: CONFIRM_LOOP_MS,
-        easing: Easing.linear,
-      }),
+      withTiming(loopMs, { duration: loopMs, easing: Easing.linear }),
       -1,
       false,
     );
     return () => cancelAnimation(clock);
-  }, [clock]);
+  }, [clock, loopMs]);
+  return clock;
+}
 
+/* ---------------------------------------------------------------- *
+ * Confirm, 3s loop: wake -> skeleton fades in -> one OK press -> sleep.
+ * ---------------------------------------------------------------- */
+
+const CONFIRM_LOOP_MS = 3000;
+const CONFIRM_GLOW = screenGlowTrack(2100);
+const CONFIRM_CONTENT = screenContentTrack(2100);
+const CONFIRM_OK = pressPulsesTrack([1100]);
+
+export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
+  const clock = useSceneClock(CONFIRM_LOOP_MS);
   const screenGlow = useDerivedValue(() => trackAt(clock.value, CONFIRM_GLOW));
   const screenContent = useDerivedValue(() =>
     trackAt(clock.value, CONFIRM_CONTENT),
@@ -140,5 +176,67 @@ export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
       },
     }),
     [screenGlow, screenContent, okPress],
+  );
+}
+
+/* ---------------------------------------------------------------- *
+ * Enter PIN, 5.6s loop: wake -> empty row fades in -> six OK presses fill
+ * the diamonds (each at mid-hold) -> the check appears at the cursor -> one
+ * final OK press confirms -> sleep. Seven pulses total, exactly like the
+ * original Lottie (its unexplained 7th press was this final confirm).
+ * ---------------------------------------------------------------- */
+
+const PIN_LOOP_MS = 5600;
+const PIN_PRESS_START_MS = 900;
+const PIN_PRESS_STEP_MS = 500;
+export const PIN_FILL_COUNT = 6;
+const PIN_PRESS_STARTS = Array.from(
+  { length: PIN_FILL_COUNT + 1 },
+  (_, i) => PIN_PRESS_START_MS + i * PIN_PRESS_STEP_MS,
+);
+const PIN_GLOW = screenGlowTrack(4700);
+const PIN_CONTENT = screenContentTrack(4700);
+const PIN_OK = pressPulsesTrack(PIN_PRESS_STARTS);
+
+/** How many digits are entered at clock time t (fills land mid-hold). */
+export function pinEnteredAt(t: number): number {
+  'worklet';
+
+  let entered = 0;
+  for (let i = 0; i < PIN_FILL_COUNT; i += 1) {
+    if (t >= PIN_PRESS_START_MS + i * PIN_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS) {
+      entered += 1;
+    }
+  }
+  return entered;
+}
+
+export function useEnterPinOnClassicAnimation(): {
+  animation: IClassicDeviceAnimation;
+  /** The scene's master clock, for screen content that syncs to it. */
+  clock: Readonly<SharedValue<number>>;
+} {
+  const clock = useSceneClock(PIN_LOOP_MS);
+  const screenGlow = useDerivedValue(() => trackAt(clock.value, PIN_GLOW));
+  const screenContent = useDerivedValue(() =>
+    trackAt(clock.value, PIN_CONTENT),
+  );
+  const okPress = useDerivedValue(() => trackAt(clock.value, PIN_OK));
+
+  return useMemo(
+    () => ({
+      animation: {
+        screenGlow,
+        screenContent,
+        press: {
+          power: STATIC_ZERO,
+          up: STATIC_ZERO,
+          down: STATIC_ZERO,
+          ok: okPress,
+        },
+      },
+      clock,
+    }),
+    [screenGlow, screenContent, okPress, clock],
   );
 }
