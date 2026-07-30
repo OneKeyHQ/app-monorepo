@@ -1090,11 +1090,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getSubscriptionsHandlerDisabledCount(): Promise<number> {
-    return this.subscriptionsHandlerDisabledCount;
-  }
-
-  @backgroundMethod()
   async enableSubscriptionsHandler(options?: {
     ifDisabledCountAtMost?: number;
   }): Promise<void> {
