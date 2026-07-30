@@ -63,7 +63,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import { getKeylessSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -82,6 +81,7 @@ import {
 } from '../../utils/secretEncryptFormat';
 import { getMalformedKeylessWalletDataError } from '../ServiceAccount/keylessWalletRemovalCapability';
 import ServiceBase from '../ServiceBase';
+import { getSupabaseClientBySessionSource } from '../ServicePrime/primeAuthSessionAccess';
 
 import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationErrors';
 import { buildKeylessLocalEncryptionKeyWithPassword } from './utils/keylessLocalEncryptionKey';
@@ -3698,7 +3698,9 @@ class ServiceKeylessWallet extends ServiceBase {
     // session directly (bg runtime owns token refreshes) instead of the
     // validity-buffered getActiveKeylessOAuthAccessToken(): a slot session
     // that merely needs a refresh still identifies its user.
-    const { client } = getKeylessSupabaseClient();
+    const client = await getSupabaseClientBySessionSource(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
     const sessionResult = await client.auth.getSession();
     const slotUserId = sessionResult.data?.session?.user?.id || '';
     const decodedIncomingToken = stringUtils.decodeJWT(

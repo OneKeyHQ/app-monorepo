@@ -194,6 +194,11 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 jest.mock('./primeAuthSessionAccess', () => ({
   allowAuthSessionStorageWritesBySessionSource: jest.fn(),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
+  getSupabaseClientBySessionSource: async () => ({
+    auth: {
+      verifyOtp: mockVerifyEmailOtp,
+    },
+  }),
   readAuthTokenAllowingRetryableAuthError: async (
     read: () => Promise<string>,
   ) => {

@@ -44,7 +44,6 @@ import {
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { getSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -96,6 +95,7 @@ import {
   allowAuthSessionStorageWritesBySessionSource,
   clearAllSupabaseAuthSessions,
   clearSupabaseStorageLocalCache,
+  getSupabaseClientBySessionSource,
   persistKeylessAuthSession,
   readAuthTokenAllowingRetryableAuthError,
   readPersistedAccessTokenBySessionSourceStrict,
@@ -1230,12 +1230,15 @@ class ServicePrime extends ServiceBase {
       allowAuthSessionStorageWritesBySessionSource(
         EPrimeAuthSessionSource.LegacyEmailSupabase,
       );
+      const client = await getSupabaseClientBySessionSource(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
       let response: AuthResponse | undefined;
       if (email.endsWith('@privy.io')) {
         try {
           const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
           if (phoneOtpData?.phone && phoneOtpData?.otp) {
-            response = await getSupabaseClient().client.auth.verifyOtp({
+            response = await client.auth.verifyOtp({
               phone: phoneOtpData.phone,
               token: phoneOtpData.otp,
               type: 'sms',
@@ -1250,7 +1253,7 @@ class ServicePrime extends ServiceBase {
         }
       }
 
-      response ??= await getSupabaseClient().client.auth.verifyOtp({
+      response ??= await client.auth.verifyOtp({
         email,
         token: otp,
         type: 'email',
