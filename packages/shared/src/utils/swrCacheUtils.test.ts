@@ -217,6 +217,29 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(readDiskStore().doomed).toMatchObject({ d: 'rewritten' });
   });
 
+  it('does not resurrect a key another runtime removed after hydration', () => {
+    otherRuntimeFlush({
+      doomed: { d: 'stale', t: 1000 },
+      kept: { d: 'existing', t: 1000 },
+    });
+    const staleRuntime = loadFreshRuntime();
+    expect(staleRuntime.get('doomed')).toBe('stale');
+
+    // The other runtime invalidates and flushes while this runtime still has
+    // the old entry in its JS heap.
+    otherRuntimeFlush({
+      kept: { d: 'existing', t: 1000 },
+    });
+    setNow(2000);
+    staleRuntime.set('unrelated', 'local-write');
+    staleRuntime.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.doomed).toBeUndefined();
+    expect(disk.kept).toMatchObject({ d: 'existing' });
+    expect(disk.unrelated).toMatchObject({ d: 'local-write', t: 2000 });
+  });
+
   it('applies prefix removal against the disk copy as well', () => {
     otherRuntimeFlush({
       'walletList:a': { d: 1, t: 1000 },
@@ -269,5 +292,47 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(disk.fresh).toMatchObject({ d: 'kept' });
     // The oldest merged entry is the one evicted.
     expect(disk['bulk:0']).toBeUndefined();
+  });
+
+  it('reloads a stale perps hit from disk before returning it', () => {
+    const [key] = getPerpsL2BookSnapshotCacheKeys({
+      coin: 'BTC',
+      nSigFigs: null,
+    });
+    const oldBook = {
+      coin: 'BTC',
+      time: 1000,
+      levels: [[{ px: '1', sz: '1', n: 1 }], [{ px: '2', sz: '1', n: 1 }]],
+      nSigFigs: null,
+      mantissa: null,
+    };
+    const freshBook = {
+      ...oldBook,
+      time: 35_000,
+      levels: [[{ px: '10', sz: '1', n: 1 }], [{ px: '11', sz: '1', n: 1 }]],
+    };
+
+    otherRuntimeFlush({
+      [key]: { d: oldBook, t: 1000 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get(key)).toEqual(oldBook);
+
+    otherRuntimeFlush({
+      [key]: { d: freshBook, t: 35_000 },
+    });
+    setNow(40_000);
+
+    expect(
+      swr.getFreshPerpsL2BookSnapshot({
+        coin: 'BTC',
+        nSigFigs: null,
+        maxAgeMs: 7 * 24 * 60 * 60 * 1000,
+        reloadIfOlderThanMs: 30_000,
+      }),
+    ).toEqual({
+      data: freshBook,
+      updatedAt: 35_000,
+    });
   });
 });

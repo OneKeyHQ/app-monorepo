@@ -13,10 +13,7 @@ import {
   PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
   PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
-import {
-  getPerpsL2BookSnapshotCacheKeys,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -70,39 +67,13 @@ export function getFreshL2BookSnapshotFromSwr({
   coin: string;
   options?: IL2BookOptions;
 }) {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
+  const entry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
     coin,
     nSigFigs: options?.nSigFigs,
     mantissa: options?.mantissa,
+    maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+    reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
   });
-
-  const findEntry = () => {
-    for (const key of keys) {
-      const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
-      if (
-        entry &&
-        isL2BookForTarget(entry.data, coin, options) &&
-        Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
-      ) {
-        return entry;
-      }
-    }
-    return undefined;
-  };
-
-  let entry = findEntry();
-  // A hit can still come from this runtime's aged in-memory copy — the store
-  // hydrates once per runtime while bg keeps persisting newer books every
-  // write interval. A hit older than one interval is worth one disk re-read;
-  // a miss always was.
-  if (
-    !entry ||
-    Date.now() - entry.updatedAt >
-      PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS
-  ) {
-    swrCacheUtils.reloadFromStorage();
-    entry = findEntry() ?? entry;
-  }
   return entry
     ? withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true)
     : undefined;

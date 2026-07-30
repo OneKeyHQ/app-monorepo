@@ -2579,6 +2579,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         try {
           await this.cacheService.hydratePerpsAccountDisplayCache(
             perpsAccount.accountAddress,
+            () => this.isLatestActivePerpsAccountChange(requestId),
           );
         } catch (error) {
           console.warn(

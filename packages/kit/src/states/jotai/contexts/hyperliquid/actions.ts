@@ -29,9 +29,9 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import {
-  PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
   PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+  PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -237,32 +237,6 @@ function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
 
 function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
   return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
-}
-
-function getFreshL2BookSnapshotFromSwr({
-  coin,
-  nSigFigs,
-  mantissa,
-}: {
-  coin: string;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-}) {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
-    coin,
-    nSigFigs,
-    mantissa,
-  });
-  for (const key of keys) {
-    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
-    if (
-      entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
-    ) {
-      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true);
-    }
-  }
-  return undefined;
 }
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
@@ -1572,15 +1546,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           coin: targetCoin,
           options: get(orderBookTickOptionsAtom()),
         });
-        const cachedBook = getFreshL2BookSnapshotFromSwr({
+        const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
           coin: targetCoin,
           nSigFigs: storedTickOptions?.nSigFigs ?? null,
           mantissa:
             storedTickOptions?.mantissa === undefined
               ? undefined
               : storedTickOptions.mantissa,
+          maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+          reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
         });
-        if (cachedBook) {
+        const cachedBook = cachedEntry
+          ? withPerpsL2BookLocalReceivedAt(
+              cachedEntry.data,
+              cachedEntry.updatedAt,
+              true,
+            )
+          : undefined;
+        // Cache is a first-frame fallback only; a late read must never replace
+        // a live snapshot for the same coin and precision.
+        if (
+          cachedBook &&
+          shouldUpdatePerpsL2Book({
+            currentBook: get(l2BookAtom()),
+            nextBook: cachedBook,
+          })
+        ) {
           set(l2BookAtom(), cachedBook);
           markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
             coin: cachedBook.coin,

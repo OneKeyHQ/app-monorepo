@@ -1,6 +1,7 @@
 /* cspell:ignore ISWR IMMKV */
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
+import type * as HL from '../../types/hyperliquid/sdk';
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
@@ -22,6 +23,11 @@ let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Only these entries were authored by this runtime since the last successful
+// flush. Replaying the whole hydrated store would revive keys that the other
+// runtime removed after this JS heap took its snapshot.
+const _updatedKeys = new Set<string>();
 
 // Deletions performed since the last successful flush. flush() merges with
 // the store on disk, and without these a key deleted here would be revived
@@ -108,17 +114,23 @@ function flush() {
         }
       }
     }
-    for (const [key, entry] of Object.entries(_cache)) {
-      const diskEntry = merged[key];
-      if (!diskEntry || (entry?.t ?? 0) >= (diskEntry.t ?? 0)) {
-        merged[key] = entry;
+    for (const key of _updatedKeys) {
+      const entry = _cache[key];
+      if (entry) {
+        const diskEntry = merged[key];
+        if (!diskEntry || (entry.t ?? 0) >= (diskEntry.t ?? 0)) {
+          merged[key] = entry;
+        }
       }
     }
     evictOldestOverCap(merged);
+    // This merge prevents a stale runtime from blindly replacing newer entries,
+    // but MMKV does not make the JS read-merge-write sequence transactional.
     getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, merged);
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
     _cache = merged;
+    _updatedKeys.clear();
     _removedKeysAt.clear();
     _removedPrefixesAt = [];
     _clearedAllAt = 0;
@@ -153,6 +165,7 @@ function getWithTimestamp<T>(
 function set<T>(key: string, data: T): void {
   const store = loadStore();
   store[key] = { d: data, t: Date.now() };
+  _updatedKeys.add(key);
   _dirty = true;
   evictOldestOverCap(store);
   scheduleFlush();
@@ -167,6 +180,7 @@ function isFresh(key: string, maxAge: number): boolean {
 function remove(key: string): void {
   const store = loadStore();
   delete store[key];
+  _updatedKeys.delete(key);
   // Recorded even when the key is locally absent: the other runtime's copy
   // may still hold it, and the merge must not bring it back.
   _removedKeysAt.set(key, Date.now());
@@ -185,6 +199,11 @@ function removeByPrefix(prefix: string): void {
       delete store[key];
     }
   }
+  for (const key of _updatedKeys) {
+    if (key.startsWith(prefix)) {
+      _updatedKeys.delete(key);
+    }
+  }
   // Recorded unconditionally for the same reason as remove().
   _removedPrefixesAt.push({ prefix, at: Date.now() });
   _dirty = true;
@@ -193,6 +212,7 @@ function removeByPrefix(prefix: string): void {
 
 function clearAll(): void {
   _cache = {};
+  _updatedKeys.clear();
   _clearedAllAt = Date.now();
   _dirty = true;
   scheduleFlush();
@@ -535,9 +555,57 @@ export function getPerpsL2BookSnapshotCacheKeys({
   ]);
 }
 
+function getFreshPerpsL2BookSnapshot({
+  coin,
+  nSigFigs,
+  mantissa,
+  maxAgeMs,
+  reloadIfOlderThanMs,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+  maxAgeMs: number;
+  reloadIfOlderThanMs: number;
+}): { data: HL.IBook; updatedAt: number } | undefined {
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  const findEntry = () => {
+    for (const key of keys) {
+      const entry = getWithTimestamp<HL.IBook>(key);
+      const book = entry?.data;
+      if (
+        entry &&
+        book?.coin === coin &&
+        book.nSigFigs !== undefined &&
+        book.mantissa !== undefined &&
+        (book.nSigFigs ?? null) === (nSigFigs ?? null) &&
+        (book.mantissa ?? null) === (mantissa ?? null) &&
+        Date.now() - entry.updatedAt <= maxAgeMs
+      ) {
+        return entry;
+      }
+    }
+    return undefined;
+  };
+
+  let entry = findEntry();
+  const entryAgeMs = entry ? Date.now() - entry.updatedAt : undefined;
+  if (!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) {
+    reloadFromStorage();
+    const reloadedEntry = findEntry();
+    entry = reloadedEntry ?? entry;
+  }
+  return entry;
+}
+
 export const swrCacheUtils = {
   get,
   getWithTimestamp,
+  getFreshPerpsL2BookSnapshot,
   set,
   removeByPrefix,
   remove,
