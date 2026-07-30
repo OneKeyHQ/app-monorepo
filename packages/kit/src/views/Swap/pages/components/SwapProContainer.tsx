@@ -348,6 +348,7 @@ const SwapProContainer = ({
         <StockMarketStatusAlert
           statusCase={resolveStockMarketStatusCase({
             isOpen: false,
+            isPaused: proTokenDetail?.stock?.isPaused,
             hasOpenTime: Boolean(proStockClosedTimeText),
             hasPerps: proStockHasPerps,
           })}
