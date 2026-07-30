@@ -36,6 +36,7 @@ export const EarnTestIDs = {
   allProtocolsNetworkFilter: 'earn-all-protocols-network-filter',
   allProtocolsSortControl: 'earn-all-protocols-sort-control',
   allProtocolsItem: (provider: string) => `earn-all-protocols-${provider}`,
+  protocolTokensNetworkFilter: 'earn-protocol-tokens-network-filter',
   protocolTokensSortControl: 'earn-protocol-tokens-sort-control',
   protocolTokensItem: (key: string) => `earn-protocol-tokens-${key}`,
 

@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -38,6 +39,9 @@ interface IEarnPageContainerProps {
   disableMaxWidth?: boolean;
   showTabPageHeader?: boolean;
   showBodyTitle?: boolean;
+  // 原生端 TabPageHeader 无居中槽位；开启后标题以覆盖层水平居中，
+  // 左侧只保留返回键 (OK-58881，iOS26 原生导航栏本身居中，不受影响)
+  centerPageTitle?: boolean;
 }
 
 export function EarnPageContainer({
@@ -55,20 +59,24 @@ export function EarnPageContainer({
   disableMaxWidth,
   showTabPageHeader = true,
   showBodyTitle = false,
+  centerPageTitle = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
+  const { top: safeAreaTop } = useSafeAreaInsets();
 
   const handleBack = useCallback(() => {
     navigation.pop();
   }, [navigation]);
+
+  const shouldCenterTitle = centerPageTitle && !!pageTitle;
 
   const customHeaderLeft = useMemo(() => {
     if (showBackButton) {
       return (
         <XStack gap="$3" ai="center">
           <NavBackButton onPress={handleBack} />
-          {pageTitle}
+          {shouldCenterTitle ? null : pageTitle}
         </XStack>
       );
     }
@@ -77,7 +85,7 @@ export function EarnPageContainer({
         {pageTitle}
       </XStack>
     ) : null;
-  }, [pageTitle, showBackButton, handleBack]);
+  }, [pageTitle, showBackButton, handleBack, shouldCenterTitle]);
 
   const showBreadcrumb = useMemo(
     () => breadcrumbProps && media.gtSm,
@@ -194,12 +202,32 @@ export function EarnPageContainer({
   return (
     <Page>
       {shouldShowTabPageHeader ? (
-        <TabPageHeader
-          sceneName={sceneName}
-          tabRoute={tabRoute}
-          customHeaderLeftItems={customHeaderLeft}
-          customHeaderRightItems={customHeaderRightItems}
-        />
+        <YStack position="relative">
+          <TabPageHeader
+            sceneName={sceneName}
+            tabRoute={tabRoute}
+            customHeaderLeftItems={customHeaderLeft}
+            customHeaderRightItems={customHeaderRightItems}
+          />
+          {shouldCenterTitle ? (
+            // 对齐 MDHeader 内容行：安全区 margin (top || 8) 之下的 44 高行，
+            // 覆盖层只盖这一行，标题与返回键同轴居中 (OK-58881)
+            <XStack
+              position="absolute"
+              top={safeAreaTop || 8}
+              left={0}
+              right={0}
+              h={44}
+              ai="center"
+              jc="center"
+              pointerEvents="none"
+            >
+              <XStack ai="center" gap="$2">
+                {pageTitle}
+              </XStack>
+            </XStack>
+          ) : null}
+        </YStack>
       ) : (
         <YStack mx="$pagePadding" mt="$2" mb="$1">
           <Page.Header headerShown={false} />

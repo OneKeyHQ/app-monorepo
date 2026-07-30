@@ -153,27 +153,34 @@ function EarnFixedRateTokensContent() {
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const liquidityLabel = totalLiquidityLabel;
     const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
+    // 方向文案统一用 high-to-low / low-to-high i18n (OK-58880)
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
     return [
       {
-        label: `${liquidityLabel} ↓`,
+        label: `${liquidityLabel} ${highToLow}`,
         triggerLabel: liquidityLabel,
         value: 'liquidity',
         direction: 'desc',
       },
       {
-        label: `${liquidityLabel} ↑`,
+        label: `${liquidityLabel} ${lowToHigh}`,
         triggerLabel: liquidityLabel,
         value: 'liquidity',
         direction: 'asc',
       },
       {
-        label: `${yieldLabel} ↓`,
+        label: `${yieldLabel} ${highToLow}`,
         triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'desc',
       },
       {
-        label: `${yieldLabel} ↑`,
+        label: `${yieldLabel} ${lowToHigh}`,
         triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'asc',

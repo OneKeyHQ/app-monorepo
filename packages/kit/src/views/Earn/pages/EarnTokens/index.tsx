@@ -27,6 +27,7 @@ import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
 
@@ -35,7 +36,8 @@ import type {
   IEarnSortOption,
 } from '../../components/EarnMobileSortControl';
 
-type IEarnTokensSortKey = 'apy' | 'apr';
+// tvl = 每个代币下 provider TVL 相加后的合计值排序 (OK-58880，默认项，不展示 subtitle)
+type IEarnTokensSortKey = 'tvl' | 'apy';
 
 // Tokens 首页三分类 (设计稿：All / Stable Tokens / Non-Stable Tokens)
 const TOKEN_CATEGORY_TYPES = [
@@ -56,14 +58,9 @@ function parseRate(value?: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function getAssetSortValue(
-  asset: IEarnAvailableAsset,
-  sortKey: IEarnTokensSortKey,
-): number {
-  // APY = 含奖励综合年化 (apr 字段)；APR = 基础年化 (aprWithoutFee 字段)
-  return sortKey === 'apy'
-    ? parseRate(asset.apr)
-    : parseRate(asset.aprWithoutFee);
+// APY/APR 合并为一个排序维度 (OK-58880)，取展示口径的 aprWithoutFee，缺省回落 apr
+function getAssetAprSortValue(asset: IEarnAvailableAsset): number {
+  return parseRate(asset.aprWithoutFee || asset.apr);
 }
 
 function EarnTokensSkeleton() {
@@ -93,11 +90,11 @@ function EarnTokensContent() {
   );
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<IEarnTokensSortKey>('apy');
+  // 默认排序 = provider TVL 相加的合计值 (OK-58880)
+  const [sortKey, setSortKey] = useState<IEarnTokensSortKey>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
-  // Tokens 首页仅 APY/APR 排序，不展示/不排序 TVL (汇总 TVL 无实际意义，产品确认)
   const { result: assets, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -121,6 +118,20 @@ function EarnTokensContent() {
     () => new Set((fixedRateAssets ?? []).map((asset) => asset.symbol)),
     [fixedRateAssets],
   );
+
+  // 默认排序数据源 (OK-58880)：每个 symbol 下所有 provider 的 TVL 合计。
+  // 复用全协议聚合 (单请求 + 5 分钟缓存)，不在行上展示，仅用于排序
+  const { providers: aggregatedProviders } = useEarnAllProtocols();
+  const symbolTvlMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const aggregated of aggregatedProviders) {
+      for (const row of aggregated.tokens) {
+        const key = row.symbol.toLowerCase();
+        map.set(key, (map.get(key) ?? 0) + row.tvlValue);
+      }
+    }
+    return map;
+  }, [aggregatedProviders]);
 
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -168,43 +179,56 @@ function EarnTokensContent() {
   const sortedAssets = useMemo(
     () =>
       filteredAssets.toSorted((assetA, assetB) => {
-        const valueA = getAssetSortValue(assetA, sortKey);
-        const valueB = getAssetSortValue(assetB, sortKey);
+        const valueA =
+          sortKey === 'tvl'
+            ? symbolTvlMap.get(assetA.symbol.toLowerCase()) ?? 0
+            : getAssetAprSortValue(assetA);
+        const valueB =
+          sortKey === 'tvl'
+            ? symbolTvlMap.get(assetB.symbol.toLowerCase()) ?? 0
+            : getAssetAprSortValue(assetB);
         return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
       }),
-    [filteredAssets, sortDirection, sortKey],
+    [filteredAssets, sortDirection, sortKey, symbolTvlMap],
   );
 
+  // 排序选项 (OK-58880)：APY/APR 双向 + TVL 双向，默认选中 TVL High to Low
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
-    const apyLabel = 'APY';
-    const aprLabel = 'APR';
+    const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
+    const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
     return [
       {
-        label: `${apyLabel} ↓`,
-        triggerLabel: apyLabel,
+        label: `${yieldLabel} ${highToLow}`,
+        triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'desc',
       },
       {
-        label: `${apyLabel} ↑`,
-        triggerLabel: apyLabel,
+        label: `${yieldLabel} ${lowToHigh}`,
+        triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'asc',
       },
       {
-        label: `${aprLabel} ↓`,
-        triggerLabel: aprLabel,
-        value: 'apr',
+        label: `${tvlLabel} ${highToLow}`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
         direction: 'desc',
       },
       {
-        label: `${aprLabel} ↑`,
-        triggerLabel: aprLabel,
-        value: 'apr',
+        label: `${tvlLabel} ${lowToHigh}`,
+        triggerLabel: tvlLabel,
+        value: 'tvl',
         direction: 'asc',
       },
     ];
-  }, []);
+  }, [intl]);
 
   const handleSortChange = useCallback(
     (key: string, direction: IEarnSortDirection) => {

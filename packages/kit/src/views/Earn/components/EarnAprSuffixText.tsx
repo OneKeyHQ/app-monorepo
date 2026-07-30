@@ -15,14 +15,29 @@ export function EarnAprSuffixText({
   size = '$bodyLgMedium',
   suffixSize = '$bodySmMedium',
   color = '$text',
+  fallbackUnit,
 }: {
   text: string;
   size?: ISizableTextSize;
   suffixSize?: ISizableTextSize;
   color?: ISizableTextColor;
+  /** 服务端文案不带 APY/APR 后缀时的兜底单位 (如 provider.rewardUnit) */
+  fallbackUnit?: string;
 }) {
   const match = text.match(APR_SUFFIX_PATTERN);
   if (!match || !match[1]) {
+    if (text && fallbackUnit) {
+      return (
+        <XStack alignItems="baseline" gap="$1">
+          <SizableText size={size} color={color} textAlign="right">
+            {text}
+          </SizableText>
+          <SizableText size={suffixSize} color={color}>
+            {fallbackUnit.toUpperCase()}
+          </SizableText>
+        </XStack>
+      );
+    }
     return (
       <SizableText size={size} color={color} textAlign="right">
         {text}

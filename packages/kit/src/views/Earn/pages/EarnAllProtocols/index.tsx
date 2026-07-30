@@ -73,6 +73,8 @@ function EarnAllProtocolsContent() {
 
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
+  // TVL / APY-APR 双维度排序 (OK-58880 需求4)
+  const [sortKey, setSortKey] = useState<'tvl' | 'apy'>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
@@ -119,37 +121,59 @@ function EarnAllProtocolsContent() {
     });
   }, [providers, searchText, selectedNetworkIds]);
 
-  // Protocols 首页：展示 TVL，支持升降序 (产品确认)
+  // Protocols 首页：TVL / APY-APR 排序 (OK-58880)
   const sortedProviders = useMemo(
     () =>
-      filteredProviders.toSorted((providerA, providerB) =>
-        sortDirection === 'asc'
-          ? providerA.filteredTvlValue - providerB.filteredTvlValue
-          : providerB.filteredTvlValue - providerA.filteredTvlValue,
-      ),
-    [filteredProviders, sortDirection],
+      filteredProviders.toSorted((providerA, providerB) => {
+        const valueA =
+          sortKey === 'tvl' ? providerA.filteredTvlValue : providerA.maxApy;
+        const valueB =
+          sortKey === 'tvl' ? providerB.filteredTvlValue : providerB.maxApy;
+        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+      }),
+    [filteredProviders, sortDirection, sortKey],
   );
 
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
+    const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
     return [
       {
-        label: `${tvlLabel} ↓`,
+        label: `${tvlLabel} ${highToLow}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
         direction: 'desc',
       },
       {
-        label: `${tvlLabel} ↑`,
+        label: `${tvlLabel} ${lowToHigh}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
+        direction: 'asc',
+      },
+      {
+        label: `${yieldLabel} ${highToLow}`,
+        triggerLabel: yieldLabel,
+        value: 'apy',
+        direction: 'desc',
+      },
+      {
+        label: `${yieldLabel} ${lowToHigh}`,
+        triggerLabel: yieldLabel,
+        value: 'apy',
         direction: 'asc',
       },
     ];
   }, [intl]);
 
   const handleSortChange = useCallback(
-    (_key: string, direction: IEarnSortDirection) => {
+    (key: string, direction: IEarnSortDirection) => {
+      setSortKey(key as 'tvl' | 'apy');
       setSortDirection(direction);
     },
     [],
@@ -197,7 +221,7 @@ function EarnAllProtocolsContent() {
           onSelectionChange={setSelectedNetworkIds}
         />
         <EarnMobileSortControl
-          sortKey="tvl"
+          sortKey={sortKey}
           sortDirection={sortDirection}
           options={sortOptions}
           onSortChange={handleSortChange}

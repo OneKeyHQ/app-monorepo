@@ -27,8 +27,10 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { capitalizeString } from '../../../Staking/utils/utils';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
+import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
@@ -107,14 +109,38 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const [sortKey, setSortKey] = useState<IProtocolTokensSortKey>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
+  const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
 
-  const tokens = useMemo(
+  const allTokens = useMemo(
     () =>
       providers.find(
         (aggregated) => aggregated.provider === provider.toLowerCase(),
       )?.tokens ?? [],
     [provider, providers],
   );
+
+  // 网络选择器 (OK-58881)：按行的 networkId 过滤
+  const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const row of allTokens) {
+      const networkId = row.item.network.networkId;
+      counts[networkId] = (counts[networkId] ?? 0) + 1;
+    }
+    return {
+      availableNetworkIds: Object.keys(counts),
+      networkAssetCounts: counts,
+    };
+  }, [allTokens]);
+
+  const tokens = useMemo(() => {
+    if (selectedNetworkIds.length === 0) {
+      return allTokens;
+    }
+    const selectedSet = new Set(selectedNetworkIds);
+    return allTokens.filter((row) =>
+      selectedSet.has(row.item.network.networkId),
+    );
+  }, [allTokens, selectedNetworkIds]);
 
   // 某个 Protocol 的 Tokens 列表：展示 TVL，支持 TVL/APY 升降序 (产品确认)
   const sortedTokens = useMemo(
@@ -130,27 +156,34 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
     const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
+    // 方向文案统一用 high-to-low / low-to-high i18n (OK-58880)
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
     return [
       {
-        label: `${tvlLabel} ↓`,
+        label: `${tvlLabel} ${highToLow}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
         direction: 'desc',
       },
       {
-        label: `${tvlLabel} ↑`,
+        label: `${tvlLabel} ${lowToHigh}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
         direction: 'asc',
       },
       {
-        label: `${yieldLabel} ↓`,
+        label: `${yieldLabel} ${highToLow}`,
         triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'desc',
       },
       {
-        label: `${yieldLabel} ↑`,
+        label: `${yieldLabel} ${lowToHigh}`,
         triggerLabel: yieldLabel,
         value: 'apy',
         direction: 'asc',
@@ -189,20 +222,30 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
             <Token size="sm" tokenImageUri={logoURI} borderRadius="$full" />
           ) : null}
           <SizableText size="$headingLg" numberOfLines={1}>
-            {providerName || provider}
+            {capitalizeString(providerName || provider)}
           </SizableText>
         </XStack>
       }
       showBackButton
+      centerPageTitle
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
       contentContainerStyle={{ pb: tabBarHeight }}
     >
-      <XStack px="$pagePadding" py="$2" jc="flex-end">
+      <XStack px="$pagePadding" py="$2" ai="center" jc="space-between">
+        <NetworkFilterControl
+          testID={EarnTestIDs.protocolTokensNetworkFilter}
+          variant="compact"
+          availableNetworkIds={availableNetworkIds}
+          selectedNetworkIds={selectedNetworkIds}
+          networkAssetCounts={networkAssetCounts}
+          onSelectionChange={setSelectedNetworkIds}
+        />
         <EarnMobileSortControl
           sortKey={sortKey}
           sortDirection={sortDirection}
           options={sortOptions}
           onSortChange={handleSortChange}
+          compact
           testID={EarnTestIDs.protocolTokensSortControl}
         />
       </XStack>
@@ -253,6 +296,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                     row.item.aprInfo?.normal?.text ??
                     ''
                   }
+                  // 服务端文案无后缀时补 rewardUnit，保证 APY/APR 字样展示 (OK-58881)
+                  fallbackUnit={row.item.provider.rewardUnit || 'APY'}
                   color={
                     row.item.aprInfo?.highlight
                       ? row.item.aprInfo.highlight.color ?? '$textSuccess'
