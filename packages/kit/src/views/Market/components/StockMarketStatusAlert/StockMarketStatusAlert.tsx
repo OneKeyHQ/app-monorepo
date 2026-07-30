@@ -26,10 +26,10 @@ export type IStockMarketStatusAlertProps = {
 };
 
 /**
- * Standard market-status alert for a tokenized stock (open/closed cases).
- * Presentational only — the caller resolves the case and wires navigation, so
- * this can be reused across modules. See `resolveStockMarketStatusCase` for the
- * case definitions (case 5 Halted is reserved for when the backend supports it).
+ * Standard market-status alert for a tokenized stock (open/closed/halted
+ * cases). Presentational only — the caller resolves the case and wires
+ * navigation, so this can be reused across modules. See
+ * `resolveStockMarketStatusCase` for the case definitions.
  */
 export function StockMarketStatusAlert({
   statusCase,
@@ -68,6 +68,7 @@ export function StockMarketStatusAlert({
       }
     : undefined;
 
+  let titleId = ETranslations.trade_stock_market_closed;
   let description = waitText;
   let action: typeof perpsAction;
   switch (statusCase) {
@@ -85,6 +86,21 @@ export function StockMarketStatusAlert({
       description = waitWithPerpsText;
       action = perpsAction;
       break;
+    // 5. halted (OK-58655): "Trading halts" title; body is the backend halt
+    // sentence (+ Perps suffix when a Perps handoff exists). The "wait for
+    // reopen" copy would be wrong here, so fall back to the generic halts
+    // description instead.
+    case EStockMarketStatusCase.Halted:
+      titleId = ETranslations.trading_hours_trading_halts;
+      if (timeText?.trim()) {
+        description = onTradePerps ? timeWithPerpsText : timeText.trim();
+      } else {
+        description = intl.formatMessage({
+          id: ETranslations.trading_hours_trading_halts_description,
+        });
+      }
+      action = perpsAction;
+      break;
     // 3. unknown time, no Perps: ask to wait.
     case EStockMarketStatusCase.ClosedUnknownTimeNoPerps:
     default:
@@ -97,9 +113,7 @@ export function StockMarketStatusAlert({
       testID={testID}
       type="warning"
       icon="InfoCircleOutline"
-      title={intl.formatMessage({
-        id: ETranslations.trade_stock_market_closed,
-      })}
+      title={intl.formatMessage({ id: titleId })}
       description={description}
       action={action}
       actionLayout="horizontal"
