@@ -21,11 +21,11 @@ describe('formatUnifoldUsdAmount', () => {
     );
   });
 
-  it('renders an em dash for null/empty/non-numeric (never 0)', () => {
-    expect(formatUnifoldUsdAmount(null)).toBe('—');
-    expect(formatUnifoldUsdAmount(undefined)).toBe('—');
-    expect(formatUnifoldUsdAmount('')).toBe('—');
-    expect(formatUnifoldUsdAmount('abc')).toBe('—');
+  it('renders the numeric placeholder for null/empty/non-numeric', () => {
+    expect(formatUnifoldUsdAmount(null)).toBe('--');
+    expect(formatUnifoldUsdAmount(undefined)).toBe('--');
+    expect(formatUnifoldUsdAmount('')).toBe('--');
+    expect(formatUnifoldUsdAmount('abc')).toBe('--');
   });
 
   it('puts the sign outside the currency symbol', () => {
