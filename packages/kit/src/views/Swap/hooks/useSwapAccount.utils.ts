@@ -1,4 +1,5 @@
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 type IShouldUseSwapCustomRecipientAddressParams = {
@@ -35,10 +36,70 @@ type IShouldResetSwapRecipientOnAccountNetworkSyncParams = {
   providerSupportReceiveAddress?: boolean;
 };
 
+type IGetSwapRecipientValidationAccountIdParams = {
+  accountId?: string;
+  accountAddress?: string;
+  recipientAddress?: string;
+};
+
 type IGetSwapAddressAccountSelectorNumParams = {
   type: ESwapDirectionType;
   swapToAnotherAccountSwitchOn: boolean;
 };
+
+type IGetSwapRecipientActionStateParams = {
+  isActionDisabled: boolean;
+  isRefreshAction: boolean;
+  noConnectWallet: boolean;
+  hasQuoteToAmount: boolean;
+  recipientAddress?: string;
+  isAddressInfoReady: boolean;
+  providerSupportReceiveAddress?: boolean;
+};
+
+export function getSwapRecipientActionState({
+  isActionDisabled,
+  isRefreshAction,
+  noConnectWallet,
+  hasQuoteToAmount,
+  recipientAddress,
+  isAddressInfoReady,
+  providerSupportReceiveAddress,
+}: IGetSwapRecipientActionStateParams) {
+  const needsRecipient =
+    !isRefreshAction &&
+    !noConnectWallet &&
+    hasQuoteToAmount &&
+    !recipientAddress;
+  if (!needsRecipient) {
+    return {
+      shouldEnterRecipient: false,
+      shouldDisableAction: isActionDisabled,
+    };
+  }
+
+  const shouldEnterRecipient = Boolean(
+    !isActionDisabled && isAddressInfoReady && providerSupportReceiveAddress,
+  );
+  return {
+    shouldEnterRecipient,
+    shouldDisableAction: !shouldEnterRecipient,
+  };
+}
+
+export function getSwapRecipientValidationAccountId({
+  accountId,
+  accountAddress,
+  recipientAddress,
+}: IGetSwapRecipientValidationAccountIdParams) {
+  if (!accountId || !accountAddress || !recipientAddress) {
+    return undefined;
+  }
+
+  return equalsIgnoreCase(accountAddress, recipientAddress)
+    ? accountId
+    : undefined;
+}
 
 export function getSwapAddressAccountSelectorNum({
   type,

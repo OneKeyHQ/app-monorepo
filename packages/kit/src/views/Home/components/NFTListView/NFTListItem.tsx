@@ -74,6 +74,7 @@ function BasicNFTListItem(props: IProps) {
                 w="100%"
                 h="100%"
                 borderRadius="$2.5"
+                resizeWidth={160}
                 source={{ uri: nft.metadata?.image }}
                 fallback={
                   <Image.Fallback

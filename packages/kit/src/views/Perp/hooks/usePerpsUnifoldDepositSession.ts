@@ -151,7 +151,9 @@ function readErrorCode(error: unknown): number | undefined {
   return typeof record?.code === 'number' ? record.code : undefined;
 }
 
-function toErrorType(error: unknown): IUnifoldDepositErrorType {
+export function getUnifoldDepositErrorType(
+  error: unknown,
+): IUnifoldDepositErrorType {
   const code = readErrorCode(error);
   if (code === UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH) {
     // The caller decides whether a missing live account is only a transient
@@ -393,7 +395,7 @@ export function usePerpsUnifoldDepositSession({
         if (cancelled) {
           return;
         }
-        const errorType = toErrorType(error);
+        const errorType = getUnifoldDepositErrorType(error);
         if (errorType === 'network') {
           retryTimer = setTimeout(() => {
             if (!cancelled) {
@@ -490,6 +492,15 @@ export function usePerpsUnifoldDepositSession({
     [destination],
   );
 
+  const selectSource = useCallback(
+    (asset: IUnifoldSupportedAsset, chain: IUnifoldSupportedAssetChain) => {
+      const next = { asset, chain };
+      cacheSourceSelection(destination, next);
+      setSelection(next);
+    },
+    [destination],
+  );
+
   // ── Deposit address (echo-checked in bg); 5s auto-retry on failure ──
   const [addressAttempt, setAddressAttempt] = useState(0);
   useEffect(() => {
@@ -522,7 +533,7 @@ export function usePerpsUnifoldDepositSession({
         if (cancelled) {
           return;
         }
-        const errorType = toErrorType(error);
+        const errorType = getUnifoldDepositErrorType(error);
         if (
           errorType === 'accountMismatch' &&
           !jotaiDefaultStore.get(perpsActiveAccountAtom.atom()).accountAddress
@@ -613,7 +624,7 @@ export function usePerpsUnifoldDepositSession({
         if (cancelled) {
           return;
         }
-        const errorType = toErrorType(error);
+        const errorType = getUnifoldDepositErrorType(error);
         if (errorType !== 'network') {
           // Terminal code (disabled / geo-blocked / unavailable): mirror the
           // catalog effect and fail closed with the matching veto instead of
@@ -967,6 +978,7 @@ export function usePerpsUnifoldDepositSession({
     selection,
     selectToken,
     selectChain,
+    selectSource,
     qrAddress,
     sessionExecutions: isLiveAccountAligned ? sessionExecutions : [],
     acknowledgePresentedExecution,

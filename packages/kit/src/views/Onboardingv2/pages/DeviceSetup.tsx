@@ -35,18 +35,9 @@ import {
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
-import {
-  MOCK_INITIAL_STATUS,
-  Pro2MockDevPanel,
-  Pro2OnboardingStepper,
-  mockStatusToPhase,
-  supportsDeviceDrivenOnboarding,
-} from './deviceSetupPro2Mock';
-
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-// The real-device check states. Maps onto the same three macro phases
-// (checking / needsSetup / ready) the device-driven (Pro 2) path uses.
+// The real-device check states.
 enum EDeviceSetupState {
   Checking = 'checking',
   NeedSetup = 'needSetup',
@@ -54,10 +45,11 @@ enum EDeviceSetupState {
   Success = 'success',
 }
 
-// Macro-phase swap (checking → stepper → ready): a sequenced ("mode=wait")
+// Macro-phase swap (checking → setup → ready): a sequenced ("mode=wait")
 // opacity fade — see makeSequencedFade. Cross-fading these dissimilar blocks (a
-// small status card vs. the tall stepper) would ghost two shapes through each
-// other; clearing the stage first reads cleaner for a milestone moment.
+// small status card vs. the tall instructions card) would ghost two shapes
+// through each other; clearing the stage first reads cleaner for a milestone
+// moment.
 const { entering: PHASE_ENTER, exiting: PHASE_EXIT } = makeSequencedFade({
   enterMs: 240,
   exitMs: 180,
@@ -70,14 +62,6 @@ function DeviceSetupPage({
   const { deviceData, tabValue, isFirmwareVerified } = route?.params ?? {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
-
-  // Device-driven onboarding (Pro 2 today; Pro after its firmware migrates).
-  // MOCK: the device can't connect, so this path runs a local mock status
-  // machine driven by a dev panel instead of the real check below.
-  const isDeviceDriven = supportsDeviceDrivenOnboarding(
-    deviceData?.device as SearchDevice | undefined,
-  );
-  const [mockStatus, setMockStatus] = useState(MOCK_INITIAL_STATUS);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData?.device as SearchDevice | undefined,
@@ -295,9 +279,7 @@ function DeviceSetupPage({
     void checkDeviceInitialized();
   }, [checkDeviceInitialized]);
 
-  // Owns the mounted flag on its own so it is registered on every path — the
-  // check effect below returns early for the device-driven mock and would
-  // otherwise never install a cleanup.
+  // Owns the mounted flag so async continuations cannot act on a dead page.
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -305,12 +287,8 @@ function DeviceSetupPage({
     };
   }, []);
 
-  // Run the real device-status check on mount — only for the real-device path.
-  // The device-driven (mock Pro 2) path is driven by the dev panel instead.
+  // Run the device-status check on mount.
   useEffect(() => {
-    if (isDeviceDriven) {
-      return undefined;
-    }
     void checkDeviceInitialized();
     return () => {
       if (navigateTimeoutRef.current) {
@@ -339,8 +317,6 @@ function DeviceSetupPage({
       [intl],
     ),
   );
-
-  const mockPhase = mockStatusToPhase(mockStatus);
 
   const fallbackCard = (
     <SetupCard
@@ -415,93 +391,60 @@ function DeviceSetupPage({
       narrow
       contentContainerProps={{ gap: '$10' }}
     >
-      {isDeviceDriven ? (
-        <YStack>
-          {/* Keyed on the phase so checking → stepper → ready cross-fades when
-              the phase changes; the dev panel stays mounted (not faded). */}
-          <Animated.View
-            key={mockPhase}
-            entering={PHASE_ENTER}
-            exiting={PHASE_EXIT}
-          >
-            {mockPhase === 'checking' ? (
-              <SetupStatusCard
-                tone="checking"
-                label={intl.formatMessage({
-                  id: ETranslations.global_checking,
-                })}
-              />
-            ) : null}
-            {mockPhase === 'needsSetup' ? (
-              <Pro2OnboardingStepper status={mockStatus} />
-            ) : null}
-            {mockPhase === 'ready' ? (
-              <SetupStatusCard
-                tone="ready"
-                label={intl.formatMessage({
-                  id: ETranslations.your_device_is_ready,
-                })}
-              />
-            ) : null}
-          </Animated.View>
-          <Pro2MockDevPanel status={mockStatus} onChange={setMockStatus} />
-        </YStack>
-      ) : (
-        <YStack>
-          {/* Keyed on the state so checking → setup → ready/error cross-fades. */}
-          <Animated.View
-            key={setupState}
-            entering={PHASE_ENTER}
-            exiting={PHASE_EXIT}
-          >
-            {setupState === EDeviceSetupState.Checking ? (
-              <SetupStatusCard
-                tone="checking"
-                label={intl.formatMessage({
-                  id: ETranslations.global_checking,
-                })}
-              />
-            ) : null}
-            {setupState === EDeviceSetupState.NeedSetup ? fallbackCard : null}
-            {setupState === EDeviceSetupState.Success ? (
-              <SetupStatusCard
-                tone="ready"
-                label={intl.formatMessage({
-                  id: ETranslations.your_device_is_ready,
-                })}
-              />
-            ) : null}
-            {setupState === EDeviceSetupState.Error ? (
-              <XStack
-                gap="$2"
-                pt="$4"
-                borderTopWidth={StyleSheet.hairlineWidth}
-                borderTopColor="$borderSubdued"
-                alignItems="center"
+      <YStack>
+        {/* Keyed on the state so checking → setup → ready/error cross-fades. */}
+        <Animated.View
+          key={setupState}
+          entering={PHASE_ENTER}
+          exiting={PHASE_EXIT}
+        >
+          {setupState === EDeviceSetupState.Checking ? (
+            <SetupStatusCard
+              tone="checking"
+              label={intl.formatMessage({
+                id: ETranslations.global_checking,
+              })}
+            />
+          ) : null}
+          {setupState === EDeviceSetupState.NeedSetup ? fallbackCard : null}
+          {setupState === EDeviceSetupState.Success ? (
+            <SetupStatusCard
+              tone="ready"
+              label={intl.formatMessage({
+                id: ETranslations.your_device_is_ready,
+              })}
+            />
+          ) : null}
+          {setupState === EDeviceSetupState.Error ? (
+            <XStack
+              gap="$2"
+              pt="$4"
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="$borderSubdued"
+              alignItems="center"
+            >
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textCritical"
+                flex={1}
+                textAlign="left"
               >
-                <SizableText
-                  size="$bodyMdMedium"
-                  color="$textCritical"
-                  flex={1}
-                  textAlign="left"
-                >
-                  {errorMessage ??
-                    intl.formatMessage({
-                      id: ETranslations.global_an_error_occurred,
-                    })}
-                </SizableText>
-                <Button
-                  testID={OnboardingTestIDs.deviceSetupRetryBtn}
-                  variant="primary"
-                  onPress={handleDeviceSetupDone}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_retry })}
-                </Button>
-              </XStack>
-            ) : null}
-          </Animated.View>
-        </YStack>
-      )}
+                {errorMessage ??
+                  intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  })}
+              </SizableText>
+              <Button
+                testID={OnboardingTestIDs.deviceSetupRetryBtn}
+                variant="primary"
+                onPress={handleDeviceSetupDone}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            </XStack>
+          ) : null}
+        </Animated.View>
+      </YStack>
     </OnboardingPage>
   );
 }

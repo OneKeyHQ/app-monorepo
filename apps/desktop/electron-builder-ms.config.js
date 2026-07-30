@@ -27,6 +27,12 @@ module.exports = {
         'from': 'app/build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
+      // Same layout as the regular win build — without it isBlePairAvailable()
+      // finds no helper and Trezor BLE pairing silently degrades in Store builds.
+      {
+        'from': 'app/build/static/bin/ble-pair/win-${arch}',
+        'to': 'bin/ble-pair',
+      },
     ],
     'extraFiles': DLLs,
     'icon': 'app/build/static/images/icons/installerIcon.ico',

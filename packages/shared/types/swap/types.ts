@@ -777,6 +777,7 @@ export interface ISwapState {
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
+  shouldEnterRecipient?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {

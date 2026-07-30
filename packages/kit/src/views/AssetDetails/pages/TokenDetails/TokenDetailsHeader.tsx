@@ -51,6 +51,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
@@ -97,6 +98,7 @@ export async function pushSwapFromTokenDetails({
     decimals: number;
     name?: string;
     logoURI?: string;
+    balanceMultiplier?: string;
   };
   networkId: string;
   networkLogoURI?: string;
@@ -104,6 +106,14 @@ export async function pushSwapFromTokenDetails({
   walletType?: string;
   isSoftwareWalletOnlyUser: boolean;
 }) {
+  // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
+  // pipeline treats every amount as raw. The entries are disabled for these
+  // tokens; re-check here so no trigger path can seed Swap with a basis out
+  // of sync with the wallet display. A multiplier of exactly 1 is the
+  // documented no-op and must not block.
+  if (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)) {
+    return;
+  }
   const importFromToken: ISwapToken = {
     contractAddress: token.address,
     symbol: token.symbol,
@@ -398,6 +408,16 @@ function TokenDetailsHeaderContent({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
+  // Scaled-UI (rebase) marker for the swap gate below; also passed into
+  // `pushSwapFromTokenDetails` so its fail-closed re-check sees the same
+  // snapshot the disabled state was derived from. While the details request
+  // is still in flight (or the tab opted out of the tokenMap seed), fall back
+  // to the route token so the loading window stays fail closed instead of
+  // treating a scaled-UI token as a plain one.
+  const tokenDetailsBalanceMultiplier =
+    tokenRebaseUtils.pickBalanceMultiplier(tokenDetails) ??
+    tokenInfo.balanceMultiplier;
+
   const handleOnSwap = useCallback(
     () =>
       pushSwapFromTokenDetails({
@@ -409,6 +429,7 @@ function TokenDetailsHeaderContent({
           decimals: tokenInfo.decimals,
           name: tokenInfo.name,
           logoURI: tokenInfo.logoURI,
+          balanceMultiplier: tokenDetailsBalanceMultiplier,
         },
         networkId,
         networkLogoURI: network?.logoURI,
@@ -427,14 +448,21 @@ function TokenDetailsHeaderContent({
       tokenInfo.decimals,
       tokenInfo.name,
       tokenInfo.logoURI,
+      tokenDetailsBalanceMultiplier,
       deriveType,
       isSoftwareWalletOnlyUser,
     ],
   );
 
   const disableSwapAction = useMemo(
-    () => accountUtils.isUrlAccountFn({ accountId }),
-    [accountId],
+    () =>
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      // Scaled-UI tokens: Swap would display/build on the raw basis, out of
+      // sync with the wallet display.
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        tokenDetailsBalanceMultiplier,
+      ),
+    [accountId, tokenDetailsBalanceMultiplier],
   );
 
   const handleSendPress = useCallback(() => {
@@ -557,7 +585,11 @@ function TokenDetailsHeaderContent({
             isLoading={showLoadingState}
             currency={tokenDetails?.currency}
             fiatValue={tokenDetails?.fiatValue}
-            balanceParsed={tokenDetails?.balanceParsed}
+            balanceParsed={tokenRebaseUtils.applyBalanceMultiplier({
+              amount: tokenDetails?.balanceParsed,
+              balanceMultiplier:
+                tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
+            })}
           />
           {/* Actions */}
           <RawActions>

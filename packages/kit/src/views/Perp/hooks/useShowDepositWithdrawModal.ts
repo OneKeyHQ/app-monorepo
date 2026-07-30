@@ -197,11 +197,18 @@ export function useShowDepositWithdrawModal() {
             }
             return;
           }
+          if (action === 'transfer') {
+            navigation.pushModal(EModalRoutes.PerpModal, {
+              screen: EModalPerpRoutes.MobileUnifoldDepositTransfer,
+              params: {
+                expectedRecipient: safeRecipient,
+                openSourceSelectorOnReady: true,
+              },
+            });
+            return;
+          }
           navigation.pushModal(EModalRoutes.PerpModal, {
-            screen:
-              action === 'transfer'
-                ? EModalPerpRoutes.MobileUnifoldDepositTransfer
-                : EModalPerpRoutes.MobileUnifoldDepositTracker,
+            screen: EModalPerpRoutes.MobileUnifoldDepositTracker,
             params: { expectedRecipient: safeRecipient },
           });
         },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -32,12 +32,14 @@ export function AccountSelectorProviderMirror({
   config,
   enabledNum,
   availableNetworksMap,
+  storageReadyFallback,
   waitForStorageReady,
 }: {
-  children?: any;
+  children?: ReactNode;
   config: IAccountSelectorContextData;
   enabledNum: number[];
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
+  storageReadyFallback?: ReactNode;
   waitForStorageReady?: boolean;
 }) {
   if (!enabledNum || enabledNum.length <= 0) {
@@ -63,7 +65,10 @@ export function AccountSelectorProviderMirror({
     <>
       <JotaiContextStoreMirrorTracker {...data} />
       <AccountSelectorJotaiProvider store={store} config={config}>
-        <AccountSelectorStorageReady waitForStorageReady={waitForStorageReady}>
+        <AccountSelectorStorageReady
+          fallback={storageReadyFallback}
+          waitForStorageReady={waitForStorageReady}
+        >
           <AccountSelectorAvailableNetworksInit
             availableNetworksMap={availableNetworksMap}
           />

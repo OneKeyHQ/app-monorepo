@@ -48,7 +48,15 @@ export function getStockNetworkLogoUri({
 
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
+  channelStage: ESwapStockChannelStage,
 ) {
+  if (
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    channelStage === ESwapStockChannelStage.MarketClosed
+  ) {
+    return undefined;
+  }
+
   return {
     bg:
       tradeSide === ESwapStockTradeSide.Sell
@@ -80,6 +88,24 @@ export function shouldShowStockMarketHeaderSkeleton({
   return (
     !hasStockIdentity &&
     channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function getStockMarketTokenSubtitle({
+  currentStockSubtitle,
+  currentTokenName,
+  hasTokenDetail,
+  tokenDetailStockSubtitle,
+}: {
+  currentStockSubtitle?: string;
+  currentTokenName?: string;
+  hasTokenDetail: boolean;
+  tokenDetailStockSubtitle?: string;
+}) {
+  return (
+    tokenDetailStockSubtitle ??
+    currentStockSubtitle ??
+    (hasTokenDetail ? undefined : currentTokenName)
   );
 }
 

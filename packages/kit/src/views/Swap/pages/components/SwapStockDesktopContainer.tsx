@@ -164,6 +164,7 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   shouldShowStockMarketHeaderSkeleton,
@@ -206,6 +207,9 @@ interface ISwapStockDesktopContainerProps {
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
+type ISwapStockTokenWithMetadata = ISwapToken & {
+  stock?: IMarketTokenDetail['stock'];
+};
 type IStockMarketDataRow = {
   label: string;
   value: string;
@@ -440,7 +444,9 @@ function buildStockMarketDataRows({
 
 function useCurrentStockMarketDetail() {
   const stockChannel = useSwapStockTradeContext();
-  const currentStockToken = stockChannel.currentStockToken;
+  const currentStockToken = stockChannel.currentStockToken as
+    | ISwapStockTokenWithMetadata
+    | undefined;
 
   return {
     stockChannel,
@@ -797,12 +803,14 @@ function StockEstimatedReceive({
 
 function StockActionGate({
   alerts,
+  balanceActionsReady,
   stockChannel,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
+  balanceActionsReady: boolean;
   stockChannel: IUseSwapStockChannelReturn;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
@@ -845,12 +853,12 @@ function StockActionGate({
   }, [navigation]);
   const keyboardPercentageStage = useMemo(
     () =>
-      !platformEnv.isNativeIOS ? (
+      !platformEnv.isNativeIOS && balanceActionsReady ? (
         <PercentageStageOnKeyboard
           onSelectPercentageStage={onSelectPercentageStage}
         />
       ) : null,
-    [onSelectPercentageStage],
+    [balanceActionsReady, onSelectPercentageStage],
   );
   const renderActionButton = useCallback(
     (button: ReactNode) => {
@@ -933,7 +941,9 @@ function StockActionGate({
         forceQuoteActionLoading={forceQuoteActionLoading}
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
-        onSelectPercentageStage={onSelectPercentageStage}
+        onSelectPercentageStage={
+          balanceActionsReady ? onSelectPercentageStage : undefined
+        }
       />
     );
   }
@@ -959,11 +969,10 @@ function StockActionGate({
     );
   }
 
-  const isMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
+  const disabledButtonProps = getStockDisabledActionButtonProps(
+    stockChannel.tradeSide,
+    stockChannel.channelStage,
+  );
 
   return renderActionButton(
     <Button
@@ -1025,7 +1034,13 @@ function StockPayTokenPopoverContent({
 function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
   const intl = useIntl();
   return (
-    <YStack h={124} bg="$bgSubdued" borderRadius="$4" overflow="hidden">
+    <YStack
+      testID={SwapTestIDs.stockAmountInputSkeleton}
+      h={124}
+      bg="$bgSubdued"
+      borderRadius="$4"
+      overflow="hidden"
+    >
       <XStack
         pt="$3.5"
         px="$3.5"
@@ -1083,6 +1098,7 @@ function StockAmountInput({
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
+    balanceActionsReady,
     balanceLoading,
     currencySymbol,
     disableNativePayToken,
@@ -1175,7 +1191,9 @@ function StockAmountInput({
         <SwapInputActions
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
-          showPercentageInput={showPercentageInputDebounce}
+          showPercentageInput={
+            showPercentageInputDebounce && balanceActionsReady
+          }
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
@@ -1195,17 +1213,18 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: onBalanceMaxPress,
+          onPress: balanceActionsReady ? onBalanceMaxPress : undefined,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: SwapTestIDs.maxButton,
+          testID: balanceActionsReady ? SwapTestIDs.maxButton : undefined,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
-          inputAccessoryViewID: platformEnv.isNativeIOS
-            ? SwapAmountInputAccessoryViewID
-            : undefined,
+          inputAccessoryViewID:
+            platformEnv.isNativeIOS && balanceActionsReady
+              ? SwapAmountInputAccessoryViewID
+              : undefined,
           onFocus: handleAmountInputFocus,
           onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
@@ -1245,9 +1264,9 @@ function StockAmountInput({
                 }
               : undefined,
         }}
-        enableMaxAmount
+        enableMaxAmount={balanceActionsReady}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOS && balanceActionsReady ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
@@ -1328,6 +1347,7 @@ function StockTradeTicket({
       />
       <StockActionGate
         alerts={alerts}
+        balanceActionsReady={amountInputState.balanceActionsReady}
         stockChannel={stockChannel}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
@@ -1456,8 +1476,12 @@ function StockMarketTokenHeader({
     });
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
-  const tokenSubtitle =
-    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
+  const tokenSubtitle = getStockMarketTokenSubtitle({
+    currentStockSubtitle: currentStockToken?.stock?.subtitle,
+    currentTokenName: currentStockToken?.name,
+    hasTokenDetail: Boolean(tokenDetail),
+    tokenDetailStockSubtitle: stock?.subtitle,
+  });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,

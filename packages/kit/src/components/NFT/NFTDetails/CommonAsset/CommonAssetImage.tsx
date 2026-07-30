@@ -50,6 +50,7 @@ function CommonAssetImage(props: IProps) {
               src={nft.metadata?.image}
               w="100%"
               h="100%"
+              resizeWidth={480}
               fallback={
                 <Image.Fallback
                   w="100%"
