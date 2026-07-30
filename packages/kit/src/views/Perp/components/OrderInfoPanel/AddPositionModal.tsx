@@ -40,6 +40,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
@@ -116,10 +117,7 @@ const AddPositionForm = memo(
     const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orderBookTop, setOrderBookTop] = useState<{
-      bestBid?: string;
-      bestAsk?: string;
-    }>({});
+    const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
     const isLimitPriceInitializedRef = useRef(false);
 
@@ -185,25 +183,6 @@ const AddPositionForm = memo(
         disposed = true;
       };
     }, [fetchTargetAssetData]);
-
-    useEffect(() => {
-      let disposed = false;
-      setOrderBookTop({});
-      void backgroundApiProxy.serviceHyperliquid
-        .fetchL2BookByCoin({ coin })
-        .then((book) => {
-          if (!disposed) {
-            setOrderBookTop({
-              bestBid: book?.levels?.[0]?.[0]?.px,
-              bestAsk: book?.levels?.[1]?.[0]?.px,
-            });
-          }
-        })
-        .catch(() => undefined);
-      return () => {
-        disposed = true;
-      };
-    }, [coin]);
 
     useEffect(() => {
       if (midPrice && !isLimitPriceInitializedRef.current) {

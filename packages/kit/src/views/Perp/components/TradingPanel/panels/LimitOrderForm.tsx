@@ -76,9 +76,9 @@ import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAcc
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
+import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
-import { getAggressiveLimitPriceWarningFromBbo } from '../../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
@@ -256,11 +256,12 @@ export function LimitOrderForm({
 
   // Track BBO + mid in refs so the side-button press handlers can resolve the
   // concrete price without depending on the latest render closure.
-  const bbo = useBboForOrderPrice(!isSpot);
+  const bbo = useBboForOrderPrice(isBBOActive);
   const bboRef = useRef(bbo);
   bboRef.current = bbo;
   const midPriceBNRef = useRef(midPriceBN);
   midPriceBNRef.current = midPriceBN;
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   // With a BBO mode the price comes from the live orderbook; otherwise the typed input.
   const resolvePriceForSide = useCallback(
@@ -889,15 +890,11 @@ export function LimitOrderForm({
       };
       const aggressiveLimitPriceWarning = isSpot
         ? undefined
-        : getAggressiveLimitPriceWarningFromBbo({
+        : getAggressiveLimitPriceWarning({
             coin: symbol,
+            formData: builtFormData,
             side: pressedSide,
-            type: builtFormData.type,
-            orderMode: builtFormData.orderMode,
-            limitPrice: resolvedPrice,
-            limitTif: builtFormData.limitTif,
-            bboPriceMode: builtFormData.bboPriceMode,
-            bbo: bboRef.current,
+            price: resolvedPrice,
           });
 
       showOrderConfirmDialog({
@@ -919,6 +916,7 @@ export function LimitOrderForm({
       hasTpsl,
       intl,
       isSpot,
+      getAggressiveLimitPriceWarning,
       leverage,
       limitTif,
       marketDataFreshness,

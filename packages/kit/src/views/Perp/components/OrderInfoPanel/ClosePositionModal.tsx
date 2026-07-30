@@ -32,6 +32,7 @@ import {
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -136,29 +137,7 @@ const ClosePositionForm = memo(
     }, []);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orderBookTop, setOrderBookTop] = useState<{
-      bestBid?: string;
-      bestAsk?: string;
-    }>({});
-
-    useEffect(() => {
-      let disposed = false;
-      setOrderBookTop({});
-      void backgroundApiProxy.serviceHyperliquid
-        .fetchL2BookByCoin({ coin: position.coin })
-        .then((book) => {
-          if (!disposed) {
-            setOrderBookTop({
-              bestBid: book?.levels?.[0]?.[0]?.px,
-              bestAsk: book?.levels?.[1]?.[0]?.px,
-            });
-          }
-        })
-        .catch(() => undefined);
-      return () => {
-        disposed = true;
-      };
-    }, [position.coin]);
+    const orderBookTop = useCoinOrderBookTop(position.coin);
 
     const aggressiveLimitPriceWarning = useMemo(
       () =>

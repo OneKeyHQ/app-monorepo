@@ -1,11 +1,11 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import {
   type ITradingFormData,
   useActiveTradeInstrumentAtom,
-  useBboForOrderPrice,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
+import { useGetBboForOrderPrice } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import {
   type IAggressiveLimitPriceWarning,
   getAggressiveLimitPriceWarningFromBbo,
@@ -13,16 +13,16 @@ import {
 
 export function useGetAggressiveLimitPriceWarning() {
   const [activeInstrument] = useActiveTradeInstrumentAtom();
-  const bbo = useBboForOrderPrice(activeInstrument.mode === 'perp');
-  const bboRef = useRef(bbo);
-  bboRef.current = bbo;
+  const getBbo = useGetBboForOrderPrice();
 
   return useCallback(
     ({
+      coin,
       formData,
       side,
       price,
     }: {
+      coin?: string;
       formData: ITradingFormData;
       side: 'long' | 'short';
       price?: string;
@@ -31,16 +31,16 @@ export function useGetAggressiveLimitPriceWarning() {
         return undefined;
       }
       return getAggressiveLimitPriceWarningFromBbo({
-        coin: activeInstrument.coin,
+        coin: coin ?? activeInstrument.coin,
         side,
         type: formData.type,
         orderMode: formData.orderMode,
         limitPrice: price ?? formData.price,
         limitTif: formData.limitTif,
         bboPriceMode: formData.bboPriceMode,
-        bbo: bboRef.current,
+        bbo: getBbo(),
       });
     },
-    [activeInstrument.coin, activeInstrument.mode],
+    [activeInstrument.coin, activeInstrument.mode, getBbo],
   );
 }
