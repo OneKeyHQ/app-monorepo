@@ -25,7 +25,7 @@ import {
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
-  return platformEnv.isDev || remoteEnabled === true;
+  return remoteEnabled === true;
 }
 
 export function useUnifoldDepositTrackerAvailability() {
