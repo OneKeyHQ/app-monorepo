@@ -145,6 +145,7 @@ const SwapToAnotherAddressPage = () => {
       }
       setSettings((v) => ({
         ...v,
+        swapEnableRecipientAddress: true,
         swapToAnotherAccountSwitchOn: true,
       }));
       setSwapToAddress((v) => ({

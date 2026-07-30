@@ -57,6 +57,10 @@ import {
 import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
+import {
+  getSwapTokenSearchResults,
+  releaseSwapTokenListFetchEffectKey,
+} from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
 
@@ -432,6 +436,7 @@ export function useSwapTokenList(
     }
 
     let isCancelled = false;
+    let isRequestSettled = false;
     void (async () => {
       try {
         await Promise.all([
@@ -449,6 +454,7 @@ export function useSwapTokenList(
           tokenListFetchAction(tokenFetchParams),
         ]);
       } finally {
+        isRequestSettled = true;
         if (
           !isCancelled &&
           latestTokenListFetchEffectKeyRef.current === tokenListFetchEffectKey
@@ -467,6 +473,13 @@ export function useSwapTokenList(
     })();
     return () => {
       isCancelled = true;
+      if (!isRequestSettled) {
+        latestTokenListFetchEffectKeyRef.current =
+          releaseSwapTokenListFetchEffectKey({
+            effectKey: tokenListFetchEffectKey,
+            latestEffectKey: latestTokenListFetchEffectKeyRef.current,
+          });
+      }
     };
   }, [
     indexedAccountId,
@@ -620,22 +633,18 @@ export function useSwapTokenList(
       return unfilteredTokens;
     }
     const remoteTokens = fuseRemoteTokensSearch.search(keywords);
-    if (
-      !useLocalSearchFallback ||
-      remoteTokens.length > 0 ||
-      isTokenListFetchSettled
-    ) {
-      return remoteTokens;
-    }
-    const localTokens = fuseSearchBaseTokens.search(keywords);
-    return localTokens.length > 0 ? localTokens : searchBaseTokens;
+    return getSwapTokenSearchResults({
+      isTokenListFetchSettled,
+      remoteTokens,
+      searchLocalTokens: () => fuseSearchBaseTokens.search(keywords),
+      useLocalSearchFallback,
+    });
   }, [
     fuseRemoteTokensSearch,
     fuseSearchBaseTokens,
     isSwapSupportAllAccountsReady,
     isTokenListFetchSettled,
     keywords,
-    searchBaseTokens,
     unfilteredTokens,
     useLocalSearchFallback,
   ]);
