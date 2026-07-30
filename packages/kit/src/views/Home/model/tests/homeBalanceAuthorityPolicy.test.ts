@@ -132,17 +132,19 @@ describe('homeBalanceAuthorityPolicy', () => {
     });
   });
 
-  it('keeps an exact cache until progressive data has a usable value', () => {
+  it('keeps an exact cache while a partial live total refreshes', () => {
     expect(
       projectHomeBalanceAuthority({
-        aggregation: partial({ amount: '0', positiveEvidence: false }),
-        bannerAvailable: false,
+        aggregation: partial({ amount: '10.25' }),
+        bannerAvailable: true,
         confirmed,
         confirmedAt: 2,
       }).presentation,
     ).toMatchObject({
       kind: 'funded',
       header: { balance: { amount: confirmed.amount } },
+      actions: { kind: 'funded' },
+      banner: { kind: 'positive' },
       priority: 0,
       refresh: 'refreshing',
     });

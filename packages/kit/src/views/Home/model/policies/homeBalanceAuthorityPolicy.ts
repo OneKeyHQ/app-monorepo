@@ -157,11 +157,7 @@ function projectHomeBalanceAuthority({
       decisivePortfolioIsEmpty,
       refresh: aggregation.refresh,
     });
-    if (
-      progressive.kind === 'zero' &&
-      confirmed &&
-      !new BigNumber(confirmed.amount).isZero()
-    ) {
+    if (confirmed) {
       return {
         presentation: confirmedPresentation({
           bannerAvailable,
@@ -170,16 +166,7 @@ function projectHomeBalanceAuthority({
         }),
       };
     }
-    if (progressive.kind !== 'loading' || !confirmed) {
-      return { presentation: progressive };
-    }
-    return {
-      presentation: confirmedPresentation({
-        bannerAvailable,
-        record: confirmed,
-        refresh: aggregation.refresh,
-      }),
-    };
+    return { presentation: progressive };
   }
 
   if (aggregation.kind === 'error') {

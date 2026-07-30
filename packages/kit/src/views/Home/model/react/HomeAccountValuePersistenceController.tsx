@@ -22,6 +22,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
+
 export function HomeAccountValuePersistenceController() {
   const {
     activeAccount: { account, network, wallet },
@@ -36,18 +38,24 @@ export function HomeAccountValuePersistenceController() {
     currencyMapRef.current = currencyMap;
   }, [currencyMap]);
 
-  const previousWalletIdRef = useRef<string | undefined>(undefined);
+  const previousOwnerScopeKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!account?.id || !network?.id || !wallet?.id) {
       return;
     }
-    const walletChanged =
-      previousWalletIdRef.current !== undefined &&
-      previousWalletIdRef.current !== wallet.id;
-    previousWalletIdRef.current = wallet.id;
+    const ownerScopeKey = buildHomeOwnerScopeKey({
+      accountId: account.id,
+      network: network.isAllNetworks
+        ? { kind: 'allNetworks' }
+        : { kind: 'singleNetwork', networkId: network.id },
+      walletId: wallet.id,
+    });
+    const ownerChanged =
+      previousOwnerScopeKeyRef.current !== undefined &&
+      previousOwnerScopeKeyRef.current !== ownerScopeKey;
+    previousOwnerScopeKeyRef.current = ownerScopeKey;
     if (
-      !walletChanged &&
-      !network.isAllNetworks &&
+      !ownerChanged &&
       !(wallet.type === WALLET_TYPE_HD && !wallet.backuped)
     ) {
       return;
