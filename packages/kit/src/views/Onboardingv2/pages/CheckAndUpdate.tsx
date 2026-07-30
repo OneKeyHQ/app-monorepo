@@ -176,16 +176,20 @@ function CheckAndUpdatePage({
   ]);
 
   const [celebrate, setCelebrate] = useState(false);
-  // Fire the celebratory confetti once everything is ready — i.e. the moment
-  // the firmware check passes and the "Continue" button appears.
+  // The flow may proceed once the firmware step is terminal-ok: Success or
+  // Skipped both reveal the "Continue" button, but only a real Success fires
+  // the celebratory confetti — skipping a check is not a pass.
+  const firmwareStepState = steps.find(
+    (step) => step.id === ECheckAndUpdateStepId.FirmwareCheck,
+  )?.state;
   const isReady =
-    steps.find((step) => step.id === ECheckAndUpdateStepId.FirmwareCheck)
-      ?.state === ECheckAndUpdateStepState.Success;
+    firmwareStepState === ECheckAndUpdateStepState.Success ||
+    firmwareStepState === ECheckAndUpdateStepState.Skipped;
   useEffect(() => {
-    if (isReady) {
+    if (firmwareStepState === ECheckAndUpdateStepState.Success) {
       setCelebrate(true);
     }
-  }, [isReady]);
+  }, [firmwareStepState]);
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
@@ -208,16 +212,26 @@ function CheckAndUpdatePage({
 
   // 30s watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
-  // genuine row when both steps are momentarily in progress — and it checks
-  // its round is still the active one before writing.
+  // genuine row when both steps are momentarily in progress. On firing it
+  // retires the hung round BEFORE surfacing Retry, so that round's late
+  // result can never overwrite whatever the user chooses next, and it asks
+  // bg to cancel the in-flight device call — bg owns the SDK/device
+  // resource; a main-side ref alone cannot stop it on split-runtime targets.
   const createStepTimeout = useCallback(
-    (isStale: () => boolean) => {
+    (isStale: () => boolean, getConnectId: () => string | undefined) => {
       const timeout = setTimeout(() => {
+        if (isStale()) {
+          // A newer round already took over; this watchdog is obsolete and
+          // must not retire or cancel that round.
+          return;
+        }
+        firmwareCheckRunIdRef.current += 1;
+        const connectId = getConnectId();
+        if (connectId) {
+          void backgroundApiProxy.serviceHardware.cancel({ connectId });
+        }
         setSteps((prev) => {
-          if (
-            isStale() ||
-            prev[1].state !== ECheckAndUpdateStepState.InProgress
-          ) {
+          if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
             return prev;
           }
           const newSteps = [...prev];
@@ -318,6 +332,9 @@ function CheckAndUpdatePage({
       firmwareCheckRunIdRef.current += 1;
       const runId = firmwareCheckRunIdRef.current;
       const isStale = () => runId !== firmwareCheckRunIdRef.current;
+      // The watchdog cancels against whichever connectId this round has
+      // resolved so far.
+      let watchdogConnectId: string | undefined;
       const setDeviceNotFoundErrorMessageStep = () => {
         setSteps((prev) => {
           if (
@@ -351,7 +368,10 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      const cancelTimeout = createStepTimeout(isStale);
+      const cancelTimeout = createStepTimeout(
+        isStale,
+        () => watchdogConnectId,
+      );
       try {
         await ensureTransportType();
         const baseDevice =
@@ -360,6 +380,7 @@ function CheckAndUpdatePage({
           setDeviceNotFoundErrorMessageStep();
           return;
         }
+        watchdogConnectId = baseDevice.connectId;
         await ensureActiveConnection(baseDevice as SearchDevice);
         const latestDevice = getActiveDevice() ?? baseDevice;
         setCurrentDevice(latestDevice as SearchDevice);
@@ -373,6 +394,7 @@ function CheckAndUpdatePage({
             connectId: latestDevice.connectId,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+        watchdogConnectId = compatibleConnectId;
 
         // Wait for hardware to restart after firmware update
         if (params?.checkAfterUpdate) {
@@ -668,11 +690,13 @@ function CheckAndUpdatePage({
             showConfirmButton
             showCancelButton
             onConfirm={() => {
+              // Declining the optional update is recorded honestly as
+              // Skipped — the flow continues, but without success visuals.
               setSteps((prev) => {
                 const newSteps = [...prev];
                 newSteps[1] = {
                   ...newSteps[1],
-                  state: ECheckAndUpdateStepState.Success,
+                  state: ECheckAndUpdateStepState.Skipped,
                 };
                 return newSteps;
               });
@@ -717,15 +741,16 @@ function CheckAndUpdatePage({
       const newSteps = [...prev];
       newSteps[index] = {
         ...newSteps[index],
-        state: ECheckAndUpdateStepState.Success,
+        state: ECheckAndUpdateStepState.Skipped,
         errorMessage: undefined,
       };
       return newSteps;
     });
     setTimeout(() => {
       // GenuineCheck has no skip affordance today, but keep the chain intact
-      // defensively. Skipping a failed FirmwareCheck just marks it Success
-      // above, which reveals the "Continue" button.
+      // defensively. Skipping a failed FirmwareCheck marks it Skipped above,
+      // which still reveals "Continue" (isReady accepts Skipped) without the
+      // success visuals.
       if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
         void checkFirmwareUpdate();
       }
@@ -796,13 +821,15 @@ function CheckAndUpdatePage({
               : intl.formatMessage({
                   id: ETranslations.firmware_check_success_title,
                 });
-        } else if (
-          isStepSkipped &&
-          step.id === ECheckAndUpdateStepId.GenuineCheck
-        ) {
-          displayTitle = intl.formatMessage({
-            id: ETranslations.genuine_check_skipped_title,
-          });
+        } else if (isStepSkipped) {
+          displayTitle =
+            step.id === ECheckAndUpdateStepId.GenuineCheck
+              ? intl.formatMessage({
+                  id: ETranslations.genuine_check_skipped_title,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.firmware_check_skipped_title,
+                });
         }
         const displayDescription = isStepCollapsed
           ? undefined
