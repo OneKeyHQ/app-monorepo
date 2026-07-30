@@ -33,16 +33,15 @@ function injectIntoAllWebviews(code: string, label: string): number {
   let applied = 0;
   for (const id of Object.keys(webviewRefs)) {
     const innerRef = webviewRefs[id]?.innerRef as IElectronWebView | undefined;
-    if (!innerRef) {
-      continue;
-    }
-    try {
-      innerRef.executeJavaScript(code);
-      applied += 1;
-    } catch {
-      // A WebView that is not dom-ready yet cannot be reached, and it does not
-      // need to be: it has nothing running to throttle, and the next
-      // transition re-applies the current state.
+    if (innerRef) {
+      try {
+        innerRef.executeJavaScript(code);
+        applied += 1;
+      } catch {
+        // A WebView that is not dom-ready yet cannot be reached, and it does
+        // not need to be: it has nothing running to throttle, and the next
+        // transition re-applies the current state.
+      }
     }
   }
   defaultLogger.discovery.browser.offRouteThrottle({ label, applied });
