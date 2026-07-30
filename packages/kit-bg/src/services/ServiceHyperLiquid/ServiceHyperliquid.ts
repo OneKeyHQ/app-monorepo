@@ -2661,22 +2661,46 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
-      if (dexUniverses?.length === 0) {
+      // `universesByDex` is `[]` before anything is cached, so the old
+      // `?.length === 0` test was never true and `assetId: -1` got committed
+      // as a resolved asset.
+      if (!dexUniverses?.length) {
+        // perpsActiveAssetAtom is persisted, so matching on coin alone would
+        // hand back an `assetId: -1` left by an older build.
         if (
-          shouldSeedSubscriptionTarget &&
-          requestId === this.activeAssetChangeRequestId
+          !shouldSeedSubscriptionTarget &&
+          oldActiveAsset &&
+          oldActiveAsset.coin === newCoin &&
+          oldActiveAsset.universe &&
+          typeof oldActiveAsset.assetId === 'number' &&
+          oldActiveAsset.assetId >= 0
         ) {
-          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+          markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
+            coin: oldActiveAsset.coin,
+          });
+          return oldActiveAsset;
         }
         const result = {
-          coin: rollbackActiveAsset?.coin || newCoin || '',
-          assetId: rollbackActiveAsset?.assetId,
-          universe: rollbackActiveAsset?.universe,
-          margin: rollbackActiveAsset?.margin,
+          coin: newCoin || rollbackActiveAsset?.coin || '',
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
         };
+        if (requestId === this.activeAssetChangeRequestId) {
+          await perpsActiveAssetAtom.set(result);
+          // Returning early skips the shared tail that clears this, and
+          // perpsActiveAssetCtxMidPriceAtom reads the ctx without a coin
+          // guard — the form would seed with the previous coin's mid price.
+          if (oldCoin !== newCoin) {
+            await perpsActiveAssetCtxAtom.set(undefined);
+            schedulePerpsActiveAssetCtxDisplayUpdate({
+              nextValue: undefined,
+              immediate: true,
+            });
+          }
+        }
         markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
           coin: result.coin,
-          assetId: result.assetId,
         });
         return result;
       }
