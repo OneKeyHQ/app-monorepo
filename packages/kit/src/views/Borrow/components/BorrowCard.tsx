@@ -8,9 +8,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
-import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -20,8 +19,12 @@ import {
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -83,10 +86,7 @@ export const BorrowCard = () => {
     [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
   const borrowAssets = useMemo(
     () =>
       filterUnsupportedAaveNativeReserveAssets({
@@ -174,6 +174,7 @@ export const BorrowCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
         label: labels.available,
@@ -192,6 +193,8 @@ export const BorrowCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.borrowApy,
@@ -200,6 +203,7 @@ export const BorrowCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       {
         label: '',
@@ -207,7 +211,7 @@ export const BorrowCard = () => {
         key: 'actions',
         render: (item: IBorrowAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: labels.borrow }} />}
+            actionLabel={labels.borrow}
             item={item}
             accountId={accountId}
             walletId={walletId}
@@ -216,8 +220,8 @@ export const BorrowCard = () => {
             disabled={item.borrowButton?.disabled}
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [handleManageBorrow, accountId, walletId, indexedAccountId, labels],

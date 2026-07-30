@@ -243,15 +243,21 @@ const SortButton = memo(
       ai="center"
       jc={align}
       gap="$1"
+      maxWidth="100%"
       cursor="pointer"
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"
       onPress={onPress}
     >
       {iconName ? (
-        <Icon name={iconName} color="$iconSubdued" size="$4.5" />
+        <Icon name={iconName} color="$iconSubdued" size="$4.5" flexShrink={0} />
       ) : null}
-      <SizableText size="$bodySmMedium" color="$textSubdued">
+      <SizableText
+        size="$bodySmMedium"
+        color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={1}
+      >
         {label}
       </SizableText>
     </XStack>
@@ -323,7 +329,15 @@ function TableListHeader<T>({
             );
           } else {
             content = (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
+              // Columns are sized by flex weight, not by content, so a header
+              // can end up narrower than its own label. Clip it to the column
+              // instead of letting it spill over the column next to it.
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+                maxWidth="100%"
+              >
                 {column.label}
               </SizableText>
             );

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Icon,
   SizableText,
   XStack,
   YStack,
@@ -91,8 +90,8 @@ export const ManagePositionPart = ({
 
   const labels = {
     myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
-    walletBalance: intl.formatMessage({
-      id: ETranslations.global_wallet_balance,
+    balance: intl.formatMessage({
+      id: ETranslations.global_balance,
     }),
     availableToBorrow: intl.formatMessage({
       id: ETranslations.defi_available_to_borrow,
@@ -113,31 +112,30 @@ export const ManagePositionPart = ({
           {labels.myInfo}
         </SizableText>
 
-        {/* Wallet balance section */}
-        <XStack jc="space-between" ai="flex-start">
-          <YStack gap="$1">
-            <XStack ai="center" gap="$1">
-              <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.walletBalance}
-              </SizableText>
-            </XStack>
+        {/* Balance section */}
+        <XStack jc="space-between" ai="center" gap="$3">
+          <XStack ai="center" gap="$1" flexWrap="wrap" flex={1}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {labels.balance}:
+            </SizableText>
             <EarnText
               text={userInfo?.walletBalance?.title}
-              size="$headingXl"
+              size="$bodyMd"
               color="$text"
             />
-            <EarnText
-              text={userInfo?.walletBalance?.description}
-              size="$bodyMd"
-              color="$textSubdued"
-            />
-          </YStack>
+            {userInfo?.walletBalance?.description ? (
+              <EarnText
+                text={{
+                  text: `(${userInfo.walletBalance.description.text})`,
+                }}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : null}
+          </XStack>
           {userInfo?.walletBalance?.button ? (
             <Button
               testID="borrow-btn"
-              mt="auto"
-              mb="$1.5"
               variant="primary"
               size="medium"
               disabled={userInfo.walletBalance.button.disabled}

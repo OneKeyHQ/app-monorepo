@@ -13,21 +13,28 @@ import type {
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
 import {
-  filterUnsupportedAaveNativeReserveAssets,
   hasPositiveBorrowBalance,
+  isUnsupportedAaveNativeReserve,
 } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_COLLATERAL_COLUMN_FLEX,
+  BORROW_TABLE_COLLATERAL_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_COLLATERAL_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -145,29 +152,16 @@ export const SuppliedCard = ({
     ],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
   const suppliedAssets = useMemo(
     () =>
-      filterUnsupportedAaveNativeReserveAssets({
-        assets: reserves.data?.supplied?.assets,
-        networkId: market?.networkId,
-        providerName: market?.provider,
-      })
+      (reserves.data?.supplied?.assets ?? [])
         .filter((asset) => hasPositiveBorrowBalance(asset.suppliedAmount))
         .map<ISuppliedAssetRow>((asset) => ({
           ...asset,
           eModeId,
         })),
-    [
-      eModeId,
-      eModeStatus,
-      market?.networkId,
-      market?.provider,
-      reserves.data?.supplied?.assets,
-    ],
+    [eModeId, reserves.data?.supplied?.assets],
   );
 
   // Field presence gates the UI: no usageAsCollateral anywhere ⇒ provider
@@ -251,8 +245,11 @@ export const SuppliedCard = ({
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
+        // Amount over fiat value, stacked. A number in its own right-aligned
+        // column never has to share a line, so it never has to be truncated.
         label: labels.supplied,
         align: 'flex-end' as const,
         key: 'supplied',
@@ -263,6 +260,8 @@ export const SuppliedCard = ({
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.supplyApy,
@@ -271,6 +270,7 @@ export const SuppliedCard = ({
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       ...(showCollateralColumn
         ? [
@@ -281,7 +281,9 @@ export const SuppliedCard = ({
               render: (item: ISuppliedAssetRow) => (
                 <CollateralSwitchCell item={item} eModeId={item.eModeId} />
               ),
-              flex: 1,
+              flex: BORROW_TABLE_COLLATERAL_COLUMN_FLEX,
+              minWidth: BORROW_TABLE_COLLATERAL_COLUMN_MIN_WIDTH,
+              maxWidth: BORROW_TABLE_COLLATERAL_COLUMN_MAX_WIDTH,
             },
           ]
         : []),
@@ -291,17 +293,24 @@ export const SuppliedCard = ({
         key: 'actions',
         render: (item: ISuppliedAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: labels.withdraw }} />}
+            actionLabel={labels.withdraw}
             item={item}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageWithdraw(item)}
-            disabled={item.withdrawButton?.disabled}
+            disabled={
+              item.withdrawButton?.disabled ||
+              isUnsupportedAaveNativeReserve({
+                networkId: market?.networkId,
+                providerName: market?.provider,
+                reserveAddress: item.reserveAddress,
+              })
+            }
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [
@@ -310,6 +319,8 @@ export const SuppliedCard = ({
       walletId,
       indexedAccountId,
       labels,
+      market?.networkId,
+      market?.provider,
       showCollateralColumn,
     ],
   );
