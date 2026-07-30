@@ -9,6 +9,7 @@ import {
   NavBackButton,
   Page,
   Stack,
+  glassBarItem,
   useBackHandler,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -157,12 +158,21 @@ export default function MobileUnifoldDepositTransferModal() {
   } else if (initialSelectorMode === 'chain') {
     headerTitleId = ETranslations.global_select_network;
   }
+  const buildNativeHeaderLeftItems = useCallback(
+    () => [glassBarItem(headerLeft())],
+    [headerLeft],
+  );
 
   return (
     <Page scrollEnabled scrollProps={MOBILE_PAGE_SCROLL_PROPS} safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: headerTitleId })}
-        headerLeft={headerLeft}
+        {...(platformEnv.isNativeIOS26Plus
+          ? {
+              scrollEdgeEffects: { top: 'hidden' },
+              unstable_headerLeftItems: buildNativeHeaderLeftItems,
+            }
+          : { headerLeft })}
       />
       <Page.Body
         flex={1}
