@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "সদস্যতা {date} পর্যন্ত বৈধ",
   "prime_next_invoice__label": "পরবর্তী ইনভয়েস",
   "prime_no_crypto_subscription__title": "ক্রিপ্টো দিয়ে পেমেন্ট করা কোনো Prime সাবস্ক্রিপশন নেই",
-  "prime_no_free_trial__desc": "ক্রিপ্টো পেমেন্টে ফ্রি ট্রায়াল নেই",
+  "prime_no_free_trial__desc": "ফ্রি ট্রায়াল নেই",
   "prime_onekey_id_session_changed__msg": "আপনার OneKey ID সেশন পরিবর্তিত হয়েছে। আবার চেষ্টা করুন।",
   "prime_open_checkout__action": "পেমেন্ট পেজ খুলুন",
   "prime_pay_amount__action": "{amount} {token} পেমেন্ট করুন",

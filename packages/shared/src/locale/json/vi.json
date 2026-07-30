@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "Tư cách thành viên có hiệu lực đến {date}",
   "prime_next_invoice__label": "Hóa đơn tiếp theo",
   "prime_no_crypto_subscription__title": "Không có gói đăng ký Prime bằng tiền mã hóa",
-  "prime_no_free_trial__desc": "Tiền mã hóa: không có thời gian dùng thử miễn phí",
+  "prime_no_free_trial__desc": "Không có thời gian dùng thử miễn phí",
   "prime_onekey_id_session_changed__msg": "Phiên đăng nhập OneKey ID của bạn đã thay đổi. Vui lòng thử lại.",
   "prime_open_checkout__action": "Mở trang thanh toán",
   "prime_pay_amount__action": "Thanh toán {amount} {token}",

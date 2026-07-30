@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "सदस्यता {date} तक मान्य",
   "prime_next_invoice__label": "अगला इनवॉइस",
   "prime_no_crypto_subscription__title": "क्रिप्टो से भुगतान की गई कोई Prime सदस्यता नहीं",
-  "prime_no_free_trial__desc": "क्रिप्टो से भुगतान पर मुफ़्त ट्रायल नहीं",
+  "prime_no_free_trial__desc": "मुफ़्त ट्रायल नहीं",
   "prime_onekey_id_session_changed__msg": "आपका OneKey ID सत्र बदल गया है। कृपया फिर से कोशिश करें।",
   "prime_open_checkout__action": "भुगतान पेज खोलें",
   "prime_pay_amount__action": "{amount} {token} का भुगतान करें",

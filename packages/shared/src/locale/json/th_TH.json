@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "สมาชิกใช้ได้จนถึง {date}",
   "prime_next_invoice__label": "ใบแจ้งหนี้ถัดไป",
   "prime_no_crypto_subscription__title": "ไม่มีการสมัครสมาชิก Prime ที่ชำระด้วยคริปโต",
-  "prime_no_free_trial__desc": "ชำระด้วยคริปโตไม่รวมช่วงทดลองใช้ฟรี",
+  "prime_no_free_trial__desc": "ไม่รวมช่วงทดลองใช้ฟรี",
   "prime_onekey_id_session_changed__msg": "เซสชัน OneKey ID ของคุณเปลี่ยนแล้ว โปรดลองอีกครั้ง",
   "prime_open_checkout__action": "เปิดหน้าชำระเงิน",
   "prime_pay_amount__action": "ชำระ {amount} {token}",

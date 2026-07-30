@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "Abbonamento valido fino al {date}",
   "prime_next_invoice__label": "Prossima fattura",
   "prime_no_crypto_subscription__title": "Nessun abbonamento Prime pagato in cripto",
-  "prime_no_free_trial__desc": "Nessuna prova gratuita pagando in cripto",
+  "prime_no_free_trial__desc": "Nessuna prova gratuita",
   "prime_onekey_id_session_changed__msg": "La tua sessione di accesso a OneKey ID è cambiata. Riprova.",
   "prime_open_checkout__action": "Apri la pagina di pagamento",
   "prime_pay_amount__action": "Paga {amount} {token}",

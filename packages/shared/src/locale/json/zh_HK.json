@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "會員有效期至 {date}",
   "prime_next_invoice__label": "下一張賬單",
   "prime_no_crypto_subscription__title": "暫無使用加密貨幣付款的 Prime 訂閱",
-  "prime_no_free_trial__desc": "加密貨幣付款不含免費試用",
+  "prime_no_free_trial__desc": "不含免費試用",
   "prime_onekey_id_session_changed__msg": "OneKey ID 登入狀態已變更，請重試。",
   "prime_open_checkout__action": "開啟付款頁面",
   "prime_pay_amount__action": "支付 {amount} {token}",

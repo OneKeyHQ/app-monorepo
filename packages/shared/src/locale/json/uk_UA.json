@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "Підписка дійсна до {date}",
   "prime_next_invoice__label": "Наступний рахунок",
   "prime_no_crypto_subscription__title": "Немає підписки Prime з оплатою криптовалютою",
-  "prime_no_free_trial__desc": "Для оплати криптовалютою пробного періоду немає",
+  "prime_no_free_trial__desc": "Пробного періоду немає",
   "prime_onekey_id_session_changed__msg": "Сеанс входу в OneKey ID змінився. Спробуйте ще раз.",
   "prime_open_checkout__action": "Відкрити сторінку оплати",
   "prime_pay_amount__action": "Оплатити {amount} {token}",

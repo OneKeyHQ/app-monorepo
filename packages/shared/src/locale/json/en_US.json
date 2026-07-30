@@ -3448,7 +3448,7 @@
   "prime_membership_valid_until__desc": "Membership valid until {date}",
   "prime_next_invoice__label": "Next invoice",
   "prime_no_crypto_subscription__title": "No Prime subscription paid with crypto",
-  "prime_no_free_trial__desc": "No free trial with crypto",
+  "prime_no_free_trial__desc": "No free trial",
   "prime_onekey_id_session_changed__msg": "Your OneKey ID session has changed. Please try again.",
   "prime_open_checkout__action": "Open checkout",
   "prime_pay_amount__action": "Pay {amount} {token}",
