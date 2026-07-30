@@ -49,14 +49,19 @@ export default function MobileUnifoldDepositTrackerModal() {
     [closeModal],
   );
   const expectedRecipient = route.params?.expectedRecipient;
+  const openedFromTransfer = route.params?.openedFromTransfer === true;
   const handleDepositPress = useCallback(() => {
     if (!expectedRecipient) {
+      return;
+    }
+    if (openedFromTransfer) {
+      navigation.goBack();
       return;
     }
     navigation.replace(EModalPerpRoutes.MobileUnifoldDepositTransfer, {
       expectedRecipient,
     });
-  }, [expectedRecipient, navigation]);
+  }, [expectedRecipient, navigation, openedFromTransfer]);
 
   return (
     <Page safeAreaEnabled>

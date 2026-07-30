@@ -23,9 +23,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
@@ -65,8 +63,7 @@ const THIRD_PARTY_CONVERSION_FEE = `${UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT
   2,
 )}%`;
 const HISTORY_CARD_CONTENT_GAP = 4;
-const HISTORY_CARD_POLL_INTERVAL_MS = 3000;
-const RECENT_SUCCEEDED_WINDOW_MS = 2 * 60 * 1000;
+const RECENT_TERMINAL_WINDOW_MS = 2 * 60 * 1000;
 
 function DetailRow({
   label,
@@ -372,6 +369,10 @@ export const UnifoldTransferContent = forwardRef<
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
     const [historyCardHeight, setHistoryCardHeight] = useState(0);
+    const previousExecutionTerminalRef = useRef(new Map<string, boolean>());
+    const [terminalObservedAt, setTerminalObservedAt] = useState(
+      () => new Map<string, number>(),
+    );
     const [historyCardNow, setHistoryCardNow] = useState(() => Date.now());
 
     useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
@@ -488,60 +489,55 @@ export const UnifoldTransferContent = forwardRef<
       ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
       : UNIFOLD_ARBITRUM_USDC_SYMBOL;
     const useCompactLayout = useDialogHeader || useExternalHeader;
-    const succeededExecutions = useMemo(
-      () => sessionExecutions.filter((item) => item.status === 'succeeded'),
-      [sessionExecutions],
-    );
     const historyCardEnabled = Boolean(
       onOpenTracker && recipientAddress && isLiveAccountAligned,
     );
-    const { result: executionHistorySnapshot } = usePromiseResult(
-      async () => {
-        if (!historyCardEnabled || !recipientAddress) {
-          return {
-            recipientAddress: null,
-            executions: [],
-          };
-        }
-        const executions =
-          await backgroundApiProxy.serviceUnifoldDeposit.listDepositExecutions({
-            recipientAddress,
-          });
-        return {
-          recipientAddress,
-          executions,
-        };
-      },
-      [historyCardEnabled, recipientAddress],
-      {
-        watchLoading: false,
-        pollingInterval: historyCardEnabled
-          ? HISTORY_CARD_POLL_INTERVAL_MS
-          : undefined,
-      },
-    );
+    const historyCardVisible =
+      historyCardEnabled && historyCardPlacement !== 'hidden';
 
     useEffect(() => {
-      if (!historyCardEnabled) {
-        return;
+      const previousExecutionTerminal = previousExecutionTerminalRef.current;
+      const nextExecutionTerminal = new Map<string, boolean>();
+      const newlyTerminalExecutionIds: string[] = [];
+      sessionExecutions.forEach((item) => {
+        if (
+          item.terminal &&
+          previousExecutionTerminal.get(item.executionId) === false
+        ) {
+          newlyTerminalExecutionIds.push(item.executionId);
+        }
+        nextExecutionTerminal.set(item.executionId, item.terminal);
+      });
+      previousExecutionTerminalRef.current = nextExecutionTerminal;
+      if (newlyTerminalExecutionIds.length) {
+        const observedAt = Date.now();
+        setTerminalObservedAt((current) => {
+          const next = new Map(current);
+          newlyTerminalExecutionIds.forEach((executionId) => {
+            next.set(executionId, observedAt);
+          });
+          return next;
+        });
       }
-      setHistoryCardNow(Date.now());
-      const timer = setInterval(() => {
-        setHistoryCardNow(Date.now());
-      }, HISTORY_CARD_POLL_INTERVAL_MS);
-      return () => clearInterval(timer);
-    }, [historyCardEnabled]);
+    }, [sessionExecutions]);
 
-    const trackedExecutionCount = useMemo(() => {
-      if (
-        !recipientAddress ||
-        executionHistorySnapshot?.recipientAddress !== recipientAddress
-      ) {
-        return 0;
+    useEffect(() => {
+      previousExecutionTerminalRef.current.clear();
+      setTerminalObservedAt(new Map());
+    }, [recipientAddress]);
+
+    const { trackedExecutions, nextTerminalExpiryAt } = useMemo(() => {
+      if (!historyCardEnabled) {
+        return {
+          trackedExecutions: [],
+          nextTerminalExpiryAt: null,
+        };
       }
-      const recentSucceededCutoff = historyCardNow - RECENT_SUCCEEDED_WINDOW_MS;
+      const now = Math.max(historyCardNow, Date.now());
+      const recentTerminalCutoff = now - RECENT_TERMINAL_WINDOW_MS;
       const seenExecutionIds = new Set<string>();
-      return executionHistorySnapshot.executions.filter((item) => {
+      let nextExpiryAt: number | null = null;
+      const executions = sessionExecutions.filter((item) => {
         if (seenExecutionIds.has(item.executionId)) {
           return false;
         }
@@ -549,17 +545,49 @@ export const UnifoldTransferContent = forwardRef<
         if (!item.terminal) {
           return true;
         }
-        if (item.status !== 'succeeded') {
+        const presentedAt =
+          terminalObservedAt.get(item.executionId) ??
+          parseUnifoldExecutionCreatedAtMs(item.createdAt);
+        if (presentedAt === null || presentedAt < recentTerminalCutoff) {
           return false;
         }
-        const createdAtMs = parseUnifoldExecutionCreatedAtMs(item.createdAt);
-        return createdAtMs !== null && createdAtMs >= recentSucceededCutoff;
-      }).length;
-    }, [executionHistorySnapshot, historyCardNow, recipientAddress]);
+        const expiresAt = presentedAt + RECENT_TERMINAL_WINDOW_MS;
+        nextExpiryAt =
+          nextExpiryAt === null ? expiresAt : Math.min(nextExpiryAt, expiresAt);
+        return true;
+      });
+      return {
+        trackedExecutions: executions,
+        nextTerminalExpiryAt: nextExpiryAt,
+      };
+    }, [
+      historyCardEnabled,
+      historyCardNow,
+      sessionExecutions,
+      terminalObservedAt,
+    ]);
 
     useEffect(() => {
-      succeededExecutions.forEach(acknowledgePresentedExecution);
-    }, [acknowledgePresentedExecution, succeededExecutions]);
+      if (nextTerminalExpiryAt === null) {
+        return;
+      }
+      const timer = setTimeout(
+        () => setHistoryCardNow(Date.now()),
+        Math.max(0, nextTerminalExpiryAt - Date.now() + 1),
+      );
+      return () => clearTimeout(timer);
+    }, [nextTerminalExpiryAt]);
+
+    const trackedExecutionCount = trackedExecutions.length;
+
+    useEffect(() => {
+      if (!historyCardVisible) {
+        return;
+      }
+      trackedExecutions
+        .filter((item) => item.terminal)
+        .forEach(acknowledgePresentedExecution);
+    }, [acknowledgePresentedExecution, historyCardVisible, trackedExecutions]);
 
     const historyCard = onOpenTracker ? (
       <UnifoldDepositHistoryCard

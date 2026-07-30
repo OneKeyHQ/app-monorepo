@@ -122,6 +122,7 @@ export default function MobileUnifoldDepositTransferModal() {
     }
     navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
       expectedRecipient,
+      openedFromTransfer: true,
     });
   }, [expectedRecipient, navigation]);
   const prepareInitialSourceSelector = useCallback(
