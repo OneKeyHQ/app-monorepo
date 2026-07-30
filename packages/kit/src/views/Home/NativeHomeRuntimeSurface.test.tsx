@@ -169,6 +169,12 @@ describe('Native Home runtime surface', () => {
       /balance:\s*\{\s*interaction:\s*'tap',\s*content:\s*\(\s*<HomeOverviewContainer\s+nativeSlot/,
     );
     expect(mobileRendererSource).toContain('<HomeTabSearchHeader />');
+    expect(mobileRendererSource).toContain(
+      'return <MobileNativeHomeLaunchSurface />;',
+    );
+    expect(mobileRendererSource).not.toMatch(
+      /if \(!owner \|\| !nativeState\) \{\s*return null;/,
+    );
     expect(mobileRendererSource).toContain('<WalletActions');
     expect(mobileRendererSource).toContain(
       'function MobileNativeHomeActionRowSkeleton()',

@@ -135,7 +135,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isExtension: false,
-    isNative: false,
+    isNative: true,
   },
 }));
 
@@ -163,6 +163,10 @@ jest.mock('../lifecycle/homeSessionCoordinator', () => ({
 
 jest.mock('../runtime/singleRuntimeHomeAdapter', () => ({
   SingleRuntimeHomeAdapter: jest.fn(),
+}));
+
+jest.mock('../runtime/splitRuntimeHomeAdapter', () => ({
+  SplitRuntimeHomeAdapter: jest.fn(),
 }));
 
 jest.mock('./homeStoreControllerLease', () => ({
@@ -241,11 +245,10 @@ describe('HomeStoreControllerBridge effects', () => {
       mockEvents.indexOf('set-owner:wallet-a'),
     );
     expect(mockEvents.indexOf('acquire-lease')).toBeLessThan(
-      mockEvents.indexOf('publish-owner'),
+      mockEvents.indexOf('publish-prepared-owner'),
     );
-    expect(mockEvents.indexOf('publish-owner')).toBeLessThan(
-      mockEvents.indexOf('connect'),
-    );
+    expect(mockEvents).toContain('connect');
+    expect(mockEvents).not.toContain('publish-owner');
 
     act(() => view.unmount());
     expect(

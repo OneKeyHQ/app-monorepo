@@ -45,6 +45,7 @@ const mockSceneStore = {};
 let mockHomeProviderStore: unknown;
 let mockHomeShellKind: 'loading' | 'backupRequired' | 'portfolio' = 'loading';
 let mockHomePresentationKind: 'funded' | 'fundedPendingTotal' = 'funded';
+const mockMarkCurrentHomeGenerationReady = jest.fn();
 let mockHomeSession: {
   owner?: {
     accountId: string;
@@ -186,7 +187,9 @@ jest.mock('../../Notifications/components/NotificationRegisterDaily', () => ({
 }));
 
 jest.mock('../../Onboarding/components/onboardingLaunchGate', () => ({
-  markCurrentHomeGenerationReady: jest.fn(),
+  markCurrentHomeGenerationReady: (generation: number): void => {
+    mockMarkCurrentHomeGenerationReady(generation);
+  },
   useOnboardingLaunchSnapshot: () => mockLaunchSnapshot,
 }));
 
@@ -338,6 +341,7 @@ function resetSurfaceLifecycle() {
 
 beforeEach(() => {
   resetSurfaceLifecycle();
+  mockMarkCurrentHomeGenerationReady.mockClear();
   mockActiveAccount = { ready: false };
   mockWalletList = { pending: true };
   mockLaunchSnapshot = {
@@ -399,6 +403,13 @@ describe('HomeLaunchGatedContent surface ownership', () => {
     expect(view.root.findAllByProps({ testID: 'surface-native' })).toHaveLength(
       0,
     );
+    expect(mockMarkCurrentHomeGenerationReady).not.toHaveBeenCalled();
+
+    const backedUp = hdWallet(true);
+    setWalletState({ activeWallet: backedUp, walletListWallet: backedUp });
+    act(() => view.update(renderOwner()));
+
+    expect(mockMarkCurrentHomeGenerationReady).toHaveBeenCalledWith(1);
     act(() => view.unmount());
   });
 
@@ -519,8 +530,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       1,
     );
     expect(
-      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
-    ).toBeGreaterThan(0);
+      view.root.findAllByProps({ opacity: 0, pointerEvents: 'none' }),
+    ).toHaveLength(0);
 
     mockAccountSelectorStorageInitDone = true;
     mockActiveAccountInitDone = true;
@@ -529,8 +540,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
 
     expect(mockSurfaceLifecycle.native).toEqual({ mounts: 1, unmounts: 0 });
     expect(
-      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
-    ).toBeGreaterThan(0);
+      view.root.findAllByProps({ opacity: 0, pointerEvents: 'none' }),
+    ).toHaveLength(0);
     act(() => view.unmount());
   });
 
@@ -660,8 +671,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       0,
     );
     expect(
-      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
-    ).toBeGreaterThan(0);
+      view.root.findAllByProps({ opacity: 0, pointerEvents: 'none' }),
+    ).toHaveLength(0);
 
     const replacement = hdWallet(false, 'hd-2');
     setWalletState({
@@ -694,8 +705,8 @@ describe('HomeLaunchGatedContent surface ownership', () => {
       1,
     );
     expect(
-      view.root.findAllByProps({ opacity: 1, pointerEvents: 'auto' }).length,
-    ).toBeGreaterThan(0);
+      view.root.findAllByProps({ opacity: 0, pointerEvents: 'none' }),
+    ).toHaveLength(0);
     act(() => view.unmount());
   });
 

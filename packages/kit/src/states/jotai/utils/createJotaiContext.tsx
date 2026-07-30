@@ -30,6 +30,9 @@ type IContextAtomOptions =
   | {
       coldStartCache: true;
       coldStartCacheKey: IContextAtomColdStartCacheKey;
+      coldStartCachePersistence?:
+        | 'snapshot'
+        | { kind: 'external'; scopeKey: string };
     };
 
 export function createJotaiContext<TContextConfig = undefined>() {
@@ -120,6 +123,10 @@ export function createJotaiContext<TContextConfig = undefined>() {
       initialValue,
       coldStartCache: options?.coldStartCache,
       coldStartCacheKey: options?.coldStartCacheKey,
+      coldStartCachePersistence:
+        options?.coldStartCache === true
+          ? options.coldStartCachePersistence
+          : undefined,
       useColdStartScopeKey,
     });
   }

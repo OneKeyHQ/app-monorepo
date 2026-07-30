@@ -65,6 +65,17 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
       require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
     const { EAppSyncStorageKeys: _keys } =
       require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const {
+      readHomeLatestActiveAccountCache: _readHomeLatestActiveAccountCache,
+      setHomeLatestActiveAccountCacheGlobal:
+        _setHomeLatestActiveAccountCacheGlobal,
+    } =
+      require('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache') as typeof import('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache');
+
+    const _homeLatestActiveAccount = _readHomeLatestActiveAccountCache();
+    if (_homeLatestActiveAccount) {
+      _setHomeLatestActiveAccountCacheGlobal(_homeLatestActiveAccount);
+    }
 
     const _ctxRaw = _coldStartCache.getString(
       _keys.onekey_jotai_context_atoms_snapshot,
@@ -74,7 +85,9 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
         require('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils') as typeof import('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils');
       const { CONTEXT_ATOM_COLD_START_CACHE_KEYS: _ctxAtomKeys } =
         require('@onekeyhq/shared/src/consts/jotaiConsts') as typeof import('@onekeyhq/shared/src/consts/jotaiConsts');
-      const _ctxSnapshot = _normalizeSwapSnapshot(JSON.parse(_ctxRaw));
+      const _ctxSnapshot = _normalizeSwapSnapshot(
+        JSON.parse(_ctxRaw) as Record<string, unknown>,
+      );
       (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = _ctxSnapshot;
       const _perpsL2BookColdCacheEntry = Object.entries(_ctxSnapshot).find(
         ([_key]) => _key.endsWith(`::${_ctxAtomKeys.perpsL2BookColdCacheAtom}`),
@@ -120,7 +133,10 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   // Pre-warm critical home page icon segments so they're loaded by first render.
   // Must run AFTER segment loader install (line 64) and BEFORE React mount.
-  if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
+  if (
+    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ ||
+    (globalThis as any).__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__
+  ) {
     const { warmCriticalIcons } =
       require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
     warmCriticalIcons();

@@ -5,25 +5,15 @@ import type {
   IHomeRuntimeSourceId,
   IHomeRuntimeSourceKey,
 } from '@onekeyhq/shared/src/types/homeRuntime';
+import { buildHomeRuntimeOwnerScopeKey } from '@onekeyhq/shared/src/utils/homeRuntimeIdentity';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-
-const HOME_SCOPE_KEY_NAMESPACE = 'home-owner';
 
 function encodeIdentityPart(value: string): string {
   return `${value.length}:${value}`;
 }
 
 export function buildHomeOwnerScopeKey(owner: IHomeRuntimeOwnerScope): string {
-  const networkIdentity =
-    owner.network.kind === 'allNetworks'
-      ? 'all'
-      : `single:${encodeIdentityPart(owner.network.networkId)}`;
-  return [
-    HOME_SCOPE_KEY_NAMESPACE,
-    encodeIdentityPart(owner.walletId),
-    encodeIdentityPart(owner.accountId),
-    networkIdentity,
-  ].join('|');
+  return buildHomeRuntimeOwnerScopeKey(owner);
 }
 
 export function createHomeAuthorityId(

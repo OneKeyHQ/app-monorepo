@@ -259,23 +259,21 @@ export function HomeLaunchGatedContent({
     previousPageSurfaceRef.current = pageSurface;
   }, [pageSurface]);
   const isHomeVisible = !shouldGateHome || launchSnapshot.decision === 'main';
+  const hasCommittedHomeSurface =
+    isHomeVisible && pageSurface.surface !== 'pending';
   useEffect(() => {
-    if (shouldGateHome && isHomeVisible) {
+    if (shouldGateHome && hasCommittedHomeSurface) {
       markCurrentHomeGenerationReady(launchSnapshot.requiredHomeGeneration);
     }
-  }, [isHomeVisible, launchSnapshot.requiredHomeGeneration, shouldGateHome]);
+  }, [
+    hasCommittedHomeSurface,
+    launchSnapshot.requiredHomeGeneration,
+    shouldGateHome,
+  ]);
 
   return (
     <>
-      <Stack
-        flex={1}
-        opacity={isHomeVisible ? 1 : 0}
-        pointerEvents={isHomeVisible ? 'auto' : 'none'}
-        accessibilityElementsHidden={!isHomeVisible}
-        importantForAccessibility={
-          isHomeVisible ? 'auto' : 'no-hide-descendants'
-        }
-      >
+      <Stack flex={1}>
         <HomeStoreDrivenWalletSurface
           onPressHide={onPressHide}
           pageSurface={pageSurface}

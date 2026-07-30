@@ -16,6 +16,7 @@ export enum EAppSyncStorageKeys {
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
+  onekey_home_latest_active_account = 'onekey_home_latest_active_account',
   onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
   onekey_device_performance_tier = 'onekey_device_performance_tier',

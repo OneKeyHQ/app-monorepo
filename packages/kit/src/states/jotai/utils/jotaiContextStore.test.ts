@@ -558,6 +558,76 @@ describe('jotaiContextStore reset flow', () => {
     ).toBeUndefined();
   });
 
+  it('does not hydrate an external Home active account from the shared atom snapshot', () => {
+    const coldStartCacheKey =
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom;
+    const originalRegistryEntry =
+      contextAtomSnapshotRegistry.get(coldStartCacheKey);
+    const coldStartScopeKey = `store:accountSelector@${EAccountSelectorSceneName.home}`;
+    const scopedKey = `${coldStartScopeKey}::${coldStartCacheKey}`;
+    const initialValue = {
+      0: {
+        ready: false,
+      },
+    };
+    const staleSnapshotValue = {
+      0: {
+        ready: true,
+      },
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [scopedKey]: staleSnapshotValue,
+    };
+    jest.spyOn(coldStartCacheStorage, 'getObject').mockReturnValue(undefined);
+    const coldStartAtom = contextAtomBase<typeof initialValue>({
+      initialValue,
+      coldStartCache: true,
+      coldStartCacheKey,
+      coldStartCachePersistence: {
+        kind: 'external',
+        scopeKey: coldStartScopeKey,
+      },
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>(
+        _atomInstance: WritableAtom<Value2, Args, Result>,
+      ) =>
+        [
+          initialValue as Awaited<Value2>,
+          jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
+        ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
+    });
+    const store = createStore();
+    const hydrationStore = {
+      get: (atomInstance: unknown) => store.get(atomInstance as Atom<unknown>),
+      set: (atomInstance: unknown, value: unknown) => {
+        store.set(
+          atomInstance as WritableAtom<unknown, [unknown], unknown>,
+          value,
+        );
+      },
+    };
+    const atomInstance = coldStartAtom.atom();
+
+    try {
+      hydrateContextColdStartCacheForProvider({
+        store: hydrationStore,
+        coldStartScopeKey,
+      });
+
+      expect(store.get(atomInstance)).toEqual(initialValue);
+    } finally {
+      if (originalRegistryEntry) {
+        contextAtomSnapshotRegistry.set(
+          coldStartCacheKey,
+          originalRegistryEntry,
+        );
+      } else {
+        contextAtomSnapshotRegistry.delete(coldStartCacheKey);
+      }
+    }
+  });
+
   it('does not hydrate discover account selector state from generic scoped snapshots', () => {
     const coldStartCacheKey =
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom;

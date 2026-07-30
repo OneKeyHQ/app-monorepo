@@ -175,6 +175,48 @@ function MobileNativeHomeActionRowSkeleton() {
   );
 }
 
+function MobileNativeHomeLaunchSurface() {
+  return (
+    <Stack
+      flex={1}
+      bg="$bgApp"
+      pointerEvents="none"
+      testID={HomeTestIDs.launchSkeleton}
+    >
+      <HomeTabSearchHeader />
+      <Stack px="$pagePadding" pt="$4" gap="$5">
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack gap="$2" alignItems="center">
+            <Stack width="$6" height="$6" borderRadius="$2" bg="$bgSubdued" />
+            <Stack width={112} height="$5" borderRadius="$1" bg="$bgSubdued" />
+          </XStack>
+          <Stack width={96} height="$6" borderRadius="$3" bg="$bgSubdued" />
+        </XStack>
+        <Stack width={180} height={48} borderRadius="$2" bg="$bgSubdued" />
+        <XStack height={64} gap="$2.5">
+          {Array.from({
+            length: MOBILE_NATIVE_HOME_ACTION_SKELETON_COUNT,
+          }).map((_, index) => (
+            <Stack
+              key={index}
+              flex={1}
+              height="100%"
+              borderRadius="$4"
+              bg="$bgSubdued"
+            />
+          ))}
+        </XStack>
+        <Stack width="100%" height={96} borderRadius="$4" bg="$bgSubdued" />
+        <XStack gap="$5">
+          <Stack width={64} height="$6" borderRadius="$1" bg="$bgSubdued" />
+          <Stack width={64} height="$6" borderRadius="$1" bg="$bgSubdued" />
+          <Stack width={56} height="$6" borderRadius="$1" bg="$bgSubdued" />
+        </XStack>
+      </Stack>
+    </Stack>
+  );
+}
+
 function isTabId(value: string): value is IHomeContainerTabId {
   return TAB_ORDER.some((tabId) => tabId === value);
 }
@@ -1920,7 +1962,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   }, []);
 
   if (!owner || !nativeState) {
-    return null;
+    return <MobileNativeHomeLaunchSurface />;
   }
 
   return (

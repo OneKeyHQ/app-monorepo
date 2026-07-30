@@ -287,6 +287,10 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     {
       coldStartCache: true,
       coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+      coldStartCachePersistence: {
+        kind: 'external',
+        scopeKey: 'store:accountSelector@home',
+      },
     },
   );
 

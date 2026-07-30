@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
 
 import {
   useHomeContextStore,
@@ -9,6 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 
 import { getHomeDisplaySnapshotPartitionTag } from '../cache/homeDisplaySnapshotKeys';
+import { loadHomeStartupPreparedDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 import { loadPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.native';
 
 import { HomeDisplaySnapshotControllerShared } from './HomeDisplaySnapshotController.shared';
@@ -20,6 +21,16 @@ function NativeHomeDisplaySnapshotBootstrap() {
   const { publishPreparedHomeDisplaySnapshot } =
     useHomeStoreControllerActions();
   const ownerToken = session.ownerToken;
+  const startupPreparedDisplaySnapshot = useMemo(() => {
+    const startedAt = Date.now();
+    perfMark('Home:displayCache:startupStaticLoadStart');
+    const prepared = loadHomeStartupPreparedDisplaySnapshot();
+    perfMark('Home:displayCache:startupStaticLoadDone', {
+      elapsedMs: Date.now() - startedAt,
+      hit: Boolean(prepared?.displaySnapshot),
+    });
+    return prepared;
+  }, []);
 
   useLayoutEffect(() => {
     if (!ownerToken) {
@@ -41,9 +52,12 @@ function NativeHomeDisplaySnapshotBootstrap() {
     );
     perfMark('Home:displayCache:nativeSyncLoadStart');
     try {
-      const displaySnapshot = loadPreparedHomeDisplaySnapshot({
-        ownerScopeKey: ownerToken.scopeKey,
-      });
+      const displaySnapshot =
+        startupPreparedDisplaySnapshot?.ownerScopeKey === ownerToken.scopeKey
+          ? startupPreparedDisplaySnapshot.displaySnapshot
+          : loadPreparedHomeDisplaySnapshot({
+              ownerScopeKey: ownerToken.scopeKey,
+            });
       publishPreparedHomeDisplaySnapshot({
         displaySnapshot,
         ownerScopeKey: ownerToken.scopeKey,
@@ -78,7 +92,12 @@ function NativeHomeDisplaySnapshotBootstrap() {
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
     }
-  }, [ownerToken, publishPreparedHomeDisplaySnapshot, store]);
+  }, [
+    ownerToken,
+    publishPreparedHomeDisplaySnapshot,
+    startupPreparedDisplaySnapshot,
+    store,
+  ]);
 
   return null;
 }

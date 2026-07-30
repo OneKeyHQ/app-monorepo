@@ -127,9 +127,8 @@ describe('Home Unified Store production boundary', () => {
     expect(sharedSource).not.toContain(
       "new Set<IHomeStoreSourceId>(['banner', selectedSourceId])",
     );
-    expect(nativeSource).toContain(
-      'const displaySnapshot = loadPreparedHomeDisplaySnapshot({',
-    );
+    expect(nativeSource).toContain('loadHomeStartupPreparedDisplaySnapshot()');
+    expect(nativeSource).toContain(': loadPreparedHomeDisplaySnapshot({');
     expect(nativeSource).not.toMatch(
       /await loadPreparedHomeDisplaySnapshot|void loadPreparedHomeDisplaySnapshot/,
     );

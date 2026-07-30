@@ -431,6 +431,14 @@ const promise: Promise<void> = (async () => {
   // didHydrate is driven by this — it is the only layer whose presence affects
   // first paint now that L1 is removed. L3 hits the primed map lazily and has
   // no observable mount-time signal.
+  const {
+    readHomeLatestActiveAccountCache,
+    setHomeLatestActiveAccountCacheGlobal,
+  } = await import('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache');
+  const homeLatestActiveAccount = readHomeLatestActiveAccountCache();
+  if (homeLatestActiveAccount) {
+    setHomeLatestActiveAccountCacheGlobal(homeLatestActiveAccount);
+  }
   const ctxSnapshot = normalizeSwapColdStartCacheSnapshot(
     parseL2CtxSnapshot(entries),
   );

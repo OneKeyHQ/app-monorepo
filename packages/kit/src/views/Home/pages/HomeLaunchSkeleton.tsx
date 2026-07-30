@@ -1,4 +1,4 @@
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Stack, XStack, YStack } from '@onekeyhq/components';
 
 import { HomeTestIDs } from '../testIDs';
 
@@ -28,19 +28,44 @@ export function HomeLaunchSkeleton() {
         }}
       >
         <XStack alignItems="center" gap="$2">
-          <Skeleton
+          <Stack
             w="$8"
             h="$8"
-            radius={8}
+            borderRadius={8}
+            bg="$bgSubdued"
             $md={{ w: '$6', h: '$6', borderRadius: 6 }}
           />
-          <Skeleton w={112} h="$5" radius={4} $md={{ w: 88 }} />
-          <Skeleton w="$4" h="$4" radius={4} />
+          <Stack
+            w={112}
+            h="$5"
+            borderRadius={4}
+            bg="$bgSubdued"
+            $md={{ w: 88 }}
+          />
+          <Stack w="$4" h="$4" borderRadius={4} bg="$bgSubdued" />
         </XStack>
         <XStack alignItems="center" gap="$1">
-          <Skeleton w="$8" h="$8" radius="round" $md={{ w: '$6', h: '$6' }} />
-          <Skeleton w="$8" h="$8" radius="round" $md={{ w: '$6', h: '$6' }} />
-          <Skeleton w="$12" h="$7" radius={999} $md={{ w: '$9', h: '$6' }} />
+          <Stack
+            w="$8"
+            h="$8"
+            borderRadius={999}
+            bg="$bgSubdued"
+            $md={{ w: '$6', h: '$6' }}
+          />
+          <Stack
+            w="$8"
+            h="$8"
+            borderRadius={999}
+            bg="$bgSubdued"
+            $md={{ w: '$6', h: '$6' }}
+          />
+          <Stack
+            w="$12"
+            h="$7"
+            borderRadius={999}
+            bg="$bgSubdued"
+            $md={{ w: '$9', h: '$6' }}
+          />
         </XStack>
       </XStack>
       <YStack px="$pagePadding" pt="$5" gap="$5" $md={{ pt: '$4', gap: '$4' }}>
@@ -50,7 +75,7 @@ export function HomeLaunchSkeleton() {
           testID={HomeTestIDs.launchSkeletonBalance}
           $md={{ w: 160 }}
         >
-          <Skeleton w="100%" h="100%" radius={8} />
+          <Stack w="100%" h="100%" borderRadius={8} bg="$bgSubdued" />
         </Stack>
         <XStack
           gap="$3"
@@ -58,11 +83,12 @@ export function HomeLaunchSkeleton() {
           testID={HomeTestIDs.launchSkeletonActions}
         >
           {HOME_LAUNCH_SKELETON_ACTION_WIDTHS.map((width, index) => (
-            <Skeleton
+            <Stack
               key={width}
               w={width}
               h={48}
-              radius={999}
+              borderRadius={999}
+              bg="$bgSubdued"
               $sm={{
                 flex: 1,
                 w:
@@ -84,7 +110,14 @@ export function HomeLaunchSkeleton() {
         $md={{ pt: '$6' }}
       >
         {HOME_LAUNCH_SKELETON_BANNERS.map((banner) => (
-          <Skeleton key={banner} w={280} flexShrink={0} h={90} radius={16} />
+          <Stack
+            key={banner}
+            w={280}
+            flexShrink={0}
+            h={90}
+            borderRadius={16}
+            bg="$bgSubdued"
+          />
         ))}
       </XStack>
       <XStack
@@ -96,11 +129,12 @@ export function HomeLaunchSkeleton() {
         $md={{ gap: '$5' }}
       >
         {HOME_LAUNCH_SKELETON_TABS.map((width, index) => (
-          <Skeleton
+          <Stack
             key={`${width}-${index}`}
             h={index === 0 ? 36 : '$5'}
             w={width}
-            radius={index === 0 ? 999 : 4}
+            borderRadius={index === 0 ? 999 : 4}
+            bg="$bgSubdued"
             $md={{
               h: '$5',
               w: HOME_LAUNCH_SKELETON_MD_TABS[index],
@@ -117,19 +151,24 @@ export function HomeLaunchSkeleton() {
         $md={{ pt: '$8' }}
       >
         <XStack justifyContent="space-between" alignItems="center">
-          <Skeleton h="$4" w="$20" />
-          <Skeleton h="$4" w="$12" />
+          <Stack h="$4" w="$20" borderRadius="$1" bg="$bgSubdued" />
+          <Stack h="$4" w="$12" borderRadius="$1" bg="$bgSubdued" />
         </XStack>
         {HOME_LAUNCH_SKELETON_ROWS.map((row) => (
           <XStack key={row} alignItems="center" gap="$3">
-            <Skeleton w="$10" h="$10" radius="round" />
+            <Stack w="$10" h="$10" borderRadius={999} bg="$bgSubdued" />
             <YStack flex={1} gap="$2">
-              <Skeleton w={row % 2 === 0 ? 112 : 136} h="$4" />
-              <Skeleton w={72} h="$3" />
+              <Stack
+                w={row % 2 === 0 ? 112 : 136}
+                h="$4"
+                borderRadius="$1"
+                bg="$bgSubdued"
+              />
+              <Stack w={72} h="$3" borderRadius="$1" bg="$bgSubdued" />
             </YStack>
             <Stack alignItems="flex-end" gap="$2">
-              <Skeleton w={76} h="$4" />
-              <Skeleton w={52} h="$3" />
+              <Stack w={76} h="$4" borderRadius="$1" bg="$bgSubdued" />
+              <Stack w={52} h="$3" borderRadius="$1" bg="$bgSubdued" />
             </Stack>
           </XStack>
         ))}

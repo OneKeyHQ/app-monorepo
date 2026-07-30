@@ -75,6 +75,11 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  clearHomeLatestActiveAccountCache,
+  createHomeLatestActiveAccountCache,
+  writeHomeLatestActiveAccountCache,
+} from '@onekeyhq/shared/src/utils/homeLatestActiveAccountCache';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -215,6 +220,43 @@ export type IReloadActiveAccountInfoResult =
     };
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
+  syncHomeLatestActiveAccountCache({
+    activeAccount,
+    num,
+    sceneName,
+  }: {
+    activeAccount: IAccountSelectorActiveAccountInfo;
+    num: number;
+    sceneName: EAccountSelectorSceneName | undefined;
+  }) {
+    if (
+      num !== 0 ||
+      sceneName !== EAccountSelectorSceneName.home ||
+      !activeAccount.ready
+    ) {
+      return;
+    }
+    const accountId = activeAccount.account?.id;
+    const networkId = activeAccount.network?.id;
+    const walletId = activeAccount.wallet?.id;
+    if (!accountId || !networkId || !walletId) {
+      clearHomeLatestActiveAccountCache();
+      return;
+    }
+    writeHomeLatestActiveAccountCache(
+      createHomeLatestActiveAccountCache({
+        activeAccount: { ...activeAccount },
+        owner: {
+          accountId,
+          network: activeAccount.network?.isAllNetworks
+            ? { kind: 'allNetworks' }
+            : { kind: 'singleNetwork', networkId },
+          walletId,
+        },
+      }),
+    );
+  }
+
   private setImmediateActiveAccountReloadRequest({
     num,
     reason,
@@ -553,13 +595,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
-  async flushAccountSelectorColdStartSnapshot({
-    sceneName,
-    sceneUrl,
-    selectedAccounts,
-    activeAccounts,
-    updateMeta,
-  }: {
+  async flushAccountSelectorColdStartSnapshot(params: {
     sceneName: EAccountSelectorSceneName | undefined;
     sceneUrl?: string;
     selectedAccounts?: ISelectedAccountsAtomMap;
@@ -570,6 +606,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       [num: number]: IAccountSelectorUpdateMeta;
     }>;
   }) {
+    const {
+      activeAccounts,
+      sceneName,
+      sceneUrl,
+      selectedAccounts,
+      updateMeta,
+    } = params;
     try {
       const coldStartScopeKey = this.buildAccountSelectorColdStartScopeKey({
         sceneName,
@@ -593,7 +636,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 value: selectedAccounts,
               }
             : undefined,
-          activeAccounts
+          activeAccounts && sceneName !== EAccountSelectorSceneName.home
             ? {
                 coldStartScopeKey,
                 coldStartCacheKey:
@@ -627,11 +670,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         sceneName,
         sceneUrl,
-        includeActiveAccounts,
       }: {
         sceneName: EAccountSelectorSceneName | undefined;
         sceneUrl?: string;
-        includeActiveAccounts?: boolean;
       },
     ) => {
       await this.flushAccountSelectorColdStartSnapshot({
@@ -639,9 +680,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl,
         selectedAccounts: get(selectedAccountsAtom()),
         updateMeta: get(accountSelectorUpdateMetaAtom()),
-        activeAccounts: includeActiveAccounts
-          ? get(activeAccountsAtom())
-          : undefined,
       });
     },
   );
@@ -808,6 +846,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const sceneInfo = get(accountSelectorContextDataAtom());
         const selectedAccounts = get(selectedAccountsAtom());
         const updateMeta = get(accountSelectorUpdateMetaAtom());
+        this.syncHomeLatestActiveAccountCache({
+          activeAccount,
+          num,
+          sceneName: sceneInfo?.sceneName,
+        });
         void this.flushAccountSelectorColdStartSnapshot({
           sceneName: sceneInfo?.sceneName,
           sceneUrl: sceneInfo?.sceneUrl,

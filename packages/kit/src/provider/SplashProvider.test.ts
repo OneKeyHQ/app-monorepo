@@ -86,6 +86,13 @@ jest.mock('@onekeyhq/shared/src/performance/init', () => ({
   debugLandingLog: jest.fn(),
 }));
 
+jest.mock('../views/Onboarding/components/onboardingLaunchGate', () => ({
+  isNativeLaunchReady: () =>
+    Boolean((globalThis as any).__mockNativeLaunchReady),
+  useOnboardingLaunchSnapshot: () =>
+    (globalThis as any).__mockNativeLaunchSnapshot,
+}));
+
 jest.mock(
   '@onekeyhq/components',
   () => ({
@@ -111,6 +118,21 @@ const g = globalThis as any;
 
 let svc: any;
 
+function seedLatestHomeActiveAccount({
+  accountId = 'hd-1--0000/0',
+  networkId = 'onekeyall--0',
+}: {
+  accountId?: string;
+  networkId?: string;
+} = {}) {
+  g.__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__ = {
+    activeAccount: {
+      account: { id: accountId },
+      network: { id: networkId },
+    },
+  };
+}
+
 async function flushMicrotasks() {
   await act(async () => {
     await Promise.resolve();
@@ -134,8 +156,16 @@ beforeEach(() => {
   g.__resetMockAppEventBus?.();
   g.__lastCanDismissSplash = undefined;
   delete g.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  delete g.__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__;
   delete g.__onekeyBalanceDisplayed;
   delete g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT;
+  g.__mockNativeLaunchReady = false;
+  g.__mockNativeLaunchSnapshot = {
+    decision: 'unknown',
+    foreground: 'unknown',
+    readyHomeGeneration: 0,
+    requiredHomeGeneration: 0,
+  };
   g.__mockHasPendingInstallTask?.mockReturnValue(false);
   const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
   platformEnvMock.version = '1.0.0';
@@ -146,6 +176,32 @@ beforeEach(() => {
 });
 
 describe('useCanDismissSplash', () => {
+  test('native cached Home waits for a committed launch surface', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isDesktop = false;
+    platformEnvMock.isNative = true;
+    g.__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__ = {
+      activeAccount: { ready: true },
+      owner: {
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+      },
+      ownerScopeKey: 'wallet-1:account-1:allNetworks',
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result, rerender } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(false);
+
+    g.__mockNativeLaunchReady = true;
+    rerender();
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+  });
+
   test('runs pending task processing once and waits for the finish event', async () => {
     g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
     const { useCanDismissSplash } = freshSplash();
@@ -212,16 +268,11 @@ describe('useCanDismissSplash', () => {
     const { useCanDismissSplash } = freshSplash();
     // Path 1: cache present (byOwner hit + active account hydrated) →
     // waits for HomePageReady (never comes in this test).
+    seedLatestHomeActiveAccount();
     const primedSnapshot = {
       'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
         latest: '$2.31',
         byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
-      },
-      'store:accountSelector@home::ctx:activeAccountsAtom': {
-        0: {
-          account: { id: 'hd-1--0000/0' },
-          network: { id: 'onekeyall--0' },
-        },
       },
     };
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = primedSnapshot;
@@ -297,6 +348,26 @@ describe('SplashProvider', () => {
 });
 
 describe('useCanDismissSplash — balance cache snapshot detection', () => {
+  test('uses the independent latest Home account without an active-account atom entry', async () => {
+    g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
+    seedLatestHomeActiveAccount();
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
+      },
+    };
+
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+    await flushMicrotasks();
+
+    expect(result.current).toBe(false);
+    expect(g.__mockAppEventBus.on).toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+  });
+
   test('no snapshot → dismisses immediately (Path 3)', async () => {
     const { useCanDismissSplash } = freshSplash();
     const { result } = renderHook(() => useCanDismissSplash());
@@ -389,32 +460,11 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
     );
   });
 
-  test('snapshot has active account but no byOwner entries → dismisses immediately', async () => {
-    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
-      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
-        latest: '',
-        byOwner: {},
-      },
-      'store:accountSelector@home::ctx:activeAccountsAtom': {
-        0: {
-          account: { id: 'hd-1--0000/0' },
-          network: { id: 'onekeyall--0' },
-        },
-      },
-    };
-    const { useCanDismissSplash } = freshSplash();
-    const { result } = renderHook(() => useCanDismissSplash());
-
-    await flushMicrotasks();
-
-    expect(result.current).toBe(true);
-  });
-
-  test('snapshot has byOwner + active account but ownerKey mismatch → dismisses immediately', async () => {
+  test('shared active-account snapshot is ignored when independent cache is missing', async () => {
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
         latest: '$2.31',
-        byOwner: { 'hd-9--9999/0__onekeyall--0': '$9.00' },
+        byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
       },
       'store:accountSelector@home::ctx:activeAccountsAtom': {
         0: {
@@ -435,18 +485,33 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
     );
   });
 
-  test('snapshot has byOwner hit by active account ownerKey → waits for HomePageReady', async () => {
+  test('snapshot has byOwner + independent account but ownerKey mismatch → dismisses immediately', async () => {
+    seedLatestHomeActiveAccount();
+    g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
+        latest: '$2.31',
+        byOwner: { 'hd-9--9999/0__onekeyall--0': '$9.00' },
+      },
+    };
+    const { useCanDismissSplash } = freshSplash();
+    const { result } = renderHook(() => useCanDismissSplash());
+
+    await flushMicrotasks();
+
+    expect(result.current).toBe(true);
+    expect(g.__mockAppEventBus.on).not.toHaveBeenCalledWith(
+      g.__mockAppEventBusNames.HomePageReady,
+      expect.any(Function),
+    );
+  });
+
+  test('snapshot has byOwner hit by independent account ownerKey → waits for HomePageReady', async () => {
     g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
+    seedLatestHomeActiveAccount();
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
         latest: '$2.31',
         byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
-      },
-      'store:accountSelector@home::ctx:activeAccountsAtom': {
-        0: {
-          account: { id: 'hd-1--0000/0' },
-          network: { id: 'onekeyall--0' },
-        },
       },
     };
     const { useCanDismissSplash } = freshSplash();
@@ -474,6 +539,7 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
 
   test('snapshot has both lastConfirmedOverviewBalance (ownerKey hit) and accountWorthAtom stale placeholder → still waits on lastConfirmed signal', async () => {
     g.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true;
+    seedLatestHomeActiveAccount();
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:accountWorthAtom': {
         worth: {},
@@ -485,12 +551,6 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
         latest: '$2.31',
         byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
       },
-      'store:accountSelector@home::ctx:activeAccountsAtom': {
-        0: {
-          account: { id: 'hd-1--0000/0' },
-          network: { id: 'onekeyall--0' },
-        },
-      },
     };
     const { useCanDismissSplash } = freshSplash();
     const { result } = renderHook(() => useCanDismissSplash());
@@ -501,16 +561,11 @@ describe('useCanDismissSplash — balance cache snapshot detection', () => {
   });
 
   test('balance already displayed before listener attaches → dismisses immediately even with cache', async () => {
+    seedLatestHomeActiveAccount();
     g.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
       'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom': {
         latest: '$2.31',
         byOwner: { 'hd-1--0000/0__onekeyall--0': '$2.31' },
-      },
-      'store:accountSelector@home::ctx:activeAccountsAtom': {
-        0: {
-          account: { id: 'hd-1--0000/0' },
-          network: { id: 'onekeyall--0' },
-        },
       },
     };
     g.__onekeyBalanceDisplayed = true;

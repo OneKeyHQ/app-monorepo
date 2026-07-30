@@ -477,6 +477,65 @@ describe('useAccountSelectorActions', () => {
     mockIsTempWalletRemoved.mockResolvedValue(false);
   });
 
+  it('persists the latest ready Home owner outside the context atom snapshot', () => {
+    const actions = getAccountSelectorActions();
+    actions.syncHomeLatestActiveAccountCache({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        account: {
+          id: 'account-a',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        network: {
+          id: 'evm--1',
+          isAllNetworks: false,
+        } as IServerNetwork,
+        ready: true,
+        wallet: {
+          id: 'wallet-a',
+        } as IWallet,
+      },
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    expect(
+      mockColdStartCacheStorageData.get(
+        EAppSyncStorageKeys.onekey_home_latest_active_account,
+      ),
+    ).toMatchObject({
+      owner: {
+        accountId: 'account-a',
+        network: { kind: 'singleNetwork', networkId: 'evm--1' },
+        walletId: 'wallet-a',
+      },
+      version: 1,
+    });
+  });
+
+  it('clears a stale latest Home owner when a ready onboarding state has no account', () => {
+    mockColdStartCacheStorageData.set(
+      EAppSyncStorageKeys.onekey_home_latest_active_account,
+      { stale: true },
+    );
+
+    getAccountSelectorActions().syncHomeLatestActiveAccountCache({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    expect(
+      mockColdStartCacheStorageData.has(
+        EAppSyncStorageKeys.onekey_home_latest_active_account,
+      ),
+    ).toBe(false);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });

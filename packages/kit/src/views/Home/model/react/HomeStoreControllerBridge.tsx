@@ -9,6 +9,7 @@ import type {
   IHomeRuntimeOwnerToken,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 
+import { loadHomeStartupPreparedDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 import {
   type IPreparedHomeDisplaySnapshot,
   loadPreparedHomeDisplaySnapshot,
@@ -34,7 +35,12 @@ async function loadPreparedOwnerWithinBudget(
       | Promise<IPreparedHomeDisplaySnapshot | undefined>
       | undefined;
     try {
-      preparedOwner = loadPreparedHomeDisplaySnapshot({ ownerScopeKey });
+      const startupPreparedDisplaySnapshot =
+        loadHomeStartupPreparedDisplaySnapshot();
+      preparedOwner =
+        startupPreparedDisplaySnapshot?.ownerScopeKey === ownerScopeKey
+          ? startupPreparedDisplaySnapshot.displaySnapshot
+          : loadPreparedHomeDisplaySnapshot({ ownerScopeKey });
     } catch {
       return undefined;
     }
@@ -161,7 +167,11 @@ export function HomeStoreControllerBridge() {
         lastOwnerTokenRef.current?.scopeKey !== ownerToken?.scopeKey ||
         lastOwnerTokenRef.current?.sessionId !== ownerToken?.sessionId
       ) {
-        if (lastOwnerTokenRef.current && inputs.owner && ownerToken) {
+        const shouldPrepareOwnerBeforePublish =
+          Boolean(lastOwnerTokenRef.current) ||
+          platformEnv.isNative ||
+          platformEnv.isExtension;
+        if (shouldPrepareOwnerBeforePublish && inputs.owner && ownerToken) {
           ownerTransitionPending = true;
           void loadPreparedOwnerWithinBudget(ownerToken.scopeKey).then(
             (displaySnapshot) => {
