@@ -13,9 +13,9 @@ export class SimpleDb {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@prime',
       loader: () =>
-        import('../entity/SimpleDbEntityPrime').then(
-          ({ SimpleDbEntityPrime }) => new SimpleDbEntityPrime(),
-        ),
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityPrime'
+        ).then(({ SimpleDbEntityPrime }) => new SimpleDbEntityPrime()),
     });
     Object.defineProperty(this, 'prime', { value });
     return value;
@@ -127,7 +127,9 @@ export class SimpleDb {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@accountSelector',
       loader: () =>
-        import('../entity/SimpleDbEntityAccountSelector').then(
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityAccountSelector'
+        ).then(
           ({ SimpleDbEntityAccountSelector }) =>
             new SimpleDbEntityAccountSelector(),
         ),
@@ -454,7 +456,9 @@ export class SimpleDb {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@customNetwork',
       loader: () =>
-        import('../entity/SimpleDbEntityCustomNetwork').then(
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityCustomNetwork'
+        ).then(
           ({ SimpleDbEntityCustomNetwork }) =>
             new SimpleDbEntityCustomNetwork(),
         ),
@@ -467,7 +471,9 @@ export class SimpleDb {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@serverNetwork',
       loader: () =>
-        import('../entity/SimpleDbEntityServerNetwork').then(
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityServerNetwork'
+        ).then(
           ({ SimpleDbEntityServerNetwork }) =>
             new SimpleDbEntityServerNetwork(),
         ),

@@ -3,6 +3,7 @@
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 
+import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
@@ -172,7 +173,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
-  serviceUnifoldDeposit: ServiceUnifoldDeposit;
+  serviceUnifoldDeposit: ILazyServiceProxy<ServiceUnifoldDeposit>;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
@@ -190,7 +191,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
-  serviceDemo: ServiceDemo;
+  serviceDemo: ILazyServiceProxy<ServiceDemo>;
   serviceV4Migration: ServiceV4Migration;
   serviceDApp: ServiceDApp;
   serviceDappSide: ServiceDappSide;

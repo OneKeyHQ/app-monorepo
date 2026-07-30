@@ -10,12 +10,20 @@ type ILazyServiceLocalCall = (
   methodName: string,
   args: unknown[],
 ) => unknown;
-type ILazyServiceProxy<
+
+type ICallableMembers<TService extends object> = {
+  [TKey in keyof TService as TService[TKey] extends (
+    ...args: infer _TArgs
+  ) => unknown
+    ? TKey
+    : never]: TService[TKey];
+};
+
+export type ILazyServiceProxy<
   TService extends object,
-  TImmediateMembers extends object,
-> = keyof TImmediateMembers extends never
-  ? TService
-  : Omit<TService, keyof TImmediateMembers> & TImmediateMembers;
+  TImmediateMembers extends object = Record<never, never>,
+> = Omit<ICallableMembers<TService>, keyof TImmediateMembers> &
+  TImmediateMembers;
 
 export function createLazyServiceProxy<
   T extends object,

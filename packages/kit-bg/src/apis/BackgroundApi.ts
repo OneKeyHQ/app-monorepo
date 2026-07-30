@@ -12,6 +12,7 @@ import BackgroundApiBase from './BackgroundApiBase';
 import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
@@ -44,7 +45,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   private buildLazyService<T extends object>(
     propertyName: keyof IBackgroundApi,
     loader: () => Promise<ILazyServiceModule<T>>,
-  ): T {
+  ): ILazyServiceProxy<T> {
     const value = createLazyServiceProxy<T>({
       serviceName: String(propertyName),
       loader: () =>
@@ -89,7 +90,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDemo(): ServiceDemo {
+  get serviceDemo(): ILazyServiceProxy<ServiceDemo> {
     return this.buildLazyService(
       'serviceDemo',
       () => import('../services/ServiceDemo'),
@@ -206,7 +207,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
+  get serviceUnifoldDeposit(): ILazyServiceProxy<ServiceUnifoldDeposit> {
     return this.buildLazyService(
       'serviceUnifoldDeposit',
       () => import('../services/ServiceUnifoldDeposit'),

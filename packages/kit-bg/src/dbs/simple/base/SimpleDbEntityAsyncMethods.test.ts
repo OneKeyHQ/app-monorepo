@@ -3,7 +3,12 @@ import path from 'path';
 
 import { parse } from '@babel/parser';
 
-import type { ClassDeclaration, Node } from '@babel/types';
+import type {
+  ClassDeclaration,
+  ClassMethod,
+  ClassProperty,
+  Node,
+} from '@babel/types';
 
 function getClassDeclaration(node: Node): ClassDeclaration | undefined {
   if (node.type === 'ClassDeclaration') {
@@ -18,8 +23,18 @@ function getClassDeclaration(node: Node): ClassDeclaration | undefined {
   return undefined;
 }
 
+function getClassMemberName(member: ClassMethod | ClassProperty) {
+  if (member.key.type === 'Identifier') {
+    return member.key.name;
+  }
+  if (member.key.type === 'StringLiteral') {
+    return member.key.value;
+  }
+  return '<computed>';
+}
+
 describe('SimpleDb entity async method contract', () => {
-  test('keeps every public entity instance method explicitly async', () => {
+  test('keeps every public entity instance callable explicitly async', () => {
     const entityDirectory = path.resolve(__dirname, '../entity');
     const sourcePaths = [
       path.resolve(__dirname, 'SimpleDbEntityBase.ts'),
@@ -53,25 +68,36 @@ describe('SimpleDb entity async method contract', () => {
         entityClassCount += 1;
 
         classDeclaration.body.body.forEach((member) => {
-          if (
-            member.type !== 'ClassMethod' ||
-            member.kind !== 'method' ||
-            member.static ||
-            member.accessibility === 'private' ||
-            member.accessibility === 'protected' ||
-            member.async
-          ) {
+          if (member.type === 'ClassMethod') {
+            const isSyncCallable =
+              member.kind === 'method' &&
+              !member.static &&
+              member.accessibility !== 'private' &&
+              member.accessibility !== 'protected' &&
+              !member.async;
+            if (isSyncCallable) {
+              violations.push(
+                `${path.basename(sourcePath)}:${member.loc?.start.line ?? 0} ${getClassMemberName(member)}`,
+              );
+            }
             return;
           }
-          let methodName = '<computed>';
-          if (member.key.type === 'Identifier') {
-            methodName = member.key.name;
-          } else if (member.key.type === 'StringLiteral') {
-            methodName = member.key.value;
+          if (
+            member.type === 'ClassProperty' &&
+            (member.value?.type === 'ArrowFunctionExpression' ||
+              member.value?.type === 'FunctionExpression')
+          ) {
+            const isSyncCallable =
+              !member.static &&
+              member.accessibility !== 'private' &&
+              member.accessibility !== 'protected' &&
+              !member.value.async;
+            if (isSyncCallable) {
+              violations.push(
+                `${path.basename(sourcePath)}:${member.loc?.start.line ?? 0} ${getClassMemberName(member)}`,
+              );
+            }
           }
-          violations.push(
-            `${path.basename(sourcePath)}:${member.loc?.start.line ?? 0} ${methodName}`,
-          );
         });
       });
     });

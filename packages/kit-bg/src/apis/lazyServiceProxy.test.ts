@@ -3,6 +3,18 @@ import {
   getLocalBackgroundServiceMethod,
 } from './lazyServiceProxy';
 
+class ServiceWithValues {
+  storedValue = 'loaded-field';
+
+  get computedValue() {
+    return 'loaded-getter';
+  }
+
+  async getValue() {
+    return `${this.storedValue}:${this.computedValue}`;
+  }
+}
+
 describe('createLazyServiceProxy', () => {
   test('loads once for concurrent first calls and reuses the same instance', async () => {
     const getFirstValue = jest.fn(async () => 'first');
@@ -85,6 +97,82 @@ describe('createLazyServiceProxy', () => {
     });
 
     await expect(proxy.getValue()).resolves.toBe('bound');
+  });
+
+  test('exposes callable and immediate members without exposing loaded values', async () => {
+    const loader = jest.fn(async () => new ServiceWithValues());
+    const proxy = createLazyServiceProxy({
+      serviceName: 'serviceWithValues',
+      loader,
+      createImmediateMembers: () => ({
+        immediateValue: 'immediate-field',
+        get immediateComputedValue() {
+          return 'immediate-getter';
+        },
+      }),
+    });
+
+    const exposesStoredValue: 'storedValue' extends keyof typeof proxy
+      ? true
+      : false = false;
+    const exposesComputedValue: 'computedValue' extends keyof typeof proxy
+      ? true
+      : false = false;
+    const exposesGetValue: 'getValue' extends keyof typeof proxy
+      ? true
+      : false = true;
+    const exposesImmediateValue: 'immediateValue' extends keyof typeof proxy
+      ? true
+      : false = true;
+    const exposesImmediateComputedValue: 'immediateComputedValue' extends keyof typeof proxy
+      ? true
+      : false = true;
+
+    expect(exposesStoredValue).toBe(false);
+    expect(exposesComputedValue).toBe(false);
+    expect(exposesGetValue).toBe(true);
+    expect(exposesImmediateValue).toBe(true);
+    expect(exposesImmediateComputedValue).toBe(true);
+    expect(proxy.immediateValue).toBe('immediate-field');
+    expect(proxy.immediateComputedValue).toBe('immediate-getter');
+    expect(loader).not.toHaveBeenCalled();
+    await expect(proxy.getValue()).resolves.toBe('loaded-field:loaded-getter');
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps rejecting runtime calls to non-callable loaded members', async () => {
+    const loader = jest.fn(async () => new ServiceWithValues());
+    const proxy = createLazyServiceProxy({
+      serviceName: 'serviceWithValues',
+      loader,
+    });
+    const runtimeProxy = proxy as unknown as Record<PropertyKey, unknown>;
+
+    expect(Reflect.has(runtimeProxy, 'storedValue')).toBe(false);
+    expect(Reflect.has(runtimeProxy, 'computedValue')).toBe(false);
+    expect(loader).not.toHaveBeenCalled();
+
+    const storedValue = Reflect.get(runtimeProxy, 'storedValue');
+    const computedValue = Reflect.get(runtimeProxy, 'computedValue');
+    expect(typeof storedValue).toBe('function');
+    expect(typeof computedValue).toBe('function');
+    expect(loader).not.toHaveBeenCalled();
+
+    await expect(
+      Reflect.apply(storedValue as (...args: unknown[]) => unknown, proxy, []),
+    ).rejects.toThrow(
+      'Background method not support (method=serviceWithValues.storedValue)',
+    );
+    await expect(
+      Reflect.apply(
+        computedValue as (...args: unknown[]) => unknown,
+        proxy,
+        [],
+      ),
+    ).rejects.toThrow(
+      'Background method not support (method=serviceWithValues.computedValue)',
+    );
+    expect(loader).toHaveBeenCalledTimes(1);
   });
 
   test('does not load for inspection properties or behave like a promise', async () => {
