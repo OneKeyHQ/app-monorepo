@@ -164,6 +164,7 @@ import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   shouldShowStockMarketHeaderSkeleton,
@@ -206,6 +207,9 @@ interface ISwapStockDesktopContainerProps {
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
+type ISwapStockTokenWithMetadata = ISwapToken & {
+  stock?: IMarketTokenDetail['stock'];
+};
 type IStockMarketDataRow = {
   label: string;
   value: string;
@@ -440,7 +444,9 @@ function buildStockMarketDataRows({
 
 function useCurrentStockMarketDetail() {
   const stockChannel = useSwapStockTradeContext();
-  const currentStockToken = stockChannel.currentStockToken;
+  const currentStockToken = stockChannel.currentStockToken as
+    | ISwapStockTokenWithMetadata
+    | undefined;
 
   return {
     stockChannel,
@@ -1470,8 +1476,12 @@ function StockMarketTokenHeader({
     });
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
-  const tokenSubtitle =
-    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
+  const tokenSubtitle = getStockMarketTokenSubtitle({
+    currentStockSubtitle: currentStockToken?.stock?.subtitle,
+    currentTokenName: currentStockToken?.name,
+    hasTokenDetail: Boolean(tokenDetail),
+    tokenDetailStockSubtitle: stock?.subtitle,
+  });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
