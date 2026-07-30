@@ -66,10 +66,12 @@ export function ContainerChild({
       }
       listContainerRef.current.childNodes.forEach((element, index) => {
         if (!element) return;
-        const style = (element as HTMLElement).style;
+        const htmlElement = element as HTMLElement;
+        const style = htmlElement.style;
+        const isFocused = focusedIndex === index;
         let next = '';
         if (!disableWebTabContentVisibility) {
-          next = focusedIndex === index ? 'visible' : 'hidden';
+          next = isFocused ? 'visible' : 'hidden';
         }
         // Avoid redundant style writes during rapid focus changes.
         if (style.getPropertyValue('content-visibility') !== next) {
@@ -78,6 +80,20 @@ export function ContainerChild({
           } else {
             style.removeProperty('content-visibility');
           }
+        }
+        // content-visibility:hidden used to keep inactive tab controls out of
+        // keyboard and accessibility navigation. Preserve that behavior when
+        // Home disables the rendering optimization.
+        if (disableWebTabContentVisibility) {
+          htmlElement.inert = !isFocused;
+          if (isFocused) {
+            htmlElement.removeAttribute('aria-hidden');
+          } else {
+            htmlElement.setAttribute('aria-hidden', 'true');
+          }
+        } else {
+          htmlElement.inert = false;
+          htmlElement.removeAttribute('aria-hidden');
         }
       });
     },
