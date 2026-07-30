@@ -14,6 +14,10 @@ import { withStaticProperties } from '../../shared/tamagui';
 import { Calendar } from './Calendar';
 import { DatePickerTrigger } from './DatePickerTrigger';
 import { PresetsSidebar } from './PresetsSidebar';
+import {
+  SWIPE_PAGER_OFFSETS,
+  useSwipeMonthNavEnabled,
+} from './useSwipeMonthNavEnabled';
 
 import type {
   DatePickerMode,
@@ -39,9 +43,12 @@ const createPickerConfig = (
   calendarMode?: 'static',
   locale?: string,
   showPreviousMonth?: boolean,
+  enableSwipeMonthNav?: boolean,
 ) => {
   let offsets: number[] | undefined;
-  if (mode === 'range') {
+  if (calendarMode !== 'static' && enableSwipeMonthNav) {
+    offsets = SWIPE_PAGER_OFFSETS;
+  } else if (mode === 'range') {
     offsets = showPreviousMonth ? [-1] : [1];
   }
 
@@ -198,6 +205,8 @@ function BasicDatePicker({
     [onChange, close],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
       createPickerConfig(
@@ -208,8 +217,17 @@ function BasicDatePicker({
         'single',
         undefined,
         locale,
+        undefined,
+        enableSwipeMonthNav,
       ),
-    [selectedDates, handleDatesChange, minDate, maxDate, locale],
+    [
+      selectedDates,
+      handleDatesChange,
+      minDate,
+      maxDate,
+      locale,
+      enableSwipeMonthNav,
+    ],
   );
 
   const mergedFloatingPanelProps = useMemo(
@@ -348,6 +366,8 @@ function RangePicker({
     [onChange, close],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
       createPickerConfig(
@@ -359,6 +379,7 @@ function RangePicker({
         undefined,
         locale,
         showPreviousMonth,
+        enableSwipeMonthNav,
       ),
     [
       selectedDates,
@@ -367,6 +388,7 @@ function RangePicker({
       maxDate,
       locale,
       showPreviousMonth,
+      enableSwipeMonthNav,
     ],
   );
 
@@ -636,6 +658,8 @@ function MultiSelectPicker({
     [onChange],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
       createPickerConfig(
@@ -646,8 +670,10 @@ function MultiSelectPicker({
         'multiple',
         undefined,
         locale,
+        undefined,
+        enableSwipeMonthNav,
       ),
-    [value, handleDatesChange, minDate, maxDate, locale],
+    [value, handleDatesChange, minDate, maxDate, locale, enableSwipeMonthNav],
   );
 
   const multiFloatingPanelProps = useMemo(
