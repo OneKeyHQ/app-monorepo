@@ -1,15 +1,20 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* cspell:ignore Infini */
 import { ensurePrimePurchaseEligible } from './primePurchaseEligibility';
 
-const mockApiFetchPrimeUserInfo = jest.fn();
+const mockApiFetchPrimeUserInfo = jest.fn<Promise<unknown>, [unknown]>();
 const mockToastError = jest.fn();
 const mockToastMessage = jest.fn();
-const mockShowToastOfError = jest.fn();
+const mockShowPrimeInfiniPaymentErrorToast = jest.fn();
+const mockLogPrimeInfiniPaymentFlow = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
-    error: (...args: unknown[]) => mockToastError(...args),
-    message: (...args: unknown[]) => mockToastMessage(...args),
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+    message: (...args: unknown[]) => {
+      mockToastMessage(...args);
+    },
   },
 }));
 
@@ -17,17 +22,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
-      apiFetchPrimeUserInfo: (...args: unknown[]) =>
-        mockApiFetchPrimeUserInfo(...args),
+      apiFetchPrimeUserInfo: (params: unknown): Promise<unknown> =>
+        mockApiFetchPrimeUserInfo(params),
     },
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: {
-    toastIfError: jest.fn(),
-    showToastOfError: (...args: unknown[]) => mockShowToastOfError(...args),
+jest.mock('./primeInfiniPaymentError', () => ({
+  showPrimeInfiniPaymentErrorToast: (...args: unknown[]) => {
+    mockShowPrimeInfiniPaymentErrorToast(...args);
+  },
+}));
+
+jest.mock('./primeInfiniPaymentLogger', () => ({
+  logPrimeInfiniPaymentFlow: (...args: unknown[]) => {
+    mockLogPrimeInfiniPaymentFlow(...args);
   },
 }));
 
@@ -123,7 +132,16 @@ describe('ensurePrimePurchaseEligible', () => {
       ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
     ).resolves.toBe(false);
 
-    expect(mockShowToastOfError).toHaveBeenCalledWith(error);
+    expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
+      error,
+      fallbackMessage: 'Unable to verify purchase eligibility',
+    });
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'purchaseEligibilityCheckFailed',
+        error,
+      }),
+    );
   });
 
   it('allows the user to retry after a failed server check', async () => {

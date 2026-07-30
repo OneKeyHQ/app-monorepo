@@ -63,6 +63,7 @@ export function usePrimeInfiniPaymentPolling({
   enabled,
   onSuccess,
   onTerminal,
+  onIssue,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 }: {
   payment: IPrimeInfiniPayment | undefined;
@@ -71,6 +72,7 @@ export function usePrimeInfiniPaymentPolling({
   enabled: boolean;
   onSuccess: (latestPayment: IPrimeInfiniPayment) => void | Promise<void>;
   onTerminal: (outcome: IPollingTerminalOutcome) => void;
+  onIssue?: (error: unknown) => void;
   pollIntervalMs?: number;
 }) {
   const adapter = useCallback<
@@ -111,19 +113,33 @@ export function usePrimeInfiniPaymentPolling({
       const purchaseStatusRequestSucceeded =
         purchaseStatusResult.status === 'fulfilled';
 
-      let rejectedReason: unknown;
-      if (paymentResult.status === 'rejected') {
-        rejectedReason = paymentResult.reason;
-      } else if (purchaseStatusResult.status === 'rejected') {
-        rejectedReason = purchaseStatusResult.reason;
-      }
+      const paymentIssue =
+        paymentResult.status === 'rejected'
+          ? {
+              reason: 'paymentUnavailableOrSnapshotMismatch',
+              error: paymentResult.reason,
+            }
+          : undefined;
+      const purchaseStatusIssue =
+        purchaseStatusResult.status === 'rejected'
+          ? {
+              reason: 'purchaseStatusUnavailable',
+              error: purchaseStatusResult.reason,
+            }
+          : undefined;
       const issue =
         !paymentRequestSucceeded || !purchaseStatusRequestSucceeded
           ? {
               reason: !paymentRequestSucceeded
                 ? 'paymentUnavailableOrSnapshotMismatch'
                 : 'purchaseStatusUnavailable',
-              error: rejectedReason,
+              error: !paymentRequestSucceeded
+                ? paymentIssue?.error
+                : purchaseStatusIssue?.error,
+              relatedIssues:
+                !paymentRequestSucceeded && purchaseStatusIssue
+                  ? [purchaseStatusIssue]
+                  : undefined,
             }
           : undefined;
 
@@ -257,8 +273,11 @@ export function usePrimeInfiniPaymentPolling({
         },
         getFailureReason: getProcessingFailureReason,
       });
+      if (event.type === 'failed' && event.issue.error) {
+        onIssue?.(event.issue.error);
+      }
     },
-    [asset.networkId, asset.token, payment],
+    [asset.networkId, asset.token, onIssue, payment],
   );
 
   const sessionKey = [
