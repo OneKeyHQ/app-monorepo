@@ -24,6 +24,7 @@ import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
 
 const NY_TIME_ZONE = 'America/New_York';
 const MINUTE_MS = 60 * 1000;
+const MINUTES_PER_DAY = 24 * 60;
 
 export enum EUSMarketSessionKey {
   PreMarket = 'preMarket',
@@ -60,7 +61,7 @@ const SESSIONS_ET_MINUTES: Array<{
   {
     key: EUSMarketSessionKey.Overnight,
     startMinutes: 20 * 60 + 5,
-    endMinutes: 24 * 60 + 3 * 60 + 56,
+    endMinutes: MINUTES_PER_DAY + 3 * 60 + 56,
   },
 ];
 const CYCLE_START_ET_MINUTES = SESSIONS_ET_MINUTES[0].startMinutes;
@@ -242,9 +243,10 @@ export interface IUSMarketTradingHours {
    */
   currentSessionKey: EUSMarketSessionKey;
   /**
-   * True when `now` falls between two sessions (e.g. 03:56 – 04:00 ET):
-   * the underlying venues pause trading while switching session state, so
-   * these minutes surface as a market-wide trading halt.
+   * True when `now` falls between two sessions (e.g. after the 03:55
+   * overnight close and before the 04:01 pre-market open): the underlying
+   * venues pause trading while switching session state, so these minutes
+   * surface as a market-wide trading halt.
    */
   isNowInSessionGap: boolean;
   /** Current-or-upcoming weekend closure: Friday 20:00 ET */
@@ -277,8 +279,11 @@ export function getUSMarketTradingHours(
   const nextDate = shiftNyDate(cycleDate, 1);
 
   const minutesToInstant = (minutes: number) =>
-    minutes >= 24 * 60
-      ? nyWallClockToInstant({ ...nextDate, minutesOfDay: minutes - 24 * 60 })
+    minutes >= MINUTES_PER_DAY
+      ? nyWallClockToInstant({
+          ...nextDate,
+          minutesOfDay: minutes - MINUTES_PER_DAY,
+        })
       : nyWallClockToInstant({ ...cycleDate, minutesOfDay: minutes });
 
   const instants = SESSIONS_ET_MINUTES.map(
@@ -310,9 +315,10 @@ export function getUSMarketTradingHours(
   const currentSegment =
     segments.find((s) => clampedNow < s.endInstant) ??
     segments[segments.length - 1];
-  const isNowInSessionGap = !segments.some(
-    (s) => nowMs >= s.startInstant && nowMs < s.endInstant,
-  );
+  // In a gap, `now` sits before the upcoming session's start (mid-cycle gaps)
+  // or past the overnight close (the cycle-edge gap).
+  const isNowInSessionGap =
+    nowMs < currentSegment.startInstant || nowMs >= currentSegment.endInstant;
 
   // Weekend closure runs Friday 20:00 ET → Sunday 20:00 ET. Pick the ongoing
   // weekend when the cycle day sits inside one, otherwise the upcoming one.
@@ -490,11 +496,13 @@ export function resolveUSMarketStatusVariant({
         return EUSMarketStatusVariant.Open;
     }
   };
-  const tradingHours = getUSMarketTradingHours(now);
+  // The cycle computation below is Intl-heavy — keep it off the early-return
+  // paths above and compute it only where a session/gap decision is needed.
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
       return EUSMarketStatusVariant.ClosedTradable;
     }
+    const tradingHours = getUSMarketTradingHours(now);
     // Inter-session gap: the underlying venues pause trading while switching
     // session state (OK-58509), overriding the backend session refinement.
     if (tradingHours.isNowInSessionGap) {
@@ -505,6 +513,7 @@ export function resolveUSMarketStatusVariant({
     // clock session, matching resolveUSTradingHoursActiveRow.
     return sessionKeyToVariant(sessionKey ?? tradingHours.currentSessionKey);
   }
+  const tradingHours = getUSMarketTradingHours(now);
   const nowMs = now.getTime();
   if (
     nowMs >= tradingHours.weekendStartInstant &&
@@ -512,6 +521,7 @@ export function resolveUSMarketStatusVariant({
   ) {
     return EUSMarketStatusVariant.ClosedTradable;
   }
+  // Same gap-to-halt rule as the status branch above.
   if (tradingHours.isNowInSessionGap) {
     return EUSMarketStatusVariant.Halted;
   }

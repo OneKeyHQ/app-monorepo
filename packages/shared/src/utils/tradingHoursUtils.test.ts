@@ -12,6 +12,9 @@ import {
 import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
 
 const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+// 09:30:30 EST — inside the opening-cross gap between pre-market and regular
+const GAP_NOW = new Date('2026-01-15T14:30:30Z');
 
 describe('getUSMarketTradingHours', () => {
   it('computes EST (winter) cycle boundaries as UTC instants', () => {
@@ -105,15 +108,12 @@ describe('getUSMarketTradingHours', () => {
     // 09:30 (opening cross), 16:00 and 20:00–20:04 ET belong to no session
     const gapMinutes = res.segments
       .slice(1)
-      .map(
-        (s, i) => (s.startInstant - res.segments[i].endInstant) / (60 * 1000),
-      );
+      .map((s, i) => (s.startInstant - res.segments[i].endInstant) / MINUTE);
     expect(gapMinutes).toEqual([1, 1, 5]);
   });
 
   it('flags a now inside an inter-session gap', () => {
-    // 14:30:30 UTC = 09:30:30 EST — between pre-market end and regular start
-    const res = getUSMarketTradingHours(new Date('2026-01-15T14:30:30Z'));
+    const res = getUSMarketTradingHours(GAP_NOW);
     expect(res.isNowInSessionGap).toBe(true);
     expect(res.currentSessionKey).toBe(EUSMarketSessionKey.Regular);
     // Mid-session times are not gaps
@@ -293,15 +293,13 @@ describe('resolveUSMarketStatusVariant', () => {
   });
 
   it('marks inter-session gaps as halted', () => {
-    // 14:30:30 UTC = 09:30:30 EST — the opening-cross switch window
-    const gapNow = new Date('2026-01-15T14:30:30Z');
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
         isOpen: true,
         status: status('REGULAR'),
-        now: gapNow,
+        now: GAP_NOW,
       }),
     ).toBe(EUSMarketStatusVariant.Halted);
     // …and applies on the pure clock fallback as well.
@@ -309,7 +307,7 @@ describe('resolveUSMarketStatusVariant', () => {
       resolveUSMarketStatusVariant({
         source: ondo,
         isOpen: true,
-        now: gapNow,
+        now: GAP_NOW,
       }),
     ).toBe(EUSMarketStatusVariant.Halted);
   });
@@ -414,16 +412,14 @@ describe('resolveUSTradingHoursActiveRow', () => {
   });
 
   it('highlights the halts row during inter-session gaps', () => {
-    // 14:30:30 UTC = 09:30:30 EST — the opening-cross switch window
-    const gapNow = new Date('2026-01-15T14:30:30Z');
-    const gapHours = getUSMarketTradingHours(gapNow);
+    const gapHours = getUSMarketTradingHours(GAP_NOW);
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSTradingHoursActiveRow({
         isOpen: true,
         status: status('REGULAR'),
         tradingHours: gapHours,
-        now: gapNow,
+        now: GAP_NOW,
       }),
     ).toBe('halts');
     // …and applies on the pure clock fallback as well.
@@ -431,7 +427,7 @@ describe('resolveUSTradingHoursActiveRow', () => {
       resolveUSTradingHoursActiveRow({
         isOpen: true,
         tradingHours: gapHours,
-        now: gapNow,
+        now: GAP_NOW,
       }),
     ).toBe('halts');
   });

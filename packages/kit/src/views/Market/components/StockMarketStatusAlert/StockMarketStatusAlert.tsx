@@ -19,7 +19,7 @@ export type IStockMarketStatusAlertProps = {
   timeText?: string | null;
   /**
    * Navigate to the Perps (contract) screen for this underlying. Provide it for
-   * the "with Perps" cases (1 & 4); the Perps button only renders when set.
+   * the "with Perps" cases (1, 4 & 5); the Perps button only renders when set.
    */
   onTradePerps?: () => void;
   testID?: string;
@@ -43,79 +43,76 @@ export function StockMarketStatusAlert({
     return null;
   }
 
-  const waitText = intl.formatMessage({
-    id: ETranslations.trade_stock_wait_for_reopen,
-  });
-  // "Wait for market to reopen, you can still trade Perps" (unknown time + Perps).
-  const waitWithPerpsText = intl.formatMessage({
-    id: ETranslations.trade_stock_wait_reopens_in_perps,
-  });
+  const trimmedTimeText = timeText?.trim();
   // "{countdown}, you can still trade Perps" — backend countdown + Perps suffix.
-  // Falls back to the no-time variant if the countdown is somehow missing.
-  const timeWithPerpsText = timeText?.trim()
-    ? intl.formatMessage(
-        { id: ETranslations.trade_stock_reopen_eta_perps },
-        { time: stripTrailingSentencePunctuation(timeText.trim()) },
-      )
-    : waitWithPerpsText;
-  // Perps button (cases 1 & 4); only when the caller provided a handler.
-  const perpsAction = onTradePerps
-    ? {
-        primary: intl.formatMessage({ id: ETranslations.global_perp }),
-        onPrimaryPress: onTradePerps,
-        primaryVariant: 'secondary' as const,
-        primaryTestID: 'stock-market-status-perps-action',
-      }
-    : undefined;
-
-  let titleId = ETranslations.trade_stock_market_closed;
-  let description = waitText;
-  let action: typeof perpsAction;
-  switch (statusCase) {
-    // 1. known time + Perps: countdown + "you can still trade Perps", offer Perps.
-    case EStockMarketStatusCase.ClosedKnownTimeWithPerps:
-      description = timeWithPerpsText;
-      action = perpsAction;
-      break;
-    // 2. known time, no Perps: show the countdown.
-    case EStockMarketStatusCase.ClosedKnownTimeNoPerps:
-      description = timeText?.trim() || waitText;
-      break;
-    // 4. unknown time + Perps: ask to wait, offer Perps.
-    case EStockMarketStatusCase.ClosedUnknownTimeWithPerps:
-      description = waitWithPerpsText;
-      action = perpsAction;
-      break;
-    // 5. halted (OK-58655): "Trading halts" title; body is the backend halt
-    // sentence (+ Perps suffix when a Perps handoff exists). The "wait for
-    // reopen" copy would be wrong here, so fall back to the generic halts
-    // description instead.
-    case EStockMarketStatusCase.Halted:
-      titleId = ETranslations.trading_hours_trading_halts;
-      if (timeText?.trim()) {
-        description = onTradePerps ? timeWithPerpsText : timeText.trim();
-      } else {
-        description = intl.formatMessage({
+  const formatTimeWithPerps = (time: string) =>
+    intl.formatMessage(
+      { id: ETranslations.trade_stock_reopen_eta_perps },
+      { time: stripTrailingSentencePunctuation(time) },
+    );
+  const getDescription = () => {
+    switch (statusCase) {
+      // 1. known time + Perps: countdown + "you can still trade Perps";
+      // falls back to the no-time variant if the countdown is somehow missing.
+      case EStockMarketStatusCase.ClosedKnownTimeWithPerps:
+        return trimmedTimeText
+          ? formatTimeWithPerps(trimmedTimeText)
+          : intl.formatMessage({
+              id: ETranslations.trade_stock_wait_reopens_in_perps,
+            });
+      // 2. known time, no Perps: show the countdown.
+      case EStockMarketStatusCase.ClosedKnownTimeNoPerps:
+        return (
+          trimmedTimeText ||
+          intl.formatMessage({ id: ETranslations.trade_stock_wait_for_reopen })
+        );
+      // 4. unknown time + Perps: ask to wait, offer Perps.
+      case EStockMarketStatusCase.ClosedUnknownTimeWithPerps:
+        return intl.formatMessage({
+          id: ETranslations.trade_stock_wait_reopens_in_perps,
+        });
+      // 5. halted (OK-58655): backend halt sentence (+ Perps suffix) — the
+      // "wait for market to reopen" copy would be wrong for a halt.
+      case EStockMarketStatusCase.Halted:
+        if (trimmedTimeText) {
+          return onTradePerps
+            ? formatTimeWithPerps(trimmedTimeText)
+            : trimmedTimeText;
+        }
+        return intl.formatMessage({
           id: ETranslations.trading_hours_trading_halts_description,
         });
-      }
-      action = perpsAction;
-      break;
-    // 3. unknown time, no Perps: ask to wait.
-    case EStockMarketStatusCase.ClosedUnknownTimeNoPerps:
-    default:
-      description = waitText;
-      break;
-  }
+      // 3. unknown time, no Perps: ask to wait.
+      case EStockMarketStatusCase.ClosedUnknownTimeNoPerps:
+      default:
+        return intl.formatMessage({
+          id: ETranslations.trade_stock_wait_for_reopen,
+        });
+    }
+  };
 
   return (
     <Alert
       testID={testID}
       type="warning"
       icon="InfoCircleOutline"
-      title={intl.formatMessage({ id: titleId })}
-      description={description}
-      action={action}
+      title={intl.formatMessage({
+        id:
+          statusCase === EStockMarketStatusCase.Halted
+            ? ETranslations.trading_hours_trading_halts
+            : ETranslations.trade_stock_market_closed,
+      })}
+      description={getDescription()}
+      action={
+        onTradePerps
+          ? {
+              primary: intl.formatMessage({ id: ETranslations.global_perp }),
+              onPrimaryPress: onTradePerps,
+              primaryVariant: 'secondary' as const,
+              primaryTestID: 'stock-market-status-perps-action',
+            }
+          : undefined
+      }
       actionLayout="horizontal"
     />
   );

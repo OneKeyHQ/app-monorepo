@@ -475,30 +475,33 @@ function TradingHoursDialogHeader() {
   );
 }
 
-/**
- * Vertical space reserved for everything around the scrollable body: the
- * sheet grabber, the dialog header row and a top gap so the sheet never
- * covers the full screen.
- */
+// Sheet chrome around the scrollable body: grabber + header row + a top gap.
 const DIALOG_BODY_RESERVED_HEIGHT = 160;
+// Keep a usable body even on absurdly short windows.
+const DIALOG_BODY_MIN_HEIGHT = 240;
 
 /**
  * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
- * viewport (extension popup, small phones — especially with longer English
- * copy, OK-58516) would simply clip its bottom. Bound the body by the window
- * height and let it scroll; when the content fits, the ScrollView collapses
- * to content height and nothing changes visually.
+ * viewport (extension popup, small phones, longer English copy — OK-58516)
+ * would clip its bottom. Bound the body by the window height and let it
+ * scroll; when the content fits, the ScrollView collapses to content height.
  */
 function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
   const { height: windowHeight } = useWindowDimensions();
+  // Window resizes only move the ScrollView bound — keep the panel subtree
+  // from re-reconciling on every resize tick.
+  const content = useMemo(() => <TradingHoursContent stock={stock} />, [stock]);
   return (
     <YStack>
       <TradingHoursDialogHeader />
       <ScrollView
-        maxHeight={windowHeight - DIALOG_BODY_RESERVED_HEIGHT}
+        maxHeight={Math.max(
+          DIALOG_BODY_MIN_HEIGHT,
+          windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
+        )}
         nestedScrollEnabled
       >
-        <TradingHoursContent stock={stock} />
+        {content}
       </ScrollView>
     </YStack>
   );
