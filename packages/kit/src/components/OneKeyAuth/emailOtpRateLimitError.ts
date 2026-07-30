@@ -60,25 +60,27 @@ export function createEmailOtpRateLimitError({
 export function getEmailOtpRateLimitRetryAfterSeconds(
   error: unknown,
 ): number | undefined {
-  const data = (
-    error as
-      | {
-          data?: Partial<IEmailOtpRateLimitErrorData>;
-        }
-      | undefined
-  )?.data;
-  if (data?.type !== EMAIL_OTP_RATE_LIMIT_ERROR_TYPE) {
-    return undefined;
+  const candidate = error as
+    | {
+        code?: unknown;
+        data?: Partial<IEmailOtpRateLimitErrorData>;
+        message?: unknown;
+      }
+    | undefined;
+  const data = candidate?.data;
+  if (data?.type === EMAIL_OTP_RATE_LIMIT_ERROR_TYPE) {
+    const retryAfterSeconds = data.retryAfterSeconds;
+    if (
+      typeof retryAfterSeconds === 'number' &&
+      Number.isSafeInteger(retryAfterSeconds) &&
+      retryAfterSeconds >= 0
+    ) {
+      return retryAfterSeconds;
+    }
   }
 
-  const retryAfterSeconds = data.retryAfterSeconds;
-  if (
-    typeof retryAfterSeconds !== 'number' ||
-    !Number.isSafeInteger(retryAfterSeconds) ||
-    retryAfterSeconds < 0
-  ) {
-    return undefined;
-  }
-
-  return retryAfterSeconds;
+  return parseEmailOtpRateLimitRetryAfterSeconds({
+    code: candidate?.code,
+    message: candidate?.message,
+  });
 }

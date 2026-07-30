@@ -86,6 +86,23 @@ describe('sessionPreservingSupabaseFetch', () => {
     ).resolves.toBe(response);
   });
 
+  test('passes through the definitive email OTP cooldown when content-type is not exposed', async () => {
+    const response = createErrorResponse({
+      body: JSON.stringify({
+        code: 'over_email_send_rate_limit',
+        message:
+          'For security purposes, you can only request this after 17 seconds.',
+      }),
+      contentType: '',
+    });
+    globalThis.fetch = jest.fn(async () => response);
+    const guardedFetch = await getGuardedFetch();
+
+    await expect(
+      guardedFetch('https://example.supabase.co/auth/v1/otp'),
+    ).resolves.toBe(response);
+  });
+
   test('keeps refresh-token HTTP 429 session-preserving', async () => {
     const response = createErrorResponse({
       body: JSON.stringify({

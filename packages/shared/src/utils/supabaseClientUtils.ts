@@ -209,14 +209,7 @@ function isDefinitiveEmailOtpCooldownResponse({
   response: Response;
   bodyText: string | undefined;
 }): boolean {
-  if (
-    response.status !== 429 ||
-    !bodyText ||
-    !response.headers
-      ?.get?.('content-type')
-      ?.toLowerCase()
-      .includes('application/json')
-  ) {
+  if (response.status !== 429 || !bodyText) {
     return false;
   }
 
@@ -265,10 +258,12 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
     // are exactly the intermediary responses worth identifying).
     const bodyPrefix = await readErrorBodyPrefixBestEffort(response);
     // The OTP cooldown is a definitive, user-actionable GoTrue verdict, not
-    // a refresh-session failure. Pass only this exact endpoint + JSON code
-    // through so the UI can show the server retry delay. Every refresh-token
-    // 429 and intermediary/non-JSON 429 remains a fetch rejection, preserving
-    // the persisted rotating refresh-token session.
+    // a refresh-session failure. Pass only this exact endpoint + parseable
+    // JSON code through so the UI can show the server retry delay. Do not
+    // depend on content-type: browser CORS and intermediaries may hide or
+    // rewrite that header even when the body is the definitive GoTrue JSON.
+    // Every refresh-token 429 and intermediary/non-JSON 429 remains a fetch
+    // rejection, preserving the persisted rotating refresh-token session.
     if (
       isDefinitiveEmailOtpCooldownResponse({
         input,

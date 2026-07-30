@@ -52,4 +52,14 @@ describe('emailOtpRateLimitError', () => {
 
     expect(getEmailOtpRateLimitRetryAfterSeconds(error.serialize())).toBe(33);
   });
+
+  test('reads the delay from a raw Supabase cooldown error', () => {
+    expect(
+      getEmailOtpRateLimitRetryAfterSeconds({
+        code: 'over_email_send_rate_limit',
+        message:
+          'For security purposes, you can only request this after 17 seconds.',
+      }),
+    ).toBe(17);
+  });
 });

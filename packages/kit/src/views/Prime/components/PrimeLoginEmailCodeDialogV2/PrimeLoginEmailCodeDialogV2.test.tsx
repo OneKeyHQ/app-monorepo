@@ -119,4 +119,30 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       title: ETranslations.email_verification_rate_limit,
     });
   });
+
+  test('uses the server retry-after value when Supabase rejects with its raw cooldown error', async () => {
+    const sendCode = jest.fn().mockRejectedValue({
+      code: 'over_email_send_rate_limit',
+      message:
+        'For security purposes, you can only request this after 17 seconds.',
+    });
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={sendCode}
+        loginWithCode={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(sendCode).toHaveBeenCalledWith({ email: 'test@example.com' });
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (17s)`,
+      );
+    });
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.email_verification_rate_limit,
+    });
+  });
 });
