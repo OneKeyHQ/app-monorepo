@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Збережіть ці налаштування адреси",
   "firmware_check": "Перевірка мікропрограми",
   "firmware_check_desc": "Перевірте, чи на вашому {deviceLabel} встановлено останню версію програмного забезпечення",
+  "firmware_check_skipped_title": "Ви пропустили перевірку мікропрограми",
   "firmware_check_success_title": "Ваша прошивка готова",
   "firmware_update.changelog_introduction": "Доступне нове оновлення прошивки з такими покращеннями:",
   "firmware_update.error_transfer_interrupted": "Передачу перервано. Залишіть пристрій підключеним і спробуйте ще раз.",

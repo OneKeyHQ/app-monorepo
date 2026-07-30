@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Speichere diese Adresseinstellungen",
   "firmware_check": "Firmware-Check",
   "firmware_check_desc": "Prüfen Sie, ob Ihr {deviceLabel} die neueste Software hat",
+  "firmware_check_skipped_title": "Sie haben den Firmware-Check übersprungen",
   "firmware_check_success_title": "Ihre Firmware ist bereit",
   "firmware_update.changelog_introduction": "Neue Firmware-Aktualisierung verfügbar mit den folgenden Verbesserungen:",
   "firmware_update.error_transfer_interrupted": "Übertragung unterbrochen. Bitte halten Sie Ihr Gerät verbunden und versuchen Sie es erneut.",

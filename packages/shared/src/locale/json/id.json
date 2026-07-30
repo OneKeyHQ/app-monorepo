@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Simpan pengaturan alamat ini",
   "firmware_check": "Pemeriksaan firmware",
   "firmware_check_desc": "Periksa apakah {deviceLabel} Anda memiliki perangkat lunak terbaru",
+  "firmware_check_skipped_title": "Anda melewatkan pemeriksaan firmware",
   "firmware_check_success_title": "Firmware Anda siap",
   "firmware_update.changelog_introduction": "Pembaruan firmware baru tersedia dengan peningkatan berikut:",
   "firmware_update.error_transfer_interrupted": "Transfer terputus. Harap tetap sambungkan perangkat Anda dan coba lagi.",

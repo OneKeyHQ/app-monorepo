@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Сохранить эти настройки адреса",
   "firmware_check": "Проверка прошивки",
   "firmware_check_desc": "Проверьте, обновлено ли программное обеспечение на вашем {deviceLabel}",
+  "firmware_check_skipped_title": "Вы пропустили проверку прошивки",
   "firmware_check_success_title": "Ваша прошивка готова",
   "firmware_update.changelog_introduction": "Доступно новое обновление прошивки с следующими улучшениями:",
   "firmware_update.error_transfer_interrupted": "Передача прервана. Оставьте устройство подключенным и повторите попытку.",

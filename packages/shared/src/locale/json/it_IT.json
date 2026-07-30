@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Salva queste impostazioni dell'indirizzo",
   "firmware_check": "Verifica firmware",
   "firmware_check_desc": "Verifica se il tuo {deviceLabel} ha il software più recente",
+  "firmware_check_skipped_title": "Hai saltato la verifica del firmware",
   "firmware_check_success_title": "Il tuo firmware è pronto",
   "firmware_update.changelog_introduction": "Nuovo aggiornamento firmware disponibile con i seguenti miglioramenti:",
   "firmware_update.error_transfer_interrupted": "Trasferimento interrotto. Mantieni il dispositivo collegato e riprova.",

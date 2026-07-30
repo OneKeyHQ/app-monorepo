@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "Enregistrer ces paramètres d’adresse",
   "firmware_check": "Vérification du micrologiciel",
   "firmware_check_desc": "Vérifiez si votre {deviceLabel} dispose du dernier logiciel",
+  "firmware_check_skipped_title": "Vous avez ignoré la vérification du micrologiciel",
   "firmware_check_success_title": "Votre micrologiciel est prêt",
   "firmware_update.changelog_introduction": "Nouvelle mise à jour du firmware disponible avec les améliorations suivantes :",
   "firmware_update.error_transfer_interrupted": "Transfert interrompu. Veuillez garder votre appareil connecté et réessayer.",

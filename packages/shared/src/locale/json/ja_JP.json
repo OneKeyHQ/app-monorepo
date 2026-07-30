@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "これらのアドレス設定を保存",
   "firmware_check": "ファームウェアの確認",
   "firmware_check_desc": "お使いの{deviceLabel}に最新のソフトウェアがあるか確認する",
+  "firmware_check_skipped_title": "ファームウェアの確認をスキップしました",
   "firmware_check_success_title": "ファームウェアの準備ができました",
   "firmware_update.changelog_introduction": "次の改善を含む新しいファームウェアのアップデートが利用可能です。",
   "firmware_update.error_transfer_interrupted": "転送が中断されました。デバイスを接続したまま、もう一度お試しください。",

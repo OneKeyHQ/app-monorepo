@@ -1198,6 +1198,7 @@ export enum ETranslations {
   find_address_warning__title = 'find_address_warning__title',
   firmware_check = 'firmware_check',
   firmware_check_desc = 'firmware_check_desc',
+  firmware_check_skipped_title = 'firmware_check_skipped_title',
   firmware_check_success_title = 'firmware_check_success_title',
   firmware_update_changelog_introduction = 'firmware_update.changelog_introduction',
   firmware_update_error_transfer_interrupted = 'firmware_update.error_transfer_interrupted',

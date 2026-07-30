@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "이 주소 설정을 저장",
   "firmware_check": "펌웨어 점검",
   "firmware_check_desc": "{deviceLabel}에 최신 소프트웨어가 있는지 확인하세요",
+  "firmware_check_skipped_title": "펌웨어 점검을 건너뛰었습니다",
   "firmware_check_success_title": "펌웨어가 준비되었습니다",
   "firmware_update.changelog_introduction": "다음과 같은 개선 사항이 포함된 새로운 펌웨어 업데이트가 가능합니다:",
   "firmware_update.error_transfer_interrupted": "전송이 중단되었습니다. 기기를 연결한 상태로 유지하고 다시 시도하세요.",

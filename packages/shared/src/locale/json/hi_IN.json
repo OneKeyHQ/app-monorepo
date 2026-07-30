@@ -1193,6 +1193,7 @@
   "find_address_warning__title": "इन पता सेटिंग्स को सहेजें",
   "firmware_check": "फ़र्मवेयर जाँच",
   "firmware_check_desc": "देखें कि आपका {deviceLabel} नवीनतम सॉफ़्टवेयर पर है या नहीं",
+  "firmware_check_skipped_title": "आपने फ़र्मवेयर जाँच छोड़ दी",
   "firmware_check_success_title": "आपका फ़र्मवेयर तैयार है",
   "firmware_update.changelog_introduction": "नए फर्मवेयर अपडेट में निम्नलिखित सुधार उपलब्ध हैं:",
   "firmware_update.error_transfer_interrupted": "स्थानांतरण बाधित। कृपया अपने डिवाइस को कनेक्टेड रखें और पुनः प्रयास करें।",
