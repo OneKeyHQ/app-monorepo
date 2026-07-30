@@ -22,6 +22,7 @@ export class FirmwareScene extends BaseScene {
       | 'reading'
       | 'materializing'
       | 'sdk-contract'
+      | 'bridge-stress'
       | 'releasing'
       | 'sweeping'
       | 'completed'
@@ -32,6 +33,7 @@ export class FirmwareScene extends BaseScene {
     bytes?: number;
     chunkCount?: number;
     materializedEntryCount?: number;
+    stressCompletedIterations?: number;
     sdkEntryValidated?: boolean;
     sdkIntegrityRejected?: boolean;
     sdkBindingReleased?: boolean;

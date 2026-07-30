@@ -34,6 +34,8 @@ const createAdapter = ({
     );
   const materialize = jest.fn(materializeImpl);
   const close = jest.fn(async () => undefined);
+  const createLease = jest.fn(async () => ({ leaseRef: 'fwlease:test' }));
+  const open = jest.fn(async () => ({ readerId: 'reader-1', size }));
   const releaseLease = jest.fn(async () => undefined);
   const sweepOrphans = jest.fn(async () => ({
     deletedFiles: 2,
@@ -49,10 +51,10 @@ const createAdapter = ({
     download: jest.fn(),
     cancelDownloads: jest.fn(),
     materialize,
-    open: jest.fn(async () => ({ readerId: 'reader-1', size })),
+    open,
     read: readMock,
     close,
-    createLease: jest.fn(async () => ({ leaseRef: 'fwlease:test' })),
+    createLease,
     retain: jest.fn(async () => undefined),
     releaseLease,
     sweepOrphans,
@@ -60,7 +62,9 @@ const createAdapter = ({
   return {
     adapter,
     close,
+    createLease,
     materialize,
+    open,
     read: readMock,
     releaseLease,
     sweepOrphans,
@@ -141,11 +145,13 @@ describe('FirmwareArtifactSelfTest', () => {
   it('reads every firmware byte in bounded chunks and releases the lease', async () => {
     const { artifact } =
       await getFirmwareArtifactSelfTestArtifact('pro-firmware');
-    const { adapter, read, releaseLease } = createAdapter({
-      size: artifact.expectedSize,
-    });
+    const { adapter, close, createLease, open, read, releaseLease } =
+      createAdapter({
+        size: artifact.expectedSize,
+      });
     const progress = jest.fn();
     const sdkFixture = createSdk();
+    const download = await createDownload('pro-firmware');
 
     const result = await executeFirmwareArtifactSelfTest({
       scenario: 'pro-firmware',
@@ -155,13 +161,14 @@ describe('FirmwareArtifactSelfTest', () => {
       onProgress: progress,
       dependencies: {
         adapter,
-        download: await createDownload('pro-firmware'),
+        download,
       },
     });
 
     expect(result.bytesRead).toBe(artifact.expectedSize);
     expect(result.chunkCount).toBeGreaterThan(1);
     expect(result.materializedEntryCount).toBe(0);
+    expect(result.stressCompletedIterations).toBe(50);
     expect(result).toEqual(
       expect.objectContaining({
         sdkEntryValidated: true,
@@ -176,6 +183,11 @@ describe('FirmwareArtifactSelfTest', () => {
     expect(read).toHaveBeenCalledWith(
       expect.objectContaining({ length: expect.any(Number) }),
     );
+    expect(download).toHaveBeenCalledTimes(51);
+    expect(createLease).toHaveBeenCalledTimes(50);
+    expect(open).toHaveBeenCalledTimes(51);
+    expect(close).toHaveBeenCalledTimes(51);
+    expect(releaseLease).toHaveBeenCalledTimes(51);
     expect(releaseLease).toHaveBeenCalledWith({
       leaseRef: 'fwlease:test',
       disposition: 'completed',
@@ -277,6 +289,48 @@ describe('FirmwareArtifactSelfTest', () => {
       leaseRef: 'fwlease:test',
       disposition: 'safeAbandoned',
     });
+  });
+
+  it('reports the failing bridge-stress iteration after cleanup', async () => {
+    const { artifact } =
+      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
+    const mainChunkCount = Math.ceil(artifact.expectedSize / (256 * 1024));
+    let readCount = 0;
+    const { adapter, close, releaseLease, sweepOrphans } = createAdapter({
+      size: artifact.expectedSize,
+      read: jest.fn(async ({ length }) => {
+        readCount += 1;
+        return new ArrayBuffer(
+          readCount === mainChunkCount + 1 ? length - 1 : length,
+        );
+      }),
+    });
+    const { sdk } = createSdk();
+
+    await expect(
+      executeFirmwareArtifactSelfTest({
+        scenario: 'pro-firmware',
+        transactionId: 'fwtx:test-stress-failure',
+        leaseRef: 'fwlease:test',
+        sdk,
+        onProgress: jest.fn(),
+        dependencies: {
+          adapter,
+          download: await createDownload('pro-firmware'),
+        },
+      }),
+    ).rejects.toThrow('ARTIFACT_BRIDGE_STRESS_FAILED: iteration 1');
+
+    expect(close).toHaveBeenCalledTimes(2);
+    expect(releaseLease).toHaveBeenNthCalledWith(1, {
+      leaseRef: 'fwlease:test',
+      disposition: 'safeAbandoned',
+    });
+    expect(releaseLease).toHaveBeenNthCalledWith(2, {
+      leaseRef: 'fwlease:test',
+      disposition: 'safeAbandoned',
+    });
+    expect(sweepOrphans).toHaveBeenCalledTimes(1);
   });
 
   it('exposes only stable error codes', () => {

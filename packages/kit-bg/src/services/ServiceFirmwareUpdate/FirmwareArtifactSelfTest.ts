@@ -37,6 +37,7 @@ export type IFirmwareArtifactSelfTestPhase =
   | 'reading'
   | 'materializing'
   | 'sdk-contract'
+  | 'bridge-stress'
   | 'releasing'
   | 'sweeping'
   | 'completed'
@@ -67,12 +68,14 @@ export type IFirmwareArtifactSelfTestProgress = {
   bytesRead?: number;
   chunkCount?: number;
   materializedEntryCount?: number;
+  stressCompletedIterations?: number;
 };
 
 export type IFirmwareArtifactSelfTestResult = {
   bytesRead: number;
   chunkCount: number;
   materializedEntryCount: number;
+  stressCompletedIterations: number;
   sdkEntryValidated: boolean;
   sdkIntegrityRejected: boolean;
   sdkBindingReleased: boolean;
@@ -94,6 +97,7 @@ export type IFirmwareArtifactSelfTestState = {
   bytesRead: number;
   chunkCount: number;
   materializedEntryCount: number;
+  stressCompletedIterations: number;
   sdkEntryValidated: boolean;
   sdkIntegrityRejected: boolean;
   sdkBindingReleased: boolean;
@@ -110,6 +114,8 @@ type IFirmwareArtifactSelfTestDependencies = {
 
 const PRO_FIRMWARE_VERSION = '4.21.0';
 const READER_CHUNK_BYTES = 256 * 1024;
+const BRIDGE_STRESS_READ_BYTES = 4 * 1024;
+const BRIDGE_STRESS_ITERATIONS = 50;
 const SDK_SELF_TEST_CONNECT_ID = '__firmware_sdk_self_test_no_device__';
 
 type IFirmwareArtifactSelfTestSdk = Pick<
@@ -476,6 +482,96 @@ const executeFirmwareArtifactSdkProbe = async ({
   }
 };
 
+const executeFirmwareArtifactBridgeStress = async ({
+  adapter,
+  download,
+  artifact,
+  artifactId,
+  transactionId,
+  onProgress,
+}: {
+  adapter: IFirmwareArtifactAdapter;
+  download: typeof downloadTrustedFirmwareArtifact;
+  artifact: ITrustedFirmwareArtifact;
+  artifactId: string;
+  transactionId: string;
+  onProgress: (progress: IFirmwareArtifactSelfTestProgress) => void;
+}): Promise<number> => {
+  let completedIterations = 0;
+  for (let index = 0; index < BRIDGE_STRESS_ITERATIONS; index += 1) {
+    const stressTransactionId = `${transactionId}:stress:${index + 1}`;
+    let leaseRef: string | undefined;
+    let readerId: string | undefined;
+    let failure: unknown;
+    try {
+      leaseRef = (await adapter.createLease(stressTransactionId)).leaseRef;
+      const receipt = await download({
+        artifact,
+        artifactId,
+        transactionId: stressTransactionId,
+        leaseRef,
+        deadlineAt: Date.now() + 5 * 60 * 1000,
+      });
+      const reader = await adapter.open(receipt.artifactRef);
+      readerId = reader.readerId;
+      if (reader.size !== artifact.expectedSize) {
+        throw new OneKeyLocalError(
+          'Firmware artifact stress reader size does not match the catalog',
+        );
+      }
+      const length = Math.min(BRIDGE_STRESS_READ_BYTES, reader.size);
+      const chunk = await adapter.read({
+        readerId,
+        offset: 0,
+        length,
+      });
+      if (chunk.byteLength !== length) {
+        throw new OneKeyLocalError(
+          'Firmware artifact stress reader returned an incomplete chunk',
+        );
+      }
+      await adapter.close(readerId);
+      readerId = undefined;
+    } catch (error) {
+      failure = error;
+    }
+
+    if (readerId) {
+      try {
+        await adapter.close(readerId);
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (leaseRef) {
+      try {
+        await adapter.releaseLease({
+          leaseRef,
+          disposition: failure ? 'safeAbandoned' : 'completed',
+        });
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (failure) {
+      const message =
+        failure instanceof Error ? failure.message : String(failure);
+      throw new OneKeyLocalError(
+        `ARTIFACT_BRIDGE_STRESS_FAILED: iteration ${index + 1}: ${message}`,
+      );
+    }
+
+    completedIterations += 1;
+    onProgress({
+      phase: 'bridge-stress',
+      progress:
+        92 + Math.floor((completedIterations / BRIDGE_STRESS_ITERATIONS) * 2),
+      stressCompletedIterations: completedIterations,
+    });
+  }
+  return completedIterations;
+};
+
 export const executeFirmwareArtifactSelfTest = async ({
   scenario,
   transactionId,
@@ -529,6 +625,7 @@ export const executeFirmwareArtifactSelfTest = async ({
   let bytesRead = 0;
   let chunkCount = 0;
   let materializedEntryCount = 0;
+  let stressCompletedIterations = 0;
   let sdkEntryValidated = false;
   let sdkIntegrityRejected = false;
   let sdkBindingReleased = false;
@@ -632,6 +729,16 @@ export const executeFirmwareArtifactSelfTest = async ({
     sdkIntegrityRejected = sdkResult.sdkIntegrityRejected;
     sdkBindingReleased = sdkResult.sdkBindingReleased;
     sdkBoundaryCode = sdkResult.sdkBoundaryCode;
+    if (scenario === 'pro-firmware') {
+      stressCompletedIterations = await executeFirmwareArtifactBridgeStress({
+        adapter,
+        download,
+        artifact,
+        artifactId,
+        transactionId,
+        onProgress,
+      });
+    }
   } catch (error) {
     failure = error;
     disposition =
@@ -655,6 +762,7 @@ export const executeFirmwareArtifactSelfTest = async ({
     bytesRead,
     chunkCount,
     materializedEntryCount,
+    stressCompletedIterations,
   });
   try {
     await adapter.releaseLease({ leaseRef, disposition });
@@ -668,6 +776,7 @@ export const executeFirmwareArtifactSelfTest = async ({
     bytesRead,
     chunkCount,
     materializedEntryCount,
+    stressCompletedIterations,
   });
   try {
     const sweep = await adapter.sweepOrphans();
@@ -686,6 +795,7 @@ export const executeFirmwareArtifactSelfTest = async ({
     bytesRead,
     chunkCount,
     materializedEntryCount,
+    stressCompletedIterations,
     sdkEntryValidated,
     sdkIntegrityRejected,
     sdkBindingReleased,

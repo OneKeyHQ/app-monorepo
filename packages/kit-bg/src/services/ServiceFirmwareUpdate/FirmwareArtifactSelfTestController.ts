@@ -41,6 +41,7 @@ export class FirmwareArtifactSelfTestController {
     bytesRead,
     chunkCount,
     materializedEntryCount,
+    stressCompletedIterations,
   }: IFirmwareArtifactSelfTestProgress): void {
     const current = this.state;
     if (!current || current.status !== 'running') return;
@@ -53,6 +54,8 @@ export class FirmwareArtifactSelfTestController {
       chunkCount: chunkCount ?? current.chunkCount,
       materializedEntryCount:
         materializedEntryCount ?? current.materializedEntryCount,
+      stressCompletedIterations:
+        stressCompletedIterations ?? current.stressCompletedIterations,
     };
     this.state = next;
     const enteredNewPhase = phase !== current.phase;
@@ -81,6 +84,7 @@ export class FirmwareArtifactSelfTestController {
       bytes: state.bytesRead || undefined,
       chunkCount: state.chunkCount || undefined,
       materializedEntryCount: state.materializedEntryCount || undefined,
+      stressCompletedIterations: state.stressCompletedIterations || undefined,
       sdkEntryValidated: state.sdkEntryValidated || undefined,
       sdkIntegrityRejected: state.sdkIntegrityRejected || undefined,
       sdkBindingReleased: state.sdkBindingReleased || undefined,
@@ -155,6 +159,8 @@ export class FirmwareArtifactSelfTestController {
       chunkCount: result?.chunkCount ?? current.chunkCount,
       materializedEntryCount:
         result?.materializedEntryCount ?? current.materializedEntryCount,
+      stressCompletedIterations:
+        result?.stressCompletedIterations ?? current.stressCompletedIterations,
       sdkEntryValidated: result?.sdkEntryValidated ?? current.sdkEntryValidated,
       sdkIntegrityRejected:
         result?.sdkIntegrityRejected ?? current.sdkIntegrityRejected,
@@ -200,6 +206,7 @@ export class FirmwareArtifactSelfTestController {
       bytesRead: 0,
       chunkCount: 0,
       materializedEntryCount: 0,
+      stressCompletedIterations: 0,
       sdkEntryValidated: false,
       sdkIntegrityRejected: false,
       sdkBindingReleased: false,

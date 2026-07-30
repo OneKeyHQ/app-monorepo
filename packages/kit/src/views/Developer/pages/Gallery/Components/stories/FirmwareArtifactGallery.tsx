@@ -28,7 +28,8 @@ const scenarios: {
   {
     scenario: 'pro-firmware',
     title: 'Validate Pro firmware',
-    description: 'Raw firmware, approximately 4 MB',
+    description:
+      'Raw firmware, SDK contract, and 50 cached native bridge cycles',
     testID: DeveloperTestIDs.firmwareArtifactRunFirmware,
   },
   {
@@ -100,6 +101,11 @@ function FirmwareArtifactStatus({
         <SizableText size="$bodySm">
           Materialized entries: {state.materializedEntryCount}
         </SizableText>
+        {state.descriptor.scenario === 'pro-firmware' ? (
+          <SizableText size="$bodySm">
+            Bridge stress: {state.stressCompletedIterations} / 50
+          </SizableText>
+        ) : null}
         <SizableText size="$bodySm">
           SDK entry: {state.sdkEntryValidated ? 'validated' : 'pending'}
         </SizableText>
