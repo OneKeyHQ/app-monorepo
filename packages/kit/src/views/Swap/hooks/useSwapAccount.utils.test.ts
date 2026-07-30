@@ -2,10 +2,122 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
+  getSwapRecipientActionState,
+  getSwapRecipientValidationAccountId,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+describe('getSwapRecipientActionState', () => {
+  const validState = {
+    isActionDisabled: false,
+    isRefreshAction: false,
+    noConnectWallet: false,
+    hasQuoteToAmount: true,
+    recipientAddress: undefined,
+    isAddressInfoReady: true,
+    providerSupportReceiveAddress: true,
+  };
+
+  it('allows recipient entry after target address resolution completes', () => {
+    expect(getSwapRecipientActionState(validState)).toEqual({
+      shouldEnterRecipient: true,
+      shouldDisableAction: false,
+    });
+  });
+
+  it('disables the action while target address resolution is pending', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isAddressInfoReady: false,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('disables the action when the provider does not support a recipient', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        providerSupportReceiveAddress: false,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('preserves an existing disabled state when recipient entry is otherwise allowed', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isActionDisabled: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: true,
+    });
+  });
+
+  it('preserves a refresh action when the recipient address is missing', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        isRefreshAction: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: false,
+    });
+  });
+
+  it('preserves a connect-wallet action when the recipient address is missing', () => {
+    expect(
+      getSwapRecipientActionState({
+        ...validState,
+        noConnectWallet: true,
+      }),
+    ).toEqual({
+      shouldEnterRecipient: false,
+      shouldDisableAction: false,
+    });
+  });
+});
+
+describe('getSwapRecipientValidationAccountId', () => {
+  it('uses the account when it owns the resolved recipient address', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'account-1',
+        accountAddress: '0xABCD',
+        recipientAddress: '0xabcd',
+      }),
+    ).toBe('account-1');
+  });
+
+  it('omits a source account that could not resolve on the recipient network', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'watching--ltc',
+        accountAddress: 'ltc1source',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('omits an account that does not own the recipient address', () => {
+    expect(
+      getSwapRecipientValidationAccountId({
+        accountId: 'account-1',
+        accountAddress: '0xaaaa',
+        recipientAddress: '0xbbbb',
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('getSwapAddressAccountSelectorNum', () => {
   it('uses the source account for the FROM address', () => {
