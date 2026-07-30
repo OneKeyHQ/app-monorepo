@@ -11,6 +11,8 @@ import { usePrimeInfiniPaymentPolling } from './usePrimeInfiniPaymentPolling';
 
 let visibilityHandler: ((visible: boolean) => void) | undefined;
 let routeFocused = true;
+const mockPrimeCryptoPaymentError = jest.fn();
+const mockPrimeCryptoPaymentFlow = jest.fn();
 
 const globalMockBag = globalThis as typeof globalThis & {
   __primeInfiniPollingService?: {
@@ -47,7 +49,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
       subscription: {
-        primeCryptoPaymentFlow: jest.fn(),
+        primeCryptoPaymentError: (...args: unknown[]) => {
+          mockPrimeCryptoPaymentError(...args);
+        },
+        primeCryptoPaymentFlow: (...args: unknown[]) => {
+          mockPrimeCryptoPaymentFlow(...args);
+        },
       },
     },
   },
@@ -665,6 +672,48 @@ describe('usePrimeInfiniPaymentPolling', () => {
       expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(1);
     });
     expect(onTerminal).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('reports both request errors from the same polling cycle', async () => {
+    const payment = buildPayment('payment-a');
+    const paymentError = new Error('payment endpoint failed');
+    const purchaseStatusError = new Error('purchase status endpoint failed');
+    const onIssue = jest.fn();
+    servicePrime.apiGetInfiniPayment.mockRejectedValue(paymentError);
+    servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockRejectedValue(
+      purchaseStatusError,
+    );
+
+    const { unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal: jest.fn(),
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(onIssue).toHaveBeenCalledWith(paymentError);
+    });
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledTimes(2);
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'paymentUnavailableOrSnapshotMismatch',
+        errorMessage: 'payment endpoint failed',
+      }),
+    );
+    expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'purchaseStatusUnavailable',
+        errorMessage: 'purchase status endpoint failed',
+      }),
+    );
     unmount();
   });
 

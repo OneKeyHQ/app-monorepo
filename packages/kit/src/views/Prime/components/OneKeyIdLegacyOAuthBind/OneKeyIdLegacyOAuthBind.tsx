@@ -63,6 +63,11 @@ let isLegacyOAuthBindDialogVisible = false;
 const PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS = 3;
 const PREPARE_LOCAL_KEYLESS_RETRY_DELAY_MS = 1000;
 
+type IOneKeyIdOAuthAccountSwitchResult = 'switched' | 'cancelled' | 'failed';
+type IOneKeyIdOAuthBindDialogResult =
+  | 'bound'
+  | IOneKeyIdOAuthAccountSwitchResult;
+
 function getBindOAuthTitle({
   intl,
   provider,
@@ -221,15 +226,21 @@ function OneKeyIdLegacyOAuthBindActions({
   buttonSize = 'small',
   onBindSuccess,
   onBeforeShowNestedDialog,
+  onBeforeShowAccountSwitchDialog,
+  onAccountSwitchResult,
 }: {
   bindProvider?: EOAuthSocialLoginProvider;
   isRequiredForKeyless: boolean;
   buttonSize?: 'small' | 'large';
   onBindSuccess?: () => void | Promise<void>;
-  // Called when the flow hands off to another dialog (keyless logout, switch
-  // account): the host bind dialog should close itself and settle as
-  // not-bound before the nested dialog shows.
+  // Keyless logout ends the bind flow before its nested dialog is shown.
   onBeforeShowNestedDialog?: () => void | Promise<void>;
+  // Account switching keeps the bind flow pending until its nested dialog
+  // reports whether OAuth login completed.
+  onBeforeShowAccountSwitchDialog?: () => void | Promise<void>;
+  onAccountSwitchResult?: (
+    result: IOneKeyIdOAuthAccountSwitchResult,
+  ) => void | Promise<void>;
 }) {
   const intl = useIntl();
   const { run: runIdentityExit } = useIdentityExitFlow();
@@ -312,7 +323,7 @@ function OneKeyIdLegacyOAuthBindActions({
       provider: EOAuthSocialLoginProvider;
       oauthAccessToken: string;
       rollbackHandle?: IKeylessOAuthSessionRollbackHandle;
-    }) => {
+    }): Promise<boolean> => {
       let confirmed = false;
       try {
         confirmed = await showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
@@ -338,7 +349,7 @@ function OneKeyIdLegacyOAuthBindActions({
         if (rollbackHandle) {
           await rollbackProvisionalOAuthSession({ rollbackHandle });
         }
-        return;
+        return false;
       }
       try {
         const exitResult = await runIdentityExit({
@@ -349,7 +360,7 @@ function OneKeyIdLegacyOAuthBindActions({
           if (rollbackHandle) {
             await rollbackProvisionalOAuthSession({ rollbackHandle });
           }
-          return;
+          return false;
         }
         await backgroundApiProxy.servicePrime.apiOAuthLogin({
           accessToken: oauthAccessToken,
@@ -361,6 +372,7 @@ function OneKeyIdLegacyOAuthBindActions({
         throw error;
       }
       showOneKeyIdLoginSuccessToast(intl);
+      return true;
     },
     [
       intl,
@@ -445,28 +457,23 @@ function OneKeyIdLegacyOAuthBindActions({
               // switch flow needs it, and handleSwitchToBoundOneKeyId cleans
               // it up on cancel/failure.
               errorToastUtils.toastIfErrorDisable(error);
+              let accountSwitchResult: IOneKeyIdOAuthAccountSwitchResult =
+                'failed';
               try {
-                await onBeforeShowNestedDialog?.();
+                await onBeforeShowAccountSwitchDialog?.();
                 await timerUtils.wait(300);
-              } catch (handoffError) {
-                if (rollbackHandle) {
-                  try {
-                    await rollbackProvisionalOAuthSession({ rollbackHandle });
-                  } catch (rollbackError) {
-                    // A failed rollback must not replace the original error.
-                    console.error(
-                      'OAuth session rollback failed:',
-                      getSanitizedAuthErrorText(rollbackError),
-                    );
-                  }
-                }
-                throw handoffError;
+                accountSwitchResult = (await handleSwitchToBoundOneKeyId({
+                  provider,
+                  oauthAccessToken,
+                  rollbackHandle,
+                }))
+                  ? 'switched'
+                  : 'cancelled';
+              } catch (accountSwitchError) {
+                await onAccountSwitchResult?.('failed');
+                throw accountSwitchError;
               }
-              await handleSwitchToBoundOneKeyId({
-                provider,
-                oauthAccessToken,
-                rollbackHandle,
-              });
+              await onAccountSwitchResult?.(accountSwitchResult);
               return;
             }
             if (
@@ -516,7 +523,8 @@ function OneKeyIdLegacyOAuthBindActions({
       handleSwitchToBoundOneKeyId,
       intl,
       isRequiredForKeyless,
-      onBeforeShowNestedDialog,
+      onAccountSwitchResult,
+      onBeforeShowAccountSwitchDialog,
       onBindSuccess,
       rollbackProvisionalOAuthSession,
     ],
@@ -600,14 +608,19 @@ function OneKeyIdLegacyOAuthBindContent({
   isRequiredForKeyless = false,
   onBindSuccess,
   onBeforeShowNestedDialog,
+  onBeforeShowAccountSwitchDialog,
+  onAccountSwitchResult,
 }: {
   presentation: 'dialog' | 'inline';
   bindProvider?: EOAuthSocialLoginProvider;
   isRequiredForKeyless?: boolean;
   onBindSuccess?: () => void | Promise<void>;
   onBeforeShowNestedDialog?: () => void | Promise<void>;
+  onBeforeShowAccountSwitchDialog?: () => void | Promise<void>;
+  onAccountSwitchResult?: (
+    result: IOneKeyIdOAuthAccountSwitchResult,
+  ) => void | Promise<void>;
 }) {
-  const intl = useIntl();
   const isDialog = presentation === 'dialog';
   const content = (
     <>
@@ -622,6 +635,8 @@ function OneKeyIdLegacyOAuthBindContent({
         buttonSize={isDialog ? 'large' : 'small'}
         onBindSuccess={onBindSuccess}
         onBeforeShowNestedDialog={onBeforeShowNestedDialog}
+        onBeforeShowAccountSwitchDialog={onBeforeShowAccountSwitchDialog}
+        onAccountSwitchResult={onAccountSwitchResult}
       />
     </>
   );
@@ -630,13 +645,7 @@ function OneKeyIdLegacyOAuthBindContent({
     return (
       <Stack>
         {content}
-        <Dialog.Footer
-          showConfirmButton={false}
-          showCancelButton
-          onCancelText={intl.formatMessage({
-            id: ETranslations.skip_linking__action,
-          })}
-        />
+        <Dialog.Footer showConfirmButton={false} showCancelButton={false} />
       </Stack>
     );
   }
@@ -828,60 +837,85 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       ? intent.onBindSuccess
       : undefined;
 
-    const didBind = await new Promise<boolean>((resolve) => {
-      let isSettled = false;
-      const resolveOnce = (value: boolean) => {
-        if (!isSettled) {
-          isSettled = true;
-          resolve(value);
-        }
-      };
-      const dialog = Dialog.show({
-        dismissOnOverlayPress: false,
-        disableDrag: true,
-        disableSystemClose: true,
-        onCancel: () => resolveOnce(false),
-        onClose: () => resolveOnce(false),
-        renderContent: (
-          <OneKeyIdLegacyOAuthBindContent
-            presentation="dialog"
-            bindProvider={bindProvider}
-            isRequiredForKeyless={isRequiredForKeyless}
-            onBindSuccess={async () => {
-              if (!isSettled) {
-                isSettled = true;
-                // The bind has already committed when this runs, and
-                // isSettled=true blocks onClose/onCancel from settling, so
-                // didBind must resolve true even if closing the dialog
-                // throws; the close error itself is logged (not toasted) by
-                // the bind actions.
-                try {
-                  await dialog.close({ flag: 'confirm' });
-                } finally {
-                  resolve(true);
+    const bindDialogResult = await new Promise<IOneKeyIdOAuthBindDialogResult>(
+      (resolve) => {
+        let isSettled = false;
+        let isAccountSwitchDialogPending = false;
+        const resolveOnce = (value: IOneKeyIdOAuthBindDialogResult) => {
+          if (!isSettled) {
+            isSettled = true;
+            resolve(value);
+          }
+        };
+        const dialog = Dialog.show({
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+          disableSystemClose: true,
+          onCancel: () => {
+            if (!isAccountSwitchDialogPending) {
+              resolveOnce('cancelled');
+            }
+          },
+          onClose: () => {
+            if (!isAccountSwitchDialogPending) {
+              resolveOnce('cancelled');
+            }
+          },
+          renderContent: (
+            <OneKeyIdLegacyOAuthBindContent
+              presentation="dialog"
+              bindProvider={bindProvider}
+              isRequiredForKeyless={isRequiredForKeyless}
+              onBindSuccess={async () => {
+                if (!isSettled) {
+                  isSettled = true;
+                  // The bind has already committed when this runs, and
+                  // isSettled=true blocks onClose/onCancel from settling, so
+                  // didBind must resolve true even if closing the dialog
+                  // throws; the close error itself is logged (not toasted) by
+                  // the bind actions.
+                  try {
+                    await dialog.close({ flag: 'confirm' });
+                  } finally {
+                    resolve('bound');
+                  }
                 }
-              }
-            }}
-            onBeforeShowNestedDialog={async () => {
-              if (!isSettled) {
-                isSettled = true;
-                try {
+              }}
+              onBeforeShowNestedDialog={async () => {
+                if (!isSettled) {
+                  isSettled = true;
                   await dialog.close();
-                } finally {
-                  resolve(false);
+                  resolve('cancelled');
                 }
-              }
-            }}
-          />
-        ),
-      });
-    });
+              }}
+              onBeforeShowAccountSwitchDialog={async () => {
+                if (!isSettled) {
+                  isAccountSwitchDialogPending = true;
+                  await dialog.close();
+                }
+              }}
+              onAccountSwitchResult={async (result) => {
+                if (!isSettled) {
+                  isAccountSwitchDialogPending = false;
+                  resolveOnce(result);
+                }
+              }}
+            />
+          ),
+        });
+      },
+    );
 
-    if (didBind) {
+    const didCompleteRequiredFlow =
+      bindDialogResult === 'bound' || bindDialogResult === 'switched';
+    if (isRequiredForKeyless && didCompleteRequiredFlow) {
       await onBindSuccess?.();
     }
 
-    return didBind;
+    return (
+      bindDialogResult === 'bound' ||
+      (isRequiredForKeyless && bindDialogResult === 'switched')
+    );
   } finally {
     isLegacyOAuthBindDialogVisible = false;
   }

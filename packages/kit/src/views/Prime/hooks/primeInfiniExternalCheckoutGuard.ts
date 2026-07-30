@@ -7,6 +7,8 @@ import type {
   IPrimeInfiniPendingPaymentSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
+
 import {
   hasPrimeInfiniPaymentProgress,
   isPrimeInfiniPaymentClosedUnpaid,
@@ -71,7 +73,15 @@ export async function getPrimeInfiniPaymentEntryGuard() {
       paymentId: pendingPaymentSession.paymentCacheKey.paymentId,
       expectedOneKeyUserId: onekeyUserId,
     });
-  } catch {
+  } catch (error) {
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      checkoutType: 'internalWallet',
+      reason: 'entryGuardPaymentRefreshFailed',
+      sendStarted: pendingPaymentSession.sendStarted,
+      error,
+    });
     // The invoice state is unknown, so neither releasing the session nor
     // opening a second channel is safe. Throwing here used to lock every
     // purchase channel behind a toast until the session TTL, with the one
@@ -96,7 +106,17 @@ export async function getPrimeInfiniPaymentEntryGuard() {
             onekeyUserId,
             expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
           })
-          .catch(() => false)
+          .catch((discardError) => {
+            logPrimeInfiniPaymentFlow({
+              stage: 'paymentSession',
+              status: 'failed',
+              checkoutType: 'internalWallet',
+              reason: 'entryGuardSessionRetirementFailed',
+              sendStarted: pendingPaymentSession.sendStarted,
+              error: discardError,
+            });
+            return false;
+          })
       : false;
     return {
       isLoggedIn: true,

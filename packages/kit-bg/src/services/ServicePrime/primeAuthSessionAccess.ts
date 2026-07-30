@@ -7,10 +7,6 @@ import {
   getSupabaseAuthSessionKey,
 } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import {
-  getKeylessSupabaseClient,
-  getSupabaseClient,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -43,9 +39,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * BG-owned slots; they never sign out or write persistent credentials.
  */
 
-function getSupabaseClientBySessionSource(
+export async function getSupabaseClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
-): SupabaseClient {
+): Promise<SupabaseClient> {
+  const { getKeylessSupabaseClient, getSupabaseClient } =
+    await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
   return authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
     ? getKeylessSupabaseClient().client
     : getSupabaseClient().client;
@@ -97,7 +95,7 @@ export async function getAuthTokenBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<string> {
   return getSupabaseSdkAuthToken(
-    getSupabaseClientBySessionSource(authSessionSource),
+    await getSupabaseClientBySessionSource(authSessionSource),
   );
 }
 
@@ -180,11 +178,13 @@ export async function persistKeylessAuthSession({
   allowAuthSessionStorageWritesBySessionSource(
     EPrimeAuthSessionSource.KeylessOAuth,
   );
-  const { data, error } =
-    await getKeylessSupabaseClient().client.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+  const client = await getSupabaseClientBySessionSource(
+    EPrimeAuthSessionSource.KeylessOAuth,
+  );
+  const { data, error } = await client.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
   if (error || !data.session) {
     const statusPart =
       typeof error?.status === 'number' ? ` status=${error.status}` : '';
@@ -291,7 +291,7 @@ export async function removeAuthSessionStorageBySessionSource(
 export async function signOutAuthSessionClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
-  const client = getSupabaseClientBySessionSource(authSessionSource);
+  const client = await getSupabaseClientBySessionSource(authSessionSource);
   try {
     await client.auth.signOut({ scope: 'local' });
   } catch {
@@ -343,7 +343,7 @@ export async function revokeAuthSessionTokenOnServerBestEffort({
     return;
   }
   try {
-    const client = getSupabaseClientBySessionSource(authSessionSource);
+    const client = await getSupabaseClientBySessionSource(authSessionSource);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
