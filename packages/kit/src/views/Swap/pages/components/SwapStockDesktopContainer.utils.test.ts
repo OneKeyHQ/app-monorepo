@@ -9,6 +9,7 @@ import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockChartCoinGeckoIdState,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
@@ -54,6 +55,66 @@ describe('SwapStockDesktopContainer utils', () => {
         networkLogoUri: 'https://example.com/custom-network.png',
       }),
     ).toBe('https://example.com/custom-network.png');
+  });
+
+  it('settles the CoinGecko lookup when the fallback has no id', () => {
+    const tokenScope = 'evm--1:0xstock';
+
+    expect(
+      getStockChartCoinGeckoIdState({
+        networkId: 'evm--1',
+        tokenScope,
+      }),
+    ).toEqual({
+      coinGeckoId: undefined,
+      isLoading: true,
+    });
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: {
+          tokenScope,
+          coinGeckoId: undefined,
+        },
+        networkId: 'evm--1',
+        tokenScope,
+      }),
+    ).toEqual({
+      coinGeckoId: undefined,
+      isLoading: false,
+    });
+  });
+
+  it('ignores a completed CoinGecko lookup from another token scope', () => {
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: {
+          tokenScope: 'evm--1:0xprevious',
+          coinGeckoId: 'previous-stock',
+        },
+        networkId: 'evm--1',
+        tokenScope: 'evm--1:0xcurrent',
+      }),
+    ).toEqual({
+      coinGeckoId: undefined,
+      isLoading: true,
+    });
+  });
+
+  it('prefers the token detail CoinGecko id without waiting for fallback', () => {
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: {
+          tokenScope: 'evm--1:0xstock',
+          coinGeckoId: undefined,
+        },
+        networkId: 'evm--1',
+        tokenDetailCoinGeckoId: 'stock-detail-id',
+        tokenScope: 'evm--1:0xstock',
+      }),
+    ).toEqual({
+      coinGeckoId: 'stock-detail-id',
+      isLoading: false,
+    });
   });
 
   it('keeps disabled buy actions in the buy color family', () => {
@@ -294,6 +355,21 @@ describe('SwapStockDesktopContainer utils', () => {
       chartData: [],
       shouldShowChartError: false,
       shouldShowChartLoading: false,
+    });
+  });
+
+  it('shows loading instead of a stale error while retrying', () => {
+    expect(
+      getStockChartDisplayState({
+        baseChartData: [],
+        isChartStateForCurrentScope: true,
+        isLoading: true,
+        requestStatus: 'error',
+      }),
+    ).toEqual({
+      chartData: [],
+      shouldShowChartError: false,
+      shouldShowChartLoading: true,
     });
   });
 

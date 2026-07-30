@@ -158,10 +158,12 @@ import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
 import {
+  type IStockChartCoinGeckoIdLookupResult,
   type IStockChartRange,
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockChartCoinGeckoIdState,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
@@ -291,39 +293,43 @@ function useStockChartCoinGeckoId({
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
   const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
   const { result } = usePromiseResult<
-    | {
-        tokenScope: string;
-        coinGeckoId?: string;
-      }
-    | undefined
+    IStockChartCoinGeckoIdLookupResult | undefined
   >(
     async () => {
       if (tokenDetailCoinGeckoId || !networkId) {
         return undefined;
       }
 
-      const tokenInfo =
-        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-          networkId,
-          tokenAddress: tokenAddress ?? '',
-        });
-      return {
-        tokenScope,
-        coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
-      };
+      try {
+        const tokenInfo =
+          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+            networkId,
+            tokenAddress: tokenAddress ?? '',
+          });
+        return {
+          tokenScope,
+          coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
+        };
+      } catch (_error) {
+        return {
+          tokenScope,
+          coinGeckoId: undefined,
+        };
+      }
     },
     [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
-      undefinedResultIfError: true,
       undefinedResultIfReRun: true,
     },
   );
 
-  return (
-    tokenDetailCoinGeckoId ||
-    (result?.tokenScope === tokenScope ? result.coinGeckoId : undefined)
-  );
+  return getStockChartCoinGeckoIdState({
+    lookupResult: result,
+    networkId,
+    tokenDetailCoinGeckoId,
+    tokenScope,
+  });
 }
 
 function StockMarketDataItem({
@@ -1625,6 +1631,7 @@ function StockMarketTokenHeader({
 
 function StockPriceChart({
   coinGeckoId,
+  coinGeckoIdLoading,
   isNative,
   networkId,
   onRangeChange,
@@ -1634,6 +1641,7 @@ function StockPriceChart({
   tokenAddress,
 }: {
   coinGeckoId?: string;
+  coinGeckoIdLoading: boolean;
   isNative?: boolean;
   networkId?: string;
   onRangeChange: (range: IStockChartRange) => void;
@@ -1709,7 +1717,10 @@ function StockPriceChart({
             assetScope: chartAssetScope,
             range,
             data: [] as IMarketTokenChart,
-            status: 'pending' as const,
+            status:
+              chartCacheReady && !coinGeckoIdLoading
+                ? ('success' as const)
+                : ('pending' as const),
           }
         );
       }
@@ -1754,6 +1765,7 @@ function StockPriceChart({
       chartCacheReady,
       chartRequestReady,
       chartScope,
+      coinGeckoIdLoading,
       normalizedCoinGeckoId,
       range,
     ],
@@ -1819,8 +1831,15 @@ function StockPriceChart({
       realtimeChartPoint,
     ],
   );
+  const chartRetryPendingRef = useRef(false);
   const handleChartRetry = useCallback(() => {
-    void retryChart();
+    if (chartRetryPendingRef.current) {
+      return;
+    }
+    chartRetryPendingRef.current = true;
+    void retryChart().finally(() => {
+      chartRetryPendingRef.current = false;
+    });
   }, [retryChart]);
   const priceFormatter = useCallback(
     (price: number) =>
@@ -2226,11 +2245,12 @@ function StockMarketContextPanel({
 }) {
   const { stockChannel, tokenDetail, tokenAddress, networkId, isNative } =
     useCurrentStockMarketDetail();
-  const coinGeckoId = useStockChartCoinGeckoId({
-    networkId,
-    tokenAddress,
-    tokenDetail,
-  });
+  const { coinGeckoId, isLoading: isCoinGeckoIdLoading } =
+    useStockChartCoinGeckoId({
+      networkId,
+      tokenAddress,
+      tokenDetail,
+    });
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
@@ -2246,6 +2266,7 @@ function StockMarketContextPanel({
     chartContent = (
       <StockPriceChart
         coinGeckoId={coinGeckoId}
+        coinGeckoIdLoading={isCoinGeckoIdLoading}
         tokenAddress={tokenAddress ?? ''}
         networkId={networkId ?? ''}
         isNative={isNative}
