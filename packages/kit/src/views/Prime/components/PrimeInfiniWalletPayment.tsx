@@ -3412,14 +3412,21 @@ function PrimeInfiniWalletPaymentContent({
   return (
     <YStack gap="$4">
       {/* Order summary: state what is being purchased, not only how to pay. */}
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`OneKey Prime · ${intl.formatMessage({
-          id:
-            plan === 'yearly'
-              ? ETranslations.prime_yearly
-              : ETranslations.prime_monthly,
-        })}`}
-      </SizableText>
+      <YStack gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {`OneKey Prime · ${intl.formatMessage({
+            id:
+              plan === 'yearly'
+                ? ETranslations.prime_crypto_yearly_plan__title
+                : ETranslations.prime_crypto_monthly_plan__title,
+          })}`}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued" maxWidth={720}>
+          {intl.formatMessage({
+            id: ETranslations.prime_crypto_manual_renewal__desc,
+          })}
+        </SizableText>
+      </YStack>
       <YStack gap="$2">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.global_account })}
