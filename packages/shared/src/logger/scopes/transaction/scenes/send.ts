@@ -440,4 +440,24 @@ export class SendScene extends BaseScene {
       error,
     };
   }
+
+  // A refTx field arrived empty and was read as 0. Expected while an upstream
+  // drops zero-valued numbers; if it ever fires for a field that should carry a
+  // value, the device will reject the recomputed txid with no other trace.
+  @LogToLocal()
+  public refTxFieldDefaulted({
+    network,
+    txId,
+    field,
+  }: {
+    network: string | undefined;
+    txId: string;
+    field: string;
+  }) {
+    return {
+      network,
+      txId,
+      field,
+    };
+  }
 }
