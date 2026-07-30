@@ -773,20 +773,8 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
         scroller.querySelector(`[data-testid="${testId}"]`)?.remove();
       }
     }, headerProbeTestId);
-  const cleanupHeaderRefreshObserver = () =>
-    defiContent.evaluate((tabContent) => {
-      if (!(tabContent instanceof HTMLElement)) return;
-      const scroller = tabContent
-        .closest('.onekey-tabs-scroll-view')
-        ?.closest('.onekey-tabs-container');
-      if (!(scroller instanceof HTMLElement)) return;
-      scroller.__tabsHeaderRefreshObserver?.disconnect();
-      delete scroller.__tabsHeaderRefreshObserver;
-      delete scroller.dataset.tabsHeaderRefreshObserved;
-    });
 
   await cleanupHeaderProbe();
-  await cleanupHeaderRefreshObserver();
   let headerShrinkFailure = false;
   try {
     const insertedHeaderProbe = await defiContent.evaluate(
@@ -802,35 +790,6 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
         ) {
           return false;
         }
-        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
-        let listContainer = scrollViewRoot?.parentElement;
-        while (
-          listContainer &&
-          listContainer !== scroller &&
-          !listContainer.style.height
-        ) {
-          listContainer = listContainer.parentElement;
-        }
-        if (
-          !(listContainer instanceof HTMLElement) ||
-          listContainer === scroller
-        ) {
-          return false;
-        }
-        scroller.dataset.tabsHeaderRefreshObserved = 'false';
-        const refreshObserver = new MutationObserver((records) => {
-          if (
-            records.some((record) => record.oldValue?.includes('display: none'))
-          ) {
-            scroller.dataset.tabsHeaderRefreshObserved = 'true';
-          }
-        });
-        refreshObserver.observe(listContainer, {
-          attributeFilter: ['style'],
-          attributeOldValue: true,
-          attributes: true,
-        });
-        scroller.__tabsHeaderRefreshObserver = refreshObserver;
         scroller.scrollTop = 0;
         const probe = document.createElement('div');
         probe.setAttribute('data-testid', testId);
@@ -857,31 +816,19 @@ async function runTabsScrollExtentDesktop(cdpUrl) {
         'Tabs scroll metrics are unavailable after header shrink',
       );
     }
-    const headerRefreshObserved = await defiContent.evaluate((tabContent) => {
-      if (!(tabContent instanceof HTMLElement)) return false;
-      const scroller = tabContent
-        .closest('.onekey-tabs-scroll-view')
-        ?.closest('.onekey-tabs-container');
-      return (
-        scroller instanceof HTMLElement &&
-        scroller.dataset.tabsHeaderRefreshObserved === 'true'
-      );
-    });
     headerShrinkFailure =
-      !headerRefreshObserved ||
       !headerShrinkMetrics.atBottom ||
       headerShrinkMetrics.hiddenBelowScroller > 2 ||
       headerShrinkMetrics.unmeasuredScrollViewOverflow > 2;
     log(
       `Header shrink wheel: ${
         headerShrinkFailure ? 'stuck' : 'clean'
-      } refresh=${headerRefreshObserved} scrollTop=${headerShrinkMetrics.scrollTop.toFixed(
+      } scrollTop=${headerShrinkMetrics.scrollTop.toFixed(
         1,
       )}/${headerShrinkMetrics.maxScrollTop.toFixed(1)}`,
     );
   } finally {
     await cleanupHeaderProbe();
-    await cleanupHeaderRefreshObserver();
   }
 
   if (headerShrinkFailure) {
