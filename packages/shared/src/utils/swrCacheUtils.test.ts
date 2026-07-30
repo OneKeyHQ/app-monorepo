@@ -6,6 +6,7 @@ import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
 type IFakeDisk = Record<string, string>;
 const fakeDiskGlobal = globalThis as typeof globalThis & {
   __swrFakeDisk?: IFakeDisk;
+  __swrFakeDiskReadCount?: number;
 };
 
 jest.mock('../storage/instance/syncStorageInstance', () => {
@@ -18,6 +19,11 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
       readDisk()[key] = JSON.stringify(value);
     },
     getObject: (key: string) => {
+      const globalState = globalThis as {
+        __swrFakeDiskReadCount?: number;
+      };
+      globalState.__swrFakeDiskReadCount =
+        (globalState.__swrFakeDiskReadCount ?? 0) + 1;
       const raw = readDisk()[key];
       return raw === undefined
         ? undefined
@@ -155,6 +161,7 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   beforeEach(() => {
     fakeDiskGlobal.__swrFakeDisk = {};
+    fakeDiskGlobal.__swrFakeDiskReadCount = 0;
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
@@ -334,5 +341,44 @@ describe('SWR cache cross-runtime flush merge', () => {
       data: freshBook,
       updatedAt: 35_000,
     });
+  });
+
+  it('throttles automatic stale perps reloads without blocking explicit reloads', () => {
+    const [key] = getPerpsL2BookSnapshotCacheKeys({
+      coin: 'BTC',
+      nSigFigs: null,
+    });
+    const staleBook = {
+      coin: 'BTC',
+      time: 1000,
+      levels: [[{ px: '1', sz: '1', n: 1 }], [{ px: '2', sz: '1', n: 1 }]],
+      nSigFigs: null,
+      mantissa: null,
+    };
+    const getSnapshot = (swr: ReturnType<typeof loadFreshRuntime>) =>
+      swr.getFreshPerpsL2BookSnapshot({
+        coin: 'BTC',
+        nSigFigs: null,
+        maxAgeMs: 7 * 24 * 60 * 60 * 1000,
+        reloadIfOlderThanMs: 30_000,
+      });
+
+    otherRuntimeFlush({
+      [key]: { d: staleBook, t: 1000 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get(key)).toEqual(staleBook);
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(1);
+
+    setNow(40_000);
+    expect(getSnapshot(swr)?.data).toEqual(staleBook);
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(2);
+
+    setNow(40_001);
+    expect(getSnapshot(swr)?.data).toEqual(staleBook);
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(2);
+
+    swr.reloadFromStorage();
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(3);
   });
 });

@@ -23,6 +23,7 @@ let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
+let _lastReloadFromStorageAt: number | undefined;
 
 // Only these entries were authored by this runtime since the last successful
 // flush. Replaying the whole hydrated store would revive keys that the other
@@ -78,6 +79,7 @@ function reloadFromStorage(): void {
   flush();
   _cache = undefined;
   loadStore();
+  _lastReloadFromStorageAt = Date.now();
 }
 
 function evictOldestOverCap(store: ISWRStore) {
@@ -594,7 +596,12 @@ function getFreshPerpsL2BookSnapshot({
 
   let entry = findEntry();
   const entryAgeMs = entry ? Date.now() - entry.updatedAt : undefined;
-  if (!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) {
+  const now = Date.now();
+  const shouldReload =
+    _lastReloadFromStorageAt === undefined ||
+    now < _lastReloadFromStorageAt ||
+    now - _lastReloadFromStorageAt >= reloadIfOlderThanMs;
+  if ((!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) && shouldReload) {
     reloadFromStorage();
     const reloadedEntry = findEntry();
     entry = reloadedEntry ?? entry;
