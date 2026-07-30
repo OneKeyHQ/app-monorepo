@@ -368,10 +368,7 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      const cancelTimeout = createStepTimeout(
-        isStale,
-        () => watchdogConnectId,
-      );
+      const cancelTimeout = createStepTimeout(isStale, () => watchdogConnectId);
       try {
         await ensureTransportType();
         const baseDevice =
