@@ -964,6 +964,7 @@ export function usePerpsUnifoldDepositSession({
 
   return {
     recipientAddress,
+    isLiveAccountAligned,
     destination,
     // Dev builds can route to a plain chain, where funds land in the user's
     // own wallet rather than the perps account — callers keep their copy
