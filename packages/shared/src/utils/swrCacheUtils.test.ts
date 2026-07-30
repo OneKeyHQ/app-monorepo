@@ -1,5 +1,65 @@
 import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
 
+// The fake disk lives on globalThis so jest.resetModules() can rebuild the
+// module (fresh in-memory copy = a fresh runtime) while the "MMKV file"
+// persists — that pairing is exactly the cross-runtime setup under test.
+type IFakeDisk = Record<string, string>;
+const fakeDiskGlobal = globalThis as typeof globalThis & {
+  __swrFakeDisk?: IFakeDisk;
+};
+
+jest.mock('../storage/instance/syncStorageInstance', () => {
+  const readDisk = () =>
+    (globalThis as { __swrFakeDisk?: Record<string, string> }).__swrFakeDisk ??
+    {};
+  const storage = {
+    set: () => {},
+    setObject: (key: string, value: Record<string, unknown>) => {
+      readDisk()[key] = JSON.stringify(value);
+    },
+    getObject: (key: string) => {
+      const raw = readDisk()[key];
+      return raw === undefined ? undefined : JSON.parse(raw);
+    },
+    getString: () => undefined,
+    getNumber: () => undefined,
+    getBoolean: () => undefined,
+    delete: (key: string) => {
+      delete readDisk()[key];
+    },
+    clearAll: () => {
+      const disk = readDisk();
+      Object.keys(disk).forEach((key) => delete disk[key]);
+    },
+    getAllKeys: () => Object.keys(readDisk()),
+  };
+  return {
+    __esModule: true,
+    coldStartCacheStorage: storage,
+    syncStorage: storage,
+    createMMKVSyncStorage: () => storage,
+  };
+});
+
+const DISK_KEY = 'onekey_swr_cache';
+
+function readDiskStore(): Record<string, { d: unknown; t: number }> {
+  const raw = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY];
+  return raw ? JSON.parse(raw) : {};
+}
+
+// Simulates the other runtime flushing: a wholesale write straight to disk.
+function otherRuntimeFlush(store: Record<string, { d: unknown; t: number }>) {
+  fakeDiskGlobal.__swrFakeDisk![DISK_KEY] = JSON.stringify(store);
+}
+
+function loadFreshRuntime() {
+  jest.resetModules();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return (require('./swrCacheUtils') as typeof import('./swrCacheUtils'))
+    .swrCacheUtils;
+}
+
 describe('SWR cache keys', () => {
   it('uses a stable key for cached order book tick options', () => {
     expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
@@ -78,5 +138,129 @@ describe('SWR cache keys', () => {
         coin: 'BTC',
       }),
     ]);
+  });
+});
+
+describe('SWR cache cross-runtime flush merge', () => {
+  let nowSpy: jest.SpyInstance<number, []>;
+
+  const setNow = (ms: number) => nowSpy.mockReturnValue(ms);
+
+  beforeEach(() => {
+    fakeDiskGlobal.__swrFakeDisk = {};
+    nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000);
+  });
+
+  afterEach(() => {
+    nowSpy.mockRestore();
+  });
+
+  it('keeps keys the other runtime persisted after this copy hydrated', () => {
+    const swr = loadFreshRuntime();
+    setNow(1_000);
+    swr.set('mine', 'a');
+    // The other runtime persists a key this copy has never seen — the old
+    // wholesale overwrite erased it on the next local flush.
+    otherRuntimeFlush({
+      ...readDiskStore(),
+      theirs: { d: 'b', t: 5_000 },
+    });
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.mine).toMatchObject({ d: 'a', t: 1_000 });
+    expect(disk.theirs).toMatchObject({ d: 'b', t: 5_000 });
+  });
+
+  it('resolves per-key conflicts by timestamp in both directions', () => {
+    const swr = loadFreshRuntime();
+    setNow(1_000);
+    swr.set('diskNewer', 'stale-local');
+    swr.set('localNewer', 'old-local');
+    otherRuntimeFlush({
+      diskNewer: { d: 'fresh-disk', t: 2_000 },
+      localNewer: { d: 'stale-disk', t: 500 },
+    });
+    setNow(1_500);
+    swr.set('localNewer', 'fresh-local');
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.diskNewer).toMatchObject({ d: 'fresh-disk', t: 2_000 });
+    expect(disk.localNewer).toMatchObject({ d: 'fresh-local', t: 1_500 });
+    // The merged store is adopted locally too — the read path must see the
+    // other runtime's fresher value, not this copy's aged one.
+    expect(swr.get('diskNewer')).toBe('fresh-disk');
+  });
+
+  it('does not resurrect a removed key from the other runtime copy', () => {
+    otherRuntimeFlush({ doomed: { d: 'x', t: 1_000 } });
+    const swr = loadFreshRuntime();
+    expect(swr.get('doomed')).toBe('x');
+    setNow(2_000);
+    swr.remove('doomed');
+    swr.flushNow();
+    expect(readDiskStore().doomed).toBeUndefined();
+
+    // A rewrite that postdates the removal wins again.
+    otherRuntimeFlush({ doomed: { d: 'rewritten', t: 3_000 } });
+    setNow(3_500);
+    swr.set('unrelated', 1);
+    swr.flushNow();
+    expect(readDiskStore().doomed).toMatchObject({ d: 'rewritten' });
+  });
+
+  it('applies prefix removal against the disk copy as well', () => {
+    otherRuntimeFlush({
+      'walletList:a': { d: 1, t: 1_000 },
+      'walletList:b': { d: 2, t: 1_200 },
+      'kept:c': { d: 3, t: 1_000 },
+    });
+    const swr = loadFreshRuntime();
+    setNow(2_000);
+    swr.removeByPrefix('walletList:');
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk['walletList:a']).toBeUndefined();
+    expect(disk['walletList:b']).toBeUndefined();
+    expect(disk['kept:c']).toMatchObject({ d: 3 });
+  });
+
+  it('clearAll drops older disk entries but keeps ones written after it', () => {
+    otherRuntimeFlush({
+      older: { d: 1, t: 1_000 },
+    });
+    const swr = loadFreshRuntime();
+    setNow(2_000);
+    swr.clearAll();
+    otherRuntimeFlush({
+      ...readDiskStore(),
+      older: { d: 1, t: 1_000 },
+      newer: { d: 2, t: 3_000 },
+    });
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.older).toBeUndefined();
+    expect(disk.newer).toMatchObject({ d: 2 });
+  });
+
+  it('enforces the entry cap on the merged result', () => {
+    const bulk: Record<string, { d: unknown; t: number }> = {};
+    for (let i = 0; i < 300; i += 1) {
+      bulk[`bulk:${i}`] = { d: i, t: 10_000 + i };
+    }
+    otherRuntimeFlush(bulk);
+    const swr = loadFreshRuntime();
+    setNow(50_000);
+    swr.set('fresh', 'kept');
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(Object.keys(disk).length).toBe(300);
+    expect(disk.fresh).toMatchObject({ d: 'kept' });
+    // The oldest merged entry is the one evicted.
+    expect(disk['bulk:0']).toBeUndefined();
   });
 });

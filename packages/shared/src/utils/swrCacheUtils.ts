@@ -23,6 +23,25 @@ let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
 
+// Deletions performed since the last successful flush. flush() merges with
+// the store on disk, and without these a key deleted here would be revived
+// by the copy of it still sitting there.
+const _removedKeysAt = new Map<string, number>();
+let _removedPrefixesAt: Array<{ prefix: string; at: number }> = [];
+let _clearedAllAt = 0;
+
+function isDeletedLocally(key: string, diskTimestamp: number): boolean {
+  if (_clearedAllAt && diskTimestamp <= _clearedAllAt) return true;
+  const removedAt = _removedKeysAt.get(key);
+  if (removedAt !== undefined && diskTimestamp <= removedAt) return true;
+  for (const removed of _removedPrefixesAt) {
+    if (key.startsWith(removed.prefix) && diskTimestamp <= removed.at) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const FLUSH_DEBOUNCE_MS = 2000;
 
 function getSyncStorage(): ISyncStorage {
@@ -55,10 +74,53 @@ function reloadFromStorage(): void {
   loadStore();
 }
 
+function evictOldestOverCap(store: ISWRStore) {
+  const keys = Object.keys(store);
+  if (keys.length <= MAX_ENTRIES) return;
+  const sorted = keys.toSorted((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+  const removeCount = keys.length - MAX_ENTRIES;
+  for (let i = 0; i < removeCount; i += 1) {
+    delete store[sorted[i]];
+  }
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
   try {
-    getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, _cache);
+    // Merge per key instead of overwriting the whole object: on native the
+    // main and bg runtimes each hold their own copy of this store (hydrated
+    // once at boot) over one shared MMKV file, so a wholesale write from the
+    // runtime holding the older copy erased everything the other one had
+    // persisted since — days-old perps books kept resurfacing this way.
+    let disk: ISWRStore | undefined;
+    try {
+      disk = getSyncStorage().getObject<ISWRStore>(
+        EAppSyncStorageKeys.onekey_swr_cache,
+      );
+    } catch {
+      disk = undefined;
+    }
+    const merged: ISWRStore = {};
+    if (disk) {
+      for (const [key, entry] of Object.entries(disk)) {
+        if (!entry || isDeletedLocally(key, entry.t ?? 0)) continue;
+        merged[key] = entry;
+      }
+    }
+    for (const [key, entry] of Object.entries(_cache)) {
+      const diskEntry = merged[key];
+      if (!diskEntry || (entry?.t ?? 0) >= (diskEntry.t ?? 0)) {
+        merged[key] = entry;
+      }
+    }
+    evictOldestOverCap(merged);
+    getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, merged);
+    // Adopting the merged store also refreshes this runtime's copy, which
+    // otherwise only ages — reads pick up what the other runtime persisted.
+    _cache = merged;
+    _removedKeysAt.clear();
+    _removedPrefixesAt = [];
+    _clearedAllAt = 0;
     _dirty = false;
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.
@@ -91,19 +153,7 @@ function set<T>(key: string, data: T): void {
   const store = loadStore();
   store[key] = { d: data, t: Date.now() };
   _dirty = true;
-
-  // Evict oldest entries when over limit.
-  const keys = Object.keys(store);
-  if (keys.length > MAX_ENTRIES) {
-    const sorted = keys.toSorted(
-      (a, b) => (store[a].t ?? 0) - (store[b].t ?? 0),
-    );
-    const removeCount = keys.length - MAX_ENTRIES;
-    for (let i = 0; i < removeCount; i += 1) {
-      delete store[sorted[i]];
-    }
-  }
-
+  evictOldestOverCap(store);
   scheduleFlush();
 }
 
@@ -115,11 +165,12 @@ function isFresh(key: string, maxAge: number): boolean {
 
 function remove(key: string): void {
   const store = loadStore();
-  if (store[key] !== undefined) {
-    delete store[key];
-    _dirty = true;
-    scheduleFlush();
-  }
+  delete store[key];
+  // Recorded even when the key is locally absent: the other runtime's copy
+  // may still hold it, and the merge must not bring it back.
+  _removedKeysAt.set(key, Date.now());
+  _dirty = true;
+  scheduleFlush();
 }
 
 // Drops every entry whose key starts with `prefix`. Used by bg services
@@ -128,21 +179,20 @@ function remove(key: string): void {
 function removeByPrefix(prefix: string): void {
   if (!prefix) return;
   const store = loadStore();
-  let touched = false;
   for (const key of Object.keys(store)) {
     if (key.startsWith(prefix)) {
       delete store[key];
-      touched = true;
     }
   }
-  if (touched) {
-    _dirty = true;
-    scheduleFlush();
-  }
+  // Recorded unconditionally for the same reason as remove().
+  _removedPrefixesAt.push({ prefix, at: Date.now() });
+  _dirty = true;
+  scheduleFlush();
 }
 
 function clearAll(): void {
   _cache = {};
+  _clearedAllAt = Date.now();
   _dirty = true;
   scheduleFlush();
 }
