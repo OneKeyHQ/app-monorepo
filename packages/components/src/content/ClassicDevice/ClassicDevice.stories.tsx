@@ -3,6 +3,7 @@ import { ClassicDevice } from '.';
 import { XStack } from '../../primitives';
 
 import { ConfirmOnClassic } from './ConfirmOnClassic';
+import { EnterPinOnClassic } from './EnterPinOnClassic';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
@@ -40,4 +41,10 @@ export const Sizes: Story = {
 // physical OK press -> sleep.
 export const Confirm: Story = {
   render: (args) => <ConfirmOnClassic width={args.width} />,
+};
+
+// Enter PIN scene: 5.6s loop of wake -> six OK presses filling diamonds ->
+// check appears -> final confirming press -> sleep.
+export const EnterPin: Story = {
+  render: (args) => <EnterPinOnClassic width={args.width} />,
 };
