@@ -9,6 +9,8 @@ export const UNIFOLD_HYPERCORE_CHAIN_ID = '1337';
 export const UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS =
   '0x00000000000000000000000000000000';
 export const UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL = 'USDC (Perp)';
+export const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
+export const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 
 // Dev-only alternative destination: Arbitrum USDC (server allowlists it).
 // A plain-chain destination settles straight back into the user's own wallet,

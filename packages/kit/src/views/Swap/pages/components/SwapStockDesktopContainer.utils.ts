@@ -20,6 +20,11 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
   pb: '$4',
 } as const;
 
+export type IStockChartCoinGeckoIdLookupResult = {
+  tokenScope: string;
+  coinGeckoId?: string;
+};
+
 export const STOCK_CHART_RANGE_ITEMS: {
   label: IStockChartRange;
   interval: string;
@@ -44,6 +49,28 @@ export function getStockNetworkLogoUri({
   return networkId
     ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
     : undefined;
+}
+
+export function getStockChartCoinGeckoIdState({
+  lookupResult,
+  networkId,
+  tokenDetailCoinGeckoId,
+  tokenScope,
+}: {
+  lookupResult?: IStockChartCoinGeckoIdLookupResult;
+  networkId?: string;
+  tokenDetailCoinGeckoId?: string;
+  tokenScope: string;
+}) {
+  const currentLookupResult =
+    lookupResult?.tokenScope === tokenScope ? lookupResult : undefined;
+  return {
+    coinGeckoId:
+      tokenDetailCoinGeckoId || currentLookupResult?.coinGeckoId || undefined,
+    isLoading: Boolean(
+      networkId && !tokenDetailCoinGeckoId && !currentLookupResult,
+    ),
+  };
 }
 
 export function getStockDisabledActionButtonProps(
@@ -88,6 +115,24 @@ export function shouldShowStockMarketHeaderSkeleton({
   return (
     !hasStockIdentity &&
     channelStage === ESwapStockChannelStage.InitializingStock
+  );
+}
+
+export function getStockMarketTokenSubtitle({
+  currentStockSubtitle,
+  currentTokenName,
+  hasTokenDetail,
+  tokenDetailStockSubtitle,
+}: {
+  currentStockSubtitle?: string;
+  currentTokenName?: string;
+  hasTokenDetail: boolean;
+  tokenDetailStockSubtitle?: string;
+}) {
+  return (
+    tokenDetailStockSubtitle ??
+    currentStockSubtitle ??
+    (hasTokenDetail ? undefined : currentTokenName)
   );
 }
 
@@ -155,13 +200,20 @@ export function getStockChartDisplayState({
   baseChartData,
   isChartStateForCurrentScope,
   isLoading,
+  requestStatus,
   realtimeChartPoint,
 }: {
   baseChartData: IMarketTokenChart;
   isChartStateForCurrentScope: boolean;
   isLoading?: boolean;
+  requestStatus?: 'pending' | 'success' | 'error';
   realtimeChartPoint?: IMarketTokenChart[number];
 }) {
+  const shouldShowChartError =
+    baseChartData.length === 0 &&
+    isChartStateForCurrentScope &&
+    !isLoading &&
+    requestStatus === 'error';
   return {
     chartData: mergeStockChartRealtimePoint({
       baseChartData,
@@ -169,8 +221,12 @@ export function getStockChartDisplayState({
         ? realtimeChartPoint
         : undefined,
     }),
+    shouldShowChartError,
     shouldShowChartLoading:
       baseChartData.length === 0 &&
-      (Boolean(isLoading) || !isChartStateForCurrentScope),
+      !shouldShowChartError &&
+      (requestStatus === 'pending' ||
+        Boolean(isLoading) ||
+        !isChartStateForCurrentScope),
   };
 }

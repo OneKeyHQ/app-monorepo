@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -90,13 +91,14 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         'Prime email verification code request failed:',
         getSanitizedAuthErrorText(error),
       );
+      const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
       const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
       if (errorMessage) {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
       setState({ status: 'initial' });
-      setCountdown(0);
+      setCountdown(retryAfterSeconds ?? 0);
       return;
     } finally {
       if (isMountedRef.current) {
@@ -130,10 +132,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // "Sent to {email}" on re-entry, so re-entering it must actually send one.
     // Reset only while inactive so a failed send while the step is visible
     // still requires an explicit Resend press.
-    if (!active && !didSendCodeSucceedRef.current) {
+    if (!active && countdown <= 0 && !didSendCodeSucceedRef.current) {
       didRequestInitialCodeRef.current = false;
     }
-  }, [active]);
+  }, [active, countdown]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
