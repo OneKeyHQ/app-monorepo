@@ -74,12 +74,6 @@ function createNativeHomeDeFiProducerInstanceId() {
 }
 
 export interface IHomeDeFiStoreSource {
-  errorCode: string | undefined;
-  initialized: boolean;
-  isRefreshing: boolean;
-  protocolMap: Record<string, IProtocolSummary>;
-  protocols: IDeFiProtocol[];
-  supportedActions: IDeFiSupportedProtocolAction[];
   refresh: () => Promise<void>;
 }
 
@@ -140,25 +134,13 @@ export function useHomeDeFiStoreSource({
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
     useAccountOverviewActions().current;
-  const [protocols, setProtocols] = useState<IDeFiProtocol[]>([]);
-  const [protocolMap, setProtocolMap] = useState<
-    Record<string, IProtocolSummary>
-  >({});
   const protocolsRef = useRef<IDeFiProtocol[]>([]);
   const protocolMapRef = useRef<Record<string, IProtocolSummary>>({});
-  const [supportedActions, setSupportedActions] = useState<
-    IDeFiSupportedProtocolAction[]
-  >([]);
   const supportedActionsRef = useRef<IDeFiSupportedProtocolAction[]>([]);
   const supportedActionsLoadedRef = useRef(false);
   const supportedActionsPromiseRef = useRef<
     Promise<IDeFiSupportedProtocolAction[]> | undefined
   >(undefined);
-  const [initialized, setInitialized] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [errorCode, setErrorCode] = useState<string>();
-  protocolsRef.current = protocols;
-  protocolMapRef.current = protocolMap;
   const renderedOwnerScopeRef = useRef<string | undefined>(undefined);
   const allNetworkForceRefreshRef = useRef(false);
   const allNetworkConsumeForceRefreshQuotaRef = useRef(false);
@@ -292,9 +274,8 @@ export function useHomeDeFiStoreSource({
       if (resolution.authoritative.kind === 'none') {
         return;
       }
-      setProtocols(resolution.authoritative.data.protocols);
-      setProtocolMap(resolution.authoritative.data.protocolMap);
-      setInitialized(true);
+      protocolsRef.current = resolution.authoritative.data.protocols;
+      protocolMapRef.current = resolution.authoritative.data.protocolMap;
     },
     [],
   );
@@ -401,7 +382,6 @@ export function useHomeDeFiStoreSource({
     supportedActionsPromiseRef.current = undefined;
     supportedActionsLoadedRef.current = true;
     supportedActionsRef.current = nextSupportedActions;
-    setSupportedActions(nextSupportedActions);
     return nextSupportedActions;
   }, []);
 
@@ -475,17 +455,15 @@ export function useHomeDeFiStoreSource({
   );
 
   const applyResponse = useCallback((response: INativeHomeDeFiResponse) => {
-    setProtocols((previous) => {
-      const next = new Map(
-        previous.map((item) => [getProtocolKey(item), item]),
-      );
-      response.protocols.forEach((item) =>
-        next.set(getProtocolKey(item), item),
-      );
-      return Array.from(next.values());
-    });
-    setProtocolMap((previous) => ({ ...previous, ...response.protocolMap }));
-    setInitialized(true);
+    const next = new Map(
+      protocolsRef.current.map((item) => [getProtocolKey(item), item]),
+    );
+    response.protocols.forEach((item) => next.set(getProtocolKey(item), item));
+    protocolsRef.current = Array.from(next.values());
+    protocolMapRef.current = {
+      ...protocolMapRef.current,
+      ...response.protocolMap,
+    };
   }, []);
 
   const loadSingle = useCallback(
@@ -511,8 +489,6 @@ export function useHomeDeFiStoreSource({
         if (!handle) {
           return;
         }
-        setIsRefreshing(true);
-        setErrorCode(undefined);
         try {
           const shouldForceRefresh =
             forceRefresh === 'consumeQuota'
@@ -534,9 +510,8 @@ export function useHomeDeFiStoreSource({
             loadSupportedActions(),
           ]);
           if (isRequestSourceCurrent()) {
-            setProtocols(response.protocols);
-            setProtocolMap(response.protocolMap);
-            setInitialized(true);
+            protocolsRef.current = response.protocols;
+            protocolMapRef.current = response.protocolMap;
             updateOverview({ overview: response.overview });
             const payload = buildDeFiPayload({
               nextProtocolMap: response.protocolMap,
@@ -561,16 +536,10 @@ export function useHomeDeFiStoreSource({
           }
         } catch {
           if (isRequestSourceCurrent()) {
-            setErrorCode('defi_fetch_failed');
-            setInitialized(true);
             completeDeFiEvidence({
               handle,
               evidence: { kind: 'error', errorKind: 'source' },
             });
-          }
-        } finally {
-          if (isRequestSourceCurrent()) {
-            setIsRefreshing(false);
           }
         }
       })();
@@ -701,8 +670,8 @@ export function useHomeDeFiStoreSource({
     if (refreshCacheOnly) {
       return;
     }
-    setProtocols([]);
-    setProtocolMap({});
+    protocolsRef.current = [];
+    protocolMapRef.current = {};
   }, [refreshCacheOnly]);
   const handleAllNetworkStarted = useCallback(
     async ({
@@ -729,8 +698,6 @@ export function useHomeDeFiStoreSource({
         return;
       }
       allNetworkSectionRequestHandleRef.current = handle;
-      setIsRefreshing(true);
-      setErrorCode(undefined);
       if (allNetworkConsumeForceRefreshQuotaRef.current) {
         allNetworkConsumeForceRefreshQuotaRef.current = false;
         allNetworkForceRefreshRef.current = (
@@ -834,8 +801,6 @@ export function useHomeDeFiStoreSource({
     }
     allNetworkSectionRequestHandleRef.current = undefined;
     allNetworkForceRefreshRef.current = false;
-    setIsRefreshing(false);
-    setInitialized(true);
   }, [
     buildAllNetworkPayload,
     completeDeFiEvidence,
@@ -960,9 +925,8 @@ export function useHomeDeFiStoreSource({
       });
       Object.assign(nextProtocolMap, response.protocolMap);
     });
-    setProtocols(Array.from(nextProtocols.values()));
-    setProtocolMap(nextProtocolMap);
-    setInitialized(true);
+    protocolsRef.current = Array.from(nextProtocols.values());
+    protocolMapRef.current = nextProtocolMap;
   }, [allNetworkResult]);
 
   const refreshSingleNetworkOverviewCache = useCallback(
@@ -1119,10 +1083,8 @@ export function useHomeDeFiStoreSource({
     if (renderedOwnerScopeRef.current !== ownerScope) {
       renderedOwnerScopeRef.current = ownerScope;
       allNetworkSectionRequestHandleRef.current = undefined;
-      setProtocols([]);
-      setProtocolMap({});
-      setInitialized(false);
-      setErrorCode(undefined);
+      protocolsRef.current = [];
+      protocolMapRef.current = {};
     }
     if (!fullSourceEnabled || !accountId || !networkId || !walletId) {
       return;
@@ -1141,9 +1103,8 @@ export function useHomeDeFiStoreSource({
 
   useEffect(() => {
     if (fullSourceEnabled && isAllNetworks && isEmptyAccount) {
-      setProtocols([]);
-      setProtocolMap({});
-      setInitialized(true);
+      protocolsRef.current = [];
+      protocolMapRef.current = {};
     }
   }, [fullSourceEnabled, isAllNetworks, isEmptyAccount]);
 
@@ -1415,24 +1376,5 @@ export function useHomeDeFiStoreSource({
     };
   }, [enabled, refreshCacheOnly, refreshSingleNetworkOverviewCache]);
 
-  return useMemo(
-    () => ({
-      errorCode,
-      initialized,
-      isRefreshing,
-      protocolMap,
-      protocols,
-      supportedActions,
-      refresh,
-    }),
-    [
-      errorCode,
-      initialized,
-      isRefreshing,
-      protocolMap,
-      protocols,
-      refresh,
-      supportedActions,
-    ],
-  );
+  return useMemo(() => ({ refresh }), [refresh]);
 }

@@ -70,25 +70,18 @@ class HomeContainerMarketContractTest {
   }
 
   @Test
-  fun `diff key changes for identity favorite categories and image candidates`() {
+  fun `structural equality covers every item field used by row diffing`() {
     val snapshot = HomeContainerJson.parseState(marketStateJson()).snapshot
     val token = snapshot.tabs.first().sections.single().items[1]
     val tabs = snapshot.tabs.first().sections.single().items.first()
 
-    assertNotEquals(homeContainerItemContentKey(token), homeContainerItemContentKey(token.copy(id = "other")))
+    assertNotEquals(token, token.copy(id = "other"))
+    assertNotEquals(token, token.copy(favorite = false))
+    assertNotEquals(token, token.copy(imageUrls = listOf("https://other")))
+    assertNotEquals(token, token.copy(showDivider = !token.showDivider))
     assertNotEquals(
-      homeContainerItemContentKey(token),
-      homeContainerItemContentKey(token.copy(favorite = false)),
-    )
-    assertNotEquals(
-      homeContainerItemContentKey(token),
-      homeContainerItemContentKey(token.copy(imageUrls = listOf("https://other"))),
-    )
-    assertNotEquals(
-      homeContainerItemContentKey(tabs),
-      homeContainerItemContentKey(
-        tabs.copy(segments = tabs.segments.map { it.copy(selected = it.id == "stocks") }),
-      ),
+      tabs,
+      tabs.copy(segments = tabs.segments.map { it.copy(selected = it.id == "stocks") }),
     )
   }
 

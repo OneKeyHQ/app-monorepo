@@ -34,4 +34,15 @@ describe('resolveHomeContainerBackgroundColor', () => {
     expect(source).toContain('{ backgroundColor: resolvedBackgroundColor }');
     expect(source).toContain('backgroundColor={resolvedBackgroundColor}');
   });
+
+  it('does not resubmit the initial state from the first layout effect', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, 'HomeContainer.native.tsx'),
+      'utf8',
+    );
+    expect(source).toContain(
+      'const lastSubmittedStateJsonRef = useRef(initialStateJsonRef.current)',
+    );
+    expect(source).toContain('stateJson !== lastSubmittedStateJsonRef.current');
+  });
 });

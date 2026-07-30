@@ -9,7 +9,6 @@
 using namespace facebook::react;
 
 @interface UIView (HomeContainerSlotLayout)
-- (NSValue *)slotFrameForKey:(NSString *)key;
 - (UIView *)slotHostViewForKey:(NSString *)key;
 - (void)setMountedSlotKeys:(NSArray<NSString *> *)keys;
 - (BOOL)ownsSlotWithScopeKey:(NSString *)scopeKey sessionId:(NSString *)sessionId;
@@ -17,8 +16,7 @@ using namespace facebook::react;
 
 static UIView *FindHomeContainerEngine(UIView *view)
 {
-  if ([view respondsToSelector:@selector(slotFrameForKey:)] &&
-      [view respondsToSelector:@selector(slotHostViewForKey:)] &&
+  if ([view respondsToSelector:@selector(slotHostViewForKey:)] &&
       [view respondsToSelector:@selector(setMountedSlotKeys:)] &&
       [view respondsToSelector:@selector(ownsSlotWithScopeKey:sessionId:)]) {
     return view;

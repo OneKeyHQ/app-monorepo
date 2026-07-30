@@ -26,7 +26,7 @@ class HybridHomeContainer(context: ThemedReactContext) : HybridHomeContainerSpec
     set(value) {
       val shouldSubmit = homeContainerShouldSubmitInitialState(field, value)
       field = value
-      if (shouldSubmit) containerView.submitInitialState(value)
+      if (shouldSubmit) containerView.submitState(value)
     }
 
   override var backgroundColor: String = "#FFFFFF"

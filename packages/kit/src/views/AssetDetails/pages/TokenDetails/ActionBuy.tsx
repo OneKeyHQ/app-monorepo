@@ -9,7 +9,7 @@ import {
   SizableText,
   Stack,
   Toast,
-  useTabIsRefreshingFocused,
+  useIsFocusedTab,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -354,7 +354,7 @@ function ActionBuyContent({
 }
 
 function ActionBuyWithTabFocus(props: Omit<IActionProps, 'isTabView'>) {
-  const { isFocused } = useTabIsRefreshingFocused();
+  const isFocused = useIsFocusedTab();
 
   return <ActionBuyContent {...props} focusParam={isFocused} />;
 }

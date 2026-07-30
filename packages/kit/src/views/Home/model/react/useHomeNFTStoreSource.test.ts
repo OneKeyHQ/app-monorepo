@@ -217,6 +217,13 @@ describe('useHomeNFTStoreSource', () => {
     };
   });
 
+  it('publishes display state only through the Home Store', () => {
+    expect(sourceHook).not.toMatch(
+      /setData|setInitialized|setIsRefreshing|setErrorCode/,
+    );
+    expect(sourceHook).toContain('return useMemo(() => ({ refresh })');
+  });
+
   it('begins one owner-scoped request before cache and live BG work, then completes the same handle', async () => {
     const background = testGlobal.__homeNFTBackgroundControl;
     const publisher = testGlobal.__homeNFTPublisherControl;
@@ -334,7 +341,6 @@ describe('useHomeNFTStoreSource', () => {
       resolveCache?.([nft]);
       await cachePromise;
     });
-    await waitFor(() => expect(view.result.current.data).toEqual([nft]));
 
     await act(async () => {
       resolveLive?.({
@@ -344,6 +350,14 @@ describe('useHomeNFTStoreSource', () => {
       });
       await refreshPromise;
     });
+    await waitFor(() =>
+      expect(
+        testGlobal.__homeNFTPublisherControl.complete,
+      ).toHaveBeenCalledWith(
+        testGlobal.__homeNFTPublisherControl.handle,
+        expect.objectContaining({ kind: 'ready' }),
+      ),
+    );
 
     view.unmount();
   });

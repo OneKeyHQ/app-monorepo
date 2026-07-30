@@ -11,7 +11,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
@@ -46,17 +45,6 @@ import { useIsDeFiEnabled } from './useIsDeFiEnabled';
 
 const MAX_PROTOCOLS_ON_SMALL_SCREEN = 6;
 const PROTOCOL_LIST_TOGGLE_PRESS_LOCK_MS = 600;
-const HEADER_REFRESH_TIMEOUT_MS = 15_000;
-
-function buildDeFiListOwnerKey({
-  accountId,
-  networkId,
-}: {
-  accountId?: string;
-  networkId?: string;
-}) {
-  return accountId && networkId ? `${accountId}:${networkId}` : undefined;
-}
 
 function MobileProtocolDivider() {
   return (
@@ -141,13 +129,12 @@ function DeFiListBlock({
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
-  const { isHeaderRefreshing, setIsHeaderRefreshing } =
-    useTabIsRefreshingFocused();
-  const { onPositionActionSucceeded, refresh: refreshDeFi } =
-    useHomeDeFiIntents();
+  const { onPositionActionSucceeded } = useHomeDeFiIntents();
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
+  const currentOwnerKey =
+    account?.id && network?.id ? `${account.id}:${network.id}` : undefined;
   const resource = useHomeResource('defi');
   const payload = useHomeSectionPayload('defi');
   const computedIsDeFiEnabled = useIsDeFiEnabled(
@@ -176,87 +163,6 @@ function DeFiListBlock({
     resource.kind === 'loading' ||
     ((resource.kind === 'ready' || resource.kind === 'empty') &&
       resource.refresh === 'refreshing');
-  const currentOwnerKey = buildDeFiListOwnerKey({
-    accountId: account?.id,
-    networkId: network?.id,
-  });
-  const headerRefreshRef = useRef<{
-    ownerKey?: string;
-    requested: boolean;
-    seenRefreshing: boolean;
-    timeoutId?: ReturnType<typeof setTimeout>;
-  }>({ requested: false, seenRefreshing: false });
-  const resourceRefreshActive =
-    resource.kind === 'loading' ||
-    resource.kind === 'partial' ||
-    ((resource.kind === 'ready' || resource.kind === 'empty') &&
-      resource.refresh === 'refreshing');
-
-  useEffect(() => {
-    const state = headerRefreshRef.current;
-    if (state.ownerKey !== currentOwnerKey) {
-      if (state.timeoutId) {
-        clearTimeout(state.timeoutId);
-      }
-      headerRefreshRef.current = {
-        ownerKey: currentOwnerKey,
-        requested: false,
-        seenRefreshing: false,
-      };
-    }
-    if (!isHeaderRefreshing) {
-      return;
-    }
-    if (refreshCacheOnly) {
-      setIsHeaderRefreshing(false);
-      return;
-    }
-    const current = headerRefreshRef.current;
-    if (!current.requested) {
-      if (!refreshDeFi()) {
-        setIsHeaderRefreshing(false);
-        return;
-      }
-      current.requested = true;
-      current.timeoutId = setTimeout(() => {
-        headerRefreshRef.current.requested = false;
-        headerRefreshRef.current.seenRefreshing = false;
-        headerRefreshRef.current.timeoutId = undefined;
-        setIsHeaderRefreshing(false);
-      }, HEADER_REFRESH_TIMEOUT_MS);
-      return;
-    }
-    if (resourceRefreshActive) {
-      current.seenRefreshing = true;
-      return;
-    }
-    if (current.seenRefreshing) {
-      if (current.timeoutId) {
-        clearTimeout(current.timeoutId);
-      }
-      current.requested = false;
-      current.seenRefreshing = false;
-      current.timeoutId = undefined;
-      setIsHeaderRefreshing(false);
-    }
-  }, [
-    currentOwnerKey,
-    isHeaderRefreshing,
-    refreshDeFi,
-    refreshCacheOnly,
-    resourceRefreshActive,
-    setIsHeaderRefreshing,
-  ]);
-
-  useEffect(
-    () => () => {
-      if (headerRefreshRef.current.timeoutId) {
-        clearTimeout(headerRefreshRef.current.timeoutId);
-      }
-    },
-    [],
-  );
-
   const overviewCols = resolveOverviewCols({
     gtXl: media.gtXl,
     gtLg: media.gtLg,

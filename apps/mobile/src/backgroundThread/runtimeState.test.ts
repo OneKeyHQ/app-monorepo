@@ -1,10 +1,7 @@
 import { onNativeBackgroundThreadReady } from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   classifyBackgroundThreadReadyReason,
-  getBackgroundThreadReadyPayload,
-  onBackgroundThreadReady,
   setBackgroundThreadReadyPayload,
 } from './runtimeState';
 
@@ -21,18 +18,6 @@ function buildReadyPayload(bootId: string): IBackgroundThreadReadyPayload {
 }
 
 describe('background thread ready signal', () => {
-  it('replays the latched signal to a late subscriber', () => {
-    const listener = jest.fn();
-    const payload = buildReadyPayload('boot-late');
-
-    setBackgroundThreadReadyPayload(payload, 'recovered');
-    const unsubscribe = onBackgroundThreadReady(listener);
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith(payload);
-    unsubscribe();
-  });
-
   it('publishes a consumable recovered signal when the first ready arrives after timeout', () => {
     const payload = buildReadyPayload('boot-after-timeout');
     const reason = classifyBackgroundThreadReadyReason({
@@ -115,33 +100,25 @@ describe('background thread ready signal', () => {
     },
   );
 
-  it('stores the payload before publishing and isolates runtime listeners', () => {
+  it('stores the debug payload before publishing the shared signal', () => {
     const payload = buildReadyPayload('boot-atomic');
     const sharedListener = jest.fn(() => {
-      expect(getBackgroundThreadReadyPayload()).toBe(payload);
+      expect(
+        (
+          globalThis as typeof globalThis & {
+            __onekeyBackgroundThreadReadyPayload?: IBackgroundThreadReadyPayload;
+          }
+        ).__onekeyBackgroundThreadReadyPayload,
+      ).toBe(payload);
     });
     const unsubscribeShared = onNativeBackgroundThreadReady(sharedListener);
-    const throwingRuntimeListener = jest.fn(() => {
-      throw new OneKeyLocalError('runtime listener failed');
-    });
-    const healthyRuntimeListener = jest.fn();
-    const unsubscribeThrowing = onBackgroundThreadReady(
-      throwingRuntimeListener,
-    );
-    const unsubscribeHealthy = onBackgroundThreadReady(healthyRuntimeListener);
     sharedListener.mockClear();
-    throwingRuntimeListener.mockClear();
-    healthyRuntimeListener.mockClear();
 
     expect(() =>
       setBackgroundThreadReadyPayload(payload, 'recovered'),
     ).not.toThrow();
     expect(sharedListener).toHaveBeenCalledTimes(1);
-    expect(throwingRuntimeListener).toHaveBeenCalledTimes(1);
-    expect(healthyRuntimeListener).toHaveBeenCalledWith(payload);
 
     unsubscribeShared();
-    unsubscribeThrowing();
-    unsubscribeHealthy();
   });
 });

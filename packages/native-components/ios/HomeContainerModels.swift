@@ -19,7 +19,7 @@ struct HomeContainerTabSelectionQueue {
   }
 }
 
-struct HomeContainerTheme: Decodable {
+struct HomeContainerTheme: Decodable, Equatable {
   let backgroundColor: String
   let cardColor: String
   let strongColor: String?
@@ -36,7 +36,7 @@ struct HomeContainerTheme: Decodable {
   let negativeColor: String
 }
 
-struct HomeContainerAction: Decodable {
+struct HomeContainerAction: Decodable, Equatable {
   let id: String
   let title: String
   let subtitle: String?
@@ -45,13 +45,13 @@ struct HomeContainerAction: Decodable {
   let actionId: String
 }
 
-struct HomeContainerBannerResourceRow: Decodable {
+struct HomeContainerBannerResourceRow: Decodable, Equatable {
   let label: String
   let value: String
   let progress: CGFloat?
 }
 
-struct HomeContainerBanner: Decodable {
+struct HomeContainerBanner: Decodable, Equatable {
   let id: String
   let title: String
   let subtitle: String?
@@ -61,7 +61,7 @@ struct HomeContainerBanner: Decodable {
   let resourceRows: [HomeContainerBannerResourceRow]?
 }
 
-struct HomeContainerSegment: Decodable {
+struct HomeContainerSegment: Decodable, Equatable {
   let id: String
   let title: String
   let imageUrl: String?
@@ -71,7 +71,7 @@ struct HomeContainerSegment: Decodable {
   let actionId: String
 }
 
-struct HomeContainerHeader: Decodable {
+struct HomeContainerHeader: Decodable, Equatable {
   let accountName: String
   let accountSubtitle: String?
   let accountImageUrl: String?
@@ -91,7 +91,7 @@ struct HomeContainerHeader: Decodable {
   let banners: [HomeContainerBanner]
 }
 
-struct HomeContainerItem: Decodable {
+struct HomeContainerItem: Decodable, Equatable {
   let id: String
   let renderer: String
   let title: String
@@ -122,7 +122,7 @@ struct HomeContainerItem: Decodable {
   let segments: [HomeContainerSegment]?
 }
 
-struct HomeContainerSection: Decodable {
+struct HomeContainerSection: Decodable, Equatable {
   let id: String
   let title: String?
   let actionTitle: String?
@@ -137,7 +137,7 @@ enum HomeContainerTabDestination: String, Decodable, Equatable {
   case handoff
 }
 
-struct HomeContainerTab: Decodable {
+struct HomeContainerTab: Decodable, Equatable {
   let id: String
   let title: String
   let destination: HomeContainerTabDestination
@@ -230,7 +230,7 @@ func homeContainerTabsRequireRebuild(
   }
 }
 
-struct HomeContainerSnapshot: Decodable {
+struct HomeContainerSnapshot: Decodable, Equatable {
   let selectedTabId: String
   let header: HomeContainerHeader
   let tabs: [HomeContainerTab]
@@ -246,7 +246,7 @@ struct HomeContainerOwner: Codable, Equatable {
   }
 }
 
-struct HomeContainerState: Decodable {
+struct HomeContainerState: Decodable, Equatable {
   let owner: HomeContainerOwner
   let payload: HomeContainerSnapshot
 

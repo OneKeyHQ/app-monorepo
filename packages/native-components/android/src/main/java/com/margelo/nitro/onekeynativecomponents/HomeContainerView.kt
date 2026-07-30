@@ -266,8 +266,8 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
   private val headerView = HomeHeaderView(context)
   private val tabsView = HomeTabsView(context)
   private var activeRefreshRequestId: String? = null
-  private var pendingInitialStateJson: String? = null
-  private var initialStateApplyScheduled = false
+  private var pendingState: HomeContainerState? = null
+  private var stateApplyScheduled = false
   private var snapshot: HomeContainerSnapshot? = null
   private var state: HomeContainerState? = null
   private var fallbackBackgroundColor = Color.WHITE
@@ -400,14 +400,9 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       try {
         val next = HomeContainerJson.parseState(json)
         post {
-          if (state?.owner != null && state?.owner != next.owner) {
-            resetViewportForOwnerChange()
-          }
-          state = next
-          applySnapshot(
-            next.snapshot,
-            allowsMissingSelectedTabFallback = false,
-          )
+          pendingState = next
+          schedulePendingState()
+          requestLayout()
         }
       } catch (error: Exception) {
         reportError("state_decode_failed", error.message ?: error.javaClass.simpleName)
@@ -415,32 +410,32 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     }
   }
 
-  fun submitInitialState(json: String) {
-    if (disposed.get()) return
-    pendingInitialStateJson = json
-    schedulePendingInitialState()
-    requestLayout()
-  }
-
-  private fun schedulePendingInitialState() {
+  private fun schedulePendingState() {
     if (
-      pendingInitialStateJson == null ||
+      pendingState == null ||
       !isAttachedToWindow ||
       width <= 0 ||
       height <= 0 ||
-      initialStateApplyScheduled
+      stateApplyScheduled
     ) {
       return
     }
-    initialStateApplyScheduled = true
+    stateApplyScheduled = true
     post {
-      initialStateApplyScheduled = false
+      stateApplyScheduled = false
       if (disposed.get() || !isAttachedToWindow || width <= 0 || height <= 0) {
         return@post
       }
-      val json = pendingInitialStateJson ?: return@post
-      pendingInitialStateJson = null
-      submitState(json)
+      val next = pendingState ?: return@post
+      pendingState = null
+      if (state?.owner != null && state?.owner != next.owner) {
+        resetViewportForOwnerChange()
+      }
+      state = next
+      applySnapshot(
+        next.snapshot,
+        allowsMissingSelectedTabFallback = false,
+      )
     }
   }
 
@@ -586,35 +581,6 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
 
   fun ownsSlot(ownerScopeKey: String, ownerSessionId: String): Boolean =
     state?.owner == HomeContainerOwner(ownerScopeKey, ownerSessionId)
-
-  fun slotFrame(key: String): Rect? {
-    val statePrefix = "content.state."
-    val contentHeaderPrefix = "content.header."
-    val footerPrefix = "content.footer."
-    val contentTabId = homeContainerContentSlotTabId(key)
-    val target = when {
-      contentTabId != null && key.startsWith(statePrefix) ->
-        adapter.pageForTab(contentTabId)?.stateSlotTarget()
-      contentTabId != null && key.startsWith(contentHeaderPrefix) ->
-        adapter.pageForTab(contentTabId)?.contentHeaderSlotTarget()
-      contentTabId != null && key.startsWith(footerPrefix) ->
-        adapter.pageForTab(contentTabId)?.footerSlotTarget(key)
-      key.startsWith("header.") -> headerView.slotTarget(key)
-      key.startsWith("tab.") -> tabsView.slotTarget(key)
-      else -> null
-    } ?: return null
-    if (target.visibility != VISIBLE || target.width <= 0 || target.height <= 0) return null
-    val targetLocation = IntArray(2)
-    val rootLocation = IntArray(2)
-    target.getLocationInWindow(targetLocation)
-    getLocationInWindow(rootLocation)
-    return Rect(
-      targetLocation[0] - rootLocation[0],
-      targetLocation[1] - rootLocation[1],
-      targetLocation[0] - rootLocation[0] + target.width,
-      targetLocation[1] - rootLocation[1] + target.height,
-    )
-  }
 
   fun slotHostView(key: String): ViewGroup? {
     val statePrefix = "content.state."
@@ -1124,13 +1090,13 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
-    schedulePendingInitialState()
+    schedulePendingState()
     onSlotLayoutChange?.invoke()
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    schedulePendingInitialState()
+    schedulePendingState()
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -1441,7 +1407,7 @@ private class HomeContainerSlotHostView(context: Context) : FrameLayout(context)
 private data class HomeListRow(
   val kind: Int,
   val stableId: String,
-  val contentKey: String,
+  val spacerHeight: Int = 0,
   val title: String = "",
   val actionTitle: String = "",
   val actionId: String = "",
@@ -1451,46 +1417,6 @@ private data class HomeListRow(
   val horizontalItems: List<HomeContainerItem> = emptyList(),
   val slotKey: String = "",
 )
-
-internal fun homeContainerItemContentKey(item: HomeContainerItem): String = listOf(
-  item.id,
-  item.renderer,
-  item.title,
-  item.subtitle,
-  item.subtitleDetail,
-  item.subtitleDetailColor,
-  item.value,
-  item.detail,
-  item.imageUrl,
-  item.imageUrls.joinToString(","),
-  item.secondaryImageUrl,
-  item.titleAccessoryImageUrl,
-  item.titleAccessoryIcon,
-  item.badge,
-  item.badges.joinToString(","),
-  item.badgeImageUrl,
-  item.communityRecognized,
-  item.accentColor,
-  item.buttonTitle,
-  item.leadingIcon,
-  item.showChevron,
-  item.actionId,
-  item.favorite,
-  item.favoriteActionId,
-  item.favoriteLabel,
-  item.displayHeight,
-  item.segments.joinToString(",") { segment ->
-    listOf(
-      segment.id,
-      segment.title,
-      segment.imageUrl,
-      segment.leadingIcon,
-      segment.iconOnly,
-      segment.selected,
-      segment.actionId,
-    ).joinToString(":")
-  },
-).joinToString("|")
 
 internal fun resolveHomeContainerRowHeight(
   baseHeight: Int,
@@ -1565,7 +1491,13 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
 
   private fun buildRows(): List<HomeListRow> =
     buildList {
-      add(HomeListRow(VIEW_SPACER, "spacer", "spacer:$topSpacerHeight"))
+      add(
+        HomeListRow(
+          kind = VIEW_SPACER,
+          stableId = "spacer",
+          spacerHeight = topSpacerHeight,
+        ),
+      )
       if (
         mountedSlotKeys.contains("content.header.$tabId") &&
         contentHeaderHeight(tabId) > 0
@@ -1573,7 +1505,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
         add(
           HomeListRow(
             VIEW_CONTENT_HEADER,
-            "content-header:$tabId",
             "content-header:$tabId",
             slotKey = "content.header.$tabId",
           ),
@@ -1585,8 +1516,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
             HomeListRow(
               VIEW_SECTION,
               "section:${section.id}",
-              "section:${section.title}:${section.actionTitle}:${section.actionId}:" +
-                "${section.actionDisabled}:${section.layout}",
               title = section.title,
               actionTitle = section.actionTitle,
               actionId = section.actionId,
@@ -1610,7 +1539,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
                 HomeListRow(
                   VIEW_MARKET_RECOMMENDATIONS,
                   "market-recommendations:${section.id}:$itemIndex",
-                  recommendationItems.joinToString("||", transform = ::homeContainerItemContentKey),
                   horizontalItems = recommendationItems,
                 ),
               )
@@ -1626,7 +1554,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
               HomeListRow(
                 VIEW_GRID,
                 "grid:${section.id}:$rowIndex",
-                items.joinToString("||", transform = ::homeContainerItemContentKey),
                 horizontalItems = items,
               ),
             )
@@ -1636,7 +1563,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
             HomeListRow(
               VIEW_HORIZONTAL,
               "horizontal:${section.id}",
-              section.items.joinToString("||", transform = ::homeContainerItemContentKey),
               horizontalItems = section.items,
             ),
           )
@@ -1650,7 +1576,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
           add(
             HomeListRow(
               VIEW_FOOTER_SLOT,
-              "footer-slot:$key",
               "footer-slot:$key",
               slotKey = key,
             ),
@@ -1674,7 +1599,6 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       } else {
         "item:$sectionId:${item.id}"
       },
-      contentKey = homeContainerItemContentKey(item),
       item = item,
       slotKey = if (usesStateSlot) stateSlotKey else "",
     )
@@ -1705,7 +1629,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       is SpacerHolder -> {
         holder.itemView.layoutParams = RecyclerView.LayoutParams(
           ViewGroup.LayoutParams.MATCH_PARENT,
-          topSpacerHeight,
+          row.spacerHeight,
         )
         holder.itemView.setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
       }
@@ -1839,7 +1763,7 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
       oldRows[oldItemPosition].stableId == newRows[newItemPosition].stableId
 
     override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean =
-      oldRows[oldItemPosition].contentKey == newRows[newItemPosition].contentKey
+      oldRows[oldItemPosition] == newRows[newItemPosition]
   }
 }
 
@@ -2013,13 +1937,6 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       return actionHeightDelta
     }
     return (actionHeightDelta - 14).coerceAtLeast(0)
-  }
-
-  fun slotTarget(key: String): View? = when (key) {
-    "header.account-row" -> accountRowHost
-    "header.balance" -> balanceContainer
-    "header.action-row" -> actionRowHost
-    else -> null
   }
 
   fun slotHostView(key: String): ViewGroup? = when (key) {
@@ -2654,23 +2571,6 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
     mountedSlotKeys = keys
     updateToolbar()
     onSlotLayoutChange?.invoke()
-  }
-
-  fun slotTarget(key: String): View? {
-    val labelPrefix = "tab.label."
-    if (key.startsWith(labelPrefix)) {
-      return buttons[key.removePrefix(labelPrefix)]
-    }
-    val accessoryPrefix = "tab.accessory."
-    return if (
-      key.startsWith(accessoryPrefix) &&
-      key.removePrefix(accessoryPrefix) == selectedTabId &&
-      toolbarSlotHost.visibility == VISIBLE
-    ) {
-      toolbarSlotHost
-    } else {
-      null
-    }
   }
 
   fun slotHostView(key: String): ViewGroup? {

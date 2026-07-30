@@ -31,6 +31,7 @@ describe('Home DeFi Store authority', () => {
 
   it('keeps the renderer free of source publishers and background requests', () => {
     expect(rendererSource).toContain('useHomeDeFiIntents()');
+    expect(rendererSource).not.toContain('useTabIsRefreshingFocused');
     expect(rendererSource).not.toMatch(
       /backgroundApiProxy|useAllNetworkRequests|usePromiseResult|useHomeStoreSourcePublisher|publishHomeSectionSource/,
     );
@@ -88,5 +89,12 @@ describe('Home DeFi Store authority', () => {
 
   it('keys all-network request reuse to the current Store owner session', () => {
     expect(sourceController).toContain('runIdentityKey: deFiSourceIdentityKey');
+  });
+
+  it('keeps request aggregation in refs instead of renderer-facing React state', () => {
+    expect(sourceController).not.toMatch(
+      /setProtocols|setProtocolMap|setSupportedActions|setInitialized|setIsRefreshing|setErrorCode/,
+    );
+    expect(sourceController).toContain('return useMemo(() => ({ refresh })');
   });
 });

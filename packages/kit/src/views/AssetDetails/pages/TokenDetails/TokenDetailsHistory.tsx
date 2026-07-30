@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { unionBy } from 'lodash';
 
 import type { SectionList } from '@onekeyhq/components';
-import { useTabIsRefreshingFocused } from '@onekeyhq/components';
+import { useIsFocusedTab } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -317,7 +317,7 @@ function TokenDetailsHistoryContent({
 }
 
 function TokenDetailsHistoryWithTabFocus(props: IProps) {
-  const { isFocused } = useTabIsRefreshingFocused();
+  const isFocused = useIsFocusedTab();
 
   return <TokenDetailsHistoryContent {...props} focusParam={isFocused} />;
 }

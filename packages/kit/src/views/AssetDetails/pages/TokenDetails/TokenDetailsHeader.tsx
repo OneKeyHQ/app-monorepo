@@ -13,7 +13,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useTabIsRefreshingFocused,
+  useIsFocusedTab,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -674,7 +674,7 @@ function TokenDetailsHeaderContent({
 }
 
 function TokenDetailsHeaderWithTabFocus(props: IProps) {
-  const { isFocused } = useTabIsRefreshingFocused();
+  const isFocused = useIsFocusedTab();
 
   return <TokenDetailsHeaderContent {...props} focusParam={isFocused} />;
 }

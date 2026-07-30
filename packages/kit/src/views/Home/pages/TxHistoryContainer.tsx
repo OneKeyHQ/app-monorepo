@@ -1,9 +1,9 @@
 import { memo, useEffect, useMemo } from 'react';
 
 import {
+  useIsFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -46,7 +46,7 @@ function TxHistoryListContainer(
 ) {
   const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
     params ?? {};
-  const { isFocused } = useTabIsRefreshingFocused();
+  const isFocused = useIsFocusedTab();
   const isRouteFocused = useRouteIsFocused();
   const media = useMedia();
   const tabBarHeight = useScrollContentTabBarOffset();

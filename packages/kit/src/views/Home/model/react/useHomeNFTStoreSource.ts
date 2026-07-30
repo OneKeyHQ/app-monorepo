@@ -26,10 +26,7 @@ import {
   recordNativeHomeAllNetworkResponse,
   resolveNativeHomeAllNetworkAuthorityStatus,
 } from '../../nativeHomeAllNetworkAuthority';
-import {
-  HomeSectionCoordinator,
-  type IHomeSectionCoordinatorResolution,
-} from '../sections/homeSectionCoordinator';
+import { HomeSectionCoordinator } from '../sections/homeSectionCoordinator';
 import {
   type IHomeNFTEvidence,
   buildHomeNFTCoverage,
@@ -62,10 +59,6 @@ function createHomeNFTStoreProducerInstanceId() {
 }
 
 export interface IHomeNFTStoreSource {
-  data: IAccountNFT[];
-  errorCode: string | undefined;
-  initialized: boolean;
-  isRefreshing: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -110,10 +103,6 @@ export function useHomeNFTStoreSource({
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const { updateAllNetworksState } = useAccountOverviewActions().current;
-  const [data, setData] = useState<IAccountNFT[]>([]);
-  const [initialized, setInitialized] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [errorCode, setErrorCode] = useState<string>();
   const renderedOwnerScopeRef = useRef<string | undefined>(undefined);
   const singleRequestOwnerKeyRef = useRef<string | undefined>(undefined);
   const allNetworkManualRef = useRef(false);
@@ -215,17 +204,6 @@ export function useHomeNFTStoreSource({
   const nftSourceIdentityKeyRef = useRef(nftSourceIdentityKey);
   nftSourceIdentityKeyRef.current = nftSourceIdentityKey;
 
-  const applyAuthoritativeNFTPayload = useCallback(
-    (resolution: IHomeSectionCoordinatorResolution<IHomeNFTLegacyPayload>) => {
-      if (resolution.authoritative.kind === 'none') {
-        return;
-      }
-      setData(resolution.authoritative.data.data);
-      setInitialized(true);
-    },
-    [],
-  );
-
   const resolveNFTEvidence = useCallback(
     (evidence: IHomeNFTEvidence) => {
       if (!nftSourceIdentity || !nftSourceIdentityKey) {
@@ -253,10 +231,9 @@ export function useHomeNFTStoreSource({
       if (!resolution.accepted) {
         return resolution;
       }
-      applyAuthoritativeNFTPayload(resolution);
       return resolution;
     },
-    [applyAuthoritativeNFTPayload, nftSourceIdentity, nftSourceIdentityKey],
+    [nftSourceIdentity, nftSourceIdentityKey],
   );
 
   const beginNFTRequest = useCallback(() => {
@@ -361,8 +338,6 @@ export function useHomeNFTStoreSource({
       const requestSourceIdentityKey = nftSourceIdentityKey;
       const isRequestSourceCurrent = () =>
         nftSourceIdentityKeyRef.current === requestSourceIdentityKey;
-      setIsRefreshing(true);
-      setErrorCode(undefined);
       emitNFTListStateUpdate({
         accountId,
         isRefreshing: true,
@@ -391,15 +366,9 @@ export function useHomeNFTStoreSource({
               rowIds,
             },
           });
-          if (rowIds.length === 0) {
-            setData([]);
-            setInitialized(true);
-          }
         }
       } catch {
         if (isRequestSourceCurrent()) {
-          setErrorCode('nft_fetch_failed');
-          setInitialized(true);
           completeNFTEvidence({
             handle,
             evidence: { kind: 'error', errorKind: 'source' },
@@ -407,7 +376,6 @@ export function useHomeNFTStoreSource({
         }
       } finally {
         if (isRequestSourceCurrent()) {
-          setIsRefreshing(false);
           emitNFTListStateUpdate({
             accountId,
             isRefreshing: false,
@@ -521,15 +489,10 @@ export function useHomeNFTStoreSource({
         getAllNetworkResponseKey(result, allNetworkResponsesRef.current.size),
         result,
       );
-      const payload = buildAllNetworkPayload();
-      setData(payload.data);
-      setInitialized(true);
     },
-    [buildAllNetworkPayload, isAllNetworkSourceCurrent],
+    [isAllNetworkSourceCurrent],
   );
-  const clearAllNetworkData = useCallback(() => {
-    setData([]);
-  }, []);
+  const clearAllNetworkData = useCallback(() => undefined, []);
   const handleAllNetworkStarted = useCallback(
     ({
       accountId: ownerAccountId,
@@ -553,8 +516,6 @@ export function useHomeNFTStoreSource({
         return;
       }
       allNetworkRequestHandleRef.current = handle;
-      setIsRefreshing(true);
-      setErrorCode(undefined);
       if (ownerAccountId && ownerNetworkId) {
         emitNFTListStateUpdate({
           accountId: ownerAccountId,
@@ -624,9 +585,7 @@ export function useHomeNFTStoreSource({
           rowIds: [],
         },
       });
-      setData([]);
     } else if (authorityStatus === 'error') {
-      setErrorCode('nft_fetch_failed');
       completeNFTEvidence({
         handle,
         evidence: { kind: 'error', errorKind: 'source' },
@@ -645,14 +604,9 @@ export function useHomeNFTStoreSource({
           rowIds,
         },
       });
-      if (rowIds.length === 0) {
-        setData([]);
-      }
     }
     allNetworkManualRef.current = false;
     allNetworkRequestHandleRef.current = undefined;
-    setIsRefreshing(false);
-    setInitialized(true);
     if (accountId && networkId) {
       emitNFTListStateUpdate({
         accountId,
@@ -697,9 +651,6 @@ export function useHomeNFTStoreSource({
       allNetworkResponsesRef.current.clear();
       allNetworkRequestHandleRef.current = undefined;
       singleRequestOwnerKeyRef.current = undefined;
-      setData([]);
-      setInitialized(false);
-      setErrorCode(undefined);
     }
     if (!enabled || !accountId || !networkId || !walletId) {
       return;
@@ -785,8 +736,5 @@ export function useHomeNFTStoreSource({
     };
   }, [enabled, refresh, visible]);
 
-  return useMemo(
-    () => ({ data, errorCode, initialized, isRefreshing, refresh }),
-    [data, errorCode, initialized, isRefreshing, refresh],
-  );
+  return useMemo(() => ({ refresh }), [refresh]);
 }

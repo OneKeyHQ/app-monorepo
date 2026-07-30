@@ -7,7 +7,6 @@ import { groupBy, isEmpty, isNil, keyBy, mapValues, uniqBy } from 'lodash';
 import {
   onVisibilityStateChange,
   useOnRouterChange,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
@@ -319,8 +318,6 @@ function HomePortfolioStoreController({
 }: {
   showRecentHistory?: boolean;
 }) {
-  const { isHeaderRefreshing, setIsHeaderRefreshing } =
-    useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
   // when a modal is presented above Home, or when the app is locked.
   const isRouteFocused = useRouteIsFocused();
@@ -625,6 +622,204 @@ function HomePortfolioStoreController({
     'complete' | 'error' | 'partial' | undefined
   >(undefined);
 
+  const executeSingleNetworkTokenRequest = useCallback(
+    async ({
+      fetchAccountId,
+      indexedAccountId: requestIndexedAccountId,
+      markPerformanceEnd,
+      networkId: requestNetworkId,
+      prepare,
+      requestAccountId,
+      requestContext,
+      syncOverview,
+    }: {
+      fetchAccountId: string;
+      indexedAccountId?: string;
+      markPerformanceEnd: boolean;
+      networkId: string;
+      prepare?: () => Promise<boolean>;
+      requestAccountId: string;
+      requestContext: IActiveAccountTokenListRequestContext;
+      syncOverview: boolean;
+    }) => {
+      const requestOwnerKey = cellsIngestInputsRef.current.ownerKey;
+      const requestNonZeroInputs = {
+        ...cellsIngestInputsRef.current.nonZeroInputs,
+      };
+      const isRequestContextCurrent = () =>
+        requestOwnerKey === cellsIngestInputsRef.current.ownerKey &&
+        isSameActiveAccountTokenListRequestContext(
+          latestActiveAccountTokenListRequestContextRef.current,
+          requestContext,
+        );
+      let valuationReceipt: IHomePortfolioValuationReceipt | undefined;
+      let requestRound: IHomePortfolioRequestRound | undefined;
+      let tokenListRefreshEventStarted = false;
+      const endTokenListRefreshEvent = () => {
+        if (!tokenListRefreshEventStarted) {
+          return;
+        }
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: false,
+          type: EHomeTab.TOKENS,
+          accountId: fetchAccountId,
+          networkId: requestNetworkId,
+        });
+        tokenListRefreshEventStarted = false;
+      };
+
+      try {
+        if (prepare && !(await prepare())) {
+          return;
+        }
+        if (!isRequestContextCurrent()) {
+          return;
+        }
+        requestRound = beginPortfolioStoreRequestRef.current();
+        legacySingleTerminalRef.current = undefined;
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.TOKENS,
+          accountId: fetchAccountId,
+          networkId: requestNetworkId,
+        });
+        tokenListRefreshEventStarted = true;
+
+        const response =
+          await backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: fetchAccountId,
+            mergeTokens: true,
+            networkId: requestNetworkId,
+            flag: 'home-token-list',
+            saveToLocal: true,
+            indexedAccountId: requestIndexedAccountId,
+            ...walletTokenFilterParams,
+          });
+        if (!isRequestContextCurrent()) {
+          return;
+        }
+
+        const accountWorth =
+          sumTokenGroupsFiatValueIgnoringUnavailable(response);
+        if (syncOverview) {
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+          updateAccountWorth({
+            accountId: fetchAccountId,
+            initialized: true,
+            worth: {
+              [accountUtils.buildAccountValueKey({
+                accountId: fetchAccountId,
+                networkId: requestNetworkId,
+              })]: accountWorth,
+            },
+            createAtNetworkWorth: accountWorth,
+            merge: false,
+          });
+        }
+
+        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+          const ingestReceipt =
+            await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+              buildHomeTokenListCacheIngestRound({
+                ownerKey: requestOwnerKey,
+                accountId: requestAccountId,
+                networkId: requestNetworkId,
+                tokenList: response.tokens.data,
+                smallBalanceTokenList: response.smallBalanceTokens.data,
+                riskyTokenList: response.riskTokens.data,
+                tokenListMap: response.tokens.map,
+                smallBalanceTokenListMap: response.smallBalanceTokens.map,
+                riskyTokenListMap: response.riskTokens.map,
+                keepDefault: requestNonZeroInputs.keepDefault,
+                homeDefaultTokenMap: requestNonZeroInputs.homeDefaultTokenMap,
+                customTokens: requestNonZeroInputs.customTokens,
+                smallBalanceFiatValue:
+                  response.smallBalanceTokens.fiatValue ?? '0',
+                rawKeys: response.allTokens?.keys ?? '',
+                source: 'single',
+              }),
+            );
+          await pullLatestTokenListFrames();
+          valuationReceipt = requireHomePortfolioValuationReceipt({
+            ownerKey: requestOwnerKey,
+            receipt: ingestReceipt,
+          });
+          if (!isRequestContextCurrent()) {
+            return;
+          }
+        }
+
+        const mergedTokens = response.allTokens?.data;
+        if (mergedTokens?.length) {
+          void backgroundApiProxy.serviceToken.updateLocalTokens({
+            networkId: requestNetworkId,
+            tokens: mergedTokens,
+          });
+        }
+        if (markPerformanceEnd) {
+          perfTokenListView.markEnd(
+            'tokenListRefreshing_tokenListContainerRefreshList',
+          );
+        }
+        updateTokenListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+        legacySingleTerminalRef.current = undefined;
+
+        const completionRound = resolvePortfolioCompletionRound({
+          lifecycle: portfolioRequestLifecycleRef.current,
+          requestRound,
+          beginRequest: beginPortfolioStoreRequestRef.current,
+        });
+        if (completionRound) {
+          pendingSingleNetworkReadyCompletionsRef.current.push({
+            identityKey: completionRound.identityKey,
+            ownerKey: requestOwnerKey,
+            round: completionRound,
+            valuationReceipt,
+          });
+          setSingleNetworkCompletionRevision((revision) => revision + 1);
+        }
+      } catch (error) {
+        if (isRequestContextCurrent()) {
+          updateTokenListState({ initialized: true, isRefreshing: false });
+          updateAccountOverviewState({
+            initialized: true,
+            isRefreshing: false,
+          });
+          legacySingleTerminalRef.current = 'error';
+          const completionRound = resolvePortfolioCompletionRound({
+            lifecycle: portfolioRequestLifecycleRef.current,
+            requestRound,
+            beginRequest: beginPortfolioStoreRequestRef.current,
+          });
+          portfolioRequestLifecycleRef.current.complete({
+            completeRequest: completeHomeSectionRequest,
+            result: { kind: 'error' },
+            round: completionRound,
+          });
+        }
+        if (!(error instanceof CanceledError)) {
+          throw error;
+        }
+      } finally {
+        endTokenListRefreshEvent();
+      }
+    },
+    [
+      completeHomeSectionRequest,
+      pullLatestTokenListFrames,
+      updateAccountOverviewState,
+      updateAccountWorth,
+      updateTokenListState,
+      walletTokenFilterParams,
+    ],
+  );
+
   const { run } = usePromiseResult(
     async () => {
       if (!network || network.isAllNetworks) {
@@ -647,6 +842,18 @@ function HomePortfolioStoreController({
         mergeDeriveAddressData: !!mergeDeriveAddressData,
         tokenSelectorFilterMode,
       };
+      if (!mergeDeriveAddressData) {
+        await executeSingleNetworkTokenRequest({
+          fetchAccountId,
+          indexedAccountId: requestIndexedAccountId,
+          markPerformanceEnd: true,
+          networkId: requestNetwork.id,
+          requestAccountId,
+          requestContext,
+          syncOverview: syncTokenFilterToOverview,
+        });
+        return;
+      }
       const requestOwnerKey = cellsIngestInputsRef.current.ownerKey;
       const requestNonZeroInputs = {
         ...cellsIngestInputsRef.current.nonZeroInputs,
@@ -683,7 +890,7 @@ function HomePortfolioStoreController({
         });
         tokenListRefreshEventStarted = true;
 
-        let r: IFetchAccountTokensResp = getEmptyTokenData();
+        const r: IFetchAccountTokensResp = getEmptyTokenData();
 
         if (mergeDeriveAddressData) {
           const { networkAccounts } =
@@ -784,41 +991,6 @@ function HomePortfolioStoreController({
               merge: false,
             });
           }
-        } else {
-          r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId: fetchAccountId,
-            mergeTokens: true,
-            networkId: requestNetwork.id,
-            flag: 'home-token-list',
-            saveToLocal: true,
-            indexedAccountId: requestIndexedAccountId,
-            ...walletTokenFilterParams,
-          });
-          if (!isRequestContextCurrent()) {
-            return;
-          }
-
-          const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-
-          if (syncTokenFilterToOverview) {
-            updateAccountOverviewState({
-              isRefreshing: false,
-              initialized: true,
-            });
-
-            updateAccountWorth({
-              accountId: fetchAccountId,
-              initialized: true,
-              worth: {
-                [accountUtils.buildAccountValueKey({
-                  accountId: fetchAccountId,
-                  networkId: requestNetwork.id,
-                })]: accountWorth,
-              },
-              createAtNetworkWorth: accountWorth,
-              merge: false,
-            });
-          }
         }
 
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
@@ -912,20 +1084,17 @@ function HomePortfolioStoreController({
         }
       } finally {
         endTokenListRefreshEvent();
-        if (isRequestContextCurrent()) {
-          setIsHeaderRefreshing(false);
-        }
       }
     },
     [
       account,
+      executeSingleNetworkTokenRequest,
       network,
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
       indexedAccount?.id,
       updateTokenListState,
-      setIsHeaderRefreshing,
       syncTokenFilterToOverview,
       walletTokenFilterParams,
       completeHomeSectionRequest,
@@ -1026,7 +1195,6 @@ function HomePortfolioStoreController({
           });
           setIsLpTokenSwitchLoading(false);
         }
-        setIsHeaderRefreshing(false);
       }
     },
     [
@@ -1038,7 +1206,6 @@ function HomePortfolioStoreController({
       showLpTokensOnly,
       tokenSelectorFilterMode,
       tokenSelectorFilterParams,
-      setIsHeaderRefreshing,
     ],
     {
       // Persisted DeFi-token mode can mount before Home focus settles after a
@@ -1851,7 +2018,7 @@ function HomePortfolioStoreController({
 
   const legacySpotRefreshing = showLpTokensOnly
     ? scopedLpTokenListState.isRefreshing
-    : isHeaderRefreshing || tokenListState.isRefreshing;
+    : tokenListState.isRefreshing;
   const legacySpotInitialized = showLpTokensOnly
     ? scopedLpTokenListState.initialized
     : tokenListState.initialized;
@@ -3491,15 +3658,6 @@ function HomePortfolioStoreController({
     wallet?.id,
   ]);
 
-  useEffect(() => {
-    if (isHeaderRefreshing) {
-      refreshWalletTokenListRef.current?.();
-      if (showLpTokensOnly) {
-        void runLpTokenList({ alwaysSetState: true });
-      }
-    }
-  }, [isHeaderRefreshing, runLpTokenList, showLpTokensOnly]);
-
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
     defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -3702,169 +3860,29 @@ function HomePortfolioStoreController({
         ...activeContext,
         indexedAccountId: indexedAccountId ?? activeContext.indexedAccountId,
       };
-      const requestOwnerKey = cellsIngestInputsRef.current.ownerKey;
-      const requestNonZeroInputs = {
-        ...cellsIngestInputsRef.current.nonZeroInputs,
-      };
-      let valuationReceipt: IHomePortfolioValuationReceipt | undefined;
-      const isRequestContextCurrent = () =>
-        requestOwnerKey === cellsIngestInputsRef.current.ownerKey &&
-        isSameActiveAccountTokenListRequestContext(
-          latestActiveAccountTokenListRequestContextRef.current,
-          requestContext,
-        );
-
-      let emittedRefreshing = false;
-      let requestRound: IHomePortfolioRequestRound | undefined;
-      try {
-        // Multi-derive (merge-derive) HD accounts need the parallel
-        // per-derivation fetch that only `run` performs; the single-account
-        // fast path below would apply partial data, so skip them. Others
-        // accounts (imported/watch-only) are always single-address even on
-        // merge-derive networks, so they can safely use the fast path here.
-        const targetVaultSettings =
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          });
-        if (
-          targetVaultSettings?.mergeDeriveAssetsEnabled &&
-          !accountUtils.isOthersAccount({ accountId })
-        ) {
-          return;
-        }
-        if (!isRequestContextCurrent()) return;
-        requestRound = beginPortfolioStoreRequestRef.current();
-
-        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-          isRefreshing: true,
-          type: EHomeTab.TOKENS,
-          accountId,
-          networkId,
-        });
-        emittedRefreshing = true;
-
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId,
-          mergeTokens: true,
-          networkId,
-          flag: 'home-token-list',
-          saveToLocal: true,
-          indexedAccountId,
-          ...walletTokenFilterParams,
-        });
-
-        if (!isRequestContextCurrent()) return;
-
-        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-        updateAccountOverviewState({ isRefreshing: false, initialized: true });
-        updateAccountWorth({
-          accountId,
-          initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({ accountId, networkId })]:
-              accountWorth,
-          },
-          createAtNetworkWorth: accountWorth,
-          merge: false,
-        });
-
-        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          const ingestReceipt =
-            await backgroundApiProxy.serviceTokenViewModel.ingestRound(
-              buildHomeTokenListCacheIngestRound({
-                ownerKey: requestOwnerKey,
-                accountId,
-                networkId,
-                tokenList: r.tokens.data,
-                smallBalanceTokenList: r.smallBalanceTokens.data,
-                riskyTokenList: r.riskTokens.data,
-                tokenListMap: r.tokens.map,
-                smallBalanceTokenListMap: r.smallBalanceTokens.map,
-                riskyTokenListMap: r.riskTokens.map,
-                keepDefault: requestNonZeroInputs.keepDefault,
-                homeDefaultTokenMap: requestNonZeroInputs.homeDefaultTokenMap,
-                customTokens: requestNonZeroInputs.customTokens,
-                smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
-                rawKeys: r.allTokens?.keys ?? '',
-                source: 'single',
-              }),
-            );
-          await pullLatestTokenListFrames();
-          valuationReceipt = requireHomePortfolioValuationReceipt({
-            ownerKey: requestOwnerKey,
-            receipt: ingestReceipt,
-          });
-          if (!isRequestContextCurrent()) return;
-        }
-
-        if (r.allTokens) {
-          // Keep the broader local token directory in sync, like `run` does;
-          // `saveToLocal` only persists the per-account token cache.
-          const mergedTokens = r.allTokens.data;
-          if (mergedTokens && mergedTokens.length) {
-            void backgroundApiProxy.serviceToken.updateLocalTokens({
+      await executeSingleNetworkTokenRequest({
+        fetchAccountId: accountId,
+        indexedAccountId,
+        markPerformanceEnd: false,
+        networkId,
+        prepare: async () => {
+          // Merge-derive HD accounts require the main pipeline's per-address
+          // fan-out. Imported and watch-only accounts remain single-address.
+          const targetVaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
               networkId,
-              tokens: mergedTokens,
             });
-          }
-        }
-        updateTokenListState({ initialized: true, isRefreshing: false });
-        legacySingleTerminalRef.current = undefined;
-        const completionRound = resolvePortfolioCompletionRound({
-          lifecycle: portfolioRequestLifecycleRef.current,
-          requestRound,
-          beginRequest: beginPortfolioStoreRequestRef.current,
-        });
-        if (completionRound) {
-          pendingSingleNetworkReadyCompletionsRef.current.push({
-            identityKey: completionRound.identityKey,
-            ownerKey: requestOwnerKey,
-            round: completionRound,
-            valuationReceipt,
-          });
-          setSingleNetworkCompletionRevision((revision) => revision + 1);
-        }
-      } catch (e) {
-        if (isRequestContextCurrent()) {
-          updateTokenListState({ initialized: true, isRefreshing: false });
-          updateAccountOverviewState({
-            initialized: true,
-            isRefreshing: false,
-          });
-          legacySingleTerminalRef.current = 'error';
-          const completionRound = resolvePortfolioCompletionRound({
-            lifecycle: portfolioRequestLifecycleRef.current,
-            requestRound,
-            beginRequest: beginPortfolioStoreRequestRef.current,
-          });
-          portfolioRequestLifecycleRef.current.complete({
-            completeRequest: completeHomeSectionRequest,
-            result: { kind: 'error' },
-            round: completionRound,
-          });
-        }
-        if (!(e instanceof CanceledError)) {
-          throw e;
-        }
-      } finally {
-        if (emittedRefreshing) {
-          appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
-            isRefreshing: false,
-            type: EHomeTab.TOKENS,
-            accountId,
-            networkId,
-          });
-        }
-      }
+          return !(
+            targetVaultSettings?.mergeDeriveAssetsEnabled &&
+            !accountUtils.isOthersAccount({ accountId })
+          );
+        },
+        requestAccountId: accountId,
+        requestContext,
+        syncOverview: true,
+      });
     },
-    [
-      walletTokenFilterParams,
-      updateAccountOverviewState,
-      updateAccountWorth,
-      updateTokenListState,
-      completeHomeSectionRequest,
-      pullLatestTokenListFrames,
-    ],
+    [executeSingleNetworkTokenRequest],
   );
 
   useEffect(() => {

@@ -362,8 +362,8 @@ private enum HomeContainerAccessibilityIdentifier {
   }
 }
 
-private struct HomeContainerRow {
-  enum Kind {
+private struct HomeContainerRow: Equatable {
+  enum Kind: Equatable {
     case grid([HomeContainerItem])
     case horizontal(HomeContainerSection)
     case item(HomeContainerItem)
@@ -375,131 +375,6 @@ private struct HomeContainerRow {
 
   let id: String
   let kind: Kind
-
-  var contentSignature: String {
-    switch kind {
-    case .grid(let items):
-      return items.map { item in
-        [
-          item.id,
-          item.title,
-          item.subtitle ?? "",
-          item.subtitleDetail ?? "",
-          item.value ?? "",
-          item.imageUrl ?? "",
-          item.imageUrls?.joined(separator: ",") ?? "",
-          item.secondaryImageUrl ?? "",
-          item.badgeImageUrl ?? "",
-          item.titleAccessoryImageUrl ?? "",
-          item.titleAccessoryIcon ?? "",
-          item.badges?.joined(separator: ",") ?? "",
-        ].joined(separator: ":")
-      }.joined(separator: "|")
-    case .marketRecommendations(let items):
-      return items.map { item in
-        [
-          item.id,
-          item.title,
-          item.subtitle ?? "",
-          item.imageUrl ?? "",
-          item.imageUrls?.joined(separator: ",") ?? "",
-          item.badgeImageUrl ?? "",
-          item.titleAccessoryImageUrl ?? "",
-          item.communityRecognized == true ? "recognized" : "",
-          item.favorite == true ? "selected" : "unselected",
-          item.actionId ?? "",
-        ].joined(separator: ":")
-      }.joined(separator: "|")
-    case .horizontal(let section):
-      return section.items.map { item in
-        [
-          item.id,
-          item.renderer,
-          item.title,
-          item.subtitle ?? "",
-          item.value ?? "",
-          item.imageUrl ?? "",
-          item.imageUrls?.joined(separator: ",") ?? "",
-        ]
-          .joined(separator: ":")
-      }.joined(separator: "|")
-    case .sectionTitle(let section):
-      return [
-        "section",
-        section.title ?? "",
-        section.actionTitle ?? "",
-        section.actionId ?? "",
-        section.actionDisabled == true ? "disabled" : "enabled",
-        section.layout ?? "",
-      ].joined(separator: "|")
-    case .contentHeader(let tabId):
-      return "content-header|\(tabId)"
-    case .footerSlot(let key):
-      return "footer-slot|\(key)"
-    case .item(let item):
-      let segmentSignature = item.segments?.map { segment in
-        [
-          segment.id,
-          segment.title,
-          segment.imageUrl ?? "",
-          segment.leadingIcon ?? "",
-          segment.iconOnly == true ? "1" : "0",
-          segment.selected == true ? "1" : "0",
-          segment.actionId,
-        ].joined(separator: ":")
-      }.joined(separator: ",") ?? ""
-      let fields: [String] = [
-        item.renderer,
-        item.title,
-        item.subtitle ?? "",
-        item.subtitleDetail ?? "",
-        item.subtitleDetailColor ?? "",
-        item.value ?? "",
-        item.detail ?? "",
-        item.imageUrl ?? "",
-        item.imageUrls?.joined(separator: ",") ?? "",
-        item.secondaryImageUrl ?? "",
-        item.badge ?? "",
-        item.badges?.joined(separator: ",") ?? "",
-        item.badgeImageUrl ?? "",
-        item.titleAccessoryImageUrl ?? "",
-        item.titleAccessoryIcon ?? "",
-        item.communityRecognized == true ? "1" : "0",
-        item.accentColor ?? "",
-        item.buttonTitle ?? "",
-        item.leadingIcon ?? "",
-        item.showChevron == true ? "1" : "0",
-        item.showDivider == true ? "1" : "0",
-        item.actionId ?? "",
-        item.favorite == true ? "1" : "0",
-        item.favoriteActionId ?? "",
-        item.favoriteLabel ?? "",
-        segmentSignature,
-      ]
-      return fields.joined(separator: "|")
-    }
-  }
-}
-
-private extension HomeContainerTheme {
-  var contentSignature: String {
-    [
-      backgroundColor,
-      cardColor,
-      strongColor ?? "",
-      infoBackgroundColor ?? "",
-      infoTextColor ?? "",
-      hoverColor ?? "",
-      activeColor ?? "",
-      subduedIconColor ?? "",
-      dividerColor,
-      primaryTextColor,
-      secondaryTextColor,
-      accentColor,
-      positiveColor,
-      negativeColor,
-    ].joined(separator: "|")
-  }
 }
 
 private final class HomeContainerSlotHostView: UIView {
@@ -751,8 +626,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   )
   private let decoder = JSONDecoder()
   private let lifecycleLock = NSLock()
-  private var pendingInitialState: HomeContainerState?
-  private var initialStateApplyScheduled = false
+  private var pendingState: HomeContainerState?
+  private var stateApplyScheduled = false
   private var snapshot: HomeContainerSnapshot?
   private var state: HomeContainerState?
   private var pages: [HomeContainerPageView] = []
@@ -843,7 +718,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    schedulePendingInitialState()
+    schedulePendingState()
   }
 
   @objc private func contentSizeCategoryDidChange() {
@@ -895,7 +770,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
     }
     updateSharedChromeLayout()
-    schedulePendingInitialState()
+    schedulePendingState()
 
     guard pagerTransitionState == .idle,
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
@@ -934,16 +809,9 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         }
         DispatchQueue.main.async { [weak self] in
           guard let self, !self.isDisposed() else { return }
-          let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
-          if ownerChanged {
-            self.prepareViewportForOwnerChange()
-          }
-          self.state = next
-          self.applySnapshot(
-            next.payload,
-            allowsMissingSelectedTabFallback: false,
-            ownerChanged: ownerChanged
-          )
+          self.pendingState = next
+          self.schedulePendingState()
+          self.setNeedsLayout()
         }
       } catch {
         self.reportError(code: "state_decode_failed", message: error.localizedDescription)
@@ -951,46 +819,25 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
   }
 
-  func submitInitialState(_ json: String) {
-    do {
-      let next = try JSONDecoder().decode(
-        HomeContainerState.self,
-        from: Data(json.utf8)
-      )
-      guard next.isValid else {
-        reportError(
-          code: "invalid_state",
-          message: "HomeContainer state violates protocol invariants"
-        )
-        return
-      }
-      pendingInitialState = next
-      schedulePendingInitialState()
-      setNeedsLayout()
-    } catch {
-      reportError(code: "state_decode_failed", message: error.localizedDescription)
-    }
-  }
-
-  private func schedulePendingInitialState() {
-    guard pendingInitialState != nil,
+  private func schedulePendingState() {
+    guard pendingState != nil,
           window != nil,
           bounds.width > 0,
           bounds.height > 0,
-          !initialStateApplyScheduled else {
+          !stateApplyScheduled else {
       return
     }
-    initialStateApplyScheduled = true
+    stateApplyScheduled = true
     DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      self.initialStateApplyScheduled = false
+      guard let self, !self.isDisposed() else { return }
+      self.stateApplyScheduled = false
       guard self.window != nil,
             self.bounds.width > 0,
             self.bounds.height > 0,
-            let next = self.pendingInitialState else {
+            let next = self.pendingState else {
         return
       }
-      self.pendingInitialState = nil
+      self.pendingState = nil
       let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
       if ownerChanged {
         self.prepareViewportForOwnerChange()
@@ -1034,15 +881,6 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   @objc(ownsSlotWithScopeKey:sessionId:)
   func ownsSlot(scopeKey: String, sessionId: String) -> Bool {
     state?.owner == HomeContainerOwner(scopeKey: scopeKey, sessionId: sessionId)
-  }
-
-  @objc(slotFrameForKey:)
-  func slotFrame(forKey key: String) -> NSValue {
-    layoutIfNeeded()
-    if let host = slotHostView(forKey: key) {
-      return NSValue(cgRect: host.convert(host.bounds, to: self))
-    }
-    return NSValue(cgRect: .zero)
   }
 
   @objc(slotHostViewForKey:)
@@ -1706,7 +1544,6 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
   private var rowsById: [String: HomeContainerRow] = [:]
   private lazy var dataSource = makeDataSource()
   private var theme: HomeContainerTheme?
-  private var themeSignature = ""
   private var sections: [HomeContainerSection] = []
   private var suppressContentOffsetCallback = false
   private var marketMutationContentOffsetPinDepth = 0
@@ -1779,9 +1616,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
     allowsAnimatedDifferences: Bool = true,
     completion: (() -> Void)? = nil
   ) {
-    let nextThemeSignature = theme.contentSignature
-    let shouldReconfigureAllRows = !themeSignature.isEmpty && themeSignature != nextThemeSignature
-    themeSignature = nextThemeSignature
+    let shouldReconfigureAllRows = self.theme != nil && self.theme != theme
     self.theme = theme
     backgroundColor = UIColor(
       homeContainerColor: theme.backgroundColor,
@@ -1904,7 +1739,7 @@ private final class HomeContainerPageView: UIView, UITableViewDelegate {
         return previousRows[row.id] == nil ? nil : row.id
       }
       guard let previous = previousRows[row.id],
-            previous.contentSignature != row.contentSignature else { return nil }
+            previous != row else { return nil }
       return row.id
     }
     let existingRowIds = Set(dataSource.snapshot().itemIdentifiers)
@@ -2741,25 +2576,6 @@ private final class HomeContainerHeaderView: UIView {
     default:
       return nil
     }
-  }
-
-  func slotFrame(forKey key: String) -> CGRect? {
-    layoutIfNeeded()
-    let target: UIView?
-    switch key {
-    case "header.account-row":
-      target = accountRow
-    case "header.balance":
-      target = balanceAnchor
-    case "header.action-row":
-      target = actionsScroll
-    default:
-      target = nil
-    }
-    guard let target, !target.isHidden, target.bounds.width > 0, target.bounds.height > 0 else {
-      return nil
-    }
-    return target.convert(target.bounds, to: self)
   }
 
   private func layoutSlotHost(_ host: UIView, target: UIView) {
@@ -3739,21 +3555,6 @@ private final class HomeContainerTabsView: UIView {
     mountedSlotKeys = keys
     updateToolbar()
     onSlotLayoutChange?()
-  }
-
-  func slotFrame(forKey key: String) -> CGRect? {
-    layoutIfNeeded()
-    let labelPrefix = "tab.label."
-    if key.hasPrefix(labelPrefix) {
-      let tabId = String(key.dropFirst(labelPrefix.count))
-      guard let button = buttons[tabId], !button.isHidden else { return nil }
-      return button.convert(button.bounds, to: self)
-    }
-    let accessoryPrefix = "tab.accessory."
-    guard key.hasPrefix(accessoryPrefix),
-          String(key.dropFirst(accessoryPrefix.count)) == selectedTabId,
-          !toolbarButton.isHidden else { return nil }
-    return toolbarButton.convert(toolbarButton.bounds, to: self)
   }
 
   func slotHostView(forKey key: String) -> UIView? {

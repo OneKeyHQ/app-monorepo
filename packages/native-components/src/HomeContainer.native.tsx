@@ -192,13 +192,15 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const initialStateJsonRef = useRef(
       state ? serializeHomeContainerState(state) : '',
     );
+    const lastSubmittedStateJsonRef = useRef(initialStateJsonRef.current);
     const stateJson = useMemo(
       () => (state ? serializeHomeContainerState(state) : ''),
       [state],
     );
 
     useLayoutEffect(() => {
-      if (stateJson) {
+      if (stateJson && stateJson !== lastSubmittedStateJsonRef.current) {
+        lastSubmittedStateJsonRef.current = stateJson;
         nativeRef.current?.setState(stateJson);
       }
     }, [stateJson]);
@@ -206,7 +208,9 @@ const NativeHomeContainer = forwardRef<IHomeContainerRef, IHomeContainerProps>(
     const imperativeHandle = useMemo<IHomeContainerRef>(
       () => ({
         setState: (nextState) => {
-          nativeRef.current?.setState(serializeHomeContainerState(nextState));
+          const nextStateJson = serializeHomeContainerState(nextState);
+          lastSubmittedStateJsonRef.current = nextStateJson;
+          nativeRef.current?.setState(nextStateJson);
         },
         completeRefresh: (requestId) => {
           nativeRef.current?.completeRefresh(requestId);

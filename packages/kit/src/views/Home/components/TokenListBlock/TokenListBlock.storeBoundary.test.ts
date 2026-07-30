@@ -86,6 +86,9 @@ describe('Home portfolio Store boundary', () => {
   });
 
   it('binds single-network responses to their request owner and explicit terminal', () => {
+    expect(
+      controllerSource.match(/await executeSingleNetworkTokenRequest\(\{/g),
+    ).toHaveLength(2);
     expect(controllerSource).toContain(
       'requestOwnerKey === cellsIngestInputsRef.current.ownerKey',
     );
@@ -103,6 +106,7 @@ describe('Home portfolio Store boundary', () => {
     expect(controllerSource).toContain(
       'completeRequest: completeHomeSectionRequest',
     );
+    expect(controllerSource).not.toContain('useTabIsRefreshingFocused');
   });
 
   it('finalizes all-network data from the exact completed run', () => {
