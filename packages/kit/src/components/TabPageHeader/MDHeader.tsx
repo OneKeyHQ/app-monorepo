@@ -43,7 +43,9 @@ export function HomeTabSearchHeader({
 }) {
   const { top } = useSafeAreaInsets();
   const safeAreaTop =
-    top || (platformEnv.isNative ? initialWindowMetrics?.insets.top : 0) || 0;
+    top ||
+    (platformEnv.isNativeIOS ? initialWindowMetrics?.insets.top : 0) ||
+    0;
   const headerGlassActive = isLiquidGlassAvailable();
 
   return (
