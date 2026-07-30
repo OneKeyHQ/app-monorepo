@@ -15,6 +15,7 @@ import '@onekeyhq/shared/src/polyfills';
 // atoms are referenced. See packages/kit/src/components/GlobalJotaiReady
 // which awaits the cold-start gate on web/desktop.
 import '@onekeyhq/kit-bg/src/hydration/hydrate';
+void import('@onekeyhq/kit/src/views/Home/model/cache/homeDisplaySnapshotStartup');
 
 // Initialize desktop bridge before runtime hardening, then keep all application
 // imports behind the hardened runtime.

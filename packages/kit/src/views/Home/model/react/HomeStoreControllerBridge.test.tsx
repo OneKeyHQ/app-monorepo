@@ -7,18 +7,15 @@ import {
 
 import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
-import {
-  type IPreparedHomeDisplaySnapshot,
-  loadPreparedHomeDisplaySnapshot,
-} from '../cache/loadPreparedHomeDisplaySnapshot';
+import { prepareHomeDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 
 import { HomeStoreControllerBridge } from './HomeStoreControllerBridge';
 
+import type { IPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.types';
+
 const mockEvents: string[] = [];
 const mockControllerLeaseKey = () => undefined;
-const mockLoadPreparedHomeDisplaySnapshot = jest.mocked(
-  loadPreparedHomeDisplaySnapshot,
-);
+const mockPrepareHomeDisplaySnapshot = jest.mocked(prepareHomeDisplaySnapshot);
 let mockActiveAccount = {
   account: { id: 'account-a' },
   network: {
@@ -153,8 +150,16 @@ jest.mock('../facts/currentHomeFactsAdapter', () => ({
   adaptCurrentHomeFacts: jest.fn(() => undefined),
 }));
 
-jest.mock('../cache/loadPreparedHomeDisplaySnapshot', () => ({
-  loadPreparedHomeDisplaySnapshot: jest.fn(async () => undefined),
+jest.mock('../cache/homeStartupPreparedDisplaySnapshot', () => ({
+  loadHomeStartupPreparedDisplaySnapshot: jest.fn(() => undefined),
+  prepareHomeDisplaySnapshot: jest.fn(({ ownerScopeKey }) => ({
+    kind: 'pending',
+    ownerScopeKey,
+    task: Promise.resolve({
+      displaySnapshot: undefined,
+      ownerScopeKey,
+    }),
+  })),
 }));
 
 jest.mock('../lifecycle/homeSessionCoordinator', () => ({
@@ -220,7 +225,14 @@ beforeEach(() => {
   mockOwner = undefined;
   mockSessionId = 0;
   jest.clearAllMocks();
-  mockLoadPreparedHomeDisplaySnapshot.mockResolvedValue(undefined);
+  mockPrepareHomeDisplaySnapshot.mockImplementation(({ ownerScopeKey }) => ({
+    kind: 'pending',
+    ownerScopeKey,
+    task: Promise.resolve({
+      displaySnapshot: undefined,
+      ownerScopeKey,
+    }),
+  }));
 });
 
 describe('HomeStoreControllerBridge effects', () => {
@@ -310,13 +322,19 @@ describe('HomeStoreControllerBridge effects', () => {
     });
 
     let resolvePrepared:
-      | ((value: IPreparedHomeDisplaySnapshot | undefined) => void)
+      | ((value: {
+          displaySnapshot: IPreparedHomeDisplaySnapshot | undefined;
+          ownerScopeKey: string;
+        }) => void)
       | undefined;
-    mockLoadPreparedHomeDisplaySnapshot.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
+    mockPrepareHomeDisplaySnapshot.mockImplementationOnce(
+      ({ ownerScopeKey }) => ({
+        kind: 'pending',
+        ownerScopeKey,
+        task: new Promise((resolve) => {
           resolvePrepared = resolve;
         }),
+      }),
     );
     mockEvents.length = 0;
     mockActiveAccount = {
@@ -336,7 +354,10 @@ describe('HomeStoreControllerBridge effects', () => {
     expect(mockEvents).not.toContain('publish-prepared-owner');
 
     await act(async () => {
-      resolvePrepared?.({ records: [] });
+      resolvePrepared?.({
+        displaySnapshot: { records: [] },
+        ownerScopeKey: 'wallet-b:account-b',
+      });
       await Promise.resolve();
     });
 

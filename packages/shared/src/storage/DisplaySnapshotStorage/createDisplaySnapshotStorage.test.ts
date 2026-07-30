@@ -1,4 +1,4 @@
-import { createDisplaySnapshotStorage } from './createDisplaySnapshotStorage.web';
+import { createDisplaySnapshotStorage } from './createDisplaySnapshotStorage';
 
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

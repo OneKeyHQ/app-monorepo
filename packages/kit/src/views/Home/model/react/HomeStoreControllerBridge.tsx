@@ -9,11 +9,10 @@ import type {
   IHomeRuntimeOwnerToken,
 } from '@onekeyhq/shared/src/types/homeRuntime';
 
-import { loadHomeStartupPreparedDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 import {
-  type IPreparedHomeDisplaySnapshot,
-  loadPreparedHomeDisplaySnapshot,
-} from '../cache/loadPreparedHomeDisplaySnapshot';
+  loadHomeStartupPreparedDisplaySnapshot,
+  prepareHomeDisplaySnapshot,
+} from '../cache/homeStartupPreparedDisplaySnapshot';
 import { buildHomeOwnerScopeKey } from '../core/homeIdentity';
 import { adaptCurrentHomeFacts } from '../facts/currentHomeFactsAdapter';
 import { HomeSessionCoordinator } from '../lifecycle/homeSessionCoordinator';
@@ -23,40 +22,73 @@ import { SplitRuntimeHomeAdapter } from '../runtime/splitRuntimeHomeAdapter';
 import { acquireHomeStoreControllerLease } from './homeStoreControllerLease';
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
 
+import type { IPreparedHomeDisplaySnapshot } from '../cache/loadPreparedHomeDisplaySnapshot.types';
+
 const HOME_OWNER_REPLACEMENT_CACHE_BUDGET_MS = 100;
 
-async function loadPreparedOwnerWithinBudget(
-  ownerScopeKey: string,
+type IPreparedOwnerProbe =
+  | {
+      displaySnapshot: IPreparedHomeDisplaySnapshot | undefined;
+      kind: 'ready';
+    }
+  | {
+      kind: 'pending';
+      task: Promise<IPreparedHomeDisplaySnapshot | undefined>;
+    };
+
+function waitForPreparedOwnerWithinBudget(
+  task: Promise<IPreparedHomeDisplaySnapshot | undefined>,
 ): Promise<IPreparedHomeDisplaySnapshot | undefined> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    let preparedOwner:
-      | IPreparedHomeDisplaySnapshot
-      | Promise<IPreparedHomeDisplaySnapshot | undefined>
-      | undefined;
-    try {
-      const startupPreparedDisplaySnapshot =
-        loadHomeStartupPreparedDisplaySnapshot();
-      preparedOwner =
-        startupPreparedDisplaySnapshot?.ownerScopeKey === ownerScopeKey
-          ? startupPreparedDisplaySnapshot.displaySnapshot
-          : loadPreparedHomeDisplaySnapshot({ ownerScopeKey });
-    } catch {
-      return undefined;
-    }
-    return await Promise.race([
-      Promise.resolve(preparedOwner).catch(() => undefined),
-      new Promise<undefined>((resolve) => {
-        timeout = setTimeout(
-          () => resolve(undefined),
-          HOME_OWNER_REPLACEMENT_CACHE_BUDGET_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timeout) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(undefined);
+    }, HOME_OWNER_REPLACEMENT_CACHE_BUDGET_MS);
+    const finish = (
+      displaySnapshot: IPreparedHomeDisplaySnapshot | undefined,
+    ) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       clearTimeout(timeout);
+      resolve(displaySnapshot);
+    };
+    void task.then(finish, () => finish(undefined));
+  });
+}
+
+function probePreparedOwnerWithinBudget(
+  ownerScopeKey: string,
+): IPreparedOwnerProbe {
+  try {
+    const startupHandle = loadHomeStartupPreparedDisplaySnapshot();
+    const startupOwnerScopeKey =
+      startupHandle?.kind === 'ready'
+        ? startupHandle.result.ownerScopeKey
+        : startupHandle?.ownerScopeKey;
+    const handle =
+      startupHandle && startupOwnerScopeKey === ownerScopeKey
+        ? startupHandle
+        : prepareHomeDisplaySnapshot({ ownerScopeKey });
+    if (handle.kind === 'ready') {
+      return {
+        displaySnapshot: handle.result.displaySnapshot,
+        kind: 'ready',
+      };
     }
+    return {
+      kind: 'pending',
+      task: waitForPreparedOwnerWithinBudget(
+        handle.task.then((result) => result.displaySnapshot),
+      ),
+    };
+  } catch {
+    return { displaySnapshot: undefined, kind: 'ready' };
   }
 }
 
@@ -113,6 +145,7 @@ export function HomeStoreControllerBridge() {
     let disposed = false;
     let ownerTransitionPending = false;
     let settingOwner = true;
+    let publish: () => void = () => undefined;
     const getCurrentPayloads = () => {
       const inputs = inputsRef.current;
       const session = coordinator.getSnapshot();
@@ -149,7 +182,49 @@ export function HomeStoreControllerBridge() {
           : undefined;
       return { facts: facts ? { facts } : undefined, inputs, runtime, session };
     };
-    const publish = () => {
+    const finishPreparedOwner = ({
+      displaySnapshot,
+      ownerToken,
+    }: {
+      displaySnapshot: IPreparedHomeDisplaySnapshot | undefined;
+      ownerToken: IHomeRuntimeOwnerToken;
+    }) => {
+      if (disposed) {
+        return;
+      }
+      const currentSession = coordinator.getSnapshot();
+      if (
+        currentSession.ownerToken?.scopeKey !== ownerToken.scopeKey ||
+        currentSession.ownerToken.sessionId !== ownerToken.sessionId
+      ) {
+        ownerTransitionPending = false;
+        publish();
+        return;
+      }
+      const currentPayloads = getCurrentPayloads();
+      if (
+        !currentPayloads.inputs.owner ||
+        buildHomeOwnerScopeKey(currentPayloads.inputs.owner) !==
+          ownerToken.scopeKey
+      ) {
+        ownerTransitionPending = false;
+        publish();
+        return;
+      }
+      publishPreparedHomeOwner({
+        displaySnapshot,
+        facts: currentPayloads.facts,
+        owner: {
+          owner: currentPayloads.inputs.owner,
+          ownerToken,
+          topology: currentPayloads.session.topology,
+        },
+        runtime: currentPayloads.runtime,
+      });
+      lastOwnerTokenRef.current = ownerToken;
+      ownerTransitionPending = false;
+    };
+    publish = () => {
       if (disposed || settingOwner || ownerTransitionPending) {
         return;
       }
@@ -167,50 +242,19 @@ export function HomeStoreControllerBridge() {
         lastOwnerTokenRef.current?.scopeKey !== ownerToken?.scopeKey ||
         lastOwnerTokenRef.current?.sessionId !== ownerToken?.sessionId
       ) {
-        const shouldPrepareOwnerBeforePublish =
-          Boolean(lastOwnerTokenRef.current) ||
-          platformEnv.isNative ||
-          platformEnv.isExtension;
-        if (shouldPrepareOwnerBeforePublish && inputs.owner && ownerToken) {
+        if (inputs.owner && ownerToken) {
           ownerTransitionPending = true;
-          void loadPreparedOwnerWithinBudget(ownerToken.scopeKey).then(
-            (displaySnapshot) => {
-              if (disposed) {
-                return;
-              }
-              const currentSession = coordinator.getSnapshot();
-              if (
-                currentSession.ownerToken?.scopeKey !== ownerToken.scopeKey ||
-                currentSession.ownerToken.sessionId !== ownerToken.sessionId
-              ) {
-                ownerTransitionPending = false;
-                publish();
-                return;
-              }
-              const currentPayloads = getCurrentPayloads();
-              if (
-                !currentPayloads.inputs.owner ||
-                buildHomeOwnerScopeKey(currentPayloads.inputs.owner) !==
-                  ownerToken.scopeKey
-              ) {
-                ownerTransitionPending = false;
-                publish();
-                return;
-              }
-              publishPreparedHomeOwner({
-                displaySnapshot,
-                facts: currentPayloads.facts,
-                owner: {
-                  owner: currentPayloads.inputs.owner,
-                  ownerToken,
-                  topology: currentPayloads.session.topology,
-                },
-                runtime: currentPayloads.runtime,
-              });
-              lastOwnerTokenRef.current = ownerToken;
-              ownerTransitionPending = false;
-            },
-          );
+          const probe = probePreparedOwnerWithinBudget(ownerToken.scopeKey);
+          if (probe.kind === 'ready') {
+            finishPreparedOwner({
+              displaySnapshot: probe.displaySnapshot,
+              ownerToken,
+            });
+          } else {
+            void probe.task.then((displaySnapshot) => {
+              finishPreparedOwner({ displaySnapshot, ownerToken });
+            });
+          }
           return;
         }
         lastOwnerTokenRef.current = ownerToken;

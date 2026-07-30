@@ -6,45 +6,53 @@ import {
 
 import { loadPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.native';
 
+import type { IHomePreparedDisplaySnapshotHandle } from './homePreparedDisplaySnapshotHandle.types';
 import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
 
-export type IHomeStartupPreparedDisplaySnapshot = {
-  displaySnapshot: IPreparedHomeDisplaySnapshot | undefined;
-  ownerScopeKey: string;
-};
+let preparedHandle: IHomePreparedDisplaySnapshotHandle | undefined;
 
-let startupPreparedDisplaySnapshot:
-  | IHomeStartupPreparedDisplaySnapshot
-  | null
-  | undefined;
+export function prepareHomeDisplaySnapshot({
+  ownerScopeKey,
+}: {
+  ownerScopeKey: string;
+}): IHomePreparedDisplaySnapshotHandle {
+  if (
+    preparedHandle?.kind === 'ready' &&
+    preparedHandle.result.ownerScopeKey === ownerScopeKey
+  ) {
+    return preparedHandle;
+  }
+  let displaySnapshot: IPreparedHomeDisplaySnapshot | undefined;
+  try {
+    displaySnapshot = loadPreparedHomeDisplaySnapshot({ ownerScopeKey });
+  } catch {
+    displaySnapshot = undefined;
+  }
+  preparedHandle = {
+    kind: 'ready',
+    result: {
+      displaySnapshot,
+      ownerScopeKey,
+    },
+  };
+  return preparedHandle;
+}
 
 export function loadHomeStartupPreparedDisplaySnapshot():
-  | IHomeStartupPreparedDisplaySnapshot
+  | IHomePreparedDisplaySnapshotHandle
   | undefined {
-  if (startupPreparedDisplaySnapshot !== undefined) {
-    return startupPreparedDisplaySnapshot ?? undefined;
-  }
   const latestActiveAccount =
     getHomeLatestActiveAccountCacheGlobal() ??
     readHomeLatestActiveAccountCache();
   if (!latestActiveAccount) {
-    startupPreparedDisplaySnapshot = null;
     return undefined;
   }
   setHomeLatestActiveAccountCacheGlobal(latestActiveAccount);
-  try {
-    startupPreparedDisplaySnapshot = {
-      displaySnapshot: loadPreparedHomeDisplaySnapshot({
-        ownerScopeKey: latestActiveAccount.ownerScopeKey,
-      }),
-      ownerScopeKey: latestActiveAccount.ownerScopeKey,
-    };
-  } catch {
-    startupPreparedDisplaySnapshot = null;
-  }
-  return startupPreparedDisplaySnapshot ?? undefined;
+  return prepareHomeDisplaySnapshot({
+    ownerScopeKey: latestActiveAccount.ownerScopeKey,
+  });
 }
 
 export function resetHomeStartupPreparedDisplaySnapshotForTest(): void {
-  startupPreparedDisplaySnapshot = undefined;
+  preparedHandle = undefined;
 }

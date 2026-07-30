@@ -10,6 +10,8 @@ import type {
   IDisplaySnapshotStorage,
   IDisplaySnapshotStorageBackend,
   IDisplaySnapshotStorageConfig,
+  IDisplaySnapshotStorageSync,
+  IDisplaySnapshotStorageSyncBackend,
 } from './types';
 
 /**
@@ -90,6 +92,55 @@ export function createDisplaySnapshotStorageCore(
       await enqueueMutation(async () => {
         await (await getBackend()).compact();
       });
+    },
+  };
+}
+
+export function createDisplaySnapshotStorageSyncCore(
+  config: IDisplaySnapshotStorageConfig,
+  loadBackend: () => IDisplaySnapshotStorageSyncBackend,
+): IDisplaySnapshotStorageSync {
+  validateDisplaySnapshotStorageConfig(config);
+  let backend: IDisplaySnapshotStorageSyncBackend | undefined;
+  const getBackend = () => {
+    backend ??= loadBackend();
+    return backend;
+  };
+
+  return {
+    read(key) {
+      validateDisplaySnapshotKey(key);
+      const value = getBackend().read(key);
+      if (value !== undefined) {
+        validateDisplaySnapshotValue(value, config);
+      }
+      return value;
+    },
+    readMany(keys) {
+      validateDisplaySnapshotKeys(keys, config);
+      const values = getBackend().readMany(keys);
+      values.forEach((value, key) => {
+        validateDisplaySnapshotKey(key);
+        validateDisplaySnapshotValue(value, config);
+      });
+      return values;
+    },
+    commit(input) {
+      validateDisplaySnapshotCommit(input, config);
+      getBackend().commit(input);
+    },
+    remove(keys) {
+      validateDisplaySnapshotKeys(keys, {
+        ...config,
+        maxReadBatchSize: Number.MAX_SAFE_INTEGER,
+      });
+      getBackend().remove(keys);
+    },
+    clearNamespace() {
+      getBackend().clearNamespace();
+    },
+    compact() {
+      getBackend().compact();
     },
   };
 }

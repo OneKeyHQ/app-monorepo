@@ -47,3 +47,12 @@ export interface IDisplaySnapshotStorageBackend {
   clearNamespace(): Promise<void>;
   compact(): Promise<void>;
 }
+
+export interface IDisplaySnapshotStorageSyncBackend {
+  read(key: string): string | undefined;
+  readMany(keys: readonly string[]): ReadonlyMap<string, string>;
+  commit(input: IDisplaySnapshotCommit): void;
+  remove(keys: readonly string[]): void;
+  clearNamespace(): void;
+  compact(): void;
+}

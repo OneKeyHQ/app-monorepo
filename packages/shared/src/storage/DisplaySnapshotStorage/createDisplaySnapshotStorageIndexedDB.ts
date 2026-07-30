@@ -9,7 +9,7 @@ import type {
 const DATABASE_VERSION = 1;
 const RECORD_STORE = 'records';
 
-export async function createDisplaySnapshotStorageWebBackend(
+export async function createDisplaySnapshotStorageIndexedDBBackend(
   config: IDisplaySnapshotStorageConfig,
 ): Promise<IDisplaySnapshotStorageBackend> {
   const databaseName = `onekey-display-snapshot-${config.namespace}`;

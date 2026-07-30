@@ -18,7 +18,6 @@ describe('HomeDisplaySnapshotController cache warming', () => {
 
   it('keeps lazy chunk warming outside the initial display critical path', () => {
     expect(controllerSource).toContain('void warmCachedSources();');
-    expect(controllerSource).toContain('void warmCachedSources(context);');
-    expect(controllerSource).not.toContain('await warmCachedSources(context);');
+    expect(controllerSource).not.toContain('await warmCachedSources();');
   });
 });

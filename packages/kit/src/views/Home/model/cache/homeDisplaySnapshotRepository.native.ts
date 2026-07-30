@@ -1,17 +1,15 @@
 import { createDisplaySnapshotStorage } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/createDisplaySnapshotStorage.native';
 
 import {
-  decodeHomeDisplaySnapshotCritical,
-  decodeHomeDisplaySnapshotManifest,
-  decodeHomeDisplaySnapshotRoute,
-  decodeHomeDisplaySnapshotSourceChunk,
-  getByteLength,
-} from './homeDisplaySnapshotCodec';
-import {
-  getHomeDisplaySnapshotManifestKey,
-  getHomeDisplaySnapshotPartitionId,
-  getHomeDisplaySnapshotRouteKey,
-} from './homeDisplaySnapshotKeys';
+  HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
+  createHomeDisplaySnapshotRouteRead,
+  decodeHomeDisplaySnapshotCriticalRead,
+  decodeHomeDisplaySnapshotManifestRead,
+  decodeHomeDisplaySnapshotRouteRead,
+  decodeHomeDisplaySnapshotSourceReads,
+  getHomeDisplaySnapshotManifestReads,
+  getHomeDisplaySnapshotSourceReadBatches,
+} from './homeDisplaySnapshotRepositoryCore';
 
 import type {
   IHomeDisplaySnapshotCritical,
@@ -21,8 +19,6 @@ import type {
   IHomeCachedSourceRecord,
   IHomeStoreSourceId,
 } from '../store/homeStoreTypes';
-
-const HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE = 4;
 
 const homeDisplaySnapshotStorage = createDisplaySnapshotStorage({
   namespace: 'home-display',
@@ -35,34 +31,30 @@ export function loadHomeDisplaySnapshotManifest({
 }: {
   ownerScopeKey: string;
 }): ILoadedHomeDisplaySnapshotManifest | undefined {
-  const partitionId = getHomeDisplaySnapshotPartitionId(ownerScopeKey);
-  const routeKey = getHomeDisplaySnapshotRouteKey(partitionId);
-  const routeRaw = homeDisplaySnapshotStorage.read(routeKey);
-  const route = decodeHomeDisplaySnapshotRoute({
-    raw: routeRaw,
-    expectedOwnerScopeKey: ownerScopeKey,
-    expectedPartitionId: partitionId,
+  const { partitionId, routeKey } = createHomeDisplaySnapshotRouteRead({
+    ownerScopeKey,
   });
-  if (!route || !routeRaw) {
+  const routeRaw = homeDisplaySnapshotStorage.read(routeKey);
+  const routeRead = decodeHomeDisplaySnapshotRouteRead({
+    ownerScopeKey,
+    partitionId,
+    routeRaw,
+  });
+  if (!routeRead) {
     return undefined;
   }
 
-  const generations = [
-    route.currentGeneration,
-    ...(route.previousGeneration ? [route.previousGeneration] : []),
-  ];
-  for (const generation of generations) {
-    const manifestRaw = homeDisplaySnapshotStorage.read(
-      getHomeDisplaySnapshotManifestKey(partitionId, generation),
-    );
-    const manifest = decodeHomeDisplaySnapshotManifest({
-      raw: manifestRaw,
-      expectedOwnerScopeKey: ownerScopeKey,
-      expectedPartitionId: partitionId,
-      expectedGeneration: generation,
+  for (const { generation, key } of getHomeDisplaySnapshotManifestReads({
+    route: routeRead.route,
+  })) {
+    const context = decodeHomeDisplaySnapshotManifestRead({
+      generation,
+      raw: homeDisplaySnapshotStorage.read(key),
+      route: routeRead.route,
+      routeRaw: routeRead.routeRaw,
     });
-    if (manifest) {
-      return { routeRaw, route, manifest };
+    if (context) {
+      return context;
     }
   }
   return undefined;
@@ -77,13 +69,9 @@ export function loadHomeDisplaySnapshotCritical({
   if (!descriptor) {
     return undefined;
   }
-  const raw = homeDisplaySnapshotStorage.read(descriptor.key);
-  if (!raw || getByteLength(raw) !== descriptor.byteLength) {
-    return undefined;
-  }
-  return decodeHomeDisplaySnapshotCritical({
-    raw,
-    expectedOwnerScopeKey: context.route.ownerScopeKey,
+  return decodeHomeDisplaySnapshotCriticalRead({
+    context,
+    raw: homeDisplaySnapshotStorage.read(descriptor.key),
   });
 }
 
@@ -94,37 +82,17 @@ export function loadHomeDisplaySnapshotSourceRecords({
   context: ILoadedHomeDisplaySnapshotManifest;
   sourceIds: readonly IHomeStoreSourceId[];
 }): IHomeCachedSourceRecord[] {
-  const descriptors = sourceIds.flatMap((sourceId) => {
-    const descriptor = context.manifest.chunks[sourceId];
-    return descriptor ? [{ descriptor, sourceId }] : [];
-  });
   const records: IHomeCachedSourceRecord[] = [];
-  for (
-    let offset = 0;
-    offset < descriptors.length;
-    offset += HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE
-  ) {
-    const batch = descriptors.slice(
-      offset,
-      offset + HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
-    );
+  for (const reads of getHomeDisplaySnapshotSourceReadBatches({
+    context,
+    sourceIds,
+  })) {
     const values = homeDisplaySnapshotStorage.readMany(
-      batch.map(({ descriptor }) => descriptor.key),
+      reads.map(({ descriptor }) => descriptor.key),
     );
-    batch.forEach(({ descriptor, sourceId }) => {
-      const raw = values.get(descriptor.key);
-      if (!raw || getByteLength(raw) !== descriptor.byteLength) {
-        return;
-      }
-      const record = decodeHomeDisplaySnapshotSourceChunk({
-        raw,
-        expectedOwnerScopeKey: context.route.ownerScopeKey,
-        expectedSourceId: sourceId,
-      });
-      if (record) {
-        records.push(record);
-      }
-    });
+    records.push(
+      ...decodeHomeDisplaySnapshotSourceReads({ context, reads, values }),
+    );
   }
   return records;
 }

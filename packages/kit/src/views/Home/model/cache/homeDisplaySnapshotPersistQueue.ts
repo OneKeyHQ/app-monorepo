@@ -1,6 +1,9 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
-import type { IDisplaySnapshotWriteEntry } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
+import type {
+  IDisplaySnapshotStorage,
+  IDisplaySnapshotWriteEntry,
+} from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { createCacheRecord } from '../store/homeStoreSnapshotRecord';
@@ -28,7 +31,6 @@ import {
   getHomeDisplaySnapshotPartitionTag,
   getHomeDisplaySnapshotRouteKey,
 } from './homeDisplaySnapshotKeys';
-import { homeDisplaySnapshotStorage } from './homeDisplaySnapshotRepository';
 import {
   HOME_DISPLAY_SNAPSHOT_MAX_ROUTES,
   HOME_DISPLAY_SNAPSHOT_SCHEMA_VERSION,
@@ -52,6 +54,18 @@ import type {
 
 const PERSIST_DEBOUNCE_MS = 1000;
 const PERSIST_MAX_WAIT_MS = 5000;
+
+let homeDisplaySnapshotStorageTask:
+  | Promise<IDisplaySnapshotStorage>
+  | undefined;
+
+function loadHomeDisplaySnapshotStorage(): Promise<IDisplaySnapshotStorage> {
+  homeDisplaySnapshotStorageTask ??=
+    import('./homeDisplaySnapshotRepository').then(
+      ({ homeDisplaySnapshotStorage }) => homeDisplaySnapshotStorage,
+    );
+  return homeDisplaySnapshotStorageTask;
+}
 
 type IHomeDisplaySnapshotPersistJob = {
   ownerScopeKey: string;
@@ -119,7 +133,8 @@ async function readManifestForRoute({
   if (!route) {
     return undefined;
   }
-  const raw = await homeDisplaySnapshotStorage.read(
+  const storage = await loadHomeDisplaySnapshotStorage();
+  const raw = await storage.read(
     getHomeDisplaySnapshotManifestKey(
       route.partitionId,
       route.currentGeneration,
@@ -134,8 +149,9 @@ async function readManifestForRoute({
 }
 
 async function collectPartitionKeys(partitionId: string): Promise<string[]> {
+  const storage = await loadHomeDisplaySnapshotStorage();
   const routeKey = getHomeDisplaySnapshotRouteKey(partitionId);
-  const routeRaw = await homeDisplaySnapshotStorage.read(routeKey);
+  const routeRaw = await storage.read(routeKey);
   if (!routeRaw) {
     return [routeKey];
   }
@@ -171,7 +187,7 @@ async function collectPartitionKeys(partitionId: string): Promise<string[]> {
       generation,
     );
     keys.add(manifestKey);
-    const raw = await homeDisplaySnapshotStorage.read(manifestKey);
+    const raw = await storage.read(manifestKey);
     const manifest = decodeHomeDisplaySnapshotManifest({
       raw,
       expectedOwnerScopeKey: ownerScopeKey,
@@ -203,7 +219,8 @@ async function collectRetiredGenerationKeys({
     route.partitionId,
     route.previousGeneration,
   );
-  const raw = await homeDisplaySnapshotStorage.read(retiredManifestKey);
+  const storage = await loadHomeDisplaySnapshotStorage();
+  const raw = await storage.read(retiredManifestKey);
   const retiredManifest = decodeHomeDisplaySnapshotManifest({
     raw,
     expectedOwnerScopeKey: route.ownerScopeKey,
@@ -229,11 +246,12 @@ async function collectRetiredGenerationKeys({
 async function persistHomeDisplaySnapshotOnce(
   job: IHomeDisplaySnapshotPersistJob,
 ): Promise<void> {
+  const storage = await loadHomeDisplaySnapshotStorage();
   const startedAt = Date.now();
   const now = Date.now();
   const partitionId = getHomeDisplaySnapshotPartitionId(job.ownerScopeKey);
   const routeKey = getHomeDisplaySnapshotRouteKey(partitionId);
-  const currentRouteRaw = await homeDisplaySnapshotStorage.read(routeKey);
+  const currentRouteRaw = await storage.read(routeKey);
   const currentRoute = decodeHomeDisplaySnapshotRoute({
     raw: currentRouteRaw,
     expectedOwnerScopeKey: job.ownerScopeKey,
@@ -392,7 +410,7 @@ async function persistHomeDisplaySnapshotOnce(
     value: encodeHomeDisplaySnapshotManifest(manifest),
   });
 
-  const routeIndexRaw = await homeDisplaySnapshotStorage.read(
+  const routeIndexRaw = await storage.read(
     HOME_DISPLAY_SNAPSHOT_ROUTE_INDEX_KEY,
   );
   const routeIndex =
@@ -429,7 +447,7 @@ async function persistHomeDisplaySnapshotOnce(
     key: routeKey,
     value: encodeHomeDisplaySnapshotRoute(nextRoute),
   });
-  await homeDisplaySnapshotStorage.commit({
+  await storage.commit({
     entries,
     commitMarker: {
       key: HOME_DISPLAY_SNAPSHOT_ROUTE_INDEX_KEY,
@@ -563,14 +581,16 @@ export class HomeDisplaySnapshotPersistQueue {
     if (this.pendingJobs.size > 0) {
       await this.flushNow();
     }
-    await homeDisplaySnapshotStorage.compact();
+    const storage = await loadHomeDisplaySnapshotStorage();
+    await storage.compact();
   }
 
   async suspendAndClear(): Promise<void> {
     this.suspended = true;
     this.cancelPending();
     await this.inFlight?.catch(() => undefined);
-    await homeDisplaySnapshotStorage.clearNamespace();
+    const storage = await loadHomeDisplaySnapshotStorage();
+    await storage.clearNamespace();
   }
 
   private cancelPending(): void {

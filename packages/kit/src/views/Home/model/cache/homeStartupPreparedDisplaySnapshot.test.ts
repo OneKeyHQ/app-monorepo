@@ -6,11 +6,10 @@ import {
 
 import {
   loadHomeStartupPreparedDisplaySnapshot,
+  prepareHomeDisplaySnapshot,
   resetHomeStartupPreparedDisplaySnapshotForTest,
-} from './homeStartupPreparedDisplaySnapshot.native';
-import { loadPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.native';
-
-import type { IPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot.types';
+} from './homeStartupPreparedDisplaySnapshot';
+import { loadPreparedHomeDisplaySnapshot } from './loadPreparedHomeDisplaySnapshot';
 
 jest.mock('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache', () => ({
   getHomeLatestActiveAccountCacheGlobal: jest.fn(),
@@ -18,7 +17,7 @@ jest.mock('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache', () => ({
   setHomeLatestActiveAccountCacheGlobal: jest.fn(),
 }));
 
-jest.mock('./loadPreparedHomeDisplaySnapshot.native', () => ({
+jest.mock('./loadPreparedHomeDisplaySnapshot', () => ({
   loadPreparedHomeDisplaySnapshot: jest.fn(),
 }));
 
@@ -44,42 +43,47 @@ beforeEach(() => {
   resetHomeStartupPreparedDisplaySnapshotForTest();
 });
 
-describe('homeStartupPreparedDisplaySnapshot native', () => {
-  it('loads the exact owner partition once before authoritative owner readiness', () => {
-    const displaySnapshot: IPreparedHomeDisplaySnapshot = {
-      records: [],
-    };
-    mockGetGlobal.mockReturnValue(latestActiveAccount);
-    mockLoadPrepared.mockReturnValue(displaySnapshot);
+describe('homeStartupPreparedDisplaySnapshot browser runtimes', () => {
+  it('deduplicates an in-flight owner read and caches its settled result', async () => {
+    mockLoadPrepared.mockResolvedValue({ records: [] });
 
-    expect(loadHomeStartupPreparedDisplaySnapshot()).toEqual({
-      kind: 'ready',
-      result: {
-        displaySnapshot,
+    const first = prepareHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' });
+    const second = prepareHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' });
+
+    expect(first).toBe(second);
+    expect(first.kind).toBe('pending');
+    if (first.kind === 'pending') {
+      await expect(first.task).resolves.toEqual({
+        displaySnapshot: { records: [] },
         ownerScopeKey: 'owner-a',
-      },
-    });
-    expect(loadHomeStartupPreparedDisplaySnapshot()).toEqual({
-      kind: 'ready',
-      result: {
-        displaySnapshot,
-        ownerScopeKey: 'owner-a',
-      },
-    });
+      });
+    }
     expect(mockLoadPrepared).toHaveBeenCalledTimes(1);
+    expect(prepareHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' })).toEqual({
+      kind: 'ready',
+      result: {
+        displaySnapshot: { records: [] },
+        ownerScopeKey: 'owner-a',
+      },
+    });
+  });
+
+  it('starts the cached owner partition after cold-start hydration', async () => {
+    mockGetGlobal.mockReturnValue(latestActiveAccount);
+    mockLoadPrepared.mockResolvedValue(undefined);
+
+    const handle = loadHomeStartupPreparedDisplaySnapshot();
+    expect(handle).toMatchObject({
+      kind: 'pending',
+      ownerScopeKey: 'owner-a',
+    });
+    if (handle?.kind === 'pending') {
+      await handle.task;
+    }
     expect(mockLoadPrepared).toHaveBeenCalledWith({
       ownerScopeKey: 'owner-a',
     });
     expect(mockRead).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the independent MMKV record when entry pre-read is absent', () => {
-    mockRead.mockReturnValue(latestActiveAccount);
-
-    expect(loadHomeStartupPreparedDisplaySnapshot()).toMatchObject({
-      kind: 'ready',
-      result: { ownerScopeKey: 'owner-a' },
-    });
     expect(mockSetGlobal).toHaveBeenCalledWith(latestActiveAccount);
   });
 });

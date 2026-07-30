@@ -291,6 +291,15 @@ const promise: Promise<void> = (async () => {
       if (typeof swrCache === 'string') {
         entriesToPrime.push([SWR_CACHE_KEY, swrCache]);
       }
+      const latestHomeOwner = result?.get(
+        EAppSyncStorageKeys.onekey_home_latest_active_account,
+      );
+      if (typeof latestHomeOwner === 'string') {
+        entriesToPrime.push([
+          EAppSyncStorageKeys.onekey_home_latest_active_account,
+          latestHomeOwner,
+        ]);
+      }
       if (result) {
         const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
           parseL2CtxSnapshot(result),

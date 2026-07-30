@@ -101,8 +101,8 @@ describe('Home Unified Store production boundary', () => {
     const sharedSource = readHomeFile(
       'model/react/HomeDisplaySnapshotController.shared.tsx',
     );
-    const nativeSource = readHomeFile(
-      'model/react/HomeDisplaySnapshotController.native.tsx',
+    const bridgeSource = readHomeFile(
+      'model/react/HomeStoreControllerBridge.tsx',
     );
     expect(root).toContain(
       "import { HomeDisplaySnapshotController } from './HomeDisplaySnapshotController';",
@@ -112,27 +112,22 @@ describe('Home Unified Store production boundary', () => {
     );
     expect(sharedSource).toContain('useLayoutEffect(() => {');
     expect(sharedSource).not.toContain('yieldToHomeRenderer');
-    expect(sharedSource).toContain('const bannerLoad = loadSourceChunk({');
-    expect(sharedSource).toContain('const selectedLoad = loadSourceChunk({');
-    expect(sharedSource).toContain("sourceId: 'banner'");
-    expect(sharedSource).toContain('sourceId: selectedSourceId');
+    expect(sharedSource).toContain('prepareHomeDisplaySnapshot({');
+    expect(sharedSource).toContain("handle.kind === 'ready'");
+    expect(sharedSource).toContain('...displaySnapshot');
     expect(sharedSource).toContain('sourceIds: [sourceId]');
-    expect(sharedSource).toContain('publishLoadStatus(initialDisplayReady ?');
-    expect(sharedSource).not.toContain(
-      'const bannerRecordCount = await loadSourceChunk({\n' +
-        '          candidateOwnerToken: ownerToken,\n' +
-        '          context,\n' +
-        "          sourceId: 'banner'",
-    );
-    expect(sharedSource).not.toContain(
-      "new Set<IHomeStoreSourceId>(['banner', selectedSourceId])",
-    );
-    expect(nativeSource).toContain('loadHomeStartupPreparedDisplaySnapshot()');
-    expect(nativeSource).toContain(': loadPreparedHomeDisplaySnapshot({');
-    expect(nativeSource).not.toMatch(
-      /await loadPreparedHomeDisplaySnapshot|void loadPreparedHomeDisplaySnapshot/,
-    );
-    expect(nativeSource).toContain('publishPreparedHomeDisplaySnapshot({');
+    expect(sharedSource).toContain('void warmCachedSources();');
+    expect(bridgeSource).toContain('probePreparedOwnerWithinBudget(');
+    expect(bridgeSource).toContain("probe.kind === 'ready'");
+    expect(bridgeSource).not.toContain('shouldPrepareOwnerBeforePublish');
+    expect(
+      fs.existsSync(
+        path.join(
+          homeRoot,
+          'model/react/HomeDisplaySnapshotController.native.tsx',
+        ),
+      ),
+    ).toBe(false);
     expect(pageContainerSource).not.toContain('walletRendererReady');
     expect(pageContainerSource).not.toContain(
       'nativeDisplaySnapshotLoadSettled',

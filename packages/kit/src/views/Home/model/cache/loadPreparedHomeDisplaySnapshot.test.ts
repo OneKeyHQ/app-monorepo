@@ -30,13 +30,16 @@ beforeEach(() => {
 });
 
 describe('loadPreparedHomeDisplaySnapshot', () => {
-  it('treats a missing or loading critical shell as a cache miss', async () => {
+  it('uses visible records as a fallback when the critical shell is missing', async () => {
     mockLoadCritical.mockResolvedValueOnce(undefined);
     await expect(
       loadPreparedHomeDisplaySnapshot({ ownerScopeKey: 'owner-a' }),
     ).resolves.toBeUndefined();
+    expect(mockLoadSourceRecords).toHaveBeenCalledTimes(1);
+  });
 
-    mockLoadCritical.mockResolvedValueOnce({
+  it('treats a loading critical shell as a cache miss without reading records', async () => {
+    mockLoadCritical.mockResolvedValue({
       createdAt: 1,
       ownerScopeKey: 'owner-a',
       schemaVersion: 1,

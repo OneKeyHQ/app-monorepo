@@ -16,11 +16,7 @@ import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRunt
 
 import { getHomeDisplaySnapshotPartitionTag } from '../cache/homeDisplaySnapshotKeys';
 import { homeDisplaySnapshotPersistQueue } from '../cache/homeDisplaySnapshotPersistQueue';
-import {
-  loadHomeDisplaySnapshotCritical,
-  loadHomeDisplaySnapshotManifest,
-  loadHomeDisplaySnapshotSourceRecords,
-} from '../cache/homeDisplaySnapshotRepository';
+import { prepareHomeDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
 
@@ -165,6 +161,10 @@ export function HomeDisplaySnapshotControllerShared() {
       const task = (async () => {
         const startedAt = getNow();
         try {
+          const {
+            loadHomeDisplaySnapshotManifest,
+            loadHomeDisplaySnapshotSourceRecords,
+          } = await import('../cache/homeDisplaySnapshotRepository');
           const resolvedContext =
             context ??
             (await loadHomeDisplaySnapshotManifest({
@@ -269,6 +269,8 @@ export function HomeDisplaySnapshotControllerShared() {
     const warmCachedSources = async (
       context?: ILoadedHomeDisplaySnapshotManifest,
     ) => {
+      const { loadHomeDisplaySnapshotManifest } =
+        await import('../cache/homeDisplaySnapshotRepository');
       const resolvedContext =
         context ??
         (await loadHomeDisplaySnapshotManifest({
@@ -291,10 +293,14 @@ export function HomeDisplaySnapshotControllerShared() {
       );
     };
 
-    if (preparedSnapshotAlreadyLoaded) {
+    const markInitialSourcesLoaded = () => {
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:banner`);
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:portfolio`);
       loadedChunksRef.current.add(`${ownerToken.scopeKey}:market`);
+    };
+
+    if (preparedSnapshotAlreadyLoaded) {
+      markInitialSourcesLoaded();
       ensureSourceRef.current = ensureSource;
       void warmCachedSources();
       return () => {
@@ -307,12 +313,14 @@ export function HomeDisplaySnapshotControllerShared() {
       const startedAt = getNow();
       perfMark('Home:displayCache:loadStart');
       try {
-        const context = await loadHomeDisplaySnapshotManifest({
+        const handle = prepareHomeDisplaySnapshot({
           ownerScopeKey: ownerToken.scopeKey,
         });
+        const result =
+          handle.kind === 'ready' ? handle.result : await handle.task;
         if (!isCurrent()) {
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
-            stage: 'manifest',
+            stage: 'initialHydrate',
             outcome: 'stale',
             partitionTag,
             elapsedMs: getElapsed(startedAt),
@@ -320,9 +328,10 @@ export function HomeDisplaySnapshotControllerShared() {
           });
           return;
         }
-        if (!context) {
+        const displaySnapshot = result.displaySnapshot;
+        if (!displaySnapshot) {
           defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
-            stage: 'manifest',
+            stage: 'initialHydrate',
             outcome: 'miss',
             partitionTag,
             elapsedMs: getElapsed(startedAt),
@@ -334,116 +343,31 @@ export function HomeDisplaySnapshotControllerShared() {
           publishLoadStatus('miss');
           return;
         }
-        const manifestSourceIds = Object.keys(context.manifest.chunks).filter(
-          (chunkId): chunkId is IHomeStoreSourceId => chunkId !== 'critical',
-        );
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
-          stage: 'manifest',
-          outcome: 'hit',
-          partitionTag,
-          elapsedMs: getElapsed(startedAt),
-          recordCount: manifestSourceIds.length,
-          loadedSourceIds: getSourceIdsText(manifestSourceIds),
-          generation: context.manifest.generation,
-          criticalIncluded: Boolean(context.manifest.chunks.critical),
-          cacheAgeMs: Math.max(0, getNow() - context.manifest.createdAt),
+        hydrateHomeDisplaySnapshot({
+          ownerScopeKey: ownerToken.scopeKey,
+          sessionId: ownerToken.sessionId,
+          ...displaySnapshot,
         });
-        const criticalStartedAt = getNow();
-        const critical = await loadHomeDisplaySnapshotCritical({
-          context,
-        });
-        const criticalDisplayReady = Boolean(
-          critical?.shell && critical.shell.kind !== 'loading',
-        );
-        if (!isCurrent()) {
-          defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
-            stage: 'critical',
-            outcome: 'stale',
-            partitionTag,
-            elapsedMs: getElapsed(criticalStartedAt),
-            recordCount: 0,
-            generation: context.manifest.generation,
-          });
-          return;
-        }
-        if (critical) {
-          hydrateHomeDisplaySnapshot({
-            ownerScopeKey: ownerToken.scopeKey,
-            sessionId: ownerToken.sessionId,
-            records: [],
-            shell: critical.shell,
-            navigation: critical.navigation,
-          });
-          perfMark('Home:displayCache:criticalHydrated', {
-            elapsedMs: getElapsed(criticalStartedAt),
-          });
-        }
-        defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
-          stage: 'critical',
-          outcome: criticalDisplayReady ? 'hit' : 'miss',
-          partitionTag,
-          elapsedMs: getElapsed(criticalStartedAt),
-          recordCount: 0,
-          generation: context.manifest.generation,
-          criticalIncluded: Boolean(critical),
-        });
-
+        markInitialSourcesLoaded();
         ensureSourceRef.current = ensureSource;
-        const selectedSourceId = 'portfolio';
-        const bannerLoad = loadSourceChunk({
-          candidateOwnerToken: ownerToken,
-          context,
-          sourceId: 'banner',
-          stage: 'visibleChunks',
-        });
-
-        const selectedLoad = loadSourceChunk({
-          candidateOwnerToken: ownerToken,
-          context,
-          sourceId: selectedSourceId,
-          stage: 'visibleChunks',
-        });
-        const marketLoad = loadSourceChunk({
-          candidateOwnerToken: ownerToken,
-          context,
-          sourceId: 'market',
-          stage: 'visibleChunks',
-        });
-
-        const [bannerRecordCount, selectedRecordCount, marketRecordCount] =
-          await Promise.all([bannerLoad, selectedLoad, marketLoad]);
-        const selectedSourceReady =
-          critical?.shell?.kind !== 'portfolio' || selectedRecordCount > 0;
-        const initialDisplayReady = criticalDisplayReady && selectedSourceReady;
-        const loadedSourceIds: IHomeStoreSourceId[] = [];
-        if (bannerRecordCount > 0) {
-          loadedSourceIds.push('banner');
-        }
-        if (selectedRecordCount > 0) {
-          loadedSourceIds.push(selectedSourceId);
-        }
-        if (marketRecordCount > 0) {
-          loadedSourceIds.push('market');
-        }
+        const loadedSourceIds = displaySnapshot.records.map(
+          (record) => record.sourceId,
+        );
         defaultLogger.wallet.homeUi.homeDisplaySnapshotCache({
           stage: 'initialHydrate',
-          outcome:
-            initialDisplayReady || loadedSourceIds.length > 0
-              ? 'accepted'
-              : 'empty',
+          outcome: 'accepted',
           partitionTag,
           elapsedMs: getElapsed(startedAt),
           recordCount: loadedSourceIds.length,
           loadedSourceIds: getSourceIdsText(loadedSourceIds),
-          generation: context.manifest.generation,
-          criticalIncluded: Boolean(critical),
+          criticalIncluded: Boolean(displaySnapshot.shell),
         });
         perfMark('Home:displayCache:initialHydrated', {
           elapsedMs: getElapsed(startedAt),
           recordCount: loadedSourceIds.length,
         });
-        publishLoadStatus(initialDisplayReady ? 'hit' : 'miss');
-        void warmCachedSources(context);
+        publishLoadStatus('hit');
+        void warmCachedSources();
       } catch (error) {
         if (!isCurrent()) {
           return;

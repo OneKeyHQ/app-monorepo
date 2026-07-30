@@ -1,3 +1,4 @@
+import { buildPreparedHomeDisplaySnapshot } from './buildPreparedHomeDisplaySnapshot';
 import {
   loadHomeDisplaySnapshotCritical,
   loadHomeDisplaySnapshotManifest,
@@ -18,22 +19,12 @@ export async function loadPreparedHomeDisplaySnapshot({
     return undefined;
   }
   const critical = await loadHomeDisplaySnapshotCritical({ context });
-  if (!critical?.shell || critical.shell.kind === 'loading') {
+  if (critical?.shell?.kind === 'loading') {
     return undefined;
   }
   const records = await loadHomeDisplaySnapshotSourceRecords({
     context,
     sourceIds: ['banner', 'portfolio', 'market'],
   });
-  if (
-    critical.shell.kind === 'portfolio' &&
-    !records.some((record) => record.sourceId === 'portfolio')
-  ) {
-    return undefined;
-  }
-  return {
-    navigation: critical?.navigation,
-    records,
-    shell: critical?.shell,
-  };
+  return buildPreparedHomeDisplaySnapshot({ critical, records });
 }
