@@ -76,6 +76,7 @@ import {
   isSwapOrBridgeQuoteType,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteManualRefreshRequired,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
@@ -454,8 +455,6 @@ export function useSwapActionState() {
     toToken,
   ]);
 
-  const isRefreshQuote = shouldRefreshQuote;
-
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
@@ -521,13 +520,6 @@ export function useSwapActionState() {
     ],
   );
   const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
-  const canRefreshQuoteFromAction = shouldOfferSwapQuoteRefresh({
-    isRefreshQuote,
-    quoteResultNoMatch,
-    quoteResultNoMatchDebounced: quoteResultNoMatchDebounce,
-    quoteLoading,
-    quoteEventFetching,
-  });
   const isSwapOrBridgeQuote = isSwapOrBridgeQuoteType(swapTypeSwitchValue);
   const isQuoteEventSettlingForAction =
     isSwapOrBridgeQuote &&
@@ -556,13 +548,6 @@ export function useSwapActionState() {
       swapSlippagePercentageMode,
     ],
   );
-  const isQuoteReadinessLoading = shouldShowSwapQuoteActionLoading({
-    hasActionableQuote,
-    isWaitingActionableQuote,
-    isQuoteEventSettlingForAction,
-    isWaitingAutoSlippage,
-    manualRefreshRequired: isRefreshQuote,
-  });
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
   const quoteKind =
     swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
@@ -597,6 +582,24 @@ export function useSwapActionState() {
       toTokenAmount.value,
     ],
   );
+  const isRefreshQuote = isSwapQuoteManualRefreshRequired({
+    shouldRefreshQuote,
+    quoteRequestMatchesCurrentInput,
+  });
+  const canRefreshQuoteFromAction = shouldOfferSwapQuoteRefresh({
+    isRefreshQuote,
+    quoteResultNoMatch,
+    quoteResultNoMatchDebounced: quoteResultNoMatchDebounce,
+    quoteLoading,
+    quoteEventFetching,
+  });
+  const isQuoteReadinessLoading = shouldShowSwapQuoteActionLoading({
+    hasActionableQuote,
+    isWaitingActionableQuote,
+    isQuoteEventSettlingForAction,
+    isWaitingAutoSlippage,
+    manualRefreshRequired: isRefreshQuote,
+  });
   const noProviderSupportsTrade = useMemo(
     () =>
       isSwapNoProviderSupportsTrade({

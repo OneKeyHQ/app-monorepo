@@ -330,6 +330,16 @@ export function shouldOfferSwapQuoteRefresh({
   );
 }
 
+export function isSwapQuoteManualRefreshRequired({
+  shouldRefreshQuote,
+  quoteRequestMatchesCurrentInput,
+}: {
+  shouldRefreshQuote: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
+}) {
+  return shouldRefreshQuote && quoteRequestMatchesCurrentInput;
+}
+
 export function shouldShowSwapQuoteActionLoading({
   hasActionableQuote,
   isWaitingActionableQuote,
