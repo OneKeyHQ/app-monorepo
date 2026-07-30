@@ -585,7 +585,7 @@ export const UnifoldTransferContent = forwardRef<
         return;
       }
       trackedExecutions
-        .filter((item) => item.terminal)
+        .filter((item) => item.status === 'succeeded')
         .forEach(acknowledgePresentedExecution);
     }, [acknowledgePresentedExecution, historyCardVisible, trackedExecutions]);
 
