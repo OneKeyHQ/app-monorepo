@@ -4356,7 +4356,6 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async apiGetInfiniCheckoutUrl({
     plan,
     expectedOneKeyUserId,

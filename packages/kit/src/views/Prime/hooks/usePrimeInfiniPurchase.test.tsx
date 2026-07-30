@@ -64,6 +64,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
       subscription: {
+        primeCryptoPaymentError: jest.fn(),
         primeCryptoPaymentFlow: jest.fn(),
         primeSubscribeIntent: jest.fn(),
       },
@@ -162,6 +163,21 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     expect(beforeCheckout).toHaveBeenCalledTimes(1);
     expect(didOpenCheckout).toBe(false);
     expect(isPrimeInfiniExternalCheckoutInFlight()).toBe(false);
+  });
+
+  it('propagates the original external checkout guard error', async () => {
+    mockIsLoggedIn.mockResolvedValue(true);
+    const originalError = new Error('Infini guard request rejected');
+    mockGetPrimeInfiniExternalCheckoutGuard.mockRejectedValue(originalError);
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+
+    await expect(
+      act(async () =>
+        result.current.purchaseByExternalCheckout({
+          selectedSubscriptionPeriod: 'P1M',
+        }),
+      ),
+    ).rejects.toBe(originalError);
   });
 
   it('blocks external checkout when the fresh server snapshot is already Prime', async () => {

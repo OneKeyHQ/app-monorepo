@@ -220,6 +220,13 @@ export class PrimeSubscriptionScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'error' })
+  public primeCryptoPaymentError(
+    params: IPrimeCryptoPaymentFlowParams & { errorMessage: string },
+  ) {
+    return params;
+  }
+
   /**
    * Prime upsell CTA button click
    * Triggered when user clicks the "Subscribe" or similar call-to-action button on the upsell/paywall page

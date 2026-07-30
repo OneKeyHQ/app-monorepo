@@ -17,7 +17,6 @@ import type {
   IDialogShowProps,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -32,6 +31,7 @@ import type {
 import { isPrimeInfiniPurchaseCompleted } from '../hooks/primeInfiniPaymentUtils';
 import { usePrimeInfiniPaymentPolling } from '../hooks/usePrimeInfiniPaymentPolling';
 import { usePrimePurchaseMonitor } from '../hooks/usePrimePurchaseMonitor';
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
 import {
   logPrimeInfiniPaymentFlow,
   logPrimeInfiniPaymentMonitorEvent,
@@ -202,7 +202,23 @@ function usePrimeInfiniPurchaseCompletion({
             await timerUtils.wait(350);
             await finishPrimeSubscriptionPurchaseSuccess(successPayload);
           })().catch((error) => {
-            errorToastUtils.showToastOfError(error);
+            logPrimeInfiniPaymentFlow({
+              stage: 'purchaseCompletion',
+              status: 'failed',
+              subscriptionPeriod,
+              plan,
+              featureName,
+              checkoutType,
+              ...paymentContext,
+              reason: 'purchaseSuccessTailFailed',
+              error,
+            });
+            showPrimeInfiniPaymentErrorToast({
+              error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
           });
         };
         if (
@@ -301,6 +317,7 @@ function PrimeInfiniExternalWaitingMonitor({
     { checkoutType: 'externalWallet' }
   >;
 }) {
+  const intl = useIntl();
   const {
     plan,
     onekeyUserId,
@@ -403,8 +420,16 @@ function PrimeInfiniExternalWaitingMonitor({
         },
         getFailureReason: getExternalPollingFailureReason,
       });
+      if (event.type === 'failed' && event.issue.error) {
+        showPrimeInfiniPaymentErrorToast({
+          error: event.issue.error,
+          fallbackMessage: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+        });
+      }
     },
-    [featureName, plan],
+    [featureName, intl, plan],
   );
 
   const monitor = usePrimePurchaseMonitor<
@@ -489,7 +514,23 @@ function PrimeInfiniExternalWaitingMonitor({
                 useSystemBrowser: true,
               });
             }
-          })();
+          })().catch((error) => {
+            logPrimeInfiniPaymentFlow({
+              stage: 'externalCheckout',
+              status: 'failed',
+              plan,
+              featureName,
+              checkoutType: 'externalWallet',
+              reason: 'checkoutReopenFailed',
+              error,
+            });
+            showPrimeInfiniPaymentErrorToast({
+              error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+          });
         }}
       >
         {/* TODO: i18n pending translation key */}
@@ -503,7 +544,18 @@ function PrimeInfiniExternalWaitingMonitor({
         onConfirm={async ({ preventClose }) => {
           preventClose();
           const refreshResult = await monitor.refresh();
-          if (refreshResult === 'pending' || refreshResult === 'failed') {
+          const issue = monitor.getLastIssue();
+          if (refreshResult === 'failed' && issue?.error) {
+            showPrimeInfiniPaymentErrorToast({
+              error: issue.error,
+              fallbackMessage: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+          } else if (
+            refreshResult === 'pending' ||
+            refreshResult === 'failed'
+          ) {
             Toast.message({
               // TODO: i18n pending translation key
               title: 'Payment not confirmed yet',
@@ -523,6 +575,7 @@ function PrimeInfiniInternalWaitingMonitor({
 }: {
   session: IInternalPaymentWaitingSession;
 }) {
+  const intl = useIntl();
   const { baseline, asset, plan, featureName, selectedSubscriptionPeriod } =
     session;
   const clearPendingSession = useCallback(
@@ -566,6 +619,14 @@ function PrimeInfiniInternalWaitingMonitor({
     enabled: true,
     onSuccess: handleSuccess,
     onTerminal: () => undefined,
+    onIssue: (error) => {
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
+      });
+    },
   });
   const isTerminal =
     polling.outcome === 'expired' || polling.outcome === 'failed';

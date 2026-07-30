@@ -30,7 +30,8 @@ export class PrimeUsageScene extends BaseScene {
       | 'claimPresented'
       | 'claimComplete'
       | 'claimRelease'
-      | 'primeUserRefresh';
+      | 'primeUserRefresh'
+      | 'purchaseSuccessTail';
     errorMessage: string;
   }) {
     return params;
