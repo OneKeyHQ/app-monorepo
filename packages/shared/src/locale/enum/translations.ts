@@ -3465,6 +3465,7 @@ export enum ETranslations {
   prime_payment_confirmation_failed__title = 'prime_payment_confirmation_failed__title',
   prime_payment_confirmed__label = 'prime_payment_confirmed__label',
   prime_payment_confirming__desc = 'prime_payment_confirming__desc',
+  prime_payment_confirming__title = 'prime_payment_confirming__title',
   prime_payment_method__title = 'prime_payment_method__title',
   prime_payment_not_confirmed__title = 'prime_payment_not_confirmed__title',
   prime_payment_not_detected__desc = 'prime_payment_not_detected__desc',

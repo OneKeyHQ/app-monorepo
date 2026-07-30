@@ -602,7 +602,7 @@ function PrimeInfiniInternalWaitingMonitor({
   const isTerminal =
     polling.outcome === 'expired' || polling.outcome === 'failed';
   let statusTitle = intl.formatMessage({
-    id: ETranslations.prime_waiting_for_payment__title,
+    id: ETranslations.prime_payment_confirming__title,
   });
   let statusMessage = intl.formatMessage({
     id: ETranslations.prime_payment_confirming__desc,
