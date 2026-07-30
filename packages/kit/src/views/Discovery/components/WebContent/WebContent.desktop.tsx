@@ -22,6 +22,7 @@ import {
   BITREFILL_BRIDGE_SCRIPT,
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
+import { applyCurrentThrottleStateToWebview } from '../../utils/browserOffRouteThrottle';
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
@@ -242,6 +243,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
                 });
               }
               webviewRefs[id] = ref;
+              // A WebView mounted while the user is away from the browser
+              // route would otherwise start out un-throttled.
+              applyCurrentThrottleStateToWebview(id);
             }
           }}
           allowpopups

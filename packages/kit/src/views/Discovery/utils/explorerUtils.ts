@@ -117,3 +117,49 @@ export const injectToResumeWebsocket = `
   }
 })()
 `;
+
+// Report the page as hidden while the user is away from the browser route.
+//
+// Suppressing WebSocket.send only stops OUTBOUND traffic; a push-heavy DApp
+// (a trading page streaming prices) keeps receiving and processing messages,
+// which is where its CPU actually goes. Sites generally do throttle themselves
+// when the Page Visibility API says they are hidden, but an Electron <webview>
+// that stays mounted off-route never reports hidden on its own. Shadowing the
+// prototype getters on the document instance and firing the event lets the
+// page's own background handling engage.
+//
+// Own properties are configurable so resume can `delete` them and let the real
+// prototype getters take over again.
+export const injectToReportPageHidden = `
+(function(){
+  try {
+    if (!window.$$onekeyPageHiddenPatched) {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: function () { return 'hidden'; },
+      });
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        get: function () { return true; },
+      });
+      window.$$onekeyPageHiddenPatched = true;
+    }
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('blur'));
+  } catch (e) {}
+})()
+`;
+
+export const injectToReportPageVisible = `
+(function(){
+  try {
+    if (window.$$onekeyPageHiddenPatched) {
+      delete document.visibilityState;
+      delete document.hidden;
+      window.$$onekeyPageHiddenPatched = false;
+    }
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('focus'));
+  } catch (e) {}
+})()
+`;
