@@ -180,48 +180,52 @@ export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
 }
 
 /* ---------------------------------------------------------------- *
- * Enter PIN, 5.6s loop: wake -> empty row fades in -> six OK presses fill
- * the diamonds (each at mid-hold) -> the check appears at the cursor -> one
- * final OK press confirms -> sleep. Seven pulses total, exactly like the
- * original Lottie (its unexplained 7th press was this final confirm).
+ * Character-entry scenes (Enter PIN / Enter Passphrase - the original
+ * Lottie files are frame-identical too), 5.6s loop: wake -> empty row fades in ->
+ * six OK presses enter characters (each at mid-hold) -> the check appears at
+ * the cursor -> one final OK press confirms -> sleep. Seven pulses total,
+ * exactly like the Lottie files (their unexplained 7th press was this confirm).
  * ---------------------------------------------------------------- */
 
-const PIN_LOOP_MS = 5600;
-const PIN_PRESS_START_MS = 900;
-const PIN_PRESS_STEP_MS = 500;
-export const PIN_FILL_COUNT = 6;
-const PIN_PRESS_STARTS = Array.from(
-  { length: PIN_FILL_COUNT + 1 },
-  (_, i) => PIN_PRESS_START_MS + i * PIN_PRESS_STEP_MS,
+const ENTRY_LOOP_MS = 5600;
+const ENTRY_PRESS_START_MS = 900;
+const ENTRY_PRESS_STEP_MS = 500;
+export const ENTRY_FILL_COUNT = 6;
+const ENTRY_PRESS_STARTS = Array.from(
+  { length: ENTRY_FILL_COUNT + 1 },
+  (_, i) => ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS,
 );
-const PIN_GLOW = screenGlowTrack(4700);
-const PIN_CONTENT = screenContentTrack(4700);
-const PIN_OK = pressPulsesTrack(PIN_PRESS_STARTS);
+const ENTRY_GLOW = screenGlowTrack(4700);
+const ENTRY_CONTENT = screenContentTrack(4700);
+const ENTRY_OK = pressPulsesTrack(ENTRY_PRESS_STARTS);
 
-/** How many digits are entered at clock time t (fills land mid-hold). */
-export function pinEnteredAt(t: number): number {
+/** How many characters are entered at clock time t (fills land mid-hold). */
+export function entryEnteredAt(t: number): number {
   'worklet';
 
   let entered = 0;
-  for (let i = 0; i < PIN_FILL_COUNT; i += 1) {
-    if (t >= PIN_PRESS_START_MS + i * PIN_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS) {
+  for (let i = 0; i < ENTRY_FILL_COUNT; i += 1) {
+    if (
+      t >=
+      ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS + PRESS_ACT_OFFSET_MS
+    ) {
       entered += 1;
     }
   }
   return entered;
 }
 
-export function useEnterPinOnClassicAnimation(): {
+export function useEntryOnClassicAnimation(): {
   animation: IClassicDeviceAnimation;
   /** The scene's master clock, for screen content that syncs to it. */
   clock: Readonly<SharedValue<number>>;
 } {
-  const clock = useSceneClock(PIN_LOOP_MS);
-  const screenGlow = useDerivedValue(() => trackAt(clock.value, PIN_GLOW));
+  const clock = useSceneClock(ENTRY_LOOP_MS);
+  const screenGlow = useDerivedValue(() => trackAt(clock.value, ENTRY_GLOW));
   const screenContent = useDerivedValue(() =>
-    trackAt(clock.value, PIN_CONTENT),
+    trackAt(clock.value, ENTRY_CONTENT),
   );
-  const okPress = useDerivedValue(() => trackAt(clock.value, PIN_OK));
+  const okPress = useDerivedValue(() => trackAt(clock.value, ENTRY_OK));
 
   return useMemo(
     () => ({
