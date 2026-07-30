@@ -57,7 +57,6 @@ import type {
   IKeylessRealmOperation,
   IKeylessRealmTokenDiagnosticContext,
 } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -95,6 +94,10 @@ import type {
   IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 
+function loadKeylessOAuthAccessTokenUtils() {
+  return import('./utils/keylessOAuthAccessToken');
+}
+
 const juiceboxClientDiagnosticContextCache = new Map<
   string,
   IKeylessRealmTokenDiagnosticContext
@@ -129,37 +132,8 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
 // evicting a client can never make the same access token look reusable.
 type IRealmAccessTokenExchangeTombstone = 'confirmed' | 'presumed';
 
-const exchangedRealmAccessTokenCache = new cacheUtils.LRUCache<
-  string,
-  IRealmAccessTokenExchangeTombstone
->({
-  max: 1000,
-  ttl: timerUtils.getTimeDurationMs({ hour: 2 }),
-  ttlAutopurge: true,
-});
-
-async function getRealmAccessTokenTombstoneKey(token: string): Promise<string> {
-  const tokenHash = await appCrypto.hash.sha256(
-    bufferUtils.toBuffer(token, 'utf-8'),
-  );
-  return bufferUtils.bytesToHex(tokenHash);
-}
-
 const KEYLESS_BACKEND_SHARE_PASSIVE_MIGRATION_INTERVAL_MS =
   timerUtils.getTimeDurationMs({ hour: 24 });
-
-const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
-  minute: 5,
-});
-
-// GoTrue codes that definitively mean the refresh token is invalid, revoked,
-// or already rotated elsewhere — the only verdicts that justify deleting the
-// legacy encrypted refresh-token blob.
-const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
-  'invalid_grant',
-  'refresh_token_not_found',
-  'refresh_token_already_used',
-]);
 
 type IKeylessBackendShareCanonicalFormat = 'v1' | 'v2';
 
@@ -290,46 +264,13 @@ class ServiceKeylessWallet extends ServiceBase {
     | Promise<IKeylessBackendShareV2MigrationResult>
     | undefined;
 
-  private keylessRealmDiagnosticSequence = 0;
-
   private async buildKeylessRealmTokenDiagnosticContext(params: {
     operation: IKeylessRealmOperation;
     token: string;
   }): Promise<IKeylessRealmTokenDiagnosticContext> {
-    const { operation, token } = params;
-    this.keylessRealmDiagnosticSequence += 1;
-    const flowId = `${Date.now().toString(36)}-${this.keylessRealmDiagnosticSequence.toString(36)}`;
-    let tokenExpiresAt: number | undefined;
-    let tokenIssuedAt: number | undefined;
-    let tokenFingerprint = 'unavailable';
-
-    try {
-      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-      tokenExpiresAt =
-        typeof decodedToken?.exp === 'number' ? decodedToken.exp : undefined;
-      tokenIssuedAt =
-        typeof decodedToken?.iat === 'number' ? decodedToken.iat : undefined;
-    } catch {
-      // Diagnostic metadata is best-effort and must not affect authentication.
-    }
-
-    try {
-      const tokenHash = await appCrypto.hash.sha256(
-        bufferUtils.toBuffer(token, 'utf-8'),
-      );
-      tokenFingerprint = bufferUtils.bytesToHex(tokenHash).slice(0, 12);
-    } catch {
-      // Diagnostic metadata is best-effort and must not affect authentication.
-    }
-
-    return {
-      flowId,
-      operation,
-      runtimeRole: platformEnv.runtimeRole,
-      tokenExpiresAt,
-      tokenFingerprint,
-      tokenIssuedAt,
-    };
+    const { buildKeylessRealmTokenDiagnosticContext } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return buildKeylessRealmTokenDiagnosticContext(params);
   }
 
   private async getJuiceboxClientFromCacheInsideOperationLock(
@@ -414,19 +355,18 @@ class ServiceKeylessWallet extends ServiceBase {
   private async getRealmAccessTokenExchangeTombstone(
     token: string,
   ): Promise<IRealmAccessTokenExchangeTombstone | undefined> {
-    return exchangedRealmAccessTokenCache.get(
-      await getRealmAccessTokenTombstoneKey(token),
-    );
+    const { getRealmAccessTokenExchangeTombstone } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return getRealmAccessTokenExchangeTombstone(token);
   }
 
   private async setRealmAccessTokenExchangeTombstone(
     token: string,
     tombstone: IRealmAccessTokenExchangeTombstone,
   ): Promise<void> {
-    exchangedRealmAccessTokenCache.set(
-      await getRealmAccessTokenTombstoneKey(token),
-      tombstone,
-    );
+    const { setRealmAccessTokenExchangeTombstone } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return setRealmAccessTokenExchangeTombstone(token, tombstone);
   }
 
   /**
@@ -1303,67 +1243,21 @@ class ServiceKeylessWallet extends ServiceBase {
     }, 0);
   }
 
-  private isKeylessAccessTokenValid(token: string | null): token is string {
-    if (!token) {
-      return false;
-    }
-    try {
-      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-      if (!decodedToken?.exp || typeof decodedToken.exp !== 'number') {
-        return false;
-      }
-      return (
-        Date.now() < decodedToken.exp * 1000 - KEYLESS_TOKEN_VALID_BUFFER_MS
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  private doKeylessOAuthTokensRepresentSameIdentity(params: {
+  private async doKeylessOAuthTokensRepresentSameIdentity(params: {
     previousAccessToken: string;
     refreshedAccessToken: string;
-  }): boolean {
-    const { previousAccessToken, refreshedAccessToken } = params;
-    try {
-      const previousPayload = stringUtils.decodeJWT(
-        previousAccessToken,
-      ) as ISupabaseJWTPayload;
-      const refreshedPayload = stringUtils.decodeJWT(
-        refreshedAccessToken,
-      ) as ISupabaseJWTPayload;
-      const previousSupabaseUserId = previousPayload?.sub || '';
-      const refreshedSupabaseUserId = refreshedPayload?.sub || '';
-      const previousSocialUserId = previousPayload?.user_metadata?.sub || '';
-      const refreshedSocialUserId = refreshedPayload?.user_metadata?.sub || '';
-      const previousIssuer = previousPayload?.user_metadata?.iss || '';
-      const refreshedIssuer = refreshedPayload?.user_metadata?.iss || '';
-
-      return (
-        !!previousSupabaseUserId &&
-        previousSupabaseUserId === refreshedSupabaseUserId &&
-        !!previousSocialUserId &&
-        previousSocialUserId === refreshedSocialUserId &&
-        !!previousIssuer &&
-        previousIssuer === refreshedIssuer
-      );
-    } catch {
-      return false;
-    }
+  }): Promise<boolean> {
+    const { doKeylessOAuthTokensRepresentSameIdentity } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return doKeylessOAuthTokensRepresentSameIdentity(params);
   }
 
-  private isDefinitiveSupabaseRefreshTokenRejectionError(
+  private async isDefinitiveSupabaseRefreshTokenRejectionError(
     error: unknown,
-  ): boolean {
-    const authError = error as
-      | { code?: unknown; error_code?: unknown }
-      | null
-      | undefined;
-    return [authError?.code, authError?.error_code].some(
-      (code) =>
-        typeof code === 'string' &&
-        SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
-    );
+  ): Promise<boolean> {
+    const { isDefinitiveSupabaseRefreshTokenRejectionError } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return isDefinitiveSupabaseRefreshTokenRejectionError(error);
   }
 
   private async refreshKeylessOAuthAccessTokenForRealmExchange(params: {
@@ -1376,207 +1270,23 @@ class ServiceKeylessWallet extends ServiceBase {
       refreshedAccessToken: string,
     ) => Promise<boolean>;
   }): Promise<IKeylessOAuthAccessTokenRefreshResult> {
-    const { operation, previousAccessToken, validateRefreshedAccessToken } =
-      params;
-    const diagnosticContext =
-      await this.buildKeylessRealmTokenDiagnosticContext({
-        operation,
-        token: previousAccessToken,
-      });
-    defaultLogger.wallet.keyless.oauthAccessTokenRefreshStarted(
-      diagnosticContext,
-    );
-    const { client } = getKeylessSupabaseClient();
-    let refreshResult;
-    try {
-      refreshResult = await client.auth.refreshSession();
-    } catch (error) {
-      const errorDetails = error as {
-        code?: unknown;
-        message?: unknown;
-        status?: unknown;
-      };
-      const isDefinitive =
-        this.isDefinitiveSupabaseRefreshTokenRejectionError(error);
-      defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-        ...diagnosticContext,
-        errorCode:
-          typeof errorDetails?.code === 'string'
-            ? errorDetails.code
-            : undefined,
-        errorMessage:
-          typeof errorDetails?.message === 'string'
-            ? errorDetails.message.slice(0, 300)
-            : undefined,
-        errorStatus:
-          typeof errorDetails?.status === 'number'
-            ? errorDetails.status
-            : undefined,
-        status: isDefinitive
-          ? 'definitiveRefreshTokenError'
-          : 'ambiguousRefreshError',
-      });
-      return {
-        status: isDefinitive
-          ? EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
-          : EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-      };
-    }
-    if (refreshResult.error) {
-      const isDefinitive = this.isDefinitiveSupabaseRefreshTokenRejectionError(
-        refreshResult.error,
-      );
-      defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-        ...diagnosticContext,
-        errorCode: refreshResult.error.code,
-        errorMessage: refreshResult.error.message.slice(0, 300),
-        errorStatus: refreshResult.error.status,
-        status: isDefinitive
-          ? 'definitiveRefreshTokenError'
-          : 'ambiguousRefreshError',
-      });
-      return {
-        status: isDefinitive
-          ? EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
-          : EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-      };
-    }
-
-    const refreshedAccessToken =
-      refreshResult.data.session?.access_token ?? null;
-    if (!this.isKeylessAccessTokenValid(refreshedAccessToken)) {
-      defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-        ...diagnosticContext,
-        status: 'invalidToken',
-      });
-      return {
-        status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-      };
-    }
-
-    const refreshedDiagnosticContext =
-      await this.buildKeylessRealmTokenDiagnosticContext({
-        operation,
-        token: refreshedAccessToken,
-      });
-    const tokenChanged = refreshedAccessToken !== previousAccessToken;
-    if (
-      !tokenChanged &&
-      (await this.getRealmAccessTokenExchangeTombstone(refreshedAccessToken))
-    ) {
-      defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-        ...diagnosticContext,
-        refreshedTokenExpiresAt: refreshedDiagnosticContext.tokenExpiresAt,
-        refreshedTokenFingerprint: refreshedDiagnosticContext.tokenFingerprint,
-        refreshedTokenIssuedAt: refreshedDiagnosticContext.tokenIssuedAt,
-        status: 'unchangedToken',
-        tokenChanged,
-      });
-      return {
-        status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-      };
-    }
-
-    let identityMatched = false;
-    try {
-      identityMatched =
-        await validateRefreshedAccessToken(refreshedAccessToken);
-    } catch (error) {
-      const errorDetails = error as {
-        code?: unknown;
-        message?: unknown;
-        status?: unknown;
-      };
-      defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-        ...diagnosticContext,
-        errorCode:
-          typeof errorDetails?.code === 'string'
-            ? errorDetails.code
-            : undefined,
-        errorMessage:
-          typeof errorDetails?.message === 'string'
-            ? errorDetails.message.slice(0, 300)
-            : undefined,
-        errorStatus:
-          typeof errorDetails?.status === 'number'
-            ? errorDetails.status
-            : undefined,
-        refreshedTokenExpiresAt: refreshedDiagnosticContext.tokenExpiresAt,
-        refreshedTokenFingerprint: refreshedDiagnosticContext.tokenFingerprint,
-        refreshedTokenIssuedAt: refreshedDiagnosticContext.tokenIssuedAt,
-        status: 'thrownError',
-        tokenChanged,
-      });
-      return {
-        status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-      };
-    }
-
-    defaultLogger.wallet.keyless.oauthAccessTokenRefreshResult({
-      ...diagnosticContext,
-      identityMatched,
-      refreshedTokenExpiresAt: refreshedDiagnosticContext.tokenExpiresAt,
-      refreshedTokenFingerprint: refreshedDiagnosticContext.tokenFingerprint,
-      refreshedTokenIssuedAt: refreshedDiagnosticContext.tokenIssuedAt,
-      status: identityMatched ? 'success' : 'identityMismatch',
-      tokenChanged,
+    const { refreshKeylessOAuthAccessTokenForRealmExchange } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return refreshKeylessOAuthAccessTokenForRealmExchange({
+      ...params,
+      buildDiagnosticContext: (diagnosticParams) =>
+        this.buildKeylessRealmTokenDiagnosticContext(diagnosticParams),
+      hasRealmAccessTokenExchangeTombstone: async (token) =>
+        Boolean(await this.getRealmAccessTokenExchangeTombstone(token)),
     });
-    return identityMatched
-      ? {
-          status: EKeylessOAuthAccessTokenRefreshStatus.Ready,
-          accessToken: refreshedAccessToken,
-        }
-      : {
-          status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
-        };
   }
 
   private async getActiveKeylessOAuthAccessToken(params?: {
     throwOnSessionRefreshError?: boolean;
   }): Promise<string | null> {
-    const { client } = getKeylessSupabaseClient();
-    const sessionResult = await client.auth.getSession();
-    if (sessionResult.error) {
-      if (
-        params?.throwOnSessionRefreshError ||
-        isRetryableSupabaseAuthError(sessionResult.error)
-      ) {
-        throw sessionResult.error;
-      }
-      return null;
-    }
-    const token = sessionResult.data.session?.access_token ?? null;
-    if (this.isKeylessAccessTokenValid(token)) {
-      return token;
-    }
-    if (!sessionResult.data.session) {
-      return null;
-    }
-    // getSession() only auto-refreshes tokens within supabase-js's own ~90s
-    // expiry margin, while our validity buffer is larger
-    // (KEYLESS_TOKEN_VALID_BUFFER_MS). A session failing the buffer check can
-    // still be refreshed, so try an explicit refresh before treating it as
-    // missing.
-    const refreshResult = await client.auth.refreshSession();
-    if (refreshResult.error) {
-      if (
-        params?.throwOnSessionRefreshError ||
-        isRetryableSupabaseAuthError(refreshResult.error)
-      ) {
-        throw refreshResult.error;
-      }
-      return null;
-    }
-    const refreshedToken = refreshResult.data.session?.access_token ?? null;
-    if (!this.isKeylessAccessTokenValid(refreshedToken)) {
-      if (params?.throwOnSessionRefreshError) {
-        throw new OneKeyLocalError(
-          'OAuth session refresh returned an invalid access token.',
-        );
-      }
-      return null;
-    }
-    return refreshedToken;
+    const { getActiveKeylessOAuthAccessToken } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return getActiveKeylessOAuthAccessToken(params);
   }
 
   private async getActiveKeylessOAuthAccessTokenMatchingLocalWallet(params?: {
@@ -1631,20 +1341,9 @@ class ServiceKeylessWallet extends ServiceBase {
   private async isDefinitiveGoTrueRefreshTokenRejection(
     response: Response,
   ): Promise<boolean> {
-    let body: { error?: unknown; error_code?: unknown } | undefined;
-    try {
-      body = (await response.json()) as {
-        error?: unknown;
-        error_code?: unknown;
-      };
-    } catch {
-      return false;
-    }
-    return [body?.error, body?.error_code].some(
-      (code) =>
-        typeof code === 'string' &&
-        SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
-    );
+    const { isDefinitiveGoTrueRefreshTokenRejection } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return isDefinitiveGoTrueRefreshTokenRejection(response);
   }
 
   private async refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
@@ -3154,7 +2853,9 @@ class ServiceKeylessWallet extends ServiceBase {
       });
     } catch (error) {
       return {
-        status: this.isDefinitiveSupabaseRefreshTokenRejectionError(error)
+        status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
+          error,
+        ))
           ? EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthReauth
           : EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthRefreshRecovery,
         displayEmail,
@@ -3874,10 +3575,10 @@ class ServiceKeylessWallet extends ServiceBase {
       if (
         expectedPreviousAccessToken &&
         activeAccessToken &&
-        !this.doKeylessOAuthTokensRepresentSameIdentity({
+        !(await this.doKeylessOAuthTokensRepresentSameIdentity({
           previousAccessToken: expectedPreviousAccessToken,
           refreshedAccessToken: activeAccessToken,
-        })
+        }))
       ) {
         return {
           status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
@@ -3886,7 +3587,9 @@ class ServiceKeylessWallet extends ServiceBase {
       previousAccessToken = activeAccessToken;
     } catch (error) {
       return {
-        status: this.isDefinitiveSupabaseRefreshTokenRejectionError(error)
+        status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
+          error,
+        ))
           ? EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
           : EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
       };

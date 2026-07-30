@@ -73,7 +73,9 @@ import type {
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
+  isPrimeInfiniPaymentAccountSyncReady,
   resolvePrimeInfiniPaymentDisplaySnapshot,
+  resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from '../hooks/primeInfiniPaymentDisplaySnapshot';
@@ -870,7 +872,11 @@ function PrimeInfiniWalletPaymentContent({
     pendingSession?.sendStarted ?? false,
   );
   const [accountSyncFailed, setAccountSyncFailed] = useState(false);
-  const [accountSyncReady, setAccountSyncReady] = useState(false);
+  const [accountSyncedNetworkId, setAccountSyncedNetworkId] = useState('');
+  const accountSyncReady = isPrimeInfiniPaymentAccountSyncReady({
+    syncedNetworkId: accountSyncedNetworkId,
+    selectedNetworkId: selectedAsset.networkId,
+  });
   const paymentRef = useRef(payment);
   paymentRef.current = payment;
   const phaseRef = useRef(phase);
@@ -1141,7 +1147,7 @@ function PrimeInfiniWalletPaymentContent({
     const generation = accountSyncGenerationRef.current + 1;
     accountSyncGenerationRef.current = generation;
     setAccountSyncFailed(false);
-    setAccountSyncReady(false);
+    setAccountSyncedNetworkId('');
     void (async () => {
       if (initialAccountSyncPromiseRef.current === undefined) {
         initialAccountSyncPromiseRef.current = actions.current.syncFromScene({
@@ -1166,12 +1172,12 @@ function PrimeInfiniWalletPaymentContent({
         networkId: selectedAsset.networkId,
       });
       if (accountSyncGenerationRef.current === generation) {
-        setAccountSyncReady(true);
+        setAccountSyncedNetworkId(selectedAsset.networkId);
       }
     })().catch((error) => {
       if (accountSyncGenerationRef.current === generation) {
         initialAccountSyncPromiseRef.current = undefined;
-        setAccountSyncReady(false);
+        setAccountSyncedNetworkId('');
         setAccountSyncFailed(true);
         logPrimeInfiniPaymentFlow({
           stage: 'accountSelection',
@@ -1426,6 +1432,27 @@ function PrimeInfiniWalletPaymentContent({
       ? `${activeAccount.wallet.name} / ${account.name}`
       : account.name;
   }
+  const currentSelectionSnapshot =
+    useMemo<IPrimeInfiniPaymentSelectionSnapshot>(
+      () => ({
+        accountDisplayName,
+        activeAccount,
+        asset: selectedAsset,
+        balanceDetail,
+      }),
+      [accountDisplayName, activeAccount, balanceDetail, selectedAsset],
+    );
+  const isSelectionSnapshotReady = Boolean(
+    selectionIdentity && accountSyncReady && !accountSyncFailed,
+  );
+  const [lastReadySelectionSnapshot, setLastReadySelectionSnapshot] = useState<
+    IPrimeInfiniPaymentSelectionSnapshot | undefined
+  >();
+  useEffect(() => {
+    if (isSelectionSnapshotReady) {
+      setLastReadySelectionSnapshot(currentSelectionSnapshot);
+    }
+  }, [currentSelectionSnapshot, isSelectionSnapshotReady]);
   const {
     selectionSnapshot: displaySelectionSnapshot,
     payment: displayPayment,
@@ -1433,21 +1460,35 @@ function PrimeInfiniWalletPaymentContent({
     IPrimeInfiniPaymentSelectionSnapshot,
     IPrimeInfiniPayment
   >({
-    selectionSnapshot: {
-      accountDisplayName,
-      activeAccount,
-      asset: selectedAsset,
-      balanceDetail,
-    },
+    selectionSnapshot: currentSelectionSnapshot,
+    lastReadySelectionSnapshot,
+    isSelectionReady: isSelectionSnapshotReady,
     payment,
     isPaymentCurrent: isPaymentCacheContextCurrent,
   });
+  const displayPaymentRef = useRef(displayPayment);
+  displayPaymentRef.current = displayPayment;
   const displayActiveAccount = displaySelectionSnapshot.activeAccount;
   const displayAccount = displayActiveAccount.account;
   const displayAccountAddress = displayAccount?.address;
   const displayAccountName = displaySelectionSnapshot.accountDisplayName;
   const displayAsset = displaySelectionSnapshot.asset;
   const displayBalanceDetail = displaySelectionSnapshot.balanceDetail;
+  const displaySelectionIdentity =
+    displayAccount?.id &&
+    displayAccountAddress &&
+    displayActiveAccount.ready &&
+    displayActiveAccount.network?.id === displayAsset.networkId &&
+    !displayActiveAccount.isNetworkNotMatched
+      ? `${displayAccount.id}:${displayAccountAddress}:${
+          displayAsset.networkId
+        }:${displayAsset.contractAddress}`
+      : '';
+  const isDisplayedSelectionCurrent =
+    Boolean(displaySelectionIdentity) &&
+    displaySelectionIdentity === selectionIdentity;
+  const displaySelectionIdentityRef = useRef(displaySelectionIdentity);
+  displaySelectionIdentityRef.current = displaySelectionIdentity;
   const isPaymentButtonPreparing = shouldShowPrimeInfiniPaymentButtonSkeleton({
     hasCurrentPayment: Boolean(displayPayment),
     isOptionsRefreshing,
@@ -1463,7 +1504,9 @@ function PrimeInfiniWalletPaymentContent({
   const canContinue = Boolean(
     phase === 'selecting' &&
     payment &&
+    displayPayment &&
     isPaymentCacheContextCurrent &&
+    isDisplayedSelectionCurrent &&
     accountId &&
     accountAddress &&
     isOwnAccount &&
@@ -1524,13 +1567,14 @@ function PrimeInfiniWalletPaymentContent({
     if (accountSyncFailed && accountId && isSelectedNetworkReady) {
       initialAccountSyncPromiseRef.current ??= Promise.resolve();
       setAccountSyncFailed(false);
-      setAccountSyncReady(true);
+      setAccountSyncedNetworkId(selectedAsset.networkId);
     }
   }, [
     accountId,
     accountSyncFailed,
     initialAccountSyncPromiseRef,
     isSelectedNetworkReady,
+    selectedAsset.networkId,
   ]);
 
   const replacePaymentForSelectionChange = useCallback(
@@ -2413,31 +2457,54 @@ function PrimeInfiniWalletPaymentContent({
   }, [preparePaymentForSelection]);
 
   const handleContinue = useCallback(async () => {
-    let currentPayment = paymentRef.current;
+    const currentPaymentSnapshot = paymentRef.current;
+    const capturedDisplayPayment = displayPaymentRef.current;
+    const capturedDisplaySelectionIdentity =
+      displaySelectionIdentityRef.current;
+    const capturedAsset = displayAsset;
     if (
       submitInFlightRef.current ||
       !canContinue ||
-      !accountId ||
-      !accountAddress ||
+      !displayAccount?.id ||
+      !displayAccountAddress ||
       !balanceDetail ||
-      !currentPayment
+      !currentPaymentSnapshot ||
+      !capturedDisplayPayment ||
+      !capturedDisplaySelectionIdentity ||
+      capturedDisplaySelectionIdentity !== selectionIdentity ||
+      shouldBlockPrimeInfiniPaymentRefresh({
+        currentPayment: capturedDisplayPayment,
+        refreshedPayment: currentPaymentSnapshot,
+        asset: capturedAsset,
+      })
     ) {
       return;
     }
+    let currentPayment = capturedDisplayPayment;
     const initialPayment = currentPayment;
     submitInFlightRef.current = true;
     onExitPreventedChange(true);
     setPhase('creating');
     const attemptGeneration = asyncAttemptGenerationRef.current + 1;
     asyncAttemptGenerationRef.current = attemptGeneration;
-    const capturedSelectionIdentity = selectionIdentity;
-    const capturedAsset = selectedAsset;
+    const capturedSelectionIdentity = capturedDisplaySelectionIdentity;
     const startedAt = Date.now();
+    const capturedAccountId = displayAccount.id;
+    const capturedAccountAddress = displayAccountAddress;
     const isAttemptCurrent = () =>
       mountedRef.current &&
       asyncAttemptGenerationRef.current === attemptGeneration &&
       isPurchaseUserCurrentRef.current &&
-      selectionIdentityRef.current === capturedSelectionIdentity;
+      selectionIdentityRef.current === capturedSelectionIdentity &&
+      displaySelectionIdentityRef.current === capturedSelectionIdentity &&
+      Boolean(
+        displayPaymentRef.current &&
+        isSamePrimeInfiniPaymentTransferSnapshot({
+          first: capturedDisplayPayment,
+          second: displayPaymentRef.current,
+          networkId: capturedAsset.networkId,
+        }),
+      );
     let paymentRefreshBlocked = false;
     let sendExitLogged = false;
     try {
@@ -2460,7 +2527,7 @@ function PrimeInfiniWalletPaymentContent({
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId,
+          accountId: capturedAccountId,
           networkId: capturedAsset.networkId,
           contractList: [capturedAsset.contractAddress],
           withFrozenBalance: true,
@@ -2627,8 +2694,8 @@ function PrimeInfiniWalletPaymentContent({
           asset: capturedAsset,
           onekeyUserId: purchaseUserIdForSend,
           plan,
-          payerAccountId: accountId,
-          payerAddress: accountAddress,
+          payerAccountId: capturedAccountId,
+          payerAddress: capturedAccountAddress,
         })
       ) {
         throw new OneKeyLocalError(
@@ -2750,8 +2817,8 @@ function PrimeInfiniWalletPaymentContent({
       });
       const { transferInfo, transferPayload } =
         buildPrimeInfiniPaymentTransferIntent({
-          accountId,
-          accountAddress,
+          accountId: capturedAccountId,
+          accountAddress: capturedAccountAddress,
           asset: capturedAsset,
           payment: paymentForSend,
           tokenInfo: freshBalanceDetail.info,
@@ -3035,8 +3102,6 @@ function PrimeInfiniWalletPaymentContent({
       }
     }
   }, [
-    accountAddress,
-    accountId,
     balanceDetail,
     baseline.onekeyUserId,
     canContinue,
@@ -3046,7 +3111,9 @@ function PrimeInfiniWalletPaymentContent({
     persistPaymentSession,
     plan,
     refreshTokenBalances,
-    selectedAsset,
+    displayAsset,
+    displayAccount?.id,
+    displayAccountAddress,
     selectedSubscriptionPeriod,
     selectionIdentity,
     signatureConfirm,
@@ -4162,6 +4229,17 @@ function PrimeInfiniWalletPaymentRoot({
       ? undefined
       : result?.pendingSession;
   useEffect(() => {
+    const pendingAssetKey = effectivePendingSession?.asset.key;
+    if (pendingAssetKey) {
+      setSelectedAssetKey((current) =>
+        resolvePrimeInfiniPaymentPinnedAssetKey({
+          selectedAssetKey: current,
+          pendingAssetKey,
+        }),
+      );
+    }
+  }, [effectivePendingSession?.asset.key]);
+  useEffect(() => {
     const request = pendingReloadRequestRef.current;
     if (!request || !result) {
       return;
@@ -4386,7 +4464,6 @@ function PrimeInfiniWalletPaymentRoot({
     if (pendingReloadRequestRef.current) {
       return;
     }
-    setSelectedAssetKey('');
     const request: IPrimeInfiniPaymentReloadRequest = {
       minimumLoadAttempt: paymentContextLoadAttemptRef.current + 1,
       previousBindingId: effectivePendingSession?.paymentCacheKey.bindingId,
