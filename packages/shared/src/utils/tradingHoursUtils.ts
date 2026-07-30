@@ -5,14 +5,20 @@ import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
  * time (the single source of truth per OK-58043). All local rendering must be
  * derived from these constants — never hardcode a user-local time.
  *
- *   Pre-market  04:00 – 09:29 ET
- *   Regular     09:30 – 15:59 ET
- *   Post-market 16:00 – 19:59 ET
- *   Overnight   20:00 – 03:59 ET (next day)
+ * Ranges follow the venue's published windows (OK-58509, aligned with OKX):
  *
- * A "cycle" is one full 24h loop anchored at 04:00 ET. On DST transition days
- * a cycle is 23h/25h long; ratios are computed from real instants so segment
- * widths stay proportional.
+ *   Pre-market  04:01 – 09:29 ET
+ *   Regular     09:31 – 15:59 ET
+ *   Post-market 16:01 – 19:59 ET
+ *   Overnight   20:05 – 03:55 ET (next day)
+ *
+ * Sessions are NOT contiguous: the minutes between them (e.g. 09:30, the
+ * opening cross) belong to no session and are rendered as part of neither
+ * range.
+ *
+ * A "cycle" is one full loop from the pre-market open to the overnight close
+ * the next ET day. On DST transition days a cycle is ±1h long; ratios are
+ * computed from real instants so segment widths stay proportional.
  */
 
 const NY_TIME_ZONE = 'America/New_York';
@@ -25,17 +31,38 @@ export enum EUSMarketSessionKey {
   Overnight = 'overnight',
 }
 
-/** Session boundaries as minutes since ET midnight, in cycle order. */
-const SESSION_STARTS_ET_MINUTES: Array<{
+/**
+ * Session boundaries as minutes since ET midnight, in cycle order. Ends are
+ * exclusive (a `09:30` end renders as `09:29`); a value ≥ 24h means the
+ * session closes on the next ET calendar day.
+ */
+const SESSIONS_ET_MINUTES: Array<{
   key: EUSMarketSessionKey;
   startMinutes: number;
+  endMinutes: number;
 }> = [
-  { key: EUSMarketSessionKey.PreMarket, startMinutes: 4 * 60 },
-  { key: EUSMarketSessionKey.Regular, startMinutes: 9 * 60 + 30 },
-  { key: EUSMarketSessionKey.PostMarket, startMinutes: 16 * 60 },
-  { key: EUSMarketSessionKey.Overnight, startMinutes: 20 * 60 },
+  {
+    key: EUSMarketSessionKey.PreMarket,
+    startMinutes: 4 * 60 + 1,
+    endMinutes: 9 * 60 + 30,
+  },
+  {
+    key: EUSMarketSessionKey.Regular,
+    startMinutes: 9 * 60 + 31,
+    endMinutes: 16 * 60,
+  },
+  {
+    key: EUSMarketSessionKey.PostMarket,
+    startMinutes: 16 * 60 + 1,
+    endMinutes: 20 * 60,
+  },
+  {
+    key: EUSMarketSessionKey.Overnight,
+    startMinutes: 20 * 60 + 5,
+    endMinutes: 24 * 60 + 3 * 60 + 56,
+  },
 ];
-const CYCLE_START_ET_MINUTES = SESSION_STARTS_ET_MINUTES[0].startMinutes;
+const CYCLE_START_ET_MINUTES = SESSIONS_ET_MINUTES[0].startMinutes;
 
 interface INyWallClock {
   year: number;
@@ -201,13 +228,16 @@ export interface IUSMarketSessionSegment {
 }
 
 export interface IUSMarketTradingHours {
-  /** Segments in cycle order: pre → regular → post → overnight */
+  /** Segments in cycle order: pre → regular → post → overnight (with gaps) */
   segments: IUSMarketSessionSegment[];
   cycleStartInstant: number;
   cycleEndInstant: number;
   /** Position of `now` within the cycle, 0..1 */
   nowRatio: number;
-  /** Session containing `now` by pure clock math (ignores holidays/halts) */
+  /**
+   * Session containing `now` by pure clock math (ignores holidays/halts).
+   * A `now` inside an inter-session gap resolves to the upcoming session.
+   */
   currentSessionKey: EUSMarketSessionKey;
   /** Current-or-upcoming weekend closure: Friday 20:00 ET */
   weekendStartInstant: number;
@@ -226,7 +256,8 @@ export function getUSMarketTradingHours(
   const nowMs = now.getTime();
   const nowNy = getNyWallClock(nowMs);
 
-  // The cycle day is the ET calendar date whose 04:00 anchor precedes `now`.
+  // The cycle day is the ET calendar date whose pre-market anchor (04:01)
+  // precedes `now`.
   let cycleDate = {
     year: nowNy.year,
     month: nowNy.month,
@@ -237,25 +268,28 @@ export function getUSMarketTradingHours(
   }
   const nextDate = shiftNyDate(cycleDate, 1);
 
-  const boundaries: number[] = [
-    ...SESSION_STARTS_ET_MINUTES.map(({ startMinutes }) =>
-      nyWallClockToInstant({ ...cycleDate, minutesOfDay: startMinutes }),
-    ),
-    nyWallClockToInstant({
-      ...nextDate,
-      minutesOfDay: CYCLE_START_ET_MINUTES,
+  const minutesToInstant = (minutes: number) =>
+    minutes >= 24 * 60
+      ? nyWallClockToInstant({ ...nextDate, minutesOfDay: minutes - 24 * 60 })
+      : nyWallClockToInstant({ ...cycleDate, minutesOfDay: minutes });
+
+  const instants = SESSIONS_ET_MINUTES.map(
+    ({ key, startMinutes, endMinutes }) => ({
+      key,
+      startInstant: minutesToInstant(startMinutes),
+      endInstant: minutesToInstant(endMinutes),
     }),
-  ];
-  const cycleStartInstant = boundaries[0];
-  const cycleEndInstant = boundaries[boundaries.length - 1];
+  );
+  const cycleStartInstant = instants[0].startInstant;
+  const cycleEndInstant = instants[instants.length - 1].endInstant;
   const cycleDuration = cycleEndInstant - cycleStartInstant;
 
-  const segments: IUSMarketSessionSegment[] = SESSION_STARTS_ET_MINUTES.map(
-    ({ key }, i) => ({
+  const segments: IUSMarketSessionSegment[] = instants.map(
+    ({ key, startInstant, endInstant }) => ({
       key,
-      startInstant: boundaries[i],
-      endInstant: boundaries[i + 1],
-      ratio: (boundaries[i + 1] - boundaries[i]) / cycleDuration,
+      startInstant,
+      endInstant,
+      ratio: (endInstant - startInstant) / cycleDuration,
     }),
   );
 
@@ -263,10 +297,11 @@ export function getUSMarketTradingHours(
     Math.max(nowMs, cycleStartInstant),
     cycleEndInstant - 1,
   );
+  // Sessions are not contiguous — a `now` inside an inter-session gap
+  // resolves to the upcoming session.
   const currentSegment =
-    segments.find(
-      (s) => clampedNow >= s.startInstant && clampedNow < s.endInstant,
-    ) ?? segments[segments.length - 1];
+    segments.find((s) => clampedNow < s.endInstant) ??
+    segments[segments.length - 1];
 
   // Weekend closure runs Friday 20:00 ET → Sunday 20:00 ET. Pick the ongoing
   // weekend when the cycle day sits inside one, otherwise the upcoming one.

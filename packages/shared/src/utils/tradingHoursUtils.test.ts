@@ -17,55 +17,66 @@ describe('getUSMarketTradingHours', () => {
   it('computes EST (winter) cycle boundaries as UTC instants', () => {
     // 2026-01-15 (Thu) 15:00 UTC = 10:00 EST → regular session
     const res = getUSMarketTradingHours(new Date('2026-01-15T15:00:00Z'));
-    expect(res.cycleStartInstant).toBe(Date.parse('2026-01-15T09:00:00Z'));
-    expect(res.cycleEndInstant).toBe(Date.parse('2026-01-16T09:00:00Z'));
+    expect(res.cycleStartInstant).toBe(Date.parse('2026-01-15T09:01:00Z'));
+    expect(res.cycleEndInstant).toBe(Date.parse('2026-01-16T08:56:00Z'));
     expect(res.segments.map((s) => s.startInstant)).toEqual([
-      Date.parse('2026-01-15T09:00:00Z'),
-      Date.parse('2026-01-15T14:30:00Z'),
-      Date.parse('2026-01-15T21:00:00Z'),
-      Date.parse('2026-01-16T01:00:00Z'),
+      Date.parse('2026-01-15T09:01:00Z'), // 04:01 EST
+      Date.parse('2026-01-15T14:31:00Z'), // 09:31 EST
+      Date.parse('2026-01-15T21:01:00Z'), // 16:01 EST
+      Date.parse('2026-01-16T01:05:00Z'), // 20:05 EST
+    ]);
+    expect(res.segments.map((s) => s.endInstant)).toEqual([
+      Date.parse('2026-01-15T14:30:00Z'), // 09:30 EST → renders 09:29
+      Date.parse('2026-01-15T21:00:00Z'), // 16:00 EST → renders 15:59
+      Date.parse('2026-01-16T01:00:00Z'), // 20:00 EST → renders 19:59
+      Date.parse('2026-01-16T08:56:00Z'), // 03:56 EST → renders 03:55
     ]);
     expect(res.currentSessionKey).toBe(EUSMarketSessionKey.Regular);
-    expect(res.nowRatio).toBeCloseTo(0.25, 10);
+    // Cycle 04:01 → 03:56 next day = 1435 min; now offset = 359 min
+    expect(res.nowRatio).toBeCloseTo(359 / 1435, 10);
     expect(res.segments.map((s) => s.ratio)).toEqual([
-      5.5 / 24,
-      6.5 / 24,
-      4 / 24,
-      8 / 24,
+      329 / 1435,
+      389 / 1435,
+      239 / 1435,
+      471 / 1435,
     ]);
   });
 
   it('attributes early-morning ET hours to the previous cycle day', () => {
-    // 07:00 UTC = 02:00 EST (before the 04:00 anchor) → cycle of Jan 14
+    // 07:00 UTC = 02:00 EST (before the 04:01 anchor) → cycle of Jan 14
     const res = getUSMarketTradingHours(new Date('2026-01-15T07:00:00Z'));
-    expect(res.cycleStartInstant).toBe(Date.parse('2026-01-14T09:00:00Z'));
+    expect(res.cycleStartInstant).toBe(Date.parse('2026-01-14T09:01:00Z'));
     expect(res.currentSessionKey).toBe(EUSMarketSessionKey.Overnight);
   });
 
   it('uses EDT offsets in summer', () => {
     // 2026-07-15 15:00 UTC = 11:00 EDT → regular session
     const res = getUSMarketTradingHours(new Date('2026-07-15T15:00:00Z'));
-    expect(res.cycleStartInstant).toBe(Date.parse('2026-07-15T08:00:00Z'));
+    expect(res.cycleStartInstant).toBe(Date.parse('2026-07-15T08:01:00Z'));
     expect(res.currentSessionKey).toBe(EUSMarketSessionKey.Regular);
   });
 
-  it('produces a 23h cycle across the spring-forward transition', () => {
-    // Cycle anchored 2026-03-07 04:00 EST; DST starts 2026-03-08 02:00 ET
+  it('produces a shortened cycle across the spring-forward transition', () => {
+    // Cycle anchored 2026-03-07 04:01 EST; DST starts 2026-03-08 02:00 ET
     const res = getUSMarketTradingHours(new Date('2026-03-07T15:00:00Z'));
-    expect(res.cycleStartInstant).toBe(Date.parse('2026-03-07T09:00:00Z'));
-    expect(res.cycleEndInstant).toBe(Date.parse('2026-03-08T08:00:00Z'));
+    expect(res.cycleStartInstant).toBe(Date.parse('2026-03-07T09:01:00Z'));
+    // Overnight close 03:56 is EDT after the 1h jump → cycle is 22h55m long
+    expect(res.cycleEndInstant).toBe(Date.parse('2026-03-08T07:56:00Z'));
     const overnight = res.segments[3];
-    expect(overnight.startInstant).toBe(Date.parse('2026-03-08T01:00:00Z'));
-    expect(overnight.ratio).toBeCloseTo(7 / 23, 10);
+    expect(overnight.startInstant).toBe(Date.parse('2026-03-08T01:05:00Z'));
+    // 20:05 EST → 03:56 EDT spans 411 real minutes of a 1375-minute cycle
+    expect(overnight.ratio).toBeCloseTo(411 / 1375, 10);
     const ratioSum = res.segments.reduce((acc, s) => acc + s.ratio, 0);
-    expect(ratioSum).toBeCloseTo(1, 10);
+    // 7 minutes of inter-session gaps stay outside every segment
+    expect(ratioSum).toBeCloseTo(1368 / 1375, 10);
   });
 
-  it('produces a 25h cycle across the fall-back transition', () => {
-    // Cycle anchored 2026-10-31 04:00 EDT; DST ends 2026-11-01 02:00 ET
+  it('produces a lengthened cycle across the fall-back transition', () => {
+    // Cycle anchored 2026-10-31 04:01 EDT; DST ends 2026-11-01 02:00 ET
     const res = getUSMarketTradingHours(new Date('2026-10-31T15:00:00Z'));
-    expect(res.cycleStartInstant).toBe(Date.parse('2026-10-31T08:00:00Z'));
-    expect(res.cycleEndInstant).toBe(Date.parse('2026-11-01T09:00:00Z'));
+    expect(res.cycleStartInstant).toBe(Date.parse('2026-10-31T08:01:00Z'));
+    // Overnight close 03:56 is EST after the 1h repeat → cycle is 24h55m long
+    expect(res.cycleEndInstant).toBe(Date.parse('2026-11-01T08:56:00Z'));
   });
 
   it('computes the upcoming weekend window on a weekday', () => {
@@ -83,7 +94,7 @@ describe('getUSMarketTradingHours', () => {
     expect(res.weekendEndInstant - res.weekendStartInstant).toBe(47 * HOUR);
   });
 
-  it('keeps every boundary aligned with session order', () => {
+  it('keeps every boundary aligned with session order, with fixed gaps', () => {
     const res = getUSMarketTradingHours(new Date('2026-01-15T15:00:00Z'));
     expect(res.segments.map((s) => s.key)).toEqual([
       EUSMarketSessionKey.PreMarket,
@@ -91,9 +102,19 @@ describe('getUSMarketTradingHours', () => {
       EUSMarketSessionKey.PostMarket,
       EUSMarketSessionKey.Overnight,
     ]);
-    for (let i = 1; i < res.segments.length; i += 1) {
-      expect(res.segments[i].startInstant).toBe(res.segments[i - 1].endInstant);
-    }
+    // 09:30 (opening cross), 16:00 and 20:00–20:04 ET belong to no session
+    const gapMinutes = res.segments
+      .slice(1)
+      .map(
+        (s, i) => (s.startInstant - res.segments[i].endInstant) / (60 * 1000),
+      );
+    expect(gapMinutes).toEqual([1, 1, 5]);
+  });
+
+  it('resolves a now inside an inter-session gap to the upcoming session', () => {
+    // 14:30:30 UTC = 09:30:30 EST — between pre-market end and regular start
+    const res = getUSMarketTradingHours(new Date('2026-01-15T14:30:30Z'));
+    expect(res.currentSessionKey).toBe(EUSMarketSessionKey.Regular);
   });
 });
 
