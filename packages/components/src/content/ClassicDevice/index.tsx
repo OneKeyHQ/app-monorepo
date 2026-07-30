@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import {
   ClipPath,
   Defs,
@@ -19,7 +20,14 @@ import {
 
 import { LinearGradient } from '../LinearGradient';
 
+import {
+  CLASSIC_DEVICE_SCREEN_OFF,
+  CLASSIC_DEVICE_SCREEN_ON,
+} from './animation';
 import { DownIcon, OkIcon, PowerIcon, UpIcon } from './icons';
+
+import type { IClassicDeviceAnimation } from './animation';
+import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * PoC: code-drawn OneKey Classic device, 1:1 against Figma node 20069:31306
@@ -49,6 +57,11 @@ import { DownIcon, OkIcon, PowerIcon, UpIcon } from './icons';
  * literal 1 and 3 sidesteps both. Cost of the transform: on iOS and Android the
  * SVG and the noise are magnified bitmaps above scale 1 (web stays vector), so
  * enlarging past roughly 1.3x visibly softens.
+ *
+ * Animation attaches through two optional props: `screenContent` fills the
+ * 256x128 OLED area, `animation` (see ./animation.ts) drives the screen
+ * power pair and the per-key press value. Everything animated is opacity or
+ * transform only.
  */
 
 const DEVICE_W = 327;
@@ -89,6 +102,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     overflow: 'hidden',
   },
+  // Powered-on-but-empty panel: a faint luminance field across the whole glass.
+  screenGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  // The lit 128x64 OLED grid at an integer 2x, centred in the glass.
+  screenSlot: {
+    position: 'absolute',
+    left: 4,
+    top: 12,
+    width: 256,
+    height: 128,
+  },
   buttons: {
     position: 'absolute',
     left: 33,
@@ -110,6 +136,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#2F3135',
     overflow: 'hidden',
   },
+  absFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
   btnIcon: {
     position: 'absolute',
     left: 15,
@@ -119,6 +148,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 29,
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+  },
+  // Press layers: the face falls into shade and the hole lip casts onto the
+  // sunken cap. Both sit above the highlight, below nothing.
+  pressDark: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 29,
+    backgroundColor: '#000',
+  },
+  pressShade: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 29,
+    boxShadow:
+      'inset 0 2px 3px rgba(0,0,0,0.5), inset 0 -1px 1px rgba(255,255,255,0.05)',
   },
   usb: {
     // 12pt = 4 sigma of the strongest blur, so the bleed is not clipped.
@@ -132,6 +174,7 @@ const styles = StyleSheet.create({
 // expects a plain object - StyleSheet.absoluteFill is a registered id (a
 // number) on native.
 const ABSOLUTE_FILL = { ...StyleSheet.absoluteFillObject };
+const FLEX_FILL = { flex: 1 };
 
 const GRAD_BOTTOM = { x: 0.5, y: 1 } as const;
 const GRAD_TOP = { x: 0.5, y: 0 } as const;
@@ -363,19 +406,71 @@ function UsbCutout() {
   );
 }
 
-function DeviceButton({ children }: { children: ReactNode }) {
+function DeviceButton({
+  press,
+  children,
+}: {
+  press: Readonly<SharedValue<number>>;
+  children: ReactNode;
+}) {
+  // Physical key press, decomposed into light. As `press` goes 0 -> 1: the cap
+  // (with its engraving) sinks 1.5pt, the hole lip swallows the crisp top
+  // highlight and casts a shadow onto the sunken face, and the face falls into
+  // shade. Opacity and transform only.
+  const glowDimStyle = useAnimatedStyle(
+    () => ({ opacity: 1 - 0.3 * press.value }),
+    [press],
+  );
+  const sinkStyle = useAnimatedStyle(
+    () => ({ transform: [{ translateY: 1.5 * press.value }] }),
+    [press],
+  );
+  const highlightStyle = useAnimatedStyle(
+    () => ({ opacity: 1 - 0.75 * press.value }),
+    [press],
+  );
+  const faceDarkStyle = useAnimatedStyle(
+    () => ({ opacity: 0.12 * press.value }),
+    [press],
+  );
+  const lipShadowStyle = useAnimatedStyle(
+    () => ({ opacity: press.value }),
+    [press],
+  );
+  const glowLayerStyle = useMemo(
+    () => [styles.absFill, glowDimStyle],
+    [glowDimStyle],
+  );
+  const iconLayerStyle = useMemo(
+    () => [styles.btnIcon, sinkStyle],
+    [sinkStyle],
+  );
+  const highlightLayerStyle = useMemo(
+    () => [styles.btnHighlight, highlightStyle],
+    [highlightStyle],
+  );
+  const darkLayerStyle = useMemo(
+    () => [styles.pressDark, faceDarkStyle],
+    [faceDarkStyle],
+  );
+  const shadeLayerStyle = useMemo(
+    () => [styles.pressShade, lipShadowStyle],
+    [lipShadowStyle],
+  );
   return (
     // "Button hole": no fill, 1px INSIDE stroke black 50% (an inset ring, so
     // the 58pt face keeps its (1,1) offset - border+padding would double it).
     <View style={styles.btnHole}>
       <View style={styles.btnFace}>
-        <LinearGradient
-          colors={BTN_GLOW_COLORS}
-          locations={BTN_GLOW_LOCATIONS}
-          start={GRAD_BOTTOM}
-          end={GRAD_TOP}
-          style={ABSOLUTE_FILL}
-        />
+        <Animated.View pointerEvents="none" style={glowLayerStyle}>
+          <LinearGradient
+            colors={BTN_GLOW_COLORS}
+            locations={BTN_GLOW_LOCATIONS}
+            start={GRAD_BOTTOM}
+            end={GRAD_TOP}
+            style={FLEX_FILL}
+          />
+        </Animated.View>
         <LinearGradient
           colors={BTN_SHADE_COLORS}
           locations={BTN_SHADE_LOCATIONS}
@@ -386,53 +481,87 @@ function DeviceButton({ children }: { children: ReactNode }) {
         {/* Absolute, not flex-centred: on web a static child paints beneath
             positioned siblings regardless of DOM order, so the icon would
             fall under the two gradient overlays. */}
-        <View style={styles.btnIcon}>{children}</View>
+        <Animated.View style={iconLayerStyle}>{children}</Animated.View>
         {/* INNER_SHADOW 0 1 0 white 25%: crisp 1px top highlight */}
-        <View pointerEvents="none" style={styles.btnHighlight} />
+        <Animated.View pointerEvents="none" style={highlightLayerStyle} />
+        <Animated.View pointerEvents="none" style={darkLayerStyle} />
+        <Animated.View pointerEvents="none" style={shadeLayerStyle} />
       </View>
     </View>
   );
 }
 
-// Invariant with respect to `width` - the sizing transform lives on the parent -
-// so the whole body is built once. react-native-svg re-runs transform/viewBox
-// extraction in render(), and this subtree is 76 of its elements.
-const BODY_CONTENT = (
-  <>
-    <View style={styles.screenHole}>
-      <View style={styles.screen}>
-        <LinearGradient
-          colors={SCREEN_SHEEN_COLORS}
-          start={GRAD_TOP}
-          end={GRAD_BOTTOM}
-          style={ABSOLUTE_FILL}
-        />
+// Memoized rather than a module constant (its pre-animation form): the body is
+// 76 react-native-svg elements and rn-svg re-runs transform/viewBox extraction
+// in render(), so it must only re-render when the scene actually changes.
+// Scenes keep both props referentially stable.
+const DeviceBody = memo(function DeviceBody({
+  animation,
+  screenContent,
+}: {
+  animation: IClassicDeviceAnimation;
+  screenContent?: ReactNode;
+}) {
+  const glowStyle = useAnimatedStyle(
+    () => ({ opacity: animation.screenGlow.value }),
+    [animation],
+  );
+  const slotStyle = useAnimatedStyle(
+    () => ({ opacity: animation.screenContent.value }),
+    [animation],
+  );
+  const glowLayerStyle = useMemo(
+    () => [styles.screenGlow, glowStyle],
+    [glowStyle],
+  );
+  const slotLayerStyle = useMemo(
+    () => [styles.screenSlot, slotStyle],
+    [slotStyle],
+  );
+  return (
+    <>
+      <View style={styles.screenHole}>
+        <View style={styles.screen}>
+          <Animated.View pointerEvents="none" style={glowLayerStyle} />
+          {screenContent ? (
+            <Animated.View pointerEvents="none" style={slotLayerStyle}>
+              {screenContent}
+            </Animated.View>
+          ) : null}
+          {/* Glass reflection stays above whatever the panel shows. */}
+          <LinearGradient
+            colors={SCREEN_SHEEN_COLORS}
+            start={GRAD_TOP}
+            end={GRAD_BOTTOM}
+            style={ABSOLUTE_FILL}
+          />
+        </View>
+        <ScreenBevels />
       </View>
-      <ScreenBevels />
-    </View>
 
-    <View style={styles.buttons}>
-      <DeviceButton>
-        <PowerIcon />
-      </DeviceButton>
-      <DeviceButton>
-        <UpIcon />
-      </DeviceButton>
-      <DeviceButton>
-        <DownIcon />
-      </DeviceButton>
-      <DeviceButton>
-        <OkIcon />
-      </DeviceButton>
-    </View>
+      <View style={styles.buttons}>
+        <DeviceButton press={animation.press.power}>
+          <PowerIcon />
+        </DeviceButton>
+        <DeviceButton press={animation.press.up}>
+          <UpIcon />
+        </DeviceButton>
+        <DeviceButton press={animation.press.down}>
+          <DownIcon />
+        </DeviceButton>
+        <DeviceButton press={animation.press.ok}>
+          <OkIcon />
+        </DeviceButton>
+      </View>
 
-    <UsbCutout />
-    {NOISE_OVERLAY}
-    {/* Body ambient light: Figma frame inner shadows render above children,
-        so this overlay is the last child, above the noise. */}
-    <View pointerEvents="none" style={styles.bodyLight} />
-  </>
-);
+      <UsbCutout />
+      {NOISE_OVERLAY}
+      {/* Body ambient light: Figma frame inner shadows render above children,
+          so this overlay is the last child, above the noise. */}
+      <View pointerEvents="none" style={styles.bodyLight} />
+    </>
+  );
+});
 
 export interface IClassicDeviceProps {
   /**
@@ -441,10 +570,24 @@ export interface IClassicDeviceProps {
    * beyond that (see the scaling note above).
    */
   width?: number;
+  /** Node lit on the 256x128 OLED area (an integer 2x of the 128x64 panel). */
+  screenContent?: ReactNode;
+  /**
+   * Scene-produced animation contract (see ./animation.ts). Omitted: a bare
+   * shell keeps the screen dark; with screenContent it shows steady-on.
+   */
+  animation?: IClassicDeviceAnimation;
 }
 
-export function ClassicDevice({ width = DEVICE_W }: IClassicDeviceProps) {
+export function ClassicDevice({
+  width = DEVICE_W,
+  screenContent,
+  animation,
+}: IClassicDeviceProps) {
   const scale = width / DEVICE_W;
+  const resolvedAnimation =
+    animation ??
+    (screenContent ? CLASSIC_DEVICE_SCREEN_ON : CLASSIC_DEVICE_SCREEN_OFF);
   // The outer frame carries the true layout size, because a transform is
   // paint-only - Yoga never sees it, so a bare scaled view would still reserve
   // its unscaled 327x539 box and overlap its siblings.
@@ -461,7 +604,12 @@ export function ClassicDevice({ width = DEVICE_W }: IClassicDeviceProps) {
   );
   return (
     <View style={frameStyle}>
-      <View style={bodyStyle}>{BODY_CONTENT}</View>
+      <View style={bodyStyle}>
+        <DeviceBody
+          animation={resolvedAnimation}
+          screenContent={screenContent}
+        />
+      </View>
     </View>
   );
 }
