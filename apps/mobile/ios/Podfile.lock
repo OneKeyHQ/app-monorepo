@@ -4006,7 +4006,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeRangeDownloader (3.0.81-alpha.4):
+  - ReactNativeRangeDownloader (3.0.81-alpha.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -4035,7 +4035,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeNativeLogger
-    - SniConnect (= 3.0.81-alpha.4)
+    - SniConnect (= 3.0.81-alpha.5)
     - SocketRocket
     - SSZipArchive (>= 2.5.4)
     - Yoga
@@ -4740,7 +4740,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - SniConnect (3.0.81-alpha.4):
+  - SniConnect (3.0.81-alpha.5):
     - boost
     - DoubleConversion
     - EMASCurl (= 1.5.5)
@@ -5597,7 +5597,7 @@ SPEC CHECKSUMS:
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativePerfMemory: 7ef4df212ac2a19e5125deb9f2067ee110235e48
   ReactNativePerfStats: d1368e3a14b5387dea7cc87bca9a566810636f5e
-  ReactNativeRangeDownloader: cea093b93f16486d0fc2224b964f9f2f2f8c5c36
+  ReactNativeRangeDownloader: 3e3f0d22af45e1a858c337cee82abf02da971faf
   ReactNativeSplashScreen: 0bc82cdce113b2f60366b3d0f2a495ff86e13022
   ReactNativeZipArchive: bb4a2b338281c0166bee97142bf59ef9cd124c62
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
@@ -5622,7 +5622,7 @@ SPEC CHECKSUMS:
   SegmentSlider: e3507345e9bf6a48fd301181765d056a70420512
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: e04f3e3d91865cdb03ef256a095d128688acf3fb
-  SniConnect: 119fbe9aa6f66f1cb3c201bacb7f4d69f9b718ef
+  SniConnect: 8c11544e1c5379ee0603d5b2a12ee8235bb6253d
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
