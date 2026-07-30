@@ -3,15 +3,13 @@
 
 // eslint-disable-next-line import-js/order
 
-import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
-
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
-import { LAZY_SERVICE_LOCAL_CALL } from './lazyServiceProxy';
+import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceDemo from '../services/ServiceDemo';
@@ -47,66 +45,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     propertyName: keyof IBackgroundApi,
     loader: () => Promise<ILazyServiceModule<T>>,
   ): T {
-    let service: T | undefined;
-    const loadService = () =>
-      loader().then(({ default: Service }) => {
-        service ??= new Service({ backgroundApi: this });
-        return service;
-      });
-    const value = new Proxy({} as T, {
-      get: (_target, methodName) => {
-        if (methodName === LAZY_SERVICE_LOCAL_CALL) {
-          return (
-            backgroundMethodName: string,
-            localMethodName: string,
-            args: unknown[],
-          ) =>
-            loadService().then((loadedService) => {
-              const backgroundMethod = Reflect.get(
-                loadedService,
-                backgroundMethodName,
-              ) as unknown;
-              const localMethod = Reflect.get(
-                loadedService,
-                localMethodName,
-              ) as unknown;
-              if (
-                typeof backgroundMethod !== 'function' ||
-                typeof localMethod !== 'function'
-              ) {
-                return throwMethodNotFound(
-                  String(propertyName),
-                  backgroundMethodName,
-                );
-              }
-              return Reflect.apply(
-                localMethod as (...params: unknown[]) => unknown,
-                loadedService,
-                args,
-              );
-            });
-        }
-        if (
-          typeof methodName !== 'string' ||
-          methodName === 'then' ||
-          methodName === 'toJSON' ||
-          methodName === 'hasOwnProperty'
-        ) {
-          return undefined;
-        }
-        return (...args: unknown[]) =>
-          loadService().then((loadedService) => {
-            const method = Reflect.get(loadedService, methodName) as unknown;
-            if (typeof method !== 'function') {
-              return throwMethodNotFound(String(propertyName), methodName);
-            }
-            return Reflect.apply(
-              method as (...params: unknown[]) => unknown,
-              loadedService,
-              args,
-            );
-          });
-      },
+    const value = createLazyServiceProxy<T>({
+      serviceName: String(propertyName),
+      loader: () =>
+        loader().then(
+          ({ default: Service }) =>
+            new Service({
+              backgroundApi: this,
+            }),
+        ),
     });
     Object.defineProperty(this, propertyName, { value });
     return value;
