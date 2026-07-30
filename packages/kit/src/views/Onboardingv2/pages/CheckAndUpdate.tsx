@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import pRetry from 'p-retry';
+import pRetry, { AbortError } from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -74,6 +74,13 @@ const STEP_STATE_TONE: Partial<
   [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
+// Watchdog budgets. Post-update rounds must outlast the reconnect loop in
+// retryDeviceConnectionAfterUpdate (pRetry delays alone sum to ~63s — a
+// rebooting device after a firmware flash is expected to be away that long),
+// otherwise the watchdog would retire a round that is working as designed.
+const STEP_TIMEOUT_MS = 30 * 1000;
+const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -89,10 +96,14 @@ function CheckAndUpdatePage({
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
   // Generation counter for checkFirmwareUpdate: each call claims a new id, so
-  // a previous round that out-lived its 30s watchdog (hung transport call)
-  // cannot write its late result, error, or timeout over the state a newer
-  // retry round owns — step state alone can't tell two rounds apart.
+  // a previous round that out-lived its watchdog (hung transport call) cannot
+  // write its late result, error, or timeout over the state a newer retry
+  // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
+  // Set when a firmware update finishes; cleared only after a firmware check
+  // COMPLETES successfully, so a manual Retry keeps using the patient
+  // post-update reconnect path while the device may still be rebooting.
+  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -218,7 +229,11 @@ function CheckAndUpdatePage({
   // bg to cancel the in-flight device call — bg owns the SDK/device
   // resource; a main-side ref alone cannot stop it on split-runtime targets.
   const createStepTimeout = useCallback(
-    (isStale: () => boolean, getConnectId: () => string | undefined) => {
+    (
+      isStale: () => boolean,
+      getConnectId: () => string | undefined,
+      timeoutMs: number,
+    ) => {
       const timeout = setTimeout(() => {
         if (isStale()) {
           // A newer round already took over; this watchdog is obsolete and
@@ -244,7 +259,7 @@ function CheckAndUpdatePage({
           };
           return newSteps;
         });
-      }, 30 * 1000);
+      }, timeoutMs);
       return () => clearTimeout(timeout);
     },
     [intl],
@@ -270,10 +285,15 @@ function CheckAndUpdatePage({
 
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(
-    async (connectId: string) => {
+    async (connectId: string, isStale: () => boolean) => {
       try {
         await pRetry(
           async (attemptCount) => {
+            if (isStale()) {
+              // A newer round took over — stop touching the device from this
+              // retired reconnect loop instead of burning its retry budget.
+              throw new AbortError('stale firmware check round');
+            }
             console.log(
               `Attempting to connect to device after firmware update (attempt ${attemptCount}/5)...`,
             );
@@ -308,10 +328,12 @@ function CheckAndUpdatePage({
           },
         );
       } catch (error) {
-        console.error(
-          'Failed to connect to device after firmware update, all retries exhausted',
-          error,
-        );
+        if (!isStale()) {
+          console.error(
+            'Failed to connect to device after firmware update, all retries exhausted',
+            error,
+          );
+        }
 
         // No direct step write here — the thrown message reaches the row via
         // checkFirmwareUpdate's guarded catch, which also drops stale rounds.
@@ -368,7 +390,16 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      const cancelTimeout = createStepTimeout(isStale, () => watchdogConnectId);
+      // A pending post-update reconnect (recorded on FinishFirmwareUpdate and
+      // cleared only after a successful check) upgrades ANY round — including
+      // a manual Retry — to the patient path with its longer watchdog budget.
+      const checkAfterUpdate =
+        params?.checkAfterUpdate || !!firmwareUpdateFinishTimeRef.current;
+      const cancelTimeout = createStepTimeout(
+        isStale,
+        () => watchdogConnectId,
+        checkAfterUpdate ? POST_UPDATE_STEP_TIMEOUT_MS : STEP_TIMEOUT_MS,
+      );
       try {
         await ensureTransportType();
         const baseDevice =
@@ -394,8 +425,8 @@ function CheckAndUpdatePage({
         watchdogConnectId = compatibleConnectId;
 
         // Wait for hardware to restart after firmware update
-        if (params?.checkAfterUpdate) {
-          await retryDeviceConnectionAfterUpdate(compatibleConnectId);
+        if (checkAfterUpdate) {
+          await retryDeviceConnectionAfterUpdate(compatibleConnectId, isStale);
         }
 
         const r =
@@ -412,6 +443,9 @@ function CheckAndUpdatePage({
           return;
         }
         if (r) {
+          // The device answered and the check completed — future rounds no
+          // longer need the patient post-update reconnect path.
+          firmwareUpdateFinishTimeRef.current = null;
           if (r.features) {
             deviceFeaturesRef.current = r.features;
           }
@@ -484,8 +518,6 @@ function CheckAndUpdatePage({
     ],
   );
 
-  // Track firmware update completion time
-  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
   // Listen to firmware update completion event and record timestamp
@@ -532,13 +564,14 @@ function CheckAndUpdatePage({
         return newSteps;
       });
 
-      // Wait for remaining delay (0 if already >= 10s), then recheck firmware
+      // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
+      // The finish timestamp is NOT cleared here — checkFirmwareUpdate clears
+      // it after a successful completion, so a failed recheck leaves manual
+      // Retry on the patient reconnect path.
       const timeoutId = setTimeout(() => {
         void checkFirmwareUpdate({
           checkAfterUpdate: true,
         });
-        // Clear the timestamp after rechecking
-        firmwareUpdateFinishTimeRef.current = null;
       }, remainingDelay);
 
       return () => {
