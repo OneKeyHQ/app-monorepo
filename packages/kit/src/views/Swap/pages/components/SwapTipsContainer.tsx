@@ -35,6 +35,9 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
     effectiveTab: swapTips.effectiveTab,
     swapType: swapTypeSwitch,
   });
+  if (!shouldShowTips && platformEnv.isNative) {
+    return null;
+  }
 
   const handleClose = async () => {
     const optimisticUpdatedAt = Date.now();
@@ -69,8 +72,8 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
       }
     : undefined;
 
-  // Keep the real Alert in layout on inactive tabs so wrapped copy and
-  // optional actions reserve exactly the same height as the active tab.
+  // On non-native platforms, keep the real Alert in layout on inactive tabs
+  // so wrapped copy and optional actions reserve the active tab's exact height.
   return (
     <YStack
       testID={SwapTestIDs.tipsContainer}
