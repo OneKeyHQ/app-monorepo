@@ -19,7 +19,9 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
     },
     getObject: (key: string) => {
       const raw = readDisk()[key];
-      return raw === undefined ? undefined : JSON.parse(raw);
+      return raw === undefined
+        ? undefined
+        : (JSON.parse(raw) as Record<string, unknown>);
     },
     getString: () => undefined,
     getNumber: () => undefined,
@@ -45,12 +47,17 @@ const DISK_KEY = 'onekey_swr_cache';
 
 function readDiskStore(): Record<string, { d: unknown; t: number }> {
   const raw = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY];
-  return raw ? JSON.parse(raw) : {};
+  return raw
+    ? (JSON.parse(raw) as Record<string, { d: unknown; t: number }>)
+    : {};
 }
 
 // Simulates the other runtime flushing: a wholesale write straight to disk.
 function otherRuntimeFlush(store: Record<string, { d: unknown; t: number }>) {
-  fakeDiskGlobal.__swrFakeDisk![DISK_KEY] = JSON.stringify(store);
+  if (!fakeDiskGlobal.__swrFakeDisk) {
+    fakeDiskGlobal.__swrFakeDisk = {};
+  }
+  fakeDiskGlobal.__swrFakeDisk[DISK_KEY] = JSON.stringify(store);
 }
 
 function loadFreshRuntime() {
