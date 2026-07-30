@@ -26,7 +26,7 @@ import { normalizeUnifoldIconUrl } from './unifoldFormat';
 function MobileSourceSelectorSkeletonList() {
   return (
     <YStack testID="perps-unifold-source-selector-loading">
-      {[...Array(6)].map((_, index) => (
+      {[...Array(4)].map((_, index) => (
         <XStack
           // The index is stable because these placeholders never reorder.
           key={index}
