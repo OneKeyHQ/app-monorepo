@@ -2,10 +2,15 @@ import { useIntl } from 'react-intl';
 
 import { Alert, EPageType, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSwapTipsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import {
+  useSwapTipsAtom,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { shouldShowSwapTips } from './SwapTipsContainer.utils';
 
 interface ISwapTipsContainerProps {
   pageType?: EPageType;
@@ -15,6 +20,7 @@ const SWAP_TIPS_RESERVED_HEIGHT = platformEnv.isNative ? 56 : 58;
 
 const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
   const [swapTipsState, setSwapTipsState] = useSwapTipsAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   // Don't show tips in modal
   if (pageType === EPageType.modal || swapTipsState.status === 'empty') {
@@ -22,7 +28,13 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
   }
   const swapTips = swapTipsState.tips;
 
-  if (!swapTips) {
+  if (
+    !swapTips ||
+    !shouldShowSwapTips({
+      effectiveTab: swapTips.effectiveTab,
+      swapType: swapTypeSwitch,
+    })
+  ) {
     return null;
   }
 
