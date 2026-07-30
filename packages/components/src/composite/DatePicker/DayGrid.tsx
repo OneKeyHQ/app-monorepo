@@ -57,7 +57,32 @@ const DayCellWrapper = memo(
 
 DayCellWrapper.displayName = 'DayCellWrapper';
 
-export function DayGrid({
+export function WeekdayRow() {
+  const { data } = useDatePickerContext();
+  const { weekDays } = data;
+
+  return (
+    <Stack flexDirection="row" flexWrap="wrap" marginBottom="$1">
+      {weekDays.map((day) => (
+        <Stack
+          key={day}
+          flexBasis="14.28%"
+          flexGrow={0}
+          flexShrink={0}
+          height="$8"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
+            {day}
+          </SizableText>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
+export function MonthDaysGrid({
   calendarIndex,
   hideOutOfMonth,
   fullWidth,
@@ -67,7 +92,7 @@ export function DayGrid({
   fullWidth?: boolean;
 }) {
   const { data, propGetters } = useDatePickerContext();
-  const { calendars, weekDays } = data;
+  const { calendars } = data;
   const { dayButton } = propGetters;
   const cal = calendars[calendarIndex];
 
@@ -84,36 +109,38 @@ export function DayGrid({
   if (!cal) return null;
 
   return (
+    <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
+      {cal.days.map((day) => (
+        <DayCellWrapper
+          key={day.$date.toString()}
+          dpDay={day}
+          disabled={dayButton(day).disabled || false}
+          hideOutOfMonth={hideOutOfMonth}
+          fullWidth={fullWidth}
+          onPress={handleDayPress}
+        />
+      ))}
+    </Stack>
+  );
+}
+
+export function DayGrid({
+  calendarIndex,
+  hideOutOfMonth,
+  fullWidth,
+}: {
+  calendarIndex: number;
+  hideOutOfMonth?: boolean;
+  fullWidth?: boolean;
+}) {
+  return (
     <YStack>
-      <Stack flexDirection="row" flexWrap="wrap" marginBottom="$1">
-        {weekDays.map((day) => (
-          <Stack
-            key={day}
-            flexBasis="14.28%"
-            flexGrow={0}
-            flexShrink={0}
-            height="$8"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
-              {day}
-            </SizableText>
-          </Stack>
-        ))}
-      </Stack>
-      <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
-        {cal.days.map((day) => (
-          <DayCellWrapper
-            key={day.$date.toString()}
-            dpDay={day}
-            disabled={dayButton(day).disabled || false}
-            hideOutOfMonth={hideOutOfMonth}
-            fullWidth={fullWidth}
-            onPress={handleDayPress}
-          />
-        ))}
-      </Stack>
+      <WeekdayRow />
+      <MonthDaysGrid
+        calendarIndex={calendarIndex}
+        hideOutOfMonth={hideOutOfMonth}
+        fullWidth={fullWidth}
+      />
     </YStack>
   );
 }
