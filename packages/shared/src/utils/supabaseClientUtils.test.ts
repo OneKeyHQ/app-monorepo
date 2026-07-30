@@ -21,10 +21,12 @@ function createErrorResponse({
   body,
   cloneError,
   contentType = 'application/json',
+  status = 429,
 }: {
   body: string;
   cloneError?: Error;
   contentType?: string;
+  status?: number;
 }): Response {
   const response = {
     clone: () => {
@@ -41,7 +43,7 @@ function createErrorResponse({
         name.toLowerCase() === 'content-type' ? contentType : null,
     },
     ok: false,
-    status: 429,
+    status,
   };
   return response as unknown as Response;
 }
@@ -171,5 +173,61 @@ describe('sessionPreservingSupabaseFetch', () => {
     await expect(
       guardedFetch('https://example.supabase.co/auth/v1/otp'),
     ).rejects.toThrow('Supabase transient HTTP 429');
+  });
+
+  test('keeps an ambiguous refresh-token HTTP 400 session-preserving', async () => {
+    const response = createErrorResponse({
+      body: JSON.stringify({
+        code: 'unexpected_refresh_failure',
+        message: 'Please try again later.',
+      }),
+      status: 400,
+    });
+    globalThis.fetch = jest.fn(async () => response);
+    const guardedFetch = await getGuardedFetch();
+
+    await expect(
+      guardedFetch(
+        'https://example.supabase.co/auth/v1/token?grant_type=refresh_token',
+      ),
+    ).rejects.toThrow('Supabase ambiguous refresh-token HTTP 400');
+  });
+
+  test.each([
+    'invalid_grant',
+    'refresh_token_not_found',
+    'refresh_token_already_used',
+  ])('passes through definitive refresh-token rejection %s', async (code) => {
+    const response = createErrorResponse({
+      body: JSON.stringify({
+        code,
+        message: 'Refresh token rejected.',
+      }),
+      status: 400,
+    });
+    globalThis.fetch = jest.fn(async () => response);
+    const guardedFetch = await getGuardedFetch();
+
+    await expect(
+      guardedFetch(
+        'https://example.supabase.co/auth/v1/token?grant_type=refresh_token',
+      ),
+    ).resolves.toBe(response);
+  });
+
+  test('passes through unrelated JSON HTTP 400 responses', async () => {
+    const response = createErrorResponse({
+      body: JSON.stringify({
+        code: 'validation_failed',
+        message: 'Invalid request.',
+      }),
+      status: 400,
+    });
+    globalThis.fetch = jest.fn(async () => response);
+    const guardedFetch = await getGuardedFetch();
+
+    await expect(
+      guardedFetch('https://example.supabase.co/auth/v1/otp'),
+    ).resolves.toBe(response);
   });
 });

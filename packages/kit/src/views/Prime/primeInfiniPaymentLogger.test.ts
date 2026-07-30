@@ -91,6 +91,16 @@ describe('getPrimeInfiniPaymentLocalError', () => {
     });
   });
 
+  it('leaves a missing message available for the UI fallback', () => {
+    expect(getPrimeInfiniPaymentLocalError({})).toEqual({
+      errorName: 'UnknownError',
+      errorCode: undefined,
+      requestId: undefined,
+      httpStatusCode: undefined,
+      errorMessage: undefined,
+    });
+  });
+
   it('writes the scrubbed original error to the local defaultLogger scene', () => {
     const localErrorLog = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentError')
@@ -118,6 +128,31 @@ describe('getPrimeInfiniPaymentLocalError', () => {
         stage: 'paymentReplacement',
         status: 'failed',
         errorMessage: 'identity changed for [email]',
+      }),
+    );
+
+    localErrorLog.mockRestore();
+    flowLog.mockRestore();
+  });
+
+  it('keeps an unknown diagnostic message in the local logger only', () => {
+    const localErrorLog = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentError')
+      .mockImplementation((params) => params);
+    const flowLog = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      reason: 'paymentActionRejected',
+      error: {},
+    });
+
+    expect(localErrorLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage: 'Unknown payment error',
       }),
     );
 

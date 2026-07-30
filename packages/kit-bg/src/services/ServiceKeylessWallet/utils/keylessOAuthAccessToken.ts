@@ -14,19 +14,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
+import {
+  isDefinitiveSupabaseRefreshTokenRejectionError as isDefinitiveSupabaseRefreshTokenRejectionErrorShared,
+  isRetryableSupabaseAuthError,
+} from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import { getKeylessSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
-
-const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
-  'invalid_grant',
-  'refresh_token_not_found',
-  'refresh_token_already_used',
-]);
 
 export type IRealmAccessTokenExchangeTombstone = 'confirmed' | 'presumed';
 
@@ -156,33 +153,21 @@ export function doKeylessOAuthTokensRepresentSameIdentity(params: {
 export function isDefinitiveSupabaseRefreshTokenRejectionError(
   error: unknown,
 ): boolean {
-  const authError = error as
-    | { code?: unknown; error_code?: unknown }
-    | null
-    | undefined;
-  return [authError?.code, authError?.error_code].some(
-    (code) =>
-      typeof code === 'string' &&
-      SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
-  );
+  return isDefinitiveSupabaseRefreshTokenRejectionErrorShared(error);
 }
 
 export async function isDefinitiveGoTrueRefreshTokenRejection(
   response: Response,
 ): Promise<boolean> {
-  let body: { error?: unknown; error_code?: unknown } | undefined;
+  let body:
+    | { code?: unknown; error?: unknown; error_code?: unknown }
+    | undefined;
   try {
-    body = (await response.json()) as {
-      error?: unknown;
-      error_code?: unknown;
-    };
+    body = (await response.json()) as typeof body;
   } catch {
     return false;
   }
-  return isDefinitiveSupabaseRefreshTokenRejectionError({
-    code: body?.error,
-    error_code: body?.error_code,
-  });
+  return isDefinitiveSupabaseRefreshTokenRejectionError(body);
 }
 
 export async function getActiveKeylessOAuthAccessToken(params?: {

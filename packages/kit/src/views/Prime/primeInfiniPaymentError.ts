@@ -16,7 +16,7 @@ export function showPrimeInfiniPaymentErrorToast({
     return;
   }
   const message =
-    getPrimeInfiniPaymentLocalError(error).errorMessage || fallbackMessage;
+    getPrimeInfiniPaymentLocalError(error).errorMessage ?? fallbackMessage;
   console.error(`[PrimeInfiniPayment] ${message}`);
   Toast.error({ title: message });
   if (error && typeof error === 'object') {

@@ -64,4 +64,21 @@ describe('showPrimeInfiniPaymentErrorToast', () => {
     expect(mockToastError).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
+
+  it('uses the caller fallback when the error has no message', () => {
+    const error: { $$autoToastErrorTriggered?: boolean } = {};
+
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: 'Localized payment failure',
+    });
+
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: 'Localized payment failure',
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[PrimeInfiniPayment] Localized payment failure',
+    );
+    expect(error.$$autoToastErrorTriggered).toBe(true);
+  });
 });

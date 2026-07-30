@@ -3561,6 +3561,9 @@ function PrimeInfiniWalletPaymentContent({
   }, [onRestartPaymentSession, replacePaymentForSelectionChange]);
 
   const selectedNetwork = listedNetworkMap[displayAsset.networkId];
+  const balanceErrorMessage = balanceError
+    ? getPrimeInfiniPaymentLocalError(balanceError).errorMessage
+    : undefined;
   const mustKeepTrackingPayment = Boolean(
     payment &&
     !isPrimeInfiniPaymentReplaceable({
@@ -3775,9 +3778,8 @@ function PrimeInfiniWalletPaymentContent({
         <Alert
           type="warning"
           title={
-            balanceError
-              ? getPrimeInfiniPaymentLocalError(balanceError).errorMessage
-              : intl.formatMessage({ id: ETranslations.global_failed })
+            balanceErrorMessage ??
+            intl.formatMessage({ id: ETranslations.global_failed })
           }
         />
       ) : null}

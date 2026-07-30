@@ -14,6 +14,8 @@ import {
   getSupabaseAuthSessionKey,
 } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 
+import { isDefinitiveSupabaseRefreshTokenRejectionError } from './supabaseAuthErrorUtils';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // do not add this on web env
@@ -38,9 +40,9 @@ const storage = supabaseStorageInstance;
  * before any wrapper sees the error). Reject such responses at the fetch
  * layer instead: auth-js `_handleRequest()` converts fetcher rejections into
  * `AuthRetryableFetchError`, so the SDK keeps the session and retries later.
- * Definitive GoTrue verdicts (4xx with a parseable JSON body, e.g.
- * invalid_grant) pass through untouched — destroying a session stays
- * constrained to the issuer's explicit rejection or an explicit sign-out.
+ * Definitive refresh-token verdicts pass through untouched. Ambiguous refresh
+ * 4xx responses are rejected at the fetch layer too, so destroying a session
+ * stays constrained to explicit token rejection or an explicit sign-out.
  */
 const isTransientSupabaseHttpStatus = (status: number) =>
   status === 408 || status === 429 || (status >= 500 && status < 600);
@@ -200,7 +202,7 @@ function buildInterceptedResponseFingerprint(
   )} body=${classifyInterceptedResponseBody(bodyText)}]`;
 }
 
-function isEmailOtpRequest(input: RequestInfo | URL): boolean {
+function getSupabaseRequestUrl(input: RequestInfo | URL): URL | undefined {
   let requestUrl = '';
   if (typeof input === 'string') {
     requestUrl = input;
@@ -209,13 +211,25 @@ function isEmailOtpRequest(input: RequestInfo | URL): boolean {
   } else {
     requestUrl = String(input);
   }
-  let pathname = '';
   try {
-    pathname = new URL(requestUrl).pathname;
+    return new URL(requestUrl);
   } catch {
-    return false;
+    return undefined;
   }
-  return pathname.endsWith('/auth/v1/otp');
+}
+
+function isEmailOtpRequest(input: RequestInfo | URL): boolean {
+  return (
+    getSupabaseRequestUrl(input)?.pathname.endsWith('/auth/v1/otp') ?? false
+  );
+}
+
+function isRefreshTokenRequest(input: RequestInfo | URL): boolean {
+  const url = getSupabaseRequestUrl(input);
+  return Boolean(
+    url?.pathname.endsWith('/auth/v1/token') &&
+    url.searchParams.get('grant_type') === 'refresh_token',
+  );
 }
 
 function isDefinitiveEmailOtpCooldownResponse({
@@ -304,12 +318,25 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
   } catch {
     bodyText = undefined;
   }
-  // A non-OK response with a parseable JSON body is a definitive GoTrue verdict
-  // — pass it through UNCHANGED so auth-js/callers surface the real error. Only
-  // a non-JSON body is an intermediary error page (corporate proxy / CDN bot
-  // challenge), which must be masked, otherwise auth-js turns it into a
-  // non-retryable AuthUnknownError and drops the persisted session.
+  // Non-refresh JSON errors must reach auth-js unchanged. Refresh-token
+  // responses are different: auth-js removes the persisted session for every
+  // non-retryable 4xx, so only the issuer's explicit token-rejection codes may
+  // pass through. Keep unknown refresh failures retryable so the UI's Retry
+  // action still has a session to refresh.
   if (bodyText !== undefined && isJsonParseableBody(bodyText)) {
+    if (isRefreshTokenRequest(input)) {
+      const body = JSON.parse(bodyText) as unknown;
+      if (!isDefinitiveSupabaseRefreshTokenRejectionError(body)) {
+        throw new TypeError(
+          `Supabase ambiguous refresh-token HTTP ${
+            response.status
+          } treated as network failure to preserve the persisted session ${buildInterceptedResponseFingerprint(
+            response,
+            bodyText,
+          )}`,
+        );
+      }
+    }
     return response;
   }
   throw new TypeError(

@@ -58,14 +58,16 @@ export function getPrimeInfiniPaymentLocalError(error: unknown) {
   const safeError = getPrimeInfiniPaymentSafeError(error);
   const rawMessage =
     typeof error === 'string'
-      ? error
-      : (toOptionalString(plainError.message) ?? 'Unknown payment error');
+      ? toOptionalString(error)
+      : toOptionalString(plainError.message);
   return {
     ...safeError,
     errorName:
       safeError.errorName ??
       (typeof error === 'string' ? 'StringError' : 'UnknownError'),
-    errorMessage: scrubSensitiveErrorMessageText(rawMessage),
+    errorMessage: rawMessage
+      ? scrubSensitiveErrorMessageText(rawMessage)
+      : undefined,
   };
 }
 
@@ -79,9 +81,11 @@ export function logPrimeInfiniPaymentFlow({
     ...safeError,
   });
   if (error) {
+    const localError = getPrimeInfiniPaymentLocalError(error);
     defaultLogger.prime.subscription.primeCryptoPaymentError({
       ...params,
-      ...getPrimeInfiniPaymentLocalError(error),
+      ...localError,
+      errorMessage: localError.errorMessage ?? 'Unknown payment error',
     });
   }
 }
