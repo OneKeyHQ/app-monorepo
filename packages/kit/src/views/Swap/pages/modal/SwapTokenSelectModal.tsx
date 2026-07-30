@@ -181,6 +181,7 @@ const SwapTokenSelectPage = ({
     ? route.params?.defaultNetworkId
     : undefined;
   const intl = useIntl();
+  const [searchInputValue, setSearchInputValue] = useState<string>('');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   // Reset to the default token list immediately when the input is cleared.
@@ -418,6 +419,7 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
+  const useLocalSearchFallback = !isSwapStockSelectTarget;
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
@@ -426,6 +428,7 @@ const SwapTokenSelectPage = ({
     requestLpToken,
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
+    useLocalSearchFallback,
   );
   const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
   const stockSearchBaseTokensRef = useRef<{
@@ -733,7 +736,9 @@ const SwapTokenSelectPage = ({
   const handlePaste = useCallback(async () => {
     const text = await getClipboard();
     if (text) {
-      setSearchKeyword(text.trim());
+      const trimmedText = text.trim();
+      setSearchInputValue(trimmedText);
+      setSearchKeyword(trimmedText);
     }
   }, [getClipboard]);
 
@@ -997,11 +1002,13 @@ const SwapTokenSelectPage = ({
             id: ETranslations.token_selector_search_placeholder,
           }),
           onChangeText: ({ nativeEvent }) => {
-            const afterTrim = nativeEvent.text.trim();
-            setSearchKeyword(afterTrim);
+            setSearchInputValue(nativeEvent.text);
+          },
+          onSearchTextChange: (text) => {
+            setSearchKeyword(text.trim());
           },
           ...(autoSearch ? { autoFocus: true } : {}),
-          searchBarInputValue: searchKeyword,
+          searchBarInputValue: searchInputValue,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
                 addOns: [
