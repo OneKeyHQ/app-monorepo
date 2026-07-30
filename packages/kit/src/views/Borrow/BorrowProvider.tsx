@@ -98,7 +98,7 @@ export const BorrowProvider = ({
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
-    EBorrowDataStatus.Idle,
+    EBorrowDataStatus.Initializing,
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
