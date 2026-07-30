@@ -3,6 +3,7 @@ import { ClassicDevice } from '.';
 import { XStack } from '../../primitives';
 
 import { ConfirmOnClassic } from './ConfirmOnClassic';
+import { EnterPassphraseOnClassic } from './EnterPassphraseOnClassic';
 import { EnterPinOnClassic } from './EnterPinOnClassic';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
@@ -47,4 +48,10 @@ export const Confirm: Story = {
 // check appears -> final confirming press -> sleep.
 export const EnterPin: Story = {
   render: (args) => <EnterPinOnClassic width={args.width} />,
+};
+
+// Enter Passphrase scene: same schedule as Enter PIN, asterisk/underscore
+// glyphs.
+export const EnterPassphrase: Story = {
+  render: (args) => <EnterPassphraseOnClassic width={args.width} />,
 };
