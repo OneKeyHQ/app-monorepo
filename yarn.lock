@@ -9736,15 +9736,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.4":
-  version: 3.0.81-alpha.4
-  resolution: "@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.4"
+"@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.5":
+  version: 3.0.81-alpha.5
+  resolution: "@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.5"
   peerDependencies:
-    "@onekeyfe/react-native-sni-connect": 3.0.81-alpha.4
+    "@onekeyfe/react-native-sni-connect": 3.0.81-alpha.5
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
-  checksum: 10/e5ea33c4274690631416ee1426609d90584154463738c0722c45da29a8160d7f8bcd43d7571320e3b69b8193b5a17cd508764a8f777920ff25b3b58f18783fff
+  checksum: 10/5342f0f607999aca728d42b5d85f2f36f08b903ad90696c3ff94243babcb484a0bc9b06553d375b3b3d87f52a280f9d61c30d8d2b4fc30624b634006033f63ce
   languageName: node
   linkType: hard
 
@@ -9781,13 +9781,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-sni-connect@npm:3.0.81-alpha.4":
-  version: 3.0.81-alpha.4
-  resolution: "@onekeyfe/react-native-sni-connect@npm:3.0.81-alpha.4"
+"@onekeyfe/react-native-sni-connect@npm:3.0.81-alpha.5":
+  version: 3.0.81-alpha.5
+  resolution: "@onekeyfe/react-native-sni-connect@npm:3.0.81-alpha.5"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/8f01f192843f274962df8e6533562e838bedddb9def21a3c7e78dd4a55e820eb401af9b139908e9f2d96431243dd33b6bec15d70b414d2e5a91960366cdac54b
+  checksum: 10/52f143863bf985437542cff380192031fc61cd2e99ce4da5f28e1443ac768ef49936e3b69f3912beb6045830bac90fc0c6a3909f09723781bbc03ca8e28061d4
   languageName: node
   linkType: hard
 
@@ -10293,11 +10293,11 @@ __metadata:
     "@onekeyfe/react-native-perf-memory": "npm:3.0.78"
     "@onekeyfe/react-native-perf-stats": "npm:3.0.78"
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.78"
-    "@onekeyfe/react-native-range-downloader": "npm:3.0.81-alpha.4"
+    "@onekeyfe/react-native-range-downloader": "npm:3.0.81-alpha.5"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.78"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.78"
     "@onekeyfe/react-native-skeleton": "npm:3.0.78"
-    "@onekeyfe/react-native-sni-connect": "npm:3.0.81-alpha.4"
+    "@onekeyfe/react-native-sni-connect": "npm:3.0.81-alpha.5"
     "@onekeyfe/react-native-splash-screen": "npm:3.0.78"
     "@onekeyfe/react-native-split-bundle-loader": "npm:3.0.78"
     "@onekeyfe/react-native-tab-view": "npm:3.0.78"
