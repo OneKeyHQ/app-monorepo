@@ -524,9 +524,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
     // Captured before the publish awaits: any disable (blur, lock) landing
     // after this bumps the count and outranks the liveness proof carried by
-    // params.viewState.
-    const disabledCountAtProof =
-      await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
+    // params.viewState. Callers fire-and-forget this method, so a bridge
+    // failure must not escape; without a trustworthy epoch the re-enable is
+    // simply skipped — pre-fix behavior, recovered by the next focus event.
+    let disabledCountAtProof: number | undefined;
+    try {
+      disabledCountAtProof =
+        await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
+    } catch {
+      // keep the epoch undefined; the enable below stays skipped
+    }
 
     // Unconditional: the BG reconcile aborts every channel while this atom
     // still names the previous coin, so gating the publish on route focus
@@ -557,20 +564,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    // Reaching here proves the Perp UI is live (route focused, token selector
-    // open, or favorites bar active), so a disabled handler can only be a
-    // stale blur verdict — without this the reconcile below is silently
-    // skipped and the book starves until the next focus event. App lock is
-    // the one state these signals cannot see (the navigation tree is retained
-    // under the lock screen), so it is checked explicitly.
-    const isAppLocked = await appIsLocked.get();
-    if (!isAppLocked) {
-      await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler(
-        { ifDisabledCountAtMost: disabledCountAtProof },
-      );
-    }
-
     try {
+      // A disabled handler here can only be a stale blur verdict — without
+      // the re-enable the reconcile below is silently skipped and the book
+      // starves until the next focus event. Only route focus and an open
+      // token selector prove the UI is on screen: the web favorites bar
+      // keeps its flag true while unfocused, so it gates the reconcile but
+      // must not clear a blur/lock disable. Lock is checked explicitly (the
+      // navigation tree is retained under the lock screen).
+      if (
+        disabledCountAtProof !== undefined &&
+        (params.viewState.routeFocused || params.viewState.tokenSelectorOpen) &&
+        !(await appIsLocked.get())
+      ) {
+        await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler(
+          { ifDisabledCountAtMost: disabledCountAtProof },
+        );
+      }
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(
