@@ -103,8 +103,9 @@ function flush() {
     const merged: ISWRStore = {};
     if (disk) {
       for (const [key, entry] of Object.entries(disk)) {
-        if (!entry || isDeletedLocally(key, entry.t ?? 0)) continue;
-        merged[key] = entry;
+        if (entry && !isDeletedLocally(key, entry.t ?? 0)) {
+          merged[key] = entry;
+        }
       }
     }
     for (const [key, entry] of Object.entries(_cache)) {

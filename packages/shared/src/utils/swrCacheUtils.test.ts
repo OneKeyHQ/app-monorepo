@@ -148,7 +148,7 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   beforeEach(() => {
     fakeDiskGlobal.__swrFakeDisk = {};
-    nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000);
+    nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
   afterEach(() => {
@@ -157,54 +157,54 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   it('keeps keys the other runtime persisted after this copy hydrated', () => {
     const swr = loadFreshRuntime();
-    setNow(1_000);
+    setNow(1000);
     swr.set('mine', 'a');
     // The other runtime persists a key this copy has never seen — the old
     // wholesale overwrite erased it on the next local flush.
     otherRuntimeFlush({
       ...readDiskStore(),
-      theirs: { d: 'b', t: 5_000 },
+      theirs: { d: 'b', t: 5000 },
     });
     swr.flushNow();
 
     const disk = readDiskStore();
-    expect(disk.mine).toMatchObject({ d: 'a', t: 1_000 });
-    expect(disk.theirs).toMatchObject({ d: 'b', t: 5_000 });
+    expect(disk.mine).toMatchObject({ d: 'a', t: 1000 });
+    expect(disk.theirs).toMatchObject({ d: 'b', t: 5000 });
   });
 
   it('resolves per-key conflicts by timestamp in both directions', () => {
     const swr = loadFreshRuntime();
-    setNow(1_000);
+    setNow(1000);
     swr.set('diskNewer', 'stale-local');
     swr.set('localNewer', 'old-local');
     otherRuntimeFlush({
-      diskNewer: { d: 'fresh-disk', t: 2_000 },
+      diskNewer: { d: 'fresh-disk', t: 2000 },
       localNewer: { d: 'stale-disk', t: 500 },
     });
-    setNow(1_500);
+    setNow(1500);
     swr.set('localNewer', 'fresh-local');
     swr.flushNow();
 
     const disk = readDiskStore();
-    expect(disk.diskNewer).toMatchObject({ d: 'fresh-disk', t: 2_000 });
-    expect(disk.localNewer).toMatchObject({ d: 'fresh-local', t: 1_500 });
+    expect(disk.diskNewer).toMatchObject({ d: 'fresh-disk', t: 2000 });
+    expect(disk.localNewer).toMatchObject({ d: 'fresh-local', t: 1500 });
     // The merged store is adopted locally too — the read path must see the
     // other runtime's fresher value, not this copy's aged one.
     expect(swr.get('diskNewer')).toBe('fresh-disk');
   });
 
   it('does not resurrect a removed key from the other runtime copy', () => {
-    otherRuntimeFlush({ doomed: { d: 'x', t: 1_000 } });
+    otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
     const swr = loadFreshRuntime();
     expect(swr.get('doomed')).toBe('x');
-    setNow(2_000);
+    setNow(2000);
     swr.remove('doomed');
     swr.flushNow();
     expect(readDiskStore().doomed).toBeUndefined();
 
     // A rewrite that postdates the removal wins again.
-    otherRuntimeFlush({ doomed: { d: 'rewritten', t: 3_000 } });
-    setNow(3_500);
+    otherRuntimeFlush({ doomed: { d: 'rewritten', t: 3000 } });
+    setNow(3500);
     swr.set('unrelated', 1);
     swr.flushNow();
     expect(readDiskStore().doomed).toMatchObject({ d: 'rewritten' });
@@ -212,12 +212,12 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   it('applies prefix removal against the disk copy as well', () => {
     otherRuntimeFlush({
-      'walletList:a': { d: 1, t: 1_000 },
-      'walletList:b': { d: 2, t: 1_200 },
-      'kept:c': { d: 3, t: 1_000 },
+      'walletList:a': { d: 1, t: 1000 },
+      'walletList:b': { d: 2, t: 1200 },
+      'kept:c': { d: 3, t: 1000 },
     });
     const swr = loadFreshRuntime();
-    setNow(2_000);
+    setNow(2000);
     swr.removeByPrefix('walletList:');
     swr.flushNow();
 
@@ -229,15 +229,15 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   it('clearAll drops older disk entries but keeps ones written after it', () => {
     otherRuntimeFlush({
-      older: { d: 1, t: 1_000 },
+      older: { d: 1, t: 1000 },
     });
     const swr = loadFreshRuntime();
-    setNow(2_000);
+    setNow(2000);
     swr.clearAll();
     otherRuntimeFlush({
       ...readDiskStore(),
-      older: { d: 1, t: 1_000 },
-      newer: { d: 2, t: 3_000 },
+      older: { d: 1, t: 1000 },
+      newer: { d: 2, t: 3000 },
     });
     swr.flushNow();
 
