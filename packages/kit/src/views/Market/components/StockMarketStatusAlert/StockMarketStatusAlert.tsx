@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Alert } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { stripTrailingSentencePunctuation } from './getStockMarketClosedDescription';
 import { EStockMarketStatusCase } from './resolveStockMarketStatusCase';
 
 export type IStockMarketStatusAlertProps = {
@@ -54,7 +55,7 @@ export function StockMarketStatusAlert({
   const timeWithPerpsText = timeText?.trim()
     ? intl.formatMessage(
         { id: ETranslations.trade_stock_reopen_eta_perps },
-        { time: timeText.trim() },
+        { time: stripTrailingSentencePunctuation(timeText.trim()) },
       )
     : waitWithPerpsText;
   // Perps button (cases 1 & 4); only when the caller provided a handler.
