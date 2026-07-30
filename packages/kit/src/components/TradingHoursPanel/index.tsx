@@ -2,12 +2,14 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Dialog,
   Icon,
   IconButton,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -473,17 +475,41 @@ function TradingHoursDialogHeader() {
   );
 }
 
+/**
+ * Vertical space reserved for everything around the scrollable body: the
+ * sheet grabber, the dialog header row and a top gap so the sheet never
+ * covers the full screen.
+ */
+const DIALOG_BODY_RESERVED_HEIGHT = 160;
+
+/**
+ * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
+ * viewport (extension popup, small phones — especially with longer English
+ * copy, OK-58516) would simply clip its bottom. Bound the body by the window
+ * height and let it scroll; when the content fits, the ScrollView collapses
+ * to content height and nothing changes visually.
+ */
+function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
+  const { height: windowHeight } = useWindowDimensions();
+  return (
+    <YStack>
+      <TradingHoursDialogHeader />
+      <ScrollView
+        maxHeight={windowHeight - DIALOG_BODY_RESERVED_HEIGHT}
+        nestedScrollEnabled
+      >
+        <TradingHoursContent stock={stock} />
+      </ScrollView>
+    </YStack>
+  );
+}
+
 function showTradingHoursDialog(stock: IMarketStockInfo) {
   Dialog.show({
     showHeader: false,
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
-    renderContent: (
-      <YStack>
-        <TradingHoursDialogHeader />
-        <TradingHoursContent stock={stock} />
-      </YStack>
-    ),
+    renderContent: <TradingHoursDialogBody stock={stock} />,
   });
 }
 
