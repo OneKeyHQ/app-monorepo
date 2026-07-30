@@ -39,7 +39,7 @@ import {
 const mockGetBrowserTabsRawData = jest.fn(
   async (): Promise<{ tabs: IWebTab[] }> => ({ tabs: [] }),
 );
-const mockSetBrowserTabsRawData = jest.fn();
+const mockSetBrowserTabsRawData = jest.fn<void, [{ tabs: IWebTab[] }]>();
 const mockSetBrowserHistoryRawData = jest.fn();
 const mockSetBrowserClosedTabsRawData = jest.fn();
 const mockCrossWebviewLoadUrl = jest.fn();
@@ -138,7 +138,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     simpleDb: {
       browserTabs: {
         getRawData: () => mockGetBrowserTabsRawData(),
-        setRawData: (payload: unknown) => {
+        setRawData: (payload: { tabs: IWebTab[] }) => {
           mockSetBrowserTabsRawData(payload);
         },
       },
@@ -171,7 +171,7 @@ jest.mock('@onekeyhq/kit/src/routes/config/deeplink', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React: typeof import('react') = jest.requireActual('react');
   return {
     usePromiseResult: (fn: () => unknown) => {
       React.useEffect(() => {
@@ -365,6 +365,48 @@ describe('useBrowserTabActions', () => {
         }),
       ],
     });
+  });
+
+  it('keeps custom injection metadata in memory but strips it from persisted tabs', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useBrowserTabActions().current;
+        const [webTabs] = useWebTabsAtom();
+        return {
+          actions,
+          tabs: webTabs.tabs,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    act(() => {
+      result.current.actions.setWebTabData({
+        id: 'tab-1',
+        customInjected: {
+          sessionId: 'session-1',
+          protocolId: 'uniswap',
+          preloadUrl: 'file:///workspace/injectedDesktopPreload.js?sha256=1',
+          bundleSha256: '1'.repeat(64),
+          registrySha256: '2'.repeat(64),
+        },
+      });
+      result.current.actions.setWebTabData({
+        id: 'tab-1',
+        title: 'Updated by page metadata',
+      });
+    });
+
+    expect(
+      result.current.tabs.find((tab) => tab.id === 'tab-1')?.customInjected,
+    ).toEqual(expect.objectContaining({ protocolId: 'uniswap' }));
+    const persistedTabs =
+      mockSetBrowserTabsRawData.mock.calls.at(-1)?.[0]?.tabs ?? [];
+    expect(
+      persistedTabs.find((tab: { id: string }) => tab.id === 'tab-1'),
+    ).not.toHaveProperty('customInjected');
   });
 
   it('keeps a desktop home tab in place when it opens its first page and still allows drag sorting', async () => {

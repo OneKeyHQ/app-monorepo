@@ -17,6 +17,18 @@ export type IDesktopAppState = 'active' | 'background' | 'blur';
 
 export type IDesktopEventUnSubscribe = () => void;
 
+/**
+ * Ephemeral developer-only state attached to a real Discovery Browser tab.
+ * It must be stripped before browser tabs are persisted.
+ */
+export type IDesktopCustomInjectedTab = {
+  sessionId: string;
+  protocolId: string;
+  preloadUrl: string;
+  bundleSha256: string;
+  registrySha256: string;
+};
+
 // Type for the legacy desktopApi exposed via contextBridge in preload.ts
 export type INobleBleApi = {
   enumerate: () => Promise<{ id: string; name: string }[]>;

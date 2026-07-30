@@ -1,8 +1,8 @@
 import { Dialog } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 function showConfirmation(description: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -99,10 +99,9 @@ export async function handleCustomInjectedDeepLink(query: {
     if (!initialProtocol) {
       throw new OneKeyLocalError('No supported protocol URL is available');
     }
-    openWebView({
+    openUrlInDiscovery({
       url: initialProtocol.url,
-      source: 'custom-injected',
-      showAddressBar: true,
+      title: initialProtocol.name,
       customInjected: {
         sessionId: customSession.sessionId,
         protocolId: initialProtocol.id,

@@ -1,10 +1,9 @@
 import { isExternalEntry, resolveOverlayDisplay } from '../displayPolicy';
 
 describe('isExternalEntry', () => {
-  it('marks deeplink, notification, and custom injection as external', () => {
+  it('marks deeplink and notification as external', () => {
     expect(isExternalEntry('deeplink')).toBe(true);
     expect(isExternalEntry('notification')).toBe(true);
-    expect(isExternalEntry('custom-injected')).toBe(true);
   });
 
   it('does NOT mark in-app as external', () => {
@@ -16,12 +15,8 @@ describe('isExternalEntry', () => {
   });
 });
 
-describe('resolveOverlayDisplay — external entries', () => {
-  it.each([
-    'custom-injected' as const,
-    'deeplink' as const,
-    'notification' as const,
-  ])(
+describe('resolveOverlayDisplay — external entries (deeplink / notification)', () => {
+  it.each(['deeplink' as const, 'notification' as const])(
     '%s forces the header to be visible regardless of hideHeader=true',
     (source) => {
       const result = resolveOverlayDisplay({
@@ -34,11 +29,7 @@ describe('resolveOverlayDisplay — external entries', () => {
     },
   );
 
-  it.each([
-    'custom-injected' as const,
-    'deeplink' as const,
-    'notification' as const,
-  ])(
+  it.each(['deeplink' as const, 'notification' as const])(
     '%s forces the address bar to be visible regardless of showAddressBar=false/undefined',
     (source) => {
       expect(
@@ -57,11 +48,7 @@ describe('resolveOverlayDisplay — external entries', () => {
     },
   );
 
-  it.each([
-    'custom-injected' as const,
-    'deeplink' as const,
-    'notification' as const,
-  ])(
+  it.each(['deeplink' as const, 'notification' as const])(
     '%s ignores the caller-supplied title so it cannot spoof a trusted brand',
     (source) => {
       // Classic phishing combo: trusted-looking title + attacker-controlled

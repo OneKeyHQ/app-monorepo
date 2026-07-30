@@ -8,10 +8,6 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
-import type {
-  ICustomInjectedProtocol,
-  ICustomInjectedSession,
-} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -22,7 +18,6 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import AddressBar from '../components/AddressBar';
-import CustomInjectedToolbar from '../components/CustomInjectedToolbar';
 import WebViewHeader from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
 import { useOverlayDesktopPopup } from '../hooks/useOverlayDesktopPopup';
@@ -62,17 +57,6 @@ function WebViewPageContent() {
   const [currentTitle, setCurrentTitle] = useState<string>('');
   const [progress, setProgress] = useState(initialUrl ? 5 : 100);
   const [canGoBack, setCanGoBack] = useState(false);
-  const [webViewSrc, setWebViewSrc] = useState(initialUrl);
-  const [webViewMountVersion, setWebViewMountVersion] = useState(0);
-  const [customInjectedProtocolId, setCustomInjectedProtocolId] = useState(
-    params.customInjected?.protocolId,
-  );
-  const [customInjectedPreloadUrl, setCustomInjectedPreloadUrl] = useState(
-    params.customInjected?.preloadUrl,
-  );
-  const [activeBundleSha256, setActiveBundleSha256] = useState(
-    params.customInjected?.bundleSha256,
-  );
   const [desktopContentsId, setDesktopContentsId] = useState<number | null>(
     null,
   );
@@ -190,39 +174,6 @@ function WebViewPageContent() {
     }
   }, [webviewRef]);
 
-  const selectCustomInjectedProtocol = useCallback(
-    (
-      protocol: ICustomInjectedProtocol,
-      customSession: ICustomInjectedSession,
-    ) => {
-      setCustomInjectedProtocolId(protocol.id);
-      setCustomInjectedPreloadUrl(customSession.preloadUrl);
-      setActiveBundleSha256(customSession.bundleSha256);
-      setWebViewSrc(protocol.url);
-      setCurrentUrl(protocol.url);
-      setProgress(5);
-      setWebViewMountVersion((version) => version + 1);
-    },
-    [],
-  );
-
-  const reloadCustomInjectedWebView = useCallback(
-    (customSession: ICustomInjectedSession) => {
-      const protocol = customSession.protocols.find(
-        (candidate) => candidate.id === customInjectedProtocolId,
-      );
-      if (protocol) {
-        setWebViewSrc(protocol.url);
-        setCurrentUrl(protocol.url);
-      }
-      setCustomInjectedPreloadUrl(customSession.preloadUrl);
-      setActiveBundleSha256(customSession.bundleSha256);
-      setProgress(5);
-      setWebViewMountVersion((version) => version + 1);
-    },
-    [customInjectedProtocolId],
-  );
-
   const handleWebViewGoBack = useCallback((): boolean => {
     const inner = webviewRef.current?.innerRef;
     if (!inner) return false;
@@ -327,16 +278,6 @@ function WebViewPageContent() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    const sessionId = params.customInjected?.sessionId;
-    if (!sessionId) return undefined;
-    return () => {
-      void globalThis.desktopApiProxy.webview.closeCustomInjectedWorkspace(
-        sessionId,
-      );
-    };
-  }, [params.customInjected?.sessionId]);
 
   // Desktop popup + main-process pre-nav-guard registration — implemented
   // in `useOverlayDesktopPopup.desktop.ts`; a no-op on native/web. Keeps
@@ -446,12 +387,7 @@ function WebViewPageContent() {
         {showAddressBar ? <AddressBar url={currentUrl} /> : null}
         <ProgressBar progress={progress} />
         <WebView
-          key={
-            params.customInjected
-              ? `custom-injected-${String(webViewMountVersion)}`
-              : 'standard-webview'
-          }
-          src={webViewSrc}
+          src={initialUrl}
           onWebViewRef={onWebViewRef}
           onProgress={setProgress}
           onNavigationStateChange={onNavigationStateChange}
@@ -464,24 +400,8 @@ function WebViewPageContent() {
           onOpenWindow={onOpenWindow}
           allowpopups
           mediaPermissionWhitelist={OVERLAY_NO_MEDIA_WHITELIST}
-          partition={
-            params.customInjected
-              ? undefined
-              : DESKTOP_WEBVIEW_OVERLAY_PARTITION
-          }
-          desktopPreloadUrl={customInjectedPreloadUrl}
+          partition={DESKTOP_WEBVIEW_OVERLAY_PARTITION}
         />
-        {params.customInjected &&
-        customInjectedProtocolId &&
-        activeBundleSha256 ? (
-          <CustomInjectedToolbar
-            activeBundleSha256={activeBundleSha256}
-            selectedProtocolId={customInjectedProtocolId}
-            sessionId={params.customInjected.sessionId}
-            onReload={reloadCustomInjectedWebView}
-            onSelectProtocol={selectCustomInjectedProtocol}
-          />
-        ) : null}
       </Page.Body>
     </Page>
   );

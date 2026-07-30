@@ -292,6 +292,7 @@ function BasicDesktopBrowserContent({
       <WebContent
         id={id}
         url={tab.url}
+        customInjected={tab.customInjected}
         isCurrent={isActive}
         customReceiveHandler={customReceiveHandler}
       />

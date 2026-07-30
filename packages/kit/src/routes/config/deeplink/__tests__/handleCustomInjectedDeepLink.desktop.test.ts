@@ -1,6 +1,6 @@
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { openWebView } from '@onekeyhq/kit/src/views/WebView/utils/webViewNavigation';
+import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleCustomInjectedDeepLink } from '../handleCustomInjectedDeepLink.desktop';
 
@@ -19,13 +19,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/views/WebView/utils/webViewNavigation', () => ({
-  openWebView: jest.fn(),
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlInDiscovery: jest.fn(),
 }));
 
 const showDialog = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
-const mockedOpenWebView = openWebView as jest.MockedFunction<
-  typeof openWebView
+const mockedOpenUrlInDiscovery = openUrlInDiscovery as jest.MockedFunction<
+  typeof openUrlInDiscovery
 >;
 const mockedDevSettingService =
   backgroundApiProxy.serviceDevSetting as unknown as {
@@ -132,10 +132,10 @@ describe('handleCustomInjectedDeepLink', () => {
       true,
     );
     expect(activateCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
-    expect(mockedOpenWebView).toHaveBeenCalledWith(
+    expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith(
       expect.objectContaining({
         url: 'https://pending.example',
-        source: 'custom-injected',
+        title: 'Pending',
         customInjected: expect.objectContaining({
           sessionId: 'session-1',
           protocolId: 'pending',
@@ -157,6 +157,6 @@ describe('handleCustomInjectedDeepLink', () => {
 
     expect(closeCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
     expect(activateCustomInjectedWorkspace).not.toHaveBeenCalled();
-    expect(mockedOpenWebView).not.toHaveBeenCalled();
+    expect(mockedOpenUrlInDiscovery).not.toHaveBeenCalled();
   });
 });

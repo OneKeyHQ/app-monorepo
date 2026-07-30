@@ -37,6 +37,7 @@ export function usePendingDiscoveryUrl() {
           logo: undefined,
           sortIndex: undefined,
         },
+        customInjected: pendingUrl.customInjected,
         enterMethod: EEnterMethod.externalNavigation,
       });
     }

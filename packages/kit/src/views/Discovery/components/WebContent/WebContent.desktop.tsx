@@ -45,7 +45,12 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   );
 }
 
-function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
+function WebContent({
+  id,
+  url,
+  customInjected,
+  customReceiveHandler,
+}: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
@@ -230,8 +235,12 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
       return (
         <WebView
+          key={
+            customInjected ? `custom-injected-${customInjected.preloadUrl}` : id
+          }
           id={id}
           src={url}
+          desktopPreloadUrl={customInjected?.preloadUrl}
           customReceiveHandler={customReceiveHandler}
           onWebViewRef={(ref) => {
             if (ref && ref.innerRef) {
@@ -268,6 +277,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       onDomReady,
       shouldBlockCurrentUrl,
       customReceiveHandler,
+      customInjected?.preloadUrl,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],

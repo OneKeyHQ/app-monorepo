@@ -1,4 +1,5 @@
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { IDesktopCustomInjectedTab } from '@onekeyhq/shared/types/desktop';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 export type IBrowserType = 'StandardBrowser' | 'MultiTabBrowser';
@@ -35,6 +36,7 @@ export interface IGotoSiteFnParams {
   isInPlace?: boolean;
   id?: string;
   siteMode?: ESiteMode;
+  customInjected?: IDesktopCustomInjectedTab;
 }
 
 export interface IMatchDAppItemType {
@@ -44,6 +46,7 @@ export interface IMatchDAppItemType {
   clicks?: number;
   timestamp?: number;
   isNewWindow?: boolean;
+  customInjected?: IDesktopCustomInjectedTab;
 }
 
 export interface IOnWebviewNavigationFnParams {
@@ -95,6 +98,8 @@ export interface IWebTab {
   timestamp?: number;
   siteMode?: ESiteMode;
   type?: 'normal' | 'home';
+  /** Desktop developer mode only. Never persisted to SimpleDB. */
+  customInjected?: IDesktopCustomInjectedTab;
 }
 
 export interface IWebTabsAtom {
