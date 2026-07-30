@@ -1394,6 +1394,76 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).toBeUndefined();
   });
 
+  test('removes an unsent session older than the one-day TTL while its tombstone survives', async () => {
+    // Two days is inside the seven-day sent-session bound, so this pins the
+    // tiered lockout: an unsent session must be purged on read, yet the
+    // retired binding must stay tombstoned so a lingering window cannot
+    // re-persist it.
+    const entity = new SimpleDbEntityPrime();
+    const staleSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': staleSession,
+      },
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
+    ).toBeUndefined();
+    expect(persisted.infiniPaymentCacheTombstonesByUserId?.['user-1']).toEqual([
+      expect.objectContaining({
+        paymentId: staleSession.paymentCacheKey.paymentId,
+        bindingId: staleSession.paymentCacheKey.bindingId,
+        retiredAt: expect.any(Number),
+      }),
+    ]);
+  });
+
+  test('keeps a two-day-old sent session until the long bound', async () => {
+    // A broadcast transfer can settle days later, so a sent session past the
+    // short TTL must keep fencing the purchase entry instead of being purged.
+    const entity = new SimpleDbEntityPrime();
+    const sentSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      sendStarted: true,
+      updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': sentSession,
+      },
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toEqual(sentSession);
+    expect(persisted.infiniPendingPaymentSessionByUserId?.['user-1']).toEqual(
+      sentSession,
+    );
+  });
+
   test('self-heals a corrupted persisted session without a payment', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted = {

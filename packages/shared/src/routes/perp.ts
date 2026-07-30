@@ -1,7 +1,5 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 
-import type { IUnifoldSupportedAsset } from '../../types/unifoldDeposit';
-
 export enum EModalPerpRoutes {
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
@@ -10,7 +8,6 @@ export enum EModalPerpRoutes {
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
   MobileDepositSelectToken = 'MobileDepositSelectToken',
   MobileUnifoldDepositTransfer = 'MobileUnifoldDepositTransfer',
-  MobileUnifoldSourceSelector = 'MobileUnifoldSourceSelector',
   MobileUnifoldDepositTracker = 'MobileUnifoldDepositTracker',
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
@@ -71,15 +68,6 @@ export type IModalPerpParamList = {
     expectedRecipient: string;
     sourceSelectorResult?: IUnifoldSourceSelectorResult;
     openSourceSelectorOnReady?: boolean;
-  };
-  [EModalPerpRoutes.MobileUnifoldSourceSelector]: {
-    requestId: string;
-    mode: 'token' | 'chain';
-    assets: IUnifoldSupportedAsset[];
-    selectedAssetSymbol?: string;
-    selectedChainType?: string;
-    selectedChainId?: string;
-    continueToChain?: boolean;
   };
   [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
     expectedRecipient: string;

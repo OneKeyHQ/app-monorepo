@@ -19,10 +19,12 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
-const QR_SIZE = 200;
+const QR_CANVAS_SIZE = 200;
+const QR_CARD_BORDER_WIDTH = 1;
+const QR_CARD_SIZE = QR_CANVAS_SIZE + QR_CARD_BORDER_WIDTH * 2;
 const QR_CODE_PADDING = 10;
-const QR_CODE_SIZE = QR_SIZE - QR_CODE_PADDING;
-const QR_QUIET_ZONE_MODULES = 4;
+const QR_CODE_SIZE = QR_CANVAS_SIZE - QR_CODE_PADDING;
+const QR_QUIET_ZONE_MODULES = 2;
 const QR_LOGO_SIZE = 56;
 const QR_LOGO_MARGIN = 4;
 const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
@@ -72,8 +74,8 @@ export function UnifoldDepositQRCard({
     >
       {!loading && !address ? (
         <YStack
-          width={QR_SIZE}
-          height={QR_SIZE}
+          width={QR_CARD_SIZE}
+          height={QR_CARD_SIZE}
           alignItems="center"
           justifyContent="center"
           gap="$2"
@@ -106,13 +108,15 @@ export function UnifoldDepositQRCard({
         </YStack>
       ) : null}
       {loading ? (
-        <Skeleton width={QR_SIZE} height={QR_SIZE} radius={8} />
+        <Skeleton width={QR_CARD_SIZE} height={QR_CARD_SIZE} radius={8} />
       ) : null}
       {!loading && address ? (
         <Stack
           testID="perps-unifold-qr-visual"
-          width={QR_SIZE}
-          height={QR_SIZE}
+          width={QR_CARD_SIZE}
+          height={QR_CARD_SIZE}
+          borderWidth={QR_CARD_BORDER_WIDTH}
+          borderColor="$borderSubdued"
           borderRadius="$2"
           overflow="hidden"
         >
