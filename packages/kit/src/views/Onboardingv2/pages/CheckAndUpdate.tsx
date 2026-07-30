@@ -100,10 +100,15 @@ function CheckAndUpdatePage({
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
-  // Set when a firmware update finishes; cleared only after a firmware check
-  // COMPLETES successfully, so a manual Retry keeps using the patient
-  // post-update reconnect path while the device may still be rebooting.
+  // One-shot marker for the focus-effect auto-recheck after a firmware
+  // update: consumed when the scheduled recheck fires (or cleared by an
+  // explicit user Skip). Only drives scheduling/delay math.
   const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  // Carries the "device may still be rebooting" fact separately: set on
+  // FinishFirmwareUpdate, cleared only when a check COMPLETES successfully.
+  // While set, every round — including a manual Retry — upgrades to the
+  // patient reconnect path and the longer watchdog budget.
+  const pendingPostUpdateReconnectRef = useRef(false);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -200,6 +205,12 @@ function CheckAndUpdatePage({
     if (firmwareStepState === ECheckAndUpdateStepState.Success) {
       setCelebrate(true);
     }
+  }, [firmwareStepState]);
+  // Lets the focus-effect guard read the latest firmware step state without
+  // joining the focus callback's dependency array.
+  const firmwareStepStateRef = useRef(firmwareStepState);
+  useEffect(() => {
+    firmwareStepStateRef.current = firmwareStepState;
   }, [firmwareStepState]);
 
   const actions = useFirmwareUpdateActions();
@@ -390,11 +401,10 @@ function CheckAndUpdatePage({
         };
         return newSteps;
       });
-      // A pending post-update reconnect (recorded on FinishFirmwareUpdate and
-      // cleared only after a successful check) upgrades ANY round — including
-      // a manual Retry — to the patient path with its longer watchdog budget.
+      // A pending post-update reconnect upgrades ANY round — including a
+      // manual Retry — to the patient path with its longer watchdog budget.
       const checkAfterUpdate =
-        params?.checkAfterUpdate || !!firmwareUpdateFinishTimeRef.current;
+        params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
       const cancelTimeout = createStepTimeout(
         isStale,
         () => watchdogConnectId,
@@ -445,7 +455,7 @@ function CheckAndUpdatePage({
         if (r) {
           // The device answered and the check completed — future rounds no
           // longer need the patient post-update reconnect path.
-          firmwareUpdateFinishTimeRef.current = null;
+          pendingPostUpdateReconnectRef.current = false;
           if (r.features) {
             deviceFeaturesRef.current = r.features;
           }
@@ -525,6 +535,7 @@ function CheckAndUpdatePage({
     const handleFirmwareUpdateFinish = () => {
       console.log('Firmware update finished, recording timestamp...');
       firmwareUpdateFinishTimeRef.current = Date.now();
+      pendingPostUpdateReconnectRef.current = true;
     };
 
     appEventBus.on(
@@ -551,6 +562,18 @@ function CheckAndUpdatePage({
       if (!finishTime) {
         return;
       }
+      const firmwareState = firmwareStepStateRef.current;
+      if (
+        firmwareState === ECheckAndUpdateStepState.Skipped ||
+        firmwareState === ECheckAndUpdateStepState.Success ||
+        firmwareState === ECheckAndUpdateStepState.InProgress
+      ) {
+        // Never stomp a user decision (Skipped), a completed result
+        // (Success), or an in-flight round (InProgress) on focus regain.
+        // Warning stays eligible — the canonical post-update recheck starts
+        // from the Warning row the user updated from.
+        return;
+      }
 
       const elapsed = Date.now() - finishTime;
       const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
@@ -565,10 +588,11 @@ function CheckAndUpdatePage({
       });
 
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
-      // The finish timestamp is NOT cleared here — checkFirmwareUpdate clears
-      // it after a successful completion, so a failed recheck leaves manual
-      // Retry on the patient reconnect path.
       const timeoutId = setTimeout(() => {
+        // One-shot: consume the timestamp when the recheck actually fires.
+        // The patient-path upgrade for later rounds is carried by
+        // pendingPostUpdateReconnectRef instead.
+        firmwareUpdateFinishTimeRef.current = null;
         void checkFirmwareUpdate({
           checkAfterUpdate: true,
         });
@@ -722,6 +746,8 @@ function CheckAndUpdatePage({
             onConfirm={() => {
               // Declining the optional update is recorded honestly as
               // Skipped — the flow continues, but without success visuals.
+              // Skipping also cancels any pending focus-effect auto-recheck.
+              firmwareUpdateFinishTimeRef.current = null;
               setSteps((prev) => {
                 const newSteps = [...prev];
                 newSteps[1] = {
@@ -760,6 +786,8 @@ function CheckAndUpdatePage({
 
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
+    // Skipping also cancels any pending focus-effect auto-recheck.
+    firmwareUpdateFinishTimeRef.current = null;
     setSteps((prev) => {
       const index = prev.findIndex(
         (step) => step.state === ECheckAndUpdateStepState.Error,
