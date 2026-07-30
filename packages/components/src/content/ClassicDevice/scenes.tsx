@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { Path, Rect, Svg } from 'react-native-svg';
 
@@ -7,10 +7,8 @@ import {
   useConfirmOnClassicAnimation,
   useEntryOnClassicAnimation,
 } from './animation';
-import { ENTRY_ROW_CY, EntryScreen } from './EntryScreen';
+import { EntryScreen } from './EntryScreen';
 import { ClassicDeviceShell } from './shell';
-
-import type { IEntryScreenProps } from './EntryScreen';
 
 /**
  * Built-in scenes, keyed by the name ClassicDevice's `animation` prop takes.
@@ -86,43 +84,40 @@ function ConfirmScene({ width }: ISceneProps) {
 }
 
 /* ---------------------- character entry ---------------------- *
- * PIN and Passphrase differ only in glyphs; schedule, carets and the
- * final-confirm check come from the shared entry vocabulary. */
+ * PIN and Passphrase differ only in glyphs, each authored around its slot
+ * origin; schedule, carets and the final-confirm check come from the shared
+ * entry vocabulary. */
 
-const renderDiamondEntered = (cx: number) => (
+const DIAMOND_ENTERED = (
   <Rect
     x={-3.45}
     y={-3.45}
     width={6.9}
     height={6.9}
     rx={1.2}
-    transform={`translate(${cx} ${ENTRY_ROW_CY}) rotate(45)`}
+    transform="rotate(45)"
     fill="#fff"
   />
 );
 
 // Hollow diamond, sized so its outer edge matches the filled one.
-const renderDiamondPending = (cx: number) => (
+const DIAMOND_PENDING = (
   <Rect
     x={-2.95}
     y={-2.95}
     width={5.9}
     height={5.9}
     rx={1}
-    transform={`translate(${cx} ${ENTRY_ROW_CY}) rotate(45)`}
+    transform="rotate(45)"
     stroke="#fff"
     strokeWidth={1.5}
   />
 );
 
 // Asterisk: three crossed strokes (masked character).
-const renderAsteriskEntered = (cx: number) => (
+const ASTERISK_ENTERED = (
   <Path
-    d={`M${cx} ${ENTRY_ROW_CY - 3.8}L${cx} ${ENTRY_ROW_CY + 3.8}M${cx - 3.29} ${
-      ENTRY_ROW_CY - 1.9
-    }L${cx + 3.29} ${ENTRY_ROW_CY + 1.9}M${cx + 3.29} ${ENTRY_ROW_CY - 1.9}L${
-      cx - 3.29
-    } ${ENTRY_ROW_CY + 1.9}`}
+    d="M0 -3.8L0 3.8M-3.29 -1.9L3.29 1.9M3.29 -1.9L-3.29 1.9"
     stroke="#fff"
     strokeWidth={1.5}
     strokeLinecap="round"
@@ -130,29 +125,33 @@ const renderAsteriskEntered = (cx: number) => (
   />
 );
 
-// Underscore on the row baseline.
-const renderUnderscorePending = (cx: number) => (
-  <Rect x={cx - 3.5} y={40.8} width={7} height={1.6} rx={0.8} fill="#fff" />
+// Underscore, sitting just below the row centre.
+const UNDERSCORE_PENDING = (
+  <Rect x={-3.5} y={2.3} width={7} height={1.6} rx={0.8} fill="#fff" />
 );
 
 function EntryScene({
   width,
   title,
-  renderEntered,
-  renderPending,
-}: ISceneProps &
-  Pick<IEntryScreenProps, 'title' | 'renderEntered' | 'renderPending'>) {
-  const { animation, clock } = useEntryOnClassicAnimation();
+  enteredGlyph,
+  pendingGlyph,
+}: ISceneProps & {
+  title: string;
+  enteredGlyph: ReactNode;
+  pendingGlyph: ReactNode;
+}) {
+  const { animation, entered, fillCount } = useEntryOnClassicAnimation();
   const screenContent = useMemo(
     () => (
       <EntryScreen
-        clock={clock}
+        entered={entered}
+        fillCount={fillCount}
         title={title}
-        renderEntered={renderEntered}
-        renderPending={renderPending}
+        enteredGlyph={enteredGlyph}
+        pendingGlyph={pendingGlyph}
       />
     ),
-    [clock, title, renderEntered, renderPending],
+    [entered, fillCount, title, enteredGlyph, pendingGlyph],
   );
   return (
     <ClassicDeviceShell
@@ -168,8 +167,8 @@ function EnterPinScene({ width }: ISceneProps) {
     <EntryScene
       width={width}
       title="Enter PIN"
-      renderEntered={renderDiamondEntered}
-      renderPending={renderDiamondPending}
+      enteredGlyph={DIAMOND_ENTERED}
+      pendingGlyph={DIAMOND_PENDING}
     />
   );
 }
@@ -179,8 +178,8 @@ function EnterPassphraseScene({ width }: ISceneProps) {
     <EntryScene
       width={width}
       title="Enter Passphrase"
-      renderEntered={renderAsteriskEntered}
-      renderPending={renderUnderscorePending}
+      enteredGlyph={ASTERISK_ENTERED}
+      pendingGlyph={UNDERSCORE_PENDING}
     />
   );
 }
