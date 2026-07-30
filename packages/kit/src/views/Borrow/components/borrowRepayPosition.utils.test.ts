@@ -10,6 +10,8 @@ import {
   hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
+  isUnsupportedAaveNativeReserve,
+  shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
@@ -22,6 +24,52 @@ describe('borrowRepayPosition utils', () => {
 
     expect(getBorrowBalanceAmount(balance)).toBe('0.0000001');
     expect(hasPositiveBorrowBalance(balance)).toBe(true);
+  });
+
+  it.each(['evm--1', 'evm--8453'])(
+    'routes the Aave native reserve through the gateway on %s',
+    (networkId) => {
+      expect(
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: 'Aave',
+          reserveAddress: '',
+        }),
+      ).toBe(true);
+      expect(
+        isUnsupportedAaveNativeReserve({
+          networkId,
+          providerName: 'aave',
+          reserveAddress: '',
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('keeps non-gateway networks and non-native reserves off the gateway path', () => {
+    // A network without backend gateway coverage stays filtered out.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--42161',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--42161',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    // ERC20 reserves never use the gateway regardless of network.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '0xreserve',
+      }),
+    ).toBe(false);
   });
 
   it('treats zero debt as not eligible for collateral repay entry', () => {

@@ -524,7 +524,7 @@ function isUserRejectedErrorMessage({
   );
 }
 
-function showProtocolPositionActionErrorToast(error: unknown) {
+export function showProtocolPositionActionErrorToast(error: unknown) {
   errorToastUtils.toastIfError(error);
   if (error && typeof error === 'object') {
     // DeFi action submit owns the visible operation boundary. Some backend or

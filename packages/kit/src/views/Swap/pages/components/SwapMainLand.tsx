@@ -23,6 +23,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useRateDifferenceAtom,
@@ -110,6 +111,7 @@ import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetS
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
+import { useSwapModalAutoCloseOnBroadcast } from '../../hooks/useSwapModalAutoCloseOnBroadcast';
 import {
   useSwapProAccount,
   useSwapProErrorAlert,
@@ -154,12 +156,27 @@ interface ISwapMainLoadProps {
 }
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
-  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
+  const dialogRef = useRef<IDialogInstance>(null);
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const isFocused = useRouteIsFocused();
+  const onPopSwapModal = useCallback(() => {
+    navigation.popStack();
+  }, [navigation]);
+  const onSwapBroadcast = useSwapModalAutoCloseOnBroadcast({
+    enabled:
+      pageType === EPageType.modal &&
+      Boolean(swapInitParams?.closeModalAfterSwapBroadcast),
+    isFocused,
+    dialogRef,
+    onPopStack: onPopSwapModal,
+  });
+  const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx({
+    onSwapBroadcast,
+  });
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -417,7 +434,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
-  const dialogRef = useRef<IDialogInstance>(null);
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
   const storeName = useMemo(

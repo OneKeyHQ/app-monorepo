@@ -177,6 +177,10 @@ type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
 };
 
+type IUseSwapBuildTxOptions = {
+  onSwapBroadcast?: () => void | Promise<void>;
+};
+
 function canFallbackToSeparateTxConfirm({
   buildUnsignedParams,
   approveUnsignedTxArr,
@@ -198,7 +202,11 @@ function canFallbackToSeparateTxConfirm({
  *
  * @returns An object with `preSwapStepsStart` to initiate the swap steps process and `cancelLimitOrder` to cancel a limit order.
  */
-export function useSwapBuildTx() {
+export function useSwapBuildTx({
+  onSwapBroadcast,
+}: IUseSwapBuildTxOptions = {}) {
+  const onSwapBroadcastRef = useRef(onSwapBroadcast);
+  onSwapBroadcastRef.current = onSwapBroadcast;
   const intl = useIntl();
   const {
     currentQuoteRes: selectQuote,
@@ -445,6 +453,7 @@ export function useSwapBuildTx() {
           gasFeeFiatValue,
           gasFeeInNative,
         });
+        await onSwapBroadcastRef.current?.();
         if (
           swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
         ) {
@@ -502,6 +511,7 @@ export function useSwapBuildTx() {
         await generateSwapHistoryItem({
           swapTxInfo: swapInfo,
         });
+        await onSwapBroadcastRef.current?.();
       }
     },
     [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],

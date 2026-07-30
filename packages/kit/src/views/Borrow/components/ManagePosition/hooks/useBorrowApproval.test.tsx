@@ -212,6 +212,7 @@ describe('useBorrowApproval', () => {
       address: '0xOwner',
     });
     (Dialog.show as jest.Mock).mockReset();
+    (Toast.error as jest.Mock).mockReset();
     (Toast.warning as jest.Mock).mockReset();
     allowanceMock.fetchAllowanceResponse.mockReset();
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
@@ -476,6 +477,72 @@ describe('useBorrowApproval', () => {
     }
   });
 
+  it('forces a max allowance for a full-close withdraw (gateway pulls the live aToken balance)', async () => {
+    // The allowance covers the displayed amount exactly, but withdraw-all
+    // executes withdrawETH(MaxUint) against the LIVE (interest-growing) aToken
+    // balance — an exact allowance must still trigger a max re-approval.
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '5',
+    });
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const onBeforeNavigateConfirm = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'withdraw',
+        amountValue: '5',
+        withdrawAll: true,
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [
+          expect.objectContaining({
+            amount: '5',
+            isMax: true,
+            spender: tokenApproveTarget.spenderAddress,
+          }),
+        ],
+      }),
+    );
+    expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(1);
+    expect(onBeforeNavigateConfirm.mock.invocationCallOrder[0]).toBeLessThan(
+      signatureConfirmMock.navigationToTxConfirm.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('submits directly when a partial withdraw allowance is already sufficient', async () => {
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '5',
+    });
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'withdraw',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a stale USDT reset dialog confirmation', async () => {
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
       allowanceParsed: '1',
@@ -576,5 +643,286 @@ describe('useBorrowApproval', () => {
         expect.objectContaining({ stakingInfo }),
       ),
     );
+  });
+
+  it('keeps the default unmount guard at the approval navigation boundary', async () => {
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    let unmountApprovalOwner = () => {};
+    const onBeforeNavigateConfirm = jest.fn(async () => {
+      unmountApprovalOwner();
+    });
+    const { result, unmount } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm,
+      }),
+    );
+    unmountApprovalOwner = unmount;
+    const onApprove = result.current.onApprove;
+
+    await act(async () => {
+      await onApprove();
+    });
+
+    expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(1);
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    confirmParams.onSuccess([
+      { decodedTx: { txid: '0xLate' }, signedTx: { txid: '' } },
+    ]);
+    await Promise.resolve();
+
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('continues an opted-in approval after its dialog owner closes', async () => {
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '5' });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    let unmountApprovalOwner = () => {};
+    const onBeforeNavigateConfirm = jest.fn(async () => {
+      unmountApprovalOwner();
+    });
+    const { result, unmount } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm,
+        allowApprovalContinuationAfterUnmount: true,
+      }),
+    );
+    unmountApprovalOwner = unmount;
+    const onApprove = result.current.onApprove;
+
+    await act(async () => {
+      await onApprove();
+    });
+
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    confirmParams.onSuccess([
+      { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+    ]);
+
+    await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+  });
+
+  it('reports a detached business submission failure exactly once', async () => {
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '5' });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest
+      .fn()
+      .mockRejectedValue(new Error('Business build failed'));
+    let unmountApprovalOwner = () => {};
+    const { result, unmount } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+        onBeforeNavigateConfirm: async () => {
+          unmountApprovalOwner();
+        },
+        allowApprovalContinuationAfterUnmount: true,
+      }),
+    );
+    unmountApprovalOwner = unmount;
+    const onApprove = result.current.onApprove;
+
+    await act(async () => {
+      await onApprove();
+    });
+
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    confirmParams.onSuccess([
+      { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+    ]);
+
+    await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'Business build failed',
+    });
+  });
+
+  it.each(['onCancel', 'onFail'] as const)(
+    'makes %s terminal for an opted-in detached approval',
+    async (terminalCallback) => {
+      signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+      const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+      let unmountApprovalOwner = () => {};
+      const { result, unmount } = renderHook(() =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+          onBeforeNavigateConfirm: async () => {
+            unmountApprovalOwner();
+          },
+          allowApprovalContinuationAfterUnmount: true,
+        }),
+      );
+      unmountApprovalOwner = unmount;
+      const onApprove = result.current.onApprove;
+
+      await act(async () => {
+        await onApprove();
+      });
+
+      const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onSuccess: (
+          data: {
+            decodedTx: { txid: string };
+            signedTx: { txid: string };
+          }[],
+        ) => void;
+        onCancel: () => void;
+        onFail: () => void;
+      };
+      confirmParams[terminalCallback]();
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xLate' }, signedTx: { txid: '' } },
+      ]);
+      await Promise.resolve();
+
+      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+      expect(onApprovedSubmit).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an opted-in USDT reset approval alive after dialog close', async () => {
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({
+        allowanceParsed: '340282366920938463463374607431768211456',
+      });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    let unmountApprovalOwner = () => {};
+    let approvalOwnerUnmounted = false;
+    const onBeforeNavigateConfirm = jest.fn(async () => {
+      if (!approvalOwnerUnmounted) {
+        approvalOwnerUnmounted = true;
+        unmountApprovalOwner();
+      }
+    });
+    const { result, unmount } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        repayAll: true,
+        approveType: EApproveType.Legacy,
+        approveTarget: {
+          ...tokenApproveTarget,
+          token: {
+            ...tokenApproveTarget.token,
+            address: '0xUSDT',
+            decimals: 6,
+            name: 'Tether USD',
+            symbol: 'USDT',
+          },
+        },
+        onApprovedSubmit,
+        onBeforeNavigateConfirm,
+        allowApprovalContinuationAfterUnmount: true,
+      }),
+    );
+    unmountApprovalOwner = unmount;
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const resetDialog = (
+      Dialog.show as unknown as {
+        mock: { calls: [{ onConfirm: () => void }][] };
+      }
+    ).mock.calls[0][0];
+    resetDialog.onConfirm();
+
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    confirmParams.onSuccess([
+      { decodedTx: { txid: '0xReset' }, signedTx: { txid: '' } },
+    ]);
+
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        2,
+      ),
+    );
+    const maxApprovalParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[1][0] as {
+      approvesInfo: { amount: string; isMax?: boolean }[];
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    expect(maxApprovalParams.approvesInfo[0]).toEqual(
+      expect.objectContaining({
+        amount: '5',
+        isMax: true,
+      }),
+    );
+    maxApprovalParams.onSuccess([
+      { decodedTx: { txid: '0xMaxApprove' }, signedTx: { txid: '' } },
+    ]);
+
+    await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+    expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(2);
   });
 });

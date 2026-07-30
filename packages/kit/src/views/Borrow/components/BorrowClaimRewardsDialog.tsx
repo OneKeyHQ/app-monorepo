@@ -49,7 +49,7 @@ function ClaimItem({
     claimingItemId === item.id ||
     claimingAllIds.includes(item.id) ||
     pendingClaimIds.includes(item.id);
-  const disabled = item.button.disabled || isLoading;
+  const claimButton = item.button;
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
@@ -64,16 +64,18 @@ function ClaimItem({
           />
         ) : null}
       </YStack>
-      <Button
-        testID={BorrowTestIDs.claimItemBtn}
-        size="small"
-        variant="primary"
-        disabled={disabled}
-        loading={isLoading}
-        onPress={handlePress}
-      >
-        {item.button?.text?.text}
-      </Button>
+      {claimButton ? (
+        <Button
+          testID={BorrowTestIDs.claimItemBtn}
+          size="small"
+          variant="primary"
+          disabled={claimButton.disabled || isLoading}
+          loading={isLoading}
+          onPress={handlePress}
+        >
+          {claimButton.text.text}
+        </Button>
+      ) : null}
     </XStack>
   );
 }
@@ -209,6 +211,7 @@ function BorrowClaimRewardsDialogContent({
     () => rewardsDetails.data.rewardsDetail.unclaimable ?? [],
     [rewardsDetails.data.rewardsDetail.unclaimable],
   );
+  const claimAllButton = rewardsDetails.data.rewardsDetail.button;
 
   const handleClaimItem = useCallback(
     async (item: IEarnRewardClaimItem) => {
@@ -285,15 +288,23 @@ function BorrowClaimRewardsDialogContent({
       {hasClaimableItems ? (
         <Dialog.Footer
           showCancelButton
-          showConfirmButton={false}
+          showConfirmButton={Boolean(claimAllButton)}
           confirmButtonProps={{
-            disabled: loading || rewardsDetails.disabled || !canClaimAll,
+            testID: BorrowTestIDs.claimAllBtn,
+            disabled:
+              loading ||
+              rewardsDetails.disabled ||
+              claimAllButton?.disabled ||
+              !canClaimAll,
             loading,
           }}
           onConfirm={handleClaimAll}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.defi_claim_all,
-          })}
+          onConfirmText={
+            claimAllButton?.text.text ??
+            intl.formatMessage({
+              id: ETranslations.defi_claim_all,
+            })
+          }
         />
       ) : null}
     </YStack>

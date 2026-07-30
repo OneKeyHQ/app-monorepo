@@ -32,13 +32,11 @@ import {
   BorrowTableList,
 } from './BorrowTableList';
 import { Card } from './Card';
-import { getActiveEModeCollateralEligibility } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 type ISuppliedAssetRow = ISuppliedAsset & {
   eModeId?: number;
-  isCollateralUnavailableInEMode: boolean;
 };
 
 const SuppliedHeader = ({
@@ -162,13 +160,6 @@ export const SuppliedCard = ({
         .map<ISuppliedAssetRow>((asset) => ({
           ...asset,
           eModeId,
-          isCollateralUnavailableInEMode:
-            eModeId !== undefined &&
-            getActiveEModeCollateralEligibility({
-              eModeStatus,
-              networkId: market?.networkId,
-              reserveAddress: asset.reserveAddress,
-            }) !== true,
         })),
     [
       eModeId,
@@ -237,13 +228,7 @@ export const SuppliedCard = ({
               align: 'flex-end' as const,
               key: 'collateral',
               render: (item: ISuppliedAssetRow) => (
-                <CollateralSwitchCell
-                  item={item}
-                  eModeId={item.eModeId}
-                  isCollateralUnavailableInEMode={
-                    item.isCollateralUnavailableInEMode
-                  }
-                />
+                <CollateralSwitchCell item={item} eModeId={item.eModeId} />
               ),
               flex: 0.8,
             },
@@ -294,13 +279,7 @@ export const SuppliedCard = ({
               align: 'center' as const,
               key: 'collateral',
               render: (item: ISuppliedAssetRow) => (
-                <CollateralSwitchCell
-                  item={item}
-                  eModeId={item.eModeId}
-                  isCollateralUnavailableInEMode={
-                    item.isCollateralUnavailableInEMode
-                  }
-                />
+                <CollateralSwitchCell item={item} eModeId={item.eModeId} />
               ),
               flex: 1,
             },
