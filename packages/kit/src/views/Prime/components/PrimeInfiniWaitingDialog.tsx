@@ -590,7 +590,7 @@ function PrimeInfiniExternalWaitingMonitor({
                 id: ETranslations.prime_payment_not_confirmed__title,
               }),
               message: intl.formatMessage({
-                id: ETranslations.prime_payment_confirming__desc,
+                id: ETranslations.prime_payment_not_detected__desc,
               }),
             });
           }

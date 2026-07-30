@@ -129,12 +129,16 @@ export default function PrimeDashboard({
   const navigation = useAppNavigation();
 
   const pendingSubscribeRef = useRef<IPrimePendingSubscribe | null>(null);
+  const subscribeInFlightRef = useRef(false);
+  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
 
   usePrimeSubscribeResume({
     ensurePrimeSubscriptionActive,
     featureName: fromFeature,
     isLoggedIn,
+    onLoadingChange: setIsSubscribeLazyLoading,
     pendingSubscribeRef,
+    subscribeInFlightRef,
   });
 
   const dashboardShownRef = useRef(false);
@@ -184,10 +188,6 @@ export default function PrimeDashboard({
     usePrimeSubscriptionPackages({
       enabled: shouldShowSubscriptionPlans,
     });
-
-  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
-  const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
-  isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
 
   const selectedPackage = useMemo(
     () =>
@@ -241,29 +241,30 @@ export default function PrimeDashboard({
     if (!subscribeButtonEnabled) {
       return;
     }
-    if (isSubscribeLazyLoadingRef.current) {
+    if (subscribeInFlightRef.current) {
       return;
     }
-    if (isLoggedIn) {
-      pendingSubscribeRef.current = null;
-    }
-
-    defaultLogger.prime.subscription.primeSubscribeButtonClick({
-      subscriptionPeriod: selectedSubscriptionPeriod,
-      featureName: fromFeature,
-      isLoggedIn,
-    });
-
-    // If not logged in, store intent so we can resume after login
-    if (!isLoggedIn) {
-      pendingSubscribeRef.current = {
-        subscriptionPeriod: selectedSubscriptionPeriod,
-        freeTrial: selectedPackage?.freeTrial,
-      };
-    }
-
+    subscribeInFlightRef.current = true;
     try {
       setIsSubscribeLazyLoading(true);
+      if (isLoggedIn) {
+        pendingSubscribeRef.current = null;
+      }
+
+      defaultLogger.prime.subscription.primeSubscribeButtonClick({
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName: fromFeature,
+        isLoggedIn,
+      });
+
+      // If not logged in, store intent so we can resume after login.
+      if (!isLoggedIn) {
+        pendingSubscribeRef.current = {
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          freeTrial: selectedPackage?.freeTrial,
+        };
+      }
+
       await runPrimeSubscribeWithMinimumLoadingDuration(() =>
         ensurePrimeSubscriptionActive({
           skipDialogConfirm: true,
@@ -273,6 +274,7 @@ export default function PrimeDashboard({
         }),
       );
     } finally {
+      subscribeInFlightRef.current = false;
       setIsSubscribeLazyLoading(false);
     }
   }, [

@@ -279,6 +279,7 @@ function PrimeInfiniPaymentFooter({
   onConfirm,
   afterActionsContent,
 }: IPrimeInfiniPaymentFooterProps) {
+  const intl = useIntl();
   const [confirmButtonMinWidth, setConfirmButtonMinWidth] = useState<number>();
   const handleConfirm = useCallback(() => {
     void Promise.resolve(onConfirm?.()).catch((error) => {
@@ -290,10 +291,12 @@ function PrimeInfiniPaymentFooter({
       });
       showPrimeInfiniPaymentErrorToast({
         error,
-        fallbackMessage: 'Payment action failed',
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.global_failed,
+        }),
       });
     });
-  }, [onConfirm]);
+  }, [intl, onConfirm]);
   let confirmButton: ReactElement | undefined;
   if (showConfirmButton && showConfirmButtonSkeleton) {
     confirmButton = (
@@ -559,10 +562,12 @@ function PrimeInfiniExistingPaymentChoice({
       });
       showPrimeInfiniPaymentErrorToast({
         error,
-        fallbackMessage: 'Unable to start a new payment',
+        fallbackMessage: intl.formatMessage({
+          id: ETranslations.prime_payment_start_failed__msg,
+        }),
       });
     });
-  }, [onStartNewPayment, session]);
+  }, [intl, onStartNewPayment, session]);
 
   return (
     <>
@@ -3708,9 +3713,13 @@ function PrimeInfiniWalletPaymentContent({
         onConfirmContent={
           isPaymentButtonPreparing ? undefined : (
             <SizableText
-              size="$bodyLgMedium"
+              size="$bodyMdMedium"
+              $gtMd={{ size: '$bodyLgMedium' }}
               color="$textInverse"
               style={PRIME_PAYMENT_BUTTON_NUMERIC_STYLE}
+              minWidth={0}
+              flexShrink={1}
+              textAlign="center"
               numberOfLines={1}
             >
               {payButtonText}

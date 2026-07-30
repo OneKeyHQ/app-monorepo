@@ -1,5 +1,5 @@
 /* cspell:ignore Infini */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -102,6 +102,9 @@ function PrimePaymentMethodItems({
 }) {
   const intl = useIntl();
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
+  const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
+    undefined,
+  );
   // Android can show native and Web checkout together. A trial belongs only
   // to the offering source that reported it, so never copy it to both rows.
   const freeTrialMethod = getFreeTrialPaymentMethod(freeTrial);
@@ -132,23 +135,28 @@ function PrimePaymentMethodItems({
   };
   const handleSelect = useCallback(
     async (method: IPrimePaymentMethodKey) => {
-      if (pendingMethod) {
+      if (pendingMethodRef.current) {
         return;
       }
+      pendingMethodRef.current = method;
       setPendingMethod(method);
+      const clearPendingMethod = () => {
+        pendingMethodRef.current = undefined;
+        setPendingMethod(undefined);
+      };
       try {
         const didStart = await onSelect(method);
         if (!didStart) {
-          setPendingMethod(undefined);
+          clearPendingMethod();
         }
       } catch (error) {
         // Keep the current picker retryable if validation or closing the picker
         // fails before the selected payment flow starts.
-        setPendingMethod(undefined);
+        clearPendingMethod();
         throw error;
       }
     },
-    [onSelect, pendingMethod],
+    [onSelect],
   );
   return (
     <>
@@ -539,6 +547,9 @@ export const PrimePurchaseDialog = (props: {
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
   });
+  const selectedPackage = packages?.find(
+    (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+  );
   return (
     <Stack mt="$8">
       {packages ? (
@@ -560,12 +571,12 @@ export const PrimePurchaseDialog = (props: {
           id: ETranslations.prime_subscribe,
         })}
         confirmButtonProps={{
-          disabled: !packages,
+          disabled: !selectedPackage,
         }}
         onConfirm={() => {
-          const selectedPackage = packages?.find(
-            (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-          );
+          if (!selectedPackage) {
+            return undefined;
+          }
           return purchase({
             selectedSubscriptionPeriod,
             currency: selectedPackage?.currencyCode,

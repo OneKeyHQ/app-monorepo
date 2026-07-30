@@ -20,14 +20,18 @@ export function usePrimeSubscribeResume({
   ensurePrimeSubscriptionActive,
   featureName,
   isLoggedIn,
+  onLoadingChange,
   pendingSubscribeRef,
+  subscribeInFlightRef,
 }: {
   ensurePrimeSubscriptionActive: ReturnType<
     typeof usePrimeRequirements
   >['ensurePrimeSubscriptionActive'];
   featureName?: EPrimeFeatures;
   isLoggedIn: boolean;
+  onLoadingChange: (loading: boolean) => void;
   pendingSubscribeRef: MutableRefObject<IPrimePendingSubscribe | null>;
+  subscribeInFlightRef: MutableRefObject<boolean>;
 }) {
   useEffect(() => {
     if (!isLoggedIn || !pendingSubscribeRef.current) {
@@ -39,7 +43,12 @@ export function usePrimeSubscribeResume({
       if (!pendingSubscribe) {
         return;
       }
+      if (subscribeInFlightRef.current) {
+        return;
+      }
       pendingSubscribeRef.current = null;
+      subscribeInFlightRef.current = true;
+      onLoadingChange(true);
       try {
         await ensurePrimeSubscriptionActive({
           skipDialogConfirm: true,
@@ -50,6 +59,9 @@ export function usePrimeSubscribeResume({
       } catch {
         // Login was completed but subscription check may throw
         // (e.g., user cancelled purchase dialog) — safe to ignore
+      } finally {
+        subscribeInFlightRef.current = false;
+        onLoadingChange(false);
       }
     }, PRIME_SUBSCRIBE_RESUME_DELAY_MS);
 
@@ -58,6 +70,8 @@ export function usePrimeSubscribeResume({
     ensurePrimeSubscriptionActive,
     featureName,
     isLoggedIn,
+    onLoadingChange,
     pendingSubscribeRef,
+    subscribeInFlightRef,
   ]);
 }

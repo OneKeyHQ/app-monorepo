@@ -94,11 +94,25 @@ function getRenewalStoppedDescription({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <XStack justifyContent="space-between" alignItems="center" gap="$4">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack
+      justifyContent="space-between"
+      alignItems="center"
+      gap="$4"
+      $md={{
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: '$1',
+      }}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
         {label}
       </SizableText>
-      <SizableText size="$bodyMdMedium" textAlign="right" flexShrink={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="right"
+        flexShrink={1}
+        $md={{ textAlign: 'left' }}
+      >
         {value}
       </SizableText>
     </XStack>

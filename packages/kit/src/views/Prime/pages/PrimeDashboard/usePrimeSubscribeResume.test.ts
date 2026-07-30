@@ -29,6 +29,12 @@ function buildPendingSubscribeRef(): MutableRefObject<IPrimePendingSubscribe | n
   };
 }
 
+function buildSubscribeInFlightRef(): MutableRefObject<boolean> {
+  return {
+    current: false,
+  };
+}
+
 describe('usePrimeSubscribeResume', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -43,6 +49,8 @@ describe('usePrimeSubscribeResume', () => {
     const firstEnsure = jest.fn(async () => undefined);
     const latestEnsure = jest.fn(async () => undefined);
     const pendingSubscribeRef = buildPendingSubscribeRef();
+    const subscribeInFlightRef = buildSubscribeInFlightRef();
+    const onLoadingChange = jest.fn();
     const { rerender } = renderHook(
       ({
         ensurePrimeSubscriptionActive,
@@ -55,7 +63,9 @@ describe('usePrimeSubscribeResume', () => {
           ensurePrimeSubscriptionActive,
           featureName,
           isLoggedIn: true,
+          onLoadingChange,
           pendingSubscribeRef,
+          subscribeInFlightRef,
         }),
       {
         initialProps: {
@@ -95,11 +105,14 @@ describe('usePrimeSubscribeResume', () => {
   it('does not resume after an explicit action consumes the pending intent', async () => {
     const ensurePrimeSubscriptionActive = jest.fn(async () => undefined);
     const pendingSubscribeRef = buildPendingSubscribeRef();
+    const subscribeInFlightRef = buildSubscribeInFlightRef();
     renderHook(() =>
       usePrimeSubscribeResume({
         ensurePrimeSubscriptionActive,
         isLoggedIn: true,
+        onLoadingChange: jest.fn(),
         pendingSubscribeRef,
+        subscribeInFlightRef,
       }),
     );
 
@@ -109,5 +122,43 @@ describe('usePrimeSubscribeResume', () => {
     });
 
     expect(ensurePrimeSubscriptionActive).not.toHaveBeenCalled();
+  });
+
+  it('holds the shared subscription lock while resuming after login', async () => {
+    let finishSubscribe: (() => void) | undefined;
+    const ensurePrimeSubscriptionActive = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSubscribe = resolve;
+        }),
+    );
+    const pendingSubscribeRef = buildPendingSubscribeRef();
+    const subscribeInFlightRef = buildSubscribeInFlightRef();
+    const onLoadingChange = jest.fn();
+    renderHook(() =>
+      usePrimeSubscribeResume({
+        ensurePrimeSubscriptionActive,
+        isLoggedIn: true,
+        onLoadingChange,
+        pendingSubscribeRef,
+        subscribeInFlightRef,
+      }),
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(PRIME_SUBSCRIBE_RESUME_DELAY_MS);
+    });
+
+    expect(subscribeInFlightRef.current).toBe(true);
+    expect(pendingSubscribeRef.current).toBeNull();
+    expect(onLoadingChange).toHaveBeenCalledWith(true);
+
+    await act(async () => {
+      finishSubscribe?.();
+      await Promise.resolve();
+    });
+
+    expect(subscribeInFlightRef.current).toBe(false);
+    expect(onLoadingChange).toHaveBeenLastCalledWith(false);
   });
 });

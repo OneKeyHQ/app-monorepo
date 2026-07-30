@@ -7,7 +7,10 @@ import { act, cleanup, render, renderHook } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { usePrimePurchaseCallback } from './PrimePurchaseDialog';
+import {
+  PrimePurchaseDialog,
+  usePrimePurchaseCallback,
+} from './PrimePurchaseDialog';
 
 type IPrimeInfiniPaymentEntryGuard = {
   isLoggedIn: boolean;
@@ -23,10 +26,20 @@ type IMockDialogInstance = {
   close: () => Promise<void>;
 };
 
+type IMockDialogFooterProps = {
+  confirmButtonProps?: {
+    disabled?: boolean;
+  };
+  onConfirm?: () => Promise<void> | undefined;
+};
+
 const mockDialogShow = jest.fn<
   IMockDialogInstance,
   [config: IMockDialogConfig]
 >();
+const mockDialogFooter = jest.fn<null, [props: IMockDialogFooterProps]>(
+  () => null,
+);
 const mockPaymentMethodDialogClose = jest.fn(async () => undefined);
 const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   Promise<IPrimeInfiniPaymentEntryGuard>,
@@ -44,6 +57,7 @@ const mockListItem = jest.fn<
   null,
   [
     props: {
+      onPress?: () => Promise<void>;
       subtitle?: string;
       testID?: string;
     },
@@ -51,6 +65,18 @@ const mockListItem = jest.fn<
 >(() => null);
 const mockShowPrimeInfiniPaymentErrorToast = jest.fn();
 const mockLogPrimeInfiniPaymentFlow = jest.fn();
+let mockPackagesResult:
+  | {
+      currencyCode?: string;
+      freeTrial?: {
+        periodIso: string;
+        periodNumber: number;
+        periodUnit: 'day' | 'week' | 'month' | 'year';
+        source: 'native' | 'web';
+      };
+      subscriptionPeriod: 'P1M' | 'P1Y';
+    }[]
+  | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -66,6 +92,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Dialog: {
       show: (config: IMockDialogConfig) => mockDialogShow(config),
+      Footer: (props: IMockDialogFooterProps) => mockDialogFooter(props),
     },
     Skeleton: () => null,
     Stack: Passthrough,
@@ -74,8 +101,11 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: (props: { subtitle?: string; testID?: string }) =>
-    mockListItem(props),
+  ListItem: (props: {
+    onPress?: () => Promise<void>;
+    subtitle?: string;
+    testID?: string;
+  }) => mockListItem(props),
 }));
 
 jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
@@ -91,7 +121,7 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => ({
-    result: undefined,
+    result: mockPackagesResult,
   }),
 }));
 
@@ -190,6 +220,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockPlatformEnv.isNativeAndroid = false;
     mockPlatformEnv.isNativeAndroidGooglePlay = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPackagesResult = undefined;
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockDialogShow.mockReturnValue({
       close: mockPaymentMethodDialogClose,
@@ -266,6 +297,37 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
         ([props]) => props.testID === 'prime-pay-with-crypto',
       )?.[0].subtitle,
     ).toBe(ETranslations.prime_no_free_trial__desc);
+  });
+
+  it.each([
+    {
+      name: 'an empty package list',
+      packages: [],
+    },
+    {
+      name: 'no package for the default yearly period',
+      packages: [
+        {
+          subscriptionPeriod: 'P1M' as const,
+          currencyCode: 'USD',
+        },
+      ],
+    },
+  ])('disables purchase for $name', async ({ packages }) => {
+    mockPackagesResult = packages;
+
+    render(<PrimePurchaseDialog onPurchase={jest.fn(async () => undefined)} />);
+
+    const footerProps =
+      mockDialogFooter.mock.calls[mockDialogFooter.mock.calls.length - 1][0];
+    expect(footerProps.confirmButtonProps?.disabled).toBe(true);
+
+    await act(async () => {
+      await footerProps.onConfirm?.();
+    });
+
+    expect(mockGetPrimeInfiniPaymentEntryGuard).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -424,5 +486,38 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       featureName: undefined,
     });
     expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+  });
+
+  it('starts a payment method only once for same-tick presses', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+
+    await act(async () => {
+      await result.current.purchase({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+
+    const dialogConfig = mockDialogShow.mock.calls[0][0] as {
+      renderContent: IPaymentMethodDialogContent;
+    };
+    render(dialogConfig.renderContent);
+    const cardMethod = mockListItem.mock.calls.find(
+      ([props]) => props.testID === 'prime-pay-with-card',
+    )?.[0];
+    expect(cardMethod?.onPress).toBeDefined();
+
+    await act(async () => {
+      const firstPress = cardMethod?.onPress?.();
+      const secondPress = cardMethod?.onPress?.();
+      await Promise.all([firstPress, secondPress]);
+    });
+
+    expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
+    expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
   });
 });
