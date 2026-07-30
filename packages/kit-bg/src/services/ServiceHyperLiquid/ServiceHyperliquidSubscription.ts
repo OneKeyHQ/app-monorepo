@@ -1090,7 +1090,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableSubscriptionsHandler(): Promise<void> {
+  async getSubscriptionsHandlerDisabledCount(): Promise<number> {
+    return this.subscriptionsHandlerDisabledCount;
+  }
+
+  @backgroundMethod()
+  async enableSubscriptionsHandler(options?: {
+    ifDisabledCountAtMost?: number;
+  }): Promise<void> {
+    // Callers holding a liveness proof pass the disable count they observed
+    // when it was captured; a disable landing after that (blur, lock) bumps
+    // the count and wins over the now-stale proof. The count is monotonic in
+    // this runtime, so no cross-runtime clock comparison is involved.
+    if (
+      options?.ifDisabledCountAtMost !== undefined &&
+      this.subscriptionsHandlerDisabledCount > options.ifDisabledCountAtMost
+    ) {
+      return;
+    }
     this.subscriptionsHandlerDisabled = false;
     if (this.hasNewUserFills) {
       this.hasNewUserFills = false;
