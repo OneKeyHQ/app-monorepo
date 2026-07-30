@@ -173,13 +173,19 @@ export function getStockChartDisplayState({
   baseChartData,
   isChartStateForCurrentScope,
   isLoading,
+  requestStatus,
   realtimeChartPoint,
 }: {
   baseChartData: IMarketTokenChart;
   isChartStateForCurrentScope: boolean;
   isLoading?: boolean;
+  requestStatus?: 'pending' | 'success' | 'error';
   realtimeChartPoint?: IMarketTokenChart[number];
 }) {
+  const shouldShowChartError =
+    baseChartData.length === 0 &&
+    isChartStateForCurrentScope &&
+    requestStatus === 'error';
   return {
     chartData: mergeStockChartRealtimePoint({
       baseChartData,
@@ -187,8 +193,12 @@ export function getStockChartDisplayState({
         ? realtimeChartPoint
         : undefined,
     }),
+    shouldShowChartError,
     shouldShowChartLoading:
       baseChartData.length === 0 &&
-      (Boolean(isLoading) || !isChartStateForCurrentScope),
+      !shouldShowChartError &&
+      (requestStatus === 'pending' ||
+        Boolean(isLoading) ||
+        !isChartStateForCurrentScope),
   };
 }
