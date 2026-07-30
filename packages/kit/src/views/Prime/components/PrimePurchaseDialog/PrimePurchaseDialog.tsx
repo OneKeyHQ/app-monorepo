@@ -79,6 +79,18 @@ const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   ...ANDROID_PAYMENT_METHODS,
 ];
 
+function getFreeTrialPaymentMethod(
+  freeTrial: IPackageFreeTrial | undefined,
+): IPrimePaymentMethodKey | undefined {
+  if (freeTrial?.source === 'native') {
+    return 'native';
+  }
+  if (freeTrial?.source === 'web') {
+    return platformEnv.isNativeAndroid ? 'webview' : 'webStripe';
+  }
+  return undefined;
+}
+
 function PrimePaymentMethodItems({
   methods,
   freeTrial,
@@ -90,6 +102,12 @@ function PrimePaymentMethodItems({
 }) {
   const intl = useIntl();
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
+  // Android can show native and Web checkout together. A trial belongs only
+  // to the offering source that reported it, so never copy it to both rows.
+  const freeTrialMethod = getFreeTrialPaymentMethod(freeTrial);
+  const hasFreeTrialMethod = methods.some(
+    (method) => method.key === freeTrialMethod,
+  );
   let trialIncludedSubtitle: string | undefined;
   if (freeTrial?.periodUnit === 'day') {
     trialIncludedSubtitle = intl.formatMessage(
@@ -102,16 +120,15 @@ function PrimePaymentMethodItems({
     });
   }
   const getMethodSubtitle = (method: IPrimePaymentMethodOption) => {
-    // Without a free trial both channels grant the same thing, so there is
-    // no difference worth stating on the rows.
-    if (!freeTrial) {
+    if (!freeTrial || !hasFreeTrialMethod) {
       return undefined;
     }
-    return method.key === 'crypto'
-      ? intl.formatMessage({
-          id: ETranslations.prime_no_free_trial__desc,
-        })
-      : trialIncludedSubtitle;
+    if (method.key === 'crypto') {
+      return intl.formatMessage({
+        id: ETranslations.prime_no_free_trial__desc,
+      });
+    }
+    return method.key === freeTrialMethod ? trialIncludedSubtitle : undefined;
   };
   const handleSelect = useCallback(
     async (method: IPrimePaymentMethodKey) => {

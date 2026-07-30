@@ -17,6 +17,7 @@ const freeTrial = {
   periodIso: 'P3D',
   periodNumber: 3,
   periodUnit: 'day' as const,
+  source: 'web' as const,
 };
 
 function buildPendingSubscribeRef(): MutableRefObject<IPrimePendingSubscribe | null> {
