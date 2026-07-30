@@ -1622,6 +1622,7 @@ function StockMarketTokenHeader({
 
 function StockPriceChart({
   coinGeckoId,
+  forceLoading,
   isNative,
   networkId,
   onRangeChange,
@@ -1631,6 +1632,7 @@ function StockPriceChart({
   tokenAddress,
 }: {
   coinGeckoId?: string;
+  forceLoading?: boolean;
   isNative?: boolean;
   networkId?: string;
   onRangeChange: (range: IStockChartRange) => void;
@@ -1881,7 +1883,7 @@ function StockPriceChart({
       </SizableText>
     </YStack>
   );
-  if (shouldShowChartLoading) {
+  if (forceLoading || shouldShowChartLoading) {
     chartContent = <Skeleton w="100%" h="100%" />;
   } else if (chartData.length > 0) {
     chartContent = (
@@ -2172,10 +2174,11 @@ function StockMarketContextPanel({
   // Only pulse the chart tail while the market is open (live updating).
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
   let chartContent: ReactNode;
-  if (chartReady) {
+  if (chartReady || marketPanelLoading) {
     chartContent = (
       <StockPriceChart
         coinGeckoId={coinGeckoId}
+        forceLoading={!chartReady}
         tokenAddress={tokenAddress ?? ''}
         networkId={networkId ?? ''}
         isNative={isNative}
@@ -2185,8 +2188,6 @@ function StockMarketContextPanel({
         realtimeChartPoint={stockChannel.realtimeChartPoint}
       />
     );
-  } else if (marketPanelLoading) {
-    chartContent = <Skeleton w="100%" h={274} />;
   } else {
     chartContent = <StockMarketChartEmptyState />;
   }
