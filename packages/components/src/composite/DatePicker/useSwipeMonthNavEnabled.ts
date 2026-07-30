@@ -10,6 +10,14 @@ import { useMedia } from '../../hooks';
 export const SWIPE_PAGER_OFFSETS: number[] = [-1, 1];
 
 /**
+ * Rehookify calendar slot indexes produced by SWIPE_PAGER_OFFSETS.
+ * Keep in sync with the offsets array above.
+ */
+export const CALENDAR_CURRENT = 0;
+export const CALENDAR_PREV = 1;
+export const CALENDAR_NEXT = 2;
+
+/**
  * Swipe month navigation applies to native single-panel calendars only.
  * iPad (gtMd) keeps the dual-panel range layout; web/desktop keep buttons.
  */

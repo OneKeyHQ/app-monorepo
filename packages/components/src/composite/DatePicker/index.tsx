@@ -34,17 +34,27 @@ import type {
 
 const WEEK_START_MONDAY = 1 as const;
 
-const createPickerConfig = (
-  selectedDates: Date[],
-  handleDatesChange: (dates: Date[]) => void,
-  minDate?: Date,
-  maxDate?: Date,
-  mode: 'single' | 'range' | 'multiple' = 'single',
-  calendarMode?: 'static',
-  locale?: string,
-  showPreviousMonth?: boolean,
-  enableSwipeMonthNav?: boolean,
-) => {
+const createPickerConfig = ({
+  selectedDates,
+  onDatesChange,
+  minDate,
+  maxDate,
+  mode = 'single',
+  calendarMode,
+  locale,
+  showPreviousMonth,
+  enableSwipeMonthNav,
+}: {
+  selectedDates: Date[];
+  onDatesChange: (dates: Date[]) => void;
+  minDate?: Date;
+  maxDate?: Date;
+  mode?: 'single' | 'range' | 'multiple';
+  calendarMode?: 'static';
+  locale?: string;
+  showPreviousMonth?: boolean;
+  enableSwipeMonthNav?: boolean;
+}) => {
   let offsets: number[] | undefined;
   if (calendarMode !== 'static' && enableSwipeMonthNav) {
     offsets = SWIPE_PAGER_OFFSETS;
@@ -54,7 +64,7 @@ const createPickerConfig = (
 
   const config: React.ComponentProps<typeof DatePickerProvider>['config'] = {
     selectedDates,
-    onDatesChange: handleDatesChange,
+    onDatesChange,
     dates: {
       mode,
       minDate,
@@ -209,17 +219,14 @@ function BasicDatePicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        undefined,
         locale,
-        undefined,
         enableSwipeMonthNav,
-      ),
+      }),
     [
       selectedDates,
       handleDatesChange,
@@ -370,17 +377,16 @@ function RangePicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'range',
-        undefined,
+        mode: 'range',
         locale,
         showPreviousMonth,
         enableSwipeMonthNav,
-      ),
+      }),
     [
       selectedDates,
       handleDatesChange,
@@ -483,15 +489,14 @@ function YearPicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        'static',
+        calendarMode: 'static',
         locale,
-      ),
+      }),
     [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
@@ -574,15 +579,14 @@ function MonthPicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        'static',
+        calendarMode: 'static',
         locale,
-      ),
+      }),
     [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
@@ -662,17 +666,15 @@ function MultiSelectPicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
-        value,
-        handleDatesChange,
+      createPickerConfig({
+        selectedDates: value,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'multiple',
-        undefined,
+        mode: 'multiple',
         locale,
-        undefined,
         enableSwipeMonthNav,
-      ),
+      }),
     [value, handleDatesChange, minDate, maxDate, locale, enableSwipeMonthNav],
   );
 
