@@ -215,7 +215,8 @@ function KytRiskDetail() {
   );
   const hasCompletedRiskResult =
     riskDetail.level !== EKytRiskLevel.Checking &&
-    riskDetail.level !== EKytRiskLevel.Failed;
+    riskDetail.level !== EKytRiskLevel.Failed &&
+    Boolean(LEVEL_CONTENT[riskDetail.level]);
 
   const handleViewReport = useCallback(() => {
     if (!canViewReport || !riskDetail.reportUrl) {
