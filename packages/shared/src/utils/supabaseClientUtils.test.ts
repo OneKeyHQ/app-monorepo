@@ -19,16 +19,23 @@ jest.mock(
 
 function createErrorResponse({
   body,
+  cloneError,
   contentType = 'application/json',
 }: {
   body: string;
+  cloneError?: Error;
   contentType?: string;
 }): Response {
   const response = {
-    clone: () => ({
-      body: undefined,
-      text: async () => body,
-    }),
+    clone: () => {
+      if (cloneError) {
+        throw cloneError;
+      }
+      return {
+        body: undefined,
+        text: async () => body,
+      };
+    },
     headers: {
       get: (name: string) =>
         name.toLowerCase() === 'content-type' ? contentType : null,
@@ -94,6 +101,23 @@ describe('sessionPreservingSupabaseFetch', () => {
           'For security purposes, you can only request this after 17 seconds.',
       }),
       contentType: '',
+    });
+    globalThis.fetch = jest.fn(async () => response);
+    const guardedFetch = await getGuardedFetch();
+
+    await expect(
+      guardedFetch('https://example.supabase.co/auth/v1/otp'),
+    ).resolves.toBe(response);
+  });
+
+  test('passes the email OTP 429 to auth-js when the response clone cannot be read', async () => {
+    const response = createErrorResponse({
+      body: JSON.stringify({
+        code: 'over_email_send_rate_limit',
+        message:
+          'For security purposes, you can only request this after 17 seconds.',
+      }),
+      cloneError: new Error('Response body is unavailable to the fetch guard'),
     });
     globalThis.fetch = jest.fn(async () => response);
     const guardedFetch = await getGuardedFetch();

@@ -200,19 +200,7 @@ function buildInterceptedResponseFingerprint(
   )} body=${classifyInterceptedResponseBody(bodyText)}]`;
 }
 
-function isDefinitiveEmailOtpCooldownResponse({
-  input,
-  response,
-  bodyText,
-}: {
-  input: RequestInfo | URL;
-  response: Response;
-  bodyText: string | undefined;
-}): boolean {
-  if (response.status !== 429 || !bodyText) {
-    return false;
-  }
-
+function isEmailOtpRequest(input: RequestInfo | URL): boolean {
   let requestUrl = '';
   if (typeof input === 'string') {
     requestUrl = input;
@@ -227,8 +215,28 @@ function isDefinitiveEmailOtpCooldownResponse({
   } catch {
     return false;
   }
-  if (!pathname.endsWith('/auth/v1/otp')) {
+  return pathname.endsWith('/auth/v1/otp');
+}
+
+function isDefinitiveEmailOtpCooldownResponse({
+  input,
+  response,
+  bodyText,
+}: {
+  input: RequestInfo | URL;
+  response: Response;
+  bodyText: string | undefined;
+}): boolean {
+  if (response.status !== 429 || !isEmailOtpRequest(input)) {
     return false;
+  }
+
+  // If cloning the exact OTP response fails, preserve the original body for
+  // auth-js. signInWithOtp handles its own AuthError without removing the
+  // persisted login session, while converting the response to TypeError here
+  // would irreversibly discard the server's cooldown code and retry delay.
+  if (bodyText === undefined) {
+    return true;
   }
 
   try {
@@ -262,8 +270,11 @@ const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
     // JSON code through so the UI can show the server retry delay. Do not
     // depend on content-type: browser CORS and intermediaries may hide or
     // rewrite that header even when the body is the definitive GoTrue JSON.
-    // Every refresh-token 429 and intermediary/non-JSON 429 remains a fetch
-    // rejection, preserving the persisted rotating refresh-token session.
+    // If this exact OTP response cannot be cloned, leave its original body
+    // for auth-js instead of replacing the actionable cooldown with a
+    // synthetic network error. Every refresh-token 429 and readable
+    // intermediary/non-cooldown 429 remains a fetch rejection, preserving the
+    // persisted rotating refresh-token session.
     if (
       isDefinitiveEmailOtpCooldownResponse({
         input,
