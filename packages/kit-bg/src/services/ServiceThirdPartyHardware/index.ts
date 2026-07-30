@@ -1393,9 +1393,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       params.vendor !== EHardwareVendor.trezor &&
       params.vendor !== EHardwareVendor.ledger
     ) {
-      throw new OneKeyLocalError(
-        'Local mock device claim supports only Trezor and Ledger',
-      );
+      throw new OneKeyLocalError('本地设备验真测试仅支持 Trezor 和 Ledger');
     }
     const vendor =
       params.vendor === EHardwareVendor.trezor ? 'trezor' : 'ledger';
@@ -1470,7 +1468,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       params.vendor !== EHardwareVendor.trezor &&
       params.vendor !== EHardwareVendor.ledger
     ) {
-      return empty('unsupported_source', 'Unsupported third-party source.');
+      return empty('unsupported_source', '不支持该第三方账户来源。');
     }
     const [{ accounts }, { indexedAccounts }, { wallets }] = await Promise.all([
       this.backgroundApi.serviceAccount.getAllAccounts({
@@ -1498,7 +1496,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
 
     if (params.vendor === EHardwareVendor.ledger) {
       const scopeDescription =
-        'Ledger Live: all plaintext Ethereum name/address entries on this computer. OneKey: only wallets associated with the selected Ledger device, grouped by chain and address.';
+        'Ledger Live：读取这台电脑上全部明文以太坊账户名称和地址。OneKey：仅显示与当前 Ledger 设备关联的钱包，并按链和地址分组。';
       const localTargets = (
         await this.resolveAccountNameTargetNetworkNames(
           buildAccountNameTargets({
@@ -1548,7 +1546,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     }
 
     const scopeDescription =
-      'Trezor Suite: locally cached Bitcoin accounts for the selected Suite deviceId, with one cached receive address per account. OneKey: only wallets associated with the selected Trezor device. No hardware address derivation is performed.';
+      'Trezor Suite：读取当前 Suite 设备标识对应的本地比特币账户缓存，每个账户读取一个已缓存的收款地址。OneKey：仅显示与当前 Trezor 设备关联的钱包；不会从硬件派生地址。';
     const localTargets = await this.resolveAccountNameTargetNetworkNames(
       buildAccountNameTargets({
         accounts,

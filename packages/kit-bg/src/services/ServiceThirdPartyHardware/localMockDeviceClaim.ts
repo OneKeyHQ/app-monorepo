@@ -35,26 +35,26 @@ export function verifyLocalMockDeviceClaimEvidence({
 }): ILocalMockDeviceClaimVerification {
   if (authenticity.vendor !== vendor) {
     throw new OneKeyLocalError({
-      message: 'Local mock claim received evidence for another vendor',
+      message: '本地测试领取收到了其他厂商的设备证明',
     });
   }
 
   if (vendor === 'trezor') {
     if (!authenticity.verified) {
       throw new OneKeyLocalError({
-        message: `Trezor genuine check failed: ${
-          authenticity.error || 'SDK returned verified=false'
+        message: `Trezor 原厂验真失败：${
+          authenticity.error || '设备接口返回验真未通过'
         }`,
       });
     }
     if (authenticity.usedDebugKey) {
       throw new OneKeyLocalError({
-        message: 'Trezor genuine check rejected a debug or staging root key',
+        message: 'Trezor 原厂验真拒绝了调试或预发布根密钥',
       });
     }
     if (!authenticity.deviceId) {
       throw new OneKeyLocalError({
-        message: 'Trezor genuine check did not return a physical-device ID',
+        message: 'Trezor 原厂验真未返回物理设备的验真标识',
       });
     }
     return {
@@ -69,8 +69,7 @@ export function verifyLocalMockDeviceClaimEvidence({
     !/^[0-9a-f]{64}$/i.test(authenticity.deviceId)
   ) {
     throw new OneKeyLocalError({
-      message:
-        'Ledger genuine check did not return a verified physical-device DSID',
+      message: 'Ledger 原厂验真未返回已验证的物理设备验真标识',
     });
   }
   return {
@@ -109,7 +108,7 @@ export async function runTrustedLocalMockDeviceClaim({
     )
   ) {
     throw new OneKeyLocalError({
-      message: 'The trusted verification authority did not issue a DEV voucher',
+      message: '可信验真服务未签发本地测试券',
     });
   }
 

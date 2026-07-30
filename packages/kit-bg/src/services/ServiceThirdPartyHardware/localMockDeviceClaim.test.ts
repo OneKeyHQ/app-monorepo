@@ -52,7 +52,7 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'trezor',
           authenticity,
         }),
-      ).toThrow('Trezor genuine check');
+      ).toThrow('Trezor 原厂验真');
     }
   });
 
@@ -66,7 +66,7 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           error: 'ROOT_PUBKEY_NOT_FOUND',
         },
       }),
-    ).toThrow('Trezor genuine check failed: ROOT_PUBKEY_NOT_FOUND');
+    ).toThrow('Trezor 原厂验真失败：ROOT_PUBKEY_NOT_FOUND');
   });
 
   it('accepts only a genuine Ledger vendor result with a captured DSID', () => {
@@ -101,7 +101,7 @@ describe('verifyLocalMockDeviceClaimEvidence', () => {
           vendor: 'ledger',
           authenticity,
         }),
-      ).toThrow('Ledger genuine check');
+      ).toThrow('Ledger 原厂验真');
     }
   });
 

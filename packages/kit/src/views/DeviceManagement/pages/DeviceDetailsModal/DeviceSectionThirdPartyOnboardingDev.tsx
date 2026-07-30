@@ -23,7 +23,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ListItemGroup } from '../ListItemGroup';
 
-// cspell:ignore DSID
 type ILocalVerificationStatus = 'idle' | 'pending' | 'verified' | 'failed';
 type INameSyncStatus = 'idle' | 'pending' | 'done' | 'failed';
 
@@ -31,21 +30,29 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return (error instanceof Error ? error.message : '') || fallback;
 }
 
+function getNetworkDisplayName(networkImpl: string, networkName: string) {
+  if (networkImpl === 'btc') {
+    return '比特币';
+  }
+  if (networkImpl === 'evm') {
+    return '以太坊兼容网络';
+  }
+  return networkName;
+}
+
 function getNameSourceStatusMessage(
   status: IThirdPartyAccountNameSourceStatus,
 ): string {
   const messages: Record<IThirdPartyAccountNameSourceStatus, string> = {
-    available: 'The source was read, but no account needs to be renamed.',
-    no_matches: 'No OneKey account address matched the source accounts.',
-    source_not_found:
-      'The wallet application account data was not found on this computer.',
-    encrypted_source:
-      'The local account source is encrypted and cannot be read directly.',
+    available: '已读取来源账户，但没有需要重命名的账户。',
+    no_matches: '没有 OneKey 账户地址与来源账户匹配。',
+    source_not_found: '未在这台电脑上找到对应钱包应用的账户数据。',
+    encrypted_source: '本地账户数据已加密，无法直接读取。',
     cloud_source_requires_authorization:
-      'This source requires authorization and is not enabled in this test.',
-    unsupported_source: 'This source is not supported on the current platform.',
+      '该账户来源需要授权，本次测试尚未启用。',
+    unsupported_source: '当前平台不支持读取该账户来源。',
     invalid_source:
-      'The local wallet data was found, but OneKey could not read it safely. Close the wallet application and retry.',
+      '已找到本地钱包数据，但 OneKey 无法安全读取。请关闭钱包应用后重试。',
   };
   return messages[status];
 }
@@ -66,7 +73,7 @@ function AccountNameSourceInventory({
   const sourceWalletName =
     vendor === EHardwareVendor.trezor ? 'Trezor Suite' : 'Ledger Live';
   const sourceChainName =
-    vendor === EHardwareVendor.trezor ? 'Bitcoin' : 'Ethereum';
+    vendor === EHardwareVendor.trezor ? '比特币' : '以太坊';
   const localWalletGroups = localAccounts.reduce<
     Array<{
       walletId: string;
@@ -102,36 +109,36 @@ function AccountNameSourceInventory({
             borderRadius="$3"
           >
             <SizableText size="$bodyMdMedium">
-              Selected OneKey device
+              当前选择的 OneKey 设备
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              DB device id: {selectedDevice.dbDeviceId}
+              数据库设备标识：{selectedDevice.dbDeviceId}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              Stored deviceId: {selectedDevice.deviceId}
+              已保存的设备标识：{selectedDevice.deviceId}
             </SizableText>
             {selectedDevice.featuresDeviceId ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
-                Features device_id: {selectedDevice.featuresDeviceId}
+                设备上报标识：{selectedDevice.featuresDeviceId}
               </SizableText>
             ) : null}
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              Primary connectId: {selectedDevice.connectId || '(empty)'}
+              主连接标识：{selectedDevice.connectId || '（空）'}
             </SizableText>
             {selectedDevice.usbConnectId ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
-                USB connectId: {selectedDevice.usbConnectId}
+                USB 连接标识：{selectedDevice.usbConnectId}
               </SizableText>
             ) : null}
             {selectedDevice.bleConnectId ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
-                BLE connectId: {selectedDevice.bleConnectId}
+                蓝牙连接标识：{selectedDevice.bleConnectId}
               </SizableText>
             ) : null}
           </YStack>
         ) : null}
         <SizableText size="$bodyMdMedium">
-          {sourceWalletName} accounts ({accounts.length})
+          {sourceWalletName} 账户（{accounts.length}）
         </SizableText>
         {accounts.map((account, index) => (
           <YStack
@@ -143,7 +150,7 @@ function AccountNameSourceInventory({
           >
             <XStack justifyContent="space-between" gap="$3">
               <SizableText flex={1} size="$bodyMdMedium">
-                {sourceWalletName} name: {account.sourceName}
+                {sourceWalletName} 名称：{account.sourceName}
               </SizableText>
               <SizableText
                 size="$bodySm"
@@ -154,16 +161,16 @@ function AccountNameSourceInventory({
                 }
               >
                 {account.matchedOneKeyAccounts.length
-                  ? `${account.matchedOneKeyAccounts.length} OneKey match`
-                  : 'No match'}
+                  ? `匹配到 ${account.matchedOneKeyAccounts.length} 个 OneKey 账户`
+                  : '没有匹配'}
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {sourceWalletName} chain: {sourceChainName}
+              {sourceWalletName} 链：{sourceChainName}
             </SizableText>
             {account.path ? (
               <SizableText size="$bodySm" color="$textSubdued" selectable>
-                {sourceWalletName} path: {account.path}
+                {sourceWalletName} 路径：{account.path}
               </SizableText>
             ) : null}
             {account.sourceDeviceId ? (
@@ -174,17 +181,17 @@ function AccountNameSourceInventory({
                 }
                 selectable
               >
-                Suite deviceId: {account.sourceDeviceId}
-                {account.selectedDeviceMatch ? ' · selected device' : ''}
+                Suite 设备标识：{account.sourceDeviceId}
+                {account.selectedDeviceMatch ? ' · 当前设备' : ''}
               </SizableText>
             ) : null}
             {account.sourceAccountType ? (
               <SizableText size="$bodySm" color="$textSubdued">
-                Account type: {account.sourceAccountType}
+                账户类型：{account.sourceAccountType}
               </SizableText>
             ) : null}
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              {sourceWalletName} address: {account.address}
+              {sourceWalletName} 地址：{account.address}
             </SizableText>
             {account.matchedOneKeyAccounts.map((match) => (
               <YStack
@@ -196,23 +203,25 @@ function AccountNameSourceInventory({
                 borderLeftColor="$borderSuccess"
               >
                 <SizableText size="$bodySm" color="$textSuccess">
-                  OneKey account name: {match.currentName}
+                  OneKey 账户名称：{match.currentName}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  OneKey wallet: {match.walletName}
+                  OneKey 钱包：{match.walletName}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  Wallet ID: {match.walletId}
+                  钱包标识：{match.walletId}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  OneKey chain: {match.networkName} ({match.networkId})
+                  OneKey 链：
+                  {getNetworkDisplayName(match.networkImpl, match.networkName)}
+                  （{match.networkId}）
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  OneKey address: {match.address}
+                  OneKey 地址：{match.address}
                 </SizableText>
                 {match.path ? (
                   <SizableText size="$bodySm" color="$textSubdued" selectable>
-                    OneKey path: {match.path}
+                    OneKey 路径：{match.path}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -220,8 +229,8 @@ function AccountNameSourceInventory({
           </YStack>
         ))}
         <SizableText size="$bodyMdMedium">
-          OneKey wallets ({localWalletGroups.length}) · address records (
-          {localAccounts.length})
+          OneKey 钱包（{localWalletGroups.length}）· 地址记录（
+          {localAccounts.length}）
         </SizableText>
         {localWalletGroups.map((wallet) => (
           <YStack
@@ -233,10 +242,10 @@ function AccountNameSourceInventory({
             borderRadius="$3"
           >
             <SizableText size="$bodyMdMedium">
-              OneKey wallet: {wallet.walletName}
+              OneKey 钱包：{wallet.walletName}
             </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" selectable>
-              Wallet ID: {wallet.walletId}
+              钱包标识：{wallet.walletId}
             </SizableText>
             {wallet.accounts.map((account) => (
               <YStack
@@ -247,17 +256,21 @@ function AccountNameSourceInventory({
                 borderTopColor="$borderSubdued"
               >
                 <SizableText size="$bodySmMedium">
-                  {account.networkName} ({account.networkId})
+                  {getNetworkDisplayName(
+                    account.networkImpl,
+                    account.networkName,
+                  )}
+                  （{account.networkId}）
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued">
-                  Current OneKey name: {account.currentName}
+                  当前 OneKey 名称：{account.currentName}
                 </SizableText>
                 <SizableText size="$bodySm" color="$textSubdued" selectable>
-                  Address: {account.address}
+                  地址：{account.address}
                 </SizableText>
                 {account.path ? (
                   <SizableText size="$bodySm" color="$textSubdued" selectable>
-                    OneKey path: {account.path}
+                    OneKey 路径：{account.path}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -300,9 +313,7 @@ function DeviceSectionThirdPartyOnboardingDev() {
             device.bleConnectId ||
             '';
       if (!connectId && vendor !== EHardwareVendor.ledger) {
-        throw new OneKeyLocalError(
-          'Reconnect this device before running the genuine check.',
-        );
+        throw new OneKeyLocalError('请重新连接设备后再执行设备验真。');
       }
       const result =
         await backgroundApiProxy.serviceThirdPartyHardware.runLocalMockThirdPartyDeviceClaim(
@@ -315,28 +326,29 @@ function DeviceSectionThirdPartyOnboardingDev() {
       setVerificationStatus('verified');
       Dialog.show({
         icon: 'BadgeVerifiedSolid',
-        title: 'Local device check passed',
+        title: '本地设备验真通过',
         description: [
           vendor === EHardwareVendor.trezor
-            ? 'The SDK asked the connected Trezor to authenticate a fresh challenge and accepted its genuine-check result.'
-            : 'The App-local mock service called Ledger’s official SDK Genuine Check and captured the physical-device DSID.',
+            ? 'SDK 已让当前连接的 Trezor 对全新挑战值完成认证，并通过原厂验真。'
+            : '应用内置的本地模拟服务已完成 Ledger 官方原厂验真，并获取物理设备的原厂验真标识。',
           '',
-          `Verification mode: ${result.verificationMode}`,
-          `Device DSID: ${result.deviceId}`,
+          `验真方式：${
+            result.verificationMode === 'trezor-sdk-genuine-check'
+              ? 'Trezor 官方原厂验真'
+              : 'Ledger 官方原厂验真'
+          }`,
+          `原厂设备验真标识：${result.deviceId}`,
           vendor === EHardwareVendor.trezor
-            ? `Challenge: ${result.challengeHex}`
-            : `Local claim nonce: ${result.challengeHex}`,
-          `Mock voucher: ${result.voucherCode}`,
+            ? `挑战值：${result.challengeHex}`
+            : `本地领取随机数：${result.challengeHex}`,
+          `测试券码：${result.voucherCode}`,
           '',
-          'This is only a local integration check. The production backend must own or witness its own verification before issuing a real voucher.',
+          '这只是本地集成测试。正式环境必须由服务端发起或见证设备验真，验真通过后才能发放真实优惠券。',
         ].join('\n'),
-        onConfirmText: 'Done',
+        onConfirmText: '完成',
       });
     } catch (error) {
-      const message = getErrorMessage(
-        error,
-        'Local device verification failed',
-      );
+      const message = getErrorMessage(error, '本地设备验真失败');
       setVerificationStatus('failed');
       setVerificationError(message);
     }
@@ -361,9 +373,11 @@ function DeviceSectionThirdPartyOnboardingDev() {
       Dialog.show({
         icon:
           result.status === 'available' ? 'EditOutline' : 'InfoCircleOutline',
-        title: `${vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor Suite'} source accounts (${result.accounts.length})`,
+        title: `${
+          vendor === EHardwareVendor.ledger ? 'Ledger Live' : 'Trezor Suite'
+        } 来源账户（${result.accounts.length}）`,
         description: [
-          'Read-only developer view. Nothing is renamed from this window.',
+          '开发者只读视图。本窗口不会修改任何账户名称。',
           result.status === 'available'
             ? ''
             : getNameSourceStatusMessage(result.status),
@@ -379,10 +393,10 @@ function DeviceSectionThirdPartyOnboardingDev() {
             scopeDescription={result.scopeDescription}
           />
         ),
-        onConfirmText: 'Done',
+        onConfirmText: '完成',
       });
     } catch (error) {
-      const message = getErrorMessage(error, 'Could not read account names');
+      const message = getErrorMessage(error, '无法读取账户名称');
       setNameSyncStatus('failed');
       setNameSyncError(message);
       Toast.error({
@@ -398,31 +412,31 @@ function DeviceSectionThirdPartyOnboardingDev() {
   const verifySubtitle = {
     idle:
       vendor === EHardwareVendor.trezor
-        ? 'Run the real Trezor SDK genuine check with a fresh challenge'
-        : 'Run the real Ledger vendor Genuine Check and read its DSID',
-    pending: 'Waiting for the connected device…',
-    verified: 'Real device proof accepted · local DEV voucher issued',
-    failed: verificationError || 'Failed · tap to retry',
+        ? '使用全新挑战值执行真实的 Trezor 官方原厂验真'
+        : '执行真实的 Ledger 官方原厂验真并读取原厂设备验真标识',
+    pending: '正在等待设备响应…',
+    verified: '真实设备证明已通过 · 已生成本地测试券',
+    failed: verificationError || '验真失败 · 点按重试',
   }[verificationStatus];
   const nameSyncSubtitle = {
     idle:
       vendor === EHardwareVendor.ledger
-        ? 'Show every plaintext Ledger Live Ethereum name/address and its OneKey matches'
-        : 'Read Trezor Suite local BTC accounts and deviceId; no hardware address derivation',
-    pending: 'Reading local wallet application data and matching addresses…',
-    done: `Read-only list ready · ${sourceAccountCount} source account(s)`,
-    failed: nameSyncError || 'Failed · tap to retry',
+        ? '显示 Ledger Live 中全部明文以太坊名称、地址及其 OneKey 匹配结果'
+        : '读取 Trezor Suite 本地比特币账户和设备标识，不从硬件派生地址',
+    pending: '正在读取本地钱包应用数据并匹配地址…',
+    done: `只读清单已生成 · ${sourceAccountCount} 个来源账户`,
+    failed: nameSyncError || '读取失败 · 点按重试',
   }[nameSyncStatus];
 
   return (
     <ListItemGroup
       withSeparator
       itemProps={{ minHeight: '$12' }}
-      title="Developer · Third-party onboarding"
+      title="开发者调试 · 第三方硬件接入"
     >
       <ListItem
         icon="LinkOutline"
-        title="1. Local mock claim with real device proof"
+        title="1. 本地模拟领取（真实设备验真）"
         subtitle={verifySubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
@@ -435,8 +449,8 @@ function DeviceSectionThirdPartyOnboardingDev() {
         icon="EditOutline"
         title={
           vendor === EHardwareVendor.trezor
-            ? '2. Compare Trezor Suite Bitcoin names'
-            : '2. Compare Ledger Live Ethereum names'
+            ? '2. 对比 Trezor Suite 比特币账户名称'
+            : '2. 对比 Ledger Live 以太坊账户名称'
         }
         subtitle={nameSyncSubtitle}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
