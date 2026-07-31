@@ -220,6 +220,15 @@ export interface IHomeContainerOwner {
   sessionId: string;
 }
 
+/**
+ * Contains only serializable native-renderer state, not the complete visual
+ * content of Home. Controlled React slot content such as account, balance, and
+ * wallet actions is supplied separately and is not stored in this snapshot.
+ *
+ * TODO: This is a known cold-start design gap. Make the snapshot self-contained
+ * for critical first-frame content so rendering does not depend on separately
+ * mounted React slots.
+ */
 export interface IHomeContainerSnapshotPayload {
   selectedTabId: IHomeContainerTabId;
   header: IHomeContainerHeader;
