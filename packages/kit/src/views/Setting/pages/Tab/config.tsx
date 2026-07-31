@@ -1063,7 +1063,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               linkTabSelectedIcons[item.desktopTab] ?? (item.icon as string),
             mobileIcon: item.icon,
             title: item.mobileTitle || item.title,
-            testID: item.testID,
+            // Suffixed so the derived tab never shares a testID with the
+            // source row, which can be mounted at the same time (sidebar tab
+            // alongside a search-result row).
+            testID: item.testID ? `${item.testID}-tab` : undefined,
             desktopOnlyTab: true,
             Component:
               linkTabComponents[
