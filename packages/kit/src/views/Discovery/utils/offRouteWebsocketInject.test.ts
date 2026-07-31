@@ -1,3 +1,5 @@
+import vm from 'vm';
+
 import {
   injectToPauseWebsocket,
   injectToPauseWebsocketOffRoute,
@@ -16,10 +18,11 @@ function createPageRealm() {
   } = {
     WebSocket: { prototype: { send: realSend } },
   };
+  // The scripts address globals as `window.*`, so make the sandbox its own
+  // `window`. Inputs are this module's own exported constants, never user data.
+  const context = vm.createContext({ window: win });
   const run = (code: string) => {
-    // The inputs are this module's own exported constants, never user data.
-    // eslint-disable-next-line no-new-func
-    new Function('window', code)(win);
+    vm.runInContext(code, context);
   };
   return {
     run,
