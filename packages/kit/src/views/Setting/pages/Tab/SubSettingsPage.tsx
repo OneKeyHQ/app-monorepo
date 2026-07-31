@@ -1,9 +1,12 @@
 import { Fragment, useMemo } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
   Divider,
   Page,
   ScrollView,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -138,8 +141,16 @@ export function SubSettingsPage({
                             {isMobileLayout ? (
                               <MobileTabSettingsDivider />
                             ) : (
+                              // Explicit hairline instead of Separator: the
+                              // Separator's zero-height box plus its -0.5px
+                              // shift leaves a hover dead zone above the row
+                              // below it.
                               <XStack w="100%" px="$5">
-                                <Divider borderColor="$neutral3" />
+                                <Stack
+                                  flex={1}
+                                  h={StyleSheet.hairlineWidth}
+                                  bg="$neutral3"
+                                />
                               </XStack>
                             )}
                           </>
