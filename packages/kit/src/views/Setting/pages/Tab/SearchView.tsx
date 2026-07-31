@@ -18,6 +18,7 @@ import {
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,9 +31,7 @@ import {
 } from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
-import type { ISubSettingConfig } from './config';
 import type { ISettingsSearchResult } from './useSearch';
-import type { FuseResult } from 'fuse.js';
 
 export function SearchView({
   sections,
@@ -179,28 +178,16 @@ export function SearchView({
 export function SearchViewPage() {
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
-  const [searchResult, setSearchResult] = useState<
-    {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[]
-  >([]);
+  const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
 
   useEffect(() => {
-    const callback = ({
-      list,
-      searchText: searchTextString,
-    }: {
-      list: {
-        title: string;
-        icon: string;
-        configs: FuseResult<ISubSettingConfig>[];
-      }[];
-      searchText: string;
-    }) => {
-      setSearchResult(list ?? []);
-      setSearchText(searchTextString);
+    const callback = (
+      payload: IAppEventBusPayload[EAppEventBusNames.SettingsSearchResult],
+    ) => {
+      // The bus keeps search items opaque so shared stays decoupled from kit;
+      // this pane is the emitting feature's own consumer, so narrowing is safe.
+      setSearchResult((payload.list ?? []) as ISettingsSearchResult[]);
+      setSearchText(payload.searchText);
     };
     appEventBus.on(EAppEventBusNames.SettingsSearchResult, callback);
     return () => {
