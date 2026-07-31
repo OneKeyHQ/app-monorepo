@@ -224,6 +224,8 @@ function SettingsTabNavigator() {
         mobileTitle,
         name,
         Component,
+        tabBarIconStyle,
+        tabBarLabelStyle,
         ...options
       } = config;
       return (
@@ -239,6 +241,13 @@ function SettingsTabNavigator() {
             tabBarLabel: mobileTitle ?? title,
             tabBarIcon: (focused: boolean) =>
               focused ? icon : (mobileIcon ?? icon),
+            // Sidebar rows use a one-step-smaller icon and a medium-weight
+            // label; per-category styles (e.g. Dev critical colors) still win.
+            tabBarIconStyle: { size: '$5', ...tabBarIconStyle } as IIconProps,
+            tabBarLabelStyle: {
+              size: '$bodyMdMedium',
+              ...tabBarLabelStyle,
+            } as ISizableTextProps,
             trackId: name,
             tabBarPosition: 'left',
           }}
