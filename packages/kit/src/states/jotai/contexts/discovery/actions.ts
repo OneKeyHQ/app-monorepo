@@ -930,6 +930,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           delete webviewRefs[id];
         }
       }
+      // Same as closeWebTab: drop any title update still waiting on its
+      // throttle window for a tab that is going away.
+      for (const tab of tabsToClose) {
+        clearPendingTitleUpdate(tab.id);
+      }
 
       loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
       // Same rationale as closeWebTab: persist the final (pinned-only) array
