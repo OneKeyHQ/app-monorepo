@@ -3,8 +3,48 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   captureSubscriptionRecoveryProof,
   publishLatestOrderBookOptions,
+  recoverSubscriptionsWithProof,
   shouldSyncSubscriptionsAfterInstrumentChange,
 } from './instrumentSwitch';
+
+describe('recoverSubscriptionsWithProof', () => {
+  it('does not call recover when no proof is present', async () => {
+    const recover = jest.fn<Promise<boolean>, [number]>();
+
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: undefined,
+        recover,
+      }),
+    ).resolves.toBe(false);
+    expect(recover).not.toHaveBeenCalled();
+  });
+
+  it('forwards the proof generation to recover and returns its result', async () => {
+    const recover = jest
+      .fn<Promise<boolean>, [number]>()
+      .mockResolvedValue(true);
+
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: { disabledCount: 6, source: 'token-selector' },
+        recover,
+      }),
+    ).resolves.toBe(true);
+    expect(recover).toHaveBeenCalledWith(6);
+  });
+
+  it('falls back safely when recover rejects', async () => {
+    await expect(
+      recoverSubscriptionsWithProof({
+        recoveryProof: { disabledCount: 6, source: 'token-selector' },
+        recover: async () => {
+          throw new OneKeyLocalError('bridge unavailable');
+        },
+      }),
+    ).resolves.toBe(false);
+  });
+});
 
 describe('captureSubscriptionRecoveryProof', () => {
   it('captures the bg generation while the UI source stays live', async () => {

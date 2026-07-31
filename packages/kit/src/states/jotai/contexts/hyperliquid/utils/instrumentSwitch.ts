@@ -64,6 +64,21 @@ export function shouldSyncSubscriptionsAfterInstrumentChange(params: {
   );
 }
 
+export async function recoverSubscriptionsWithProof(params: {
+  recoveryProof: ISubscriptionRecoveryProof | undefined;
+  recover: (disabledCount: number) => Promise<boolean>;
+}): Promise<boolean> {
+  if (!params.recoveryProof) {
+    return false;
+  }
+  try {
+    return await params.recover(params.recoveryProof.disabledCount);
+  } catch {
+    // A dropped recovery is safe: the next real switch captures a fresh proof.
+    return false;
+  }
+}
+
 export function publishLatestOrderBookOptions<T>(params: {
   read: () => Promise<T | undefined>;
   write: (value: T) => Promise<void>;

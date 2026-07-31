@@ -126,6 +126,7 @@ import {
 import {
   captureSubscriptionRecoveryProof,
   publishLatestOrderBookOptions,
+  recoverSubscriptionsWithProof,
   shouldSyncSubscriptionsAfterInstrumentChange,
 } from './utils/instrumentSwitch';
 import {
@@ -1642,6 +1643,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          // This branch skips syncSubscriptionsAfterInstrumentChange, so
+          // consume the proof here or the stale disable survives.
+          await recoverSubscriptionsWithProof({
+            recoveryProof: subscriptionRecoveryProof,
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
           return true;
         }
       }
@@ -1764,6 +1774,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          // This branch skips syncSubscriptionsAfterInstrumentChange, so
+          // consume the proof here or the stale disable survives.
+          await recoverSubscriptionsWithProof({
+            recoveryProof: subscriptionRecoveryProof,
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
           return true;
         }
       }
