@@ -213,7 +213,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <YStack gap="$2">{tabs}</YStack>
+          <YStack gap="$3">{tabs}</YStack>
         </ScrollView>
       </YStack>
       <Divider borderColor="$neutral3" />
