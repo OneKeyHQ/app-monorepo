@@ -6,7 +6,11 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
+
 import type { IntlShape } from 'react-intl';
+
+export { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
 const ONEKEY_ID_FAILURE_SERVER_LOGGED = '$$onekeyIdFailureServerLogged';
 
@@ -109,36 +113,6 @@ export function showOneKeyIdLoginFailedToast({
       err as IOneKeyError & { $$autoToastErrorTriggered?: boolean }
     ).$$autoToastErrorTriggered = true;
   }
-}
-
-const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
-
-// Redact secret-bearing content that auth SDK / server error text can embed
-// (JWTs, bearer tokens, OAuth codes and tokens in URL params, whole URL
-// query/hash payloads, email addresses) and cap the length. A field
-// allowlist alone is not sanitization — `message` is free text.
-export function scrubSensitiveErrorMessageText(text: string): string {
-  let scrubbed = text;
-  // JWTs: three dot-joined base64url segments starting with the {"...} header.
-  scrubbed = scrubbed.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[jwt]');
-  // Bearer credentials.
-  scrubbed = scrubbed.replace(/\bBearer\s+[\w.~+/-]+=*/gi, 'Bearer [token]');
-  // URL query strings / fragments (OAuth callbacks carry code/state there).
-  scrubbed = scrubbed.replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/gi, '$1');
-  // Bare token params outside URLs (form bodies, plain error text). `code=`
-  // and `state=` are intentionally NOT matched here: their leak vector is
-  // URLs (already stripped above), while `code=<error-code>` is the stable
-  // discriminator our own sanitized text must keep readable.
-  scrubbed = scrubbed.replace(
-    /\b(token|access_token|refresh_token|id_token)=[^&\s#]+/gi,
-    '$1=[redacted]',
-  );
-  // Email addresses.
-  scrubbed = scrubbed.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]');
-  if (scrubbed.length > MAX_SANITIZED_ERROR_MESSAGE_LENGTH) {
-    scrubbed = `${scrubbed.slice(0, MAX_SANITIZED_ERROR_MESSAGE_LENGTH)}...`;
-  }
-  return scrubbed;
 }
 
 // Shared sanitizer for auth/OAuth SDK errors: bounds what reaches logs to a

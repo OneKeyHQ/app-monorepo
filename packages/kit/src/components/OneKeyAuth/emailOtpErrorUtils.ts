@@ -2,6 +2,8 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
+import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
+
 import type { IntlShape } from 'react-intl';
 
 // Returns undefined when the dialog must NOT toast: bridged server errors
@@ -17,9 +19,11 @@ export function getEmailOtpRequestErrorMessage({
   const oneKeyError = error as
     | IOneKeyError<{ rest?: string | number }>
     | undefined;
-  const rest = oneKeyError?.info?.rest;
+  const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+  const rest = oneKeyError?.info?.rest ?? retryAfterSeconds;
   if (
-    oneKeyError?.key === ETranslations.email_verification_rate_limit &&
+    (oneKeyError?.key === ETranslations.email_verification_rate_limit ||
+      retryAfterSeconds !== undefined) &&
     rest !== undefined
   ) {
     return intl.formatMessage(

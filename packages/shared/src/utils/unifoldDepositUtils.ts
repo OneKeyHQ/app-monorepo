@@ -41,11 +41,11 @@ export function formatUnifoldUsdAmount(
   value: string | null | undefined,
 ): string {
   if (!value) {
-    return '—';
+    return '--';
   }
   const amount = new BigNumber(value);
   if (amount.isNaN()) {
-    return '—';
+    return '--';
   }
   if (amount.isZero()) {
     return '$0.00';
