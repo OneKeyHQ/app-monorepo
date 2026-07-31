@@ -85,6 +85,7 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -628,6 +629,8 @@ const DetailsPartComponent = ({
               tokenInfo={tokenInfo}
             />
             <GridSection data={detailInfo.intro} />
+            {/* Protocol Tips (OK-58972)：dashboard 配置，单条直显/多条 View All */}
+            <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
               providerName: provider,
