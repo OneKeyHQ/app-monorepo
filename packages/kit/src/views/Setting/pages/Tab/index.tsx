@@ -254,9 +254,9 @@ function SettingsTabNavigator() {
             tabBarLabel: mobileTitle ?? title,
             tabBarIcon: (focused: boolean) =>
               focused ? icon : (mobileIcon ?? icon),
-            // 16px sidebar icons; per-category styles (e.g. Dev critical
-            // colors) still win.
-            tabBarIconStyle: { size: '$4', ...tabBarIconStyle } as IIconProps,
+            // 20px sidebar icons — same size as the pane rows' leading icons;
+            // per-category styles (e.g. Dev critical colors) still win.
+            tabBarIconStyle: { size: '$5', ...tabBarIconStyle } as IIconProps,
             trackId: name,
             tabBarPosition: 'left',
           }}
