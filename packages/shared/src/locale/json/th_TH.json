@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "คาดว่าจะถึงใน 1 นาที",
   "perp_deposit_more_tokens_coming_soon__desc": "จะรองรับโทเคนฝากเพิ่มเติมเร็ว ๆ นี้",
   "perp_direction__title": "ทิศทาง",
+  "perp_distance_from_mid__title": "ระยะห่างจากราคากลาง",
   "perp_enable_trading_steps_abstraction__desc": "เปิดใช้งานบัญชีซื้อขายรวม",
   "perp_enable_trading_steps_agent__desc": "อนุญาตตัวแทนการซื้อขาย OneKey",
   "perp_enable_trading_steps_agent_removal__desc": "แทนที่ตัวแทนการซื้อขายก่อนหน้า",

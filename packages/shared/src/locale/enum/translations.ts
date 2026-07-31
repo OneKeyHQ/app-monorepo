@@ -2915,6 +2915,7 @@ export enum ETranslations {
   perp_deposit_eta_one_minute__desc = 'perp_deposit_eta_one_minute__desc',
   perp_deposit_more_tokens_coming_soon__desc = 'perp_deposit_more_tokens_coming_soon__desc',
   perp_direction__title = 'perp_direction__title',
+  perp_distance_from_mid__title = 'perp_distance_from_mid__title',
   perp_enable_trading_steps_abstraction__desc = 'perp_enable_trading_steps_abstraction__desc',
   perp_enable_trading_steps_agent__desc = 'perp_enable_trading_steps_agent__desc',
   perp_enable_trading_steps_agent_removal__desc = 'perp_enable_trading_steps_agent_removal__desc',

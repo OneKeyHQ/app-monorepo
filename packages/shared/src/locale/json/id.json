@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "Perk. 1 menit untuk tiba",
   "perp_deposit_more_tokens_coming_soon__desc": "Lebih banyak token deposit akan segera hadir",
   "perp_direction__title": "Arah",
+  "perp_distance_from_mid__title": "Jarak dari Harga Tengah",
   "perp_enable_trading_steps_abstraction__desc": "Aktifkan akun perdagangan terpadu",
   "perp_enable_trading_steps_agent__desc": "Otorisasi agen perdagangan OneKey",
   "perp_enable_trading_steps_agent_removal__desc": "Gantikan agen perdagangan sebelumnya",

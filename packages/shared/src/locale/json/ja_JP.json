@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "推定 1 分で到着",
   "perp_deposit_more_tokens_coming_soon__desc": "対応する入金トークンは今後さらに追加予定です",
   "perp_direction__title": "方向",
+  "perp_distance_from_mid__title": "中間価格からの距離",
   "perp_enable_trading_steps_abstraction__desc": "統合取引アカウントを有効にする",
   "perp_enable_trading_steps_agent__desc": "OneKey 取引代理を認可する",
   "perp_enable_trading_steps_agent_removal__desc": "前の取引代理を置き換える",

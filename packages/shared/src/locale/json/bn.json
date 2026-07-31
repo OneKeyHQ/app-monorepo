@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "আনুমানিক ১ মিনিটে পৌঁছাবে",
   "perp_deposit_more_tokens_coming_soon__desc": "শিগগির আরও জমা টোকেন আসছে",
   "perp_direction__title": "দিকনির্দেশ",
+  "perp_distance_from_mid__title": "মধ্যমূল্য থেকে দূরত্ব",
   "perp_enable_trading_steps_abstraction__desc": "একীভূত ট্রেডিং অ্যাকাউন্ট সক্ষম করুন",
   "perp_enable_trading_steps_agent__desc": "OneKey ট্রেডিং এজেন্ট অনুমোদন করুন",
   "perp_enable_trading_steps_agent_removal__desc": "পূর্ববর্তী ট্রেডিং এজেন্ট প্রতিস্থাপন করুন",

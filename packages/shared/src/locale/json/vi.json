@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "Dự kiến đến trong 1 phút",
   "perp_deposit_more_tokens_coming_soon__desc": "Sắp hỗ trợ thêm nhiều token nạp hơn",
   "perp_direction__title": "Hướng dẫn",
+  "perp_distance_from_mid__title": "Khoảng cách đến giá giữa",
   "perp_enable_trading_steps_abstraction__desc": "Bật tài khoản giao dịch thống nhất",
   "perp_enable_trading_steps_agent__desc": "Ủy quyền đại lý giao dịch OneKey",
   "perp_enable_trading_steps_agent_removal__desc": "Thay thế đại lý giao dịch trước đó",

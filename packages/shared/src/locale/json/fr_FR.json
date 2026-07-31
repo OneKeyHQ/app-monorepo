@@ -2910,6 +2910,7 @@
   "perp_deposit_eta_one_minute__desc": "Arrivée estimée dans 1 min",
   "perp_deposit_more_tokens_coming_soon__desc": "D'autres jetons de dépôt arrivent bientôt",
   "perp_direction__title": "Direction",
+  "perp_distance_from_mid__title": "Écart par rapport au prix médian",
   "perp_enable_trading_steps_abstraction__desc": "Activer le compte de trading unifié",
   "perp_enable_trading_steps_agent__desc": "Autoriser l'agent de trading OneKey",
   "perp_enable_trading_steps_agent_removal__desc": "Remplacer l'agent de trading précédent",
