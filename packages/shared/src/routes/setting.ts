@@ -73,7 +73,13 @@ export enum EMobileSettingsSubpage {
 }
 
 export type IModalSettingParamList = {
-  [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
+  [EModalSettingRoutes.SettingListModal]:
+    | {
+        flag?: string;
+        /** Nested tab-navigator target (tab-navigator layouts only). */
+        screen?: ESettingsTabNames;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
         name: ESettingsTabNames | string;

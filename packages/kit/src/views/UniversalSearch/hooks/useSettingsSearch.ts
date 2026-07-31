@@ -77,6 +77,7 @@ export function useSettingsSearch() {
           keywords: result.item.keywords,
           settingRoute: result.item.settingRoute,
           mobileSubpage: result.item.mobileSubpage,
+          settingsTab: result.item.desktopTab,
           onPress: result.item.onPress,
         },
       }));

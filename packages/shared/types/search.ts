@@ -12,6 +12,7 @@ import type { IAccountToken, ITokenFiat } from './token';
 import type {
   EMobileSettingsSubpage,
   EModalSettingRoutes,
+  ESettingsTabNames,
 } from '../src/routes/setting';
 
 export enum EUniversalSearchType {
@@ -117,6 +118,8 @@ export type IUniversalSearchSettings = {
     keywords?: string[];
     settingRoute?: EModalSettingRoutes;
     mobileSubpage?: EMobileSettingsSubpage;
+    /** Settings sidebar tab hosting this item on tab-navigator layouts. */
+    settingsTab?: ESettingsTabNames;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onPress?: (navigation?: any) => void;
   };

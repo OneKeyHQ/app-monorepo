@@ -5,6 +5,7 @@ import { Icon, SizableText } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { useIsTabNavigator } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useIsTabNavigator';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -30,8 +31,10 @@ export function UniversalSearchSettingsItem({
     sectionTitle,
     settingRoute,
     mobileSubpage,
+    settingsTab,
     onPress,
   } = item.payload;
+  const isTabNavigator = useIsTabNavigator();
   const handlePress = useCallback(async () => {
     defaultLogger.universalSearch.search.universalSearchClick({
       searchText: getSearchInput(),
@@ -43,7 +46,15 @@ export function UniversalSearchSettingsItem({
     navigation.pop();
     await timerUtils.wait(300);
 
-    if (settingRoute) {
+    if (settingsTab && isTabNavigator) {
+      // On tab-navigator layouts the target lives as a settings sidebar tab;
+      // open the settings modal focused on that tab instead of stacking the
+      // standalone page.
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingListModal,
+        params: { screen: settingsTab },
+      });
+    } else if (settingRoute) {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: settingRoute as keyof IModalSettingParamList,
       });
@@ -78,6 +89,8 @@ export function UniversalSearchSettingsItem({
     sectionName,
     sectionTitle,
     mobileSubpage,
+    settingsTab,
+    isTabNavigator,
     universalSearchActions,
     title,
     item.type,
