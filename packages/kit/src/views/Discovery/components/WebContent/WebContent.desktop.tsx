@@ -205,6 +205,11 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       // @ts-expect-error
       ref.__domReady = true;
     }
+    // The ref-publish call site cannot cover every case: a tab frozen by
+    // react-freeze never runs the imperative handle, and a guest that reloads
+    // or navigates while off-route comes back with a fresh, unpatched document.
+    // dom-ready is the signal that is guaranteed for both.
+    applyCurrentThrottleStateToWebview(id);
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.
@@ -244,7 +249,11 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
               }
               webviewRefs[id] = ref;
               // A WebView mounted while the user is away from the browser
-              // route would otherwise start out un-throttled.
+              // route would otherwise start out un-throttled. This publish can
+              // land after the guest is already dom-ready, in which case the
+              // dom-ready callback has run with no ref to work with — so this
+              // is the only chance for that ordering. The reverse ordering is
+              // covered from onDomReady.
               applyCurrentThrottleStateToWebview(id);
             }
           }}
