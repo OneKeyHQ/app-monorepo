@@ -128,17 +128,25 @@ export const injectToResumeWebsocket = `
 // paused, and leave them with WebSocket running while their jsBridge stays
 // disabled.
 //
-// Instead this is a plain push/pop: pause saves whatever `send` is at that
-// moment (the real one, or the per-tab policy's no-op) and resume puts exactly
-// that back. Either way each page returns to the state it was in before the
-// user left the route.
+// Instead the off-route pass saves whatever `send` is at that moment (the real
+// one, or the per-tab policy's no-op) and undoes only its own replacement.
+//
+// Restoring the snapshot unconditionally would be wrong, because the per-tab
+// policy runs inside the window: leaving the browser route pauses the active
+// tab, and returning to it resumes that tab — and on desktop the tab bar's
+// focus listener runs before this one. An unconditional write-back would then
+// re-stub the tab the user is looking at, silently killing its outbound
+// WebSocket with no visible symptom. Keeping the installed no-op and comparing
+// identity makes the pass correct under any interleaving instead of relying on
+// listener order.
 export const injectToPauseWebsocketOffRoute = `
 (function(){
   if (!window.WebSocket || window.$$onekeyOffRouteWebSocketSend) {
     return;
   }
   window.$$onekeyOffRouteWebSocketSend = window.WebSocket.prototype.send;
-  window.WebSocket.prototype.send = () => {};
+  window.$$onekeyOffRouteWebSocketNoop = () => {};
+  window.WebSocket.prototype.send = window.$$onekeyOffRouteWebSocketNoop;
 })()
 `;
 
@@ -147,8 +155,13 @@ export const injectToResumeWebsocketOffRoute = `
   if (!window.WebSocket || !window.$$onekeyOffRouteWebSocketSend) {
     return;
   }
-  window.WebSocket.prototype.send = window.$$onekeyOffRouteWebSocketSend;
+  if (
+    window.WebSocket.prototype.send === window.$$onekeyOffRouteWebSocketNoop
+  ) {
+    window.WebSocket.prototype.send = window.$$onekeyOffRouteWebSocketSend;
+  }
   window.$$onekeyOffRouteWebSocketSend = undefined;
+  window.$$onekeyOffRouteWebSocketNoop = undefined;
 })()
 `;
 

@@ -68,6 +68,27 @@ describe('off-route WebSocket injection', () => {
     expect(page.send).toBe(page.realSend);
   });
 
+  it('does not re-stub the tab the per-tab policy resumed inside the window', () => {
+    // The real leave/return sequence on desktop: the tab bar's focus listener
+    // pauses the active tab on blur and resumes it on focus, and it runs before
+    // the off-route listener. The off-route resume must not undo that.
+    const page = createPageRealm();
+
+    // 1. leaving the route: setCurrentWebTab('') -> pauseDappInteraction(active)
+    page.run(injectToPauseWebsocket);
+    // 2. 20s later: off-route pass
+    page.run(injectToPauseWebsocketOffRoute);
+    // 3. returning: setCurrentWebTab(saved) -> resumeDappInteraction(active)
+    page.run(injectToResumeWebsocket);
+    expect(page.isPaused).toBe(false);
+    // 4. returning: off-route restore runs after it
+    page.run(injectToResumeWebsocketOffRoute);
+
+    // the tab the user is looking at must still be able to send
+    expect(page.isPaused).toBe(false);
+    expect(page.send).toBe(page.realSend);
+  });
+
   it('stays correct across repeated leave/return cycles', () => {
     const page = createPageRealm();
     for (let i = 0; i < 3; i += 1) {
