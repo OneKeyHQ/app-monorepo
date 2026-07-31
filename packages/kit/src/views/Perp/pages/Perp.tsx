@@ -148,10 +148,10 @@ function PerpAnalyticsTracker() {
       selectAccountLoading: accountLoadingInfo.selectAccountLoading,
       accountCreationPending: Boolean(
         activePerpsAccount.indexedAccountId &&
-          (accountIsAutoCreating?.indexedAccountId ===
-            activePerpsAccount.indexedAccountId ||
-            indexedAccountAddressCreationState?.indexedAccountId ===
-              activePerpsAccount.indexedAccountId),
+        (accountIsAutoCreating?.indexedAccountId ===
+          activePerpsAccount.indexedAccountId ||
+          indexedAccountAddressCreationState?.indexedAccountId ===
+            activePerpsAccount.indexedAccountId),
       ),
       computedAccountValue,
       positionsState,
