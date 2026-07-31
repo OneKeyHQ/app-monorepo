@@ -7,6 +7,8 @@ import {
   TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
 } from '../chartConstants';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export interface ITradingViewNativeVisiblePointRange {
   endIndex: number;
   startIndex: number;
@@ -24,7 +26,7 @@ export interface ITradingViewNativePriceExtremum {
 
 export interface ITradingViewNativePriceExtrema {
   high: ITradingViewNativePriceExtremum;
-  low: ITradingViewNativePriceExtremum;
+  low?: ITradingViewNativePriceExtremum;
 }
 
 export interface ITradingViewNativeDataUpdateMetadata {
@@ -591,19 +593,25 @@ export function getTradingViewNativePriceExtrema({
     }
   }
 
-  return highIndex >= 0 && lowIndex >= 0
-    ? {
-        high: { index: highIndex, price: highPrice },
+  if (highIndex < 0 || lowIndex < 0) {
+    return null;
+  }
+  const high = { index: highIndex, price: highPrice };
+  return highPrice === lowPrice
+    ? { high }
+    : {
+        high,
         low: { index: lowIndex, price: lowPrice },
-      }
-    : null;
+      };
 }
 
 export function getTradingViewNativePriceRange({
+  chartType = 'candlestick',
   endIndex,
   points,
   startIndex,
 }: ITradingViewNativeVisiblePointRange & {
+  chartType?: ITradingViewNativeChartType;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePriceRange | null {
   'worklet';
@@ -621,9 +629,11 @@ export function getTradingViewNativePriceRange({
 
   for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
     const point = points[index];
-    if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
-      minPrice = Math.min(minPrice, point.l);
-      maxPrice = Math.max(maxPrice, point.h);
+    const pointHigh = chartType === 'line' ? point.c : point.h;
+    const pointLow = chartType === 'line' ? point.c : point.l;
+    if (Number.isFinite(pointLow) && Number.isFinite(pointHigh)) {
+      minPrice = Math.min(minPrice, pointLow);
+      maxPrice = Math.max(maxPrice, pointHigh);
     }
   }
 

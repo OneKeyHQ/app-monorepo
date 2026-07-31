@@ -42,6 +42,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
     return {
       calendarAvailableTimeRange: { from: 100 },
       candleIntervalSeconds: 3600,
+      chartType: 'candlestick' as const,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
       dataState: mockDataState,

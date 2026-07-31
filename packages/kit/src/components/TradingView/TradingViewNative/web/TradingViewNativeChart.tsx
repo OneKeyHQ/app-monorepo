@@ -42,6 +42,8 @@ import {
   getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 const WHEEL_DELTA_MODE_LINE = 1;
 const WHEEL_DELTA_MODE_PAGE = 2;
@@ -57,6 +59,7 @@ const ONEKEY_WATERMARK_URI =
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
@@ -80,6 +83,7 @@ interface IPointerDragState {
 interface IDrawKLineChartOptions {
   candleIntervalSeconds: number;
   canvas: HTMLCanvasElement;
+  chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
   points: IMarketTokenKLineDataPoint[];
   runtimeState: ITradingViewNativeChartRuntimeState;
@@ -119,6 +123,17 @@ function drawChartScene({
   const paintStyles = getTradingViewNativeChartScenePaintStyles(colors);
   for (const command of commands) {
     switch (command.kind) {
+      case 'circle': {
+        const paint = paintStyles[command.paint];
+        context.save();
+        context.globalAlpha = paint.opacity;
+        context.fillStyle = paint.color;
+        context.beginPath();
+        context.arc(command.cx, command.cy, command.radius, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+        break;
+      }
       case 'clip':
         context.save();
         context.beginPath();
@@ -135,11 +150,36 @@ function drawChartScene({
         context.save();
         context.globalAlpha = paint.opacity;
         context.strokeStyle = paint.color;
-        context.lineWidth = 1;
+        context.lineWidth = paint.strokeWidth ?? 1;
+        context.lineCap = paint.strokeCap ?? 'butt';
+        context.lineJoin = paint.strokeJoin ?? 'miter';
         context.setLineDash(paint.dash ?? []);
         context.beginPath();
         context.moveTo(command.x1, command.y1);
         context.lineTo(command.x2, command.y2);
+        context.stroke();
+        context.restore();
+        break;
+      }
+      case 'polyline': {
+        const firstPoint = command.points[0];
+        if (!firstPoint) {
+          break;
+        }
+        const paint = paintStyles[command.paint];
+        context.save();
+        context.globalAlpha = paint.opacity;
+        context.strokeStyle = paint.color;
+        context.lineWidth = paint.strokeWidth ?? 1;
+        context.lineCap = paint.strokeCap ?? 'butt';
+        context.lineJoin = paint.strokeJoin ?? 'miter';
+        context.setLineDash(paint.dash ?? []);
+        context.beginPath();
+        context.moveTo(firstPoint.x, firstPoint.y);
+        for (let index = 1; index < command.points.length; index += 1) {
+          const point = command.points[index];
+          context.lineTo(point.x, point.y);
+        }
         context.stroke();
         context.restore();
         break;
@@ -191,6 +231,7 @@ function drawChartScene({
 function drawKLineChart({
   candleIntervalSeconds,
   canvas,
+  chartType,
   colors,
   points,
   runtimeState,
@@ -218,6 +259,7 @@ function drawKLineChart({
 
   const scene = buildTradingViewNativeChartScene({
     candleIntervalSeconds,
+    chartType,
     crosshair: runtimeState.crosshair,
     height,
     measureTextWidth: (text, font) => {
@@ -240,6 +282,7 @@ function drawKLineChart({
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartType,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -274,6 +317,7 @@ export const TradingViewNativeChart = memo(
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
+    const line = theme.text.val;
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
 
@@ -305,11 +349,13 @@ export const TradingViewNativeChart = memo(
         drawKLineChart({
           candleIntervalSeconds,
           canvas,
+          chartType,
           colors: {
             axisText,
             background,
             down: CHART_DOWN_COLOR,
             grid,
+            line,
             up: CHART_UP_COLOR,
           },
           points,
@@ -322,7 +368,9 @@ export const TradingViewNativeChart = memo(
         axisText,
         background,
         candleIntervalSeconds,
+        chartType,
         grid,
+        line,
         points,
         watermarkImage,
         watermarkOpacity,

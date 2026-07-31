@@ -32,6 +32,7 @@ describe('TradingViewNative shared chart scene', () => {
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
       crosshair: { visible: true, x: 252.5, y: 80 },
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -90,6 +91,7 @@ describe('TradingViewNative shared chart scene', () => {
   it('normalizes invalid viewport bounds before producing commands', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
       height: 240,
       measureTextWidth: () => 0,
@@ -114,6 +116,7 @@ describe('TradingViewNative shared chart scene', () => {
   it('uses the previous close for the selected bar change', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -141,6 +144,7 @@ describe('TradingViewNative shared chart scene', () => {
   it('omits empty volume and keeps small positive volume visible', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
       height: 240,
       measureTextWidth: () => 0,
@@ -169,18 +173,139 @@ describe('TradingViewNative shared chart scene', () => {
       axisText: '#111111',
       background: '#222222',
       grid: '#333333',
+      line: '#444444',
     });
 
     expect(styles.up.color).toBe(TRADING_VIEW_NATIVE_CHART_UP_COLOR);
     expect(styles.down.color).toBe(TRADING_VIEW_NATIVE_CHART_DOWN_COLOR);
     expect(styles.gridLine.dash).toEqual([2, 4]);
     expect(styles.crosshairLine.opacity).toBe(0.6);
+    expect(styles.line.color).toBe('#444444');
+    expect(styles.lineStroke).toMatchObject({
+      color: '#444444',
+      drawStyle: 'stroke',
+      strokeCap: 'round',
+      strokeJoin: 'round',
+      strokeWidth: 2,
+    });
+  });
+
+  it('describes a themed line while retaining directional current price', () => {
+    const linePoints: IMarketTokenKLineDataPoint[] = [
+      { c: 200, h: 200, l: 200, o: 200, t: 1_700_000_000, v: 10 },
+      { c: 100, h: 200, l: 100, o: 200, t: 1_700_003_600, v: 20 },
+      { c: 110, h: 110, l: 90, o: 90, t: 1_700_007_200, v: 15 },
+    ];
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'line',
+      crosshair: { visible: false, x: 0, y: 0 },
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      points: linePoints,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const line = scene.commands.find((command) => command.kind === 'polyline');
+    const endpoint = scene.commands.find(
+      (command) => command.kind === 'circle',
+    );
+    const text = scene.commands.flatMap((command) =>
+      command.kind === 'text' ? [command.text] : [],
+    );
+
+    expect(line).toMatchObject({
+      kind: 'polyline',
+      paint: 'lineStroke',
+    });
+    expect(line && 'points' in line ? line.points : []).toHaveLength(
+      linePoints.length,
+    );
+    expect(endpoint).toMatchObject({
+      kind: 'circle',
+      paint: 'line',
+      radius: 2.5,
+    });
+    expect(text).toEqual(expect.arrayContaining(['Price', '+10 (+10%)']));
+    expect(text).not.toEqual(expect.arrayContaining(['O', 'H', 'L', 'C']));
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'line' && command.paint === 'upCurrentPriceLine',
+      ),
+    ).toBe(true);
+    expect(
+      scene.commands.some(
+        (command) => command.kind === 'line' && command.paint === 'axisText',
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps a long price change visible on narrow charts', () => {
+    const points: IMarketTokenKLineDataPoint[] = [
+      {
+        c: 100_000,
+        h: 101_000,
+        l: 99_000,
+        o: 100_000,
+        t: 1_700_000_000,
+        v: 10,
+      },
+      {
+        c: 105_000,
+        h: 106_000,
+        l: 99_000,
+        o: 100_000,
+        t: 1_700_003_600,
+        v: 20,
+      },
+      {
+        c: 123_456,
+        h: 124_000,
+        l: 104_000,
+        o: 122_000,
+        t: 1_700_007_200,
+        v: 15,
+      },
+    ];
+
+    for (const width of [320, 360]) {
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        points,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width,
+      });
+      const changeText = '+18456 (+17.58%)';
+      const changeCommandIndex = scene.commands.findIndex(
+        (command) => command.kind === 'text' && command.text === changeText,
+      );
+      const changeCommand = scene.commands[changeCommandIndex];
+      const clipCommand = scene.commands
+        .slice(0, changeCommandIndex)
+        .findLast((command) => command.kind === 'clip');
+
+      expect(changeCommand).toMatchObject({ kind: 'text', text: changeText });
+      expect(clipCommand).toMatchObject({ kind: 'clip' });
+      if (changeCommand?.kind === 'text' && clipCommand?.kind === 'clip') {
+        expect(
+          changeCommand.x + changeCommand.text.length * 6,
+        ).toBeLessThanOrEqual(clipCommand.rect.x + clipCommand.rect.width);
+      }
+    }
   });
 
   it('keeps scene command count bounded for long histories', () => {
     const buildScene = (points: IMarketTokenKLineDataPoint[]) =>
       buildTradingViewNativeChartScene({
         candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
         crosshair: { visible: false, x: 0, y: 0 },
         height: 240,
         measureTextWidth: (text) => text.length * 6,
