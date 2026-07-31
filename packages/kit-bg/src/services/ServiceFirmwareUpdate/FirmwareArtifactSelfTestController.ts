@@ -21,6 +21,7 @@ import type {
   IFirmwareArtifactSelfTestScenario,
   IFirmwareArtifactSelfTestState,
 } from './FirmwareArtifactSelfTest';
+import type { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactController';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
 type IFirmwareArtifactSelfTestControllerDependencies = {
@@ -33,6 +34,7 @@ export class FirmwareArtifactSelfTestController {
 
   constructor(
     private readonly dependencies: IFirmwareArtifactSelfTestControllerDependencies,
+    private readonly preparedArtifacts: FirmwarePreparedArtifactController,
   ) {}
 
   private updateState({
@@ -41,7 +43,7 @@ export class FirmwareArtifactSelfTestController {
     bytesRead,
     chunkCount,
     materializedEntryCount,
-    stressCompletedIterations,
+    preflightCompletedIterations,
   }: IFirmwareArtifactSelfTestProgress): void {
     const current = this.state;
     if (!current || current.status !== 'running') return;
@@ -54,8 +56,8 @@ export class FirmwareArtifactSelfTestController {
       chunkCount: chunkCount ?? current.chunkCount,
       materializedEntryCount:
         materializedEntryCount ?? current.materializedEntryCount,
-      stressCompletedIterations:
-        stressCompletedIterations ?? current.stressCompletedIterations,
+      preflightCompletedIterations:
+        preflightCompletedIterations ?? current.preflightCompletedIterations,
     };
     this.state = next;
     const enteredNewPhase = phase !== current.phase;
@@ -84,10 +86,12 @@ export class FirmwareArtifactSelfTestController {
       bytes: state.bytesRead || undefined,
       chunkCount: state.chunkCount || undefined,
       materializedEntryCount: state.materializedEntryCount || undefined,
-      stressCompletedIterations: state.stressCompletedIterations || undefined,
-      sdkEntryValidated: state.sdkEntryValidated || undefined,
-      sdkIntegrityRejected: state.sdkIntegrityRejected || undefined,
-      sdkBindingReleased: state.sdkBindingReleased || undefined,
+      preflightCompletedIterations:
+        state.preflightCompletedIterations || undefined,
+      preparedPlanValidated: state.preparedPlanValidated || undefined,
+      sdkHandoffValidated: state.sdkHandoffValidated || undefined,
+      cleanupValidated: state.cleanupValidated || undefined,
+      failureCleanupValidated: state.failureCleanupValidated || undefined,
       sdkBoundaryCode: state.sdkBoundaryCode,
       errorCode: state.errorCode,
     });
@@ -159,13 +163,16 @@ export class FirmwareArtifactSelfTestController {
       chunkCount: result?.chunkCount ?? current.chunkCount,
       materializedEntryCount:
         result?.materializedEntryCount ?? current.materializedEntryCount,
-      stressCompletedIterations:
-        result?.stressCompletedIterations ?? current.stressCompletedIterations,
-      sdkEntryValidated: result?.sdkEntryValidated ?? current.sdkEntryValidated,
-      sdkIntegrityRejected:
-        result?.sdkIntegrityRejected ?? current.sdkIntegrityRejected,
-      sdkBindingReleased:
-        result?.sdkBindingReleased ?? current.sdkBindingReleased,
+      preflightCompletedIterations:
+        result?.preflightCompletedIterations ??
+        current.preflightCompletedIterations,
+      preparedPlanValidated:
+        result?.preparedPlanValidated ?? current.preparedPlanValidated,
+      sdkHandoffValidated:
+        result?.sdkHandoffValidated ?? current.sdkHandoffValidated,
+      cleanupValidated: result?.cleanupValidated ?? current.cleanupValidated,
+      failureCleanupValidated:
+        result?.failureCleanupValidated ?? current.failureCleanupValidated,
       sdkBoundaryCode: result?.sdkBoundaryCode ?? current.sdkBoundaryCode,
       deletedFiles: result?.deletedFiles ?? current.deletedFiles,
       deletedBytes: result?.deletedBytes ?? current.deletedBytes,
@@ -206,10 +213,11 @@ export class FirmwareArtifactSelfTestController {
       bytesRead: 0,
       chunkCount: 0,
       materializedEntryCount: 0,
-      stressCompletedIterations: 0,
-      sdkEntryValidated: false,
-      sdkIntegrityRejected: false,
-      sdkBindingReleased: false,
+      preflightCompletedIterations: 0,
+      preparedPlanValidated: false,
+      sdkHandoffValidated: false,
+      cleanupValidated: false,
+      failureCleanupValidated: false,
       deletedFiles: 0,
       deletedBytes: 0,
     };
@@ -222,6 +230,7 @@ export class FirmwareArtifactSelfTestController {
             scenario,
             transactionId,
             sdk,
+            controller: this.preparedArtifacts,
             onProgress: (next) => this.updateState(next),
           });
         } finally {

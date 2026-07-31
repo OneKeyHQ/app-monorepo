@@ -21,6 +21,7 @@ import type {
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_BRIDGE_BINARY_BYTES = 4 * 1024 * 1024;
 const TOTAL_DEADLINE_MS = 30 * 60 * 1000;
+const NATIVE_ARTIFACT_STAGE_TIMEOUT_MS = 15_000;
 const activeArtifactDownloadCounts = new Map<string, number>();
 const FIRMWARE_CAPABILITY_KEYS = [
   'planSchemaVersion',
@@ -29,6 +30,27 @@ const FIRMWARE_CAPABILITY_KEYS = [
   'manifestModes',
   'supportsArtifactReader',
 ] as const;
+
+export const withFirmwareArtifactStageTimeout = async <T>(
+  stage: string,
+  operation: Promise<T>,
+): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new OneKeyLocalError(`ARTIFACT_${stage}_TIMEOUT`));
+        }, NATIVE_ARTIFACT_STAGE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+};
 
 export const isExternalFirmwareCapabilityReady = (
   value: unknown,
@@ -185,7 +207,19 @@ const createArtifactReader = (): IFirmwareArtifactReader => {
   const sizesByReaderId = new Map<string, number>();
   return {
     async open({ artifactRef }) {
-      const opened = await firmwareArtifactAdapter.open(artifactRef);
+      const openOperation = firmwareArtifactAdapter.open(artifactRef);
+      let opened: Awaited<typeof openOperation>;
+      try {
+        opened = await withFirmwareArtifactStageTimeout(
+          'READER_OPEN',
+          openOperation,
+        );
+      } catch (error) {
+        void openOperation
+          .then(({ readerId }) => firmwareArtifactAdapter.close(readerId))
+          .catch(() => undefined);
+        throw error;
+      }
       sizesByReaderId.set(opened.readerId, opened.size);
       return opened;
     },
@@ -203,11 +237,14 @@ const createArtifactReader = (): IFirmwareArtifactReader => {
       if (size === undefined || offset + length > size) {
         throw new OneKeyLocalError('Firmware artifact reader is out of bounds');
       }
-      const data = await firmwareArtifactAdapter.read({
-        readerId,
-        offset,
-        length,
-      });
+      const data = await withFirmwareArtifactStageTimeout(
+        'READER_READ',
+        firmwareArtifactAdapter.read({
+          readerId,
+          offset,
+          length,
+        }),
+      );
       return {
         data,
         bytesRead: data.byteLength,
@@ -216,7 +253,10 @@ const createArtifactReader = (): IFirmwareArtifactReader => {
     },
     async close({ readerId }) {
       sizesByReaderId.delete(readerId);
-      await firmwareArtifactAdapter.close(readerId);
+      await withFirmwareArtifactStageTimeout(
+        'READER_CLOSE',
+        firmwareArtifactAdapter.close(readerId),
+      );
     },
   };
 };

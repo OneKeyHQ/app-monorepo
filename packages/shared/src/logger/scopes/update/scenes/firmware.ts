@@ -18,12 +18,12 @@ export class FirmwareScene extends BaseScene {
     scenario: 'pro-firmware' | 'pro-resource' | 'pro-full-resource';
     phase:
       | 'starting'
-      | 'downloading'
+      | 'preflight'
       | 'reading'
-      | 'materializing'
-      | 'sdk-contract'
-      | 'bridge-stress'
-      | 'releasing'
+      | 'sdk-handoff'
+      | 'device-boundary'
+      | 'cache-stress'
+      | 'failure-cleanup'
       | 'sweeping'
       | 'completed'
       | 'failed'
@@ -33,10 +33,11 @@ export class FirmwareScene extends BaseScene {
     bytes?: number;
     chunkCount?: number;
     materializedEntryCount?: number;
-    stressCompletedIterations?: number;
-    sdkEntryValidated?: boolean;
-    sdkIntegrityRejected?: boolean;
-    sdkBindingReleased?: boolean;
+    preflightCompletedIterations?: number;
+    preparedPlanValidated?: boolean;
+    sdkHandoffValidated?: boolean;
+    cleanupValidated?: boolean;
+    failureCleanupValidated?: boolean;
     sdkBoundaryCode?: string;
     errorCode?: string;
   }) {

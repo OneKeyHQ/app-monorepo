@@ -16,6 +16,7 @@ import {
   isFirmwareArtifactCapabilityReadyValue,
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
+  withFirmwareArtifactStageTimeout,
 } from './FirmwareArtifactPreflight';
 import { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactController';
 import {
@@ -25,7 +26,12 @@ import {
 import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
-import type { CoreApi, FirmwareUpdatePlan } from '@onekeyfe/hd-core';
+import type { IFirmwarePreparedArtifactReleaseResult } from './FirmwarePreparedArtifactController';
+import type {
+  CoreApi,
+  FirmwareUpdatePlan,
+  FirmwareUpdatePreparedPlan,
+} from '@onekeyfe/hd-core';
 
 const ready = {
   planSchemaVersion: 2,
@@ -75,6 +81,26 @@ describe('isExternalFirmwareCapabilityReady', () => {
   });
 });
 
+describe('firmware artifact stage watchdog', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('fails a hung synchronous native bridge stage without retrying it', async () => {
+    jest.useFakeTimers();
+    const operation = jest.fn(() => new Promise<never>(() => undefined));
+    const pending = withFirmwareArtifactStageTimeout(
+      'LEASE_CREATE',
+      operation(),
+    );
+
+    jest.advanceTimersByTime(15_000);
+
+    await expect(pending).rejects.toThrow('ARTIFACT_LEASE_CREATE_TIMEOUT');
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('prepared firmware execution', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -113,7 +139,10 @@ describe('prepared firmware execution', () => {
       .mockResolvedValue(prepared);
     const release = jest
       .spyOn(controller, 'releasePreparedArtifacts')
-      .mockResolvedValue();
+      .mockResolvedValue({
+        hostBindingReleased: true,
+        leaseReleased: true,
+      });
     const releaseResult = {} as ICheckAllFirmwareReleaseResult;
 
     await controller.withWorkflowArtifacts(releaseResult, async () => 'done');
@@ -779,5 +808,92 @@ describe('external firmware artifact preparation', () => {
     expect(download).toHaveBeenCalledTimes(2);
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledWith('fwtx:test');
+  });
+
+  test('uses one production session for plan validation, host binding, and release', async () => {
+    const url =
+      'https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin';
+    const trusted = await getTrustedFirmwareArtifact(url);
+    const plan = {
+      schemaVersion: 2,
+      planDigest: 'a'.repeat(64),
+      executor: 'v2',
+      deviceIdentity: 'device',
+      deviceModel: 'classic',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'native',
+      artifacts: [
+        {
+          artifactId: 'bootloader',
+          role: 'bootloader',
+          target: 'bootloader',
+          url,
+          container: 'raw',
+          expectedSize: trusted.expectedSize,
+          expectedSha256: trusted.expectedSha256,
+        },
+      ],
+      targetsToUpdate: ['bootloader'],
+    } as unknown as FirmwareUpdatePlan;
+    const preparedPlan = {
+      preparedPlanDigest: 'b'.repeat(64),
+      planDigest: plan.planDigest,
+    } as FirmwareUpdatePreparedPlan;
+    const validateFirmwareUpdatePreparedPlan = jest.fn(() => preparedPlan);
+    const unregisterFirmwareUpdateHostBinding = jest.fn(() => true);
+    const sdk = {
+      prepareFirmwareUpdatePlan: jest.fn(() => preparedPlan),
+      validateFirmwareUpdatePreparedPlan,
+      registerFirmwareUpdateHostBinding: jest.fn(() => 9),
+      unregisterFirmwareUpdateHostBinding,
+    } as unknown as CoreApi;
+    jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
+    jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+      firmwareArtifactProtocolVersion: 2,
+      maxReadBytes: 256 * 1024,
+      supportsArchiveMaterialization: true,
+      supportedRouteTypes: ['domain', 'pinnedIp'],
+    });
+    jest
+      .spyOn(firmwareArtifactAdapter, 'createLease')
+      .mockResolvedValue({ leaseRef: 'fwlease:session' });
+    jest.spyOn(firmwareArtifactAdapter, 'download').mockResolvedValue({
+      artifactRef: `fw:${trusted.expectedSha256}`,
+      size: trusted.expectedSize,
+      sha256: trusted.expectedSha256,
+    });
+    const releaseLease = jest
+      .spyOn(firmwareArtifactAdapter, 'releaseLease')
+      .mockResolvedValue();
+    const controller = new FirmwarePreparedArtifactController({
+      getHardwareTransportType: async () => EHardwareTransportType.Bridge,
+      getSDKInstance: async () => sdk,
+    });
+    let cleanup: IFirmwarePreparedArtifactReleaseResult | undefined;
+
+    await controller.withPreparedPlanArtifacts(
+      { plan, sdk, transactionId: 'fwtx:session' },
+      async (prepared) => {
+        expect(prepared.selected.bootloader).toMatchObject({
+          size: trusted.expectedSize,
+        });
+      },
+      (result) => {
+        cleanup = result;
+      },
+    );
+
+    expect(validateFirmwareUpdatePreparedPlan).toHaveBeenCalledWith(
+      preparedPlan,
+    );
+    expect(unregisterFirmwareUpdateHostBinding).toHaveBeenCalledWith(9);
+    expect(releaseLease).toHaveBeenCalledWith({
+      leaseRef: 'fwlease:session',
+      disposition: 'completed',
+    });
+    expect(cleanup).toEqual({
+      hostBindingReleased: true,
+      leaseReleased: true,
+    });
   });
 });

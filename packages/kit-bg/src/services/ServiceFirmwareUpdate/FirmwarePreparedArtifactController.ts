@@ -11,6 +11,7 @@ import {
   isFirmwareArtifactCapabilityReady,
   prepareBridgeFirmwareBinaries,
   prepareFirmwareArtifacts,
+  withFirmwareArtifactStageTimeout,
 } from './FirmwareArtifactPreflight';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
@@ -32,6 +33,11 @@ export type IFirmwareExecutionArtifacts = {
   preparedArtifacts?: IPreparedFirmwareArtifacts;
   bridgeBinaries?: IBridgeFirmwareBinaries;
   hostBindingGeneration?: number;
+};
+
+export type IFirmwarePreparedArtifactReleaseResult = {
+  hostBindingReleased: boolean;
+  leaseReleased: boolean;
 };
 
 type IFirmwareHostBinding = {
@@ -298,11 +304,16 @@ export class FirmwarePreparedArtifactController {
     this.hostBindings.set(prepared.transactionId, { sdk, generation });
   }
 
-  private releaseHost(transactionId: string): void {
+  private releaseHost(transactionId: string): boolean {
     const binding = this.hostBindings.get(transactionId);
-    if (!binding) return;
-    binding.sdk.unregisterFirmwareUpdateHostBinding(binding.generation);
-    this.hostBindings.delete(transactionId);
+    if (!binding) return false;
+    try {
+      return binding.sdk.unregisterFirmwareUpdateHostBinding(
+        binding.generation,
+      );
+    } finally {
+      this.hostBindings.delete(transactionId);
+    }
   }
 
   getExecutionBindingParams(preparedArtifacts: IPreparedFirmwareArtifacts): {
@@ -358,24 +369,16 @@ export class FirmwarePreparedArtifactController {
     return executionArtifacts;
   }
 
-  private async prepareExternal(
-    releaseResult: ICheckAllFirmwareReleaseResult,
-  ): Promise<IPreparedFirmwareArtifacts | undefined> {
-    if (!platformEnv.isNative && !platformEnv.isDesktop) {
-      return undefined;
-    }
-    if (!releaseResult.firmwareUpdatePlanDigest) {
-      return undefined;
-    }
-    const plan = this.getPlan(releaseResult);
-    const sdk = await this.getExternalSdk(releaseResult.updatingConnectId);
-    if (!sdk) {
-      throw new OneKeyLocalError(
-        'Firmware external SDK capability is unavailable',
-      );
-    }
+  async preparePlanArtifacts({
+    plan,
+    sdk,
     // cspell:disable-next-line
-    const transactionId = `fwtx:${generateUUID().toLowerCase()}`;
+    transactionId = `fwtx:${generateUUID().toLowerCase()}`,
+  }: {
+    plan: FirmwareUpdatePlan;
+    sdk: CoreApi;
+    transactionId?: string;
+  }): Promise<IPreparedFirmwareArtifacts> {
     firmwareUpdateTrace({
       transactionId,
       stage: 'preflight-start',
@@ -383,13 +386,54 @@ export class FirmwarePreparedArtifactController {
       inputMode: 'artifact-reader',
       expectedArtifactCount: plan.artifacts.length,
     });
-    const { leaseRef } =
-      await firmwareArtifactAdapter.createLease(transactionId);
+    const leaseOperation = firmwareArtifactAdapter.createLease(transactionId);
+    let leaseRef: string;
+    try {
+      ({ leaseRef } = await withFirmwareArtifactStageTimeout(
+        'LEASE_CREATE',
+        leaseOperation,
+      ));
+    } catch (error) {
+      void leaseOperation
+        .then(({ leaseRef: lateLeaseRef }) =>
+          firmwareArtifactAdapter.releaseLease({
+            leaseRef: lateLeaseRef,
+            disposition: 'safeCancelled',
+          }),
+        )
+        .catch(() => undefined);
+      throw error;
+    }
+    firmwareUpdateTrace({
+      transactionId,
+      stage: 'lease-created',
+      executor: plan.executor,
+      inputMode: 'artifact-reader',
+    });
     try {
       const prepared = await prepareFirmwareArtifacts(plan, {
         transactionId,
         leaseRef,
         preparePlan: sdk.prepareFirmwareUpdatePlan,
+      });
+      const validatedPreparedPlan = sdk.validateFirmwareUpdatePreparedPlan(
+        prepared.preparedPlan,
+      );
+      if (
+        validatedPreparedPlan.preparedPlanDigest !==
+        prepared.preparedPlan.preparedPlanDigest
+      ) {
+        throw new OneKeyLocalError(
+          'Firmware prepared plan validation returned a different digest',
+        );
+      }
+      firmwareUpdateTrace({
+        transactionId,
+        stage: 'artifact-ready',
+        executor: plan.executor,
+        inputMode: 'artifact-reader',
+        preparedPlanProvided: true,
+        artifacts: getPreparedArtifactTraceSummary(prepared),
       });
       this.bindHost(prepared, sdk);
       firmwareUpdateTrace({
@@ -412,6 +456,53 @@ export class FirmwarePreparedArtifactController {
         .catch(() => undefined);
       throw error;
     }
+  }
+
+  async withPreparedPlanArtifacts<T>(
+    {
+      plan,
+      sdk,
+      transactionId,
+    }: {
+      plan: FirmwareUpdatePlan;
+      sdk: CoreApi;
+      transactionId?: string;
+    },
+    execute: (artifacts: IPreparedFirmwareArtifacts) => Promise<T>,
+    onReleased?: (result: IFirmwarePreparedArtifactReleaseResult) => void,
+  ): Promise<T> {
+    const prepared = await this.preparePlanArtifacts({
+      plan,
+      sdk,
+      transactionId,
+    });
+    let disposition: 'completed' | 'safeCancelled' = 'safeCancelled';
+    try {
+      const result = await execute(prepared);
+      disposition = 'completed';
+      return result;
+    } finally {
+      onReleased?.(await this.releasePreparedArtifacts(prepared, disposition));
+    }
+  }
+
+  private async prepareExternal(
+    releaseResult: ICheckAllFirmwareReleaseResult,
+  ): Promise<IPreparedFirmwareArtifacts | undefined> {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return undefined;
+    }
+    if (!releaseResult.firmwareUpdatePlanDigest) {
+      return undefined;
+    }
+    const plan = this.getPlan(releaseResult);
+    const sdk = await this.getExternalSdk(releaseResult.updatingConnectId);
+    if (!sdk) {
+      throw new OneKeyLocalError(
+        'Firmware external SDK capability is unavailable',
+      );
+    }
+    return this.preparePlanArtifacts({ plan, sdk });
   }
 
   async prepareWorkflowArtifacts(
@@ -482,18 +573,46 @@ export class FirmwarePreparedArtifactController {
   async releasePreparedArtifacts(
     prepared: IPreparedFirmwareArtifacts,
     disposition: 'completed' | 'safeCancelled',
-  ): Promise<void> {
-    this.releaseHost(prepared.transactionId);
+  ): Promise<IFirmwarePreparedArtifactReleaseResult> {
+    let hostBindingReleased = false;
+    let leaseReleased = false;
+    try {
+      hostBindingReleased = this.releaseHost(prepared.transactionId);
+    } catch {
+      hostBindingReleased = false;
+    }
     if (disposition === 'safeCancelled') {
       await firmwareArtifactAdapter
         .cancelDownloads(prepared.transactionId)
         .catch(() => undefined);
     }
-    await firmwareArtifactAdapter
-      .releaseLease({
+    await withFirmwareArtifactStageTimeout(
+      'LEASE_RELEASE',
+      firmwareArtifactAdapter.releaseLease({
         leaseRef: prepared.leaseRef,
         disposition,
+      }),
+    )
+      .then(() => {
+        leaseReleased = true;
       })
       .catch(() => undefined);
+    firmwareUpdateTrace({
+      transactionId: prepared.transactionId,
+      stage: 'release-complete',
+      executor: prepared.plan.executor,
+      inputMode: 'artifact-reader',
+      disposition,
+      hostBindingReleased,
+      leaseReleased,
+    });
+    return { hostBindingReleased, leaseReleased };
+  }
+
+  sweepOrphanedArtifacts(): Promise<{
+    deletedFiles: number;
+    deletedBytes: number;
+  }> {
+    return firmwareArtifactAdapter.sweepOrphans();
   }
 }

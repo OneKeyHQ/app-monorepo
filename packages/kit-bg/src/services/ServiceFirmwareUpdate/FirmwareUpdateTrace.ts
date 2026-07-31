@@ -8,8 +8,13 @@ export type IFirmwareUpdateTraceInputMode =
 
 export type IFirmwareUpdateTraceStage =
   | 'preflight-start'
+  | 'lease-created'
+  | 'artifact-ready'
   | 'preflight-complete'
+  | 'reader-complete'
   | 'sdk-handoff'
+  | 'device-boundary'
+  | 'release-complete'
   | 'sdk-tip';
 
 export type IFirmwareUpdateArtifactTraceSummary = {
@@ -33,6 +38,12 @@ export type IFirmwareUpdateTraceParams = {
   artifacts?: IFirmwareUpdateArtifactTraceSummary;
   preparedPlanProvided?: boolean;
   hostBindingProvided?: boolean;
+  readerBytes?: number;
+  readerChunks?: number;
+  boundaryCode?: string;
+  disposition?: 'completed' | 'safeCancelled';
+  hostBindingReleased?: boolean;
+  leaseReleased?: boolean;
   tipMessage?: string;
 };
 

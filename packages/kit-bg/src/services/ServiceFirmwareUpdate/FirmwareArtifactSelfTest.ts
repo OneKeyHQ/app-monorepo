@@ -6,25 +6,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
-import {
-  downloadTrustedFirmwareArtifact,
-  isExternalFirmwareCapabilityReady,
-  isFirmwareArtifactCapabilityReadyValue,
-} from './FirmwareArtifactPreflight';
+import { isExternalFirmwareCapabilityReady } from './FirmwareArtifactPreflight';
+import { executePreparedFirmwareUpdateV3 } from './FirmwarePreparedExecution';
+import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 import {
   getTrustedFirmwareArtifact,
   getTrustedFirmwareConfig,
 } from './trustedFirmwareCatalog';
 
-import type { IFirmwareArtifactAdapter } from './FirmwareArtifactAdapter.types';
-import type { ITrustedFirmwareArtifact } from './trustedFirmwareCatalog';
+import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
 import type {
-  CoreApi,
-  FirmwareArtifactReader,
-  FirmwareArtifactReference,
-  FirmwareUpdatePlan,
-} from '@onekeyfe/hd-core';
+  FirmwarePreparedArtifactController,
+  IFirmwarePreparedArtifactReleaseResult,
+} from './FirmwarePreparedArtifactController';
+import type { ITrustedFirmwareArtifact } from './trustedFirmwareCatalog';
+import type { CoreApi, FirmwareUpdatePlan } from '@onekeyfe/hd-core';
 
 export type IFirmwareArtifactSelfTestScenario =
   | 'pro-firmware'
@@ -33,12 +29,12 @@ export type IFirmwareArtifactSelfTestScenario =
 
 export type IFirmwareArtifactSelfTestPhase =
   | 'starting'
-  | 'downloading'
+  | 'preflight'
   | 'reading'
-  | 'materializing'
-  | 'sdk-contract'
-  | 'bridge-stress'
-  | 'releasing'
+  | 'sdk-handoff'
+  | 'device-boundary'
+  | 'cache-stress'
+  | 'failure-cleanup'
   | 'sweeping'
   | 'completed'
   | 'failed'
@@ -68,17 +64,18 @@ export type IFirmwareArtifactSelfTestProgress = {
   bytesRead?: number;
   chunkCount?: number;
   materializedEntryCount?: number;
-  stressCompletedIterations?: number;
+  preflightCompletedIterations?: number;
 };
 
 export type IFirmwareArtifactSelfTestResult = {
   bytesRead: number;
   chunkCount: number;
   materializedEntryCount: number;
-  stressCompletedIterations: number;
-  sdkEntryValidated: boolean;
-  sdkIntegrityRejected: boolean;
-  sdkBindingReleased: boolean;
+  preflightCompletedIterations: number;
+  preparedPlanValidated: boolean;
+  sdkHandoffValidated: boolean;
+  cleanupValidated: boolean;
+  failureCleanupValidated: boolean;
   sdkBoundaryCode: string;
   deletedFiles: number;
   deletedBytes: number;
@@ -97,44 +94,30 @@ export type IFirmwareArtifactSelfTestState = {
   bytesRead: number;
   chunkCount: number;
   materializedEntryCount: number;
-  stressCompletedIterations: number;
-  sdkEntryValidated: boolean;
-  sdkIntegrityRejected: boolean;
-  sdkBindingReleased: boolean;
+  preflightCompletedIterations: number;
+  preparedPlanValidated: boolean;
+  sdkHandoffValidated: boolean;
+  cleanupValidated: boolean;
+  failureCleanupValidated: boolean;
   sdkBoundaryCode?: string;
   deletedFiles: number;
   deletedBytes: number;
   errorCode?: string;
 };
 
-type IFirmwareArtifactSelfTestDependencies = {
-  adapter: IFirmwareArtifactAdapter;
-  download: typeof downloadTrustedFirmwareArtifact;
-};
+type IFirmwareArtifactSelfTestHost = Pick<
+  FirmwarePreparedArtifactController,
+  | 'getExecutionArtifacts'
+  | 'sweepOrphanedArtifacts'
+  | 'withPreparedPlanArtifacts'
+>;
 
 const PRO_FIRMWARE_VERSION = '4.21.0';
 const READER_CHUNK_BYTES = 256 * 1024;
-const BRIDGE_STRESS_READ_BYTES = 4 * 1024;
-const BRIDGE_STRESS_ITERATIONS = 50;
+const PREFLIGHT_STRESS_READ_BYTES = 4 * 1024;
+const PREFLIGHT_STRESS_ITERATIONS = 50;
 const SDK_SELF_TEST_CONNECT_ID = '__firmware_sdk_self_test_no_device__';
-
-type IFirmwareArtifactSelfTestSdk = Pick<
-  CoreApi,
-  | 'firmwareUpdateV3'
-  | 'getFirmwareUpdateCapabilities'
-  | 'prepareFirmwareUpdatePlan'
-  | 'validateFirmwareUpdatePreparedPlan'
-  | 'registerFirmwareUpdateHostBinding'
-  | 'unregisterFirmwareUpdateHostBinding'
->;
-
-type IFirmwareArtifactSdkProbeResult = Pick<
-  IFirmwareArtifactSelfTestResult,
-  | 'sdkEntryValidated'
-  | 'sdkIntegrityRejected'
-  | 'sdkBindingReleased'
-  | 'sdkBoundaryCode'
->;
+const CONTROLLED_FAILURE_CODE = 'EXPECTED_FAILURE_CLEANUP_PROBE';
 
 type IFirmwareArtifactSdkFailure = {
   code?: string | number;
@@ -159,24 +142,24 @@ export const getFirmwareArtifactSelfTestArtifact = async (
 ): Promise<{
   descriptor: IFirmwareArtifactSelfTestDescriptor;
   artifact: ITrustedFirmwareArtifact;
-  artifactId: string;
+  artifactId: 'firmware' | 'resource';
 }> => {
   const release = await getProRelease();
   let url: string | undefined;
   let label: string;
-  let artifactId: string;
+  let artifactId: 'firmware' | 'resource';
   if (scenario === 'pro-firmware') {
     url = release.url;
     label = 'Pro firmware';
-    artifactId = 'gallery-pro-firmware';
+    artifactId = 'firmware';
   } else if (scenario === 'pro-resource') {
     url = release.resource;
     label = 'Pro incremental resource';
-    artifactId = 'gallery-pro-resource';
+    artifactId = 'resource';
   } else {
     url = release.fullResource;
     label = 'Pro full resource';
-    artifactId = 'gallery-pro-full-resource';
+    artifactId = 'resource';
   }
   if (!url) {
     throw new OneKeyLocalError(`${label} URL is unavailable`);
@@ -215,14 +198,6 @@ export const getFirmwareArtifactSelfTestErrorCode = (
   return /\b(ARTIFACT_[A-Z0-9_]+)\b/u.exec(message)?.[1] ?? 'SELF_TEST_FAILED';
 };
 
-const normalizeFirmwareArtifactSelfTestError = (
-  error: unknown,
-  fallbackCode: string,
-): unknown =>
-  getFirmwareArtifactSelfTestErrorCode(error) === 'SELF_TEST_FAILED'
-    ? new OneKeyLocalError(fallbackCode)
-    : error;
-
 const getSdkPlanPlatform = (): FirmwareUpdatePlan['platform'] =>
   platformEnv.isDesktop ? 'desktop' : 'native';
 
@@ -241,7 +216,7 @@ const buildFirmwareSelfTestPlan = async ({
   scenario,
 }: {
   artifact: ITrustedFirmwareArtifact;
-  artifactId: string;
+  artifactId: 'firmware' | 'resource';
   scenario: IFirmwareArtifactSelfTestScenario;
 }): Promise<FirmwareUpdatePlan> => {
   const target = scenario === 'pro-firmware' ? 'firmware' : 'resource';
@@ -273,6 +248,59 @@ const buildFirmwareSelfTestPlan = async ({
   };
 };
 
+const readPreparedArtifact = async ({
+  prepared,
+  artifactId,
+  expectedSize,
+  maxBytes,
+  onProgress,
+}: {
+  prepared: IPreparedFirmwareArtifacts;
+  artifactId: 'firmware' | 'resource';
+  expectedSize: number;
+  maxBytes?: number;
+  onProgress?: (bytesRead: number, chunkCount: number) => void;
+}): Promise<{ bytesRead: number; chunkCount: number }> => {
+  const artifact = prepared.artifactsById[artifactId];
+  if (!artifact) {
+    throw new OneKeyLocalError('ARTIFACT_PREPARED_REFERENCE_MISSING');
+  }
+  const reader = await prepared.artifactReader.open({
+    artifactRef: artifact.artifactRef,
+  });
+  if (reader.size !== expectedSize || artifact.size !== expectedSize) {
+    await prepared.artifactReader.close({ readerId: reader.readerId });
+    throw new OneKeyLocalError('ARTIFACT_READER_SIZE_MISMATCH');
+  }
+
+  const totalBytes = Math.min(maxBytes ?? reader.size, reader.size);
+  let bytesRead = 0;
+  let chunkCount = 0;
+  try {
+    while (bytesRead < totalBytes) {
+      const length = Math.min(READER_CHUNK_BYTES, totalBytes - bytesRead);
+      const chunk = await prepared.artifactReader.read({
+        readerId: reader.readerId,
+        offset: bytesRead,
+        length,
+      });
+      if (
+        chunk.bytesRead !== length ||
+        chunk.data.byteLength !== length ||
+        chunk.eof !== (bytesRead + length === reader.size)
+      ) {
+        throw new OneKeyLocalError('ARTIFACT_READER_CHUNK_INVALID');
+      }
+      bytesRead += chunk.bytesRead;
+      chunkCount += 1;
+      onProgress?.(bytesRead, chunkCount);
+    }
+  } finally {
+    await prepared.artifactReader.close({ readerId: reader.readerId });
+  }
+  return { bytesRead, chunkCount };
+};
+
 const getSdkFailure = async (
   operation: () => ReturnType<CoreApi['firmwareUpdateV3']>,
 ): Promise<IFirmwareArtifactSdkFailure> => {
@@ -280,10 +308,9 @@ const getSdkFailure = async (
   try {
     result = await operation();
   } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message };
-    }
-    return { error: String(error) };
+    return {
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
   if (result.success) {
     throw new OneKeyLocalError(
@@ -296,511 +323,237 @@ const getSdkFailure = async (
   };
 };
 
-const assertSdkFailure = ({
-  failure,
-  expected,
-  fallbackCode,
-}: {
-  failure: IFirmwareArtifactSdkFailure;
-  expected: RegExp;
-  fallbackCode: string;
-}) => {
-  if (!expected.test(failure.error)) {
-    throw new OneKeyLocalError(
-      `${fallbackCode}: ${failure.error || 'SDK returned no error'}`,
-    );
-  }
-};
-
-const executeFirmwareArtifactSdkProbe = async ({
+const executeSdkDeviceBoundary = async ({
+  controller,
   sdk,
-  adapter,
-  artifact,
-  artifactId,
-  scenario,
-  leaseRef,
-  receipt,
-  materializedEntries,
+  prepared,
 }: {
-  sdk: IFirmwareArtifactSelfTestSdk;
-  adapter: IFirmwareArtifactAdapter;
-  artifact: ITrustedFirmwareArtifact;
-  artifactId: string;
-  scenario: IFirmwareArtifactSelfTestScenario;
-  leaseRef: string;
-  receipt: FirmwareArtifactReference;
-  materializedEntries: {
-    entryName: string;
-    artifact: FirmwareArtifactReference;
-  }[];
-}): Promise<IFirmwareArtifactSdkProbeResult> => {
-  if (!isExternalFirmwareCapabilityReady(sdk.getFirmwareUpdateCapabilities())) {
-    throw new OneKeyLocalError('SDK_FIRMWARE_CAPABILITY_MISMATCH');
-  }
-  const plan = await buildFirmwareSelfTestPlan({
-    artifact,
-    artifactId,
-    scenario,
-  });
-  const preparedPlan = sdk.prepareFirmwareUpdatePlan({
-    plan,
-    leaseRef,
-    artifacts: [
-      {
-        artifactId,
-        artifact: receipt,
-        ...(materializedEntries.length ? { materializedEntries } : {}),
-      },
-    ],
-  });
-  const validatedPreparedPlan =
-    sdk.validateFirmwareUpdatePreparedPlan(preparedPlan);
+  controller: IFirmwareArtifactSelfTestHost;
+  sdk: CoreApi;
+  prepared: IPreparedFirmwareArtifacts;
+}): Promise<string> => {
+  const executionArtifacts = controller.getExecutionArtifacts(
+    prepared,
+    'firmwareUpdateV3',
+  );
+  const targetVersion = prepared.plan.artifacts[0]?.targetVersion
+    ?.split('.')
+    .map((value) => Number.parseInt(value, 10));
+  const failure = await getSdkFailure(() =>
+    executePreparedFirmwareUpdateV3({
+      sdk,
+      connectId: SDK_SELF_TEST_CONNECT_ID,
+      ...executionArtifacts,
+      platform: prepared.plan.platform,
+      firmwareType: prepared.plan.firmwareType,
+      bleVersion: undefined,
+      firmwareVersion:
+        prepared.plan.targetsToUpdate.includes('firmware') &&
+        targetVersion?.every(Number.isSafeInteger)
+          ? targetVersion
+          : undefined,
+      bootloaderVersion: undefined,
+    }),
+  );
   if (
-    validatedPreparedPlan.preparedPlanDigest !== preparedPlan.preparedPlanDigest
+    /prepared plan|artifact binding|host binding|artifact reader/iu.test(
+      failure.error,
+    )
   ) {
-    throw new OneKeyLocalError('SDK_PREPARED_PLAN_ROUND_TRIP_FAILED');
+    throw new OneKeyLocalError(
+      `ARTIFACT_SDK_HANDOFF_REJECTED: ${failure.error}`,
+    );
   }
-
-  const readerSizes = new Map<string, number>();
-  const generation = (
-    sdk.registerFirmwareUpdateHostBinding as unknown as (binding: {
-      artifactReader: FirmwareArtifactReader;
-    }) => number
-  )({
-    artifactReader: {
-      async open({ artifactRef }) {
-        const opened = await adapter.open(artifactRef);
-        readerSizes.set(opened.readerId, opened.size);
-        return opened;
-      },
-      async read({ readerId, offset, length }) {
-        const size = readerSizes.get(readerId);
-        if (size === undefined) {
-          throw new OneKeyLocalError('SDK self-test reader is not open');
-        }
-        const data = await adapter.read({ readerId, offset, length });
-        return {
-          data,
-          bytesRead: data.byteLength,
-          eof: offset + data.byteLength === size,
-        };
-      },
-      async close({ readerId }) {
-        readerSizes.delete(readerId);
-        await adapter.close(readerId);
-      },
-    },
+  const boundaryCode = String(failure.code ?? 'DEVICE_BOUNDARY_REACHED');
+  firmwareUpdateTrace({
+    transactionId: prepared.transactionId,
+    stage: 'device-boundary',
+    executor: prepared.plan.executor,
+    inputMode: 'artifact-reader',
+    boundaryCode,
   });
-  if (!Number.isSafeInteger(generation) || generation <= 0) {
-    throw new OneKeyLocalError('SDK_HOST_BINDING_REGISTRATION_FAILED');
-  }
-
-  const target = scenario === 'pro-firmware' ? 'firmware' : 'resource';
-  const artifacts =
-    target === 'firmware'
-      ? { firmware: receipt }
-      : { resourceEntries: materializedEntries };
-  const createParams = (
-    nextArtifacts: typeof artifacts,
-  ): Parameters<CoreApi['firmwareUpdateV3']>[1] =>
-    ({
-      preparedPlan,
-      platform: plan.platform,
-      firmwareVersion: target === 'firmware' ? [4, 21, 0] : undefined,
-      firmwareType: EFirmwareType.Universal,
-      artifacts: nextArtifacts,
-      hostBindingGeneration: generation,
-      retryCount: 0,
-      pollIntervalTime: 10,
-      timeout: 500,
-      skipWebDevicePrompt: true,
-    }) as Parameters<CoreApi['firmwareUpdateV3']>[1];
-
-  let bindingReleased = false;
-  try {
-    const validFailure = await getSdkFailure(() =>
-      sdk.firmwareUpdateV3(SDK_SELF_TEST_CONNECT_ID, createParams(artifacts)),
-    );
-    if (
-      /prepared plan|artifact binding|host binding|artifact reader/iu.test(
-        validFailure.error,
-      )
-    ) {
-      throw new OneKeyLocalError(
-        `SDK_VALID_ENTRY_REJECTED: ${validFailure.error}`,
-      );
-    }
-
-    const tamperedReference = {
-      ...receipt,
-      sha256:
-        receipt.sha256 === '0'.repeat(64) ? '1'.repeat(64) : '0'.repeat(64),
-    };
-    const tamperedArtifacts =
-      target === 'firmware'
-        ? { firmware: tamperedReference }
-        : {
-            resourceEntries: materializedEntries.map((entry, index) =>
-              index === 0 ? { ...entry, artifact: tamperedReference } : entry,
-            ),
-          };
-    const integrityFailure = await getSdkFailure(() =>
-      sdk.firmwareUpdateV3(
-        SDK_SELF_TEST_CONNECT_ID,
-        createParams(tamperedArtifacts),
-      ),
-    );
-    assertSdkFailure({
-      failure: integrityFailure,
-      expected: /prepared plan artifact binding is invalid/iu,
-      fallbackCode: 'SDK_INTEGRITY_CONTRACT_NOT_ENFORCED',
-    });
-
-    bindingReleased = sdk.unregisterFirmwareUpdateHostBinding(generation);
-    if (!bindingReleased) {
-      throw new OneKeyLocalError('SDK_HOST_BINDING_RELEASE_FAILED');
-    }
-    const releasedBindingFailure = await getSdkFailure(() =>
-      sdk.firmwareUpdateV3(SDK_SELF_TEST_CONNECT_ID, createParams(artifacts)),
-    );
-    assertSdkFailure({
-      failure: releasedBindingFailure,
-      expected: /host binding generation .* is stale/iu,
-      fallbackCode: 'SDK_RELEASE_CONTRACT_NOT_ENFORCED',
-    });
-
-    return {
-      sdkEntryValidated: true,
-      sdkIntegrityRejected: true,
-      sdkBindingReleased: true,
-      sdkBoundaryCode: String(validFailure.code ?? 'DEVICE_BOUNDARY_REACHED'),
-    };
-  } finally {
-    if (!bindingReleased) {
-      sdk.unregisterFirmwareUpdateHostBinding(generation);
-    }
-  }
+  return boundaryCode;
 };
 
-const executeFirmwareArtifactBridgeStress = async ({
-  adapter,
-  download,
-  artifact,
-  artifactId,
-  transactionId,
-  onProgress,
-}: {
-  adapter: IFirmwareArtifactAdapter;
-  download: typeof downloadTrustedFirmwareArtifact;
-  artifact: ITrustedFirmwareArtifact;
-  artifactId: string;
-  transactionId: string;
-  onProgress: (progress: IFirmwareArtifactSelfTestProgress) => void;
-}): Promise<number> => {
-  let completedIterations = 0;
-  for (let index = 0; index < BRIDGE_STRESS_ITERATIONS; index += 1) {
-    const stressTransactionId = `${transactionId}:stress:${index + 1}`;
-    let leaseRef: string | undefined;
-    let readerId: string | undefined;
-    let failure: unknown;
-    try {
-      leaseRef = (await adapter.createLease(stressTransactionId)).leaseRef;
-      const receipt = await download({
-        artifact,
-        artifactId,
-        transactionId: stressTransactionId,
-        leaseRef,
-        deadlineAt: Date.now() + 5 * 60 * 1000,
-      });
-      const reader = await adapter.open(receipt.artifactRef);
-      readerId = reader.readerId;
-      if (reader.size !== artifact.expectedSize) {
-        throw new OneKeyLocalError(
-          'Firmware artifact stress reader size does not match the catalog',
-        );
-      }
-      const length = Math.min(BRIDGE_STRESS_READ_BYTES, reader.size);
-      const chunk = await adapter.read({
-        readerId,
-        offset: 0,
-        length,
-      });
-      if (chunk.byteLength !== length) {
-        throw new OneKeyLocalError(
-          'Firmware artifact stress reader returned an incomplete chunk',
-        );
-      }
-      await adapter.close(readerId);
-      readerId = undefined;
-    } catch (error) {
-      failure = error;
-    }
-
-    if (readerId) {
-      try {
-        await adapter.close(readerId);
-      } catch (error) {
-        failure ??= error;
-      }
-    }
-    if (leaseRef) {
-      try {
-        await adapter.releaseLease({
-          leaseRef,
-          disposition: failure ? 'safeAbandoned' : 'completed',
-        });
-      } catch (error) {
-        failure ??= error;
-      }
-    }
-    if (failure) {
-      const message =
-        failure instanceof Error ? failure.message : String(failure);
-      throw new OneKeyLocalError(
-        `ARTIFACT_BRIDGE_STRESS_FAILED: iteration ${index + 1}: ${message}`,
-      );
-    }
-
-    completedIterations += 1;
-    onProgress({
-      phase: 'bridge-stress',
-      progress:
-        92 + Math.floor((completedIterations / BRIDGE_STRESS_ITERATIONS) * 2),
-      stressCompletedIterations: completedIterations,
-    });
+const assertCleanup = (
+  cleanup: IFirmwarePreparedArtifactReleaseResult | undefined,
+  code: string,
+): void => {
+  if (!cleanup?.hostBindingReleased || !cleanup.leaseReleased) {
+    throw new OneKeyLocalError(`ARTIFACT_${code}_FAILED`);
   }
-  return completedIterations;
 };
 
 export const executeFirmwareArtifactSelfTest = async ({
   scenario,
   transactionId,
-  leaseRef: existingLeaseRef,
   sdk,
+  controller,
   onProgress,
-  dependencies = {
-    adapter: firmwareArtifactAdapter,
-    download: downloadTrustedFirmwareArtifact,
-  },
 }: {
   scenario: IFirmwareArtifactSelfTestScenario;
   transactionId: string;
-  leaseRef?: string;
-  sdk: IFirmwareArtifactSelfTestSdk;
+  sdk: CoreApi;
+  controller: IFirmwareArtifactSelfTestHost;
   onProgress: (progress: IFirmwareArtifactSelfTestProgress) => void;
-  dependencies?: IFirmwareArtifactSelfTestDependencies;
 }): Promise<IFirmwareArtifactSelfTestResult> => {
-  const { adapter, download } = dependencies;
-  let capabilities: Awaited<
-    ReturnType<IFirmwareArtifactAdapter['getCapabilities']>
-  >;
-  try {
-    capabilities = await adapter.getCapabilities();
-  } catch (error) {
-    throw normalizeFirmwareArtifactSelfTestError(
-      error,
-      'ARTIFACT_CAPABILITY_UNAVAILABLE',
-    );
-  }
-  if (!isFirmwareArtifactCapabilityReadyValue(capabilities)) {
-    throw new OneKeyLocalError('ARTIFACT_CAPABILITY_MISMATCH');
+  if (!isExternalFirmwareCapabilityReady(sdk.getFirmwareUpdateCapabilities())) {
+    throw new OneKeyLocalError('ARTIFACT_SDK_CAPABILITY_MISMATCH');
   }
   const { artifact, artifactId } =
     await getFirmwareArtifactSelfTestArtifact(scenario);
-  let leaseRef = existingLeaseRef;
-  if (!leaseRef) {
-    try {
-      leaseRef = (await adapter.createLease(transactionId)).leaseRef;
-    } catch (error) {
-      throw normalizeFirmwareArtifactSelfTestError(
-        error,
-        'ARTIFACT_LEASE_CREATE_FAILED',
-      );
-    }
-  }
-  let disposition: 'completed' | 'safeCancelled' | 'safeAbandoned' =
-    'completed';
-  let failure: unknown;
-  let readerId: string | undefined;
-  let bytesRead = 0;
-  let chunkCount = 0;
-  let materializedEntryCount = 0;
-  let stressCompletedIterations = 0;
-  let sdkEntryValidated = false;
-  let sdkIntegrityRejected = false;
-  let sdkBindingReleased = false;
-  let sdkBoundaryCode = '';
-  let deletedFiles = 0;
-  let deletedBytes = 0;
-  let receipt: FirmwareArtifactReference | undefined;
-  let materializedEntries: {
-    entryName: string;
-    artifact: FirmwareArtifactReference;
-  }[] = [];
-
-  try {
-    onProgress({ phase: 'downloading', progress: 10 });
-    receipt = await download({
-      artifact,
-      artifactId,
-      transactionId,
-      leaseRef,
-      deadlineAt: Date.now() + 30 * 60 * 1000,
-    });
-
-    onProgress({ phase: 'reading', progress: 65 });
-    const reader = await adapter.open(receipt.artifactRef);
-    readerId = reader.readerId;
-    if (reader.size !== artifact.expectedSize) {
-      throw new OneKeyLocalError(
-        'Firmware artifact reader size does not match the catalog',
-      );
-    }
-    while (bytesRead < reader.size) {
-      const length = Math.min(READER_CHUNK_BYTES, reader.size - bytesRead);
-      const chunk = await adapter.read({
-        readerId,
-        offset: bytesRead,
-        length,
-      });
-      if (chunk.byteLength !== length) {
-        throw new OneKeyLocalError(
-          'Firmware artifact reader returned an incomplete chunk',
-        );
-      }
-      bytesRead += chunk.byteLength;
-      chunkCount += 1;
-      onProgress({
-        phase: 'reading',
-        progress: 65 + Math.floor((bytesRead / reader.size) * 20),
-        bytesRead,
-        chunkCount,
-      });
-    }
-    await adapter.close(readerId);
-    readerId = undefined;
-
-    if (artifact.container === 'zip') {
-      if (!artifact.expectedEntries?.length) {
-        throw new OneKeyLocalError(
-          'Trusted firmware archive has no exact entry allow-list',
-        );
-      }
-      onProgress({
-        phase: 'materializing',
-        progress: 88,
-        bytesRead,
-        chunkCount,
-      });
-      const entries = await adapter.materialize({
-        leaseRef,
-        archiveArtifactRef: receipt.artifactRef,
-        expectedEntries: artifact.expectedEntries,
-      });
-      materializedEntryCount = entries.length;
-      materializedEntries = entries.map((entry) => ({
-        entryName: entry.entryName,
-        artifact: entry.receipt,
-      }));
-      if (materializedEntryCount !== artifact.expectedEntries.length) {
-        throw new OneKeyLocalError(
-          'Firmware archive materialization is incomplete',
-        );
-      }
-    }
-    onProgress({
-      phase: 'sdk-contract',
-      progress: 91,
-      bytesRead,
-      chunkCount,
-      materializedEntryCount,
-    });
-    const sdkResult = await executeFirmwareArtifactSdkProbe({
-      sdk,
-      adapter,
-      artifact,
-      artifactId,
-      scenario,
-      leaseRef,
-      receipt,
-      materializedEntries,
-    });
-    sdkEntryValidated = sdkResult.sdkEntryValidated;
-    sdkIntegrityRejected = sdkResult.sdkIntegrityRejected;
-    sdkBindingReleased = sdkResult.sdkBindingReleased;
-    sdkBoundaryCode = sdkResult.sdkBoundaryCode;
-    if (scenario === 'pro-firmware') {
-      stressCompletedIterations = await executeFirmwareArtifactBridgeStress({
-        adapter,
-        download,
-        artifact,
-        artifactId,
-        transactionId,
-        onProgress,
-      });
-    }
-  } catch (error) {
-    failure = error;
-    disposition =
-      getFirmwareArtifactSelfTestErrorCode(error) === 'ARTIFACT_CANCELLED'
-        ? 'safeCancelled'
-        : 'safeAbandoned';
-  }
-
-  if (readerId) {
-    try {
-      await adapter.close(readerId);
-    } catch (error) {
-      failure ??= error;
-      disposition = 'safeAbandoned';
-    }
-  }
-
-  onProgress({
-    phase: 'releasing',
-    progress: 94,
-    bytesRead,
-    chunkCount,
-    materializedEntryCount,
-    stressCompletedIterations,
+  const plan = await buildFirmwareSelfTestPlan({
+    artifact,
+    artifactId,
+    scenario,
   });
-  try {
-    await adapter.releaseLease({ leaseRef, disposition });
-  } catch (error) {
-    failure ??= error;
+
+  let mainCleanup: IFirmwarePreparedArtifactReleaseResult | undefined;
+  onProgress({ phase: 'preflight', progress: 5 });
+  const mainResult = await controller.withPreparedPlanArtifacts(
+    { plan, sdk, transactionId },
+    async (prepared) => {
+      onProgress({ phase: 'reading', progress: 65 });
+      const readerResult = await readPreparedArtifact({
+        prepared,
+        artifactId,
+        expectedSize: artifact.expectedSize,
+        onProgress: (bytesRead, chunkCount) => {
+          onProgress({
+            phase: 'reading',
+            progress: 65 + Math.floor((bytesRead / artifact.expectedSize) * 20),
+            bytesRead,
+            chunkCount,
+          });
+        },
+      });
+      firmwareUpdateTrace({
+        transactionId: prepared.transactionId,
+        stage: 'reader-complete',
+        executor: prepared.plan.executor,
+        inputMode: 'artifact-reader',
+        readerBytes: readerResult.bytesRead,
+        readerChunks: readerResult.chunkCount,
+      });
+      onProgress({
+        phase: 'sdk-handoff',
+        progress: 88,
+        ...readerResult,
+        materializedEntryCount: prepared.selected.resourceEntries?.length ?? 0,
+      });
+      const sdkBoundaryCode = await executeSdkDeviceBoundary({
+        controller,
+        sdk,
+        prepared,
+      });
+      onProgress({
+        phase: 'device-boundary',
+        progress: 90,
+        ...readerResult,
+        materializedEntryCount: prepared.selected.resourceEntries?.length ?? 0,
+      });
+      return {
+        ...readerResult,
+        materializedEntryCount: prepared.selected.resourceEntries?.length ?? 0,
+        sdkBoundaryCode,
+      };
+    },
+    (cleanup) => {
+      mainCleanup = cleanup;
+    },
+  );
+  assertCleanup(mainCleanup, 'MAIN_CLEANUP');
+
+  let preflightCompletedIterations = 0;
+  if (scenario === 'pro-firmware') {
+    for (let index = 0; index < PREFLIGHT_STRESS_ITERATIONS; index += 1) {
+      let iterationCleanup: IFirmwarePreparedArtifactReleaseResult | undefined;
+      await controller.withPreparedPlanArtifacts(
+        {
+          plan,
+          sdk,
+          transactionId: `${transactionId}:stress:${index + 1}`,
+        },
+        async (prepared) => {
+          await readPreparedArtifact({
+            prepared,
+            artifactId,
+            expectedSize: artifact.expectedSize,
+            maxBytes: PREFLIGHT_STRESS_READ_BYTES,
+          });
+        },
+        (cleanup) => {
+          iterationCleanup = cleanup;
+        },
+      );
+      assertCleanup(iterationCleanup, 'CACHE_STRESS_CLEANUP');
+      preflightCompletedIterations += 1;
+      onProgress({
+        phase: 'cache-stress',
+        progress:
+          91 +
+          Math.floor(
+            (preflightCompletedIterations / PREFLIGHT_STRESS_ITERATIONS) * 5,
+          ),
+        preflightCompletedIterations,
+        bytesRead: mainResult.bytesRead,
+        chunkCount: mainResult.chunkCount,
+        materializedEntryCount: mainResult.materializedEntryCount,
+      });
+    }
   }
+
+  let failureCleanup: IFirmwarePreparedArtifactReleaseResult | undefined;
+  try {
+    await controller.withPreparedPlanArtifacts(
+      {
+        plan,
+        sdk,
+        transactionId: `${transactionId}:failure-cleanup`,
+      },
+      async () => {
+        throw new OneKeyLocalError(CONTROLLED_FAILURE_CODE);
+      },
+      (cleanup) => {
+        failureCleanup = cleanup;
+      },
+    );
+    throw new OneKeyLocalError('ARTIFACT_FAILURE_CLEANUP_NOT_TRIGGERED');
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== CONTROLLED_FAILURE_CODE
+    ) {
+      throw error;
+    }
+  }
+  assertCleanup(failureCleanup, 'FAILURE_CLEANUP');
+  onProgress({
+    phase: 'failure-cleanup',
+    progress: 97,
+    bytesRead: mainResult.bytesRead,
+    chunkCount: mainResult.chunkCount,
+    materializedEntryCount: mainResult.materializedEntryCount,
+    preflightCompletedIterations,
+  });
 
   onProgress({
     phase: 'sweeping',
-    progress: 97,
-    bytesRead,
-    chunkCount,
-    materializedEntryCount,
-    stressCompletedIterations,
+    progress: 99,
+    bytesRead: mainResult.bytesRead,
+    chunkCount: mainResult.chunkCount,
+    materializedEntryCount: mainResult.materializedEntryCount,
+    preflightCompletedIterations,
   });
-  try {
-    const sweep = await adapter.sweepOrphans();
-    deletedFiles = sweep.deletedFiles;
-    deletedBytes = sweep.deletedBytes;
-  } catch (error) {
-    failure ??= error;
-  }
-
-  if (failure) {
-    throw failure instanceof Error
-      ? failure
-      : new OneKeyLocalError(String(failure));
-  }
+  const sweep = await controller.sweepOrphanedArtifacts();
   return {
-    bytesRead,
-    chunkCount,
-    materializedEntryCount,
-    stressCompletedIterations,
-    sdkEntryValidated,
-    sdkIntegrityRejected,
-    sdkBindingReleased,
-    sdkBoundaryCode,
-    deletedFiles,
-    deletedBytes,
+    ...mainResult,
+    preflightCompletedIterations,
+    preparedPlanValidated: true,
+    sdkHandoffValidated: true,
+    cleanupValidated: true,
+    failureCleanupValidated: true,
+    deletedFiles: sweep.deletedFiles,
+    deletedBytes: sweep.deletedBytes,
   };
 };

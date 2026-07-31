@@ -35,10 +35,13 @@ export const createFirmwareUpdateRuntimeHost = (
     typeof FirmwareArtifactSelfTestController
   >[0] &
     ConstructorParameters<typeof FirmwarePreparedArtifactController>[0],
-) => ({
-  selfTest: new FirmwareArtifactSelfTestController(dependencies),
-  artifacts: new FirmwarePreparedArtifactController(dependencies),
-});
+) => {
+  const artifacts = new FirmwarePreparedArtifactController(dependencies);
+  return {
+    selfTest: new FirmwareArtifactSelfTestController(dependencies, artifacts),
+    artifacts,
+  };
+};
 
 export type IFirmwareUpdateRuntimeHost = ReturnType<
   typeof createFirmwareUpdateRuntimeHost

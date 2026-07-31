@@ -6,81 +6,16 @@ import {
   getFirmwareArtifactSelfTestErrorCode,
 } from './FirmwareArtifactSelfTest';
 
-import type { IFirmwareArtifactAdapter } from './FirmwareArtifactAdapter.types';
-import type { downloadTrustedFirmwareArtifact } from './FirmwareArtifactPreflight';
-import type { CoreApi, FirmwareUpdatePreparedPlan } from '@onekeyfe/hd-core';
-
-const createAdapter = ({
-  size,
-  read,
-}: {
-  size: number;
-  read?: IFirmwareArtifactAdapter['read'];
-}) => {
-  const readMock =
-    read ?? jest.fn(async ({ length }) => new ArrayBuffer(length));
-  const materializeImpl: IFirmwareArtifactAdapter['materialize'] = async ({
-    expectedEntries,
-  }) =>
-    Promise.resolve(
-      expectedEntries.map((entry) => ({
-        entryName: entry.entryName,
-        receipt: {
-          artifactRef: `fw:${entry.expectedSha256}`,
-          size: entry.expectedSize,
-          sha256: entry.expectedSha256,
-        },
-      })),
-    );
-  const materialize = jest.fn(materializeImpl);
-  const close = jest.fn(async () => undefined);
-  const createLease = jest.fn(async () => ({ leaseRef: 'fwlease:test' }));
-  const open = jest.fn(async () => ({ readerId: 'reader-1', size }));
-  const releaseLease = jest.fn(async () => undefined);
-  const sweepOrphans = jest.fn(async () => ({
-    deletedFiles: 2,
-    deletedBytes: 4096,
-  }));
-  const adapter: IFirmwareArtifactAdapter = {
-    getCapabilities: async () => ({
-      firmwareArtifactProtocolVersion: 2,
-      supportedRouteTypes: ['domain', 'pinnedIp'],
-      supportsArchiveMaterialization: true,
-      maxReadBytes: 256 * 1024,
-    }),
-    download: jest.fn(),
-    cancelDownloads: jest.fn(),
-    materialize,
-    open,
-    read: readMock,
-    close,
-    createLease,
-    retain: jest.fn(async () => undefined),
-    releaseLease,
-    sweepOrphans,
-  };
-  return {
-    adapter,
-    close,
-    createLease,
-    materialize,
-    open,
-    read: readMock,
-    releaseLease,
-    sweepOrphans,
-  };
-};
-
-const createDownload = async (
-  scenario: 'pro-firmware' | 'pro-resource',
-): Promise<typeof downloadTrustedFirmwareArtifact> => {
-  const { artifact } = await getFirmwareArtifactSelfTestArtifact(scenario);
-  return jest.fn(async () => ({
-    artifactRef: `fw:${artifact.expectedSha256}`,
-    size: artifact.expectedSize,
-    sha256: artifact.expectedSha256,
-  }));
-};
+import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
+import type {
+  FirmwarePreparedArtifactController,
+  IFirmwarePreparedArtifactReleaseResult,
+} from './FirmwarePreparedArtifactController';
+import type {
+  CoreApi,
+  FirmwareUpdatePlan,
+  FirmwareUpdatePreparedPlan,
+} from '@onekeyfe/hd-core';
 
 const createSdk = () => {
   const prepareFirmwareUpdatePlan = jest.fn(
@@ -90,27 +25,10 @@ const createSdk = () => {
         planDigest: plan.planDigest,
       }) as FirmwareUpdatePreparedPlan,
   );
-  const unregisterFirmwareUpdateHostBinding = jest.fn(() => true);
-  const firmwareUpdateV3 = jest
-    .fn()
-    .mockResolvedValueOnce({
-      success: false,
-      payload: { code: 'DeviceNotFound', error: 'Device not found' },
-    })
-    .mockResolvedValueOnce({
-      success: false,
-      payload: {
-        code: 'RuntimeError',
-        error: 'Firmware prepared plan artifact binding is invalid',
-      },
-    })
-    .mockResolvedValueOnce({
-      success: false,
-      payload: {
-        code: 'RuntimeError',
-        error: 'Firmware host binding generation 7 is stale',
-      },
-    });
+  const firmwareUpdateV3 = jest.fn(async () => ({
+    success: false as const,
+    payload: { code: 'DeviceNotFound', error: 'Device not found' },
+  }));
   const sdk = {
     getFirmwareUpdateCapabilities: () => ({
       planSchemaVersion: 2 as const,
@@ -123,150 +41,242 @@ const createSdk = () => {
     validateFirmwareUpdatePreparedPlan: (plan: FirmwareUpdatePreparedPlan) =>
       plan,
     registerFirmwareUpdateHostBinding: jest.fn(() => 7),
-    unregisterFirmwareUpdateHostBinding,
+    unregisterFirmwareUpdateHostBinding: jest.fn(() => true),
     firmwareUpdateV3,
+  } as unknown as CoreApi;
+  return { sdk, firmwareUpdateV3, prepareFirmwareUpdatePlan };
+};
+
+const createController = async ({
+  scenario,
+  read,
+  getReleaseResult,
+}: {
+  scenario: 'pro-firmware' | 'pro-resource';
+  read?: IPreparedFirmwareArtifacts['artifactReader']['read'];
+  getReleaseResult?: (
+    transactionId: string,
+  ) => IFirmwarePreparedArtifactReleaseResult;
+}) => {
+  const { artifact, artifactId } =
+    await getFirmwareArtifactSelfTestArtifact(scenario);
+  const open = jest.fn(async () => ({
+    readerId: 'reader-1',
+    size: artifact.expectedSize,
+  }));
+  const readImpl: IPreparedFirmwareArtifacts['artifactReader']['read'] =
+    read ??
+    (async ({ offset, length }) => ({
+      data: new ArrayBuffer(length),
+      bytesRead: length,
+      eof: offset + length === artifact.expectedSize,
+    }));
+  const readMock = jest.fn(readImpl);
+  const close = jest.fn(async () => undefined);
+  const dispositions: ('completed' | 'safeCancelled')[] = [];
+  const sweepOrphanedArtifacts = jest.fn(async () => ({
+    deletedFiles: 2,
+    deletedBytes: 4096,
+  }));
+
+  const withPreparedPlanArtifacts: FirmwarePreparedArtifactController['withPreparedPlanArtifacts'] =
+    async <T>(
+      {
+        plan,
+        sdk,
+        transactionId = 'fwtx:test',
+      }: {
+        plan: FirmwareUpdatePlan;
+        sdk: CoreApi;
+        transactionId?: string;
+      },
+      execute: (prepared: IPreparedFirmwareArtifacts) => Promise<T>,
+      onReleased?: (result: IFirmwarePreparedArtifactReleaseResult) => void,
+    ): Promise<T> => {
+      // cspell:disable-next-line
+      const leaseRef = `fwlease:${transactionId}`;
+      const receipt = {
+        artifactRef: `fw:${artifact.expectedSha256}`,
+        size: artifact.expectedSize,
+        sha256: artifact.expectedSha256,
+      };
+      const materializedEntries =
+        artifact.expectedEntries?.map((entry) => ({
+          entryName: entry.entryName,
+          artifact: {
+            artifactRef: `fw:${entry.expectedSha256}`,
+            size: entry.expectedSize,
+            sha256: entry.expectedSha256,
+          },
+        })) ?? [];
+      const preparedPlan = sdk.prepareFirmwareUpdatePlan({
+        plan,
+        leaseRef,
+        artifacts: [
+          {
+            artifactId,
+            artifact: receipt,
+            ...(materializedEntries.length ? { materializedEntries } : {}),
+          },
+        ],
+      });
+      const prepared = {
+        transactionId,
+        leaseRef,
+        plan,
+        preparedPlan,
+        artifactsById: { [artifactId]: receipt },
+        selected: {
+          ...(artifactId === 'firmware' ? { firmware: receipt } : {}),
+          ...(artifactId === 'resource'
+            ? { resourceEntries: materializedEntries }
+            : {}),
+          componentArtifacts: {},
+          resourceBundleArtifacts: [],
+        },
+        artifactReader: {
+          open,
+          read: readMock,
+          close,
+        },
+      } as IPreparedFirmwareArtifacts;
+
+      let disposition: 'completed' | 'safeCancelled' = 'safeCancelled';
+      try {
+        const result = await execute(prepared);
+        disposition = 'completed';
+        return result;
+      } finally {
+        dispositions.push(disposition);
+        onReleased?.(
+          getReleaseResult?.(transactionId) ?? {
+            hostBindingReleased: true,
+            leaseReleased: true,
+          },
+        );
+      }
+    };
+
+  const controller = {
+    withPreparedPlanArtifacts: jest.fn(withPreparedPlanArtifacts),
+    getExecutionArtifacts: jest.fn(
+      (preparedArtifacts: IPreparedFirmwareArtifacts) => ({
+        preparedArtifacts,
+        hostBindingGeneration: 7,
+      }),
+    ),
+    sweepOrphanedArtifacts,
   } as unknown as Pick<
-    CoreApi,
-    | 'firmwareUpdateV3'
-    | 'getFirmwareUpdateCapabilities'
-    | 'prepareFirmwareUpdatePlan'
-    | 'validateFirmwareUpdatePreparedPlan'
-    | 'registerFirmwareUpdateHostBinding'
-    | 'unregisterFirmwareUpdateHostBinding'
+    FirmwarePreparedArtifactController,
+    | 'getExecutionArtifacts'
+    | 'sweepOrphanedArtifacts'
+    | 'withPreparedPlanArtifacts'
   >;
   return {
-    sdk,
-    firmwareUpdateV3,
-    unregisterFirmwareUpdateHostBinding,
+    artifact,
+    close,
+    controller,
+    dispositions,
+    open,
+    read: readMock,
+    sweepOrphanedArtifacts,
   };
 };
 
 describe('FirmwareArtifactSelfTest', () => {
-  it('reads every firmware byte in bounded chunks and releases the lease', async () => {
-    const { artifact } =
-      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
-    const { adapter, close, createLease, open, read, releaseLease } =
-      createAdapter({
-        size: artifact.expectedSize,
-      });
-    const progress = jest.fn();
+  it('runs the production firmware handoff and 50 cached preflight cycles', async () => {
+    const fixture = await createController({ scenario: 'pro-firmware' });
     const sdkFixture = createSdk();
-    const download = await createDownload('pro-firmware');
+    const progress = jest.fn();
 
     const result = await executeFirmwareArtifactSelfTest({
       scenario: 'pro-firmware',
       transactionId: 'fwtx:test-firmware',
-      leaseRef: 'fwlease:test',
       sdk: sdkFixture.sdk,
+      controller: fixture.controller,
       onProgress: progress,
-      dependencies: {
-        adapter,
-        download,
-      },
     });
 
-    expect(result.bytesRead).toBe(artifact.expectedSize);
+    expect(result.bytesRead).toBe(fixture.artifact.expectedSize);
     expect(result.chunkCount).toBeGreaterThan(1);
-    expect(result.materializedEntryCount).toBe(0);
-    expect(result.stressCompletedIterations).toBe(50);
+    expect(result.preflightCompletedIterations).toBe(50);
     expect(result).toEqual(
       expect.objectContaining({
-        sdkEntryValidated: true,
-        sdkIntegrityRejected: true,
-        sdkBindingReleased: true,
+        preparedPlanValidated: true,
+        sdkHandoffValidated: true,
+        cleanupValidated: true,
+        failureCleanupValidated: true,
         sdkBoundaryCode: 'DeviceNotFound',
+        deletedFiles: 2,
+        deletedBytes: 4096,
       }),
     );
-    expect(result).toEqual(
-      expect.objectContaining({ deletedFiles: 2, deletedBytes: 4096 }),
+    expect(fixture.controller.withPreparedPlanArtifacts).toHaveBeenCalledTimes(
+      52,
     );
-    expect(read).toHaveBeenCalledWith(
-      expect.objectContaining({ length: expect.any(Number) }),
-    );
-    expect(download).toHaveBeenCalledTimes(51);
-    expect(createLease).toHaveBeenCalledTimes(50);
-    expect(open).toHaveBeenCalledTimes(51);
-    expect(close).toHaveBeenCalledTimes(51);
-    expect(releaseLease).toHaveBeenCalledTimes(51);
-    expect(releaseLease).toHaveBeenCalledWith({
-      leaseRef: 'fwlease:test',
-      disposition: 'completed',
-    });
-    expect(sdkFixture.firmwareUpdateV3).toHaveBeenCalledTimes(3);
-    expect(sdkFixture.unregisterFirmwareUpdateHostBinding).toHaveBeenCalledWith(
-      7,
+    expect(fixture.open).toHaveBeenCalledTimes(51);
+    expect(fixture.close).toHaveBeenCalledTimes(51);
+    expect(fixture.dispositions).toEqual([
+      ...Array.from({ length: 51 }, () => 'completed' as const),
+      'safeCancelled',
+    ]);
+    expect(sdkFixture.firmwareUpdateV3).toHaveBeenCalledTimes(1);
+    expect(sdkFixture.firmwareUpdateV3).toHaveBeenCalledWith(
+      '__firmware_sdk_self_test_no_device__',
+      expect.objectContaining({
+        preparedPlan: expect.any(Object),
+        platform: expect.any(String),
+        firmwareVersion: [4, 21, 0],
+        hostBindingGeneration: 7,
+        artifacts: expect.objectContaining({
+          firmware: expect.objectContaining({
+            size: fixture.artifact.expectedSize,
+          }),
+        }),
+      }),
     );
     expect(progress).toHaveBeenLastCalledWith(
-      expect.objectContaining({ phase: 'sweeping', progress: 97 }),
+      expect.objectContaining({ phase: 'sweeping', progress: 99 }),
     );
   });
 
-  it('materializes every trusted resource entry', async () => {
-    const { artifact } =
-      await getFirmwareArtifactSelfTestArtifact('pro-resource');
-    const { adapter, materialize } = createAdapter({
-      size: artifact.expectedSize,
-    });
-    const { sdk } = createSdk();
+  it('materializes resources before the production SDK handoff', async () => {
+    const fixture = await createController({ scenario: 'pro-resource' });
+    const { sdk, firmwareUpdateV3 } = createSdk();
 
     const result = await executeFirmwareArtifactSelfTest({
       scenario: 'pro-resource',
       transactionId: 'fwtx:test-resource',
-      leaseRef: 'fwlease:test',
       sdk,
+      controller: fixture.controller,
       onProgress: jest.fn(),
-      dependencies: {
-        adapter,
-        download: await createDownload('pro-resource'),
-      },
     });
 
-    expect(artifact.expectedEntries?.length).toBeGreaterThan(0);
+    expect(fixture.artifact.expectedEntries?.length).toBeGreaterThan(0);
     expect(result.materializedEntryCount).toBe(
-      artifact.expectedEntries?.length,
+      fixture.artifact.expectedEntries?.length,
     );
-    expect(materialize).toHaveBeenCalledWith(
+    expect(result.preflightCompletedIterations).toBe(0);
+    expect(firmwareUpdateV3).toHaveBeenCalledWith(
+      '__firmware_sdk_self_test_no_device__',
       expect.objectContaining({
-        expectedEntries: artifact.expectedEntries,
+        firmwareVersion: undefined,
+        artifacts: expect.objectContaining({
+          resourceEntries: expect.any(Array),
+        }),
       }),
     );
+    expect(fixture.dispositions).toEqual(['completed', 'safeCancelled']);
   });
 
-  it('marks cancellation as safe and still runs cleanup', async () => {
-    const { artifact } =
-      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
-    const { adapter, releaseLease, sweepOrphans } = createAdapter({
-      size: artifact.expectedSize,
-    });
-    const download = jest.fn(async () => {
-      throw new OneKeyLocalError('ARTIFACT_CANCELLED: stopped by test');
-    }) as typeof downloadTrustedFirmwareArtifact;
-    const { sdk } = createSdk();
-
-    await expect(
-      executeFirmwareArtifactSelfTest({
-        scenario: 'pro-firmware',
-        transactionId: 'fwtx:test-cancel',
-        leaseRef: 'fwlease:test',
-        sdk,
-        onProgress: jest.fn(),
-        dependencies: { adapter, download },
+  it('closes the production reader and releases with safeCancelled on failure', async () => {
+    const fixture = await createController({
+      scenario: 'pro-firmware',
+      read: async ({ length }) => ({
+        data: new ArrayBuffer(length - 1),
+        bytesRead: length - 1,
+        eof: false,
       }),
-    ).rejects.toThrow('ARTIFACT_CANCELLED');
-
-    expect(releaseLease).toHaveBeenCalledWith({
-      leaseRef: 'fwlease:test',
-      disposition: 'safeCancelled',
-    });
-    expect(sweepOrphans).toHaveBeenCalledTimes(1);
-  });
-
-  it('closes the reader and safely abandons an incomplete chunk', async () => {
-    const { artifact } =
-      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
-    const { adapter, close, releaseLease } = createAdapter({
-      size: artifact.expectedSize,
-      read: jest.fn(async ({ length }) => new ArrayBuffer(length - 1)),
     });
     const { sdk } = createSdk();
 
@@ -274,69 +284,42 @@ describe('FirmwareArtifactSelfTest', () => {
       executeFirmwareArtifactSelfTest({
         scenario: 'pro-firmware',
         transactionId: 'fwtx:test-reader',
-        leaseRef: 'fwlease:test',
         sdk,
+        controller: fixture.controller,
         onProgress: jest.fn(),
-        dependencies: {
-          adapter,
-          download: await createDownload('pro-firmware'),
-        },
       }),
-    ).rejects.toThrow('incomplete chunk');
+    ).rejects.toThrow('ARTIFACT_READER_CHUNK_INVALID');
 
-    expect(close).toHaveBeenCalledWith('reader-1');
-    expect(releaseLease).toHaveBeenCalledWith({
-      leaseRef: 'fwlease:test',
-      disposition: 'safeAbandoned',
-    });
+    expect(fixture.close).toHaveBeenCalledWith({ readerId: 'reader-1' });
+    expect(fixture.dispositions).toEqual(['safeCancelled']);
+    expect(fixture.sweepOrphanedArtifacts).not.toHaveBeenCalled();
   });
 
-  it('reports the failing bridge-stress iteration after cleanup', async () => {
-    const { artifact } =
-      await getFirmwareArtifactSelfTestArtifact('pro-firmware');
-    const mainChunkCount = Math.ceil(artifact.expectedSize / (256 * 1024));
-    let readCount = 0;
-    const { adapter, close, releaseLease, sweepOrphans } = createAdapter({
-      size: artifact.expectedSize,
-      read: jest.fn(async ({ length }) => {
-        readCount += 1;
-        return new ArrayBuffer(
-          readCount === mainChunkCount + 1 ? length - 1 : length,
-        );
+  it('fails if the controlled production cleanup does not release the lease', async () => {
+    const fixture = await createController({
+      scenario: 'pro-resource',
+      getReleaseResult: (transactionId) => ({
+        hostBindingReleased: true,
+        leaseReleased: !transactionId.endsWith(':failure-cleanup'),
       }),
     });
     const { sdk } = createSdk();
 
     await expect(
       executeFirmwareArtifactSelfTest({
-        scenario: 'pro-firmware',
-        transactionId: 'fwtx:test-stress-failure',
-        leaseRef: 'fwlease:test',
+        scenario: 'pro-resource',
+        transactionId: 'fwtx:test-cleanup',
         sdk,
+        controller: fixture.controller,
         onProgress: jest.fn(),
-        dependencies: {
-          adapter,
-          download: await createDownload('pro-firmware'),
-        },
       }),
-    ).rejects.toThrow('ARTIFACT_BRIDGE_STRESS_FAILED: iteration 1');
-
-    expect(close).toHaveBeenCalledTimes(2);
-    expect(releaseLease).toHaveBeenNthCalledWith(1, {
-      leaseRef: 'fwlease:test',
-      disposition: 'safeAbandoned',
-    });
-    expect(releaseLease).toHaveBeenNthCalledWith(2, {
-      leaseRef: 'fwlease:test',
-      disposition: 'safeAbandoned',
-    });
-    expect(sweepOrphans).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow('ARTIFACT_FAILURE_CLEANUP_FAILED');
   });
 
   it('exposes only stable error codes', () => {
     expect(
       getFirmwareArtifactSelfTestErrorCode(
-        new Error('ARTIFACT_HTTP_503: unavailable'),
+        new OneKeyLocalError('ARTIFACT_HTTP_503: unavailable'),
       ),
     ).toBe('ARTIFACT_HTTP_503');
     expect(

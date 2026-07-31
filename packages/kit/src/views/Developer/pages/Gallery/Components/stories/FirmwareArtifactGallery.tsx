@@ -29,19 +29,20 @@ const scenarios: {
     scenario: 'pro-firmware',
     title: 'Validate Pro firmware',
     description:
-      'Raw firmware, SDK contract, and 50 cached native bridge cycles',
+      'Production preflight, SDK handoff, and 50 cached preflight cycles',
     testID: DeveloperTestIDs.firmwareArtifactRunFirmware,
   },
   {
     scenario: 'pro-resource',
     title: 'Validate incremental resource',
-    description: 'ZIP download, reader, and exact materialization',
+    description:
+      'Production ZIP preflight, exact materialization, and SDK handoff',
     testID: DeveloperTestIDs.firmwareArtifactRunResource,
   },
   {
     scenario: 'pro-full-resource',
     title: 'Validate full resource',
-    description: 'Large ZIP, approximately 84 MB',
+    description: 'Production preflight for the large ZIP, approximately 84 MB',
     testID: DeveloperTestIDs.firmwareArtifactRunFullResource,
   },
 ];
@@ -103,19 +104,22 @@ function FirmwareArtifactStatus({
         </SizableText>
         {state.descriptor.scenario === 'pro-firmware' ? (
           <SizableText size="$bodySm">
-            Bridge stress: {state.stressCompletedIterations} / 50
+            Cached preflight: {state.preflightCompletedIterations} / 50
           </SizableText>
         ) : null}
         <SizableText size="$bodySm">
-          SDK entry: {state.sdkEntryValidated ? 'validated' : 'pending'}
+          Prepared plan: {state.preparedPlanValidated ? 'validated' : 'pending'}
         </SizableText>
         <SizableText size="$bodySm">
-          SDK integrity rejection:{' '}
-          {state.sdkIntegrityRejected ? 'validated' : 'pending'}
+          Production SDK handoff:{' '}
+          {state.sdkHandoffValidated ? 'validated' : 'pending'}
         </SizableText>
         <SizableText size="$bodySm">
-          SDK binding release:{' '}
-          {state.sdkBindingReleased ? 'validated' : 'pending'}
+          Completed cleanup: {state.cleanupValidated ? 'validated' : 'pending'}
+        </SizableText>
+        <SizableText size="$bodySm">
+          Failure cleanup:{' '}
+          {state.failureCleanupValidated ? 'validated' : 'pending'}
         </SizableText>
         {state.sdkBoundaryCode ? (
           <SizableText size="$bodySm">
@@ -196,8 +200,9 @@ function FirmwareArtifactValidator() {
       <YStack gap="$2">
         <Heading size="$headingLg">Pro 4.21.0 artifacts</Heading>
         <SizableText color="$textSubdued">
-          Runs in the background runtime through the production Desktop or
-          native artifact adapter. No OneKey device is required.
+          Runs the production preflight, host binding, SDK parameter builder,
+          and cleanup path in the background runtime. It stops at the device
+          boundary, so no OneKey device is required.
         </SizableText>
       </YStack>
 
@@ -238,8 +243,8 @@ function FirmwareArtifactValidator() {
           Filter app-latest.log by firmwareArtifactSelfTest or the Run ID.
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          A cached artifact is still integrity-checked. Clear App data before a
-          run when a fresh network transfer is required.
+          A cached artifact is still integrity-checked. Clear App data before
+          the first run when a fresh network transfer is required.
         </SizableText>
       </YStack>
     </YStack>
