@@ -44,12 +44,15 @@ const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
       <Button
         testID="perp-view-show-btn"
         variant="tertiary"
+        childrenAsText={false}
         onPress={() => {
           Keyboard.dismiss();
           onDone();
         }}
       >
-        {intl.formatMessage({ id: ETranslations.global_done })}
+        <SizableText size="$bodyMdMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.global_done })}
+        </SizableText>
       </Button>
     </XStack>
   );

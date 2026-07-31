@@ -361,6 +361,7 @@ export function PerpMobileLayout() {
       style={{ flex: 1, backgroundColor: '$bgApp' }}
       contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       stickyHeaderIndices={[1]}
       onLayout={handleScrollViewportLayout}
       onContentSizeChange={handleContentSizeChange}

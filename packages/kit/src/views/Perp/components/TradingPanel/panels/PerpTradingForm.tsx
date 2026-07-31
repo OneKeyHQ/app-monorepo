@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject, Ref } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,7 +21,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ICheckedState } from '@onekeyhq/components';
+import type { ICheckedState, IInputRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -103,6 +104,7 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import {
   type ISizeInputDisplayValueChangePayload,
+  type ISizeInputMinimumOrderAction,
   SizeInput,
 } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -119,6 +121,10 @@ interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
   reserveMobileEnableTradingLayout?: boolean;
+  sizeInputRef?: Ref<IInputRef>;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
 }
 
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
@@ -462,6 +468,8 @@ function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
   reserveMobileEnableTradingLayout = false,
+  sizeInputRef,
+  minimumOrderActionRef,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
@@ -3165,6 +3173,8 @@ function PerpTradingForm({
       {isTwapMode ? null : renderPriceInputSection()}
 
       <SizeInput
+        inputRef={sizeInputRef}
+        minimumOrderActionRef={minimumOrderActionRef}
         referencePrice={referencePriceString}
         side={formData.side}
         activeAsset={selectedTradeAsset}
