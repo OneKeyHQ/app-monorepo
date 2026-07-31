@@ -22,10 +22,9 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
@@ -110,12 +109,14 @@ function TabItemView({
         tabBarStyle={options.tabBarStyle}
         tabBarItemStyle={options.tabBarItemStyle}
         tabBarIconStyle={options.tabBarIconStyle}
-        // Selected rows emphasize the label with the medium weight.
+        // Selected rows always emphasize the label with the medium weight:
+        // `size` sits after the spread so category styles (e.g. Dev's
+        // critical color) may tint the label but never override the weight.
         tabBarLabelStyle={
           isActive
             ? {
-                size: '$bodyMdMedium',
                 ...(options.tabBarLabelStyle as ISizableTextProps | undefined),
+                size: '$bodyMdMedium',
               }
             : options.tabBarLabelStyle
         }
