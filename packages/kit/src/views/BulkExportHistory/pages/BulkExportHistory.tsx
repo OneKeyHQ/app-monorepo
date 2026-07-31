@@ -53,6 +53,7 @@ import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountNetworkCompatibility,
   getBulkExportHistoryAccountTypeForTracking,
+  getBulkExportHistoryNetworkAccountSafe,
   resolveBulkExportHistoryAccountIdentity,
 } from '../utils/bulkExportHistoryAccountUtils';
 
@@ -510,19 +511,12 @@ function BulkExportHistoryContent({
             );
           } else {
             // Single derive type — use global derive type
-            const deriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                { networkId },
-              );
-            const { accounts } =
-              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                {
-                  indexedAccountIds: [exportAccountIdentity.indexedAccountId],
-                  networkId,
-                  deriveType,
-                },
-              );
-            const networkAccount = accounts[0];
+            const networkAccount = await getBulkExportHistoryNetworkAccountSafe(
+              {
+                networkId,
+                indexedAccountId: exportAccountIdentity.indexedAccountId,
+              },
+            );
             if (networkAccount) {
               const xpub =
                 await backgroundApiProxy.serviceAccount.getAccountXpub({

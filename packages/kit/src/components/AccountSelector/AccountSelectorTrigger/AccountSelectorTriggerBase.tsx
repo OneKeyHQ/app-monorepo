@@ -37,6 +37,7 @@ export function AccountSelectorTriggerBase({
   linkNetworkId,
   linkNetwork,
   containerProps,
+  alignChevronToEnd,
   ...others
 }: {
   num: number;
@@ -48,6 +49,9 @@ export function AccountSelectorTriggerBase({
   showConnectWalletModalInDappMode?: boolean;
   disabled?: boolean;
   containerProps?: IXStackProps;
+  // Full-width form-field triggers pin the chevron to the row end; adaptive
+  // header triggers keep it right after the label (native default).
+  alignChevronToEnd?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -150,7 +154,7 @@ export function AccountSelectorTriggerBase({
           flexDirection={horizontalLayout ? 'row' : 'column'}
           pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
-          flex={platformEnv.isNative ? undefined : 1}
+          flex={alignChevronToEnd || !platformEnv.isNative ? 1 : undefined}
         >
           {horizontalLayout ? (
             <SizableText
@@ -198,6 +202,7 @@ export function AccountSelectorTriggerBase({
     );
   }, [
     account,
+    alignChevronToEnd,
     containerProps,
     dbAccount,
     displayLabel,
