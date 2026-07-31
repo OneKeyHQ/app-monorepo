@@ -260,15 +260,19 @@ function StepRow({
       <YStack w="$6" h="$6" ai="center" jc="center">
         <StepIndicator status={status} stepNumber={stepNumber} busy={isBusy} />
       </YStack>
-      {/* The shortfall card is a sibling of the title row rather than a child
-          of the text column, so it spans the full width instead of competing
+      {/* Keep the shortfall card outside the text column so it does not compete
           with the amount for room. */}
       <YStack gap="$3" flex={1}>
         <XStack gap="$2" ai="flex-start">
           {step.kind !== 'switch' ? (
             <Token size="sm" tokenImageUri={step.logoURI} />
           ) : (
-            <Stack w="$6" h="$6" />
+            <Icon
+              testID={BorrowTestIDs.eModeNeedActionSwitchIcon}
+              name="SwitchOutline"
+              size="$6"
+              color={isMuted ? '$iconSubdued' : '$icon'}
+            />
           )}
           <YStack gap="$1" flex={1}>
             <SizableText
@@ -305,13 +309,16 @@ function StepRow({
           ) : null}
         </XStack>
         {underfunded ? (
-          <EModeShortfallCard
-            symbol={step.symbol ?? ''}
-            balanceText={balanceText}
-            funding={funding}
-            items={getFundsActionItems(step)}
-            onGetFundsPress={onGetFundsPress}
-          />
+          // Match the title column after its $6 icon slot and $2 gap.
+          <Stack ml="$8">
+            <EModeShortfallCard
+              symbol={step.symbol ?? ''}
+              balanceText={balanceText}
+              funding={funding}
+              items={getFundsActionItems(step)}
+              onGetFundsPress={onGetFundsPress}
+            />
+          </Stack>
         ) : null}
       </YStack>
     </XStack>

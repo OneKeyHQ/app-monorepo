@@ -114,12 +114,12 @@ export const BorrowCard = () => {
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
-    const available = intl.formatMessage({
-      id: ETranslations.global_available,
+    const balance = intl.formatMessage({
+      id: ETranslations.global_balance,
     });
     return {
       asset,
-      available,
+      balance,
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       assetsToBorrow: intl.formatMessage({
@@ -128,8 +128,8 @@ export const BorrowCard = () => {
       noAssetsToBorrow: intl.formatMessage({
         id: ETranslations.defi_no_assets_to_borrow,
       }),
-      assetAvailable: `${asset} / ${available}`,
-      availableWithColon: `${available}:`,
+      assetBalance: `${asset} / ${balance}`,
+      balanceWithColon: `${balance}:`,
     };
   }, [intl]);
 
@@ -137,12 +137,12 @@ export const BorrowCard = () => {
   const mobileColumns = useMemo(
     () => [
       {
-        label: labels.assetAvailable,
+        label: labels.assetBalance,
         key: 'asset',
         render: (item: IBorrowAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={{ text: labels.availableWithColon }}
+            amountLabel={{ text: labels.balanceWithColon }}
             amount={item.available.title}
             amountDescription={item.available.description}
             platformBonusApy={item.platformBonusApy}
@@ -177,9 +177,9 @@ export const BorrowCard = () => {
         minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
-        label: labels.available,
+        label: labels.balance,
         align: 'flex-end' as const,
-        key: 'available',
+        key: 'balance',
         sortable: true,
         comparator: (a: IBorrowAsset, b: IBorrowAsset) => {
           const aFiatValue = new BigNumber(a.available?.fiatValue || '0');
@@ -235,7 +235,7 @@ export const BorrowCard = () => {
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToBorrow}
-        defaultSortKey="available"
+        defaultSortKey="balance"
         defaultSortDirection="desc"
         listProps={borrowListProps}
       />

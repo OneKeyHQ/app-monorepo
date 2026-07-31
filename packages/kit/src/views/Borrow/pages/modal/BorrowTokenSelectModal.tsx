@@ -119,15 +119,11 @@ export default function BorrowTokenSelectModal() {
     const supplied = intl.formatMessage({
       id: ETranslations.wallet_defi_asset_type_supplied,
     });
-    const available = intl.formatMessage({
-      id: ETranslations.global_available,
-    });
     const balance = intl.formatMessage({
       id: ETranslations.global_balance,
     });
     return {
       asset,
-      available,
       balance,
       borrowed,
       supplied,
@@ -136,7 +132,7 @@ export default function BorrowTokenSelectModal() {
     };
   }, [intl]);
 
-  const balanceLabel = isBorrowAction ? labels.available : labels.balance;
+  const balanceLabel = labels.balance;
   const assetBalanceLabel = `${labels.asset} / ${balanceLabel}`;
   const balanceLabelWithColon = `${balanceLabel}:`;
   const positionLabel = isBorrowAction ? labels.borrowed : labels.supplied;

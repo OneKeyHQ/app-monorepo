@@ -40,6 +40,7 @@ export const BorrowTestIDs = {
   eModeNeedActionConfirmBtn: 'borrow-e-mode-need-action-confirm-btn',
   eModeNeedActionGetFundsBtn: 'borrow-e-mode-need-action-get-funds-btn',
   eModeNeedActionShortfallCard: 'borrow-e-mode-need-action-shortfall-card',
+  eModeNeedActionSwitchIcon: 'borrow-e-mode-need-action-switch-icon',
 
   // --- Claim Rewards Dialog ---
   claimItemBtn: 'borrow-claim-item-btn',

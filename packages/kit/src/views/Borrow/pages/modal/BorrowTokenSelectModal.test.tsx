@@ -14,11 +14,17 @@ jest.mock('@onekeyhq/components', () => {
     Body: Passthrough,
     Header: () => null,
   });
+  const media = { gtMd: false };
+  (
+    globalThis as unknown as {
+      __borrowTokenSelectMediaMock: typeof media;
+    }
+  ).__borrowTokenSelectMediaMock = media;
 
   return {
     Page,
     Stack: () => null,
-    useMedia: () => ({ gtMd: false }),
+    useMedia: () => media,
     useSafeAreaInsets: () => ({ bottom: 0 }),
   };
 });
@@ -123,6 +129,7 @@ import {
 import {
   EManagePositionType,
   type IBorrowAsset,
+  type IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 import BorrowTokenSelectModal from './BorrowTokenSelectModal';
@@ -133,6 +140,17 @@ type ITokenSelectRoute = {
 
 type IListProps = {
   onPressRow: (item: IBorrowAsset) => void;
+  columns: {
+    label: string;
+    render: (item: IBorrowAsset) => {
+      props: {
+        amount?: IEarnText;
+        amountDescription?: IEarnText;
+        title?: IEarnText;
+        description?: IEarnText;
+      };
+    };
+  }[];
 };
 
 const navigationMock = (
@@ -154,6 +172,11 @@ const promiseResultMock = (
     __borrowTokenSelectPromiseResultMock: { assets: IBorrowAsset[] };
   }
 ).__borrowTokenSelectPromiseResultMock;
+const mediaMock = (
+  globalThis as unknown as {
+    __borrowTokenSelectMediaMock: { gtMd: boolean };
+  }
+).__borrowTokenSelectMediaMock;
 const listMock = (
   globalThis as unknown as {
     __borrowTokenSelectListMock: { current?: IListProps };
@@ -192,6 +215,7 @@ describe('BorrowTokenSelectModal selection navigation', () => {
     navigationMock.push.mockReset();
     navigationMock.pushModal.mockReset();
     promiseResultMock.assets = [asset];
+    mediaMock.gtMd = false;
   });
 
   it('immediately pushes Manage Position on the current StakingModal stack', () => {
@@ -229,4 +253,58 @@ describe('BorrowTokenSelectModal selection navigation', () => {
     expect(navigationMock.pushModal).not.toHaveBeenCalled();
     expect(navigationMock.pop).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      'mobile',
+      false,
+      0,
+      'amount',
+      'amountDescription',
+      'global_asset / global_balance',
+    ],
+    ['desktop', true, 1, 'title', 'description', 'global_balance'],
+  ] as const)(
+    'renders a borrow asset balance from the available API field on %s',
+    (
+      _platform,
+      gtMd,
+      balanceColumnIndex,
+      amountProp,
+      descriptionProp,
+      expectedLabel,
+    ) => {
+      const borrowAsset = {
+        ...asset,
+        available: {
+          number: '1.25',
+          fiatValue: '2500',
+          title: { text: '1.25' },
+          description: { text: '$2,500' },
+        },
+      } as IBorrowAsset;
+      mediaMock.gtMd = gtMd;
+      promiseResultMock.assets = [borrowAsset];
+      routeMock.current = {
+        params: {
+          ...baseParams,
+          action: 'borrow',
+        },
+      };
+
+      render(<BorrowTokenSelectModal />);
+
+      const balanceCell =
+        listMock.current?.columns[balanceColumnIndex]?.render(borrowAsset);
+      expect(listMock.current?.columns[balanceColumnIndex]?.label).toBe(
+        expectedLabel,
+      );
+      expect(balanceCell?.props[amountProp]).toEqual(
+        borrowAsset.available?.title,
+      );
+      expect(balanceCell?.props[descriptionProp]).toEqual(
+        borrowAsset.available?.description,
+      );
+    },
+  );
 });
