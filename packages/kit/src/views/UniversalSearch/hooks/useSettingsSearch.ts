@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EMobileSettingsSubpage } from '@onekeyhq/shared/src/routes';
 import {
   EUniversalSearchType,
   type IUniversalSearchSettings,
@@ -23,7 +22,6 @@ interface IFlatSettingsItem extends ISubSettingConfig {
   sectionName?: string;
   sectionTitle: string;
   sectionIcon: string;
-  mobileSubpage?: EMobileSettingsSubpage;
 }
 
 export function useSettingsSearch() {
@@ -48,7 +46,6 @@ export function useSettingsSearch() {
               sectionName: config.name,
               sectionTitle: mobilePresentation?.title || config.title,
               sectionIcon: mobilePresentation?.icon || config.icon,
-              mobileSubpage: mobilePresentation?.mobileSubpage,
             } as IFlatSettingsItem;
           }),
       ),
@@ -76,7 +73,6 @@ export function useSettingsSearch() {
           sectionIcon: result.item.sectionIcon,
           keywords: result.item.keywords,
           settingRoute: result.item.settingRoute,
-          mobileSubpage: result.item.mobileSubpage,
           settingsTab: result.item.desktopTab,
           onPress: result.item.onPress,
         },

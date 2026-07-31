@@ -56,6 +56,7 @@ export enum ESettingsTabNames {
   OneKeyID = 'OneKeyID',
   Backup = 'Backup',
   Preferences = 'Preferences',
+  AppData = 'AppData',
   Wallet = 'Wallet',
   Security = 'Security',
   Network = 'Network',
@@ -65,11 +66,6 @@ export enum ESettingsTabNames {
   About = 'About',
   Search = 'Search',
   Dev = 'Dev',
-}
-
-export enum EMobileSettingsSubpage {
-  General = 'general',
-  AppData = 'appData',
 }
 
 export type IModalSettingParamList = {
@@ -84,7 +80,6 @@ export type IModalSettingParamList = {
     | {
         name: ESettingsTabNames | string;
         title?: string;
-        mobileSubpage?: EMobileSettingsSubpage;
       }
     | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;

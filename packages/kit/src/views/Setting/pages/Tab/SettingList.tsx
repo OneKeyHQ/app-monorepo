@@ -19,7 +19,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EMobileSettingsSubpage,
   EModalSettingRoutes,
   ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
@@ -51,7 +50,6 @@ type IMobileHomeEntry =
       type: 'category';
       key: string;
       config: ISettingCategory;
-      mobileSubpage?: EMobileSettingsSubpage;
     }
   | {
       type: 'setting';
@@ -66,15 +64,13 @@ function isDefined<T>(value: T | undefined): value is T {
 function SettingCategoryListItem({
   config,
   useMobilePresentation = false,
-  mobileSubpage,
 }: {
   config: ISettingCategory;
   useMobilePresentation?: boolean;
-  mobileSubpage?: EMobileSettingsSubpage;
 }) {
   const navigation = useAppNavigation();
   const mobilePresentation = useMobilePresentation
-    ? getMobileSettingsPresentation(config, { mobileSubpage })
+    ? getMobileSettingsPresentation(config)
     : undefined;
   const title = mobilePresentation?.title || config.title;
   const icon = mobilePresentation?.icon || config.icon;
@@ -104,9 +100,8 @@ function SettingCategoryListItem({
     navigation.push(EModalSettingRoutes.SettingListSubModal, {
       title,
       name: config.name,
-      mobileSubpage,
     });
-  }, [navigation, title, config.name, mobileSubpage]);
+  }, [navigation, title, config.name]);
 
   // Use custom tab item renderer if provided
   if (config.renderTabItem) {
@@ -141,7 +136,6 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
             <SettingCategoryListItem
               config={entry.config}
               useMobilePresentation
-              mobileSubpage={entry.mobileSubpage}
             />
           ) : (
             <TabSettingsListGrid item={entry.config} useMobilePresentation />
@@ -171,15 +165,13 @@ export function SettingList() {
     );
     const getCategoryEntry = (
       name: ESettingsTabNames,
-      mobileSubpage?: EMobileSettingsSubpage,
     ): IMobileHomeEntry | undefined => {
       const config = categoryMap.get(name);
       return config
         ? {
             type: 'category',
-            key: `category-${name}-${mobileSubpage ?? 'root'}`,
+            key: `category-${name}`,
             config,
-            mobileSubpage,
           }
         : undefined;
     };
@@ -212,14 +204,8 @@ export function SettingList() {
       ].filter(isDefined),
       [
         ...getPromotedEntries(ESettingsTabNames.Preferences),
-        getCategoryEntry(
-          ESettingsTabNames.Preferences,
-          EMobileSettingsSubpage.General,
-        ),
-        getCategoryEntry(
-          ESettingsTabNames.Preferences,
-          EMobileSettingsSubpage.AppData,
-        ),
+        getCategoryEntry(ESettingsTabNames.Preferences),
+        getCategoryEntry(ESettingsTabNames.AppData),
       ].filter(isDefined),
       [
         ...getPromotedEntries(ESettingsTabNames.About),

@@ -40,7 +40,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
   ELiteCardRoutes,
-  EMobileSettingsSubpage,
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
@@ -107,7 +106,7 @@ export interface ISubSettingConfig {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
-  mobilePlacement?: 'home' | EMobileSettingsSubpage;
+  mobilePlacement?: 'home';
   /**
    * Tab-navigator layouts promote this item to its own sidebar tab. The
    * synthetic tab category is derived from the item, so platform gating and
@@ -153,15 +152,6 @@ export type ISettingsConfig = (
       }>;
       configs: (ISubSettingConfig | undefined | null)[][];
       desktopSectionTitles?: (string | undefined)[];
-      mobileSubpageConfigs?: Partial<
-        Record<
-          EMobileSettingsSubpage,
-          {
-            title: string;
-            icon: string | IKeyOfIcons;
-          }
-        >
-      >;
       // Custom tab item renderer for special tabs like OneKey ID
       renderTabItem?: ComponentType<{
         selected?: boolean;
@@ -177,30 +167,20 @@ export function getMobileSettingsPresentation(
   config: ISettingCategoryConfig,
   {
     item,
-    mobileSubpage,
   }: {
     item?: ISubSettingConfig;
-    mobileSubpage?: EMobileSettingsSubpage;
   } = {},
 ) {
   if (item?.mobilePlacement === 'home') {
     return {
       title: item.mobileTitle || item.title,
       icon: item.icon,
-      mobileSubpage: undefined,
     };
   }
 
-  const itemSubpage = item?.mobilePlacement;
-  const resolvedMobileSubpage = mobileSubpage || itemSubpage;
-  const mobileSubpageConfig = resolvedMobileSubpage
-    ? config.mobileSubpageConfigs?.[resolvedMobileSubpage]
-    : undefined;
-
   return {
-    title: mobileSubpageConfig?.title || config.mobileTitle || config.title,
-    icon: mobileSubpageConfig?.icon || config.mobileIcon || config.icon,
-    mobileSubpage: mobileSubpageConfig ? resolvedMobileSubpage : undefined,
+    title: config.mobileTitle || config.title,
+    icon: config.mobileIcon || config.icon,
   };
 }
 
@@ -413,30 +393,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.Preferences,
         icon: 'SettingsSolid',
-        mobileIcon: 'SettingsOutline',
+        mobileIcon: 'SliderThreeOutline',
         title: referenceCopy.app,
+        mobileTitle: intl.formatMessage({
+          id: ETranslations.global_preferences,
+        }),
         desktopSectionTitles: [
           referenceCopy.general,
           referenceCopy.deviceAndWindow,
           referenceCopy.shortcuts,
-          referenceCopy.maintenance,
-          undefined,
           referenceCopy.extension,
         ],
-        mobileSubpageConfigs: {
-          [EMobileSettingsSubpage.General]: {
-            title: intl.formatMessage({
-              id: ETranslations.global_preferences,
-            }),
-            icon: 'SliderThreeOutline',
-          },
-          [EMobileSettingsSubpage.AppData]: {
-            title: intl.formatMessage({
-              id: ETranslations.app_data__title,
-            }),
-            icon: 'StorageOutline',
-          },
-        },
         configs: [
           [
             !platformEnv.isWeb
@@ -461,7 +428,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
-              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <LanguageListItem />,
             },
             {
@@ -469,7 +435,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_default_currency,
               }),
-              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <CurrencyListItem />,
             },
             {
@@ -477,7 +442,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_theme,
               }),
-              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <ThemeListItem />,
             },
             platformEnv.isNative
@@ -486,7 +450,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_vibration_haptic,
                   }),
-                  mobilePlacement: EMobileSettingsSubpage.General,
                   renderElement: <HapticFeedbackListItem />,
                 }
               : undefined,
@@ -522,7 +485,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   subtitle: intl.formatMessage({
                     id: ETranslations.settings_split_view_desc,
                   }),
-                  mobilePlacement: EMobileSettingsSubpage.General,
                   renderElement: <SplitViewListItem />,
                 }
               : undefined,
@@ -543,26 +505,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            {
-              icon: 'BroomOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_clear_cache_on_app,
-              }),
-              mobilePlacement: EMobileSettingsSubpage.AppData,
-              renderElement: <ClearAppCacheListItem />,
-            },
-          ],
-          [
-            {
-              icon: 'FolderDeleteOutline',
-              title: intl.formatMessage({
-                id: ETranslations.settings_reset_app,
-              }),
-              mobilePlacement: EMobileSettingsSubpage.AppData,
-              renderElement: <ResetAppListItem />,
-            },
-          ],
-          [
             platformEnv.isExtension
               ? {
                   icon: 'ThumbtackOutline',
@@ -576,6 +518,34 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : undefined,
+          ],
+        ],
+      },
+      {
+        name: ESettingsTabNames.AppData,
+        icon: 'StorageSolid',
+        mobileIcon: 'StorageOutline',
+        title: intl.formatMessage({
+          id: ETranslations.app_data__title,
+        }),
+        configs: [
+          [
+            {
+              icon: 'BroomOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_cache_on_app,
+              }),
+              renderElement: <ClearAppCacheListItem />,
+            },
+          ],
+          [
+            {
+              icon: 'FolderDeleteOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_reset_app,
+              }),
+              renderElement: <ResetAppListItem />,
+            },
           ],
         ],
       },
@@ -1132,6 +1102,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         ESettingsTabNames.Network,
         ESettingsTabNames.Notifications,
         ESettingsTabNames.Preferences,
+        ESettingsTabNames.AppData,
         ESettingsTabNames.About,
         ESettingsTabNames.Dev,
         ESettingsTabNames.Search,

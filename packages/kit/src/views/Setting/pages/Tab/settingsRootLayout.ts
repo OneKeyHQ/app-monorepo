@@ -13,7 +13,11 @@ export const SETTINGS_SIDEBAR_GROUPS: ESettingsTabNames[][] = [
     ESettingsTabNames.Security,
   ],
   [ESettingsTabNames.Connections, ESettingsTabNames.Network],
-  [ESettingsTabNames.Notifications, ESettingsTabNames.Preferences],
+  [
+    ESettingsTabNames.Notifications,
+    ESettingsTabNames.Preferences,
+    ESettingsTabNames.AppData,
+  ],
   [ESettingsTabNames.About],
   [ESettingsTabNames.Dev],
 ];

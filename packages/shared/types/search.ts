@@ -10,7 +10,6 @@ import type { IDApp } from './discovery';
 import type { IMarketSearchV2Token, IMarketToken } from './market';
 import type { IAccountToken, ITokenFiat } from './token';
 import type {
-  EMobileSettingsSubpage,
   EModalSettingRoutes,
   ESettingsTabNames,
 } from '../src/routes/setting';
@@ -117,7 +116,6 @@ export type IUniversalSearchSettings = {
     sectionIcon: string;
     keywords?: string[];
     settingRoute?: EModalSettingRoutes;
-    mobileSubpage?: EMobileSettingsSubpage;
     /** Settings sidebar tab hosting this item on tab-navigator layouts. */
     settingsTab?: ESettingsTabNames;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

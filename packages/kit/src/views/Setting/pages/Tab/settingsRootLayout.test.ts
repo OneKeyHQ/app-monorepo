@@ -33,6 +33,7 @@ describe('resolveSidebarGroups', () => {
         ESettingsTabNames.Network,
         ESettingsTabNames.Notifications,
         ESettingsTabNames.Preferences,
+        ESettingsTabNames.AppData,
         ESettingsTabNames.About,
         ESettingsTabNames.Dev,
       ]),
@@ -43,7 +44,11 @@ describe('resolveSidebarGroups', () => {
         ESettingsTabNames.Security,
       ],
       [ESettingsTabNames.Connections, ESettingsTabNames.Network],
-      [ESettingsTabNames.Notifications, ESettingsTabNames.Preferences],
+      [
+        ESettingsTabNames.Notifications,
+        ESettingsTabNames.Preferences,
+        ESettingsTabNames.AppData,
+      ],
       [ESettingsTabNames.About],
       [ESettingsTabNames.Dev],
     ]);

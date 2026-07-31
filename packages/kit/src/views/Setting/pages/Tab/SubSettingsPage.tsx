@@ -9,10 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  type EMobileSettingsSubpage,
-  ESettingsTabNames,
-} from '@onekeyhq/shared/src/routes';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 
 import { useConfigContext } from './configContext';
 import { MobileAboutHeader } from './CustomElement';
@@ -34,13 +31,11 @@ export function SubSettingsPage({
   name: nameFromProps,
   title: titleFromProps,
   settingsConfig: settingsConfigFromProps,
-  mobileSubpage,
   route,
 }: {
   name: ISettingName;
   title: string;
   settingsConfig: ISettingsConfig;
-  mobileSubpage?: EMobileSettingsSubpage;
 } & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
   const name = useMemo(() => {
@@ -63,10 +58,6 @@ export function SubSettingsPage({
       ? settingsConfig?.find((item) => item?.name === name)
       : null;
   }, [name, settingsConfig]);
-  const mobileSubpageTitle =
-    isMobileLayout && mobileSubpage
-      ? config?.mobileSubpageConfigs?.[mobileSubpage]?.title
-      : undefined;
   const registeredTabNames = useMemo(
     () =>
       new Set(
@@ -95,9 +86,6 @@ export function SubSettingsPage({
             if (!isMobileLayout) {
               return true;
             }
-            if (mobileSubpage) {
-              return item.mobilePlacement === mobileSubpage;
-            }
             return item.mobilePlacement !== 'home';
           });
           return {
@@ -115,19 +103,31 @@ export function SubSettingsPage({
     config?.desktopSectionTitles,
     isMobileLayout,
     isTabNavigator,
-    mobileSubpage,
     registeredTabNames,
   ]);
+  if (
+    platformEnv.isDev &&
+    config?.desktopSectionTitles &&
+    config.desktopSectionTitles.length !== config.configs.length
+  ) {
+    // Titles are positionally coupled to config sections; a mismatch means a
+    // section was added/removed without updating the titles.
+    console.warn(
+      `[settings] desktopSectionTitles length mismatch for ${config.name}`,
+    );
+  }
   const isMobileAboutPage =
-    isMobileLayout &&
-    config?.name === ESettingsTabNames.About &&
-    mobileSubpage === undefined;
+    isMobileLayout && config?.name === ESettingsTabNames.About;
 
   return (
     <Page scrollEnabled backgroundColor={pageBackgroundColor}>
       <Page.Header
         headerStyle={headerStyle}
-        title={mobileSubpageTitle || titleFromProps || config?.title}
+        title={
+          titleFromProps ||
+          (isMobileLayout ? config?.mobileTitle : undefined) ||
+          config?.title
+        }
       />
       <Page.Body bg={pageBackgroundColor}>
         <ScrollView

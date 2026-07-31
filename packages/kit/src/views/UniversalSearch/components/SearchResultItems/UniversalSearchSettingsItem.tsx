@@ -30,7 +30,6 @@ export function UniversalSearchSettingsItem({
     sectionName,
     sectionTitle,
     settingRoute,
-    mobileSubpage,
     settingsTab,
     onPress,
   } = item.payload;
@@ -63,7 +62,7 @@ export function UniversalSearchSettingsItem({
     } else if (sectionName) {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: EModalSettingRoutes.SettingListSubModal,
-        params: { name: sectionName, title: sectionTitle, mobileSubpage },
+        params: { name: sectionName, title: sectionTitle },
       });
     } else {
       navigation.pushModal(EModalRoutes.SettingModal, {
@@ -88,7 +87,6 @@ export function UniversalSearchSettingsItem({
     onPress,
     sectionName,
     sectionTitle,
-    mobileSubpage,
     settingsTab,
     isTabNavigator,
     universalSearchActions,
