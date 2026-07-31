@@ -19,6 +19,7 @@ import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import { type ISubSettingConfig } from './config';
+import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
 export function TabSettingsSection(props: IStackProps) {
@@ -107,8 +108,14 @@ export function TabSettingsListGrid({
     (useMobilePresentation ? item?.mobileTitle : undefined) || item?.title;
   const onPress = useCallback(async () => {
     await dismissKeyboardWithDelay(100);
+    if (isTabNavigator && item?.desktopTab) {
+      // On tab-navigator layouts this item lives as its own sidebar tab, so
+      // select the tab instead of stacking the standalone page on top.
+      navigateToSettingsTabInModal(item.desktopTab);
+      return;
+    }
     item?.onPress?.(appNavigation);
-  }, [item, appNavigation]);
+  }, [appNavigation, isTabNavigator, item]);
   return item?.renderElement ? (
     cloneElement(item.renderElement, {
       titleMatch,

@@ -59,6 +59,9 @@ export enum ESettingsTabNames {
   Wallet = 'Wallet',
   Security = 'Security',
   Network = 'Network',
+  // Desktop-only link tabs derived from promoted setting items.
+  Notifications = 'Notifications',
+  Connections = 'Connections',
   About = 'About',
   Search = 'Search',
   Dev = 'Dev',

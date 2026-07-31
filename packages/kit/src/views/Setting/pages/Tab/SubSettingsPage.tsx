@@ -67,12 +67,29 @@ export function SubSettingsPage({
     isMobileLayout && mobileSubpage
       ? config?.mobileSubpageConfigs?.[mobileSubpage]?.title
       : undefined;
+  const registeredTabNames = useMemo(
+    () =>
+      new Set(
+        settingsConfig
+          .filter(Boolean)
+          .map((category) => category?.name as ESettingsTabNames),
+      ),
+    [settingsConfig],
+  );
   const configList = useMemo(() => {
     return (
       config?.configs
         .map((items, index) => {
           const visibleItems = items.filter((item) => {
             if (!item) {
+              return false;
+            }
+            if (
+              isTabNavigator &&
+              item.desktopTab &&
+              registeredTabNames.has(item.desktopTab)
+            ) {
+              // The item is promoted to its own sidebar tab on this layout.
               return false;
             }
             if (!isMobileLayout) {
@@ -99,6 +116,7 @@ export function SubSettingsPage({
     isMobileLayout,
     isTabNavigator,
     mobileSubpage,
+    registeredTabNames,
   ]);
   const isMobileAboutPage =
     isMobileLayout &&

@@ -83,6 +83,10 @@ import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
+import {
+  SubConnectionsSettings,
+  SubNotificationsSettings,
+} from './SubSettingsLinkPanes';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -104,6 +108,12 @@ export interface ISubSettingConfig {
   subtitle?: string;
   keywords?: string[];
   mobilePlacement?: 'home' | EMobileSettingsSubpage;
+  /**
+   * Tab-navigator layouts promote this item to its own sidebar tab. The
+   * synthetic tab category is derived from the item, so platform gating and
+   * copy never fork from the source item.
+   */
+  desktopTab?: ESettingsTabNames;
   testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
@@ -127,6 +137,11 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      /**
+       * Synthetic category derived from an item's `desktopTab` annotation.
+       * Rendered only by the tab navigator; list layouts must skip it.
+       */
+      desktopOnlyTab?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
       tabBarIconStyle?: IIconProps;
@@ -431,6 +446,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_notifications,
                   }),
                   mobilePlacement: 'home',
+                  desktopTab: ESettingsTabNames.Notifications,
                   testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
@@ -774,6 +790,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         id: ETranslations.explore_dapp_connections,
                       }),
                       mobilePlacement: 'home',
+                      desktopTab: ESettingsTabNames.Connections,
                       keywords: [
                         intl.formatMessage({
                           id: ETranslations.settings_connected_sites,
@@ -1076,19 +1093,51 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
+    const linkTabComponents = {
+      [ESettingsTabNames.Notifications]: SubNotificationsSettings,
+      [ESettingsTabNames.Connections]: SubConnectionsSettings,
+    };
+    // Desktop link tabs are derived from the annotated items so their
+    // platform gating and copy never fork from the source item.
+    const linkTabCategories: ISettingsConfig = config.flatMap(
+      (category) =>
+        category?.configs
+          .flat()
+          .filter(
+            (
+              item,
+            ): item is ISubSettingConfig &
+              Required<Pick<ISubSettingConfig, 'desktopTab'>> =>
+              Boolean(item?.desktopTab),
+          )
+          .map((item) => ({
+            name: item.desktopTab,
+            icon: item.icon as string,
+            title: item.mobileTitle || item.title,
+            testID: item.testID,
+            desktopOnlyTab: true,
+            Component:
+              linkTabComponents[
+                item.desktopTab as keyof typeof linkTabComponents
+              ],
+            configs: [],
+          })) ?? [],
+    );
     const order = new Map(
       [
-        ESettingsTabNames.Backup,
         ESettingsTabNames.Wallet,
+        ESettingsTabNames.Backup,
         ESettingsTabNames.Security,
+        ESettingsTabNames.Connections,
         ESettingsTabNames.Network,
+        ESettingsTabNames.Notifications,
         ESettingsTabNames.Preferences,
         ESettingsTabNames.About,
         ESettingsTabNames.Dev,
         ESettingsTabNames.Search,
       ].map((name, index) => [name, index]),
     );
-    return config.toSorted((a, b) => {
+    return [...config, ...linkTabCategories].toSorted((a, b) => {
       const aOrder = a ? (order.get(a.name) ?? order.size) : order.size + 1;
       const bOrder = b ? (order.get(b.name) ?? order.size) : order.size + 1;
       return aOrder - bOrder;

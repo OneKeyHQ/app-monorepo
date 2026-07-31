@@ -162,7 +162,7 @@ export function SettingList() {
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
     return settingsConfig.filter((config): config is ISettingCategory =>
-      Boolean(config && !config.isHidden),
+      Boolean(config && !config.isHidden && !config.desktopOnlyTab),
     );
   }, [settingsConfig]);
   const mobileSections = useMemo(() => {
