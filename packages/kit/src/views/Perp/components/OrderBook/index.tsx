@@ -679,7 +679,9 @@ const OrderBookHoverSummaryOverlay = memo(
   ({
     averagePrice,
     baseSymbol,
-    distanceFromMid,
+    bestAsk,
+    bestBid,
+    levelPrice,
     overlayLeft,
     overlayTop,
     quoteSymbol,
@@ -688,43 +690,61 @@ const OrderBookHoverSummaryOverlay = memo(
   }: {
     averagePrice: string;
     baseSymbol: string;
-    distanceFromMid: string;
+    bestAsk?: string;
+    bestBid?: string;
+    levelPrice: string;
     overlayLeft: number;
     overlayTop: number;
     quoteSymbol: string;
     totalNotional: string;
     totalSize: string;
-  }) => (
-    <Stack
-      pointerEvents="none"
-      style={{
-        position: 'fixed' as const,
-        left: overlayLeft,
-        top: overlayTop,
-        width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
-        zIndex: 1100,
-      }}
-    >
-      <YStack
-        bg="$bg"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$2"
-        px="$3"
-        py="$2"
-        elevation={10}
+  }) => {
+    const { midPrice: liveMidPrice, isValid: hasLiveMidPrice } =
+      useTradingPrice();
+    const midPrice = getOrderBookMidPrice({
+      liveMidPrice: hasLiveMidPrice ? liveMidPrice : undefined,
+      bestBid,
+      bestAsk,
+    });
+    const distanceFromMid = getOrderBookDistanceFromMid(levelPrice, midPrice);
+    if (distanceFromMid === null) {
+      return null;
+    }
+
+    return (
+      <Stack
+        pointerEvents="none"
+        style={{
+          position: 'fixed' as const,
+          left: overlayLeft,
+          top: overlayTop,
+          width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
+          zIndex: 1100,
+        }}
       >
-        <OrderBookHoverSummaryContent
-          averagePrice={averagePrice}
-          baseSymbol={baseSymbol}
-          distanceFromMid={distanceFromMid}
-          quoteSymbol={quoteSymbol}
-          totalNotional={totalNotional}
-          totalSize={totalSize}
-        />
-      </YStack>
-    </Stack>
-  ),
+        <YStack
+          bg="$bg"
+          borderWidth="$px"
+          borderColor="$borderSubdued"
+          borderRadius="$2"
+          px="$3"
+          py="$2"
+          elevation={10}
+        >
+          <OrderBookHoverSummaryContent
+            averagePrice={averagePrice}
+            baseSymbol={baseSymbol}
+            distanceFromMid={`${formatLocalizedNumberString(
+              new BigNumber(distanceFromMid).toFixed(4),
+            )}%`}
+            quoteSymbol={quoteSymbol}
+            totalNotional={totalNotional}
+            totalSize={totalSize}
+          />
+        </YStack>
+      </Stack>
+    );
+  },
 );
 OrderBookHoverSummaryOverlay.displayName = 'OrderBookHoverSummaryOverlay';
 
@@ -857,9 +877,6 @@ export function OrderBook({
   const isDesktopHoverSummary =
     variant === 'web' && !platformEnv.isNative && !horizontal;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const { midPrice: liveMidPrice, isValid: hasLiveMidPrice } = useTradingPrice({
-    source: isDesktopHoverSummary ? 'live' : 'disabled',
-  });
   const [hoveredLevel, setHoveredLevel] =
     useState<IHoveredOrderBookLevel | null>(null);
   const hoverContainerRef = useRef<IWebRectElement | null>(null);
@@ -956,11 +973,6 @@ export function OrderBook({
     activeTradeInstrument.mode === 'spot'
       ? (activeTradeInstrument.universe?.quoteName ?? 'USDC')
       : 'USDC';
-  const midPrice = getOrderBookMidPrice({
-    liveMidPrice: hasLiveMidPrice ? liveMidPrice : undefined,
-    bestBid: bids[0]?.px,
-    bestAsk: asks[0]?.px,
-  });
 
   const isMobileVariant =
     variant === 'mobileHorizontal' || variant === 'mobileVertical';
@@ -1075,10 +1087,7 @@ export function OrderBook({
       hoveredLevel.side === 'ask' ? aggregatedData.asks : aggregatedData.bids;
     const level = levels[hoveredLevel.index];
     const summary = getOrderBookHoverSummary(levels, hoveredLevel.index);
-    const distanceFromMid = level
-      ? getOrderBookDistanceFromMid(level.price, midPrice)
-      : null;
-    if (!level || !summary || distanceFromMid === null) {
+    if (!level || !summary) {
       return null;
     }
 
@@ -1087,9 +1096,7 @@ export function OrderBook({
       averagePrice: formatLocalizedNumberString(
         new BigNumber(summary.averagePrice).toFixed(priceDecimals),
       ),
-      distanceFromMid: `${formatLocalizedNumberString(
-        new BigNumber(distanceFromMid).toFixed(4),
-      )}%`,
+      levelPrice: level.price,
       totalSize: level.displayCumSize,
       totalNotional: numberFormat(summary.totalNotional, {
         formatter: 'marketCap',
@@ -1101,7 +1108,6 @@ export function OrderBook({
     canShowHoverSummary,
     depthEpoch,
     hoveredLevel,
-    midPrice,
     priceDecimals,
   ]);
 
@@ -1650,7 +1656,9 @@ export function OrderBook({
               <OrderBookHoverSummaryOverlay
                 averagePrice={hoverSummary.averagePrice}
                 baseSymbol={baseSymbol}
-                distanceFromMid={hoverSummary.distanceFromMid}
+                bestAsk={asks[0]?.px}
+                bestBid={bids[0]?.px}
+                levelPrice={hoverSummary.levelPrice}
                 overlayLeft={hoverSummary.overlayLeft}
                 overlayTop={hoverSummary.overlayTop}
                 quoteSymbol={quoteSymbol}
