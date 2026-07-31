@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { memo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useNavigationState } from '@react-navigation/native';
 
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { TabSubStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
@@ -30,13 +30,18 @@ function LinkTabSubStack({
   route: RouteProp<any, any>;
   component: ComponentType<any>;
 }) {
-  const isFocused = useIsFocused();
+  const activeRouteName = useNavigationState(
+    (state) => state.routes[state.index]?.name,
+  );
   const { name } = route;
   // The settings tab navigator mounts every screen eagerly (`lazy: false`).
-  // Link panes host full feature pages that fetch on mount, so keep them
-  // mounted only while focused — each visit re-mounts with fresh data, which
-  // matches the modal presentation these pages were written for.
-  if (!isFocused) {
+  // Link panes host full feature pages that fetch on mount, so mount them only
+  // while their tab is selected — each visit re-mounts with fresh data. Key off
+  // the tab navigator's own state, NOT `useIsFocused`: hierarchical focus also
+  // drops when another modal covers the settings modal (or an iPad drill-down
+  // pushes onto the outer settings stack), and unmounting there loses in-flight
+  // state such as the connection pane's account-change observer.
+  if (activeRouteName !== name) {
     return null;
   }
   return (
