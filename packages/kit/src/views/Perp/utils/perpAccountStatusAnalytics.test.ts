@@ -13,6 +13,7 @@ function buildReadyParams() {
     source,
     walletType,
     selectAccountLoading: false,
+    accountCreationPending: false,
     accountStatus: {
       accountAddress,
       canTrade: true,
@@ -37,7 +38,9 @@ function buildReadyParams() {
       activePositions: [{ coin: 'BTC' }, { coin: 'ETH' }],
     },
     abstractionMode: {
+      accountAddress,
       mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      source: 'live' as const,
     },
   };
 }
@@ -75,6 +78,15 @@ describe('buildPerpAccountStatusAnalyticsParams', () => {
       buildPerpAccountStatusAnalyticsParams({
         ...readyParams,
         selectAccountLoading: true,
+      }),
+    ).toBeUndefined();
+    expect(
+      buildPerpAccountStatusAnalyticsParams({
+        ...readyParams,
+        abstractionMode: {
+          ...readyParams.abstractionMode,
+          source: 'cache',
+        },
       }),
     ).toBeUndefined();
     expect(

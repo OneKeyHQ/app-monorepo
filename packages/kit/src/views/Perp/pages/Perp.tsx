@@ -19,6 +19,8 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { usePerpsActivePositionAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useAccountIsAutoCreatingAtom,
+  useIndexedAccountAddressCreationStateAtom,
   usePerpsAbstractionModeAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
@@ -94,6 +96,9 @@ function PerpBodyContent() {
 function PerpAnalyticsTracker() {
   const isFocused = useIsFocused();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
+  const [indexedAccountAddressCreationState] =
+    useIndexedAccountAddressCreationStateAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [accountLoadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [computedAccountValue] = usePerpsComputedAccountValueAtom();
@@ -141,6 +146,13 @@ function PerpAnalyticsTracker() {
       walletType: activePerpsAccount.walletType ?? 'unknown',
       accountStatus: perpsAccountStatus,
       selectAccountLoading: accountLoadingInfo.selectAccountLoading,
+      accountCreationPending: Boolean(
+        activePerpsAccount.indexedAccountId &&
+          (accountIsAutoCreating?.indexedAccountId ===
+            activePerpsAccount.indexedAccountId ||
+            indexedAccountAddressCreationState?.indexedAccountId ===
+              activePerpsAccount.indexedAccountId),
+      ),
       computedAccountValue,
       positionsState,
       abstractionMode,
@@ -164,9 +176,11 @@ function PerpAnalyticsTracker() {
     activePerpsAccount.accountId,
     activePerpsAccount.indexedAccountId,
     activePerpsAccount.walletType,
+    accountIsAutoCreating?.indexedAccountId,
     accountLoadingInfo.selectAccountLoading,
     computedAccountValue,
     isFocused,
+    indexedAccountAddressCreationState?.indexedAccountId,
     pageSession,
     perpsAccountStatus,
     positionsState,

@@ -11,6 +11,7 @@ type IBuildPerpAccountStatusAnalyticsParams = {
   walletType: string;
   accountStatus: IPerpsActiveAccountStatusAtom;
   selectAccountLoading: boolean;
+  accountCreationPending: boolean;
   computedAccountValue: {
     accountValue?: string;
     withdrawable?: string;
@@ -21,7 +22,9 @@ type IBuildPerpAccountStatusAnalyticsParams = {
     activePositions: unknown[];
   };
   abstractionMode?: {
+    accountAddress?: string;
     mode?: EHyperLiquidAbstractionMode;
+    source?: 'live' | 'cache';
   };
 };
 
@@ -30,13 +33,14 @@ export function buildPerpAccountStatusAnalyticsParams({
   walletType,
   accountStatus,
   selectAccountLoading,
+  accountCreationPending,
   computedAccountValue,
   positionsState,
   abstractionMode,
 }: IBuildPerpAccountStatusAnalyticsParams):
   | IPerpAccountStatusParams
   | undefined {
-  if (selectAccountLoading) {
+  if (selectAccountLoading || accountCreationPending) {
     return undefined;
   }
   const baseParams = {
@@ -70,11 +74,18 @@ export function buildPerpAccountStatusAnalyticsParams({
   const positionsAddress = normalizePerpsAccountAddress(
     positionsState.accountAddress,
   );
+  const modeAddress = normalizePerpsAccountAddress(
+    abstractionMode?.accountAddress,
+  );
+  const liveAccountMode =
+    abstractionMode?.source !== 'cache' && modeAddress === accountAddress
+      ? abstractionMode?.mode
+      : undefined;
   if (
     isActivated &&
     (computedAccountValue.isLoading ||
       positionsAddress !== accountAddress ||
-      !abstractionMode?.mode)
+      !liveAccountMode)
   ) {
     return undefined;
   }
@@ -89,7 +100,7 @@ export function buildPerpAccountStatusAnalyticsParams({
     return undefined;
   }
 
-  const accountMode = isActivated ? abstractionMode?.mode : undefined;
+  const accountMode = isActivated ? liveAccountMode : undefined;
   const abstractionOk = accountMode
     ? accountMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
       accountMode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN
