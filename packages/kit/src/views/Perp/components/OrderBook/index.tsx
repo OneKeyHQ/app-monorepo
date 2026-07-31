@@ -679,6 +679,59 @@ const OrderBookHoverSummaryOverlay = memo(
   ({
     averagePrice,
     baseSymbol,
+    distanceFromMid,
+    overlayLeft,
+    overlayTop,
+    quoteSymbol,
+    totalNotional,
+    totalSize,
+  }: {
+    averagePrice: string;
+    baseSymbol: string;
+    distanceFromMid: string;
+    overlayLeft: number;
+    overlayTop: number;
+    quoteSymbol: string;
+    totalNotional: string;
+    totalSize: string;
+  }) => (
+    <Stack
+      pointerEvents="none"
+      style={{
+        position: 'fixed' as const,
+        left: overlayLeft,
+        top: overlayTop,
+        width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
+        zIndex: 1100,
+      }}
+    >
+      <YStack
+        bg="$bg"
+        borderWidth="$px"
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+        px="$3"
+        py="$2"
+        elevation={10}
+      >
+        <OrderBookHoverSummaryContent
+          averagePrice={averagePrice}
+          baseSymbol={baseSymbol}
+          distanceFromMid={distanceFromMid}
+          quoteSymbol={quoteSymbol}
+          totalNotional={totalNotional}
+          totalSize={totalSize}
+        />
+      </YStack>
+    </Stack>
+  ),
+);
+OrderBookHoverSummaryOverlay.displayName = 'OrderBookHoverSummaryOverlay';
+
+const OrderBookHoverSummaryPortal = memo(
+  ({
+    averagePrice,
+    baseSymbol,
     bestAsk,
     bestBid,
     levelPrice,
@@ -712,41 +765,24 @@ const OrderBookHoverSummaryOverlay = memo(
     }
 
     return (
-      <Stack
-        pointerEvents="none"
-        style={{
-          position: 'fixed' as const,
-          left: overlayLeft,
-          top: overlayTop,
-          width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
-          zIndex: 1100,
-        }}
-      >
-        <YStack
-          bg="$bg"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderRadius="$2"
-          px="$3"
-          py="$2"
-          elevation={10}
-        >
-          <OrderBookHoverSummaryContent
-            averagePrice={averagePrice}
-            baseSymbol={baseSymbol}
-            distanceFromMid={`${formatLocalizedNumberString(
-              new BigNumber(distanceFromMid).toFixed(4),
-            )}%`}
-            quoteSymbol={quoteSymbol}
-            totalNotional={totalNotional}
-            totalSize={totalSize}
-          />
-        </YStack>
-      </Stack>
+      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+        <OrderBookHoverSummaryOverlay
+          averagePrice={averagePrice}
+          baseSymbol={baseSymbol}
+          distanceFromMid={`${formatLocalizedNumberString(
+            new BigNumber(distanceFromMid).toFixed(4),
+          )}%`}
+          overlayLeft={overlayLeft}
+          overlayTop={overlayTop}
+          quoteSymbol={quoteSymbol}
+          totalNotional={totalNotional}
+          totalSize={totalSize}
+        />
+      </Portal.Body>
     );
   },
 );
-OrderBookHoverSummaryOverlay.displayName = 'OrderBookHoverSummaryOverlay';
+OrderBookHoverSummaryPortal.displayName = 'OrderBookHoverSummaryPortal';
 
 // Lighter background colors for compact/mobile presentation
 const useBlockColorsMobile = () => {
@@ -1652,20 +1688,18 @@ export function OrderBook({
             );
           })}
           {hoverSummary ? (
-            <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-              <OrderBookHoverSummaryOverlay
-                averagePrice={hoverSummary.averagePrice}
-                baseSymbol={baseSymbol}
-                bestAsk={asks[0]?.px}
-                bestBid={bids[0]?.px}
-                levelPrice={hoverSummary.levelPrice}
-                overlayLeft={hoverSummary.overlayLeft}
-                overlayTop={hoverSummary.overlayTop}
-                quoteSymbol={quoteSymbol}
-                totalNotional={hoverSummary.totalNotional}
-                totalSize={hoverSummary.totalSize}
-              />
-            </Portal.Body>
+            <OrderBookHoverSummaryPortal
+              averagePrice={hoverSummary.averagePrice}
+              baseSymbol={baseSymbol}
+              bestAsk={asks[0]?.px}
+              bestBid={bids[0]?.px}
+              levelPrice={hoverSummary.levelPrice}
+              overlayLeft={hoverSummary.overlayLeft}
+              overlayTop={hoverSummary.overlayTop}
+              quoteSymbol={quoteSymbol}
+              totalNotional={hoverSummary.totalNotional}
+              totalSize={hoverSummary.totalSize}
+            />
           ) : null}
         </View>
       </View>
