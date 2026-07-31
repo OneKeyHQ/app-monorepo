@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { getMobileSettingsPresentation, useSettingsConfig } from './config';
+import { getDefaultSettingsTab } from './settingsRootLayout';
 import {
   SETTINGS_SEARCH_KEYS,
   getSettingsSearchSectionItem,
@@ -64,7 +65,7 @@ export const useSearch = () => {
 
   const searchTextRef = useRef<string>('');
   const previousTabRoute = useRef<ESettingsTabNames>(
-    settingsConfig[0]?.name || ESettingsTabNames.Backup,
+    getDefaultSettingsTab(settingsConfig),
   );
   const onFocus = useCallback(() => {
     if (isTabNavigator && searchTextRef.current.length > 0) {
@@ -88,13 +89,18 @@ export const useSearch = () => {
         configs: sections[key] as FuseResult<ISubSettingConfig>[],
       }));
       if (isTabNavigator) {
+        // The restore target can disappear at runtime (e.g. leaving dev mode
+        // removes the Dev tab), so validate it before navigating.
+        const restoreTab = settingsConfig.some(
+          (category) => category?.name === previousTabRoute.current,
+        )
+          ? previousTabRoute.current
+          : getDefaultSettingsTab(settingsConfig);
         rootNavigationRef.current?.navigate(
           EModalSettingRoutes.SettingListModal,
           {
             screen:
-              searchText.length === 0 && previousTabRoute.current
-                ? previousTabRoute.current
-                : ESettingsTabNames.Search,
+              searchText.length === 0 ? restoreTab : ESettingsTabNames.Search,
           },
         );
         appEventBus.emitToSelf({
@@ -109,7 +115,7 @@ export const useSearch = () => {
         setSearchResult(list);
       }
     },
-    [isTabNavigator, searchFuse],
+    [isTabNavigator, searchFuse, settingsConfig],
   );
   return useMemo(() => {
     return isTabNavigator

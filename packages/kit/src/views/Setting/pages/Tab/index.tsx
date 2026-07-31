@@ -22,14 +22,17 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import type { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
+import {
+  getDefaultSettingsTab,
+  resolveSidebarGroups,
+} from './settingsRootLayout';
 import { SubSettings } from './SubSettings';
 import { useIsTabNavigator } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
@@ -51,6 +54,7 @@ function TabItemView({
   options: BottomTabNavigationOptions & {
     tabbarOnPress?: () => void;
     trackId?: string;
+    testID?: string;
     tabBarItemStyle?: IStackStyle;
     tabBarIconStyle?: IIconProps;
     tabBarLabelStyle?: ISizableTextProps;
@@ -95,6 +99,7 @@ function TabItemView({
       <DesktopTabItem
         onPress={options.tabbarOnPress ?? onPress}
         trackId={options.trackId}
+        testID={options.testID}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
@@ -115,49 +120,65 @@ function TabItemView({
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
   const { onSearch, onFocus, previousTabRoute } = useSearch();
-  const tabs = useMemo(
-    () =>
-      routes.map((route, index) => {
-        const focus = index === state.index;
-        const { options } = descriptors[route.key];
-        const onPress = () => {
-          Keyboard.dismiss();
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          previousTabRoute.current = route.name as ESettingsTabNames;
-          if (!focus && !event.defaultPrevented) {
-            navigation.dispatch({
-              ...CommonActions.navigate({
-                name: route.name,
-                merge: true,
-              }),
-              target: state.key,
-            });
+  const tabs = useMemo(() => {
+    const routeEntries = new Map(
+      routes.map((route, index) => [route.name, { route, index }] as const),
+    );
+    const visibleNames = routes
+      .filter(
+        (route) =>
+          !(descriptors[route.key].options as { isHidden?: boolean }).isHidden,
+      )
+      .map((route) => route.name);
+    // Sidebar groups mirror the mobile settings home cards.
+    return resolveSidebarGroups(visibleNames).map((group, groupIndex) => (
+      <YStack key={groupIndex} gap="$1">
+        {group.map((name) => {
+          const entry = routeEntries.get(name);
+          if (!entry) {
+            return null;
           }
-        };
-
-        const tabItem = (
-          <TabItemView
-            onPress={onPress}
-            isActive={focus}
-            options={options as any}
-          />
-        );
-        return (
-          <YStack
-            key={route.key}
-            w="100%"
-            mt={route.name === ESettingsTabNames.About ? '$3' : undefined}
-          >
-            {tabItem}
-          </YStack>
-        );
-      }),
-    [routes, state.index, state.key, descriptors, navigation, previousTabRoute],
-  );
+          const { route, index } = entry;
+          const focus = index === state.index;
+          const { options } = descriptors[route.key];
+          const onPress = () => {
+            Keyboard.dismiss();
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            previousTabRoute.current = route.name as ESettingsTabNames;
+            if (!focus && !event.defaultPrevented) {
+              navigation.dispatch({
+                ...CommonActions.navigate({
+                  name: route.name,
+                  merge: true,
+                }),
+                target: state.key,
+              });
+            }
+          };
+          return (
+            <YStack key={route.key} w="100%">
+              <TabItemView
+                onPress={onPress}
+                isActive={focus}
+                options={options as any}
+              />
+            </YStack>
+          );
+        })}
+      </YStack>
+    ));
+  }, [
+    routes,
+    state.index,
+    state.key,
+    descriptors,
+    navigation,
+    previousTabRoute,
+  ]);
 
   const { top, bottom } = useSafeAreaInsets();
   return (
@@ -182,7 +203,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <YStack gap="$1">{tabs}</YStack>
+          <YStack gap="$4">{tabs}</YStack>
         </ScrollView>
       </YStack>
       <Divider borderColor="$neutral3" />
@@ -200,16 +221,26 @@ function SettingsTabNavigator() {
       if (!config) {
         return null;
       }
-      const { icon, title, name, Component, ...options } = config;
+      const {
+        icon,
+        mobileIcon,
+        title,
+        mobileTitle,
+        name,
+        Component,
+        ...options
+      } = config;
       return (
         <Tab.Screen
-          key={title}
+          key={name}
           name={name}
           component={(Component || SubSettings) as any}
           options={{
             ...(options as any),
-            tabBarLabel: title,
-            tabBarIcon: () => icon,
+            // Sidebar copy and icons follow the mobile naming.
+            tabBarLabel: mobileTitle ?? title,
+            tabBarIcon: () => mobileIcon ?? icon,
+            trackId: name,
             tabBarPosition: 'left',
           }}
         />
@@ -224,14 +255,14 @@ function SettingsTabNavigator() {
   const contextValue = useMemo(() => {
     return { settingsConfig };
   }, [settingsConfig]);
+  const initialRouteName = useMemo(
+    () => getDefaultSettingsTab(settingsConfig),
+    [settingsConfig],
+  );
   return (
     <ConfigContext.Provider value={contextValue}>
       <Tab.Navigator
-        initialRouteName={
-          platformEnv.isWebDappMode
-            ? ESettingsTabNames.Preferences
-            : ESettingsTabNames.Backup
-        }
+        initialRouteName={initialRouteName}
         tabBar={tabBarCallback}
         screenOptions={{
           headerShown: false,
