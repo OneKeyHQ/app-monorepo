@@ -9,6 +9,7 @@ import {
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   hasValidStockBalanceForTrade,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
@@ -16,10 +17,13 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
+  resolveStockPayTokenState,
+  resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
@@ -479,6 +483,54 @@ describe('swapStockChannelUtils', () => {
     });
   });
 
+  it('refreshes Stock execution metadata from an identity-matched token detail', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+    const tokenDetail = {
+      ...appleStockToken,
+      balanceParsed: '0.168058487842240859',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail,
+      }),
+    ).toEqual(appleStockToken);
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail: {
+          ...tokenDetail,
+          contractAddress: micronStockToken.contractAddress,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('resyncs Stock execution tokens when only authoritative metadata changes', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: cachedStockToken,
+        currentToToken: usdcToken,
+        payToken: usdcToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toEqual({
+      fromToken: appleStockToken,
+      toToken: usdcToken,
+    });
+  });
+
   it('does not build trade-side execution tokens without a live pay token', () => {
     expect(
       resolveStockExecutionTokensForTradeSideSwitch({
@@ -546,6 +598,87 @@ describe('swapStockChannelUtils', () => {
         isBuySide: true,
       }),
     ).toBe(false);
+  });
+
+  it('uses an ordinary Swap pay token only as a selection hint until Stock confirms it', () => {
+    const initializingState = resolveStockPayTokenState({
+      swapPairToken: usdcToken,
+    });
+    expect(initializingState).toEqual({
+      displayToken: undefined,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        liveToken: usdcPayToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdcPayToken,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        coldStartToken: usdtToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdtToken,
+      selectionToken: usdtToken,
+    });
+  });
+
+  it('keeps the buy-side input initializing until the stock identity is ready', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+  });
+
+  it('settles the buy-side input only after its owning state settles', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Ready);
+  });
+
+  it('keeps the sell-side input owned by the stock-token status', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: false,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
   });
 
   it('shows Stock balance loading only before the first scoped balance lands', () => {
@@ -707,6 +840,35 @@ describe('swapStockChannelUtils', () => {
       displayBalance: '0.25',
       tokenDetail: usdcToken,
     });
+  });
+
+  it('keeps balance actions unavailable until authoritative execution state is ready', () => {
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: undefined,
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps sell-side stock input skeleton tied to full readiness', () => {

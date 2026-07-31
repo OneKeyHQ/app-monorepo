@@ -66,6 +66,27 @@ describe('TradingViewNative chart legend', () => {
     });
   });
 
+  it('uses the previous close for the TradingView bar-change value and color', () => {
+    const legend = getTradingViewNativeChartLegend(
+      {
+        c: 101,
+        h: 103,
+        l: 99,
+        o: 102,
+        t: 1,
+        v: 10,
+      },
+      'candlestick',
+      100,
+    );
+
+    expect(legend.isUp).toBe(true);
+    expect(legend.priceItems.at(-1)).toEqual({
+      label: '',
+      value: '+1 (+1%)',
+    });
+  });
+
   it('formats signed candle price and percentage changes', () => {
     expect(
       formatTradingViewNativePriceChange({
@@ -98,6 +119,12 @@ describe('TradingViewNative chart legend', () => {
         open: 0.000_012_34,
       }),
     ).toBe('+0.00000005 (+0.41%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100 + 1e-7,
+        open: 100,
+      }),
+    ).toBe('+0.0000001 (0%)');
   });
 
   it('rejects a price change with an invalid open', () => {
@@ -176,4 +203,59 @@ describe('TradingViewNative chart legend', () => {
       { label: '', value: '+111111 (+12.34%)', labelX: 8, valueX: 11 },
     ]);
   });
+
+  it('moves overflowing legend items to a visible second row', () => {
+    const layout = getTradingViewNativeChartLegendRowLayout({
+      items: [
+        { label: 'O', value: '123456' },
+        { label: 'H', value: '123457' },
+        { label: 'L', value: '123455' },
+        { label: 'C', value: '123456' },
+        { label: '', value: '+0.00000005 (+0.41%)' },
+      ],
+      maxX: 210,
+      measureTextWidth: (text) => text.length * 5,
+      top: 2,
+    });
+
+    expect(layout).not.toBeNull();
+    expect(layout?.backgroundRect.height).toBe(30);
+    expect(layout?.clipRect.height).toBe(30);
+    const priceChangeSegment = layout?.segments.at(-1);
+    expect(priceChangeSegment?.textBaselineY).toBe(28);
+    expect(
+      (priceChangeSegment?.valueX ?? 0) +
+        (priceChangeSegment ? priceChangeSegment.value.length * 5 : 0),
+    ).toBeLessThanOrEqual(
+      (layout?.clipRect.x ?? 0) + (layout?.clipRect.width ?? 0),
+    );
+  });
+
+  it.each([320, 360])(
+    'keeps a long price-change segment visible at %ipx',
+    (width) => {
+      const layout = getTradingViewNativeChartLegendRowLayout({
+        items: [
+          { label: 'O', value: '123456' },
+          { label: 'H', value: '123457' },
+          { label: 'L', value: '123455' },
+          { label: 'C', value: '123456' },
+          { label: '', value: '+0.00000005 (+0.41%)' },
+        ],
+        maxX: width - 64,
+        measureTextWidth: (text) => text.length * 6,
+        top: 2,
+      });
+
+      expect(layout).not.toBeNull();
+      const priceChangeSegment = layout?.segments.at(-1);
+      expect(priceChangeSegment?.textBaselineY).toBe(28);
+      expect(
+        (priceChangeSegment?.valueX ?? 0) +
+          (priceChangeSegment ? priceChangeSegment.value.length * 6 : 0),
+      ).toBeLessThanOrEqual(
+        (layout?.clipRect.x ?? 0) + (layout?.clipRect.width ?? 0),
+      );
+    },
+  );
 });

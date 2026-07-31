@@ -716,6 +716,19 @@ export type IIndexedAccountsCreationPreparedData = {
   syncItemIdByIndexedAccountId: Record<string, string>;
 };
 
+type IResolveExistingDeviceParams = {
+  rawDeviceId: string;
+  uuid: string;
+  connectId?: string;
+  getFirstEvmAddressFn?: () => Promise<string | null>;
+  verifySeedMatchFn?: (
+    matchedDevice: IDBDevice,
+  ) => Promise<'match' | 'mismatch' | 'unknown'>;
+  // Vendor-declared reseed recovery, invoked only on the third-party path when
+  // identity matching misses. OneKey never reaches it.
+  vendor?: EHardwareVendor;
+};
+
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
     [walletId: string]: boolean;
@@ -5721,6 +5734,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       verifySeedMatchFn: params.verifySeedMatchFn,
       vendor,
     });
+
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
@@ -8193,7 +8207,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return devices.find((item) => uuid && item.uuid === uuid);
   }
 
-  async getExistingDevice({
+  /**
+   * Resolve which existing device record (if any) a connecting device maps to.
+   *
+   * OneKey (HD) and third-party vendors are dispatched separately on purpose,
+   * so third-party resolution can never affect OneKey's own path.
+   */
+  async getExistingDevice(
+    params: IResolveExistingDeviceParams,
+  ): Promise<IDBDevice | undefined> {
+    const profile = getVendorProfile(params.vendor ?? EHardwareVendor.onekey);
+    if (!profile.isThirdParty) {
+      return this._resolveExistingOneKeyDevice(params);
+    }
+    return this._resolveExistingThirdPartyDevice(params);
+  }
+
+  /** OneKey (HD): identity match only. */
+  private async _resolveExistingOneKeyDevice(
+    params: IResolveExistingDeviceParams,
+  ): Promise<IDBDevice | undefined> {
+    return this._matchExistingDeviceRecord(params);
+  }
+
+  /** Third-party (Trezor / Ledger) device identity match. */
+  private async _resolveExistingThirdPartyDevice(
+    params: IResolveExistingDeviceParams,
+  ): Promise<IDBDevice | undefined> {
+    return this._matchExistingDeviceRecord(params);
+  }
+
+  private async _matchExistingDeviceRecord({
     // required: After resetting, the device will be considered as a new one.
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
@@ -8407,8 +8451,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (!uuidInDb) {
           uuidInDb = item.featuresInfo ? getDeviceUUID(item.featuresInfo) : '';
         }
-        const uuidInQuery = features ? getDeviceUUID(features) : '';
-        mergePredicate(!!uuidInDb && !!uuidInQuery && uuidInQuery === uuidInDb);
+        const uuidInQuery = getDeviceUUID(features);
+        if (uuidInDb && uuidInQuery) {
+          mergePredicate(uuidInQuery === uuidInDb);
+        } else if (!connectId && !featuresDeviceId) {
+          // features is the only discriminator and it can't discriminate here
+          // (getDeviceUUID reads OneKey-specific serial fields, so a
+          // third-party device's features always yield an empty UUID) —
+          // constraining by vendor alone would return an arbitrary device of
+          // that vendor. No current caller combines features with connectId
+          // or featuresDeviceId, but if one does, those already narrow the
+          // match precisely and a UUID that cannot be computed must not veto it.
+          mergePredicate(false);
+        }
       }
       return predicate ?? false;
     });

@@ -59,7 +59,6 @@ import {
   HwWalletAvatarImages,
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
-import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -94,7 +93,6 @@ import {
 } from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
-import { Pro2MockEntryButton } from './deviceSetupPro2Mock';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
@@ -546,13 +544,6 @@ function BluetoothCard({
 }
 
 function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
-  // MOCK(pro2): Pro 2 is identified by the shared mock device type until the SDK
-  // ships the real EDeviceType.Pro2.
-  const isPro2 = useMemo(
-    () => deviceTypeItems.includes(MOCK_PRO2_DEVICE_TYPE),
-    [deviceTypeItems],
-  );
-
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -577,9 +568,6 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   // The onboarding flow is force-dark, so every device uses its dark (-D) asset
   // and no theme branching is needed.
   const videoSource = useMemo<ReactVideoSource>(() => {
-    if (isPro2) {
-      return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as ReactVideoSource;
-    }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource;
     }
@@ -590,7 +578,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
-  }, [isClassic, isMini, isTouch, isPro2]);
+  }, [isClassic, isMini, isTouch]);
 
   return (
     <Video
@@ -852,10 +840,6 @@ function USBOrBLEConnectionIndicator({
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
       <TroubleShootingButton type="usb" />
-      <Pro2MockEntryButton
-        deviceTypeItems={deviceTypeItems}
-        tabValue={tabValue}
-      />
     </>
   );
 }
@@ -1098,10 +1082,7 @@ function ConnectYourDevicePage({
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
-      (deviceType) =>
-        deviceType === EDeviceType.Pro ||
-        // MOCK(pro2): Pro 2 supports QR wallet just like Pro.
-        deviceType === MOCK_PRO2_DEVICE_TYPE,
+      (deviceType) => deviceType === EDeviceType.Pro,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {

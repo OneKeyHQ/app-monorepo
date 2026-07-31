@@ -2,12 +2,14 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Dialog,
   Icon,
   IconButton,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -473,17 +475,44 @@ function TradingHoursDialogHeader() {
   );
 }
 
+// Sheet chrome around the scrollable body: grabber + header row + a top gap.
+const DIALOG_BODY_RESERVED_HEIGHT = 160;
+// Keep a usable body even on absurdly short windows.
+const DIALOG_BODY_MIN_HEIGHT = 240;
+
+/**
+ * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
+ * viewport (extension popup, small phones, longer English copy — OK-58516)
+ * would clip its bottom. Bound the body by the window height and let it
+ * scroll; when the content fits, the ScrollView collapses to content height.
+ */
+function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
+  const { height: windowHeight } = useWindowDimensions();
+  // Window resizes only move the ScrollView bound — keep the panel subtree
+  // from re-reconciling on every resize tick.
+  const content = useMemo(() => <TradingHoursContent stock={stock} />, [stock]);
+  return (
+    <YStack>
+      <TradingHoursDialogHeader />
+      <ScrollView
+        maxHeight={Math.max(
+          DIALOG_BODY_MIN_HEIGHT,
+          windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
+        )}
+        nestedScrollEnabled
+      >
+        {content}
+      </ScrollView>
+    </YStack>
+  );
+}
+
 function showTradingHoursDialog(stock: IMarketStockInfo) {
   Dialog.show({
     showHeader: false,
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
-    renderContent: (
-      <YStack>
-        <TradingHoursDialogHeader />
-        <TradingHoursContent stock={stock} />
-      </YStack>
-    ),
+    renderContent: <TradingHoursDialogBody stock={stock} />,
   });
 }
 
@@ -499,9 +528,9 @@ function getNodeRect(node: unknown): DOMRect | null {
 }
 
 /**
- * Desktop hover-card behavior: hovering the badge opens the popover; it stays
- * open while the pointer is inside the badge or the panel and closes shortly
- * after the pointer leaves both. Closing is driven by GEOMETRY (a global
+ * Desktop hover-card behavior: dwelling on the badge opens the popover; it
+ * stays open while the pointer is inside the badge or the panel and closes
+ * shortly after the pointer leaves both. Closing is driven by GEOMETRY (a global
  * mousemove hit-test against both rects) instead of enter/leave events —
  * opening the popover remounts nodes under a stationary cursor, and the
  * resulting synthetic leave/enter storm made event-based closing flicker.
@@ -518,8 +547,29 @@ function TradingHoursHoverPopover({
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
-  // Opening is idempotent — repeated hover-in events are harmless.
-  const handleHoverIn = useCallback(() => setIsOpen(true), []);
+  // Hover-intent delay (OK-58513): the badge sits inside the token-selector
+  // header, so a pointer merely passing through (typically <150 ms) must not
+  // open the card. Opening waits for a short dwell; leaving the badge before
+  // it elapses cancels the open. Clicking still opens instantly via the
+  // Popover's own trigger press.
+  const HOVER_OPEN_DELAY_MS = 300;
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingOpen = useCallback(() => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  }, []);
+  const handleHoverIn = useCallback(() => {
+    if (openTimerRef.current) {
+      return;
+    }
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      setIsOpen(true);
+    }, HOVER_OPEN_DELAY_MS);
+  }, []);
+  useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') {
@@ -582,7 +632,11 @@ function TradingHoursHoverPopover({
       onOpenChange={setIsOpen}
       title={<TradingHoursTitle />}
       renderTrigger={
-        <Stack {...({ ref: triggerRef } as object)} onHoverIn={handleHoverIn}>
+        <Stack
+          {...({ ref: triggerRef } as object)}
+          onHoverIn={handleHoverIn}
+          onHoverOut={cancelPendingOpen}
+        >
           {renderTrigger}
         </Stack>
       }

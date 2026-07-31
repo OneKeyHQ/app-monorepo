@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { UnifoldDepositHistoryCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositHistoryCard';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
 import { getUnifoldDesktopDialogBodyMaxHeight } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/unifoldDialogLayout';
 import {
@@ -598,7 +599,10 @@ function CompositePanelGallery() {
           appear
         </SizableText>
         <Stack width={MOBILE_BODY_WIDTH}>
-          <UnifoldExecutionDetail execution={invalidLinks} />
+          <UnifoldExecutionDetail
+            execution={invalidLinks}
+            supportedAssets={SUPPORTED_ASSETS}
+          />
         </Stack>
       </YStack>
       <YStack gap="$2">
@@ -608,10 +612,16 @@ function CompositePanelGallery() {
         </SizableText>
         <XStack gap="$4" flexWrap="wrap">
           <Stack width={MOBILE_BODY_WIDTH}>
-            <UnifoldExecutionDetail execution={PENDING} />
+            <UnifoldExecutionDetail
+              execution={PENDING}
+              supportedAssets={SUPPORTED_ASSETS}
+            />
           </Stack>
           <Stack width={MOBILE_BODY_WIDTH}>
-            <UnifoldExecutionDetail execution={SUCCEEDED} />
+            <UnifoldExecutionDetail
+              execution={SUCCEEDED}
+              supportedAssets={SUPPORTED_ASSETS}
+            />
           </Stack>
         </XStack>
       </YStack>
@@ -781,7 +791,10 @@ function ExecutionDetailGallery() {
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {label}
           </SizableText>
-          <UnifoldExecutionDetail execution={execution} />
+          <UnifoldExecutionDetail
+            execution={execution}
+            supportedAssets={SUPPORTED_ASSETS}
+          />
         </YStack>
       ))}
     </YStack>
@@ -824,6 +837,15 @@ function TransferPiecesGallery() {
           chainIconUri={ARB_ICON}
           loading={false}
         />
+      </YStack>
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Deposit history · persistent link card
+        </SizableText>
+        <YStack width={DESKTOP_BODY_WIDTH} gap="$2">
+          <UnifoldDepositHistoryCard trackedCount={0} onPress={() => {}} />
+          <UnifoldDepositHistoryCard trackedCount={2} onPress={() => {}} />
+        </YStack>
       </YStack>
       <YStack gap="$2">
         <SizableText size="$bodySmMedium" color="$textSubdued">

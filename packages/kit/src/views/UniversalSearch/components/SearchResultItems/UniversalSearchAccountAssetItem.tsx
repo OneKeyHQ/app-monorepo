@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -155,7 +156,10 @@ export function UniversalSearchAccountAssetItem({
           color="$textSubdued"
           hideValue={hideValue}
         >
-          {tokenFiat?.balanceParsed ?? '0'}
+          {tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenFiat?.balanceParsed,
+            balanceMultiplier: tokenFiat?.balanceMultiplier,
+          }) ?? '0'}
         </NumberSizeableTextWrapper>
       </Stack>
       <Stack flexDirection="column" alignItems="flex-end" flexShrink={1}>

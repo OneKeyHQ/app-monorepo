@@ -113,6 +113,34 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
+  it('uses the previous close for the selected bar change', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      points: [
+        { c: 100_000, h: 100_500, l: 99_500, o: 99_800, t: 1, v: 10 },
+        { c: 101_000, h: 102_500, l: 101_000, o: 102_000, t: 2, v: 10 },
+      ],
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    const changeText = scene.commands.find(
+      (command) => command.kind === 'text' && command.text.includes('(+1%)'),
+    );
+    expect(changeText).toMatchObject({
+      text: '+1000 (+1%)',
+    });
+    expect(changeText?.kind).toBe('text');
+    if (changeText?.kind === 'text') {
+      expect(changeText.y).toBeGreaterThan(20);
+    }
+  });
+
   it('omits empty volume and keeps small positive volume visible', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,

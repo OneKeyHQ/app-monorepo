@@ -11,7 +11,6 @@ import {
 } from '../chartConstants';
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
-import { isTradingViewNativePriceUp } from './chartStyle';
 
 import type { ITradingViewNativeChartType } from '../types';
 
@@ -35,6 +34,7 @@ export interface ITradingViewNativeLegendRect {
 
 export interface ITradingViewNativeLegendTextSegmentLayout extends ITradingViewNativeLegendItem {
   labelX: number;
+  textBaselineY?: number;
   valueX: number;
 }
 
@@ -63,36 +63,54 @@ function formatPrice(value: number) {
     : '--';
 }
 
-function expandTradingViewNativeScientificNotation(value: string) {
+function expandTradingViewNativeScientificNumber(value: string) {
   'worklet';
 
-  const exponentIndex = value.indexOf('e');
+  const exponentIndex = value.search(/[eE]/);
   if (exponentIndex < 0) {
     return value;
   }
 
-  const mantissa = value.slice(0, exponentIndex);
+  const coefficient = value.slice(0, exponentIndex);
   const exponent = Number(value.slice(exponentIndex + 1));
   if (!Number.isInteger(exponent)) {
     return value;
   }
+  const sign = coefficient.startsWith('-') ? '-' : '';
+  const unsignedCoefficient = sign ? coefficient.slice(1) : coefficient;
+  const decimalIndex = unsignedCoefficient.indexOf('.');
+  const digits = unsignedCoefficient.replace('.', '');
+  const coefficientDecimalIndex =
+    decimalIndex < 0 ? digits.length : decimalIndex;
+  const targetDecimalIndex = coefficientDecimalIndex + exponent;
 
-  const sign = mantissa.startsWith('-') ? '-' : '';
-  const unsignedMantissa = mantissa.replace(/^[+-]/, '');
-  const decimalIndex = unsignedMantissa.indexOf('.');
-  const digits = unsignedMantissa.replace('.', '');
-  const decimalPosition =
-    (decimalIndex < 0 ? unsignedMantissa.length : decimalIndex) + exponent;
+  let expanded: string;
+  if (targetDecimalIndex <= 0) {
+    expanded = `0.${'0'.repeat(-targetDecimalIndex)}${digits}`;
+  } else if (targetDecimalIndex >= digits.length) {
+    expanded = `${digits}${'0'.repeat(targetDecimalIndex - digits.length)}`;
+  } else {
+    expanded = `${digits.slice(0, targetDecimalIndex)}.${digits.slice(
+      targetDecimalIndex,
+    )}`;
+  }
 
-  if (decimalPosition <= 0) {
-    return `${sign}0.${'0'.repeat(-decimalPosition)}${digits}`;
+  const decimalPointIndex = expanded.indexOf('.');
+  if (decimalPointIndex >= 0) {
+    let trimmedEnd = expanded.length;
+    while (
+      trimmedEnd > decimalPointIndex + 1 &&
+      expanded[trimmedEnd - 1] === '0'
+    ) {
+      trimmedEnd -= 1;
+    }
+    if (trimmedEnd === decimalPointIndex + 1) {
+      trimmedEnd = decimalPointIndex;
+    }
+    expanded = expanded.slice(0, trimmedEnd);
   }
-  if (decimalPosition >= digits.length) {
-    return `${sign}${digits}${'0'.repeat(decimalPosition - digits.length)}`;
-  }
-  return `${sign}${digits.slice(0, decimalPosition)}.${digits.slice(
-    decimalPosition,
-  )}`;
+
+  return `${sign}${expanded}`;
 }
 
 function formatTradingViewNativePriceChangeValue(value: number) {
@@ -101,12 +119,18 @@ function formatTradingViewNativePriceChangeValue(value: number) {
   if (!Number.isFinite(value)) {
     return '--';
   }
-
-  const roundedValue = Number(value.toPrecision(6));
-  if (!Number.isFinite(roundedValue)) {
-    return '--';
+  if (value === 0) {
+    return '0';
   }
-  return expandTradingViewNativeScientificNotation(roundedValue.toString());
+
+  if (Math.abs(value) >= 1e-6) {
+    return formatTradingViewNativePriceTick(value);
+  }
+
+  const preciseValue = value.toPrecision(6);
+  return preciseValue.search(/[eE]/) >= 0
+    ? expandTradingViewNativeScientificNumber(preciseValue)
+    : Number(preciseValue).toString();
 }
 
 export function formatTradingViewNativePriceChange({
@@ -120,8 +144,7 @@ export function formatTradingViewNativePriceChange({
 }) {
   'worklet';
 
-  // Match TradingView's bar-change status line when the previous close is available.
-  const referencePrice = previousClose === undefined ? open : previousClose;
+  const referencePrice = previousClose ?? open;
   if (
     !Number.isFinite(referencePrice) ||
     !Number.isFinite(close) ||
@@ -167,16 +190,18 @@ export function getTradingViewNativeChartLegend(
 ): ITradingViewNativeChartLegend {
   'worklet';
 
+  // TradingView compares each close with the prior bar's close and falls back
+  // to the current bar's open when there is no prior bar.
+  const changeReference = previousClose ?? point.o;
   const priceChangeItem = {
     label: '',
     value: formatTradingViewNativePriceChange({
       close: point.c,
-      open: point.o,
-      previousClose,
+      open: changeReference,
     }),
   };
   return {
-    isUp: isTradingViewNativePriceUp(point),
+    isUp: point.c >= changeReference,
     priceItems:
       chartType === 'line'
         ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
@@ -353,12 +378,62 @@ export function getTradingViewNativeChartLegendRowLayout({
 }): ITradingViewNativeChartLegendRowLayout | null {
   'worklet';
 
-  return (
-    getTradingViewNativeChartLegendRowLayouts({
-      items,
-      maxX,
-      measureTextWidth,
-      top,
-    })[0] ?? null
-  );
+  const layouts = getTradingViewNativeChartLegendRowLayouts({
+    items,
+    maxX,
+    measureTextWidth,
+    top,
+  });
+  const firstLayout = layouts[0];
+  if (!firstLayout) {
+    return null;
+  }
+  if (layouts.length === 1) {
+    return firstLayout;
+  }
+
+  let backgroundBottom =
+    firstLayout.backgroundRect.y + firstLayout.backgroundRect.height;
+  let backgroundWidth = firstLayout.backgroundRect.width;
+  let clipBottom = firstLayout.clipRect.y + firstLayout.clipRect.height;
+  let clipWidth = firstLayout.clipRect.width;
+  const segments: ITradingViewNativeLegendTextSegmentLayout[] = [];
+
+  for (let layoutIndex = 0; layoutIndex < layouts.length; layoutIndex += 1) {
+    const layout = layouts[layoutIndex];
+    if (layout) {
+      backgroundBottom = Math.max(
+        backgroundBottom,
+        layout.backgroundRect.y + layout.backgroundRect.height,
+      );
+      backgroundWidth = Math.max(backgroundWidth, layout.backgroundRect.width);
+      clipBottom = Math.max(
+        clipBottom,
+        layout.clipRect.y + layout.clipRect.height,
+      );
+      clipWidth = Math.max(clipWidth, layout.clipRect.width);
+      for (const segment of layout.segments) {
+        segments.push(
+          layoutIndex === 0
+            ? segment
+            : { ...segment, textBaselineY: layout.textBaselineY },
+        );
+      }
+    }
+  }
+
+  return {
+    backgroundRect: {
+      ...firstLayout.backgroundRect,
+      height: backgroundBottom - firstLayout.backgroundRect.y,
+      width: backgroundWidth,
+    },
+    clipRect: {
+      ...firstLayout.clipRect,
+      height: clipBottom - firstLayout.clipRect.y,
+      width: clipWidth,
+    },
+    segments,
+    textBaselineY: firstLayout.textBaselineY,
+  };
 }

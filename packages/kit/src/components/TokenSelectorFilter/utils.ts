@@ -58,6 +58,7 @@ export type ISpecifiedTokenSelectorTarget = {
 export type IFetchSpecifiedTokenSelectorTokensResult = {
   responsesByNetworkId: Record<string, IFetchAccountTokensResp>;
   expectedResponseCount: number;
+  issues: unknown[];
 };
 
 type ITokenSelectorAccountTokensParams = IFetchAccountTokensParams & {
@@ -301,6 +302,7 @@ export async function fetchSpecifiedTokenSelectorTokens({
     return {
       responsesByNetworkId: {},
       expectedResponseCount: 0,
+      issues: [],
     };
   }
 
@@ -357,19 +359,37 @@ export async function fetchSpecifiedTokenSelectorTokens({
     },
   );
 
-  const responseEntries = (
-    await promiseAllSettledEnhanced(requestFactories, {
-      continueOnError: true,
+  const requestResults = await promiseAllSettledEnhanced(
+    requestFactories.map((request) => async () => {
+      try {
+        return {
+          status: 'fulfilled' as const,
+          value: await request(),
+        };
+      } catch (error) {
+        return {
+          status: 'rejected' as const,
+          error,
+        };
+      }
+    }),
+    {
       concurrency: 10,
-    })
-  ).filter(
-    (
-      item,
-    ): item is {
-      networkId: string;
-      response: IFetchAccountTokensResp;
-    } => Boolean(item),
+    },
   );
+  const responseEntries = requestResults
+    .filter(
+      (
+        item,
+      ): item is {
+        status: 'fulfilled';
+        value: {
+          networkId: string;
+          response: IFetchAccountTokensResp;
+        };
+      } => item?.status === 'fulfilled',
+    )
+    .map((item) => item.value);
 
   return {
     responsesByNetworkId: Object.fromEntries(
@@ -379,6 +399,9 @@ export async function fetchSpecifiedTokenSelectorTokens({
       ]),
     ),
     expectedResponseCount,
+    issues: requestResults.flatMap((item) =>
+      item?.status === 'rejected' ? [item.error] : [],
+    ),
   };
 }
 

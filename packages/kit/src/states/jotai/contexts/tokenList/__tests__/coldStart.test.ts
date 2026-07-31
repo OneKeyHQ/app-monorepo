@@ -273,6 +273,26 @@ describe('fanOutSlimToApply', () => {
 
     expect(store.get(listStructureAtom()).smallBalanceFiatValue).toBe('0');
   });
+
+  it('widen restores balanceMultiplier from a compact fiat entry onto the cell (xStocks OK-58046)', () => {
+    const { store, ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+    // simulate a scaled-UI token (e.g. xStocks) whose compact fiat entry
+    // persisted the multiplier on disk.
+    bundle.compactFiat.a.balanceMultiplier = '1.0026642075893797';
+
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+
+    expect(store.get(cell(ctx, 'a'))?.balanceMultiplier).toBe(
+      '1.0026642075893797',
+    );
+  });
 });
 
 describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () => {

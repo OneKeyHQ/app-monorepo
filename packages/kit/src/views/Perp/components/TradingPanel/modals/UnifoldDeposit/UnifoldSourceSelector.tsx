@@ -6,21 +6,19 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   DashText,
-  Dialog,
   Icon,
   IconButton,
   Popover,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   Tooltip,
   XStack,
   YStack,
   useClipboard,
-  useInPageDialog,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -51,7 +49,6 @@ function SelectorTrigger({
   disabled?: boolean;
   onPress: () => void;
 }) {
-  const intl = useIntl();
   return (
     <XStack
       testID={testID}
@@ -64,7 +61,6 @@ function SelectorTrigger({
       borderRadius="$2"
       borderWidth="$px"
       borderColor="$borderSubdued"
-      opacity={disabled ? 0.6 : 1}
       disabled={disabled}
       cursor={disabled ? 'default' : 'pointer'}
       hoverStyle={
@@ -84,11 +80,12 @@ function SelectorTrigger({
       onPress={onPress}
     >
       {loading ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_loading,
-          })}
-        </SizableText>
+        <>
+          <Skeleton w="$6" h="$6" radius="round" />
+          <XStack flex={1} minWidth={0}>
+            <Skeleton h="$3" w="$16" />
+          </XStack>
+        </>
       ) : (
         <>
           <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
@@ -103,12 +100,7 @@ function SelectorTrigger({
           </SizableText>
         </>
       )}
-      <Icon
-        name="ChevronDownSmallOutline"
-        size="$4"
-        color="$iconSubdued"
-        opacity={0.6}
-      />
+      <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
     </XStack>
   );
 }
@@ -298,43 +290,26 @@ function TokenContractDisclosure({
   );
 }
 
-function showSelectorDialog({
-  title,
-  content,
-  dialog,
-}: {
-  title: string;
-  content: React.ReactNode;
-  dialog: ReturnType<typeof useInPageDialog>;
-}) {
-  const DialogInstance = platformEnv.isNativeAndroid ? Dialog : dialog;
-
-  return DialogInstance.show({
-    title,
-    renderContent: content,
-    contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
-    showFooter: false,
-  });
-}
-
 export function UnifoldSourceSelector({
   assets,
   selection,
   loading,
   onSelectToken,
   onSelectChain,
+  onOpenMobileTokenSelector,
+  onOpenMobileChainSelector,
 }: {
   assets: IUnifoldSupportedAsset[] | undefined;
   selection: IUnifoldSourceSelection | null;
   loading: boolean;
   onSelectToken: (asset: IUnifoldSupportedAsset) => void;
   onSelectChain: (chain: IUnifoldSupportedAssetChain) => void;
+  onOpenMobileTokenSelector?: () => void;
+  onOpenMobileChainSelector?: () => void;
 }) {
   const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
-  const dialog = useInPageDialog();
-
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
   const minUsd = selection?.chain.minimum_deposit_amount_usd ?? 3;
@@ -354,49 +329,12 @@ export function UnifoldSourceSelector({
         if (!canSelectToken) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setTokenOpen(true);
+        if (onOpenMobileTokenSelector) {
+          onOpenMobileTokenSelector();
           return;
         }
 
-        const dialogInstance = showSelectorDialog({
-          title: intl.formatMessage({
-            id: ETranslations.token_selector_title,
-          }),
-          dialog,
-          content: (
-            <SelectorOptions>
-              {usableAssets.map((asset) => (
-                <OptionRow
-                  key={asset.symbol}
-                  testID={`perps-unifold-token-option-${asset.symbol}`}
-                  iconUri={asset.icon_url}
-                  label={asset.symbol}
-                  description={
-                    asset.chains.length === 1
-                      ? `1 ${intl.formatMessage({
-                          id: ETranslations.global_network,
-                        })}`
-                      : intl.formatMessage(
-                          { id: ETranslations.global_count_networks },
-                          { count: asset.chains.length },
-                        )
-                  }
-                  selected={asset.symbol === selection?.asset.symbol}
-                  onPress={() => {
-                    void (async () => {
-                      await dialogInstance.close();
-                      await deferHeavyWorkUntilUIIdle({
-                        minFrames: platformEnv.isNative ? 3 : 1,
-                      });
-                      onSelectToken(asset);
-                    })();
-                  }}
-                />
-              ))}
-            </SelectorOptions>
-          ),
-        });
+        setTokenOpen(true);
       }}
     />
   );
@@ -412,42 +350,12 @@ export function UnifoldSourceSelector({
         if (!canSelectChain) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setChainOpen(true);
+        if (onOpenMobileChainSelector) {
+          onOpenMobileChainSelector();
           return;
         }
 
-        const dialogInstance = showSelectorDialog({
-          title: intl.formatMessage({
-            id: ETranslations.global_select_network,
-          }),
-          dialog,
-          content: (
-            <SelectorOptions>
-              {chainOptions.map((chain) => (
-                <OptionRow
-                  key={`${chain.chain_type}-${chain.chain_id}`}
-                  testID={`perps-unifold-network-option-${chain.chain_type}-${chain.chain_id}`}
-                  iconUri={chain.icon_url}
-                  label={chain.chain_name}
-                  selected={chain.chain_id === selection?.chain.chain_id}
-                  description={`${intl.formatMessage({
-                    id: ETranslations.perp_unifold_minimum_deposit__title,
-                  })} $${chain.minimum_deposit_amount_usd ?? 3}`}
-                  onPress={() => {
-                    void (async () => {
-                      await dialogInstance.close();
-                      await deferHeavyWorkUntilUIIdle({
-                        minFrames: platformEnv.isNative ? 3 : 1,
-                      });
-                      onSelectChain(chain);
-                    })();
-                  }}
-                />
-              ))}
-            </SelectorOptions>
-          ),
-        });
+        setChainOpen(true);
       }}
     />
   );
@@ -475,7 +383,7 @@ export function UnifoldSourceSelector({
           </SizableText>
           <TokenContractDisclosure selection={selection} />
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileTokenSelector ? (
           tokenTrigger
         ) : (
           <Popover
@@ -557,7 +465,7 @@ export function UnifoldSourceSelector({
             )}
           </DashText>
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileChainSelector ? (
           chainTrigger
         ) : (
           <Popover
