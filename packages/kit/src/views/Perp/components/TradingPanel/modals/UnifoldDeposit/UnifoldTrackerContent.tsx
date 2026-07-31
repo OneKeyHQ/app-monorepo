@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Dialog,
   Divider,
@@ -13,7 +14,6 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   XStack,
   YStack,
@@ -23,7 +23,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
+import {
+  UNIFOLD_ARBITRUM_CHAIN_ID,
+  UNIFOLD_HELP_URL,
+  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
+} from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import {
   isUnifoldHyperCoreDestination,
   resolveUnifoldDepositDestination,
@@ -38,10 +42,14 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IUnifoldDepositExecution } from '@onekeyhq/shared/types/unifoldDeposit';
+import type {
+  IUnifoldDepositExecution,
+  IUnifoldSupportedAsset,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
   formatUnifoldChainName,
@@ -49,12 +57,68 @@ import {
   formatUnifoldProcessingTime,
   formatUnifoldTokenAmount,
   formatUnifoldUsd,
+  isUnifoldExecutionFailed,
   normalizeUnifoldExplorerUrl,
   normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 
 const TRACKER_POLL_INTERVAL_MS = 3000;
 const DESKTOP_TRACKER_BODY_HEIGHT = 550;
+const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
+  (network) => network.shortcode === 'hyperevm',
+)?.logoURI;
+
+function getExecutionSourceIcons({
+  execution,
+  supportedAssets,
+}: {
+  execution: IUnifoldDepositExecution;
+  supportedAssets?: IUnifoldSupportedAsset[];
+}) {
+  const normalizedCurrency = execution.sourceCurrency?.trim().toLowerCase();
+  const sourceAsset = normalizedCurrency
+    ? supportedAssets?.find(
+        (asset) => asset.symbol.trim().toLowerCase() === normalizedCurrency,
+      )
+    : undefined;
+  const chains =
+    sourceAsset?.chains ??
+    supportedAssets?.flatMap((asset) => asset.chains) ??
+    [];
+  const hasSourceNetworkIdentity = Boolean(
+    execution.sourceChainId || execution.sourceChainType,
+  );
+  const sourceChain = hasSourceNetworkIdentity
+    ? chains.find(
+        (chain) =>
+          (!execution.sourceChainId ||
+            chain.chain_id === execution.sourceChainId) &&
+          (!execution.sourceChainType ||
+            chain.chain_type.toLowerCase() ===
+              execution.sourceChainType.toLowerCase()),
+      )
+    : undefined;
+  return {
+    sourceTokenIconUri: normalizeUnifoldIconUrl(sourceAsset?.icon_url),
+    sourceNetworkIconUri: normalizeUnifoldIconUrl(sourceChain?.icon_url),
+  };
+}
+
+function getDestinationNetworkIconUri({
+  isHyperCoreDestination,
+  supportedAssets,
+}: {
+  isHyperCoreDestination: boolean;
+  supportedAssets?: IUnifoldSupportedAsset[];
+}) {
+  if (isHyperCoreDestination) {
+    return HYPERLIQUID_NETWORK_ICON_URI;
+  }
+  const destinationChain = supportedAssets
+    ?.flatMap((asset) => asset.chains)
+    .find((chain) => chain.chain_id === UNIFOLD_ARBITRUM_CHAIN_ID);
+  return normalizeUnifoldIconUrl(destinationChain?.icon_url);
+}
 
 function isProcessing(execution: IUnifoldDepositExecution): boolean {
   return !execution.terminal;
@@ -110,28 +174,26 @@ function ExecutionTokenBadge({
   execution: IUnifoldDepositExecution;
   compact?: boolean;
 }) {
-  if (isProcessing(execution)) {
-    return <Spinner size="small" scale={compact ? 0.65 : 1} />;
+  const processing = isProcessing(execution);
+  let badgeIcon: Parameters<typeof Icon>[0]['name'];
+  if (processing) {
+    badgeIcon = 'ClockTimeHistoryOutline';
+  } else if (execution.status === 'succeeded') {
+    badgeIcon = 'CheckLargeOutline';
+  } else {
+    badgeIcon = 'ErrorOutline';
   }
   return (
     <Stack
       w={compact ? '$4' : '$5'}
       h={compact ? '$4' : '$5'}
-      bg={
-        execution.status === 'succeeded'
-          ? '$bgSuccessStrong'
-          : '$bgCautionStrong'
-      }
+      bg={detailStatusDotColor(execution)}
       borderRadius="$full"
       alignItems="center"
       justifyContent="center"
     >
       <Icon
-        name={
-          execution.status === 'succeeded'
-            ? 'CheckLargeOutline'
-            : 'ErrorOutline'
-        }
+        name={badgeIcon}
         size={compact ? '$2.5' : '$3.5'}
         color="$iconOnColor"
       />
@@ -251,10 +313,12 @@ export function UnifoldExecutionRow({
 function DetailInfoRow({
   label,
   value,
+  valueIconUri,
   onCopy,
 }: {
   label: string;
   value: string;
+  valueIconUri?: string;
   onCopy?: () => void;
 }) {
   return (
@@ -275,6 +339,9 @@ function DetailInfoRow({
         {label}
       </SizableText>
       <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        {valueIconUri ? (
+          <Token size="xs" tokenImageUri={valueIconUri} flexShrink={0} />
+        ) : null}
         <SizableText
           size="$bodyMdMedium"
           color="$text"
@@ -337,16 +404,29 @@ function DetailLinkRow({
 export function UnifoldExecutionDetail({
   execution,
   estimatedProcessingTimeSeconds,
+  supportedAssets,
 }: {
   execution: IUnifoldDepositExecution;
   // Comes from the selected chain's catalog entry, so it only exists inside a
   // deposit session. The tracker renders history with no chain selection and
   // passes nothing — in that case the ETA row is omitted rather than guessed.
   estimatedProcessingTimeSeconds?: number;
+  supportedAssets?: IUnifoldSupportedAsset[];
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const processing = isProcessing(execution);
+  const failed = isUnifoldExecutionFailed(execution);
+  const alertDescription = failed
+    ? intl.formatMessage({
+        id: ETranslations.perp_unifold_deposit_needs_attention__title,
+      })
+    : intl.formatMessage({
+        id:
+          execution.status === 'delayed'
+            ? ETranslations.perp_unifold_processing_delayed__desc
+            : ETranslations.perp_unifold_deposit_processing__title,
+      });
   const [devSettings] = useDevSettingsPersistAtom();
   const destination = resolveUnifoldDepositDestination(devSettings);
   const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
@@ -358,6 +438,14 @@ export function UnifoldExecutionDetail({
   const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
     execution.destinationExplorerUrl,
   );
+  const { sourceTokenIconUri, sourceNetworkIconUri } = getExecutionSourceIcons({
+    execution,
+    supportedAssets,
+  });
+  const destinationNetworkIconUri = getDestinationNetworkIconUri({
+    isHyperCoreDestination,
+    supportedAssets,
+  });
   return (
     <YStack testID={`perps-unifold-execution-detail-${execution.executionId}`}>
       <YStack alignItems="center" py="$6" gap="$2">
@@ -386,29 +474,23 @@ export function UnifoldExecutionDetail({
         </SizableText>
       </YStack>
 
-      {execution.terminal && execution.status !== 'succeeded' ? (
-        // Contract §1: failed/refunded → point at support; never invent a
-        // failure reason.
-        <XStack
-          bg="$bgCautionSubdued"
-          borderWidth="$px"
-          borderColor="$borderCautionSubdued"
-          borderRadius="$3"
-          p="$3"
+      {processing || failed ? (
+        <Alert
           mb="$3"
-          gap="$2"
-          alignItems="center"
-        >
-          <Icon name="ErrorOutline" size="$4" color="$iconCaution" />
-          <SizableText size="$bodySm" color="$textCaution" flex={1}>
-            {intl.formatMessage(
-              {
-                id: ETranslations.perp_unifold_contact_support_ref__desc,
-              },
-              { ref: execution.executionId },
-            )}
-          </SizableText>
-        </XStack>
+          borderWidth={0}
+          type={failed ? 'critical' : 'info'}
+          icon={failed ? 'ErrorOutline' : 'InfoCircleOutline'}
+          descriptionComponent={
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {alertDescription}
+            </SizableText>
+          }
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.menu_help }),
+            onPrimaryPress: () => openUrlExternal(UNIFOLD_HELP_URL),
+            primaryTestID: 'perps-unifold-execution-help',
+          }}
+        />
       ) : null}
 
       <YStack gap="$3">
@@ -422,6 +504,7 @@ export function UnifoldExecutionDetail({
               decimals: execution.sourceTokenDecimals,
               currency: execution.sourceCurrency,
             })}
+            valueIconUri={sourceTokenIconUri}
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
@@ -433,6 +516,9 @@ export function UnifoldExecutionDetail({
               decimals: execution.destinationTokenDecimals,
               currency: destinationCurrency,
             })}
+            valueIconUri={normalizeUnifoldIconUrl(
+              execution.destinationTokenIconUrl,
+            )}
           />
           <Divider borderColor="$bgSubdued" />
           <DetailInfoRow
@@ -471,6 +557,7 @@ export function UnifoldExecutionDetail({
               chainType: execution.sourceChainType,
               chainId: execution.sourceChainId,
             })}
+            valueIconUri={sourceNetworkIconUri}
           />
           <Divider borderColor="$bgSubdued" />
           {/* Executions do not carry the destination triplet, so this reflects
@@ -481,6 +568,7 @@ export function UnifoldExecutionDetail({
               id: ETranslations.perp_unifold_destination_network__title,
             })}
             value={destinationLabel}
+            valueIconUri={destinationNetworkIconUri}
           />
         </YStack>
 
@@ -539,6 +627,7 @@ export function UnifoldTrackerContent({
   detailExecutionId: controlledDetailExecutionId,
   onDetailExecutionIdChange,
   onDepositPress,
+  onBackPress,
 }: {
   recipientAddress: string | null;
   listHeight?: number;
@@ -548,8 +637,27 @@ export function UnifoldTrackerContent({
   detailExecutionId?: string | null;
   onDetailExecutionIdChange?: (executionId: string | null) => void;
   onDepositPress?: () => void;
+  onBackPress?: () => void;
 }) {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const destination = resolveUnifoldDepositDestination(devSettings);
+  const { result: supportedAssets } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(destination),
+    [destination],
+    {
+      watchLoading: false,
+      swrKey: [
+        'perpsUnifoldAssets',
+        'v1',
+        destination.destinationChainType,
+        destination.destinationChainId,
+        destination.destinationTokenAddress,
+      ].join(':'),
+      swrShouldPersist: (assets) => assets.length > 0,
+    },
+  );
   // Security MUST-2 applies to the tracker too: the queried recipient must be
   // the currently active perps account at open time. The incoming prop (which
   // may originate from a route param) is cross-checked against the live atom
@@ -664,31 +772,54 @@ export function UnifoldTrackerContent({
         {body}
       </Stack>
     );
+    let dialogHeader = (
+      <Dialog.Header
+        title={intl.formatMessage({
+          id: ETranslations.perp_unifold_crypto_deposits__title,
+        })}
+      />
+    );
+    if (onBackPress) {
+      dialogHeader = (
+        <Dialog.Header>
+          <XStack
+            alignItems="center"
+            gap="$2"
+            cursor="pointer"
+            onPress={onBackPress}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_crypto_deposits__title,
+              })}
+            </Dialog.Title>
+          </XStack>
+        </Dialog.Header>
+      );
+    }
+    if (detailExecutionId) {
+      dialogHeader = (
+        <Dialog.Header>
+          <XStack
+            alignItems="center"
+            gap="$2"
+            cursor="pointer"
+            onPress={closeDetail}
+          >
+            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.perp_unifold_deposit_details__title,
+              })}
+            </Dialog.Title>
+          </XStack>
+        </Dialog.Header>
+      );
+    }
     return (
       <>
-        {detailExecutionId ? (
-          <Dialog.Header>
-            <XStack
-              alignItems="center"
-              gap="$2"
-              cursor="pointer"
-              onPress={closeDetail}
-            >
-              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-              <Dialog.Title>
-                {intl.formatMessage({
-                  id: ETranslations.perp_unifold_deposit_details__title,
-                })}
-              </Dialog.Title>
-            </XStack>
-          </Dialog.Header>
-        ) : (
-          <Dialog.Header
-            title={intl.formatMessage({
-              id: ETranslations.perp_unifold_crypto_deposits__title,
-            })}
-          />
-        )}
+        {dialogHeader}
         {dialogBody}
       </>
     );
@@ -761,7 +892,10 @@ export function UnifoldTrackerContent({
               </SizableText>
             </XStack>
           )}
-          <UnifoldExecutionDetail execution={liveExecution} />
+          <UnifoldExecutionDetail
+            execution={liveExecution}
+            supportedAssets={supportedAssets}
+          />
         </YStack>
       </ScrollView>,
     );

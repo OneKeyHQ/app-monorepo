@@ -365,9 +365,14 @@ export function usePerpsUnifoldDepositSession({
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
     () => readCachedSourceSelection(destination),
   );
-  const [sessionExecutions, setSessionExecutions] = useState<
-    IUnifoldDepositExecution[]
-  >([]);
+  const [sessionExecutionSnapshot, setSessionExecutionSnapshot] = useState<{
+    recipientAddress: string;
+    executions: IUnifoldDepositExecution[];
+  } | null>(null);
+  const sessionExecutions =
+    sessionExecutionSnapshot?.recipientAddress === recipientAddress
+      ? sessionExecutionSnapshot.executions
+      : [];
   const [showWaitingUi, setShowWaitingUi] = useState(false);
 
   // ── Source catalog (also the fail-closed destination veto). Effect-based
@@ -793,12 +798,14 @@ export function usePerpsUnifoldDepositSession({
         const items =
           await backgroundApiProxy.serviceUnifoldDeposit.listDepositExecutions({
             recipientAddress,
-            since: String(sessionStartRef.current),
           });
         if (cancelled) {
           return;
         }
-        setSessionExecutions(items);
+        setSessionExecutionSnapshot({
+          recipientAddress,
+          executions: items,
+        });
         // Register every in-flight execution with the bg tracker the moment
         // it is first seen (muted): waiting for the unmount handoff would
         // lose it entirely if this session hard-dies (popup closed, app
@@ -964,6 +971,7 @@ export function usePerpsUnifoldDepositSession({
 
   return {
     recipientAddress,
+    isLiveAccountAligned,
     destination,
     // Dev builds can route to a plain chain, where funds land in the user's
     // own wallet rather than the perps account — callers keep their copy

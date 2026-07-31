@@ -46,6 +46,11 @@ export const SwapTestIDs = {
   stockMarketTokenHeader: 'swap-stock-market-token-header',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
+  stockChartLoading: 'swap-stock-chart-loading',
+  stockChartContent: 'swap-stock-chart-content',
+  stockChartEmpty: 'swap-stock-chart-empty',
+  stockChartError: 'swap-stock-chart-error',
+  stockChartRetry: 'swap-stock-chart-retry',
   stockTradeStatusAlert: 'swap-stock-trade-status-alert',
 
   // Limit order
