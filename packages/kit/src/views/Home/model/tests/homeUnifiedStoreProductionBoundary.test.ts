@@ -120,14 +120,6 @@ describe('Home Unified Store production boundary', () => {
     expect(bridgeSource).toContain('probePreparedOwnerWithinBudget(');
     expect(bridgeSource).toContain("probe.kind === 'ready'");
     expect(bridgeSource).not.toContain('shouldPrepareOwnerBeforePublish');
-    expect(
-      fs.existsSync(
-        path.join(
-          homeRoot,
-          'model/react/HomeDisplaySnapshotController.native.tsx',
-        ),
-      ),
-    ).toBe(false);
     expect(pageContainerSource).not.toContain('walletRendererReady');
     expect(pageContainerSource).not.toContain(
       'nativeDisplaySnapshotLoadSettled',

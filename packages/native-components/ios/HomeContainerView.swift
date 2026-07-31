@@ -626,8 +626,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   )
   private let decoder = JSONDecoder()
   private let lifecycleLock = NSLock()
-  private var pendingState: HomeContainerState?
-  private var stateApplyScheduled = false
+  private var pendingInitialState: HomeContainerState?
+  private var initialStateApplyScheduled = false
   private var snapshot: HomeContainerSnapshot?
   private var state: HomeContainerState?
   private var pages: [HomeContainerPageView] = []
@@ -718,7 +718,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    schedulePendingState()
+    schedulePendingInitialState()
   }
 
   @objc private func contentSizeCategoryDidChange() {
@@ -770,7 +770,7 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
       )
     }
     updateSharedChromeLayout()
-    schedulePendingState()
+    schedulePendingInitialState()
 
     guard pagerTransitionState == .idle,
           let index = pages.firstIndex(where: { $0.tabId == selectedTabId }) else {
@@ -809,9 +809,16 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
         }
         DispatchQueue.main.async { [weak self] in
           guard let self, !self.isDisposed() else { return }
-          self.pendingState = next
-          self.schedulePendingState()
-          self.setNeedsLayout()
+          let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
+          if ownerChanged {
+            self.prepareViewportForOwnerChange()
+          }
+          self.state = next
+          self.applySnapshot(
+            next.payload,
+            allowsMissingSelectedTabFallback: false,
+            ownerChanged: ownerChanged
+          )
         }
       } catch {
         self.reportError(code: "state_decode_failed", message: error.localizedDescription)
@@ -819,25 +826,46 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
     }
   }
 
-  private func schedulePendingState() {
-    guard pendingState != nil,
+  func submitInitialState(_ json: String) {
+    do {
+      let next = try JSONDecoder().decode(
+        HomeContainerState.self,
+        from: Data(json.utf8)
+      )
+      guard next.isValid else {
+        reportError(
+          code: "invalid_state",
+          message: "HomeContainer state violates protocol invariants"
+        )
+        return
+      }
+      pendingInitialState = next
+      schedulePendingInitialState()
+      setNeedsLayout()
+    } catch {
+      reportError(code: "state_decode_failed", message: error.localizedDescription)
+    }
+  }
+
+  private func schedulePendingInitialState() {
+    guard pendingInitialState != nil,
           window != nil,
           bounds.width > 0,
           bounds.height > 0,
-          !stateApplyScheduled else {
+          !initialStateApplyScheduled else {
       return
     }
-    stateApplyScheduled = true
+    initialStateApplyScheduled = true
     DispatchQueue.main.async { [weak self] in
-      guard let self, !self.isDisposed() else { return }
-      self.stateApplyScheduled = false
+      guard let self else { return }
+      self.initialStateApplyScheduled = false
       guard self.window != nil,
             self.bounds.width > 0,
             self.bounds.height > 0,
-            let next = self.pendingState else {
+            let next = self.pendingInitialState else {
         return
       }
-      self.pendingState = nil
+      self.pendingInitialState = nil
       let ownerChanged = self.state?.owner != nil && self.state?.owner != next.owner
       if ownerChanged {
         self.prepareViewportForOwnerChange()

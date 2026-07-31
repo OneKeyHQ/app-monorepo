@@ -19,7 +19,7 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var initialStateJson: String = "" {
     didSet {
       guard !initialStateJson.isEmpty else { return }
-      containerView.submitState(initialStateJson)
+      containerView.submitInitialState(initialStateJson)
     }
   }
 
