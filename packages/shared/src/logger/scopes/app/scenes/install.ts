@@ -12,11 +12,6 @@ export type IInstallAttributionParams = {
 };
 
 export class InstallScene extends BaseScene {
-  @LogToLocal({ level: 'info' })
-  public installReferrer(rawReferrer: string) {
-    return rawReferrer;
-  }
-
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'info' })
   private installAttribution(params: IInstallAttributionParams) {

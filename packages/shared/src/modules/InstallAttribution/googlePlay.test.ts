@@ -19,7 +19,6 @@ jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
       install: {
-        installReferrer: jest.fn(),
         reportGooglePlayInstallAttribution: jest.fn(),
       },
     },
@@ -42,7 +41,6 @@ const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
   defaultLogger: {
     app: {
       install: {
-        installReferrer: jest.Mock;
         reportGooglePlayInstallAttribution: jest.Mock;
       };
     };
@@ -51,8 +49,6 @@ const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
 const logAttributionMock =
   mockedLoggerModule.defaultLogger.app.install
     .reportGooglePlayInstallAttribution;
-const logRawReferrerMock =
-  mockedLoggerModule.defaultLogger.app.install.installReferrer;
 
 describe('Google Play install attribution', () => {
   beforeEach(() => {
@@ -105,7 +101,6 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logRawReferrerMock).toHaveBeenCalledWith(rawReferrer);
     expect(logAttributionMock).toHaveBeenCalledWith({
       clickId: 'click-123',
       utmCampaign: 'download_page',
@@ -134,12 +129,11 @@ describe('Google Play install attribution', () => {
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
-  it('logs but does not report an empty raw referrer', async () => {
+  it('does not report an empty raw referrer', async () => {
     getInstallReferrerMock.mockResolvedValue('');
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logRawReferrerMock).toHaveBeenCalledWith('');
     expect(logAttributionMock).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
@@ -149,9 +143,6 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logRawReferrerMock).toHaveBeenCalledWith(
-      'campaign_source=unsupported',
-    );
     expect(logAttributionMock).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
@@ -163,7 +154,6 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logRawReferrerMock).toHaveBeenCalledWith(rawReferrer);
     expect(logAttributionMock).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
@@ -176,7 +166,6 @@ describe('Google Play install attribution', () => {
     await reportGooglePlayInstallAttribution();
 
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
-    expect(logRawReferrerMock).not.toHaveBeenCalled();
     expect(logAttributionMock).not.toHaveBeenCalled();
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
@@ -188,7 +177,6 @@ describe('Google Play install attribution', () => {
 
     expect(getInstallationTimeMock).not.toHaveBeenCalled();
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
-    expect(logRawReferrerMock).not.toHaveBeenCalled();
     expect(logAttributionMock).not.toHaveBeenCalled();
   });
 });

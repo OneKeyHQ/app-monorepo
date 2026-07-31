@@ -79,7 +79,6 @@ export async function reportGooglePlayInstallAttribution(): Promise<void> {
   }
 
   const rawReferrer = await getInstallReferrerAsync();
-  defaultLogger.app.install.installReferrer(rawReferrer);
   if (!rawReferrer) {
     return;
   }
