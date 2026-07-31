@@ -75,6 +75,30 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
+// getObject() collapses "no store yet" and "stored JSON failed to parse" into
+// the same undefined, so flush() cannot tell them apart. Reading the raw string
+// keeps them distinct: an unparseable store must not be treated as empty, or
+// the merge below would persist only the pending keys and drop everything else.
+function readStoreFromDisk(): {
+  store: ISWRStore | undefined;
+  unreadable: boolean;
+} {
+  let raw: string | undefined;
+  try {
+    raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
+  } catch {
+    return { store: undefined, unreadable: true };
+  }
+  if (!raw) {
+    return { store: undefined, unreadable: false };
+  }
+  try {
+    return { store: JSON.parse(raw) as ISWRStore, unreadable: false };
+  } catch {
+    return { store: undefined, unreadable: true };
+  }
+}
+
 function reloadFromStorage(): void {
   flush();
   _cache = undefined;
@@ -100,16 +124,16 @@ function flush() {
     // once at boot) over one shared MMKV file, so a wholesale write from the
     // runtime holding the older copy erased everything the other one had
     // persisted since — days-old perps books kept resurfacing this way.
-    let disk: ISWRStore | undefined;
-    try {
-      disk = getSyncStorage().getObject<ISWRStore>(
-        EAppSyncStorageKeys.onekey_swr_cache,
-      );
-    } catch {
-      disk = undefined;
-    }
+    const { store: disk, unreadable } = readStoreFromDisk();
     const merged: ISWRStore = {};
-    if (disk) {
+    if (unreadable) {
+      // Nothing on disk is recoverable, so the other runtime's writes are
+      // already lost and cannot be merged. Rebuilding from this runtime's copy
+      // repairs the store; keeping only the pending keys would compound the
+      // corruption by dropping every entry this copy still holds. Local
+      // deletions are already absent from _cache, so none get revived.
+      Object.assign(merged, _cache);
+    } else if (disk) {
       for (const [key, entry] of Object.entries(disk)) {
         if (entry && !isDeletedLocally(key, entry.t ?? 0)) {
           merged[key] = entry;

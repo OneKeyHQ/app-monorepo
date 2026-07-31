@@ -29,7 +29,9 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
         ? undefined
         : (JSON.parse(raw) as Record<string, unknown>);
     },
-    getString: () => undefined,
+    // Mirrors the real backends: setObject stores JSON, getString hands the
+    // raw string back, so a caller can tell "absent" from "unparseable".
+    getString: (key: string) => readDisk()[key],
     getNumber: () => undefined,
     getBoolean: () => undefined,
     delete: (key: string) => {
@@ -205,6 +207,29 @@ describe('SWR cache cross-runtime flush merge', () => {
     // The merged store is adopted locally too — the read path must see the
     // other runtime's fresher value, not this copy's aged one.
     expect(swr.get('diskNewer')).toBe('fresh-disk');
+  });
+
+  it('rebuilds the store from this copy when the disk JSON is unparseable', () => {
+    otherRuntimeFlush({
+      kept: { d: 'disk', t: 500 },
+      alsoKept: { d: 'disk2', t: 600 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get('kept')).toBe('disk');
+    // The shared file turns unreadable after this copy hydrated: a write cut
+    // short by an app kill leaves exactly this half-written state. getObject()
+    // reports it as undefined, indistinguishable from an empty store.
+    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
+    setNow(3000);
+    swr.set('fresh', 'local');
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
+    // Writing only the pending key would be the wholesale overwrite this
+    // merge exists to prevent, with every other entry silently dropped.
+    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
+    expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
   });
 
   it('does not resurrect a removed key from the other runtime copy', () => {
