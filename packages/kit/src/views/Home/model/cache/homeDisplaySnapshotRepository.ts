@@ -1,5 +1,6 @@
 import { createDisplaySnapshotStorage } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage';
 
+import { getHomeDisplaySnapshotHtmlPreloadValues } from './homeDisplaySnapshotHtmlPreload';
 import {
   HOME_DISPLAY_SNAPSHOT_READ_BATCH_SIZE,
   createHomeDisplaySnapshotRouteRead,
@@ -34,7 +35,12 @@ export async function loadHomeDisplaySnapshotManifest({
   const { partitionId, routeKey } = createHomeDisplaySnapshotRouteRead({
     ownerScopeKey,
   });
-  const routeRaw = await homeDisplaySnapshotStorage.read(routeKey);
+  const preloadedValues = await getHomeDisplaySnapshotHtmlPreloadValues({
+    ownerScopeKey,
+  });
+  const routeRaw = preloadedValues
+    ? preloadedValues.get(routeKey)
+    : await homeDisplaySnapshotStorage.read(routeKey);
   const routeRead = decodeHomeDisplaySnapshotRouteRead({
     ownerScopeKey,
     partitionId,
@@ -47,7 +53,9 @@ export async function loadHomeDisplaySnapshotManifest({
   for (const { generation, key } of getHomeDisplaySnapshotManifestReads({
     route: routeRead.route,
   })) {
-    const manifestRaw = await homeDisplaySnapshotStorage.read(key);
+    const manifestRaw = preloadedValues
+      ? preloadedValues.get(key)
+      : await homeDisplaySnapshotStorage.read(key);
     const context = decodeHomeDisplaySnapshotManifestRead({
       generation,
       raw: manifestRaw,
@@ -70,9 +78,14 @@ export async function loadHomeDisplaySnapshotCritical({
   if (!descriptor) {
     return undefined;
   }
+  const preloadedValues = await getHomeDisplaySnapshotHtmlPreloadValues({
+    ownerScopeKey: context.route.ownerScopeKey,
+  });
   return decodeHomeDisplaySnapshotCriticalRead({
     context,
-    raw: await homeDisplaySnapshotStorage.read(descriptor.key),
+    raw: preloadedValues
+      ? preloadedValues.get(descriptor.key)
+      : await homeDisplaySnapshotStorage.read(descriptor.key),
   });
 }
 
@@ -84,13 +97,18 @@ export async function loadHomeDisplaySnapshotSourceRecords({
   sourceIds: readonly IHomeStoreSourceId[];
 }) {
   const records: IHomeCachedSourceRecord[] = [];
+  const preloadedValues = await getHomeDisplaySnapshotHtmlPreloadValues({
+    ownerScopeKey: context.route.ownerScopeKey,
+  });
   for (const reads of getHomeDisplaySnapshotSourceReadBatches({
     context,
     sourceIds,
   })) {
-    const values = await homeDisplaySnapshotStorage.readMany(
-      reads.map(({ descriptor }) => descriptor.key),
-    );
+    const values =
+      preloadedValues ??
+      (await homeDisplaySnapshotStorage.readMany(
+        reads.map(({ descriptor }) => descriptor.key),
+      ));
     records.push(
       ...decodeHomeDisplaySnapshotSourceReads({ context, reads, values }),
     );

@@ -57,6 +57,7 @@ import {
   flushColdStartCacheNow,
   primeColdStartCacheMap,
   readAllColdStartEntriesFromIdb,
+  readColdStartEntriesForHydration,
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
@@ -283,7 +284,7 @@ const promise: Promise<void> = (async () => {
     );
     try {
       const result = await withTimeout(
-        readAllColdStartEntriesFromIdb(),
+        readColdStartEntriesForHydration(),
         HYDRATION_TIMEOUT_MS,
       );
       const entriesToPrime: [string, unknown][] = [];
@@ -337,7 +338,7 @@ const promise: Promise<void> = (async () => {
   let entries: Map<string, unknown>;
   try {
     const result = await withTimeout(
-      readAllColdStartEntriesFromIdb(),
+      readColdStartEntriesForHydration(),
       HYDRATION_TIMEOUT_MS,
     );
     if (result === undefined) {

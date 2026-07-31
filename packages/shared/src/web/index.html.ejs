@@ -28,78 +28,237 @@
     </script>
     <% } %>
 
-    <% if ( (platform === 'desktop' || platform === 'web') && isDev ) { %>
+    <% if ( platform === 'desktop' || platform === 'web' ) { %>
     <script>
-      // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the cold-start
-      // cache from IndexedDB HERE, during HTML parse, while the main thread is
-      // still free.
+      // Start cold-start and Home display snapshot reads during HTML parsing,
+      // before the application bundle competes for the main thread.
       //
-      // WHY: the cold-start IDB read costs ~1.5s when it happens during the boot
-      // JS storm (the IDB onsuccess callback is starved by jotaiInit / React /
-      // render work), but only ~3ms pre-bundle. AND hydrate.ts skips cold-start
-      // entirely in dev (production-only, to avoid schema drift between code
-      // changes). This pre-read populates ONLY the webColdStartStorage in-memory
-      // Map with the single `onekey_jotai_context_atoms_snapshot` blob — NOT the
-      // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
-      // currency-gated, provisional SLC token-list slim cold-start activates in
-      // dev for local verification, while the generic L2 context-atom hydration
-      // (the schema-drift-prone part) stays OFF. We also pre-read the SWR blob
-      // so localhost can verify web cold-start cache paths that use
-      // usePromiseResult({ swrKey }). Prod keeps its real hydrate.ts path
-      // untouched.
+      // The raw cold-start entries stay behind a Promise. hydrate.ts remains
+      // responsible for build-hash validation and publishing the runtime Map.
+      // Home records are also raw and are decoded by the canonical repository.
       (function () {
         try {
-          var DBN = 'onekey-cold-start-cache';
-          var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
-          var SWR_KEY = 'onekey_swr_cache';
-          var KEYS = [SNAP_KEY, SWR_KEY];
-          navigator.storageBuckets
-            .open(DBN, { persisted: true, durability: 'strict' })
-            .then(function (bk) {
-              return new Promise(function (res, rej) {
-                var r = bk.indexedDB.open(DBN, 1);
-                r.onupgradeneeded = function () {
-                  try { r.result.createObjectStore('kv'); } catch (e) {}
-                };
-                r.onsuccess = function () { res(r.result); };
-                r.onerror = function () { rej(r.error); };
-              });
-            })
-            .then(function (db) {
-              return new Promise(function (res, rej) {
-                var tx = db.transaction('kv', 'readonly');
-                var store = tx.objectStore('kv');
-                var remaining = KEYS.length;
-                var entries = [];
-                var done = function () {
-                  remaining -= 1;
-                  if (remaining === 0) {
-                    try { db.close(); } catch (e) {}
-                    res(entries);
+          var COLD_DB_NAME = 'onekey-cold-start-cache';
+          var COLD_STORE_NAME = 'kv';
+          var HOME_DB_NAME = 'onekey-display-snapshot-home-display';
+          var HOME_STORE_NAME = 'records';
+          var HOME_OWNER_KEY = 'onekey_home_latest_active_account';
+          var HOME_CHUNK_IDS = ['critical', 'banner', 'portfolio', 'market'];
+          var HOME_PRELOAD_TIMEOUT_MS = 250;
+          var g = globalThis;
+
+          var getIndexedDBFactory = function (bucketName) {
+            var buckets = g.navigator && g.navigator.storageBuckets;
+            if (!buckets) return Promise.resolve(g.indexedDB);
+            return buckets
+              .open(bucketName, { persisted: true, durability: 'strict' })
+              .then(function (bucket) { return bucket.indexedDB; });
+          };
+          var openDatabase = function (name, storeName) {
+            return getIndexedDBFactory(name).then(function (factory) {
+              return new Promise(function (resolve, reject) {
+                var request = factory.open(name, 1);
+                request.onupgradeneeded = function () {
+                  if (!request.result.objectStoreNames.contains(storeName)) {
+                    request.result.createObjectStore(storeName);
                   }
                 };
-                KEYS.forEach(function (key) {
-                  var req = store.get(key);
-                  req.onsuccess = function () {
-                    entries.push({ key: key, value: req.result });
-                    done();
-                  };
-                  req.onerror = function () { rej(req.error); };
-                });
+                request.onsuccess = function () { resolve(request.result); };
+                request.onerror = function () { reject(request.error); };
               });
-            })
+            });
+          };
+          var closeAfter = function (db, task) {
+            return task.then(
+              function (value) {
+                try { db.close(); } catch (e) {}
+                return value;
+              },
+              function (error) {
+                try { db.close(); } catch (e) {}
+                throw error;
+              }
+            );
+          };
+          var readAllEntries = function (db, storeName) {
+            return new Promise(function (resolve, reject) {
+              var entries = new Map();
+              var tx = db.transaction(storeName, 'readonly');
+              var request = tx.objectStore(storeName).openCursor();
+              request.onsuccess = function () {
+                var cursor = request.result;
+                if (cursor) {
+                  if (typeof cursor.key === 'string') {
+                    entries.set(cursor.key, cursor.value);
+                  }
+                  cursor.continue();
+                }
+              };
+              request.onerror = function () { reject(request.error); };
+              tx.oncomplete = function () { resolve(entries); };
+              tx.onerror = function () { reject(tx.error); };
+              tx.onabort = function () { reject(tx.error); };
+            });
+          };
+          var readMany = function (db, storeName, keys) {
+            return new Promise(function (resolve, reject) {
+              var values = new Map();
+              if (!keys.length) {
+                resolve(values);
+                return;
+              }
+              var tx = db.transaction(storeName, 'readonly');
+              var store = tx.objectStore(storeName);
+              keys.forEach(function (key) {
+                var request = store.get(key);
+                request.onsuccess = function () {
+                  if (typeof request.result === 'string') {
+                    values.set(key, request.result);
+                  }
+                };
+                request.onerror = function () { reject(request.error); };
+              });
+              tx.oncomplete = function () { resolve(values); };
+              tx.onerror = function () { reject(tx.error); };
+              tx.onabort = function () { reject(tx.error); };
+            });
+          };
+          var withTimeout = function (task, timeoutMs) {
+            return new Promise(function (resolve) {
+              var settled = false;
+              var timer = setTimeout(function () {
+                if (settled) return;
+                settled = true;
+                resolve(undefined);
+              }, timeoutMs);
+              task.then(
+                function (value) {
+                  if (settled) return;
+                  settled = true;
+                  clearTimeout(timer);
+                  resolve(value);
+                },
+                function () {
+                  if (settled) return;
+                  settled = true;
+                  clearTimeout(timer);
+                  resolve(undefined);
+                }
+              );
+            });
+          };
+
+          var coldPreloadTask = openDatabase(COLD_DB_NAME, COLD_STORE_NAME)
+            .then(function (db) {
+              return closeAfter(db, readAllEntries(db, COLD_STORE_NAME));
+            });
+          g.__ONEKEY_COLD_START_IDB_PRELOAD__ = coldPreloadTask;
+
+          var homePreloadStartedAt =
+            g.performance && g.performance.now ? g.performance.now() : Date.now();
+          var homePreloadTask = coldPreloadTask
             .then(function (entries) {
-              var g = globalThis;
-              var map = g.__ONEKEY_COLD_START_CACHE_MAP__;
-              if (!map) { map = new Map(); g.__ONEKEY_COLD_START_CACHE_MAP__ = map; }
-              entries.forEach(function (entry) {
-                if (typeof entry.value !== 'string') return;
-                // Do NOT clobber a value a facade write may already have set.
-                if (!map.has(entry.key)) map.set(entry.key, entry.value);
-              });
+              var rawOwner = entries.get(HOME_OWNER_KEY);
+              if (typeof rawOwner !== 'string' || !g.crypto || !g.crypto.subtle) {
+                return undefined;
+              }
+              var owner = JSON.parse(rawOwner);
+              if (
+                owner.version !== 1 ||
+                typeof owner.ownerScopeKey !== 'string' ||
+                !owner.ownerScopeKey
+              ) {
+                return undefined;
+              }
+              return g.crypto.subtle
+                .digest(
+                  'SHA-256',
+                  new TextEncoder().encode(owner.ownerScopeKey)
+                )
+                .then(function (digest) {
+                  var partitionId = Array.from(new Uint8Array(digest))
+                    .map(function (byte) {
+                      return byte.toString(16).padStart(2, '0');
+                    })
+                    .join('');
+                  return {
+                    ownerScopeKey: owner.ownerScopeKey,
+                    partitionId: partitionId,
+                  };
+                });
             })
-            .catch(function () { /* best-effort: no cold paint, no harm */ });
-        } catch (e) { /* storageBuckets unsupported -> no-op */ }
+            .then(function (ownerContext) {
+              if (!ownerContext) return undefined;
+              return openDatabase(HOME_DB_NAME, HOME_STORE_NAME).then(function (db) {
+                var routeKey = 'route/' + ownerContext.partitionId;
+                return closeAfter(
+                  db,
+                  readMany(db, HOME_STORE_NAME, [routeKey]).then(function (values) {
+                    var routeRaw = values.get(routeKey);
+                    if (!routeRaw) return undefined;
+                    var route = JSON.parse(routeRaw);
+                    if (
+                      route.schemaVersion !== 1 ||
+                      route.ownerScopeKey !== ownerContext.ownerScopeKey ||
+                      route.partitionId !== ownerContext.partitionId ||
+                      !Number.isSafeInteger(route.currentGeneration) ||
+                      route.currentGeneration <= 0
+                    ) {
+                      return undefined;
+                    }
+                    var generations = [route.currentGeneration];
+                    if (
+                      Number.isSafeInteger(route.previousGeneration) &&
+                      route.previousGeneration > 0
+                    ) {
+                      generations.push(route.previousGeneration);
+                    }
+                    var keys = [];
+                    generations.forEach(function (generation) {
+                      keys.push(
+                        'manifest/' + ownerContext.partitionId + '/' + generation
+                      );
+                      HOME_CHUNK_IDS.forEach(function (chunkId) {
+                        keys.push(
+                          'chunk/' +
+                            ownerContext.partitionId +
+                            '/' +
+                            generation +
+                            '/' +
+                            chunkId
+                        );
+                      });
+                    });
+                    return readMany(db, HOME_STORE_NAME, keys).then(function (extra) {
+                      extra.forEach(function (value, key) {
+                        values.set(key, value);
+                      });
+                      return {
+                        ownerScopeKey: ownerContext.ownerScopeKey,
+                        values: values,
+                      };
+                    });
+                  })
+                );
+              });
+            });
+          g.__ONEKEY_HOME_DISPLAY_SNAPSHOT_PRELOAD__ = withTimeout(
+            homePreloadTask,
+            HOME_PRELOAD_TIMEOUT_MS
+          ).then(function (result) {
+            var completedAt =
+              g.performance && g.performance.now
+                ? g.performance.now()
+                : Date.now();
+            g.__ONEKEY_HOME_DISPLAY_SNAPSHOT_PRELOAD_RESULT__ = {
+              elapsedMs: completedAt - homePreloadStartedAt,
+              hit: Boolean(result),
+            };
+            return result;
+          });
+        } catch (e) {
+          // Best effort: application storage remains the fallback.
+        }
       })();
     </script>
     <% } %>

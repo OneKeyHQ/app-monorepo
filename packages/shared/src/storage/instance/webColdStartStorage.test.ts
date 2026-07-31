@@ -64,6 +64,8 @@ beforeEach(async () => {
   // Reset the shared globalThis map so isolateModules sees a fresh state.
   (globalThis as Record<string, unknown>).__ONEKEY_COLD_START_CACHE_MAP__ =
     undefined;
+  (globalThis as Record<string, unknown>).__ONEKEY_COLD_START_IDB_PRELOAD__ =
+    undefined;
   // Best-effort wipe of any leftover entries in the underlying fake IDB.
   if (hasIndexedDB) {
     await new Promise<void>((resolve) => {
@@ -104,6 +106,32 @@ describe('primeColdStartCacheMap', () => {
     const map = (globalThis as Record<string, unknown>)
       .__ONEKEY_COLD_START_CACHE_MAP__ as Map<string, unknown>;
     expect(map.get('__meta:buildHash')).toBe('abc123');
+  });
+});
+
+describe('readColdStartEntriesForHydration', () => {
+  it('reuses the IndexedDB read started by the HTML head', async () => {
+    const entries = new Map<string, unknown>([['preloaded', 'value']]);
+    (
+      globalThis as typeof globalThis & {
+        __ONEKEY_COLD_START_IDB_PRELOAD__?: Promise<Map<string, unknown>>;
+      }
+    ).__ONEKEY_COLD_START_IDB_PRELOAD__ = Promise.resolve(entries);
+    const mod = loadModule();
+
+    await expect(mod.readColdStartEntriesForHydration()).resolves.toBe(entries);
+  });
+
+  describeIfIndexedDB('without an HTML preload', () => {
+    it('falls back to the storage-owned IndexedDB read', async () => {
+      const mod = loadModule();
+      mod.writeColdStartMeta('__meta:fallback', 'value');
+      await mod.flushColdStartCacheNow();
+
+      await expect(mod.readColdStartEntriesForHydration()).resolves.toEqual(
+        new Map<string, unknown>([['__meta:fallback', 'value']]),
+      );
+    });
   });
 });
 
