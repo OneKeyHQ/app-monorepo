@@ -878,6 +878,11 @@ export const {
   use: useSwapSpeedQuoteFetchingAtom,
 } = contextAtom<boolean>(false);
 
+export const { atom: swapSpeedQuoteRequestIdAtom } = contextAtom<number>(0);
+
+export const { atom: swapSpeedQuoteRequestScopeKeyAtom } =
+  contextAtom<string>('');
+
 export const {
   atom: swapSpeedQuoteResultAtom,
   use: useSwapSpeedQuoteResultAtom,

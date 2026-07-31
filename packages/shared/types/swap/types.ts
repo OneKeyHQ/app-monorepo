@@ -608,6 +608,7 @@ export interface ISwapPreSwapData {
 export interface IFetchSwapQuoteParams {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  requestScopeKey?: string;
   fromTokenAmount?: string;
   receivingAddress?: string;
   incognito?: boolean;
