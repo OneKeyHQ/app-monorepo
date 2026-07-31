@@ -25,9 +25,9 @@ import {
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
-  PENDING_SIDE_PANEL_MESSAGE_TTL_MS,
   clearPendingSidePanelBgToUiMessage,
   pendingSidePanelBgToUiMessage,
+  shouldFlushPendingSidePanelMessage,
   sidePanelState,
   sidePanelUiState,
 } from '@onekeyhq/shared/src/utils/sidePanelUtils';
@@ -487,20 +487,15 @@ export const setupSidePanelPortInBg = () => {
       }
 
       // Flush a push produced while no port existed (the panel was still
-      // booting). Consumed either way — delivered only to the panel it was
-      // meant for, dropped otherwise, never left behind for a later connect.
+      // booting). Consumed either way — a stale entry is dropped here, never
+      // left behind for a later connect to pick up.
       if (pendingSidePanelBgToUiMessage.value) {
-        const isFresh =
-          Date.now() - pendingSidePanelBgToUiMessage.stashedAt <
-          PENDING_SIDE_PANEL_MESSAGE_TTL_MS;
-        // When the port does not report a window we cannot tell the panels
-        // apart, so freshness is the only remaining guard.
-        const portWindowId = port.sender?.tab?.windowId;
-        const isTargetWindow =
-          pendingSidePanelBgToUiMessage.targetWindowId === undefined ||
-          portWindowId === undefined ||
-          portWindowId === pendingSidePanelBgToUiMessage.targetWindowId;
-        if (isFresh && isTargetWindow && !didPushOnboardingModal) {
+        const shouldFlush = shouldFlushPendingSidePanelMessage({
+          now: Date.now(),
+          stashedAt: pendingSidePanelBgToUiMessage.stashedAt,
+          didPushOnboardingModal,
+        });
+        if (shouldFlush) {
           port.postMessage(pendingSidePanelBgToUiMessage.value);
         }
         clearPendingSidePanelBgToUiMessage();

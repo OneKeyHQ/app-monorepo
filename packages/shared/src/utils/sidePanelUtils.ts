@@ -35,31 +35,58 @@ type ISidePanelBgToUiMessage =
 // inside onConnect. Stashing it here lets the port-connect handler flush it, so
 // callers do not have to guess a delay long enough for the panel to boot — and
 // the UI sees the push before it renders rather than racing it.
-//
-// The flush is not guaranteed — the intended panel may never connect (the open
-// landed on another window, the user closed it immediately, chrome refused).
-// A stale entry must not then be delivered to whatever panel happens to connect
-// next, so it carries both a target window and a TTL: mis-delivering an
-// login modal the user never asked for is worse than dropping one they can
-// simply trigger again.
 export const pendingSidePanelBgToUiMessage: {
   value: ISidePanelBgToUiMessage | undefined;
   stashedAt: number;
-  targetWindowId: number | undefined;
 } = {
   value: undefined,
   stashedAt: 0,
-  targetWindowId: undefined,
 };
 
 export function clearPendingSidePanelBgToUiMessage() {
   pendingSidePanelBgToUiMessage.value = undefined;
   pendingSidePanelBgToUiMessage.stashedAt = 0;
-  pendingSidePanelBgToUiMessage.targetWindowId = undefined;
 }
 
-// Sized for a panel that is already opening — the open() call has resolved by
-// the time anything is stashed, so a connect is normally under a second away.
-// Kept short because the window doubles as the exposure window for delivering
-// to a panel the user opened themselves.
-export const PENDING_SIDE_PANEL_MESSAGE_TTL_MS = 10 * 1000;
+// Freshness is the ONLY thing separating the panel a push was meant for from a
+// panel the user happens to open right afterwards.
+//
+// An earlier revision also compared a stashed target window against
+// `port.sender.tab.windowId`. That check never ran: `sender.tab` is only
+// populated when a connection originates from a tab or content script, and a
+// side panel is an extension page — so the comparison silently fell through to
+// its fail-open branch every time. Removed rather than left in place, because a
+// guard that never fires reads like protection that exists.
+//
+// The real fix is an identity handshake (bg mints a nonce into the panel URL,
+// the panel echoes it back as its first port message, still ahead of render).
+// That is not shipped here: it changes the side panel URL and the port
+// protocol, and this path cannot be exercised without a live Keyless flow.
+//
+// So the window is kept deliberately tight instead. The open() call has already
+// resolved by the time anything is stashed, so the intended panel normally
+// connects well inside a second.
+export const PENDING_SIDE_PANEL_MESSAGE_TTL_MS = 5 * 1000;
+
+/**
+ * Whether a stashed bg->UI push should be delivered to the panel that just
+ * connected. Pure so the branches can be tested without a Chrome environment —
+ * the caller clears the stash either way, so a `false` here means dropped, not
+ * deferred.
+ */
+export function shouldFlushPendingSidePanelMessage({
+  now,
+  stashedAt,
+  didPushOnboardingModal,
+}: {
+  now: number;
+  stashedAt: number;
+  /** An onboarding modal already went out on this same connect. */
+  didPushOnboardingModal: boolean;
+}): boolean {
+  // Never stack two onboarding modals onto one boot.
+  if (didPushOnboardingModal) {
+    return false;
+  }
+  return now - stashedAt < PENDING_SIDE_PANEL_MESSAGE_TTL_MS;
+}

@@ -790,7 +790,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (!provider || !nonce) {
       throw new OneKeyLocalError('provider and nonce are required');
     }
-    const openResult = await this.wallet_keylessOpenSidePanel(request);
+    await this.wallet_keylessOpenSidePanel(request);
 
     const loginModalMessage = {
       type: 'pushModal',
@@ -816,7 +816,6 @@ class ProviderApiPrivate extends ProviderApiBase {
       // login screen.
       pendingSidePanelBgToUiMessage.value = loginModalMessage;
       pendingSidePanelBgToUiMessage.stashedAt = Date.now();
-      pendingSidePanelBgToUiMessage.targetWindowId = openResult.windowId;
     };
 
     // `isOpen` only means a port is connected right now. The call above always
