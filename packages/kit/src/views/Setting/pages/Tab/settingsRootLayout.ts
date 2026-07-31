@@ -3,16 +3,20 @@ import { ESettingsTabNames } from '@onekeyhq/shared/src/routes/setting';
 import type { ISettingsConfig } from './config';
 
 /**
- * Sidebar groups mirror the mobile settings home cards. Entries missing on a
- * platform are dropped by `resolveSidebarGroups` and empty groups collapse.
+ * Desktop sidebar chunks. The tab order mirrors the mobile settings home, but
+ * the grouping is deliberately coarser (3-5 items per chunk) so whitespace
+ * separation reads as intentional structure instead of fragmenting the short
+ * list. Entries missing on a platform are dropped by `resolveSidebarGroups`
+ * and empty chunks collapse.
  */
 export const SETTINGS_SIDEBAR_GROUPS: ESettingsTabNames[][] = [
   [
     ESettingsTabNames.Wallet,
     ESettingsTabNames.Backup,
     ESettingsTabNames.Security,
+    ESettingsTabNames.Connections,
+    ESettingsTabNames.Network,
   ],
-  [ESettingsTabNames.Connections, ESettingsTabNames.Network],
   [
     ESettingsTabNames.Notifications,
     ESettingsTabNames.Preferences,

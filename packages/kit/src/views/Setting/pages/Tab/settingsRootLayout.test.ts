@@ -23,7 +23,7 @@ function buildConfig(
 }
 
 describe('resolveSidebarGroups', () => {
-  it('keeps the mobile card grouping when every tab exists', () => {
+  it('keeps the coarse sidebar chunks when every tab exists', () => {
     expect(
       resolveSidebarGroups([
         ESettingsTabNames.Wallet,
@@ -42,8 +42,9 @@ describe('resolveSidebarGroups', () => {
         ESettingsTabNames.Wallet,
         ESettingsTabNames.Backup,
         ESettingsTabNames.Security,
+        ESettingsTabNames.Connections,
+        ESettingsTabNames.Network,
       ],
-      [ESettingsTabNames.Connections, ESettingsTabNames.Network],
       [
         ESettingsTabNames.Notifications,
         ESettingsTabNames.Preferences,
