@@ -21,6 +21,9 @@ function NativeHomeDisplaySnapshotBootstrap() {
   const { publishPreparedHomeDisplaySnapshot } =
     useHomeStoreControllerActions();
   const ownerToken = session.ownerToken;
+  // Keep this read in the pre-paint render path. Deferring it to an effect
+  // leaves the native Home without cached content when the splash is revealed.
+  // The cached owner is only a hint and is validated against ownerToken below.
   const startupPreparedDisplaySnapshot = useMemo(() => {
     const startedAt = Date.now();
     perfMark('Home:displayCache:startupStaticLoadStart');
@@ -39,6 +42,8 @@ function NativeHomeDisplaySnapshotBootstrap() {
       return;
     }
     const existingLoadState = store.get(homeDisplaySnapshotLoadState.atom());
+    // HomeStoreControllerBridge may have already published the same prepared
+    // snapshot atomically with the owner. Avoid a second hydration in that case.
     if (
       existingLoadState.status === 'hit' &&
       existingLoadState.ownerScopeKey === ownerToken.scopeKey &&

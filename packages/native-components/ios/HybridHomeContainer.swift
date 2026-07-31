@@ -19,6 +19,8 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var initialStateJson: String = "" {
     didSet {
       guard !initialStateJson.isEmpty else { return }
+      // Initial props use the synchronous first-paint path. Incremental states
+      // continue through setState to keep their decoding off the UI path.
       containerView.submitInitialState(initialStateJson)
     }
   }

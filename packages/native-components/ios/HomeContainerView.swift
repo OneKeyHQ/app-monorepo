@@ -827,6 +827,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   func submitInitialState(_ json: String) {
+    // Decode the first state synchronously so it is ready before the splash can
+    // reveal an empty native Home. Later updates stay on parsingQueue.
     do {
       let next = try JSONDecoder().decode(
         HomeContainerState.self,
@@ -848,6 +850,8 @@ final class HomeContainerView: UIView, UIScrollViewDelegate {
   }
 
   private func schedulePendingInitialState() {
+    // Applying the initial snapshot builds and lays out UIKit content, so wait
+    // until React Native has attached the view with usable bounds.
     guard pendingInitialState != nil,
           window != nil,
           bounds.width > 0,
