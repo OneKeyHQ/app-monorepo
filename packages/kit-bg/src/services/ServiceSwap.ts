@@ -486,7 +486,7 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _speedSwapQuoteAbortController?: AbortController;
+  private _speedSwapQuoteAbortControllers = new Map<string, AbortController>();
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
@@ -573,12 +573,18 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async cancelFetchSpeedSwapQuote() {
-    if (this._speedSwapQuoteAbortController) {
-      this._speedSwapQuoteAbortController.abort();
-      this._speedSwapQuoteAbortController = undefined;
+  private cancelSpeedSwapQuoteByScope(requestScopeKey: string) {
+    const abortController =
+      this._speedSwapQuoteAbortControllers.get(requestScopeKey);
+    if (abortController) {
+      abortController.abort();
+      this._speedSwapQuoteAbortControllers.delete(requestScopeKey);
     }
+  }
+
+  @backgroundMethod()
+  async cancelFetchSpeedSwapQuote(requestScopeKey = 'default') {
+    this.cancelSpeedSwapQuoteByScope(requestScopeKey);
   }
 
   async removeQuoteEventSourceListeners() {
@@ -3253,6 +3259,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSpeedSwapQuote({
     fromToken,
     toToken,
+    requestScopeKey = 'default',
     fromTokenAmount,
     userAddress,
     slippagePercentage,
@@ -3264,64 +3271,72 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     protocol,
   }: IFetchSwapQuoteParams) {
-    await this.cancelFetchSpeedSwapQuote();
-    const walletDevice =
-      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
-        accountId: accountId ?? '',
-      });
-    const params: IFetchQuotesParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
-      userAddress,
-      slippagePercentage,
-      autoSlippage,
-      blockNumber,
-      receivingAddress,
-      expirationTime,
-      kind,
-      walletDeviceType: walletDevice?.deviceType,
-    };
-    this._speedSwapQuoteAbortController = new AbortController();
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fetchUrl = '/swap/v1/quote/speed';
+    this.cancelSpeedSwapQuoteByScope(requestScopeKey);
+    const abortController = new AbortController();
+    this._speedSwapQuoteAbortControllers.set(requestScopeKey, abortController);
     try {
-      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
-        fetchUrl,
-        {
-          params,
-          signal: this._speedSwapQuoteAbortController.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
-      this._speedSwapQuoteAbortController = undefined;
-
-      if (data?.code === 0 && data?.data?.length) {
-        return data?.data;
-      }
-    } catch (e) {
-      if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
-        throw new Error('swap speed fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+      const walletDevice =
+        await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+          accountId: accountId ?? '',
         });
+      const params: IFetchQuotesParams = {
+        fromTokenAddress: fromToken.contractAddress,
+        toTokenAddress: toToken.contractAddress,
+        fromTokenAmount,
+        fromNetworkId: fromToken.networkId,
+        toNetworkId: toToken.networkId,
+        protocol: getProtocolOfExchangeFromSwapTab(protocol),
+        userAddress,
+        slippagePercentage,
+        autoSlippage,
+        blockNumber,
+        receivingAddress,
+        expirationTime,
+        kind,
+        walletDeviceType: walletDevice?.deviceType,
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const fetchUrl = '/swap/v1/quote/speed';
+      try {
+        const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+          fetchUrl,
+          {
+            params,
+            signal: abortController.signal,
+            headers:
+              await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+                {
+                  accountId,
+                },
+              ),
+          },
+        );
+        if (data?.code === 0 && data?.data?.length) {
+          return data?.data;
+        }
+      } catch (e) {
+        if (axios.isCancel(e)) {
+          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
+          throw new Error('swap speed fetch quote cancel', {
+            cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+          });
+        }
+      }
+      return [
+        {
+          info: { provider: '', providerName: '' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+        },
+      ];
+    } finally {
+      if (
+        this._speedSwapQuoteAbortControllers.get(requestScopeKey) ===
+        abortController
+      ) {
+        this._speedSwapQuoteAbortControllers.delete(requestScopeKey);
       }
     }
-    return [
-      {
-        info: { provider: '', providerName: '' },
-        fromTokenInfo: fromToken,
-        toTokenInfo: toToken,
-      },
-    ];
   }
 
   @backgroundMethod()

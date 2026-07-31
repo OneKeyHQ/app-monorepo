@@ -30,7 +30,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isSwapQuoteInputAmountMatched } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
@@ -174,6 +177,21 @@ const SwapProActionButton = ({
     useSwapSelectFromTokenAtom();
   const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
+  const currentQuoteRes = useMemo(() => {
+    if (swapProTradeType === ESwapProTradeType.MARKET) {
+      return swapProQuoteResult;
+    }
+    return swapQuoteResult;
+  }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
+  const isWrapped = useMemo(
+    () =>
+      checkWrappedTokenPair({
+        fromToken: inputToken,
+        toToken,
+      }),
+    [inputToken, toToken],
+  );
+  const canExecuteInPro = supportSpeedSwap || isWrapped;
 
   const handleJumpToSwapAction = useCallback(() => {
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
@@ -232,24 +250,18 @@ const SwapProActionButton = ({
     setSwapFromInputAmount,
   ]);
   const onPressActionButton = useCallback(() => {
-    if (!supportSpeedSwap) {
+    if (!canExecuteInPro) {
       handleJumpToSwapAction();
     } else {
       onSwapProActionClick();
     }
-  }, [supportSpeedSwap, handleJumpToSwapAction, onSwapProActionClick]);
+  }, [canExecuteInPro, handleJumpToSwapAction, onSwapProActionClick]);
 
   const debouncedOnSwapProActionClick = useDebouncedCallback(
     onPressActionButton,
     500,
     { leading: true, trailing: false },
   );
-  const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return swapQuoteResult;
-  }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
   const currentQuoteLoading = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
       return quoteFetching;
@@ -273,7 +285,7 @@ const SwapProActionButton = ({
       !currentQuoteRes?.toAmount ||
       balanceLoading ||
       currentQuoteLoading;
-    if (!supportSpeedSwap) {
+    if (!canExecuteInPro) {
       originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
     return originalDisabled || stockMarketClosed;
@@ -284,7 +296,7 @@ const SwapProActionButton = ({
     shouldShowNoProviderSupport,
     balanceLoading,
     currentQuoteLoading,
-    supportSpeedSwap,
+    canExecuteInPro,
     stockMarketClosed,
   ]);
 
@@ -321,6 +333,15 @@ const SwapProActionButton = ({
       return {
         plainText: intl.formatMessage({
           id: ETranslations.global_select_wallet,
+        }),
+        subValue: '',
+      };
+    }
+
+    if (isWrapped) {
+      return {
+        plainText: intl.formatMessage({
+          id: ETranslations.swap_page_button_wrap,
         }),
         subValue: '',
       };
@@ -365,6 +386,7 @@ const SwapProActionButton = ({
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     swapProAccount?.accountStatus,
+    isWrapped,
     shouldShowNoProviderSupport,
     inputTokenValue,
     toToken?.symbol,
@@ -388,15 +410,15 @@ const SwapProActionButton = ({
     fromAmount: inputAmount,
     toAmount: toTokenAmount.value,
   });
-  // Zero/invalid amounts never produce a quote, and without speed-swap
-  // support the button is a jump-to-Swap CTA — neither may spin forever.
+  // Zero/invalid amounts never produce a quote, and an ordinary pair without
+  // speed-swap support is a jump-to-Swap CTA — neither may spin forever.
   // LIMIT interval refreshes keep the previous quote's label instead of
   // blanking to a spinner on every cycle (previous-quote state belongs to
   // the standard quote stream, so it only applies to LIMIT).
   const inputAmountBN = new BigNumber(inputAmount || '0');
   const hasPositiveInputAmount = !inputAmountBN.isNaN() && inputAmountBN.gt(0);
   const isQuoting =
-    supportSpeedSwap &&
+    canExecuteInPro &&
     hasPositiveInputAmount &&
     hasEnoughBalance &&
     !shouldShowNoProviderSupport &&
