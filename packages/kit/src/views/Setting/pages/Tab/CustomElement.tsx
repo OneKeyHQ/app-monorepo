@@ -898,8 +898,6 @@ export function HapticFeedbackListItem(props: ICustomElementProps) {
 }
 
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
     startViewTransition(() => {
@@ -911,10 +909,7 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <YStack
-        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
-        justifyContent="center"
-      >
+      <YStack alignSelf="stretch" justifyContent="center">
         <Switch
           testID="setting-toggle-b-t-c-fresh-address-switch"
           size={ESwitchSize.small}
@@ -927,8 +922,6 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
 }
 
 export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ useGasAccountByDefault }] = useSettingsPersistAtom();
   const toggleUseGasAccountByDefault = useCallback(async (value: boolean) => {
     startViewTransition(() => {
@@ -937,10 +930,7 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <YStack
-        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
-        justifyContent="center"
-      >
+      <YStack alignSelf="stretch" justifyContent="center">
         <Switch
           testID={SettingTestIDs.tabUseGasAccountByDefaultSwitch}
           size={ESwitchSize.small}
@@ -953,8 +943,6 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
 }
 
 export function SplitViewListItem(props: ICustomElementProps) {
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ enableSplitView }] = useSettingsPersistAtom();
   const checked = enableSplitView !== false;
   const toggleSplitView = useCallback(
@@ -971,10 +959,7 @@ export function SplitViewListItem(props: ICustomElementProps) {
   );
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <YStack
-        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
-        justifyContent="center"
-      >
+      <YStack alignSelf="stretch" justifyContent="center">
         <Switch
           testID={SettingTestIDs.tabSplitViewSwitch}
           size={ESwitchSize.small}
