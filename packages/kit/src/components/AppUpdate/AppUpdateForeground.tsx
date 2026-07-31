@@ -66,8 +66,10 @@ async function shouldDeferPostUpdateUi(): Promise<boolean> {
   if (platformEnv.isExtensionUiSidePanel) {
     // Checked first: it is local, synchronous, and the only signal covering the
     // Keyless / OneKey-ID hand-off, which page-loads a panel purely to host its
-    // approval without ever reaching ServiceDApp.openModal.
-    if (sidePanelUiState.isHostingPushedModal) return true;
+    // approval without ever reaching ServiceDApp.openModal. Safe to read as a
+    // latch here because this gate runs once, before the page can have handled
+    // anything the user did themselves.
+    if (sidePanelUiState.hasReceivedPushedModal) return true;
     return backgroundApiProxy.serviceDApp.hasPendingDappRequest();
   }
   return false;

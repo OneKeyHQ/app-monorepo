@@ -35,7 +35,10 @@ import {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
-import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import {
+  pendingSidePanelBgToUiMessage,
+  sidePanelState,
+} from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
@@ -788,25 +791,40 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('provider and nonce are required');
     }
     await this.wallet_keylessOpenSidePanel(request);
-    await timerUtils.wait(600);
 
-    if (sidePanelState.isOpen) {
-      appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
-        type: 'pushModal',
-        payload: {
-          modalParams: {
-            screen: EModalRoutes.OnboardingModal,
+    const loginModalMessage = {
+      type: 'pushModal',
+      payload: {
+        modalParams: {
+          screen: EModalRoutes.OnboardingModal,
+          params: {
+            screen: EOnboardingPagesV2.OneKeyIDLogin,
             params: {
-              screen: EOnboardingPagesV2.OneKeyIDLogin,
-              params: {
-                mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-                provider,
-              },
+              mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+              provider,
             },
           },
         },
-      });
+      },
+    } as const;
+
+    if (sidePanelState.isOpen) {
+      // Panel was already open, so it booted long ago — the delay only gives
+      // the existing page a beat to settle.
+      await timerUtils.wait(600);
+      if (sidePanelState.isOpen) {
+        appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, loginModalMessage);
+      }
+      return this.getKeylessSessionState({ request, provider, nonce });
     }
+
+    // OK-58962: the panel is still booting from the open() above, so there is
+    // no port to emit into yet. Racing a fixed delay here also races the
+    // panel's own boot-time gates — the post-update changelog could win and
+    // land on top of this login screen. Stash instead: the port-connect handler
+    // flushes it before the page renders.
+    pendingSidePanelBgToUiMessage.value = loginModalMessage;
+    pendingSidePanelBgToUiMessage.stashedAt = Date.now();
 
     return this.getKeylessSessionState({
       request,

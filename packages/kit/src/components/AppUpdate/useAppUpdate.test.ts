@@ -135,7 +135,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
 // identity is stable across isolation, as with the other shared singletons.
 jest.mock('@onekeyhq/shared/src/utils/sidePanelUtils', () => ({
   sidePanelState: { isOpen: false },
-  sidePanelUiState: { isHostingPushedModal: false },
+  sidePanelUiState: { hasReceivedPushedModal: false },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
@@ -401,7 +401,7 @@ function resetAllMocks() {
   // a stale `true` here would silently defer every later first-launch test.
   mockPlatformEnv.isExtensionUiStandaloneWindow = false;
   mockPlatformEnv.isExtensionUiSidePanel = false;
-  sidePanelUiState.isHostingPushedModal = false;
+  sidePanelUiState.hasReceivedPushedModal = false;
   dappSvc.hasPendingDappRequest.mockResolvedValue(false);
 
   // Default resolved values. getUpdateInfo uses mockImplementation so it
@@ -2360,7 +2360,7 @@ describe('useAppUpdateInfo useEffect', () => {
         // flag stays false — the panel's own pushed-modal state is the only
         // signal, and it is set before React renders.
         mockPlatformEnv.isExtensionUiSidePanel = true;
-        sidePanelUiState.isHostingPushedModal = true;
+        sidePanelUiState.hasReceivedPushedModal = true;
         dappSvc.hasPendingDappRequest.mockResolvedValue(false);
         setFirstLaunchAfterUpdate();
 

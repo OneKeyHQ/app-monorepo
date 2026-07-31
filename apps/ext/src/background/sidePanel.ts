@@ -25,6 +25,8 @@ import {
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
+  PENDING_SIDE_PANEL_MESSAGE_TTL_MS,
+  pendingSidePanelBgToUiMessage,
   sidePanelState,
   sidePanelUiState,
 } from '@onekeyhq/shared/src/utils/sidePanelUtils';
@@ -481,6 +483,20 @@ export const setupSidePanelPortInBg = () => {
         pendingKeylessGetStartedParams = undefined;
       }
 
+      // Flush a push that was produced while no port existed (the panel was
+      // still booting). Dropped rather than replayed once stale, so a failed
+      // open cannot inject an unrelated modal into a much later boot.
+      if (pendingSidePanelBgToUiMessage.value) {
+        const isFresh =
+          Date.now() - pendingSidePanelBgToUiMessage.stashedAt <
+          PENDING_SIDE_PANEL_MESSAGE_TTL_MS;
+        if (isFresh) {
+          port.postMessage(pendingSidePanelBgToUiMessage.value);
+        }
+        pendingSidePanelBgToUiMessage.value = undefined;
+        pendingSidePanelBgToUiMessage.stashedAt = 0;
+      }
+
       let dappRejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
@@ -604,11 +620,11 @@ export const setupSidePanelPortInUI = () => {
       switch (type) {
         case 'pushModal':
           {
-            // OK-58962: record synchronously, before any await. This message
-            // routinely arrives before React has rendered, and it is the only
-            // signal a Keyless-hosted panel gets — that flow page-loads the
-            // panel without going through ServiceDApp.openModal.
-            sidePanelUiState.isHostingPushedModal = true;
+            // OK-58962: record synchronously, before any await. Latches for
+            // the page's lifetime — see the note on sidePanelUiState. This is
+            // the only signal a Keyless-hosted panel gets, since that flow
+            // page-loads the panel without going through ServiceDApp.openModal.
+            sidePanelUiState.hasReceivedPushedModal = true;
             const { screen, params } = payload.modalParams;
             const rejectId = extractDappRejectIdFromModalParams(
               payload.modalParams,

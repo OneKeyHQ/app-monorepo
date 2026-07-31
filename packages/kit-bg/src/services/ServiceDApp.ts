@@ -244,6 +244,15 @@ class ServiceDApp extends ServiceBase {
             routeNames,
             routeParams,
             modalParams,
+            // Without this the request can never settle when the push itself
+            // fails (chrome.windows.create rejected, or openSidePanel throwing
+            // because the panel closed inside the debounce window). The
+            // debounced call returns undefined to this caller and invokes on a
+            // later timer, so its rejection is unreachable from here — the
+            // callback has to be handed down. Left unsettled, `finally` never
+            // runs and existingWindowOrigin stays set, which now also gates
+            // user-visible update UI.
+            onError: (error) => reject(error),
           });
         });
       } finally {
@@ -254,6 +263,34 @@ class ServiceDApp extends ServiceBase {
   }
 
   _openModalByRouteParams = async ({
+    modalParams,
+    routeParams,
+    routeNames,
+    onError,
+  }: {
+    routeNames: any[];
+    routeParams: { query: string };
+    modalParams: { screen: any; params: any };
+    onError?: (error: unknown) => void;
+  }) => {
+    try {
+      await this._doOpenModalByRouteParams({
+        modalParams,
+        routeParams,
+        routeNames,
+      });
+    } catch (error) {
+      // Surface the failure to the waiting request instead of leaving it (and
+      // the pending-approval bookkeeping) hanging until the 30-minute sweep.
+      if (onError) {
+        onError(error);
+        return;
+      }
+      throw error;
+    }
+  };
+
+  _doOpenModalByRouteParams = async ({
     modalParams,
     routeParams,
     routeNames,
