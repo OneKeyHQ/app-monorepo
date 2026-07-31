@@ -1,4 +1,15 @@
-import fs from 'fs';
+/* eslint-disable import/first */
+
+const mockHardwareTransportModuleLoaded = jest.fn();
+
+jest.mock('@onekeyfe/hd-transport', () => {
+  mockHardwareTransportModuleLoaded();
+  return {
+    ResourceType: {
+      Nft: 1,
+    },
+  };
+});
 
 import { generateUploadNFTParams } from './nftUtils';
 
@@ -12,11 +23,8 @@ describe('nftUtils', () => {
       screenHex: '01',
       thumbnailHex: '02',
     });
-    const source = fs.readFileSync(__filename.replace(/\.test\.ts$/, '.ts'));
 
     expect(params.resType).toBe(1);
-    expect(source.toString()).not.toMatch(
-      /import\s+\{\s*ResourceType\s*\}\s+from\s+['"]@onekeyfe\/hd-transport['"]/,
-    );
+    expect(mockHardwareTransportModuleLoaded).not.toHaveBeenCalled();
   });
 });

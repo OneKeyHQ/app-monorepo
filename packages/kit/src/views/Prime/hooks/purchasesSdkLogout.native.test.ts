@@ -1,15 +1,17 @@
 /* eslint-disable import/first */
 
-import fs from 'fs';
-
 const mockLogOut = jest.fn<Promise<void>, []>();
+let mockRevenueCatModuleLoadCount = 0;
 
-jest.mock('react-native-purchases', () => ({
-  __esModule: true,
-  default: {
-    logOut: () => mockLogOut(),
-  },
-}));
+jest.mock('react-native-purchases', () => {
+  mockRevenueCatModuleLoadCount += 1;
+  return {
+    __esModule: true,
+    default: {
+      logOut: () => mockLogOut(),
+    },
+  };
+});
 
 import { logoutPurchasesSdk } from './purchasesSdkLogout.native';
 
@@ -19,18 +21,12 @@ describe('logoutPurchasesSdk native', () => {
   });
 
   it('loads RevenueCat only when logout is requested', async () => {
-    const source = fs.readFileSync(__filename.replace(/\.test\.ts$/, '.ts'));
-
-    expect(source.toString()).toMatch(
-      /await\s+import\(\s*['"]react-native-purchases['"]\s*\)/,
-    );
-    expect(source.toString()).not.toMatch(
-      /import\s+PurchasesReactNative\s+from/,
-    );
+    expect(mockRevenueCatModuleLoadCount).toBe(0);
 
     mockLogOut.mockResolvedValueOnce(undefined);
     await expect(logoutPurchasesSdk()).resolves.toBe(true);
 
+    expect(mockRevenueCatModuleLoadCount).toBe(1);
     expect(mockLogOut).toHaveBeenCalledTimes(1);
   });
 
