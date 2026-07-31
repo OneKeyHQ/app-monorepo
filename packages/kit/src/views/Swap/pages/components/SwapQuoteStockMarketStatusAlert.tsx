@@ -104,6 +104,7 @@ export function SwapQuoteStockMarketStatusAlert({
     <StockMarketStatusAlert
       statusCase={resolveStockMarketStatusCase({
         isOpen: false,
+        isPaused: stockDetail?.tokenDetail?.stock?.isPaused,
         hasOpenTime: Boolean(closedTimeText),
         hasPerps: Boolean(hlTicker),
       })}

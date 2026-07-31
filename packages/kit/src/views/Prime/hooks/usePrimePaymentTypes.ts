@@ -15,6 +15,7 @@ export type IPackageFreeTrial = {
   periodIso: string; // e.g. "P3D"
   periodNumber: number; // e.g. 3
   periodUnit: 'day' | 'week' | 'month' | 'year';
+  source: 'native' | 'web';
 };
 
 export type IPackage = {

@@ -1,14 +1,13 @@
 /* cspell:ignore Infini */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, Toast, YStack } from '@onekeyhq/components';
+import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -19,6 +18,7 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
 import {
@@ -29,21 +29,24 @@ import {
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
-import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+import type {
+  IPackageFreeTrial,
+  ISubscriptionPeriod,
+} from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeSubscriptionPurchaseSuccessPayload } from '../../primeSubscriptionPurchaseSuccess';
 
 type IPrimePaymentMethodKey = 'native' | 'webview' | 'webStripe' | 'crypto';
 
 type IPrimePaymentMethodOption = {
   key: IPrimePaymentMethodKey;
-  label: string;
+  label: ETranslations;
   icon?: IActionListItemProps['icon'];
   testID?: string;
 };
 
 const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
   key: 'crypto',
-  label: 'Crypto',
+  label: ETranslations.prime_crypto_payment__label,
   icon: 'CryptoCoinOutline',
   testID: 'prime-pay-with-crypto',
 };
@@ -51,7 +54,7 @@ const CRYPTO_PAYMENT_METHOD: IPrimePaymentMethodOption = {
 const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webStripe',
-    label: 'Credit card',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
     testID: 'prime-pay-with-card',
   },
@@ -61,7 +64,7 @@ const WEB_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'webview',
-    label: 'Purchase by Webview',
+    label: ETranslations.prime_credit_card__label,
     icon: 'CreditCardOutline',
   },
   CRYPTO_PAYMENT_METHOD,
@@ -70,39 +73,90 @@ const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
 const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'native',
-    label: 'Purchase by GooglePlay',
+    label: ETranslations.prime_google_play__label,
     icon: 'GooglePlayBrand',
   },
   ...ANDROID_PAYMENT_METHODS,
 ];
 
+function getFreeTrialPaymentMethod(
+  freeTrial: IPackageFreeTrial | undefined,
+): IPrimePaymentMethodKey | undefined {
+  if (freeTrial?.source === 'native') {
+    return 'native';
+  }
+  if (freeTrial?.source === 'web') {
+    return platformEnv.isNativeAndroid ? 'webview' : 'webStripe';
+  }
+  return undefined;
+}
+
 function PrimePaymentMethodItems({
   methods,
+  freeTrial,
   onSelect,
 }: {
   methods: IPrimePaymentMethodOption[];
+  freeTrial?: IPackageFreeTrial;
   onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
 }) {
+  const intl = useIntl();
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
+  const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
+    undefined,
+  );
+  // Android can show native and Web checkout together. A trial belongs only
+  // to the offering source that reported it, so never copy it to both rows.
+  const freeTrialMethod = getFreeTrialPaymentMethod(freeTrial);
+  const hasFreeTrialMethod = methods.some(
+    (method) => method.key === freeTrialMethod,
+  );
+  let trialIncludedSubtitle: string | undefined;
+  if (freeTrial?.periodUnit === 'day') {
+    trialIncludedSubtitle = intl.formatMessage(
+      { id: ETranslations.prime_free_trial_included_days__desc },
+      { count: freeTrial.periodNumber },
+    );
+  } else if (freeTrial) {
+    trialIncludedSubtitle = intl.formatMessage({
+      id: ETranslations.prime_free_trial_included__desc,
+    });
+  }
+  const getMethodSubtitle = (method: IPrimePaymentMethodOption) => {
+    if (!freeTrial || !hasFreeTrialMethod) {
+      return undefined;
+    }
+    if (method.key === 'crypto') {
+      return intl.formatMessage({
+        id: ETranslations.prime_no_free_trial__desc,
+      });
+    }
+    return method.key === freeTrialMethod ? trialIncludedSubtitle : undefined;
+  };
   const handleSelect = useCallback(
     async (method: IPrimePaymentMethodKey) => {
-      if (pendingMethod) {
+      if (pendingMethodRef.current) {
         return;
       }
+      pendingMethodRef.current = method;
       setPendingMethod(method);
+      const clearPendingMethod = () => {
+        pendingMethodRef.current = undefined;
+        setPendingMethod(undefined);
+      };
       try {
         const didStart = await onSelect(method);
         if (!didStart) {
-          setPendingMethod(undefined);
+          clearPendingMethod();
         }
       } catch (error) {
         // Keep the current picker retryable if validation or closing the picker
         // fails before the selected payment flow starts.
-        setPendingMethod(undefined);
+        clearPendingMethod();
         throw error;
       }
     },
-    [onSelect, pendingMethod],
+    [onSelect],
   );
   return (
     <>
@@ -112,7 +166,8 @@ function PrimePaymentMethodItems({
           drillIn
           icon={method.icon}
           testID={method.testID ?? `prime-payment-method-${method.key}`}
-          title={method.label}
+          title={intl.formatMessage({ id: method.label })}
+          subtitle={getMethodSubtitle(method)}
           disabled={Boolean(pendingMethod)}
           isLoading={pendingMethod === method.key}
           onPress={async () => {
@@ -148,11 +203,10 @@ export function usePrimePurchaseCallback({
       // purchasePackageNative owns the post-purchase refresh for both
       // outcomes (claim -> refresh -> emit on success, one defensive refresh
       // on failure); refreshing here again would duplicate it.
-      const result = await purchasePackageNative?.({
+      await purchasePackageNative?.({
         subscriptionPeriod: selectedSubscriptionPeriod,
         featureName,
       });
-      console.log('purchasePackageNative result >>>>>>', result);
     },
     [purchasePackageNative],
   );
@@ -208,13 +262,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByNativeUnchecked(params);
     },
-    [purchaseByNativeUnchecked, user?.onekeyUserId],
+    [intl, purchaseByNativeUnchecked, user?.onekeyUserId],
   );
 
   const purchaseByWebview = useCallback(
@@ -226,13 +281,14 @@ export function usePrimePurchaseCallback({
       if (
         !(await ensurePrimePurchaseEligible({
           expectedOneKeyUserId: user?.onekeyUserId,
+          intl,
         }))
       ) {
         return;
       }
       await purchaseByWebviewUnchecked(params);
     },
-    [purchaseByWebviewUnchecked, user?.onekeyUserId],
+    [intl, purchaseByWebviewUnchecked, user?.onekeyUserId],
   );
 
   // TODO move to jotai context method
@@ -241,10 +297,12 @@ export function usePrimePurchaseCallback({
       selectedSubscriptionPeriod,
       currency,
       featureName,
+      freeTrial,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       currency?: string;
       featureName?: EPrimeFeatures;
+      freeTrial?: IPackageFreeTrial;
     }) => {
       // primeSubscribeIntent must fire exactly once per actual payment
       // attempt with its channel (see the scene doc: it pairs with
@@ -260,6 +318,26 @@ export function usePrimePurchaseCallback({
           paymentMethod,
         });
       };
+      const startCryptoPayment = async ({
+        subscriptionPeriod,
+      }: {
+        subscriptionPeriod: ISubscriptionPeriod;
+      }) => {
+        try {
+          await purchaseByCryptoUnchecked({
+            selectedSubscriptionPeriod: subscriptionPeriod,
+            featureName,
+          });
+        } catch (error) {
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          throw error;
+        }
+      };
       const continuePendingCryptoPayment = async ({
         beforeContinue,
       }: {
@@ -273,29 +351,35 @@ export function usePrimePurchaseCallback({
         >;
         try {
           entryGuard = await getPrimeInfiniPaymentEntryGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
+        } catch (error) {
+          logPrimeInfiniPaymentFlow({
+            stage: 'paymentContext',
+            status: 'failed',
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            featureName,
+            plan: selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly',
+            reason: 'paymentEntryGuardFailed',
+            error,
+          });
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
             }),
           });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
+          throw error;
         }
         if (!entryGuard.hasPendingPayment) {
           return false;
         }
         await beforeContinue();
-        await purchaseByCryptoUnchecked({
+        await startCryptoPayment({
           // Resume the in-flight invoice on its own period. Passing the period
           // the user just picked would restore a monthly invoice under a
           // yearly request, which the restore path tracks without complaint
           // once the payment is no longer replaceable.
-          selectedSubscriptionPeriod:
+          subscriptionPeriod:
             entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
-          featureName,
         });
         return true;
       };
@@ -324,6 +408,7 @@ export function usePrimePurchaseCallback({
         if (
           !(await ensurePrimePurchaseEligible({
             expectedOneKeyUserId: user?.onekeyUserId,
+            intl,
           }))
         ) {
           return;
@@ -349,13 +434,15 @@ export function usePrimePurchaseCallback({
       }
 
       const paymentMethodDialog = Dialog.show({
-        // TODO: i18n pending translation key
-        title: 'Payment method',
+        title: intl.formatMessage({
+          id: ETranslations.prime_payment_method__title,
+        }),
         showFooter: false,
         renderContent: (
           <YStack mx="$-5" mt="$-1" mb="$-3" $md={{ pb: '$3', mb: '$0' }}>
             <PrimePaymentMethodItems
               methods={paymentMethods}
+              freeTrial={freeTrial}
               onSelect={async (method) => {
                 if (
                   await continuePendingCryptoPayment({
@@ -369,6 +456,7 @@ export function usePrimePurchaseCallback({
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,
+                    intl,
                   }))
                 ) {
                   return false;
@@ -407,9 +495,8 @@ export function usePrimePurchaseCallback({
                         : 'monthly',
                     checkoutType: 'internalWallet',
                   });
-                  void purchaseByCryptoUnchecked({
-                    selectedSubscriptionPeriod,
-                    featureName,
+                  await startCryptoPayment({
+                    subscriptionPeriod: selectedSubscriptionPeriod,
                   });
                 }
                 return true;
@@ -460,6 +547,9 @@ export const PrimePurchaseDialog = (props: {
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
   });
+  const selectedPackage = packages?.find(
+    (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+  );
   return (
     <Stack mt="$8">
       {packages ? (
@@ -481,15 +571,16 @@ export const PrimePurchaseDialog = (props: {
           id: ETranslations.prime_subscribe,
         })}
         confirmButtonProps={{
-          disabled: !packages,
+          disabled: !selectedPackage,
         }}
         onConfirm={() => {
-          const currency = packages?.find(
-            (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-          )?.currencyCode;
+          if (!selectedPackage) {
+            return undefined;
+          }
           return purchase({
             selectedSubscriptionPeriod,
-            currency,
+            currency: selectedPackage?.currencyCode,
+            freeTrial: selectedPackage?.freeTrial,
             featureName,
           });
         }}

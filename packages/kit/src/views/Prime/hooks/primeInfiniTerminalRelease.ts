@@ -18,15 +18,20 @@ type ISessionPersistenceQueue = {
 export async function capturePrimeInfiniSessionRevision({
   queue,
   fetchPersistedSession,
+  onError,
 }: {
   queue: ISessionPersistenceQueue;
   fetchPersistedSession: () => Promise<
     IPrimeInfiniPendingPaymentSession | undefined
   >;
+  onError?: (error: unknown) => void;
 }): Promise<IPrimeInfiniPaymentSessionRevision | undefined> {
   const persistedSession = await queue
     .persist(async () => fetchPersistedSession())
-    .catch(() => undefined);
+    .catch((error) => {
+      onError?.(error);
+      return undefined;
+    });
   if (!persistedSession) {
     return undefined;
   }

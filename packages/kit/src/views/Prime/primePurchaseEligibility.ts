@@ -1,6 +1,11 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { showPrimeInfiniPaymentErrorToast } from './primeInfiniPaymentError';
+import { logPrimeInfiniPaymentFlow } from './primeInfiniPaymentLogger';
+
+import type { IntlShape } from 'react-intl';
 
 let eligibilityRequest:
   | {
@@ -11,8 +16,10 @@ let eligibilityRequest:
 
 async function checkPrimePurchaseEligibility({
   expectedOneKeyUserId,
+  intl,
 }: {
   expectedOneKeyUserId: string;
+  intl: IntlShape;
 }) {
   try {
     const { userInfo, primeSubscription } =
@@ -25,35 +32,50 @@ async function checkPrimePurchaseEligibility({
       userInfo.onekeyUserId !== expectedOneKeyUserId
     ) {
       Toast.error({
-        // TODO: i18n pending translation key
-        title: 'Your OneKey ID session has changed. Please try again.',
+        title: intl.formatMessage({
+          id: ETranslations.prime_onekey_id_session_changed__msg,
+        }),
       });
       return false;
     }
     if (primeSubscription?.isActive) {
       Toast.message({
-        // TODO: i18n pending translation key
-        title: 'OneKey Prime is already active for this account.',
+        title: intl.formatMessage({
+          id: ETranslations.prime_already_active__msg,
+        }),
       });
       return false;
     }
     return true;
   } catch (error) {
-    errorToastUtils.toastIfError(error);
-    errorToastUtils.showToastOfError(error);
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      reason: 'purchaseEligibilityCheckFailed',
+      error,
+    });
+    showPrimeInfiniPaymentErrorToast({
+      error,
+      fallbackMessage: intl.formatMessage({
+        id: ETranslations.prime_payment_start_failed__msg,
+      }),
+    });
     return false;
   }
 }
 
 export function ensurePrimePurchaseEligible({
   expectedOneKeyUserId,
+  intl,
 }: {
   expectedOneKeyUserId: string | undefined;
+  intl: IntlShape;
 }) {
   if (!expectedOneKeyUserId) {
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Please log in to your OneKey ID first.',
+      title: intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      }),
     });
     return Promise.resolve(false);
   }
@@ -62,6 +84,7 @@ export function ensurePrimePurchaseEligible({
   }
   const promise = checkPrimePurchaseEligibility({
     expectedOneKeyUserId,
+    intl,
   }).finally(() => {
     if (eligibilityRequest?.promise === promise) {
       eligibilityRequest = undefined;

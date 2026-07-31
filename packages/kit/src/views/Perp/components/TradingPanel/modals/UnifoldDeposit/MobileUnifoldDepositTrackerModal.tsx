@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   type IPageNavigationProp,
   NavBackButton,
-  NavCloseButton,
   Page,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,19 +44,24 @@ export default function MobileUnifoldDepositTrackerModal() {
   const closeModal = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
-  const renderCloseHeaderLeft = useCallback(
-    () => <NavCloseButton onPress={closeModal} />,
+  const renderBackHeaderLeft = useCallback(
+    () => <NavBackButton onPress={closeModal} />,
     [closeModal],
   );
   const expectedRecipient = route.params?.expectedRecipient;
+  const openedFromTransfer = route.params?.openedFromTransfer === true;
   const handleDepositPress = useCallback(() => {
     if (!expectedRecipient) {
+      return;
+    }
+    if (openedFromTransfer) {
+      navigation.goBack();
       return;
     }
     navigation.replace(EModalPerpRoutes.MobileUnifoldDepositTransfer, {
       expectedRecipient,
     });
-  }, [expectedRecipient, navigation]);
+  }, [expectedRecipient, navigation, openedFromTransfer]);
 
   return (
     <Page safeAreaEnabled>
@@ -68,7 +72,7 @@ export default function MobileUnifoldDepositTrackerModal() {
             : ETranslations.perp_unifold_crypto_deposits__title,
         })}
         headerLeft={
-          detailExecutionId ? renderDetailHeaderLeft : renderCloseHeaderLeft
+          detailExecutionId ? renderDetailHeaderLeft : renderBackHeaderLeft
         }
       />
       <Page.Body

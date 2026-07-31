@@ -21,6 +21,7 @@ const mockGetEndpointInfo = jest.fn<
 const mockAppEventEmit = jest.fn();
 const mockConsoleLog = jest.fn();
 const mockOneKeyIdLogoutLog = jest.fn();
+const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockNotificationStatusSet = jest.fn();
 
 jest.mock('socket.io-client', () => ({
@@ -64,6 +65,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       subscription: {
         onekeyIdLogout: (...args: unknown[]) => {
           mockOneKeyIdLogoutLog(...args);
+        },
+        onekeyIdRemoteLogoutFlow: (...args: unknown[]) => {
+          mockOneKeyIdRemoteLogoutFlowLog(...args);
         },
       },
     },
@@ -214,6 +218,19 @@ describe('PushProviderWebSocket prime device logout', () => {
     expect(fixture.ackNotificationMessage).not.toHaveBeenCalled();
     expect(fixture.executeIdentityExit).not.toHaveBeenCalled();
     expect(mockAppEventEmit).not.toHaveBeenCalled();
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetMessage',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetStaging',
+      status: 'failed',
+      flowId: logoutPayload.msgId,
+      operationId: undefined,
+      reason:
+        'WebSocket: remote OneKey ID logout durable staging failed: Remote logout journal could not be persisted',
+    });
   });
 
   test('ACKs only after durable staging and retains retry when execution rejects', async () => {
@@ -254,6 +271,27 @@ describe('PushProviderWebSocket prime device logout', () => {
       expect.objectContaining({ delivery: 'presentationHandled' }),
     );
     expect(mockAppEventEmit).not.toHaveBeenCalled();
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetStaging',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason: 'acknowledged=false presentationHandled=false',
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetAcknowledgement',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetReconciliation',
+      status: 'failed',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason:
+        'WebSocket: remote OneKey ID logout reconciliation failed: Remote identity reconciliation failed',
+    });
   });
 
   test('continues local reconciliation when the server ACK fails', async () => {
@@ -366,6 +404,24 @@ describe('PushProviderWebSocket prime device logout', () => {
     expect(JSON.stringify(mockConsoleLog.mock.calls)).not.toContain(
       logoutPayload.emails[0],
     );
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetReconciliation',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(mockOneKeyIdRemoteLogoutFlowLog).toHaveBeenCalledWith({
+      stage: 'targetPresentation',
+      status: 'succeeded',
+      flowId: logoutPayload.msgId,
+      operationId: 'remoteDeviceLogout:logout-message-1',
+      reason: 'PrimeDeviceLogout event emitted',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdRemoteLogoutFlowLog.mock.calls),
+    ).not.toContain(logoutPayload.emails[0]);
   });
 
   test('retries a durable remote logout when the socket connects again', async () => {

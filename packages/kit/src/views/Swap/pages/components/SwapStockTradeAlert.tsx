@@ -266,6 +266,7 @@ function BasicSwapStockTradeAlert({
     );
     const statusCase = resolveStockMarketStatusCase({
       isOpen: false,
+      isPaused: stockChannel.activeStockTokenDetail?.stock?.isPaused,
       hasOpenTime: Boolean(closedTimeText),
       hasPerps,
     });
