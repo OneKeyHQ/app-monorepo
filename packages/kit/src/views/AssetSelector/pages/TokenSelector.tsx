@@ -18,6 +18,7 @@ import {
   fetchFilteredTokenSelectorTokens,
   fetchTokenSelectorAccountTokens,
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
+  resolveIsSelectorAllNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
@@ -393,7 +394,14 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  // Derive all-networks mode synchronously from the networkId: `network` loads
+  // async, and falling back to `network?.isAllNetworks` let the mount-frame
+  // self-fetch run in single-network mode and POST the all-network mock id to
+  // the wallet API (entries like Receive don't pass the route param).
+  const isSelectorAllNetworks = resolveIsSelectorAllNetworks({
+    isAllNetworks,
+    networkId,
+  });
   const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
