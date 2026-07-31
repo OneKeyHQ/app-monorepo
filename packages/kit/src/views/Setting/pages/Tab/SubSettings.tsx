@@ -9,6 +9,10 @@ import { SubSettingsPage } from './SubSettingsPage';
 
 import type { RouteProp } from '@react-navigation/native';
 
+function TabPaneSubSettingsPage({ route }: { route: RouteProp<any, any> }) {
+  return <SubSettingsPage route={route} insideTabNavigator />;
+}
+
 function BasicSubSettings({ route }: { route: RouteProp<any, any> }) {
   const { name } = route;
   return (
@@ -16,7 +20,7 @@ function BasicSubSettings({ route }: { route: RouteProp<any, any> }) {
       config={[
         {
           name,
-          component: SubSettingsPage,
+          component: TabPaneSubSettingsPage,
         },
         ...(BasicSubSettingsModalStack as unknown as ITabSubNavigatorConfig<
           any,

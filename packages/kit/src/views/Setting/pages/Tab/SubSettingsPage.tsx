@@ -25,11 +25,18 @@ export function SubSettingsPage({
   name: nameFromProps,
   title: titleFromProps,
   settingsConfig: settingsConfigFromProps,
+  insideTabNavigator = false,
   route,
 }: {
-  name: ISettingName;
-  title: string;
-  settingsConfig: ISettingsConfig;
+  name?: ISettingName;
+  title?: string;
+  settingsConfig?: ISettingsConfig;
+  /**
+   * True only when rendered as a settings tab pane. Standalone hosts (pushed
+   * SettingListSubModal pages) have no sidebar, so items promoted to sidebar
+   * tabs must stay visible there even on wide viewports.
+   */
+  insideTabNavigator?: boolean;
 } & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
   const name = useMemo(() => {
@@ -38,7 +45,7 @@ export function SubSettingsPage({
   const settingsConfig = useMemo(() => {
     return context.settingsConfig.length
       ? context.settingsConfig
-      : settingsConfigFromProps;
+      : (settingsConfigFromProps ?? []);
   }, [context.settingsConfig, settingsConfigFromProps]);
   const isTabNavigator = useIsTabNavigator();
   const isMobileLayout = Boolean(platformEnv.isNative && !isTabNavigator);
@@ -70,11 +77,11 @@ export function SubSettingsPage({
               return false;
             }
             if (
-              isTabNavigator &&
+              insideTabNavigator &&
               item.desktopTab &&
               registeredTabNames.has(item.desktopTab)
             ) {
-              // The item is promoted to its own sidebar tab on this layout.
+              // The item is promoted to its own sidebar tab in this host.
               return false;
             }
             if (!isMobileLayout) {
@@ -85,7 +92,7 @@ export function SubSettingsPage({
         )
         .filter((items) => items.length > 0) || []
     );
-  }, [config?.configs, isMobileLayout, isTabNavigator, registeredTabNames]);
+  }, [config?.configs, insideTabNavigator, isMobileLayout, registeredTabNames]);
   const isMobileAboutPage =
     isMobileLayout && config?.name === ESettingsTabNames.About;
 
