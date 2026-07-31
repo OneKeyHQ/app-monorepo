@@ -26,6 +26,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   MobileTabSettingsDivider,
   MobileTabSettingsSection,
+  TabSettingsInsetDivider,
   TabSettingsListGrid,
   TabSettingsSection,
 } from './ListItem';
@@ -156,14 +157,19 @@ export function SearchView({
                 gap="$2.5"
               >
                 <TabSettingsSection>
-                  {section.configs.map((config) => (
-                    <TabSettingsListGrid
-                      key={config.item.title}
-                      item={config.item}
-                      titleMatch={config.matches?.find(
-                        (m) => m.key === 'title',
-                      )}
-                    />
+                  {section.configs.map((config, index) => (
+                    <Fragment key={`${config.item.title}-${index}`}>
+                      <TabSettingsListGrid
+                        item={config.item}
+                        titleMatch={config.matches?.find(
+                          (m) => m.key === 'title',
+                        )}
+                      />
+                      {index !== section.configs.length - 1 ? (
+                        // Desktop rows use $5 leading icons.
+                        <TabSettingsInsetDivider iconWidth="$5" />
+                      ) : null}
+                    </Fragment>
                   ))}
                 </TabSettingsSection>
               </Accordion.Content>
