@@ -13,6 +13,7 @@ import type {
   IDesktopStoreNetworkThrottleProfile,
 } from '@onekeyhq/shared/types/desktop';
 
+import { buildDesktopRemoteOnlyNetworkConditionRules } from './desktopNetworkThrottlePolicy';
 import * as store from './store';
 
 const DESKTOP_WEBVIEW_PARTITION = 'persist:onekey';
@@ -55,6 +56,10 @@ type IApplyDesktopNetworkThrottleOptions = {
   throwOnFailure?: boolean;
 };
 
+type IApplyDesktopNetworkThrottleToWebContentsOptions = {
+  remoteOnly?: boolean;
+};
+
 const DESKTOP_NETWORK_THROTTLE_PROFILES: Record<
   IDesktopStoreNetworkThrottleProfile,
   IDesktopNetworkThrottleProfileConfig
@@ -74,6 +79,7 @@ const DEFAULT_NETWORK_THROTTLE_CONFIG: IDesktopStoreNetworkThrottle = {
 
 const appliedStateBySession = new WeakMap<Session, string>();
 const appliedStateByWebContentsDebugger = new WeakMap<WebContents, string>();
+const remoteOnlyNetworkThrottleSessions = new WeakSet<Session>();
 const webContentsDebuggersAttachedByNetworkThrottle =
   new WeakSet<WebContents>();
 const webContentsDebuggersDetachingByNetworkThrottle =
@@ -166,6 +172,14 @@ function getSessionStateKey(config: IDesktopStoreNetworkThrottle): string {
   return config.enabled ? config.profile : 'disabled';
 }
 
+function getWebContentsStateKey(
+  config: IDesktopStoreNetworkThrottle,
+  remoteOnly: boolean,
+): string {
+  const stateKey = getSessionStateKey(config);
+  return config.enabled && remoteOnly ? `${stateKey}:remote-only` : stateKey;
+}
+
 function getSessionAppliedLogMessage(
   config: IDesktopStoreNetworkThrottle,
   label: string,
@@ -186,6 +200,7 @@ function getSessionAppliedLogMessage(
 function getWebContentsAppliedLogMessage(
   config: IDesktopStoreNetworkThrottle,
   label: string,
+  remoteOnly: boolean,
 ): string {
   if (!config.enabled) {
     return `[desktop-network-throttle] debugger applied state=disabled webContents=${label}`;
@@ -194,6 +209,7 @@ function getWebContentsAppliedLogMessage(
   const profile = DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
   return (
     `[desktop-network-throttle] debugger applied state=${config.profile} ` +
+    `scope=${remoteOnly ? 'remote-only' : 'all'} ` +
     `webContents=${label} latencyMs=${profile.latency} ` +
     `downloadBps=${profile.downloadThroughput} ` +
     `uploadBps=${profile.uploadThroughput}`
@@ -211,6 +227,15 @@ function getDebuggerNetworkConditions(config: IDesktopStoreNetworkThrottle) {
   }
 
   return DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
+}
+
+function getSessionNetworkThrottleConfig(
+  targetSession: Session,
+  config: IDesktopStoreNetworkThrottle,
+): IDesktopStoreNetworkThrottle {
+  return remoteOnlyNetworkThrottleSessions.has(targetSession)
+    ? DEFAULT_NETWORK_THROTTLE_CONFIG
+    : config;
 }
 
 function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
@@ -375,7 +400,8 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     return;
   }
 
-  const stateKey = getSessionStateKey(config);
+  const remoteOnly = remoteOnlyNetworkThrottleSessions.has(contents.session);
+  const stateKey = getWebContentsStateKey(config, remoteOnly);
   const previousStateKey = appliedStateByWebContentsDebugger.get(contents);
   if (!config.enabled && !previousStateKey) {
     return;
@@ -412,14 +438,39 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
     }
 
     await targetDebugger.sendCommand('Network.enable');
-    await targetDebugger.sendCommand(
-      'Network.emulateNetworkConditions',
-      getDebuggerNetworkConditions(config),
-    );
+    if (config.enabled && remoteOnly) {
+      await targetDebugger.sendCommand(
+        'Network.emulateNetworkConditions',
+        getDebuggerNetworkConditions(DEFAULT_NETWORK_THROTTLE_CONFIG),
+      );
+      await targetDebugger.sendCommand(
+        'Network.emulateNetworkConditionsByRule',
+        {
+          offline: false,
+          matchedNetworkConditions: buildDesktopRemoteOnlyNetworkConditionRules(
+            DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile],
+          ),
+        },
+      );
+    } else {
+      await targetDebugger.sendCommand(
+        'Network.emulateNetworkConditionsByRule',
+        {
+          offline: false,
+          matchedNetworkConditions: [],
+        },
+      );
+      await targetDebugger.sendCommand(
+        'Network.emulateNetworkConditions',
+        getDebuggerNetworkConditions(config),
+      );
+    }
     clearDesktopNetworkThrottleDebuggerReapply(contents);
     appliedStateByWebContentsDebugger.set(contents, stateKey);
     if (config.enabled || previousStateKey) {
-      logger.info(getWebContentsAppliedLogMessage(config, targetLabel));
+      logger.info(
+        getWebContentsAppliedLogMessage(config, targetLabel, remoteOnly),
+      );
     }
 
     if (
@@ -513,7 +564,7 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
     const appliedSession = applyDesktopNetworkThrottleToSession(
       entry.targetSession,
       entry.label,
-      config,
+      getSessionNetworkThrottleConfig(entry.targetSession, config),
       options?.throwOnFailure,
     );
     if (options?.closeConnections && appliedSession) {
@@ -537,15 +588,19 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
 
 export function applyDesktopNetworkThrottleToWebContents(
   contents: WebContents,
+  options?: IApplyDesktopNetworkThrottleToWebContentsOptions,
 ): void {
   if (contents.isDestroyed()) {
     return;
+  }
+  if (options?.remoteOnly) {
+    remoteOnlyNetworkThrottleSessions.add(contents.session);
   }
   const config = getRuntimeNetworkThrottleConfig();
   applyDesktopNetworkThrottleToSession(
     contents.session,
     `webContents:${contents.id}:${contents.getType()}`,
-    config,
+    getSessionNetworkThrottleConfig(contents.session, config),
   );
   void applyDesktopNetworkThrottleToWebContentsDebugger({
     label: 'webContents',
