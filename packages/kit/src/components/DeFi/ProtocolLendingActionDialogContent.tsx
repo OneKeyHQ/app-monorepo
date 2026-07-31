@@ -25,7 +25,10 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { shouldUseAaveNativeGateway } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import {
+  buildAaveNativeGatewayReceiveToken,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useBorrowApproval } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproval';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import { isSamePositiveAmount } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
@@ -1426,6 +1429,13 @@ function ProtocolLendingActionBorrowContent({
         });
         return;
       }
+      const receiveToken = shouldUnwrapNativeAaveReserve
+        ? buildAaveNativeGatewayReceiveToken({
+            token: effectiveToken,
+            nativeToken: tokenInfo?.nativeToken?.info,
+            networkId,
+          })
+        : effectiveToken;
       await handleBorrowWithdraw({
         amount,
         provider,
@@ -1438,7 +1448,7 @@ function ProtocolLendingActionBorrowContent({
               label: EEarnLabels.Withdraw,
               protocol: protocolLabel,
               protocolLogoURI,
-              receive: { token: effectiveToken, amount },
+              receive: { token: receiveToken ?? effectiveToken, amount },
               tags,
             }
           : undefined,
@@ -1497,6 +1507,7 @@ function ProtocolLendingActionBorrowContent({
     shouldUnwrapNativeAaveReserve,
     source,
     startSubmitGuard,
+    tokenInfo?.nativeToken?.info,
   ]);
 
   // Shared Borrow approval engine (same as the manage page): brings full-close

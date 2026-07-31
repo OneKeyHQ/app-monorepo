@@ -9,11 +9,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import {
-  buildBorrowTag,
-  isBorrowTag,
-  parseBorrowTag,
-} from '../../Staking/utils/utils';
+import { buildBorrowTag } from '../../Staking/utils/utils';
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
@@ -21,6 +17,7 @@ import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
+import { getPendingBorrowClaimIds } from './BorrowRewardsMetric.utils';
 import { OverviewMetric } from './OverviewMetric';
 
 import type { IOverviewMetricProps } from './OverviewMetric';
@@ -50,22 +47,18 @@ export function BorrowRewardsMetric({
   const marketAddress = market?.marketAddress;
   const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
 
-  const pendingClaimIds = useMemo(
-    () =>
-      pendingTxs
-        .filter((tx) => tx.stakingInfo.label === EEarnLabels.Claim)
-        .flatMap((tx) => {
-          const tags = tx.stakingInfo.tags ?? [];
-          return tags.flatMap((tag) => {
-            if (isBorrowTag(tag)) {
-              const parsed = parseBorrowTag(tag);
-              return parsed?.claimIds ?? [];
-            }
-            return [];
-          });
-        }),
-    [pendingTxs],
-  );
+  const pendingClaimIds = useMemo<string[]>(() => {
+    if (!earnAccountId || !networkId || !provider || !marketAddress) {
+      return [];
+    }
+    return getPendingBorrowClaimIds({
+      pendingTxs,
+      accountId: earnAccountId,
+      networkId,
+      provider,
+      marketAddress,
+    });
+  }, [earnAccountId, marketAddress, networkId, pendingTxs, provider]);
 
   const handleBorrowClaim = useUniversalBorrowClaim({
     networkId: networkId ?? '',
@@ -100,7 +93,15 @@ export function BorrowRewardsMetric({
       protocolLogoURI: market?.logoURI,
       tags: [
         EEarnLabels.Borrow,
-        buildBorrowTag({ provider, action: 'claim', claimIds }),
+        buildBorrowTag({
+          provider,
+          action: 'claim',
+          claimIds,
+          claimScope: {
+            networkId,
+            marketAddress,
+          },
+        }),
       ],
     });
 

@@ -981,6 +981,10 @@ export function useBorrowApproval({
     if (!isCurrentApprovalRequest(request)) {
       return false;
     }
+    if (shouldApprove) {
+      await onApprove();
+      return false;
+    }
     try {
       if (approvalEnabled) {
         const approveAllowance = await fetchTokenAllowanceParsed();
@@ -1050,6 +1054,7 @@ export function useBorrowApproval({
     isCurrentApprovalRequest,
     onApprove,
     requiresMaxApproval,
+    shouldApprove,
     showApprovalError,
   ]);
 

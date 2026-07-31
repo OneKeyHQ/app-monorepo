@@ -1,8 +1,10 @@
 import BigNumber from 'bignumber.js';
 
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
 
 const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
+const BORROW_CLAIM_SCOPE_VERSION = 'v1';
 
 function isNativeEarnEthSymbol(symbol?: string) {
   return symbol?.toUpperCase() === 'ETH';
@@ -24,7 +26,8 @@ export const buildLocalTxStatusSyncId = ({
   return baseTag;
 };
 
-// Borrow tag format: borrow:{provider}:{action}[:claimIds]
+// Borrow tag format:
+// borrow:{provider}:{action}[:claimIds[:v1:{networkId}:{marketAddress}]]
 export type IBorrowAction =
   | 'supply'
   | 'borrow'
@@ -34,21 +37,55 @@ export type IBorrowAction =
   | 'setEMode'
   | 'setCollateral';
 
+export type IBorrowClaimScope = {
+  networkId: string;
+  marketAddress: string;
+};
+
+export function normalizeBorrowMarketAddress({
+  networkId,
+  marketAddress,
+}: IBorrowClaimScope): string {
+  return networkUtils.isEvmNetwork({ networkId })
+    ? marketAddress.toLowerCase()
+    : marketAddress;
+}
+
 export const buildBorrowTag = ({
   provider,
   action,
   claimIds,
+  claimScope,
 }: {
   provider: string;
   action: IBorrowAction;
   claimIds?: string[];
+  claimScope?: IBorrowClaimScope;
 }): string => {
   const base = `borrow:${provider.toLowerCase()}:${action}`;
   if (action === 'claim' && claimIds?.length) {
-    return `${base}:${[...claimIds].toSorted().join(',')}`;
+    const claimTag = `${base}:${[...claimIds].toSorted().join(',')}`;
+    if (claimScope) {
+      const marketAddress = normalizeBorrowMarketAddress(claimScope);
+      return `${claimTag}:${BORROW_CLAIM_SCOPE_VERSION}:${encodeURIComponent(
+        claimScope.networkId,
+      )}:${encodeURIComponent(marketAddress)}`;
+    }
+    return claimTag;
   }
   return base;
 };
+
+function decodeBorrowTagPart(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
 
 export const parseBorrowTag = (
   tag: string,
@@ -56,14 +93,34 @@ export const parseBorrowTag = (
   provider: string;
   action: IBorrowAction;
   claimIds?: string[];
+  claimScope?: IBorrowClaimScope;
 } | null => {
   if (!tag.startsWith('borrow:')) return null;
   const parts = tag.split(':');
   if (parts.length < 3) return null;
+  const scopeNetworkId =
+    parts[4] === BORROW_CLAIM_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[5])
+      : undefined;
+  const scopeMarketAddress =
+    parts[4] === BORROW_CLAIM_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[6])
+      : undefined;
+  const claimScope =
+    scopeNetworkId && scopeMarketAddress
+      ? {
+          networkId: scopeNetworkId,
+          marketAddress: normalizeBorrowMarketAddress({
+            networkId: scopeNetworkId,
+            marketAddress: scopeMarketAddress,
+          }),
+        }
+      : undefined;
   return {
     provider: parts[1],
     action: parts[2] as IBorrowAction,
     claimIds: parts[3]?.split(','),
+    ...(claimScope ? { claimScope } : {}),
   };
 };
 

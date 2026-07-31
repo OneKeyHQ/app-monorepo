@@ -71,21 +71,26 @@ jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => {
 
 jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks', () => {
   const fetchAllowanceResponse = jest.fn();
+  const mockBag: {
+    allowance?: string;
+    fetchAllowanceResponse: jest.Mock;
+  } = {
+    fetchAllowanceResponse,
+  };
 
   (
     globalThis as unknown as {
       __borrowApprovalAllowanceMock: {
+        allowance?: string;
         fetchAllowanceResponse: jest.Mock;
       };
     }
-  ).__borrowApprovalAllowanceMock = {
-    fetchAllowanceResponse,
-  };
+  ).__borrowApprovalAllowanceMock = mockBag;
 
   return {
     __esModule: true,
-    useTrackTokenAllowance: () => ({
-      allowance: '0',
+    useTrackTokenAllowance: ({ initialValue }: { initialValue: string }) => ({
+      allowance: mockBag.allowance ?? initialValue,
       loading: false,
       trackAllowance: jest.fn(),
       fetchAllowanceResponse,
@@ -156,6 +161,7 @@ const backgroundMock = (
 const allowanceMock = (
   globalThis as unknown as {
     __borrowApprovalAllowanceMock: {
+      allowance?: string;
       fetchAllowanceResponse: jest.Mock;
     };
   }
@@ -214,6 +220,7 @@ describe('useBorrowApproval', () => {
     (Dialog.show as jest.Mock).mockReset();
     (Toast.error as jest.Mock).mockReset();
     (Toast.warning as jest.Mock).mockReset();
+    allowanceMock.allowance = undefined;
     allowanceMock.fetchAllowanceResponse.mockReset();
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
       allowanceParsed: '0',
@@ -316,7 +323,10 @@ describe('useBorrowApproval', () => {
       { initialProps: { amountValue: '5' } },
     );
 
-    const readyPromise = result.current.ensureReadyToSubmit();
+    let readyPromise!: Promise<boolean>;
+    act(() => {
+      readyPromise = result.current.ensureReadyToSubmit();
+    });
     rerender({ amountValue: '6' });
     await act(async () => {
       allowanceDeferred.resolve({ allowanceParsed: '100' });
@@ -359,6 +369,82 @@ describe('useBorrowApproval', () => {
     });
 
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens approval from cached insufficient allowance when the fresh check fails', async () => {
+    allowanceMock.fetchAllowanceResponse.mockRejectedValue(
+      new Error('Allowance unavailable'),
+    );
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        currentAllowance: '0',
+        onApprovedSubmit,
+      }),
+    );
+
+    expect(result.current.shouldApprove).toBe(true);
+
+    let readyToSubmit = true;
+    await act(async () => {
+      readyToSubmit = await result.current.ensureReadyToSubmit();
+    });
+
+    expect(readyToSubmit).toBe(false);
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    expect(backgroundMock.serviceAccount.getAccount).toHaveBeenCalledWith({
+      accountId: tokenApproveTarget.accountId,
+      networkId: tokenApproveTarget.networkId,
+    });
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvesInfo: [
+          expect.objectContaining({
+            amount: '5',
+            owner: '0xOwner',
+            spender: tokenApproveTarget.spenderAddress,
+          }),
+        ],
+      }),
+    );
+    expect(Toast.error).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('does not submit from cached sufficient allowance when the fresh check fails', async () => {
+    allowanceMock.fetchAllowanceResponse.mockRejectedValue(
+      new Error('Allowance unavailable'),
+    );
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        currentAllowance: '10',
+        onApprovedSubmit,
+      }),
+    );
+
+    expect(result.current.shouldApprove).toBe(false);
+
+    let readyToSubmit = true;
+    await act(async () => {
+      readyToSubmit = await result.current.ensureReadyToSubmit();
+    });
+
+    expect(readyToSubmit).toBe(false);
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'Allowance unavailable',
+    });
   });
 
   it('warns and releases approving when allowance polling times out', async () => {

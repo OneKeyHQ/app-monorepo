@@ -1,7 +1,9 @@
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   appendBorrowRepaySetupState,
+  buildAaveNativeGatewayReceiveToken,
   buildBorrowRepayPositionKey,
   buildBorrowRepayWithCollateralConfirmationParams,
   getBorrowBalanceAmount,
@@ -45,6 +47,41 @@ describe('borrowRepayPosition utils', () => {
       ).toBe(false);
     },
   );
+
+  it('uses native token metadata for an Aave gateway withdrawal', () => {
+    const wrappedToken = {
+      address: '0xWrappedToken',
+      decimals: 18,
+      isNative: false,
+      name: 'Wrapped Ether',
+      networkId: 'evm--8453',
+      symbol: 'WETH',
+    } as IToken;
+    const nativeToken = {
+      address: '',
+      decimals: 18,
+      isNative: true,
+      logoURI: 'https://example.com/eth.png',
+      name: 'Ether',
+      networkId: 'evm--8453',
+      symbol: 'ETH',
+    } as IToken;
+
+    expect(
+      buildAaveNativeGatewayReceiveToken({
+        token: wrappedToken,
+        nativeToken,
+        networkId: 'evm--8453',
+      }),
+    ).toEqual({
+      ...nativeToken,
+      address: '',
+      isNative: true,
+      networkId: 'evm--8453',
+      name: 'Ether',
+      symbol: 'ETH',
+    });
+  });
 
   it('keeps non-gateway networks and non-native reserves off the gateway path', () => {
     // A network without backend gateway coverage stays filtered out.

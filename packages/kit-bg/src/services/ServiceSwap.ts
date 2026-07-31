@@ -2020,9 +2020,12 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(
-      enrichedItem,
-    );
+    const isPending = this.isSwapHistoryPendingStatus(enrichedItem);
+    const persistHistoryItem = () =>
+      this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(enrichedItem);
+    if (!isPending) {
+      await persistHistoryItem();
+    }
     await inAppNotificationAtom.set((pre) => {
       const filteredList = filterSwapHistoryPendingList(
         pre.swapHistoryPendingList,
@@ -2030,7 +2033,7 @@ export default class ServiceSwap extends ServiceBase {
       const matchFn = (i: ISwapTxHistory) =>
         this.isSameSwapHistoryItem(i, enrichedItem);
       const unmatchedList = filteredList.filter((i) => !matchFn(i));
-      if (this.isSwapHistoryPendingStatus(enrichedItem)) {
+      if (isPending) {
         return {
           ...pre,
           swapHistoryPendingList: [...unmatchedList, enrichedItem],
@@ -2052,10 +2055,20 @@ export default class ServiceSwap extends ServiceBase {
       }
       return pre;
     });
-    if (
-      isPrivateSendSwapHistoryItem(enrichedItem) &&
-      !this.isSwapHistoryPendingStatus(enrichedItem)
-    ) {
+    if (isPending) {
+      try {
+        await persistHistoryItem();
+      } catch (error) {
+        // The in-memory pending identity is authoritative for the current
+        // runtime when durable history storage is temporarily unavailable.
+        defaultLogger.app.error.log(
+          `Persist swap history error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
   }
