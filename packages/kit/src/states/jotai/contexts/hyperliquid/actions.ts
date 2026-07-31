@@ -45,6 +45,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   SCALE_ORDER_MIN_NOTIONAL,
@@ -122,7 +123,11 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
-import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
+import {
+  captureSubscriptionRecoveryProof,
+  publishLatestOrderBookOptions,
+  shouldSyncSubscriptionsAfterInstrumentChange,
+} from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
@@ -140,6 +145,10 @@ import type {
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
+import type {
+  ISubscriptionRecoveryProof,
+  ISubscriptionRecoveryProofSource,
+} from './utils/instrumentSwitch';
 
 type IChStateLite = {
   assetPositions?: HL.IPerpsAssetPosition[];
@@ -503,36 +512,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return this.isLatestActiveInstrumentChange(requestId);
   }
 
-  private shouldSyncSubscriptionsAfterInstrumentChange(
-    viewState: ITradeRouteViewState,
-  ): boolean {
-    return (
-      viewState.routeFocused ||
-      viewState.tokenSelectorOpen ||
-      viewState.favoritesBarSpotActive
-    );
-  }
-
   private async syncSubscriptionsAfterInstrumentChange(params: {
     instrument: IActiveTradeInstrument;
     orderBookTickOptions: Record<string, IPerpOrderBookTickOptionPersist>;
     requestId: number;
     viewState: ITradeRouteViewState;
+    subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
   }): Promise<void> {
     if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
-    }
-    // Captured before the publish awaits: any disable (blur, lock) landing
-    // after this bumps the count and outranks the liveness proof carried by
-    // params.viewState. Callers fire-and-forget this method, so a bridge
-    // failure must not escape; without a trustworthy epoch the re-enable is
-    // simply skipped — pre-fix behavior, recovered by the next focus event.
-    let disabledCountAtProof: number | undefined;
-    try {
-      disabledCountAtProof =
-        await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
-    } catch {
-      // keep the epoch undefined; the enable below stays skipped
     }
 
     // Unconditional: the BG reconcile aborts every channel while this atom
@@ -560,26 +548,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // Best-effort saving only: extension and native reconcile off the atom
     // watcher regardless. Desktop and web have no watcher, so this is their
     // only gate.
-    if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
+    if (
+      !shouldSyncSubscriptionsAfterInstrumentChange({
+        viewState: params.viewState,
+        recoveryProof: params.subscriptionRecoveryProof,
+      })
+    ) {
       return;
     }
 
     try {
-      // A disabled handler here can only be a stale blur verdict — without
-      // the re-enable the reconcile below is silently skipped and the book
-      // starves until the next focus event. Only route focus and an open
-      // token selector prove the UI is on screen: the web favorites bar
-      // keeps its flag true while unfocused, so it gates the reconcile but
-      // must not clear a blur/lock disable. Lock is checked explicitly (the
-      // navigation tree is retained under the lock screen).
-      if (
-        disabledCountAtProof !== undefined &&
-        (params.viewState.routeFocused || params.viewState.tokenSelectorOpen) &&
-        !(await appIsLocked.get())
-      ) {
-        await backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler(
-          { ifDisabledCountAtMost: disabledCountAtProof },
+      if (params.subscriptionRecoveryProof) {
+        await backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+          {
+            disabledCount: params.subscriptionRecoveryProof.disabledCount,
+          },
         );
+        return;
       }
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
@@ -1587,7 +1572,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin,
         force,
         requestId: existingRequestId,
-      }: { coin: string; force?: boolean; requestId?: number },
+        subscriptionRecoveryProof,
+      }: {
+        coin: string;
+        force?: boolean;
+        requestId?: number;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+      },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
       const optimisticInstrument: IActiveTradeInstrument = {
@@ -1712,6 +1703,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
+        subscriptionRecoveryProof,
       });
       hydrateL2BookFromSwr(nextInstrument.coin);
       return true;
@@ -1727,11 +1719,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse,
         force,
         requestId: existingRequestId,
+        subscriptionRecoveryProof,
       }: {
         coin: string;
         spotUniverse: ISpotUniverse | undefined;
         force?: boolean;
         requestId?: number;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
@@ -1800,6 +1794,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
+        subscriptionRecoveryProof,
       });
       await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
@@ -1880,6 +1875,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         force?: boolean;
         spotUniverse?: ISpotUniverse;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
       markPerpsColdStartPerf('action_switch_trade_instrument_start', {
@@ -1903,6 +1899,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           spotUniverse,
           force: params.force,
           requestId,
+          subscriptionRecoveryProof: params.subscriptionRecoveryProof,
         });
         markPerpsColdStartPerf('action_switch_trade_instrument_end', {
           mode: params.mode,
@@ -1916,6 +1913,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: params.coin,
         force: params.force,
         requestId,
+        subscriptionRecoveryProof: params.subscriptionRecoveryProof,
       });
       markPerpsColdStartPerf('action_switch_trade_instrument_end', {
         mode: params.mode,
@@ -1924,6 +1922,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
       return result;
     },
+  );
+
+  captureInstrumentSwitchSubscriptionProof = contextAtomMethod(
+    (
+      get,
+      _set,
+      params: {
+        source: Extract<
+          ISubscriptionRecoveryProofSource,
+          'route-focused' | 'token-selector'
+        >;
+      },
+    ) =>
+      captureSubscriptionRecoveryProof({
+        source: params.source,
+        isSourceLive: () => {
+          const state = get(tradeRouteViewStateAtom());
+          return params.source === 'token-selector'
+            ? state.tokenSelectorOpen
+            : state.routeFocused;
+        },
+        isAppVisible: getCurrentVisibilityState,
+        isAppLocked: () => appIsLocked.get(),
+        readDisabledCount: () =>
+          backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+      }),
   );
 
   setTradeRouteViewState = contextAtomMethod(
@@ -3732,6 +3756,8 @@ export function useHyperliquidActions() {
   const changeActiveAsset = actions.changeActiveAsset.use();
   const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
   const switchTradeInstrument = actions.switchTradeInstrument.use();
+  const captureInstrumentSwitchSubscriptionProof =
+    actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
@@ -3806,6 +3832,7 @@ export function useHyperliquidActions() {
     getTokenSzDecimals,
     getMidPrice,
     switchTradeInstrument,
+    captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
     updateTwapStates,
     updateTwapHistory,

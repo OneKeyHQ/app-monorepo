@@ -1113,6 +1113,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async recoverSubscriptionsAfterLivenessProof(params: {
+    disabledCount: number;
+  }): Promise<boolean> {
+    if (this.subscriptionsHandlerDisabledCount > params.disabledCount) {
+      return false;
+    }
+    await this.enableSubscriptionsHandler({
+      ifDisabledCountAtMost: params.disabledCount,
+    });
+    if (this.subscriptionsHandlerDisabled) {
+      return false;
+    }
+    await this.updateSubscriptions();
+    return true;
+  }
+
+  @backgroundMethod()
   async enableLedgerUpdatesSubscription(): Promise<void> {
     this._currentState.enableLedgerUpdates = true;
     await this.updateSubscriptions();

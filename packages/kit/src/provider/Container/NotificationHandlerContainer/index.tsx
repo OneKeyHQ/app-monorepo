@@ -18,12 +18,14 @@ import {
   ETabRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   type INotificationPageNavigationEvent,
   navigateToNotificationDetailByLocalParams,
   registerNotificationPageNavigationProcessor,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationViewDialogActionType,
@@ -44,6 +46,7 @@ import {
   NotificationHandlerDiscoveryProvider,
   useNotificationDappNavigation,
 } from './NotificationDappNavigation';
+import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -180,15 +183,30 @@ function BaseNotificationHandlerContainer() {
         }
       }
 
-      navigateToNotificationDetailByLocalParams({
-        payload: payloadObj,
-        localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
-      }).catch((error) => {
+      try {
+        await navigateToNotificationDetailByLocalParams({
+          payload: payloadObj,
+          localParams,
+          getEarnAccount: (props) =>
+            backgroundApiProxy.serviceStaking.getEarnAccount(props),
+        });
+        await timerUtils.wait(0);
+        if (isPerpNavigation) {
+          await recoverPerpsSubscriptionsAfterNavigation({
+            isAppVisible: getCurrentVisibilityState,
+            isAppLocked: () => appIsLocked.get(),
+            readDisabledCount: () =>
+              backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
+        }
+      } catch (error) {
         console.error(error);
         showFallbackUpdateDialog(null);
-      });
+      }
     };
     const handleShowNotificationInWebViewOverlay = (
       params: IWebViewPageParams,
