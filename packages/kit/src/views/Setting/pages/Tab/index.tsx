@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -22,7 +22,7 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
@@ -130,6 +130,17 @@ function TabItemView({
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
   const { onSearch, onFocus, previousTabRoute } = useSearch();
+  const activeRouteName = routes[state.index]?.name as
+    | ESettingsTabNames
+    | undefined;
+  // Track the search-restore target from the navigator state so every
+  // selection mechanism (sidebar press, promoted-item redirect, universal
+  // search deep link, initial route) is covered by one write.
+  useEffect(() => {
+    if (activeRouteName && activeRouteName !== ESettingsTabNames.Search) {
+      previousTabRoute.current = activeRouteName;
+    }
+  }, [activeRouteName, previousTabRoute]);
   const tabs = useMemo(() => {
     const routeEntries = new Map(
       routes.map((route, index) => [route.name, { route, index }] as const),
@@ -158,7 +169,6 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
               target: route.key,
               canPreventDefault: true,
             });
-            previousTabRoute.current = route.name as ESettingsTabNames;
             if (!focus && !event.defaultPrevented) {
               navigation.dispatch({
                 ...CommonActions.navigate({
@@ -181,14 +191,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
         })}
       </YStack>
     ));
-  }, [
-    routes,
-    state.index,
-    state.key,
-    descriptors,
-    navigation,
-    previousTabRoute,
-  ]);
+  }, [routes, state.index, state.key, descriptors, navigation]);
 
   const { top, bottom } = useSafeAreaInsets();
   return (

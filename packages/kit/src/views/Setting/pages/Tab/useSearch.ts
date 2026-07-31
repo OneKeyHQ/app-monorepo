@@ -2,19 +2,16 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
-import { rootNavigationRef } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalSettingRoutes,
-  ESettingsTabNames,
-} from '@onekeyhq/shared/src/routes';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 
 import { getMobileSettingsPresentation, useSettingsConfig } from './config';
+import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
 import { getDefaultSettingsTab } from './settingsRootLayout';
 import {
   SETTINGS_SEARCH_KEYS,
@@ -69,12 +66,7 @@ export const useSearch = () => {
   );
   const onFocus = useCallback(() => {
     if (isTabNavigator && searchTextRef.current.length > 0) {
-      rootNavigationRef.current?.navigate(
-        EModalSettingRoutes.SettingListModal,
-        {
-          screen: ESettingsTabNames.Search,
-        },
-      );
+      navigateToSettingsTabInModal(ESettingsTabNames.Search);
     }
   }, [isTabNavigator]);
   const onSearch = useCallback(
@@ -96,12 +88,8 @@ export const useSearch = () => {
         )
           ? previousTabRoute.current
           : getDefaultSettingsTab(settingsConfig);
-        rootNavigationRef.current?.navigate(
-          EModalSettingRoutes.SettingListModal,
-          {
-            screen:
-              searchText.length === 0 ? restoreTab : ESettingsTabNames.Search,
-          },
+        navigateToSettingsTabInModal(
+          searchText.length === 0 ? restoreTab : ESettingsTabNames.Search,
         );
         appEventBus.emitToSelf({
           type: EAppEventBusNames.SettingsSearchResult,
