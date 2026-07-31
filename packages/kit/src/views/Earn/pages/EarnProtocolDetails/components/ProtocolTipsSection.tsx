@@ -3,13 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  Button,
-  Dialog,
-  Divider,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Dialog, Divider, SizableText, YStack } from '@onekeyhq/components';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
@@ -32,6 +26,10 @@ function ProtocolTipRow({ tip }: { tip: IProtocolTipItem }) {
   );
 }
 
+// FIXME: Replace with product-approved i18n key once available (设计稿文案
+// "Protocol tips"，figma 24951-53676)。
+const PROTOCOL_TIPS_HEADER = 'Protocol tips';
+
 export function ProtocolTipsSection({
   protocolTips,
 }: {
@@ -48,7 +46,7 @@ export function ProtocolTipsSection({
 
   const handleViewAll = useCallback(() => {
     Dialog.show({
-      title: tips[0] ? pickInlineTip(tips).title.text : '',
+      title: PROTOCOL_TIPS_HEADER,
       showFooter: false,
       renderContent: (
         <YStack gap="$4" pb="$2">
@@ -70,34 +68,50 @@ export function ProtocolTipsSection({
   const inlineTip = pickInlineTip(tips);
   const hasMore = tips.length > 1;
 
+  // 图表下方卡片 (设计稿)：白底描边圆角，仅标题条为浅灰背景，
+  // 内容区白底：外显 tip + 居中蓝色 View all。
+  // 间距：所在容器无 gap，上方补 $4；下方是外层 section gap $8，
+  // 用 -$2 收窄到 24px，与设计稿卡片下间距一致
   return (
     <YStack
-      p="$4"
-      gap="$1"
+      mt="$4"
+      mb="$-2"
+      bg="$bg"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderRadius="$3"
+      overflow="hidden"
     >
-      <SizableText size="$bodyMdMedium" numberOfLines={1}>
-        {inlineTip.title.text}
-      </SizableText>
-      <EarnText
-        text={inlineTip.description}
-        size="$bodyMd"
-        color="$textSubdued"
-      />
-      {hasMore ? (
-        <Button
-          testID="earn-protocol-tips-view-all"
-          size="small"
-          variant="tertiary"
-          alignSelf="flex-start"
-          mt="$1"
-          onPress={handleViewAll}
-        >
-          {intl.formatMessage({ id: ETranslations.tray_view_all })}
-        </Button>
-      ) : null}
+      <YStack bg="$bgSubdued" px="$4" py="$2">
+        <SizableText size="$bodyMdMedium" textAlign="center">
+          {PROTOCOL_TIPS_HEADER}
+        </SizableText>
+      </YStack>
+      <YStack px="$4" py="$3" gap="$2">
+        <YStack gap="$0.5">
+          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            {inlineTip.title.text}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
+            {inlineTip.description.text}
+          </SizableText>
+        </YStack>
+        {hasMore ? (
+          <SizableText
+            testID="earn-protocol-tips-view-all"
+            role="button"
+            size="$bodyMdMedium"
+            color="$textInfo"
+            textAlign="center"
+            cursor="pointer"
+            userSelect="none"
+            pressStyle={{ opacity: 0.7 }}
+            onPress={handleViewAll}
+          >
+            {intl.formatMessage({ id: ETranslations.tray_view_all })}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 }

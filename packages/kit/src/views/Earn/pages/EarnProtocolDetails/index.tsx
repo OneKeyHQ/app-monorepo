@@ -621,6 +621,8 @@ const DetailsPartComponent = ({
                 provider={provider}
                 vault={vault}
               />
+              {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
+              <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             </YStack>
             <EarnPlatformBonusSection
               appearance="alert"
@@ -629,8 +631,6 @@ const DetailsPartComponent = ({
               tokenInfo={tokenInfo}
             />
             <GridSection data={detailInfo.intro} />
-            {/* Protocol Tips (OK-58972)：dashboard 配置，单条直显/多条 View All */}
-            <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
               providerName: provider,
