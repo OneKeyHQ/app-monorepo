@@ -20,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import { getEmailOtpRequestErrorMessage } from './emailOtpErrorUtils';
+import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
 
 export function EmailOTPDialog(props: {
   title: string;
@@ -58,6 +59,10 @@ export function EmailOTPDialog(props: {
           getSanitizedAuthErrorText(error),
         );
         setCountdown(0);
+        const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+        if (retryAfterSeconds !== undefined) {
+          setCountdown(retryAfterSeconds);
+        }
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });
@@ -86,6 +91,8 @@ export function EmailOTPDialog(props: {
           'Email verification code resend failed:',
           getSanitizedAuthErrorText(error),
         );
+        const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+        setCountdown(retryAfterSeconds ?? 0);
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });

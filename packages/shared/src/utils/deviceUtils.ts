@@ -287,6 +287,23 @@ function checkAllowChangeFirmwareType(deviceType: IDeviceType) {
   ].includes(deviceType);
 }
 
+// Canonical product model names (marketing names, not BLE labels). Single
+// source of truth — display layers must derive from this map instead of
+// keeping their own copies, which silently drift (OK-58649).
+const DEVICE_MODEL_NAMES_BY_TYPE: Record<IOneKeyDeviceType, string> = {
+  [EDeviceType.Classic]: 'OneKey Classic',
+  [EDeviceType.Classic1s]: 'OneKey Classic 1S',
+  [EDeviceType.ClassicPure]: 'OneKey Classic 1S Pure',
+  [EDeviceType.Mini]: 'OneKey Mini',
+  [EDeviceType.Touch]: 'OneKey Touch',
+  [EDeviceType.Pro]: 'OneKey Pro',
+  [EDeviceType.Unknown]: '',
+};
+
+function getDeviceModelNameByType(deviceType: IOneKeyDeviceType): string {
+  return DEVICE_MODEL_NAMES_BY_TYPE[deviceType] || '';
+}
+
 async function buildDeviceLabel({
   features,
   buildModelName,
@@ -297,19 +314,10 @@ async function buildDeviceLabel({
   if (features.label && !buildModelName) {
     return features.label;
   }
-  const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
-    [EDeviceType.Classic]: 'OneKey Classic',
-    [EDeviceType.Classic1s]: 'OneKey Classic 1S',
-    [EDeviceType.ClassicPure]: 'OneKey Classic 1S Pure',
-    [EDeviceType.Mini]: 'OneKey Mini',
-    [EDeviceType.Touch]: 'OneKey Touch',
-    [EDeviceType.Pro]: 'OneKey Pro',
-    [EDeviceType.Unknown]: '',
-  };
   const deviceType = await getDeviceTypeFromFeatures({
     features,
   });
-  return defaultLabelsByDeviceType[deviceType] || '';
+  return getDeviceModelNameByType(deviceType);
 }
 
 async function buildDeviceName({
@@ -759,6 +767,7 @@ export default {
   getUpdatingConnectId,
   getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
+  getDeviceModelNameByType,
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,

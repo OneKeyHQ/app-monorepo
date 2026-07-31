@@ -342,15 +342,21 @@ const SwapActionsState = ({
       );
       return;
     }
+    if (swapActionState.shouldEnterRecipient) {
+      onOpenRecipientAddress();
+      return;
+    }
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onOpenRecipientAddress,
     onPreSwap,
     quoteAction,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
+    swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,

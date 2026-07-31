@@ -50,6 +50,7 @@ function extractWebFreeTrial(
     periodIso: trial.periodDuration,
     periodNumber: trial.period.number,
     periodUnit: trial.period.unit,
+    source: 'web',
   };
 }
 
@@ -86,6 +87,7 @@ function extractNativeFreeTrial(
         periodIso: introPrice.period,
         periodNumber: introPrice.periodNumberOfUnits,
         periodUnit,
+        source: 'native',
       };
     }
   }
@@ -105,6 +107,7 @@ function extractNativeFreeTrial(
           periodIso: freePhase.billingPeriod.iso8601,
           periodNumber: freePhase.billingPeriod.value,
           periodUnit,
+          source: 'native',
         };
       }
     }

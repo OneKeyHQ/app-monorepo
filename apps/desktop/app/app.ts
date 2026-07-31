@@ -73,6 +73,8 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
+import { logTrezorBleFlags } from './process/trezorBleFlags';
+import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -1682,8 +1684,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
+  logTrezorBleFlags();
   initTrezorBleSupport(browserWindow.webContents, {
-    ipcMain: trezorBleSenderGatedIpcMain,
+    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
+    // caches scan address, runs the WinRT pairing helper before noble connects.
+    // No-op on non-Windows / builds without the bundled helper.
+    ipcMain: createTrezorBlePairingIpcMain(
+      trezorBleSenderGatedIpcMain,
+      browserWindow,
+    ),
+    // NO nobleFactory override. A proxy used to sit here to replay `discover`
+    // events into the SDK's cache; it blinded noble entirely (the SDK saw zero
+    // peripherals while a WinRT watcher in another process saw 29 at the same
+    // moment) and, because it did not forward `connectAsync`, it would also have
+    // disabled the SDK's connect-by-id fallback. The SDK owns both behaviors as
+    // of 1.1.32-alpha.1 — let it use plain noble.
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /

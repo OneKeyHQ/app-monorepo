@@ -8,13 +8,16 @@ import {
   type IPageNavigationProp,
   NavBackButton,
   Page,
+  Stack,
+  glassBarItem,
+  useBackHandler,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalPerpRoutes,
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
@@ -22,16 +25,23 @@ import type {
 
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../../PerpDialogLayout';
 
-import { UnifoldTransferContent } from './UnifoldTransferContent';
+import { MobileUnifoldSourceSelectorContent } from './MobileUnifoldSourceSelectorContent';
+import {
+  type IUnifoldTransferContentRef,
+  UnifoldTransferContent,
+} from './UnifoldTransferContent';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type IMobileUnifoldFlowStep = 'transfer' | 'token' | 'chain';
+const MOBILE_PAGE_SCROLL_PROPS = {
+  contentContainerStyle: { flexGrow: 1 },
+} as const;
 
 export default function MobileUnifoldDepositTransferModal() {
   const intl = useIntl();
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
-  const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
-    null,
-  );
+  const transferContentRef = useRef<IUnifoldTransferContentRef>(null);
   const route =
     useRoute<
       RouteProp<
@@ -39,25 +49,83 @@ export default function MobileUnifoldDepositTransferModal() {
         EModalPerpRoutes.MobileUnifoldDepositTransfer
       >
     >();
-  const initialSourceSelectorOpenedRef = useRef(false);
-  const closeDetail = useCallback(() => {
-    setDetailExecutionId(null);
-  }, []);
-  const renderDetailHeaderLeft = useCallback(
-    () => <NavBackButton onPress={closeDetail} />,
-    [closeDetail],
+  const [flowHistory, setFlowHistory] = useState<IMobileUnifoldFlowStep[]>(() =>
+    route.params?.openSourceSelectorOnReady ? ['token'] : ['transfer'],
   );
+  const currentFlowStep = flowHistory[flowHistory.length - 1] ?? 'transfer';
+  const initialSelectorMode =
+    currentFlowStep === 'transfer' ? null : currentFlowStep;
+  const isTransientSelector = flowHistory.includes('transfer');
+  const [initialSelectorAssets, setInitialSelectorAssets] = useState<
+    IUnifoldSupportedAsset[] | undefined
+  >(undefined);
+  const [initialSelectedAssetSymbol, setInitialSelectedAssetSymbol] = useState<
+    string | undefined
+  >(undefined);
+  const [initialSelectedChain, setInitialSelectedChain] = useState<
+    IUnifoldSupportedAssetChain | undefined
+  >(undefined);
+  const expectedRecipient = route.params?.expectedRecipient;
   const goBack = useCallback(() => {
+    if (flowHistory.length > 1) {
+      setFlowHistory((current) => current.slice(0, -1));
+      return;
+    }
     navigation.goBack();
-  }, [navigation]);
+  }, [flowHistory.length, navigation]);
+  const handleSystemBackPress = useCallback(() => {
+    goBack();
+    return true;
+  }, [goBack]);
+  useBackHandler(
+    handleSystemBackPress,
+    platformEnv.isNativeAndroid &&
+      (Boolean(initialSelectorMode) || flowHistory.length > 1),
+  );
   const renderBackHeaderLeft = useCallback(
     () => <NavBackButton onPress={goBack} />,
     [goBack],
   );
+  const pushFlowStep = useCallback((step: IMobileUnifoldFlowStep) => {
+    setFlowHistory((current) =>
+      current[current.length - 1] === step ? current : [...current, step],
+    );
+  }, []);
+  const showInitialTokenSelector = useCallback(() => {
+    pushFlowStep('token');
+  }, [pushFlowStep]);
+  const showInitialChainSelector = useCallback(() => {
+    pushFlowStep('chain');
+  }, [pushFlowStep]);
+  const closeTransientSelector = useCallback(() => {
+    setFlowHistory((current) => {
+      const transferIndex = current.lastIndexOf('transfer');
+      return transferIndex === -1
+        ? current
+        : current.slice(0, transferIndex + 1);
+    });
+  }, []);
+  const showTransferUnavailableState = useCallback(() => {
+    setFlowHistory((current) => {
+      const transferIndex = current.lastIndexOf('transfer');
+      return transferIndex === -1
+        ? ['transfer']
+        : current.slice(0, transferIndex + 1);
+    });
+  }, []);
   const clearSourceSelectorResult = useCallback(() => {
     navigation.setParams({ sourceSelectorResult: undefined });
   }, [navigation]);
-  const openInitialSourceSelector = useCallback(
+  const openTracker = useCallback(() => {
+    if (!expectedRecipient) {
+      return;
+    }
+    navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
+      expectedRecipient,
+      openedFromTransfer: true,
+    });
+  }, [expectedRecipient, navigation]);
+  const prepareInitialSourceSelector = useCallback(
     ({
       assets,
       asset,
@@ -67,52 +135,120 @@ export default function MobileUnifoldDepositTransferModal() {
       asset: IUnifoldSupportedAsset;
       chain: IUnifoldSupportedAssetChain;
     }) => {
-      if (
-        !route.params?.openSourceSelectorOnReady ||
-        initialSourceSelectorOpenedRef.current
-      ) {
-        return;
+      setInitialSelectorAssets(assets);
+      if (currentFlowStep === 'transfer') {
+        setInitialSelectedAssetSymbol(asset.symbol);
+        setInitialSelectedChain(chain);
+      } else {
+        setInitialSelectedAssetSymbol((current) => current ?? asset.symbol);
+        setInitialSelectedChain((current) => current ?? chain);
       }
-      initialSourceSelectorOpenedRef.current = true;
-      navigation.setParams({ openSourceSelectorOnReady: undefined });
-      navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-        requestId: generateUUID(),
-        mode: 'token',
-        assets,
-        selectedAssetSymbol: asset.symbol,
-        selectedChainType: chain.chain_type,
-        selectedChainId: chain.chain_id,
-        continueToChain: true,
-      });
     },
-    [navigation, route.params?.openSourceSelectorOnReady],
+    [currentFlowStep],
+  );
+  const isInitialSelectorVisible = initialSelectorMode !== null;
+  let headerTitleId = ETranslations.perp_unifold_transfer_crypto__title;
+  const headerLeft = renderBackHeaderLeft;
+  if (initialSelectorMode === 'token') {
+    headerTitleId = ETranslations.token_selector_title;
+  } else if (initialSelectorMode === 'chain') {
+    headerTitleId = ETranslations.global_select_network;
+  }
+  const buildNativeHeaderLeftItems = useCallback(
+    () => [glassBarItem(headerLeft())],
+    [headerLeft],
   );
 
   return (
-    <Page scrollEnabled safeAreaEnabled>
+    <Page scrollEnabled scrollProps={MOBILE_PAGE_SCROLL_PROPS} safeAreaEnabled>
       <Page.Header
-        title={intl.formatMessage({
-          id: detailExecutionId
-            ? ETranslations.perp_unifold_deposit_details__title
-            : ETranslations.perp_unifold_transfer_crypto__title,
-        })}
-        headerLeft={
-          detailExecutionId ? renderDetailHeaderLeft : renderBackHeaderLeft
-        }
+        title={intl.formatMessage({ id: headerTitleId })}
+        {...(platformEnv.isNativeIOS26Plus
+          ? {
+              scrollEdgeEffects: { top: 'hidden' },
+              unstable_headerLeftItems: buildNativeHeaderLeftItems,
+            }
+          : { headerLeft })}
       />
-      <Page.Body px="$4" {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}>
-        {/* The page scrolls, so an absolute overlay would ride the content
-            instead of the screen — the cards go in the page footer here. */}
-        <UnifoldTransferContent
-          expectedRecipient={route.params?.expectedRecipient}
-          sourceSelectorResult={route.params?.sourceSelectorResult}
-          onSourceSelectorResultHandled={clearSourceSelectorResult}
-          onSourceSelectorReady={openInitialSourceSelector}
-          statusCardsPlacement="pageFooter"
-          useExternalHeader
-          detailExecutionId={detailExecutionId}
-          onDetailExecutionIdChange={setDetailExecutionId}
-        />
+      <Page.Body
+        flex={1}
+        minHeight={0}
+        position="relative"
+        {...PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS}
+      >
+        <Stack px="$4">
+          <UnifoldTransferContent
+            ref={transferContentRef}
+            expectedRecipient={expectedRecipient}
+            onOpenTracker={openTracker}
+            sourceSelectorResult={route.params?.sourceSelectorResult}
+            onSourceSelectorResultHandled={clearSourceSelectorResult}
+            onSourceSelectorReady={prepareInitialSourceSelector}
+            onSourceSelectorUnavailable={
+              isInitialSelectorVisible
+                ? showTransferUnavailableState
+                : undefined
+            }
+            useExternalHeader
+            onOpenMobileTokenSelector={showInitialTokenSelector}
+            onOpenMobileChainSelector={showInitialChainSelector}
+          />
+        </Stack>
+        {initialSelectorMode ? (
+          <Stack
+            position="absolute"
+            top={0}
+            bottom={0}
+            left={0}
+            right={0}
+            zIndex={1}
+            bg="$bgApp"
+          >
+            <MobileUnifoldSourceSelectorContent
+              key={initialSelectorMode}
+              mode={initialSelectorMode}
+              assets={initialSelectorAssets}
+              loading={!initialSelectorAssets}
+              selectedAssetSymbol={initialSelectedAssetSymbol}
+              selectedChainType={initialSelectedChain?.chain_type}
+              selectedChainId={initialSelectedChain?.chain_id}
+              onSelectToken={(asset) => {
+                setInitialSelectedAssetSymbol(asset.symbol);
+                if (isTransientSelector) {
+                  const chain =
+                    asset.chains.find(
+                      (item) =>
+                        item.chain_type === initialSelectedChain?.chain_type &&
+                        item.chain_id === initialSelectedChain?.chain_id,
+                    ) ?? asset.chains[0];
+                  if (!chain) {
+                    return;
+                  }
+                  setInitialSelectedChain(chain);
+                  transferContentRef.current?.selectSource(asset, chain);
+                  navigation.setParams({
+                    openSourceSelectorOnReady: undefined,
+                  });
+                  closeTransientSelector();
+                  return;
+                }
+                setInitialSelectedChain(undefined);
+                pushFlowStep('chain');
+              }}
+              onSelectChain={(asset, chain) => {
+                setInitialSelectedAssetSymbol(asset.symbol);
+                setInitialSelectedChain(chain);
+                transferContentRef.current?.selectSource(asset, chain);
+                navigation.setParams({ openSourceSelectorOnReady: undefined });
+                if (isTransientSelector) {
+                  closeTransientSelector();
+                } else {
+                  pushFlowStep('transfer');
+                }
+              }}
+            />
+          </Stack>
+        ) : null}
       </Page.Body>
     </Page>
   );

@@ -83,6 +83,7 @@ import {
   useOrderConfirmWithMarketDataFreshness,
   usePerpsMarketDataFreshness,
 } from '../../hooks';
+import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import {
   type IEnableTradingWithDepositFallbackResult,
   useConfirmHyperliquidTerms,
@@ -94,6 +95,7 @@ import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculation
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -457,6 +459,7 @@ function SideButtonInternal({
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -1478,13 +1481,24 @@ function SideButtonInternal({
         });
       }
 
-      if (submitState.perpsCustomSettings.skipOrderConfirm) {
-        void handleConfirmRef.current(side);
-      } else {
+      const aggressiveLimitPriceWarning = getAggressiveLimitPriceWarning({
+        formData: submitState.formData,
+        side,
+        price: submitState.effectivePriceBN.toFixed(),
+      });
+      if (
+        shouldShowOrderConfirm({
+          skipOrderConfirm: submitState.perpsCustomSettings.skipOrderConfirm,
+          aggressiveLimitPriceWarning,
+        })
+      ) {
         showOrderConfirmDialog({
           overrideSide: side,
           intl,
+          aggressiveLimitPriceWarning,
         });
+      } else {
+        void handleConfirmRef.current(side);
       }
     },
     1000,
