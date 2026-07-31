@@ -87,12 +87,10 @@ jest.mock('../cache/homeDisplaySnapshotKeys', () => ({
   getHomeDisplaySnapshotPartitionTag: () => 'partition-a',
 }));
 
-jest.mock('../cache/homeDisplaySnapshotPersistQueue', () => ({
-  homeDisplaySnapshotPersistQueue: {
-    enqueue: jest.fn(),
-    flushAndCompact: () => mockFlushAndCompact(),
-    flushNow: () => mockFlushNow(),
-  },
+jest.mock('../cache/homeDisplaySnapshotPersistQueueLoader', () => ({
+  enqueueHomeDisplaySnapshotPersistJob: jest.fn(),
+  flushAndCompactHomeDisplaySnapshotPersistQueue: () => mockFlushAndCompact(),
+  flushHomeDisplaySnapshotPersistQueue: () => mockFlushNow(),
 }));
 
 jest.mock('../cache/homeDisplaySnapshotRepository', () => ({

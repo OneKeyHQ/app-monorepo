@@ -15,7 +15,11 @@ import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/cold
 import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
 
 import { getHomeDisplaySnapshotPartitionTag } from '../cache/homeDisplaySnapshotKeys';
-import { homeDisplaySnapshotPersistQueue } from '../cache/homeDisplaySnapshotPersistQueue';
+import {
+  enqueueHomeDisplaySnapshotPersistJob,
+  flushAndCompactHomeDisplaySnapshotPersistQueue,
+  flushHomeDisplaySnapshotPersistQueue,
+} from '../cache/homeDisplaySnapshotPersistQueueLoader';
 import { prepareHomeDisplaySnapshot } from '../cache/homeStartupPreparedDisplaySnapshot';
 
 import { useHomeStoreControllerActions } from './useHomeStoreControllerActions';
@@ -402,7 +406,7 @@ export function HomeDisplaySnapshotControllerShared() {
     const onCommit = () => {
       const state = readHomeStoreState(store.get);
       const commitIdentity = store.get(homeCommitIdentityState.atom());
-      homeDisplaySnapshotPersistQueue.enqueue(state, commitIdentity);
+      enqueueHomeDisplaySnapshotPersistJob(state, commitIdentity);
       const preferredTabId = state.interaction.preferredTabId;
       const activeOwnerToken = state.session.ownerToken;
       if (preferredTabId && activeOwnerToken) {
@@ -412,13 +416,13 @@ export function HomeDisplaySnapshotControllerShared() {
     const unsubscribe = store.sub(homeCommitIdentityState.atom(), onCommit);
     return () => {
       unsubscribe();
-      void homeDisplaySnapshotPersistQueue.flushNow();
+      void flushHomeDisplaySnapshotPersistQueue();
     };
   }, [store]);
 
   useEffect(() => {
-    return registerColdStartFlushTrigger(() =>
-      homeDisplaySnapshotPersistQueue.flushAndCompact(),
+    return registerColdStartFlushTrigger(
+      flushAndCompactHomeDisplaySnapshotPersistQueue,
     );
   }, []);
 
