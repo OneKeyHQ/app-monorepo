@@ -125,7 +125,7 @@ function SettingCategoryListItem({
       iconProps={iconProps}
       title={title}
       subtitle={config.subtitle}
-      px="$5"
+      px={useMobilePresentation ? '$5' : '$7'}
       titleProps={titleProps}
       onPress={handlePress}
     />
