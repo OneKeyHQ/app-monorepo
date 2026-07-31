@@ -1446,21 +1446,26 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
-      const simpleDbTips =
-        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
-      if (tips && !simpleDbTips.includes(tips.tipsId)) {
+      try {
+        const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+        const simpleDbTips =
+          await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+        if (tips && !simpleDbTips.includes(tips.tipsId)) {
+          setSwapTips({
+            tips,
+            status: 'ready',
+            updatedAt: Date.now(),
+          });
+          return;
+        }
         setSwapTips({
-          tips,
-          status: 'ready',
+          status: 'empty',
           updatedAt: Date.now(),
         });
-        return;
+      } catch (_error) {
+        // Keep the last settled presentation when remote config or local
+        // dismissal state cannot be loaded.
       }
-      setSwapTips({
-        status: 'empty',
-        updatedAt: Date.now(),
-      });
     })();
   }, [setSwapTips]);
 
