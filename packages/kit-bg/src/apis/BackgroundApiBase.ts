@@ -55,6 +55,7 @@ import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
+  isBackgroundApiAtomWritable,
   isExtensionInternalCall,
   isProviderApiPrivateAllowedKeylessOrigin,
   isProviderApiPrivateAllowedMethod,
@@ -403,6 +404,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   @backgroundMethod()
   async setAtomValue(atomName: EAtomNames, value: any) {
     const startedAt = Date.now();
+    if (!isBackgroundApiAtomWritable(atomName)) {
+      throw new OneKeyLocalError(
+        `setAtomValue ERROR: atom is background-owned: ${atomName}`,
+      );
+    }
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {

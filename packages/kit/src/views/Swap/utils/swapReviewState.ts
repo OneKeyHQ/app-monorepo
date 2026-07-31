@@ -20,6 +20,13 @@ export type ISwapReviewState = {
   quoteResult?: IFetchQuoteResult;
 };
 
+export function shouldShowSwapReviewToAmountSkeleton({
+  swapBuildLoading,
+  toTokenAmount,
+}: Pick<ISwapPreSwapData, 'swapBuildLoading' | 'toTokenAmount'>) {
+  return Boolean(swapBuildLoading && !toTokenAmount);
+}
+
 export type ISwapReviewBroadcastResult = {
   txHash?: string;
   orderId?: string;

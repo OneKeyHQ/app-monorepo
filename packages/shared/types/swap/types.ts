@@ -778,6 +778,7 @@ export interface ISwapState {
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
+  shouldEnterRecipient?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -1100,6 +1101,7 @@ export interface ISwapTxHistory {
     chainFlipExplorerUrl?: string;
     instantRate: string;
     protocolFee?: number;
+    hideProtocolFee?: boolean;
     oneKeyFee?: number;
     oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];

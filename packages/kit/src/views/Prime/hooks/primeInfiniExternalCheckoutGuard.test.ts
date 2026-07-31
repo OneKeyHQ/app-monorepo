@@ -38,6 +38,16 @@ const mockLatchPendingPaymentProgress = jest.fn<
     },
   ]
 >();
+const mockDiscardUnsentPaymentSession = jest.fn<
+  Promise<boolean>,
+  [
+    {
+      onekeyUserId: string;
+      expectedPaymentCacheIdentity: { paymentId: string };
+    },
+  ]
+>();
+const mockLogPrimeInfiniPaymentFlow = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -65,8 +75,18 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
           paymentCacheKey: { paymentId: string };
           latestPayment: unknown;
         }) => mockLatchPendingPaymentProgress(params),
+        discardUnsentInfiniPendingPaymentSession: (params: {
+          onekeyUserId: string;
+          expectedPaymentCacheIdentity: { paymentId: string };
+        }) => mockDiscardUnsentPaymentSession(params),
       },
     },
+  },
+}));
+
+jest.mock('../primeInfiniPaymentLogger', () => ({
+  logPrimeInfiniPaymentFlow: (...args: unknown[]) => {
+    mockLogPrimeInfiniPaymentFlow(...args);
   },
 }));
 
@@ -75,6 +95,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     jest.clearAllMocks();
     mockLatchPendingPaymentProgress.mockResolvedValue({ sendStarted: true });
     mockDiscardTerminalPaymentSession.mockResolvedValue(true);
+    mockDiscardUnsentPaymentSession.mockResolvedValue(true);
   });
 
   it('blocks external checkout when another context has persisted a payment', async () => {
@@ -323,6 +344,155 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       pendingSubscriptionPeriod: 'P1Y',
     });
     expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
+  });
+
+  it('degrades to the local snapshot when the invoice fetch fails on a claimed session', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: true,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    const error = new Error('invoice endpoint down');
+    mockApiGetInfiniPayment.mockRejectedValue(error);
+
+    // Blocking every channel here would strand the user until the session
+    // TTL; reporting the pending payment instead routes them into the crypto
+    // flow, whose stale fallback screen can still force a replacement.
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+    expect(mockDiscardTerminalPaymentSession).not.toHaveBeenCalled();
+    expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
+    expect(mockDiscardUnsentPaymentSession).not.toHaveBeenCalled();
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'entryGuardPaymentRefreshFailed',
+        error,
+      }),
+    );
+  });
+
+  it('keeps the picker open when the invoice fetch fails on a replaceable session', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockRejectedValue(
+      new Error('invoice endpoint down'),
+    );
+
+    // A stale snapshot alone must not open a second channel: only the atomic
+    // retire proves no other window claimed the broadcast during the fetch.
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+    expect(mockDiscardUnsentPaymentSession).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedPaymentCacheIdentity: { paymentId: 'payment-1' },
+    });
+  });
+
+  it('keeps blocking when the replaceable snapshot cannot be retired during the outage', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockRejectedValue(
+      new Error('invoice endpoint down'),
+    );
+    // Another window latched sendStarted while the fetch was in flight, so the
+    // atomic discard refuses; the picker must stay closed because that other
+    // window's broadcast is already authorized.
+    mockDiscardUnsentPaymentSession.mockResolvedValue(false);
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+  });
+
+  it('logs a failed atomic retirement while keeping the payment blocked', async () => {
+    mockGetLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-1',
+    });
+    mockGetPendingPaymentSession.mockResolvedValue({
+      sendStarted: false,
+      selectedSubscriptionPeriod: 'P1M',
+      paymentCacheKey: {
+        paymentId: 'payment-1',
+      },
+      payment: {
+        paymentId: 'payment-1',
+        amountDue: '1',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      },
+    });
+    mockApiGetInfiniPayment.mockRejectedValue(
+      new Error('invoice endpoint down'),
+    );
+    const discardError = new Error('storage unavailable');
+    mockDiscardUnsentPaymentSession.mockRejectedValue(discardError);
+
+    await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
+    });
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'entryGuardSessionRetirementFailed',
+        error: discardError,
+      }),
+    );
   });
 
   it('fails closed when the session is replaced while the payment is fetched', async () => {

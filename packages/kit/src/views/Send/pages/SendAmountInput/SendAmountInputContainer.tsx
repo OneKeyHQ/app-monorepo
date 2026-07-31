@@ -94,6 +94,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
@@ -1061,31 +1062,24 @@ function SendAmountInputContainer() {
       if (
         isNFT ||
         isLightningNetwork ||
-        !privateSendToken ||
+        !tokenInfo ||
         !account?.address ||
         !currentAccountId
       ) {
         return false;
       }
       try {
-        const privateSendTokens =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+        // Keyed identically to the recipient-page prefetch, so this resolves
+        // from the ServiceSwap memo cache (or joins the in-flight request)
+        // instead of chaining behind the token-details fetch above.
+        return await backgroundApiProxy.serviceSwap.checkTokenPrivateSendSupported(
+          {
             networkId,
-            contractAddress: privateSendToken.contractAddress,
+            contractAddress: tokenInfo.address,
             accountAddress: account.address,
             accountId: currentAccountId,
-            protocol: EProtocolOfExchange.PRIVATE_SEND,
-          });
-        const matchedPrivateSendToken = privateSendTokens?.find((item) =>
-          equalTokenNoCaseSensitive({
-            token1: item,
-            token2: privateSendToken,
-          }),
+          },
         );
-        if (!matchedPrivateSendToken) {
-          return false;
-        }
-        return matchedPrivateSendToken.supportProtocol === true;
       } catch {
         return false;
       }
@@ -1096,7 +1090,7 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       isNFT,
       networkId,
-      privateSendToken,
+      tokenInfo,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
@@ -1161,6 +1155,21 @@ function SendAmountInputContainer() {
     return undefined;
   }, [currentSelectedUtxoInfo?.totalValue, tokenDetails?.info]);
 
+  // Scaled-UI (rebase) token multiplier shared by every display-basis leaf
+  // (maxBalance, the fiat-overflow rewrite) and the display->raw submit
+  // conversion. A scaled-UI multiplier is a Token-2022 / jetton feature and
+  // can never legitimately appear on a native coin, so native resolves to
+  // undefined here; guarding once at the source keeps multiply and divide
+  // symmetric — a hypothetical bad server value on a native coin must not
+  // inflate the display while the submit conversion refuses to divide.
+  const rebaseMultiplier = useMemo(
+    () =>
+      tokenDetails && !tokenDetails.info.isNative
+        ? tokenRebaseUtils.pickBalanceMultiplier(tokenDetails)
+        : undefined,
+    [tokenDetails],
+  );
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
@@ -1172,8 +1181,22 @@ function SendAmountInputContainer() {
       return chainValueUtils.convertSatsToBtc(balance);
     }
 
-    return balance;
-  }, [selectedUtxoTotalAmount, isLightningNetwork, lnUnit, tokenDetails]);
+    // Scaled-UI (rebase) tokens: show the multiplied display balance. UTXO
+    // subtotals and Lightning never belong to such tokens, so applying
+    // unconditionally is a no-op for every other chain.
+    return (
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: balance,
+        balanceMultiplier: rebaseMultiplier,
+      }) ?? balance
+    );
+  }, [
+    selectedUtxoTotalAmount,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails,
+    rebaseMultiplier,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -1747,6 +1770,27 @@ function SendAmountInputContainer() {
     sendMode,
   ]);
 
+  // Scaled-UI (rebase) tokens: `displayAmount` is the multiplied display
+  // amount, but ITransferInfo.amount carries the raw parsed amount. The
+  // conversion (full-send threshold detection + truncating division) lives
+  // in tokenRebaseUtils.convertDisplayAmountToRawAmount so it stays
+  // unit-testable; it is shared by the submit path and the form validator
+  // so the amount that gets validated is exactly the amount that gets sent.
+  const convertDisplayAmountToRawAmount = useCallback(
+    (displayAmount: string): { rawAmount: string; isFullSend: boolean } => {
+      if (isNFT || !tokenDetails) {
+        return { rawAmount: displayAmount, isFullSend: false };
+      }
+      return tokenRebaseUtils.convertDisplayAmountToRawAmount({
+        displayAmount,
+        balanceParsed: tokenDetails.balanceParsed,
+        balanceMultiplier: rebaseMultiplier,
+        decimals: tokenDetails.info.decimals,
+      });
+    },
+    [isNFT, tokenDetails, rebaseMultiplier],
+  );
+
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
       if (!value) {
@@ -1850,6 +1894,37 @@ function SendAmountInputContainer() {
         });
       }
 
+      // Scaled-UI (rebase) tokens: the checks above ran on the display-basis
+      // amount, but the transfer carries display ÷ multiplier truncated
+      // (ROUND_DOWN) at token decimals. An input at the minimal display unit
+      // (e.g. 0.00000001 with multiplier 1.1) passes the display-basis min
+      // check yet divides to a raw 0, which would build — and pay fees for —
+      // a zero-amount transfer. Reject it here with the exact conversion the
+      // submit path uses. Full sends are exempt: they bypass the division and
+      // a zero raw balance is the insufficient-balance path's concern.
+      if (
+        !isNFT &&
+        !tokenAmountBN.isZero() &&
+        tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+      ) {
+        try {
+          const { rawAmount, isFullSend } = convertDisplayAmountToRawAmount(
+            tokenAmountBN.toFixed(),
+          );
+          if (!isFullSend && new BigNumber(rawAmount).isZero()) {
+            return intl.formatMessage({
+              id: ETranslations.send_amount_too_small,
+            });
+          }
+        } catch {
+          // removeBalanceMultiplier fails closed on invalid token decimals;
+          // surface it as an invalid amount instead of an unhandled rejection.
+          return intl.formatMessage({
+            id: ETranslations.send_amount_invalid,
+          });
+        }
+      }
+
       // Zero native token transfer prevention
       if (
         !isNFT &&
@@ -1902,6 +1977,8 @@ function SendAmountInputContainer() {
       networkId,
       maxBalance,
       recipientAddress,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 
@@ -2604,7 +2681,10 @@ function SendAmountInputContainer() {
                 realAmount =
                   isLightningNetwork && lnUnit === ELightningUnit.BTC
                     ? chainValueUtils.convertSatsToBtc(balance)
-                    : balance;
+                    : (tokenRebaseUtils.applyBalanceMultiplier({
+                        amount: balance,
+                        balanceMultiplier: rebaseMultiplier,
+                      }) ?? balance);
               } else {
                 realAmount = linkedAmount.originalAmount;
               }
@@ -2652,6 +2732,17 @@ function SendAmountInputContainer() {
                 }),
               );
             }
+            // Scaled-UI (rebase) tokens are display-basis in this branch and
+            // never reach the display->raw conversion below; fail closed
+            // instead of silently over-sending by the multiplier if one ever
+            // gets listed for private send. A multiplier of exactly 1 is a
+            // no-op (raw == display) and must not block.
+            if (tokenRebaseUtils.isScalingBalanceMultiplier(rebaseMultiplier)) {
+              throw new OneKeyLocalError(
+                'Private send does not support scaled-UI tokens',
+              );
+            }
+
             const submitPrivateSendQuoteScopeKey =
               buildPrivateSendQuoteScopeKey({
                 accountId: currentAccountId,
@@ -2975,11 +3066,19 @@ function SendAmountInputContainer() {
             return;
           }
 
+          // Scaled-UI (rebase) tokens: `realAmount` is the multiplied display
+          // amount, but ITransferInfo.amount carries the raw parsed amount.
+          // The conversion (full-send detection + truncating division) lives
+          // in convertDisplayAmountToRawAmount, shared with the form
+          // validator so what was validated is exactly what is sent.
+          const transferAmount =
+            convertDisplayAmountToRawAmount(realAmount).rawAmount;
+
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
               to: submitRecipientAddress,
-              amount: realAmount,
+              amount: transferAmount,
               nftInfo:
                 isNFT && nftDetails
                   ? {
@@ -3084,6 +3183,8 @@ function SendAmountInputContainer() {
       validateRecipientBeforeSubmit,
       wallet?.type,
       intl,
+      rebaseMultiplier,
+      convertDisplayAmountToRawAmount,
     ],
   );
 

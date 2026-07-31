@@ -1,6 +1,7 @@
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
@@ -69,7 +70,23 @@ async function completeOpenedPresentation({
     if (!result.updated) {
       await getDialogInstance()?.close();
     }
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: result.updated ? 'succeeded' : 'skipped',
+      flowId: messageId,
+      operationId,
+      reason: result.updated
+        ? 'Remote logout dialog opened and presentation was committed'
+        : 'Presentation claim was no longer current',
+    });
   } catch (error) {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: 'failed',
+      flowId: messageId,
+      operationId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     errorUtils.autoPrintErrorIgnore(error);
     try {
       await getDialogInstance()?.close();
@@ -86,16 +103,54 @@ async function completeOpenedPresentation({
 export async function presentRemoteOneKeyIdLogout(
   presentation: IRemoteOneKeyIdLogoutPresentation,
 ): Promise<void> {
-  const claim =
-    await backgroundApiProxy.serviceIdentityExit.tryClaimRemoteOneKeyIdLogoutPresentation(
-      presentation,
-    );
+  defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+    stage: 'targetPresentation',
+    status: 'started',
+    flowId: presentation.messageId,
+    operationId: presentation.operationId,
+  });
+  let claim: Awaited<
+    ReturnType<
+      typeof backgroundApiProxy.serviceIdentityExit.tryClaimRemoteOneKeyIdLogoutPresentation
+    >
+  >;
+  try {
+    claim =
+      await backgroundApiProxy.serviceIdentityExit.tryClaimRemoteOneKeyIdLogoutPresentation(
+        presentation,
+      );
+  } catch (error) {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: 'failed',
+      flowId: presentation.messageId,
+      operationId: presentation.operationId,
+      reason: `Presentation claim failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+    throw error;
+  }
   if (claim.status === 'claimedByOther') {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: 'deduplicated',
+      flowId: presentation.messageId,
+      operationId: presentation.operationId,
+      reason: 'Presentation is owned by another UI surface',
+    });
     schedulePresentationRetry(presentation, claim.retryAfterMs);
     return;
   }
   clearPresentationRetry(presentation.messageId);
   if (claim.status !== 'claimed') {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: 'skipped',
+      flowId: presentation.messageId,
+      operationId: presentation.operationId,
+      reason: `Presentation claim status is ${claim.status}`,
+    });
     return;
   }
 
@@ -113,6 +168,13 @@ export async function presentRemoteOneKeyIdLogout(
       },
     });
   } catch (error) {
+    defaultLogger.prime.subscription.onekeyIdRemoteLogoutFlow({
+      stage: 'targetPresentation',
+      status: 'failed',
+      flowId: presentation.messageId,
+      operationId: presentation.operationId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     schedulePresentationRetry(presentation, claim.expiresAt - Date.now());
     throw error;
   }

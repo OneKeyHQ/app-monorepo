@@ -987,6 +987,67 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  private checkTokenPrivateSendSupportedMemo = memoizee(
+    async (
+      networkId: string,
+      contractAddress: string,
+      accountAddress: string,
+      accountId: string,
+    ) => {
+      const tokens = await this.fetchSwapTokenDetails({
+        networkId,
+        contractAddress,
+        accountAddress,
+        accountId,
+        protocol: EProtocolOfExchange.PRIVATE_SEND,
+      });
+      if (!tokens || tokens.length === 0) {
+        // fetchSwapTokenDetails swallows request errors and resolves with an
+        // empty list, which is indistinguishable from "backend knows nothing
+        // about this token". Throw so memoizee drops the entry and the next
+        // caller retries instead of pinning a false negative for the TTL.
+        throw new OneKeyError('Private send support check returned no data');
+      }
+      const matchedToken = tokens.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item,
+          token2: { networkId, contractAddress },
+        }),
+      );
+      return matchedToken?.supportProtocol === true;
+    },
+    {
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
+
+  // Prefetched from the send recipient page and read again on the amount
+  // page with identical keys, so the amount page hits the memo cache (or
+  // joins the in-flight request) and the Regular/Private switch can render
+  // without waiting for a fresh round trip.
+  @backgroundMethod()
+  async checkTokenPrivateSendSupported({
+    networkId,
+    contractAddress,
+    accountAddress,
+    accountId,
+  }: {
+    networkId: string;
+    contractAddress: string;
+    accountAddress: string;
+    accountId: string;
+  }): Promise<boolean> {
+    return this.checkTokenPrivateSendSupportedMemo(
+      networkId,
+      contractAddress,
+      accountAddress,
+      accountId,
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   async fetchQuotesEvents({

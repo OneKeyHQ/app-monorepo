@@ -17,6 +17,7 @@ import {
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -184,6 +185,9 @@ export function useOneKeyAuth() {
         const loginDialog = Dialog.show({
           onCancel: onCancelFirstStepFn,
           onClose: onCancelFirstStepFn,
+          floatingPanelProps: platformEnv.isDesktop
+            ? { width: 440 }
+            : undefined,
           renderContent: renderContent({
             onComplete: async () => {
               isClosedByNextStep = true;
@@ -258,10 +262,8 @@ export function useOneKeyAuth() {
   const loginOneKeyIdWithLegacyEmail = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
-      isSignUpMode,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
-      isSignUpMode?: boolean;
     } = {}) =>
       showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
@@ -270,7 +272,6 @@ export function useOneKeyAuth() {
             onComplete={onComplete}
             onLoginSuccess={onLoginSuccess}
             onCancel={onCancel}
-            initialSignUpMode={isSignUpMode}
           />
         ),
       }),

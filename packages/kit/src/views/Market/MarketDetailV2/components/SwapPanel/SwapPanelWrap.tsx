@@ -676,6 +676,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     <StockMarketStatusAlert
       statusCase={resolveStockMarketStatusCase({
         isOpen: false,
+        isPaused: tokenDetail?.stock?.isPaused,
         hasOpenTime: Boolean(stockClosedTimeText),
         hasPerps: stockHasPerps,
       })}

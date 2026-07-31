@@ -12,31 +12,46 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
+import { getSanitizedAuthErrorText } from '../oneKeyIdLoginToastUtils';
 import { DevOTPAutoFill } from '../PrimeDevUtils/DevOTPAutoFill';
 
-const COUNTDOWN_TIME = 60;
-
 export function PrimeLoginEmailCodeDialogV2(props: {
+  active?: boolean;
   email: string;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email: string }) => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
-  onConfirm?: (code: string) => void;
+  onConfirm?: (code: string) => void | Promise<void>;
+  onChooseAnotherSignInMethod?: () => void | Promise<void>;
 }) {
-  const { email, sendCode, loginWithCode, onLoginSuccess, onConfirm } = props;
+  const {
+    active = true,
+    email,
+    sendCode,
+    loginWithCode,
+    onLoginSuccess,
+    onConfirm,
+    onChooseAnotherSignInMethod,
+  } = props;
   const [devSettings] = useDevSettingsPersistAtom();
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
-  const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
+  const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);
   const [isResending, setIsResending] = useState(false);
-  const isResendingRef = useRef(isResending);
-  isResendingRef.current = isResending;
+  const isAuthActionInProgressRef = useRef(false);
+  const didRequestInitialCodeRef = useRef(false);
+  const didSendCodeSucceedRef = useRef(false);
+  const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
   const [state, setState] = useState<{
     status: 'initial' | 'error' | 'done';
@@ -49,32 +64,54 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const [isApiReady, setIsApiReady] = useState(false);
 
   const sendEmailVerificationCode = useCallback(async () => {
-    if (isResendingRef.current) {
+    if (isAuthActionInProgressRef.current) {
       return;
     }
+    isAuthActionInProgressRef.current = true;
     setIsResending(true);
     setState({ status: 'initial' });
     setVerificationCode('');
     try {
       await sendCode({ email });
+      didSendCodeSucceedRef.current = true;
+      // Re-assert the one-shot guard: if the user left the step while this
+      // send was in flight, the re-arm effect below has already reset it,
+      // and re-entering must not auto-send a second code.
+      didRequestInitialCodeRef.current = true;
+      if (!isMountedRef.current) {
+        return;
+      }
       setIsApiReady(true);
-      setCountdown(COUNTDOWN_TIME);
+      setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
-      Toast.error({
-        title: (error as Error)?.message,
-      });
+      if (!isMountedRef.current) {
+        return;
+      }
+      console.error(
+        'Prime email verification code request failed:',
+        getSanitizedAuthErrorText(error),
+      );
+      const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+      const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
+      if (errorMessage) {
+        Toast.error({ title: errorMessage });
+      }
       setIsApiReady(true);
       setState({ status: 'initial' });
-      setCountdown(0);
-      throw error;
+      setCountdown(retryAfterSeconds ?? 0);
+      return;
     } finally {
-      setIsResending(false);
+      if (isMountedRef.current) {
+        setIsResending(false);
+      }
+      isAuthActionInProgressRef.current = false;
     }
     defaultLogger.referral.page.signupOneKeyID();
-  }, [email, sendCode]);
+  }, [email, intl, isMountedRef, sendCode]);
 
   useEffect(() => {
-    if (isReady) {
+    if (active && isReady && !didRequestInitialCodeRef.current) {
+      didRequestInitialCodeRef.current = true;
       void sendEmailVerificationCode();
     }
 
@@ -87,7 +124,18 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     //     maxTimeout: 10_000,
     //   },
     // );
-  }, [isReady, sendEmailVerificationCode]);
+  }, [active, isReady, sendEmailVerificationCode]);
+
+  useEffect(() => {
+    // Re-arm the initial request when the step is left without any code ever
+    // having been delivered (e.g. the send failed offline): the step claims
+    // "Sent to {email}" on re-entry, so re-entering it must actually send one.
+    // Reset only while inactive so a failed send while the step is visible
+    // still requires an explicit Resend press.
+    if (!active && countdown <= 0 && !didSendCodeSucceedRef.current) {
+      didRequestInitialCodeRef.current = false;
+    }
+  }, [active, countdown]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -111,22 +159,24 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
 
     if (countdown > 0) {
-      return `${intl.formatMessage({
-        id: ETranslations.prime_code_resend,
-      })} (${countdown}s)`;
+      return intl.formatMessage(
+        { id: ETranslations.resend_code_countdown__action },
+        { seconds: countdown },
+      );
     }
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
   }, [intl, countdown, isApiReady]);
 
   const handleConfirm = useCallback(async () => {
-    if (onConfirm) {
-      onConfirm?.(verificationCode);
+    if (
+      isAuthActionInProgressRef.current ||
+      isSubmittingVerificationCode ||
+      state.status === 'done'
+    ) {
       return;
     }
-    if (isSubmittingVerificationCode) {
-      return;
-    }
+    isAuthActionInProgressRef.current = true;
     setIsSubmittingVerificationCode(true);
 
     // Toast.success({
@@ -134,6 +184,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // });
 
     try {
+      if (onConfirm) {
+        await onConfirm(verificationCode);
+        return;
+      }
+
       // Stage 1: OTP verification (Supabase verifyOtp). Only a failure here
       // is allowed to render as "invalid verification code".
       try {
@@ -142,7 +197,14 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           email,
         });
       } catch (error) {
-        console.error('prime login error', error);
+        console.error(
+          'Prime email login failed:',
+          getSanitizedAuthErrorText(error),
+        );
+        defaultLogger.referral.page.signupOneKeyIDResult(false);
+        if (!isMountedRef.current) {
+          return;
+        }
         // A transient infrastructure failure (network down, 5xx, timeout,
         // rate limit) says nothing about the code and does not consume it;
         // keep the input usable so resubmitting the same code can succeed.
@@ -157,50 +219,80 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             errorMessageId: ETranslations.prime_invalid_verification_code,
           });
         }
-        defaultLogger.referral.page.signupOneKeyIDResult(false);
         return;
       }
 
-      setState({ status: 'done' });
+      // The bg runtime has committed the login at this point, even if the
+      // dialog was dismissed while verification was in flight. Run every
+      // success continuation (toast, dialog close, bind prompt, navigation)
+      // regardless of mount state — skipping them would leave the app
+      // silently logged in with the flow reported as cancelled. Only the
+      // local state update needs the mount guard.
+      if (isMountedRef.current) {
+        setState({ status: 'done' });
+      }
+      defaultLogger.referral.page.signupOneKeyIDResult(true);
 
-      // Stage 2: post-OTP login (getAccessToken + servicePrime.apiLogin in
-      // the caller's onLoginSuccess). The OTP is already consumed at this
-      // point, so a failure here must never render as "invalid verification
-      // code" — retyping the same code can only fail and reinforces the
-      // wrong diagnosis. The caller (PrimeLoginEmailDialogV2) surfaces the
-      // failure via showOneKeyIdLoginFailedToast and closes this dialog.
+      // Stage 2: post-login UI continuations. The OTP is already consumed and
+      // the bg runtime has committed the login, so a failure here must never
+      // render as "invalid verification code" — retyping the same code can
+      // only fail and reinforces the wrong diagnosis.
       try {
         await onLoginSuccess?.();
-        defaultLogger.referral.page.signupOneKeyIDResult(true);
       } catch (error) {
-        console.error('prime login error', error);
-        setState(
-          isTransientNetworkLikeError(error)
-            ? {
-                status: 'initial',
-                errorMessageId: ETranslations.global_network_error,
-              }
-            : { status: 'initial' },
+        console.error(
+          'Prime email post-login continuation failed:',
+          getSanitizedAuthErrorText(error),
         );
-        defaultLogger.referral.page.signupOneKeyIDResult(false);
+        // The OTP has already been consumed and the bg runtime has committed
+        // the OneKey ID login. Keep this step completed even if closing the
+        // host dialog or another post-login continuation fails.
       }
     } finally {
-      setIsSubmittingVerificationCode(false);
+      isAuthActionInProgressRef.current = false;
+      if (isMountedRef.current) {
+        setIsSubmittingVerificationCode(false);
+      }
     }
   }, [
     onConfirm,
     isSubmittingVerificationCode,
+    isMountedRef,
     verificationCode,
     loginWithCode,
     email,
     onLoginSuccess,
+    state.status,
   ]);
+
+  const handleChooseAnotherSignInMethod = useCallback(async () => {
+    if (
+      !onChooseAnotherSignInMethod ||
+      isAuthActionInProgressRef.current ||
+      isSubmittingVerificationCode ||
+      state.status === 'done'
+    ) {
+      return;
+    }
+    isAuthActionInProgressRef.current = true;
+    try {
+      setVerificationCode('');
+      setState({ status: 'initial' });
+      await onChooseAnotherSignInMethod();
+    } finally {
+      isAuthActionInProgressRef.current = false;
+    }
+  }, [isSubmittingVerificationCode, onChooseAnotherSignInMethod, state.status]);
 
   // useEffect(() => {
   //   if (verificationCode.length === 6 && !isSubmittingVerificationCode) {
   //     void handleConfirm();
   //   }
   // }, [verificationCode, handleConfirm, isSubmittingVerificationCode]);
+
+  if (!active) {
+    return null;
+  }
 
   return (
     <Stack>
@@ -223,7 +315,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             width="auto"
             size="small"
             variant="tertiary"
-            disabled={countdown > 0 || isResending || !isApiReady}
+            disabled={
+              countdown > 0 ||
+              isResending ||
+              !isApiReady ||
+              state.status === 'done'
+            }
             onPress={sendEmailVerificationCode}
           >
             {buttonText}
@@ -234,6 +331,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           autoFocus
           status={state.status === 'error' ? 'error' : 'normal'}
           numberOfDigits={6}
+          disabled={state.status === 'done'}
           value={verificationCode}
           onTextChange={(value) => {
             setVerificationCode(value);
@@ -255,7 +353,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode,
-          disabled: verificationCode.length !== 6 || !isReady || !isApiReady,
+          disabled:
+            verificationCode.length !== 6 ||
+            !isReady ||
+            !isApiReady ||
+            state.status === 'done',
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,
@@ -264,6 +366,27 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           preventClose();
           await handleConfirm();
         }}
+        extraContent={
+          onChooseAnotherSignInMethod ? (
+            <XStack justifyContent="center" px="$5" pb="$5">
+              <Button
+                testID="prime-choose-another-sign-in-method-btn"
+                variant="tertiary"
+                size="medium"
+                disabled={
+                  isSubmittingVerificationCode ||
+                  isResending ||
+                  state.status === 'done'
+                }
+                onPress={handleChooseAnotherSignInMethod}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.choose_another_sign_in_method__action,
+                })}
+              </Button>
+            </XStack>
+          ) : undefined
+        }
       />
     </Stack>
   );

@@ -61,6 +61,41 @@ export type IPrimeCryptoPaymentFlowParams = {
   httpStatusCode?: number;
 };
 
+export type IOneKeyIdRemoteLogoutFlowParams = {
+  stage:
+    | 'initiatorRequest'
+    | 'initiatorRefresh'
+    | 'targetMessage'
+    | 'targetStaging'
+    | 'targetAcknowledgement'
+    | 'targetReconciliation'
+    | 'targetPresentation'
+    | 'targetRetry';
+  status:
+    | 'started'
+    | 'succeeded'
+    | 'failed'
+    | 'blocked'
+    | 'skipped'
+    | 'deduplicated';
+  flowId: string;
+  operationId?: string;
+  requestId?: string;
+  reason?: string;
+  oneKeyIdLoggedOut?: boolean;
+};
+
+export type IOneKeyIdAuthStateMigrationParams = {
+  stage:
+    | 'candidateDetected'
+    | 'walletSessionValidation'
+    | 'profileValidation'
+    | 'stateCommit';
+  status: 'started' | 'succeeded' | 'failed' | 'blocked';
+  operationId: string;
+  reason?: string;
+};
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -185,6 +220,13 @@ export class PrimeSubscriptionScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'error' })
+  public primeCryptoPaymentError(
+    params: IPrimeCryptoPaymentFlowParams & { errorMessage: string },
+  ) {
+    return params;
+  }
+
   /**
    * Prime upsell CTA button click
    * Triggered when user clicks the "Subscribe" or similar call-to-action button on the upsell/paywall page
@@ -275,6 +317,23 @@ export class PrimeSubscriptionScene extends BaseScene {
     };
   }
 
+  /**
+   * Local diagnostic trail for correlating both sides of a remote logout.
+   * This deliberately stays off analytics because socket retries can repeat.
+   */
+  @LogToLocal()
+  public onekeyIdRemoteLogoutFlow(params: IOneKeyIdRemoteLogoutFlowParams) {
+    return params;
+  }
+
+  /**
+   * Local diagnostic trail for the narrowly gated pre-upgrade auth migration.
+   */
+  @LogToLocal()
+  public onekeyIdAuthStateMigration(params: IOneKeyIdAuthStateMigrationParams) {
+    return params;
+  }
+
   @LogToLocal()
   @LogToServer()
   public onekeyIdAtomNotLoggedIn({ reason }: { reason: string }) {
@@ -318,6 +377,19 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToLocal()
   @LogToServer()
   public onekeyIdLoginFailedToast({ reason }: { reason: string }) {
+    return {
+      reason,
+    };
+  }
+
+  // A OneKey ID auth failure reason recorded at the throw site: the
+  // user-facing copy is localized/generic, so this keeps the stable English
+  // cause for server triage. Fires regardless of which toast (auto,
+  // fallback, or none) surfaces the failure — unlike onekeyIdLoginFailedToast
+  // above, which strictly means "the fallback toast was shown".
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
     return {
       reason,
     };

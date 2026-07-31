@@ -40,8 +40,10 @@ import {
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
+  resolveStockPayTokenState,
   shouldResetStockTradeReceiveAmount,
 } from './swapStockChannelUtils';
 import {
@@ -185,11 +187,16 @@ export function useSwapStockChannel() {
     coldStartStockPair.tradeSide === tradeSide
       ? coldStartStockPair.payToken
       : undefined;
-  const selectedPayToken =
-    payTokenState ??
-    stockPairPayToken ??
-    swapPairStockPayToken ??
-    coldStartStockPairPayToken;
+  const payTokenStateParams = {
+    channelToken: payTokenState,
+    coldStartToken: coldStartStockPairPayToken,
+    stockPairToken: stockPairPayToken,
+    swapPairToken: swapPairStockPayToken,
+  };
+  const {
+    displayToken: stockOwnedPayToken,
+    selectionToken: payTokenSelectionSeed,
+  } = resolveStockPayTokenState(payTokenStateParams);
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const {
     displayTokenDetail: cachedStockTokenDetail,
@@ -215,7 +222,8 @@ export function useSwapStockChannel() {
     async ({
       nextTradeSide = tradeSide,
       stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
-      payToken: nextPayToken = payTokenSnapshotRef.current ?? selectedPayToken,
+      payToken: nextPayToken = payTokenSnapshotRef.current ??
+        stockOwnedPayToken,
     }: {
       nextTradeSide?: ESwapStockTradeSide;
       stockToken?: ISwapToken;
@@ -248,7 +256,7 @@ export function useSwapStockChannel() {
     [
       currentStockToken,
       selectStockExecutionTokens,
-      selectedPayToken,
+      stockOwnedPayToken,
       tradeSide,
     ],
   );
@@ -268,12 +276,6 @@ export function useSwapStockChannel() {
     setStockSelectedToken,
     stockSelectedToken,
   ]);
-
-  useEffect(() => {
-    if (selectedPayToken) {
-      payTokenSnapshotRef.current = selectedPayToken;
-    }
-  }, [selectedPayToken]);
 
   const resetStockTradeAmounts = useCallback(() => {
     setFromTokenAmount({ value: '', isInput: false });
@@ -308,6 +310,26 @@ export function useSwapStockChannel() {
       setStockSelectedToken,
       syncStockExecutionTokens,
     ],
+  );
+
+  const syncStockTokenDetail = useCallback(
+    (tokenDetail: ISwapToken) => {
+      const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
+      const nextStockToken = resolveStockExecutionTokenMetadata({
+        token: currentToken,
+        tokenDetail,
+      });
+      if (!nextStockToken || nextStockToken === currentToken) {
+        return;
+      }
+      setStockTokenState(nextStockToken);
+      setStockSelectedToken(nextStockToken);
+      stockTokenSnapshotRef.current = nextStockToken;
+      void syncStockExecutionTokens({
+        stockToken: nextStockToken,
+      });
+    },
+    [currentStockToken, setStockSelectedToken, syncStockExecutionTokens],
   );
 
   useEffect(() => {
@@ -406,12 +428,21 @@ export function useSwapStockChannel() {
     currentStockTokenKey,
     disableNativePayToken,
     manualStockPayTokenKeyRef,
-    payToken: selectedPayToken,
+    payToken: payTokenSelectionSeed,
     selectPayToken,
     stockNetworkId,
     syncPayTokenDetail,
   });
-  const payToken = displayPayToken ?? selectedPayToken;
+  const { displayToken: payToken } = resolveStockPayTokenState({
+    ...payTokenStateParams,
+    liveToken: displayPayToken,
+  });
+
+  useEffect(() => {
+    if (payToken) {
+      payTokenSnapshotRef.current = payToken;
+    }
+  }, [payToken]);
 
   const selectStockToken = useCallback(
     (token: IMarketToken) => {
@@ -434,7 +465,7 @@ export function useSwapStockChannel() {
       const executionTokensForSwitch =
         resolveStockExecutionTokensForTradeSideSwitch({
           stockToken: stockTokenSnapshotRef.current ?? currentStockToken,
-          payToken: payTokenSnapshotRef.current ?? selectedPayToken,
+          payToken: payTokenSnapshotRef.current ?? payToken,
         });
       setTradeSideState(nextTradeSide);
       resetStockTradeAmounts();
@@ -448,8 +479,8 @@ export function useSwapStockChannel() {
     },
     [
       currentStockToken,
+      payToken,
       resetStockTradeAmounts,
-      selectedPayToken,
       syncStockExecutionTokens,
       tradeSide,
     ],
@@ -629,6 +660,7 @@ export function useSwapStockChannel() {
       selectPayToken,
       switchTradeSide,
       selectRecentTokenPair,
+      syncStockTokenDetail,
     }),
     [
       channelStage,
@@ -647,6 +679,7 @@ export function useSwapStockChannel() {
       selectRecentTokenPair,
       selectStockSwapToken,
       selectStockToken,
+      syncStockTokenDetail,
       switchTradeSide,
       speedConfigReady,
       activeStockTokenDetail,

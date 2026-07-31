@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Image as ExpoImage } from 'expo-image';
+import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
@@ -10,6 +10,7 @@ import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
+import { buildOptimizedImageSource } from './optimization';
 import { useImage } from './useImage';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
@@ -68,15 +69,70 @@ export function ImageV2({
     onLoadStart,
     onDisplay,
     autoplay,
+    resizeWidth,
     ...imageProps
   } = restProps;
   const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
-  const { image, reFetchImage } = useImage((source as ImageSource) || src, {
+  const rawSource = useMemo(() => {
+    return (source as ImageSource) || src;
+  }, [source, src]);
+  const rawResolvedSource = useMemo(() => {
+    return resolveSource(rawSource);
+  }, [rawSource]);
+  const optimizedSourceResult = useMemo(
+    () =>
+      buildOptimizedImageSource({
+        source: rawSource,
+        resolvedSource: rawResolvedSource,
+        resizeWidth,
+        width: [style.width, sizeProps?.width, props.width, props.w],
+        height: [style.height, sizeProps?.height, props.height, props.h],
+      }),
+    [
+      props.h,
+      props.height,
+      props.w,
+      props.width,
+      rawResolvedSource,
+      rawSource,
+      resizeWidth,
+      sizeProps?.height,
+      sizeProps?.width,
+      style.height,
+      style.width,
+    ],
+  );
+  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
+    string | undefined
+  >();
+  const shouldUseRawSourceFallback =
+    optimizedSourceResult.optimized &&
+    Boolean(optimizedSourceResult.rawUri) &&
+    rawSourceFallbackUri === optimizedSourceResult.rawUri;
+  const activeSource = useMemo(() => {
+    return shouldUseRawSourceFallback
+      ? optimizedSourceResult.rawSource
+      : optimizedSourceResult.source;
+  }, [
+    optimizedSourceResult.rawSource,
+    optimizedSourceResult.source,
+    shouldUseRawSourceFallback,
+  ]);
+
+  const { image, reFetchImage } = useImage(activeSource ?? undefined, {
     onError(error, retry) {
       console.error('Loading failed:', error.message);
+      if (
+        optimizedSourceResult.optimized &&
+        optimizedSourceResult.rawUri &&
+        !shouldUseRawSourceFallback
+      ) {
+        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
+        return;
+      }
       if (canRetry && retryTimes.current < retryTimesLimit.current) {
         retryTimes.current += 1;
         setTimeout(() => {
@@ -97,10 +153,24 @@ export function ImageV2({
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
+      if (
+        optimizedSourceResult.optimized &&
+        optimizedSourceResult.rawUri &&
+        !shouldUseRawSourceFallback
+      ) {
+        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
+        return;
+      }
       reFetchImage();
       onError?.(event);
     },
-    [onError, reFetchImage],
+    [
+      onError,
+      optimizedSourceResult.optimized,
+      optimizedSourceResult.rawUri,
+      reFetchImage,
+      shouldUseRawSourceFallback,
+    ],
   );
 
   const fallbackStyle = useMemo(
@@ -115,7 +185,7 @@ export function ImageV2({
   );
 
   if (!image) {
-    if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
+    if (hasError || isEmptyResolvedSource(activeSource)) {
       return <Stack style={fallbackStyle}>{fallback}</Stack>;
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;

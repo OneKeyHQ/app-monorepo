@@ -27,6 +27,7 @@ import type {
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   sortTokensByOrder,
   sortTokensCommon,
@@ -243,7 +244,16 @@ function AggregateTokenListItem({
               formatter="balance"
               textAlign="right"
             >
-              {tokenInfo?.balanceParsed}
+              {
+                // tokenInfo is a per-network sub-token entry (not a summed
+                // aggregate row), so it carries its own balanceMultiplier —
+                // scale the raw balanceParsed to display basis (OK-58046 Plan
+                // A). fiatValue is server-multiplied already; do not touch it.
+                tokenRebaseUtils.applyBalanceMultiplier({
+                  amount: tokenInfo?.balanceParsed,
+                  balanceMultiplier: tokenInfo?.balanceMultiplier,
+                })
+              }
             </NumberSizeableText>
           }
           secondary={

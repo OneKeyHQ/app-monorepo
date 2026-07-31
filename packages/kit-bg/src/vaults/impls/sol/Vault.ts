@@ -68,6 +68,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -83,6 +84,7 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -1011,6 +1013,7 @@ export default class Vault extends VaultBase {
         instructions,
         isNFT: transferPayload?.isNFT,
         amountToSend: transferPayload?.amountToSend,
+        sendTokenInfo: transferPayload?.tokenInfo,
       });
     }
 
@@ -1194,10 +1197,15 @@ export default class Vault extends VaultBase {
     instructions,
     isNFT,
     amountToSend,
+    sendTokenInfo,
   }: {
     instructions: TransactionInstruction[];
     isNFT: boolean | undefined;
     amountToSend: string | undefined;
+    // The send-page token snapshot (transferPayload.tokenInfo), used to
+    // source the balanceMultiplier for scaled-UI tokens per the
+    // tokenRebaseUtils same-snapshot contract.
+    sendTokenInfo: IToken | undefined;
   }) {
     let actions: Array<IDecodedTxAction> = [];
 
@@ -1332,6 +1340,20 @@ export default class Vault extends VaultBase {
               tokenIdOnNetwork: tokenAddress,
             });
             if (tokenInfo) {
+              // Prefer the send-page snapshot (transferPayload.tokenInfo) for
+              // the multiplier: it's the exact token snapshot that rendered
+              // the amount the user confirmed, per the tokenRebaseUtils
+              // same-snapshot contract. Solana mint addresses are base58 and
+              // case-sensitive, so compare exactly. Fall back to the freshly
+              // fetched `tokenInfo` (getToken) for dApp/external txs that
+              // never populated transferPayload. Both are IToken, so this
+              // reads the info-level field; ingestion normalization mirrors
+              // the item and info levels, so it equals the item-level value
+              // the send page displayed against.
+              const balanceMultiplier =
+                sendTokenInfo?.address === tokenAddress
+                  ? sendTokenInfo.balanceMultiplier
+                  : tokenInfo.balanceMultiplier;
               const transfer: IDecodedTxTransferInfo = {
                 from: fromAddress,
                 to: toAddress ?? ataAddress,
@@ -1339,7 +1361,10 @@ export default class Vault extends VaultBase {
                 icon: tokenInfo.logoURI ?? '',
                 name: tokenInfo.name,
                 symbol: tokenInfo.symbol,
-                amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                amount: tokenRebaseUtils.applyBalanceMultiplier({
+                  amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                  balanceMultiplier,
+                }),
                 isNFT,
               };
 

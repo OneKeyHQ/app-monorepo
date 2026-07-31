@@ -25,7 +25,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useOrderConfirm } from '../../hooks';
+import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -56,6 +58,7 @@ function PerpTradingDisabledPlaceOrderButton() {
   const computedSizeBN = useTradingFormComputedSize();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
   const { price: effectivePriceBN } = useOrderPrice(formData.side);
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [tradingMode] = useTradingModeAtom();
@@ -152,13 +155,26 @@ function PerpTradingDisabledPlaceOrderButton() {
       );
       return;
     }
-    if (perpsCustomSettings.skipOrderConfirm) {
+    const aggressiveLimitPriceWarning = getAggressiveLimitPriceWarning({
+      formData,
+      side: formData.side,
+      price: effectivePriceBN.toFixed(),
+    });
+    if (
+      shouldShowOrderConfirm({
+        skipOrderConfirm: perpsCustomSettings.skipOrderConfirm,
+        aggressiveLimitPriceWarning,
+      })
+    ) {
+      showOrderConfirmDialog({ intl, aggressiveLimitPriceWarning });
+    } else {
       void handleConfirm();
-      return;
     }
-    showOrderConfirmDialog({ intl });
   }, [
     activeAssetData,
+    effectivePriceBN,
+    formData,
+    getAggressiveLimitPriceWarning,
     perpsCustomSettings.skipOrderConfirm,
     handleConfirm,
     intl,

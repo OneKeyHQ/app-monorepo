@@ -81,8 +81,7 @@ function BasicOneKeyIdAvatar({
         overflow="hidden"
       >
         <Image
-          width="100%"
-          height="100%"
+          size={size}
           source={source}
           fallback={<OneKeyIdFallbackAvatar size={size} />}
         />

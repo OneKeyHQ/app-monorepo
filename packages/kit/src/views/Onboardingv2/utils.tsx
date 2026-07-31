@@ -1,8 +1,5 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { MOCK_PRO2_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/devicePro2Mock';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -12,6 +9,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 import type { Features } from '@onekeyfe/hd-transport';
 
 // Helper function to convert transport type enum to analytics string
@@ -86,27 +84,10 @@ export const getDeviceLabel = (
   separator = '/',
 ) => {
   return deviceTypeItems
-    .map((deviceType) => {
-      switch (deviceType) {
-        // MOCK(pro2): no EDeviceType.Pro2 member yet; match the shared mock value.
-        case MOCK_PRO2_DEVICE_TYPE:
-          return 'OneKey Pro 2';
-        case EDeviceType.Pro:
-          return 'OneKey Pro';
-        case EDeviceType.Classic:
-          return 'OneKey Classic';
-        case EDeviceType.Classic1s:
-          return 'OneKey Classic 1S';
-        case EDeviceType.ClassicPure:
-          return '1S Pure';
-        case EDeviceType.Mini:
-          return 'OneKey Mini';
-        case EDeviceType.Touch:
-          return 'OneKey Touch';
-        default:
-          return deviceType;
-      }
-    })
+    .map(
+      (deviceType) =>
+        deviceUtils.getDeviceModelNameByType(deviceType) || deviceType,
+    )
     .join(separator);
 };
 

@@ -1,7 +1,8 @@
 /* cspell:ignore Infini */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType } from '@onekeyhq/components';
@@ -22,6 +23,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -34,24 +36,20 @@ import type {
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
+
 import {
   isInfiniSubscriptionRenewalStopped,
   normalizeInfiniSubscriptionPlan,
 } from './infiniSubscriptionUtils';
+
+import type { IntlShape } from 'react-intl';
 
 // Fixed USD prices of the Infini crypto plans (integration plan §5.3(c)),
 // used as a fallback when the server does not return the amount
 const INFINI_PLAN_USD_PRICE: Record<IPrimeInfiniSubscriptionPlan, string> = {
   monthly: '29.99',
   yearly: '239.00',
-};
-
-// Renewal invoices are generated ahead of the period end with these lead days
-// (invoice_lead_days passed at subscription creation, integration plan §7.1);
-// the user should complete the payment within this window
-const INFINI_INVOICE_LEAD_DAYS: Record<IPrimeInfiniSubscriptionPlan, number> = {
-  monthly: 3,
-  yearly: 7,
 };
 
 const INFINI_STATUS_TO_BADGE_TYPE: Record<string, IBadgeType> = {
@@ -61,15 +59,11 @@ const INFINI_STATUS_TO_BADGE_TYPE: Record<string, IBadgeType> = {
   expired: 'default',
 };
 
-const INFINI_STATUS_TO_LABEL: Record<string, string> = {
-  // TODO: i18n pending translation key
-  active: 'Active',
-  // TODO: i18n pending translation key
-  canceled: 'Canceled',
-  // TODO: i18n pending translation key
-  cancelled: 'Canceled',
-  // TODO: i18n pending translation key
-  expired: 'Expired',
+const INFINI_STATUS_TO_TRANSLATION: Record<string, ETranslations> = {
+  active: ETranslations.earn_active,
+  canceled: ETranslations.prime_fulfillment_status_cancelled,
+  cancelled: ETranslations.prime_fulfillment_status_cancelled,
+  expired: ETranslations.export_history_expired__title,
 };
 
 function formatPeriodDate(timestamp: number) {
@@ -79,13 +73,46 @@ function formatPeriodDate(timestamp: number) {
   return formatDate(new Date(timestamp));
 }
 
+function getRenewalStoppedDescription({
+  intl,
+  periodEndText,
+}: {
+  intl: IntlShape;
+  periodEndText?: string;
+}) {
+  return periodEndText
+    ? intl.formatMessage(
+        {
+          id: ETranslations.prime_cancel_renewal_until__desc,
+        },
+        { date: periodEndText },
+      )
+    : intl.formatMessage({
+        id: ETranslations.prime_cancel_renewal_period_end__desc,
+      });
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <XStack justifyContent="space-between" alignItems="center" gap="$4">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack
+      justifyContent="space-between"
+      alignItems="center"
+      gap="$4"
+      $md={{
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: '$1',
+      }}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
         {label}
       </SizableText>
-      <SizableText size="$bodyMdMedium" textAlign="right" flexShrink={1}>
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="right"
+        flexShrink={1}
+        $md={{ textAlign: 'left' }}
+      >
         {value}
       </SizableText>
     </XStack>
@@ -103,6 +130,7 @@ function CancelRenewalDialogContent({
   submitRef: ICancelRenewalSubmitRef;
   onCancelRenewal: (note: string | undefined) => Promise<void>;
 }) {
+  const intl = useIntl();
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
@@ -134,8 +162,9 @@ function CancelRenewalDialogContent({
   return (
     <YStack gap="$2">
       <SizableText size="$bodyMd" color="$textSubdued">
-        {/* TODO: i18n pending translation key */}
-        Reason (optional)
+        {intl.formatMessage({
+          id: ETranslations.prime_cancel_reason_optional__label,
+        })}
       </SizableText>
       <TextAreaInput
         value={note}
@@ -143,8 +172,9 @@ function CancelRenewalDialogContent({
         maxLength={200}
         numberOfLines={3}
         editable={!isSubmitting}
-        // TODO: i18n pending translation key
-        placeholder="Tell us why you’re canceling"
+        placeholder={intl.formatMessage({
+          id: ETranslations.prime_cancel_reason__placeholder,
+        })}
         testID="prime-infini-cancel-note"
       />
       {/* Retention-first layout (integration plan §5.3(c)): the primary
@@ -153,10 +183,12 @@ function CancelRenewalDialogContent({
       <Dialog.Footer
         showConfirmButton
         showCancelButton
-        // TODO: i18n pending translation key
-        onConfirmText="Keep subscription"
-        // TODO: i18n pending translation key
-        onCancelText="Cancel renewal"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.prime_keep_subscription__action,
+        })}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.prime_cancel_renewal__action,
+        })}
         confirmButtonProps={{ disabled: isSubmitting }}
         cancelButtonProps={{ loading: isSubmitting }}
       />
@@ -223,13 +255,13 @@ export default function PrimeInfiniSubscription() {
       }
     },
     [currentOneKeyUserId, primeExpiresAt],
-    // Debounced so the renew flow's overlapping triggers (waiting-dialog
-    // onClose refresh, the atom expiry bump, and the focus refetch) collapse
-    // into a single apiGetInfiniSubscription call instead of firing several
-    // back to back. watchLoading is intentionally omitted: refreshes keep the
-    // current content in place (see renderContent) rather than flipping the
-    // page into a full spinner.
-    { debounced: 300 },
+    // Debounce lives on the refresh callback below, not here: a hook-level
+    // debounce also wraps the run() that the reset flow has to await, and a
+    // debounced call resolves with lodash's previous return value rather than
+    // the pending request. watchLoading is intentionally omitted: refreshes
+    // keep the current content in place (see renderContent) rather than
+    // flipping the page into a full spinner.
+    {},
   );
   const isResultForCurrentUser = Boolean(
     currentOneKeyUserId && result?.onekeyUserId === currentOneKeyUserId,
@@ -238,9 +270,35 @@ export default function PrimeInfiniSubscription() {
     ? result?.subscription
     : undefined;
 
-  const refreshSubscription = useCallback(() => {
-    void run();
-  }, [run]);
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  // Debounced so the renew flow's overlapping triggers collapse into a single
+  // apiGetInfiniSubscription call instead of firing several back to back.
+  // Reads run() through a ref so the debounced instance stays stable and its
+  // pending call cannot be dropped by a re-render.
+  const refreshSubscription = useMemo(
+    () =>
+      debounce(() => {
+        void runRef.current();
+      }, 300),
+    [],
+  );
+
+  useEffect(() => () => refreshSubscription.cancel(), [refreshSubscription]);
+
+  // Awaited by the reset button: the subscription shown here comes from this
+  // page's own apiGetInfiniSubscription call, which only re-runs when the
+  // OneKey ID or primeExpiresAt changes, so a reset would otherwise leave the
+  // deleted subscription (and its cancel-renewal entry) on screen. Goes through
+  // run() rather than writing state directly, so this refresh mints a fresh
+  // nonce inside the hook: an apiGetInfiniSubscription still in flight from an
+  // earlier trigger is invalidated instead of landing afterwards and restoring
+  // the pre-reset subscription.
+  const handleSubscriptionReset = useCallback(async () => {
+    refreshSubscription.cancel();
+    await run();
+  }, [refreshSubscription, run]);
 
   const handleCancelRenewal = useCallback(
     (currentSubscription: IPrimeInfiniSubscription) => {
@@ -254,12 +312,13 @@ export default function PrimeInfiniSubscription() {
       const submitRef: ICancelRenewalSubmitRef = { current: undefined };
       Dialog.show({
         icon: 'InfoCircleOutline',
-        // TODO: i18n pending translation key
-        title: 'Cancel renewal?',
-        // TODO: i18n pending translation key
-        description: periodEndText
-          ? `You will no longer receive renewal invoices. Your Prime benefits remain available until ${periodEndText}.`
-          : 'You will no longer receive renewal invoices. Your Prime benefits remain available until the end of the current billing period.',
+        title: intl.formatMessage({
+          id: ETranslations.prime_cancel_renewal__title,
+        }),
+        description: getRenewalStoppedDescription({
+          intl,
+          periodEndText,
+        }),
         renderContent: (
           <CancelRenewalDialogContent
             submitRef={submitRef}
@@ -290,12 +349,9 @@ export default function PrimeInfiniSubscription() {
                 });
               }
               Toast.success({
-                // TODO: i18n pending translation key
-                title: 'Renewal canceled',
-                message: periodEndText
-                  ? // TODO: i18n pending translation key
-                    `Your Prime benefits remain available until ${periodEndText}.`
-                  : undefined,
+                title: intl.formatMessage({
+                  id: ETranslations.prime_renewal_canceled__title,
+                }),
               });
               refreshSubscription();
             }}
@@ -308,7 +364,7 @@ export default function PrimeInfiniSubscription() {
         },
       });
     },
-    [currentOneKeyUserId, refreshSubscription, result?.onekeyUserId],
+    [currentOneKeyUserId, intl, refreshSubscription, result?.onekeyUserId],
   );
 
   const renderSubscriptionDetail = useCallback(
@@ -316,24 +372,23 @@ export default function PrimeInfiniSubscription() {
       const normalizedStatus = currentSubscription.status?.toLowerCase() ?? '';
       const badgeType =
         INFINI_STATUS_TO_BADGE_TYPE[normalizedStatus] ?? 'default';
-      const statusLabel =
-        INFINI_STATUS_TO_LABEL[normalizedStatus] ||
-        currentSubscription.status ||
-        'Unknown';
+      const statusLabel = intl.formatMessage({
+        id:
+          INFINI_STATUS_TO_TRANSLATION[normalizedStatus] ??
+          ETranslations.global_unknown,
+      });
       const isRenewalStopped =
         isInfiniSubscriptionRenewalStopped(currentSubscription);
       // Normalized defensively: indexing the fixed price / lead-days maps
       // with a raw unknown enum value (integration plan §11-3) would render
       // literal "$undefined" / "within undefined days" texts
       const plan = normalizeInfiniSubscriptionPlan(currentSubscription.plan);
-      const planLabel =
-        currentSubscription.planName ||
-        intl.formatMessage({
-          id:
-            plan === 'yearly'
-              ? ETranslations.prime_yearly
-              : ETranslations.prime_monthly,
-        });
+      const planLabel = intl.formatMessage({
+        id:
+          plan === 'yearly'
+            ? ETranslations.prime_crypto_yearly_plan__title
+            : ETranslations.prime_crypto_monthly_plan__title,
+      });
       const priceAmount =
         currentSubscription.amount || INFINI_PLAN_USD_PRICE[plan];
       const priceText = intl.formatMessage(
@@ -351,10 +406,6 @@ export default function PrimeInfiniSubscription() {
       const nextInvoiceText = currentSubscription.nextInvoiceAt
         ? formatPeriodDate(currentSubscription.nextInvoiceAt)
         : undefined;
-      const leadDays = INFINI_INVOICE_LEAD_DAYS[plan];
-      // displayEmail is the server-provided masked email of the OneKey ID;
-      // the renewal invoice is delivered to this address (payer_email)
-      const emailText = primeUserInfo.displayEmail || 'your email';
 
       return (
         <YStack px="$5" py="$4" gap="$4">
@@ -366,28 +417,47 @@ export default function PrimeInfiniSubscription() {
             borderColor="$borderSubdued"
             gap="$3"
           >
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$headingLg" flexShrink={1}>
-                {planLabel}
-              </SizableText>
-              <Badge badgeType={badgeType} badgeSize="sm">
-                {statusLabel}
-              </Badge>
-            </XStack>
+            {/* Hidden reset entry: revealed by repeated clicks on the title,
+                and only when developer mode is enabled. devSettingsOnly keeps
+                the gate in place even if an onPress is added here later.
+                (Enabling developer mode itself requires the devOnly password
+                plus the app password.) */}
+            <MultipleClickStack
+              alignSelf="flex-start"
+              testID="prime-infini-subscription-title"
+              devSettingsOnly
+              debugComponent={
+                <PrimeInfiniSubscriptionResetButton
+                  testID="prime-infini-subscription-reset"
+                  onReset={handleSubscriptionReset}
+                />
+              }
+            >
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$headingLg" flexShrink={1}>
+                  {planLabel}
+                </SizableText>
+                <Badge badgeType={badgeType} badgeSize="sm">
+                  {statusLabel}
+                </Badge>
+              </XStack>
+            </MultipleClickStack>
             <SizableText size="$headingXl">{priceText}</SizableText>
             <Divider />
             <YStack gap="$2.5">
               {periodEndText ? (
                 <InfoRow
-                  // TODO: i18n pending translation key
-                  label="Current period ends"
+                  label={intl.formatMessage({
+                    id: ETranslations.prime_current_period_ends__label,
+                  })}
                   value={periodEndText}
                 />
               ) : null}
               {!isRenewalStopped && nextInvoiceText ? (
                 <InfoRow
-                  // TODO: i18n pending translation key
-                  label="Next invoice"
+                  label={intl.formatMessage({
+                    id: ETranslations.prime_next_invoice__label,
+                  })}
                   value={nextInvoiceText}
                 />
               ) : null}
@@ -398,31 +468,31 @@ export default function PrimeInfiniSubscription() {
             <Alert
               type="warning"
               icon="InfoCircleOutline"
-              // TODO: i18n pending translation key
-              title="Renewal canceled"
-              description={
-                periodEndText
-                  ? // TODO: i18n pending translation key
-                    `You will not receive further renewal invoices. Your Prime benefits remain available until ${periodEndText}.`
-                  : // TODO: i18n pending translation key
-                    'You will not receive further renewal invoices. Your Prime benefits remain available until the end of the current billing period.'
-              }
+              title={intl.formatMessage({
+                id: ETranslations.prime_renewal_canceled__title,
+              })}
+              description={getRenewalStoppedDescription({
+                intl,
+                periodEndText,
+              })}
             />
           ) : null}
           {!isRenewalStopped && nextInvoiceText ? (
             <Alert
               type="info"
               icon="EmailOutline"
-              // TODO: i18n pending translation key
-              title="Renewal reminder"
-              // TODO: i18n pending translation key
-              description={`Your next invoice will be sent to ${emailText} on ${nextInvoiceText}. Please check your inbox and complete the payment within ${leadDays} days to keep your subscription active.`}
+              title={intl.formatMessage({
+                id: ETranslations.prime_renewal_reminder__title,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.prime_renewal_reminder__desc,
+              })}
             />
           ) : null}
         </YStack>
       );
     },
-    [intl, primeUserInfo.displayEmail],
+    [handleSubscriptionReset, intl],
   );
 
   const renderContent = () => {
@@ -443,10 +513,12 @@ export default function PrimeInfiniSubscription() {
         <Stack flex={1} alignItems="center" justifyContent="center" p="$5">
           <Empty
             icon="ErrorOutline"
-            // TODO: i18n pending translation key
-            title="Unable to load subscription"
-            // TODO: i18n pending translation key
-            description="Please check your network connection and try again."
+            title={intl.formatMessage({
+              id: ETranslations.global_network_error,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.auth_server_error_text,
+            })}
             buttonProps={{
               onPress: refreshSubscription,
               children: intl.formatMessage({ id: ETranslations.global_retry }),
@@ -461,10 +533,9 @@ export default function PrimeInfiniSubscription() {
         <Stack flex={1} alignItems="center" justifyContent="center" p="$5">
           <Empty
             icon="CreditCardOutline"
-            // TODO: i18n pending translation key
-            title="No crypto subscription"
-            // TODO: i18n pending translation key
-            description="You don’t have a crypto-paid Prime subscription yet."
+            title={intl.formatMessage({
+              id: ETranslations.prime_no_crypto_subscription__title,
+            })}
           />
         </Stack>
       );
@@ -497,8 +568,9 @@ export default function PrimeInfiniSubscription() {
               testID="prime-infini-cancel-renewal"
               onPress={() => handleCancelRenewal(subscription)}
             >
-              {/* TODO: i18n pending translation key */}
-              Cancel renewal
+              {intl.formatMessage({
+                id: ETranslations.prime_cancel_renewal__action,
+              })}
             </Button>
           </YStack>
         </Page.Footer>

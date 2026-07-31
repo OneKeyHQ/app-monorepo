@@ -23,6 +23,7 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
+import { getLocalBackgroundServiceMethod } from './lazyServiceProxy';
 
 import type {
   IBackgroundApi,
@@ -217,11 +218,13 @@ export class BackgroundApiProxyBase
         backgroundApi,
       });
 
-      if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(
-          serviceApi,
-          ...params,
-        );
+      const serviceMethod = getLocalBackgroundServiceMethod({
+        serviceApi,
+        methodName,
+        backgroundMethodName: backgroundMethodNameLocal,
+      });
+      if (serviceMethod) {
+        const resultPromise = Reflect.apply(serviceMethod, serviceApi, params);
         ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,

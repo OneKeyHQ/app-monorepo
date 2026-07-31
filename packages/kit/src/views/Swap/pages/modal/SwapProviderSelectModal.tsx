@@ -289,12 +289,6 @@ const SwapProviderSelectModal = () => {
                   id: ETranslations.provider_swap_duration,
                 })}
               />
-              <InformationItem
-                icon="HandCoinsOutline"
-                content={intl.formatMessage({
-                  id: ETranslations.provider_protocol_fee,
-                })}
-              />
             </Stack>
           </Stack>
         }

@@ -541,6 +541,127 @@ describe('ServiceIdentityExit', () => {
     ).toEqual(['executing', 'localStateCommitted', 'completed']);
   });
 
+  test('durably reconciles a definitively invalid source-less pre-upgrade session', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionCommitId.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getKeylessSessionCommitId.mockResolvedValue(
+      undefined,
+    );
+    mockReadSession.mockResolvedValue({
+      status: 'ok',
+      accessToken: keylessToken,
+    });
+
+    await expect(
+      fixture.service.reconcileMissingOneKeyIdSession({
+        callerName: 'test',
+        sourceLessPreUpgradeRepair: {
+          expectedOneKeyUserId: 'onekey-user-1',
+          expectedSessionTokenSub: 'keyless-sub',
+        },
+      }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      oneKeyId: {
+        onekeyUserId: 'onekey-user-1',
+        source: EPrimeAuthSessionSource.KeylessOAuth,
+        sessionCommitId: expect.any(String),
+        sessionTokenSub: 'keyless-sub',
+        allowSourceLessPreUpgrade: true,
+      },
+      keylessSession: {
+        sessionCommitId: expect.any(String),
+        sessionTokenSub: 'keyless-sub',
+        allowUnknownIdentity: undefined,
+      },
+      keylessWalletSession: {
+        walletId: 'hd-keyless-1',
+        sessionCommitId: undefined,
+      },
+    });
+    const commitParams =
+      fixture.commitIdentityExitLocalState.mock.calls[0]?.[0];
+    expect(commitParams?.keylessSession?.sessionCommitId).toBe(
+      commitParams?.oneKeyId?.sessionCommitId,
+    );
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+    expect(
+      fixture.setIdentityExitJournalEntry.mock.calls.map(
+        ([entry]) => entry.status,
+      ),
+    ).toEqual(['executing', 'localStateCommitted', 'completed']);
+  });
+
+  test('does not repair source-less state after its session identity changes', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      undefined,
+    );
+    mockReadSession.mockResolvedValue({
+      status: 'ok',
+      accessToken: keylessToken,
+    });
+
+    await expect(
+      fixture.service.reconcileMissingOneKeyIdSession({
+        callerName: 'test',
+        sourceLessPreUpgradeRepair: {
+          expectedOneKeyUserId: 'onekey-user-1',
+          expectedSessionTokenSub: 'another-sub',
+        },
+      }),
+    ).rejects.toThrow(
+      'source-less OneKey ID session identity changed before repair',
+    );
+    expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+  });
+
+  test('preserves a new Keyless session that appears after an unanchored source-less probe', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionCommitId.mockResolvedValue(
+      'new-keyless-session',
+    );
+    fixture.backgroundApi.simpleDb.prime.getKeylessSessionCommitId.mockResolvedValue(
+      'new-keyless-session',
+    );
+    mockReadSession.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildToken('new-keyless-sub'),
+    });
+
+    await expect(
+      fixture.service.reconcileMissingOneKeyIdSession({
+        callerName: 'test',
+        sourceLessPreUpgradeRepair: {
+          expectedOneKeyUserId: 'onekey-user-1',
+          expectedEmptyKeylessSessionSlot: true,
+        },
+      }),
+    ).resolves.toEqual({ cleared: false });
+
+    expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
+  });
+
   test('Email OneKey ID logout preserves independent Keyless and is idempotent', async () => {
     const fixture = createFixture();
     const plan = await fixture.service.prepareIdentityExit({
