@@ -12,6 +12,8 @@ import {
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export interface ITradingViewNativeLegendItem {
   label: string;
   value: string;
@@ -43,6 +45,9 @@ export interface ITradingViewNativeChartLegendRowLayout {
   textBaselineY: number;
 }
 
+export type ITradingViewNativeChartLegendRowLayouts =
+  ITradingViewNativeChartLegendRowLayout[];
+
 const VOLUME_UNITS = [
   { divisor: 1_000_000_000_000, suffix: 'T' },
   { divisor: 1_000_000_000, suffix: 'B' },
@@ -68,6 +73,9 @@ function expandTradingViewNativeScientificNumber(value: string) {
 
   const coefficient = value.slice(0, exponentIndex);
   const exponent = Number(value.slice(exponentIndex + 1));
+  if (!Number.isInteger(exponent)) {
+    return value;
+  }
   const sign = coefficient.startsWith('-') ? '-' : '';
   const unsignedCoefficient = sign ? coefficient.slice(1) : coefficient;
   const decimalIndex = unsignedCoefficient.indexOf('.');
@@ -128,18 +136,25 @@ function formatTradingViewNativePriceChangeValue(value: number) {
 export function formatTradingViewNativePriceChange({
   close,
   open,
+  previousClose,
 }: {
   close: number;
   open: number;
+  previousClose?: number;
 }) {
   'worklet';
 
-  if (!Number.isFinite(open) || !Number.isFinite(close) || open === 0) {
+  const referencePrice = previousClose ?? open;
+  if (
+    !Number.isFinite(referencePrice) ||
+    !Number.isFinite(close) ||
+    referencePrice === 0
+  ) {
     return '--';
   }
 
-  const change = close - open;
-  const percentage = (change / open) * 100;
+  const change = close - referencePrice;
+  const percentage = (change / referencePrice) * 100;
   if (!Number.isFinite(change) || !Number.isFinite(percentage)) {
     return '--';
   }
@@ -170,29 +185,33 @@ export function formatTradingViewNativeVolume(volume: number) {
 
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
+  chartType: ITradingViewNativeChartType = 'candlestick',
   previousClose?: number,
 ): ITradingViewNativeChartLegend {
   'worklet';
 
-  // TradingView's bar-change status line compares the close with the prior
-  // bar's close; the first bar has no prior close and falls back to its open.
+  // TradingView compares each close with the prior bar's close and falls back
+  // to the current bar's open when there is no prior bar.
   const changeReference = previousClose ?? point.o;
-
+  const priceChangeItem = {
+    label: '',
+    value: formatTradingViewNativePriceChange({
+      close: point.c,
+      open: changeReference,
+    }),
+  };
   return {
     isUp: point.c >= changeReference,
-    priceItems: [
-      { label: 'O', value: formatPrice(point.o) },
-      { label: 'H', value: formatPrice(point.h) },
-      { label: 'L', value: formatPrice(point.l) },
-      { label: 'C', value: formatPrice(point.c) },
-      {
-        label: '',
-        value: formatTradingViewNativePriceChange({
-          close: point.c,
-          open: changeReference,
-        }),
-      },
-    ],
+    priceItems:
+      chartType === 'line'
+        ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
+        : [
+            { label: 'O', value: formatPrice(point.o) },
+            { label: 'H', value: formatPrice(point.h) },
+            { label: 'L', value: formatPrice(point.l) },
+            { label: 'C', value: formatPrice(point.c) },
+            priceChangeItem,
+          ],
     volumeItem: {
       label: 'Volume',
       value: formatTradingViewNativeVolume(point.v),
@@ -200,7 +219,7 @@ export function getTradingViewNativeChartLegend(
   };
 }
 
-export function getTradingViewNativeChartLegendRowLayout({
+function getLegendRowLayout({
   items,
   maxX,
   measureTextWidth,
@@ -227,35 +246,8 @@ export function getTradingViewNativeChartLegendRowLayout({
     return null;
   }
 
-  const rowHeight =
-    TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
-    TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
-  const rows: {
-    contentRight: number;
-    segments: ITradingViewNativeLegendTextSegmentLayout[];
-  }[] = [];
-  let currentRow: ITradingViewNativeLegendTextSegmentLayout[] = [];
   let x = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
-  let contentRight = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
-
-  for (const item of items) {
-    const itemWidth =
-      measureTextWidth(item.label) +
-      TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP +
-      measureTextWidth(item.value);
-    const nextX = x + itemWidth;
-    // Keep a measured segment intact by starting it on the next row when it
-    // would cross the price-axis boundary.
-    if (currentRow.length > 0 && nextX > maxX) {
-      rows.push({
-        contentRight,
-        segments: currentRow,
-      });
-      currentRow = [];
-      x = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
-      contentRight = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
-    }
-
+  const segments = items.map((item) => {
     const labelX = x;
     const valueX =
       labelX +
@@ -265,40 +257,21 @@ export function getTradingViewNativeChartLegendRowLayout({
       valueX +
       measureTextWidth(item.value) +
       TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP;
-    currentRow.push({
-      ...item,
-      labelX,
-      ...(rows.length > 0
-        ? {
-            textBaselineY:
-              top +
-              TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
-              rows.length * rowHeight,
-          }
-        : {}),
-      valueX,
-    });
-    contentRight = Math.max(
-      x - TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP,
-      TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING,
-    );
-  }
-
-  rows.push({ contentRight, segments: currentRow });
-  const segments: ITradingViewNativeLegendTextSegmentLayout[] = [];
-  let maxContentRight = TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING;
-  for (const row of rows) {
-    maxContentRight = Math.max(maxContentRight, row.contentRight);
-    for (const segment of row.segments) {
-      segments.push(segment);
-    }
-  }
+    return { ...item, labelX, valueX };
+  });
+  const contentRight = Math.max(
+    x - TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP,
+    TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING,
+  );
+  const rowHeight =
+    TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+    TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
 
   return {
     backgroundRect: {
-      height: rowHeight * rows.length,
+      height: rowHeight,
       width: Math.min(
-        maxContentRight -
+        contentRight -
           TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING +
           TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING * 2,
         clipWidth,
@@ -307,12 +280,160 @@ export function getTradingViewNativeChartLegendRowLayout({
       y: backgroundTop,
     },
     clipRect: {
-      height: rowHeight * rows.length,
+      height: rowHeight,
       width: clipWidth,
       x: backgroundLeft,
       y: backgroundTop,
     },
     segments,
     textBaselineY: top + TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+  };
+}
+
+export function getTradingViewNativeChartLegendRowLayouts({
+  items,
+  maxX,
+  measureTextWidth,
+  top,
+}: {
+  items: ITradingViewNativeLegendItem[];
+  maxX: number;
+  measureTextWidth: (text: string) => number;
+  top: number;
+}): ITradingViewNativeChartLegendRowLayouts {
+  'worklet';
+
+  const backgroundLeft = Math.max(
+    TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING -
+      TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_HORIZONTAL_PADDING,
+    TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+  );
+  const clipWidth = Math.max(maxX - backgroundLeft, 0);
+  if (!items.length || clipWidth <= 0) {
+    return [];
+  }
+  const clipRight = backgroundLeft + clipWidth;
+
+  const rowHeight =
+    TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+    TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
+  const rows: ITradingViewNativeLegendItem[][] = [];
+  let currentRow: ITradingViewNativeLegendItem[] = [];
+  let currentWidth = 0;
+  for (const item of items) {
+    const itemWidth =
+      measureTextWidth(item.label) +
+      TRADING_VIEW_NATIVE_LEGEND_LABEL_VALUE_GAP +
+      measureTextWidth(item.value);
+    const nextWidth =
+      currentRow.length === 0
+        ? itemWidth
+        : currentWidth + TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP + itemWidth;
+    if (
+      currentRow.length > 0 &&
+      TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING + nextWidth > clipRight
+    ) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentWidth = 0;
+    }
+    currentRow.push(item);
+    currentWidth =
+      currentRow.length === 1
+        ? itemWidth
+        : currentWidth + TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP + itemWidth;
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  const layouts: ITradingViewNativeChartLegendRowLayouts = [];
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    if (row) {
+      const rowLayout = getLegendRowLayout({
+        items: row,
+        maxX,
+        measureTextWidth,
+        top: top + rowIndex * rowHeight,
+      });
+      if (rowLayout) {
+        layouts.push(rowLayout);
+      }
+    }
+  }
+  return layouts;
+}
+
+export function getTradingViewNativeChartLegendRowLayout({
+  items,
+  maxX,
+  measureTextWidth,
+  top,
+}: {
+  items: ITradingViewNativeLegendItem[];
+  maxX: number;
+  measureTextWidth: (text: string) => number;
+  top: number;
+}): ITradingViewNativeChartLegendRowLayout | null {
+  'worklet';
+
+  const layouts = getTradingViewNativeChartLegendRowLayouts({
+    items,
+    maxX,
+    measureTextWidth,
+    top,
+  });
+  const firstLayout = layouts[0];
+  if (!firstLayout) {
+    return null;
+  }
+  if (layouts.length === 1) {
+    return firstLayout;
+  }
+
+  let backgroundBottom =
+    firstLayout.backgroundRect.y + firstLayout.backgroundRect.height;
+  let backgroundWidth = firstLayout.backgroundRect.width;
+  let clipBottom = firstLayout.clipRect.y + firstLayout.clipRect.height;
+  let clipWidth = firstLayout.clipRect.width;
+  const segments: ITradingViewNativeLegendTextSegmentLayout[] = [];
+
+  for (let layoutIndex = 0; layoutIndex < layouts.length; layoutIndex += 1) {
+    const layout = layouts[layoutIndex];
+    if (layout) {
+      backgroundBottom = Math.max(
+        backgroundBottom,
+        layout.backgroundRect.y + layout.backgroundRect.height,
+      );
+      backgroundWidth = Math.max(backgroundWidth, layout.backgroundRect.width);
+      clipBottom = Math.max(
+        clipBottom,
+        layout.clipRect.y + layout.clipRect.height,
+      );
+      clipWidth = Math.max(clipWidth, layout.clipRect.width);
+      for (const segment of layout.segments) {
+        segments.push(
+          layoutIndex === 0
+            ? segment
+            : { ...segment, textBaselineY: layout.textBaselineY },
+        );
+      }
+    }
+  }
+
+  return {
+    backgroundRect: {
+      ...firstLayout.backgroundRect,
+      height: backgroundBottom - firstLayout.backgroundRect.y,
+      width: backgroundWidth,
+    },
+    clipRect: {
+      ...firstLayout.clipRect,
+      height: clipBottom - firstLayout.clipRect.y,
+      width: clipWidth,
+    },
+    segments,
+    textBaselineY: firstLayout.textBaselineY,
   };
 }
