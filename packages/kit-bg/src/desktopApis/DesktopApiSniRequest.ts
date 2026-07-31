@@ -29,6 +29,7 @@ const MAX_SOCKETS_PER_PAIR = 16;
 const MAX_FREE_SOCKETS = 32;
 const MAX_ACTIVE_REQUESTS = 64;
 const MAX_ACTIVE_REQUESTS_PER_PAIR = 16;
+const MAX_PENDING_REQUESTS = 256;
 
 const ALLOWED_METHODS = new Set([
   'GET',
@@ -76,6 +77,18 @@ type SniAgentState = {
   agent: https.Agent;
   activeRequests: Set<ClientRequest>;
   destroyed: boolean;
+};
+
+type SniRequestLimiterWaiter = {
+  key: string;
+  signal: AbortSignal | undefined;
+  abortListener: (() => void) | undefined;
+  resolve: (release: () => void) => void;
+};
+
+type SniRequestState = {
+  requestId: string | undefined;
+  cancel: (error: SniRequestError) => void;
 };
 
 export class SniRequestError extends Error {
@@ -526,66 +539,32 @@ export class SniRequestLimiter {
   constructor(
     private maxActiveRequests = MAX_ACTIVE_REQUESTS,
     private maxActiveRequestsPerPair = MAX_ACTIVE_REQUESTS_PER_PAIR,
+    private maxPendingRequests = MAX_PENDING_REQUESTS,
   ) {}
 
   private activeRequests = 0;
 
   private activeRequestsByPair = new Map<string, number>();
 
-  snapshot(
-    hostname?: string,
-    ip?: string,
-  ): {
-    activeRequests: number;
-    activeRequestsForPair: number;
-  } {
-    const key = hostname && ip ? `${hostname.toLowerCase()}|${ip}` : undefined;
-    return {
-      activeRequests: this.activeRequests,
-      activeRequestsForPair: key
-        ? (this.activeRequestsByPair.get(key) ?? 0)
-        : 0,
-    };
+  private pendingRequests: SniRequestLimiterWaiter[] = [];
+
+  private getKey(hostname: string, ip: string): string {
+    return `${hostname.toLowerCase()}|${ip}`;
   }
 
-  acquire(hostname: string, ip: string): () => void {
-    const key = `${hostname.toLowerCase()}|${ip}`;
-    if (this.activeRequests >= this.maxActiveRequests) {
-      writeNativeLog('warn', 'desktop_sni_resource_limit', {
-        hostname: hostname.toLowerCase(),
-        ipHash: shortHashForLog(ip),
-        ipFamily: getIpFamily(ip),
-        activeRequests: this.activeRequests,
-        activeRequestsForPair: this.activeRequestsByPair.get(key) ?? 0,
-        limit: this.maxActiveRequests,
-        reason: 'max_active_requests',
-      });
-      throw new SniRequestError(
-        'SNI_RESOURCE_LIMIT',
-        'Too many active SNI requests',
-        true,
-      );
-    }
-    const pairCount = this.activeRequestsByPair.get(key) ?? 0;
-    if (pairCount >= this.maxActiveRequestsPerPair) {
-      writeNativeLog('warn', 'desktop_sni_resource_limit', {
-        hostname: hostname.toLowerCase(),
-        ipHash: shortHashForLog(ip),
-        ipFamily: getIpFamily(ip),
-        activeRequests: this.activeRequests,
-        activeRequestsForPair: pairCount,
-        limit: this.maxActiveRequestsPerPair,
-        reason: 'max_active_requests_per_pair',
-      });
-      throw new SniRequestError(
-        'SNI_RESOURCE_LIMIT',
-        'Too many active SNI requests for destination',
-        true,
-      );
-    }
+  private hasCapacity(key: string): boolean {
+    return (
+      this.activeRequests < this.maxActiveRequests &&
+      (this.activeRequestsByPair.get(key) ?? 0) < this.maxActiveRequestsPerPair
+    );
+  }
 
+  private reserveSlot(key: string): () => void {
     this.activeRequests += 1;
-    this.activeRequestsByPair.set(key, pairCount + 1);
+    this.activeRequestsByPair.set(
+      key,
+      (this.activeRequestsByPair.get(key) ?? 0) + 1,
+    );
 
     let released = false;
     return () => {
@@ -598,7 +577,107 @@ export class SniRequestLimiter {
       } else {
         this.activeRequestsByPair.set(key, nextPairCount - 1);
       }
+      this.dispatchPendingRequests();
     };
+  }
+
+  private dispatchPendingRequests(): void {
+    while (this.activeRequests < this.maxActiveRequests) {
+      const index = this.pendingRequests.findIndex((waiter) =>
+        this.hasCapacity(waiter.key),
+      );
+      if (index < 0) return;
+
+      const [waiter] = this.pendingRequests.splice(index, 1);
+      if (waiter.signal && waiter.abortListener) {
+        waiter.signal.removeEventListener('abort', waiter.abortListener);
+      }
+      waiter.resolve(this.reserveSlot(waiter.key));
+    }
+  }
+
+  private getCancellationError(signal: AbortSignal): Error {
+    return signal.reason instanceof Error
+      ? signal.reason
+      : new SniRequestError('SNI_CANCELLED', 'Request cancelled', true);
+  }
+
+  snapshot(
+    hostname?: string,
+    ip?: string,
+  ): {
+    activeRequests: number;
+    activeRequestsForPair: number;
+    pendingRequests: number;
+    pendingRequestsForPair: number;
+  } {
+    const key = hostname && ip ? this.getKey(hostname, ip) : undefined;
+    return {
+      activeRequests: this.activeRequests,
+      activeRequestsForPair: key
+        ? (this.activeRequestsByPair.get(key) ?? 0)
+        : 0,
+      pendingRequests: this.pendingRequests.length,
+      pendingRequestsForPair: key
+        ? this.pendingRequests.filter((waiter) => waiter.key === key).length
+        : 0,
+    };
+  }
+
+  acquire(
+    hostname: string,
+    ip: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<() => void> {
+    const key = this.getKey(hostname, ip);
+    if (options.signal?.aborted) {
+      return Promise.reject(this.getCancellationError(options.signal));
+    }
+    if (this.hasCapacity(key)) {
+      return Promise.resolve(this.reserveSlot(key));
+    }
+    if (this.pendingRequests.length >= this.maxPendingRequests) {
+      const stats = this.snapshot(hostname, ip);
+      writeNativeLog('warn', 'desktop_sni_resource_limit', {
+        hostname: hostname.toLowerCase(),
+        ipHash: shortHashForLog(ip),
+        ipFamily: getIpFamily(ip),
+        activeRequests: stats.activeRequests,
+        activeRequestsForPair: stats.activeRequestsForPair,
+        pendingRequests: stats.pendingRequests,
+        pendingRequestsForPair: stats.pendingRequestsForPair,
+        limit: this.maxPendingRequests,
+        reason: 'max_pending_requests',
+      });
+      return Promise.reject(
+        new SniRequestError(
+          'SNI_RESOURCE_LIMIT',
+          'Too many pending SNI requests',
+          true,
+        ),
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const waiter: SniRequestLimiterWaiter = {
+        key,
+        signal: options.signal,
+        abortListener: undefined,
+        resolve,
+      };
+      if (options.signal) {
+        waiter.abortListener = () => {
+          const index = this.pendingRequests.indexOf(waiter);
+          if (index < 0) return;
+          this.pendingRequests.splice(index, 1);
+          reject(this.getCancellationError(options.signal as AbortSignal));
+        };
+        options.signal.addEventListener('abort', waiter.abortListener, {
+          once: true,
+        });
+      }
+      this.pendingRequests.push(waiter);
+    });
   }
 }
 
@@ -612,7 +691,9 @@ class DesktopApiSniRequest {
 
   private agentState: SniAgentState;
 
-  private activeRequests = new Map<string, ClientRequest>();
+  private requestsById = new Map<string, SniRequestState>();
+
+  private allRequests = new Set<SniRequestState>();
 
   private allActiveRequests = new Set<ClientRequest>();
 
@@ -631,19 +712,19 @@ class DesktopApiSniRequest {
     }
   }
 
-  private removeActiveRequest(
-    requestId: string | undefined,
+  private removeRequestState(
+    requestState: SniRequestState,
     request: ClientRequest | undefined,
     agentState: SniAgentState | undefined,
   ): void {
     let cleanupAgentState = agentState;
     if (
-      requestId &&
-      request &&
-      this.activeRequests.get(requestId) === request
+      requestState.requestId &&
+      this.requestsById.get(requestState.requestId) === requestState
     ) {
-      this.activeRequests.delete(requestId);
+      this.requestsById.delete(requestState.requestId);
     }
+    this.allRequests.delete(requestState);
     if (request) {
       const state = agentState ?? this.requestAgentStates.get(request);
       this.allActiveRequests.delete(request);
@@ -701,18 +782,74 @@ class DesktopApiSniRequest {
         headerCount: Object.keys(config.headers ?? {}).length,
         activeRequests: this.requestLimiter.snapshot().activeRequests,
         activeRequestsForPair: 0,
+        pendingRequests: this.requestLimiter.snapshot().pendingRequests,
+        pendingRequestsForPair: 0,
         durationMs: Date.now() - startedAt,
         errorMessage: getErrorMessage(error),
       });
       return Promise.reject(error);
     }
+
     let releaseRequestSlot: (() => void) | undefined;
+    let queueTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    let activeRequest: ClientRequest | undefined;
+    let activeAgentState: SniAgentState | undefined;
+    const abortController = new AbortController();
+    const timeoutError = () =>
+      new SniRequestError(
+        'SNI_TIMEOUT',
+        `SNI request timeout after ${normalizedConfig.timeout}ms`,
+      );
+    const requestState: SniRequestState = {
+      requestId: normalizedConfig.requestId,
+      cancel: (error) => {
+        if (!abortController.signal.aborted) {
+          abortController.abort(error);
+        }
+        activeRequest?.destroy(error);
+      },
+    };
+
+    if (normalizedConfig.requestId) {
+      const previous = this.requestsById.get(normalizedConfig.requestId);
+      if (previous) {
+        writeNativeLog('warn', 'desktop_sni_lifecycle', {
+          action: 'duplicate_request_id',
+          requestIdHash: shortHashForLog(normalizedConfig.requestId),
+          success: true,
+          activeCount: this.allActiveRequests.size,
+          pendingCount: this.requestLimiter.snapshot().pendingRequests,
+        });
+        previous.cancel(
+          new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
+        );
+      }
+      this.requestsById.set(normalizedConfig.requestId, requestState);
+    }
+    this.allRequests.add(requestState);
+
+    queueTimeoutId = setTimeout(() => {
+      requestState.cancel(timeoutError());
+    }, normalizedConfig.timeout);
+
     try {
-      releaseRequestSlot = this.requestLimiter.acquire(
+      releaseRequestSlot = await this.requestLimiter.acquire(
         normalizedConfig.hostname,
         normalizedConfig.ip,
+        { signal: abortController.signal },
       );
+      if (queueTimeoutId) clearTimeout(queueTimeoutId);
+      queueTimeoutId = undefined;
+      if (abortController.signal.aborted) {
+        throw abortController.signal.reason instanceof Error
+          ? abortController.signal.reason
+          : new SniRequestError('SNI_CANCELLED', 'Request cancelled', true);
+      }
     } catch (error) {
+      if (queueTimeoutId) clearTimeout(queueTimeoutId);
+      releaseRequestSlot?.();
+      releaseRequestSlot = undefined;
+      this.removeRequestState(requestState, undefined, undefined);
       const stats = this.requestLimiter.snapshot(
         normalizedConfig.hostname,
         normalizedConfig.ip,
@@ -730,17 +867,26 @@ class DesktopApiSniRequest {
         headerCount: Object.keys(normalizedConfig.headers).length,
         activeRequests: stats.activeRequests,
         activeRequestsForPair: stats.activeRequestsForPair,
+        pendingRequests: stats.pendingRequests,
+        pendingRequestsForPair: stats.pendingRequestsForPair,
         durationMs: Date.now() - startedAt,
         errorMessage: getErrorMessage(error),
       });
       return Promise.reject(error);
     }
 
+    const remainingTimeout =
+      normalizedConfig.timeout - (Date.now() - startedAt);
+    if (remainingTimeout <= 0) {
+      releaseRequestSlot();
+      releaseRequestSlot = undefined;
+      this.removeRequestState(requestState, undefined, undefined);
+      return Promise.reject(timeoutError());
+    }
+
     return new Promise((resolve, reject) => {
       let settled = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      let activeRequest: ClientRequest | undefined;
-      let activeAgentState: SniAgentState | undefined;
       const releaseSlot = () => {
         releaseRequestSlot?.();
         releaseRequestSlot = undefined;
@@ -751,11 +897,7 @@ class DesktopApiSniRequest {
         settled = true;
         releaseSlot();
         if (timeoutId) clearTimeout(timeoutId);
-        this.removeActiveRequest(
-          normalizedConfig.requestId,
-          activeRequest,
-          activeAgentState,
-        );
+        this.removeRequestState(requestState, activeRequest, activeAgentState);
         const stats = this.requestLimiter.snapshot(
           normalizedConfig.hostname,
           normalizedConfig.ip,
@@ -775,6 +917,8 @@ class DesktopApiSniRequest {
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
+          pendingRequests: stats.pendingRequests,
+          pendingRequestsForPair: stats.pendingRequestsForPair,
           durationMs: Date.now() - startedAt,
           errorMessage: error.message,
         });
@@ -786,11 +930,7 @@ class DesktopApiSniRequest {
         settled = true;
         releaseSlot();
         if (timeoutId) clearTimeout(timeoutId);
-        this.removeActiveRequest(
-          normalizedConfig.requestId,
-          activeRequest,
-          activeAgentState,
-        );
+        this.removeRequestState(requestState, activeRequest, activeAgentState);
         writeNativeLog('info', 'desktop_sni_request_result', {
           result: 'response',
           status: response.statusCode,
@@ -895,36 +1035,17 @@ class DesktopApiSniRequest {
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
+          pendingRequests: stats.pendingRequests,
+          pendingRequestsForPair: stats.pendingRequestsForPair,
         });
-
-        if (normalizedConfig.requestId) {
-          const previous = this.activeRequests.get(normalizedConfig.requestId);
-          if (previous) {
-            writeNativeLog('warn', 'desktop_sni_lifecycle', {
-              action: 'duplicate_request_id',
-              requestIdHash: shortHashForLog(normalizedConfig.requestId),
-              success: true,
-              activeCount: this.allActiveRequests.size,
-            });
-            previous.destroy(
-              new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
-            );
-          }
-          this.activeRequests.set(normalizedConfig.requestId, request);
-        }
 
         request.on('error', (error: Error) => {
           settleReject(classifyTransportError(error));
         });
 
         timeoutId = setTimeout(() => {
-          request.destroy(
-            new SniRequestError(
-              'SNI_TIMEOUT',
-              `SNI request timeout after ${normalizedConfig.timeout}ms`,
-            ),
-          );
-        }, normalizedConfig.timeout);
+          request.destroy(timeoutError());
+        }, remainingTimeout);
 
         if (normalizedConfig.body) {
           request.write(normalizedConfig.body);
@@ -938,18 +1059,18 @@ class DesktopApiSniRequest {
   }
 
   async cancelRequest(requestId: string): Promise<{ success: boolean }> {
-    const request = this.activeRequests.get(requestId);
-    if (!request) {
+    const requestState = this.requestsById.get(requestId);
+    if (!requestState) {
       writeNativeLog('warn', 'desktop_sni_lifecycle', {
         action: 'cancel_request',
         requestIdHash: shortHashForLog(requestId),
         success: false,
         activeCount: this.allActiveRequests.size,
+        pendingCount: this.requestLimiter.snapshot().pendingRequests,
       });
       return { success: false };
     }
-    this.removeActiveRequest(requestId, request, undefined);
-    request.destroy(
+    requestState.cancel(
       new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
     );
     writeNativeLog('info', 'desktop_sni_lifecycle', {
@@ -957,23 +1078,26 @@ class DesktopApiSniRequest {
       requestIdHash: shortHashForLog(requestId),
       success: true,
       activeCount: this.allActiveRequests.size,
+      pendingCount: this.requestLimiter.snapshot().pendingRequests,
     });
     return { success: true };
   }
 
   async cancelAllRequests(): Promise<{ success: boolean }> {
-    const requests = Array.from(this.allActiveRequests.values());
-    this.activeRequests.clear();
-    this.allActiveRequests.clear();
+    const requests = Array.from(this.allRequests);
+    this.requestsById.clear();
+    this.allRequests.clear();
     for (const request of requests) {
-      request.destroy(
+      request.cancel(
         new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
       );
     }
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_all_requests',
       success: true,
-      activeCount: requests.length,
+      requestCount: requests.length,
+      activeCount: this.allActiveRequests.size,
+      pendingCount: this.requestLimiter.snapshot().pendingRequests,
     });
     return { success: true };
   }
