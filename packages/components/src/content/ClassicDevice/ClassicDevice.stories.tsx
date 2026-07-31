@@ -42,8 +42,8 @@ export const Sizes: Story = {
   ),
 };
 
-// One component, one `animation` prop: confirm (3s loop), enterPin /
-// enterPassphrase (5.6s shared entry schedule). Switching remounts and
+// One component, one `animation` prop: confirm (3.2s loop), enterPin /
+// enterPassphrase (5.8s shared entry schedule). Switching remounts and
 // restarts the loop.
 export const Animations: Story = {
   args: { animation: 'confirm' },
