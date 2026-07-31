@@ -23,6 +23,7 @@ import {
   usePerpsCustomSettingsAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
 import { useOrderConfirm } from '../../hooks';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
@@ -313,6 +314,52 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     orderPanelEnableTradingMode,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus,
+  ]);
+
+  // Diagnostic only. Records the gate inputs once while the buttons are still
+  // hidden and once when they appear, so a cold-start log can separate a
+  // snapshot key mismatch (entries present but no hit) from the cached-path
+  // exclusion (a hit that !statusReady rejects). Booleans and counts only.
+  useEffect(() => {
+    markPerpsColdStartPerfOnce(
+      canShowTradingButtons
+        ? 'trading_buttons_gate_visible_first'
+        : 'trading_buttons_gate_blocked_first',
+      {
+        isMobile,
+        snapshotEntries: Object.keys(displaySnapshot?.entries ?? {}).length,
+        hasLookupAddress: Boolean(snapshotLookupAccountAddress),
+        hasLookupAccountId: Boolean(snapshotLookupAccountId),
+        hasLookupIndexedAccountId: Boolean(snapshotLookupIndexedAccountId),
+        snapshotHit: Boolean(snapshotEntry),
+        snapshotHasAddress: Boolean(snapshotEntry?.account.accountAddress),
+        walletAccountReady: selectedWalletAccount.ready,
+        statusReady: displayReady.statusReady,
+        selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+        statusHasAddress: Boolean(perpsAccountStatus.accountAddress),
+        accountNotSupport: Boolean(perpsAccountStatus.accountNotSupport),
+        canCreateAddress: Boolean(perpsAccountStatus.canCreateAddress),
+        canTrade: Boolean(perpsAccountStatus.canTrade),
+        canShowCachedTradingButtons,
+        canShowTradingButtons,
+      },
+    );
+  }, [
+    canShowCachedTradingButtons,
+    canShowTradingButtons,
+    displayReady.statusReady,
+    displaySnapshot?.entries,
+    isMobile,
+    perpsAccountLoading.selectAccountLoading,
+    perpsAccountStatus.accountAddress,
+    perpsAccountStatus.accountNotSupport,
+    perpsAccountStatus.canCreateAddress,
+    perpsAccountStatus.canTrade,
+    selectedWalletAccount.ready,
+    snapshotEntry,
+    snapshotLookupAccountAddress,
+    snapshotLookupAccountId,
+    snapshotLookupIndexedAccountId,
   ]);
 
   const reserveMobileEnableTradingLayout = useMemo(
