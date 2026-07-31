@@ -2102,14 +2102,14 @@ async function main() {
         moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
         absPathToSegment: backgroundAbsPathToSegment,
       });
-    const _mainRuntimeAsyncPaths = {
+    const mainRuntimeAsyncPaths = {
       absPathToSegment: mainAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,
         ...runtimeOwnership.mainStartupAbsPaths,
       ]),
     };
-    const _backgroundRuntimeAsyncPaths = {
+    const backgroundRuntimeAsyncPaths = {
       absPathToSegment: backgroundAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,
@@ -2216,15 +2216,13 @@ async function main() {
     // loading (common.bundle first, then the runtime-specific bundle).
     //
     // Async require path strategy:
-    //   Common code runs in both runtimes, so its import() paths must
-    //   work everywhere. We use the MERGED segment map (main ∪ background)
-    //   instead of per-runtime variants. Shared segments (like locale JSON)
-    //   get a simple segment key — no {"main":…,"background":…} branching.
-    //   Both runtimes resolve the same key via the merged manifest.
+    //   Common code runs in both runtimes, so every import() path must reflect
+    //   the module's ownership in each runtime. A module may be eager in one
+    //   runtime but segmented in the other; that case requires a dispatch
+    //   record such as {"main":null,"background":"seg:key"}.
     //
-    //   For modules that are eager in main/background (not in a segment),
-    //   externalModulePaths covers both runtimes' eager sets so the
-    //   rewriter marks them as null (already loaded).
+    //   runtimeVariants collapses identical ownership to a simple segment key
+    //   or null, while preserving per-runtime records for asymmetric modules.
     const commonModuleToSegment = new Map([
       ...mainSerializedModuleToSegment,
       ...backgroundSerializedModuleToSegment,
@@ -2250,9 +2248,10 @@ async function main() {
         ...runtimeOwnership.mainStartupAbsPaths,
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
-      // No runtimeVariants — common code uses the merged segment map
-      // directly. Both runtimes share the same manifest and can load
-      // any shared segment by key.
+      runtimeVariants: {
+        main: mainRuntimeAsyncPaths,
+        background: backgroundRuntimeAsyncPaths,
+      },
     });
 
     // Main bundle: main-only eager modules + entry require

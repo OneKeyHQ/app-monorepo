@@ -1,5 +1,7 @@
 import { Analytics } from '.';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const mockPost = jest.fn(() => Promise.resolve());
 const mockGetDeviceCpuTier = jest.fn(() => 'high');
 const mockGetDeviceInfo = jest.fn(() =>
@@ -62,10 +64,19 @@ async function waitForPostCount(expectedCount: number) {
 }
 
 describe('Analytics tier', () => {
+  let consoleWarnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     mockPost.mockClear();
     mockGetDeviceCpuTier.mockClear();
     mockGetDeviceInfo.mockClear();
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 
   it('adds the resolved tier to event and profile requests', async () => {
@@ -128,6 +139,55 @@ describe('Analytics tier', () => {
       expect.objectContaining({
         attributes: expect.objectContaining({ tier: 3 }),
       }),
+    );
+  });
+
+  it('sends events with the medium fallback when tier enrichment fails', async () => {
+    mockGetDeviceCpuTier.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('segment runtime mismatch');
+    });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({
+          deviceId: 'device-id',
+          tier: 2,
+        }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device performance tier:',
+      expect.any(Error),
+    );
+  });
+
+  it('sends events when device info enrichment fails', async () => {
+    mockGetDeviceInfo.mockRejectedValueOnce(
+      new OneKeyLocalError('device info unavailable'),
+    );
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device info:',
+      expect.any(Error),
     );
   });
 });
