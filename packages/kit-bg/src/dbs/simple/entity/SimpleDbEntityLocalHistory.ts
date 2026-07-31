@@ -700,7 +700,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     });
   }
 
-  _getAccountLocalHistoryTxs(params: {
+  private _getAccountLocalHistoryTxs(params: {
     networkId: string;
     accountAddress: string;
     xpub?: string;
@@ -723,7 +723,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     );
   }
 
-  _checkIsActionIncludesToken(params: {
+  private _checkIsActionIncludesToken(params: {
     historyTx: IAccountHistoryTx;
     action: IDecodedTxAction;
     tokenIdOnNetwork: string;
@@ -745,7 +745,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     );
   }
 
-  _arrangeLocalTxs({
+  private _arrangeLocalTxs({
     txs,
     tokenIdOnNetwork,
   }: {
