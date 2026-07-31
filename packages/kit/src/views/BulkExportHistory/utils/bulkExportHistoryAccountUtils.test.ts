@@ -1,3 +1,5 @@
+import { LocalDBRecordNotFoundError } from '@onekeyhq/shared/src/errors';
+
 import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountIdentifiers,
@@ -179,7 +181,9 @@ describe('bulkExportHistoryAccountUtils', () => {
 
     it('returns undefined when the account was never derived on the network', async () => {
       mockGetAccountsByIndexedAccounts.mockRejectedValue(
-        new Error("record not found: Account hd-1--m/44'/145'/0'"),
+        new LocalDBRecordNotFoundError(
+          "record not found: Account hd-1--m/44'/145'/0'",
+        ),
       );
 
       await expect(
@@ -188,6 +192,19 @@ describe('bulkExportHistoryAccountUtils', () => {
           indexedAccountId: 'hd-1--0',
         }),
       ).resolves.toBeUndefined();
+    });
+
+    it('propagates account lookup failures other than record not found', async () => {
+      mockGetAccountsByIndexedAccounts.mockRejectedValue(
+        new Error('bridge call failed'),
+      );
+
+      await expect(
+        getBulkExportHistoryNetworkAccountSafe({
+          networkId: 'bch--0',
+          indexedAccountId: 'hd-1--0',
+        }),
+      ).rejects.toThrow('bridge call failed');
     });
 
     it('propagates derive type lookup failures', async () => {
