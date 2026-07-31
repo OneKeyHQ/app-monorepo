@@ -94,6 +94,7 @@ export interface ICustomElementProps {
   titleMatch?: IFuseResultMatch;
   title?: string;
   titleProps?: ISizableTextProps;
+  valueTextProps?: ISizableTextProps;
   iconProps?: IIconProps;
   icon?: IKeyOfIcons;
   testID?: string;
@@ -117,7 +118,7 @@ export function CurrencyListItem(props: ICustomElementProps) {
       testID={SettingTestIDs.currencyItem}
     >
       <ListItem.Text
-        primaryTextProps={props?.titleProps}
+        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
         primary={text.toUpperCase()}
         align="right"
       />
@@ -146,7 +147,7 @@ export function LanguageListItem(props: ICustomElementProps) {
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.titleProps}
+              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
               primary={label}
               align="right"
             />
@@ -212,7 +213,7 @@ export function ThemeListItem(props: ICustomElementProps) {
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.titleProps}
+              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
               primary={label}
               align="right"
             />
@@ -821,6 +822,8 @@ export function HapticFeedbackListItem(props: ICustomElementProps) {
 }
 
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
     startViewTransition(() => {
@@ -832,18 +835,24 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <Switch
-        testID="setting-toggle-b-t-c-fresh-address-switch"
-        alignSelf="flex-start"
-        size={ESwitchSize.small}
-        value={enableBTCFreshAddress}
-        onChange={toggleBTCFreshAddress}
-      />
+      <YStack
+        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
+        justifyContent="center"
+      >
+        <Switch
+          testID="setting-toggle-b-t-c-fresh-address-switch"
+          size={ESwitchSize.small}
+          value={enableBTCFreshAddress}
+          onChange={toggleBTCFreshAddress}
+        />
+      </YStack>
     </TabSettingsListItem>
   );
 }
 
 export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ useGasAccountByDefault }] = useSettingsPersistAtom();
   const toggleUseGasAccountByDefault = useCallback(async (value: boolean) => {
     startViewTransition(() => {
@@ -852,18 +861,24 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   }, []);
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <Switch
-        testID={SettingTestIDs.tabUseGasAccountByDefaultSwitch}
-        alignSelf="flex-start"
-        size={ESwitchSize.small}
-        value={useGasAccountByDefault ?? true}
-        onChange={toggleUseGasAccountByDefault}
-      />
+      <YStack
+        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
+        justifyContent="center"
+      >
+        <Switch
+          testID={SettingTestIDs.tabUseGasAccountByDefaultSwitch}
+          size={ESwitchSize.small}
+          value={useGasAccountByDefault ?? true}
+          onChange={toggleUseGasAccountByDefault}
+        />
+      </YStack>
     </TabSettingsListItem>
   );
 }
 
 export function SplitViewListItem(props: ICustomElementProps) {
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const [{ enableSplitView }] = useSettingsPersistAtom();
   const checked = enableSplitView !== false;
   const toggleSplitView = useCallback(
@@ -880,13 +895,17 @@ export function SplitViewListItem(props: ICustomElementProps) {
   );
   return (
     <TabSettingsListItem {...props} userSelect="none">
-      <Switch
-        testID={SettingTestIDs.tabSplitViewSwitch}
-        alignSelf="flex-start"
-        size={ESwitchSize.small}
-        value={checked}
-        onChange={toggleSplitView}
-      />
+      <YStack
+        alignSelf={isMobileLayout ? 'stretch' : 'flex-start'}
+        justifyContent="center"
+      >
+        <Switch
+          testID={SettingTestIDs.tabSplitViewSwitch}
+          size={ESwitchSize.small}
+          value={checked}
+          onChange={toggleSplitView}
+        />
+      </YStack>
     </TabSettingsListItem>
   );
 }

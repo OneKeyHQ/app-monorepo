@@ -139,13 +139,21 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           }
         };
 
-        return (
+        const tabItem = (
           <TabItemView
-            key={route.key}
             onPress={onPress}
             isActive={focus}
             options={options as any}
           />
+        );
+        return (
+          <YStack
+            key={route.key}
+            w="100%"
+            mt={route.name === ESettingsTabNames.About ? '$3' : undefined}
+          >
+            {tabItem}
+          </YStack>
         );
       }),
     [routes, state.index, state.key, descriptors, navigation, previousTabRoute],

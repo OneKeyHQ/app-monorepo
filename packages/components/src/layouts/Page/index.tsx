@@ -42,6 +42,7 @@ function PageProvider({
   safeAreaEnabled = true,
   fullPage,
   testID,
+  backgroundColor,
   onMounted,
   onUnmounted,
   onClose,
@@ -81,6 +82,7 @@ function PageProvider({
               lazyLoad={lazyLoad}
               fullPage={fullPage}
               testID={testID}
+              backgroundColor={backgroundColor}
             >
               {children}
             </PageContainer>

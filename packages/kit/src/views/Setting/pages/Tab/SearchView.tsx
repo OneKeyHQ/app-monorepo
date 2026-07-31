@@ -20,8 +20,10 @@ import {
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
+import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISubSettingConfig } from './config';
 import type { ISettingsSearchResult } from './useSearch';
@@ -35,6 +37,8 @@ export function SearchView({
   isSearching: boolean;
 }) {
   const intl = useIntl();
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   if (!isSearching) {
     return null;
   }
@@ -99,7 +103,11 @@ export function SearchView({
                 pt="$3.5"
                 gap="$2.5"
               >
-                <TabSettingsSection>
+                <TabSettingsSection
+                  bg={isMobileLayout ? '$bg' : undefined}
+                  borderWidth={isMobileLayout ? 0 : undefined}
+                  borderRadius={isMobileLayout ? '$4' : undefined}
+                >
                   {section.configs.map((config) => (
                     <TabSettingsListGrid
                       key={config.item.title}

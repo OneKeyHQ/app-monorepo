@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Badge, Icon, Stack, YStack } from '@onekeyhq/components';
+import { Badge, Icon, Stack, XStack, YStack } from '@onekeyhq/components';
 import type {
   IBadgeProps,
   IIconProps,
@@ -49,12 +49,23 @@ export function TabSettingsListItem({
   );
 }
 
+export function MobileTabSettingsDivider() {
+  return (
+    <XStack alignSelf="stretch" pl="$5">
+      <Stack w="$6" mr="$3" flexShrink={0} />
+      <Stack flex={1} h={StyleSheet.hairlineWidth} bg="$neutral3" />
+    </XStack>
+  );
+}
+
 export function TabSettingsListGrid({
   item,
   titleMatch,
+  useMobilePresentation = false,
 }: {
   item: ISubSettingConfig | undefined | null;
   titleMatch?: IFuseResultMatch | undefined;
+  useMobilePresentation?: boolean;
 }) {
   const isTabNavigator = useIsTabNavigator();
   const titleProps = useMemo(() => {
@@ -64,11 +75,27 @@ export function TabSettingsListGrid({
         : '$bodyLgMedium') as ISizableTextProps['size'],
     };
   }, [isTabNavigator]);
+  const valueTextProps = useMemo<ISizableTextProps | undefined>(
+    () =>
+      useMobilePresentation
+        ? {
+            size: '$bodyLg',
+            color: '$textSubdued',
+          }
+        : undefined,
+    [useMobilePresentation],
+  );
   const iconProps = useMemo(() => {
+    if (useMobilePresentation) {
+      return {
+        size: '$6' as IIconProps['size'],
+        color: '$iconSubdued' as IIconProps['color'],
+      };
+    }
     return {
       size: (isTabNavigator ? '$5' : '$6') as IIconProps['size'],
     };
-  }, [isTabNavigator]);
+  }, [isTabNavigator, useMobilePresentation]);
   const appNavigation = useAppNavigation();
   const onPress = useCallback(async () => {
     await dismissKeyboardWithDelay(100);
@@ -84,6 +111,7 @@ export function TabSettingsListGrid({
       badgeProps: item?.badgeProps,
       testID: item?.testID,
       titleProps,
+      valueTextProps,
       iconProps,
     })
   ) : (

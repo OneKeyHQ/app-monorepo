@@ -103,9 +103,9 @@ const usePageHeaderReloadOptions = () => {
                 unstable_headerRightItems: noGlassRightItems,
               }
             : { headerRight: wrapHeaderRenderInGlass(restProps.headerRight) })),
-        ...(headerTransparent && {
-          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
-        }),
+        headerStyle: headerTransparent
+          ? [headerStyle ?? {}, { backgroundColor: 'transparent' }]
+          : headerStyle,
         ...(!platformEnv.isNativeIOS &&
           headerSearchBarOptions && {
             headerSearchBarOptions: {
