@@ -1062,31 +1062,24 @@ function SendAmountInputContainer() {
       if (
         isNFT ||
         isLightningNetwork ||
-        !privateSendToken ||
+        !tokenInfo ||
         !account?.address ||
         !currentAccountId
       ) {
         return false;
       }
       try {
-        const privateSendTokens =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+        // Keyed identically to the recipient-page prefetch, so this resolves
+        // from the ServiceSwap memo cache (or joins the in-flight request)
+        // instead of chaining behind the token-details fetch above.
+        return await backgroundApiProxy.serviceSwap.checkTokenPrivateSendSupported(
+          {
             networkId,
-            contractAddress: privateSendToken.contractAddress,
+            contractAddress: tokenInfo.address,
             accountAddress: account.address,
             accountId: currentAccountId,
-            protocol: EProtocolOfExchange.PRIVATE_SEND,
-          });
-        const matchedPrivateSendToken = privateSendTokens?.find((item) =>
-          equalTokenNoCaseSensitive({
-            token1: item,
-            token2: privateSendToken,
-          }),
+          },
         );
-        if (!matchedPrivateSendToken) {
-          return false;
-        }
-        return matchedPrivateSendToken.supportProtocol === true;
       } catch {
         return false;
       }
@@ -1097,7 +1090,7 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       isNFT,
       networkId,
-      privateSendToken,
+      tokenInfo,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
