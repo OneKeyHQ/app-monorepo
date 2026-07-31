@@ -21,6 +21,8 @@ import {
   getTradingViewNativePriceRange,
 } from './chartViewport';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 export type ITradingViewNativeTimeAxisUnit =
   | 'minute'
   | 'hour'
@@ -491,6 +493,7 @@ export function getTradingViewNativeTimeAxisLayout({
 
 export function getTradingViewNativeChartLayout({
   candleIntervalSeconds,
+  chartType = 'candlestick',
   height,
   minimumTimeTickIndexSpacing,
   points,
@@ -498,6 +501,7 @@ export function getTradingViewNativeChartLayout({
   width,
 }: {
   candleIntervalSeconds: number;
+  chartType?: ITradingViewNativeChartType;
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
@@ -519,6 +523,7 @@ export function getTradingViewNativeChartLayout({
 
   const visiblePriceRange = getTradingViewNativePriceRange({
     ...visiblePointRange,
+    chartType,
     points,
   });
   if (!visiblePriceRange) {

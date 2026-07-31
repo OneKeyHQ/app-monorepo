@@ -10,6 +10,11 @@ import type { ICalendarHeaderProps } from './type';
 
 const mdStyle = { marginTop: '$2' } as const;
 const hoverSubduedStyle = { color: '$textSubdued' } as const;
+// Android reserves extra font padding above the ascent (large for CJK fonts),
+// which sinks the title below the visual center of the nav buttons row.
+const titleTextStyle = platformEnv.isNativeAndroid
+  ? ({ includeFontPadding: false } as const)
+  : undefined;
 
 // Directional hit slop: the paired chevrons overlap via IconButton's negative
 // margin, and RN hit-testing lets the later sibling win overlapped areas, so
@@ -73,6 +78,7 @@ export const CalendarHeader = memo(
               cursor="default"
               userSelect="none"
               pointerEvents="auto"
+              style={titleTextStyle}
               onPress={onMonthClick}
               hoverStyle={onMonthClick ? hoverSubduedStyle : undefined}
             >
@@ -85,6 +91,7 @@ export const CalendarHeader = memo(
             cursor="default"
             userSelect="none"
             pointerEvents="auto"
+            style={titleTextStyle}
             onPress={yearClickable ? onYearClick : undefined}
             hoverStyle={yearClickable ? hoverSubduedStyle : undefined}
           >

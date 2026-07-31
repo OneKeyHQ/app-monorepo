@@ -1,4 +1,5 @@
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 export enum EPerpPageEnterSource {
@@ -72,6 +73,24 @@ export interface IPerpTradeButtonClickParams {
   tif?: string;
   leverage?: number;
   orderValue?: number;
+}
+
+export type TPerpAccountSnapshotStatus = 'ready' | 'notCreated' | 'unsupported';
+
+export interface IPerpAccountStatusParams {
+  source: EPerpPageEnterSource;
+  walletType: string;
+  snapshotStatus: TPerpAccountSnapshotStatus;
+  isTradingEnabled: boolean;
+  isActivated?: boolean;
+  agentOk?: boolean;
+  builderFeeOk?: boolean;
+  referralCodeOk?: boolean;
+  abstractionOk?: boolean;
+  accountMode?: EHyperLiquidAbstractionMode;
+  accountValue?: number;
+  withdrawable?: number;
+  positionCount?: number;
 }
 
 export interface IPerpDepositInitiateParams {

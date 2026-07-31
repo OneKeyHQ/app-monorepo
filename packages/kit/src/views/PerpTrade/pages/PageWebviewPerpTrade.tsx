@@ -98,7 +98,7 @@ function WebviewPerpTradeView() {
     useCallback(() => {
       if (!firedRef.current) {
         firedRef.current = true;
-        defaultLogger.perp.common.pageView({
+        defaultLogger.perp.common.perpPageView({
           source: consumePerpPageEnterSource(),
           walletType: walletTypeRef.current ?? 'unknown',
         });

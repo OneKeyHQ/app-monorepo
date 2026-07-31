@@ -8,6 +8,11 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  getTradingViewNativeChartType,
+  isTradingViewNativeSingleValueHistory,
+} from '../utils/chartType';
+
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import {
@@ -60,6 +65,41 @@ const VIEWPORT_TARGET_FORWARD_CANDLE_COUNT =
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT;
 
 let realtimeSubscriberSequence = 0;
+
+function getHistoryPointTypeScopeKey(
+  seriesKey: string,
+  interval: ITradingViewNativeChartInterval,
+) {
+  return `${seriesKey}:${interval}`;
+}
+
+type IHistoryPointTypeClassification = 'fallbackSingle' | 'ohlc' | 'single';
+
+function resolveHistoryPointTypeClassification({
+  currentClassification,
+  historySource,
+  pointType,
+}: {
+  currentClassification?: IHistoryPointTypeClassification;
+  historySource?: 'fallback';
+  pointType?: ITradingViewNativeHistoryResponse['pointType'];
+}): IHistoryPointTypeClassification {
+  if (isTradingViewNativeSingleValueHistory(pointType)) {
+    if (historySource === 'fallback') {
+      // A fallback page may fill an isolated gap, so it cannot replace a
+      // chart type already established by the primary history source.
+      return currentClassification ?? 'fallbackSingle';
+    }
+    return 'single';
+  }
+  return currentClassification === 'single' ? 'single' : 'ohlc';
+}
+
+function isSingleValueHistoryClassification(
+  classification?: IHistoryPointTypeClassification,
+) {
+  return classification === 'fallbackSingle' || classification === 'single';
+}
 
 interface IChartData {
   chartPictureVersion: number;
@@ -1227,7 +1267,7 @@ export function useTradingViewNativeKLine({
   const marketSymbol = source.kind === 'market' ? source.symbol : '';
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
-  const historyProvider = useMemo(() => {
+  const rawHistoryProvider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
         kind: 'hyperliquid',
@@ -1254,6 +1294,40 @@ export function useTradingViewNativeKLine({
     marketTokenAddress,
     sourceKind,
   ]);
+  const seriesKey = rawHistoryProvider.key;
+  const [historyPointTypeScopes, setHistoryPointTypeScopes] = useState<
+    ReadonlyMap<string, IHistoryPointTypeClassification>
+  >(() => new Map());
+  const historyProvider = useMemo<ITradingViewNativeDataProvider>(
+    () => ({
+      ...rawHistoryProvider,
+      fetchHistory: async (request) => {
+        const data = await rawHistoryProvider.fetchHistory(request);
+        if (!request.signal.aborted && data && data.points.length > 0) {
+          const scopeKey = getHistoryPointTypeScopeKey(
+            seriesKey,
+            request.interval.value,
+          );
+          setHistoryPointTypeScopes((currentScopes) => {
+            const currentClassification = currentScopes.get(scopeKey);
+            const nextClassification = resolveHistoryPointTypeClassification({
+              currentClassification,
+              historySource: data.historySource,
+              pointType: data.pointType,
+            });
+            if (nextClassification === currentClassification) {
+              return currentScopes;
+            }
+            const nextScopes = new Map(currentScopes);
+            nextScopes.set(scopeKey, nextClassification);
+            return nextScopes;
+          });
+        }
+        return data;
+      },
+    }),
+    [rawHistoryProvider, seriesKey],
+  );
   const realtimeProvider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return historyProvider;
@@ -1287,7 +1361,6 @@ export function useTradingViewNativeKLine({
   );
   const intervalStorageNamespace =
     getTradingViewNativeIntervalStorageNamespace(source);
-  const seriesKey = historyProvider.key;
   const currentSeriesKeyRef = useRef(seriesKey);
   currentSeriesKeyRef.current = seriesKey;
   const latestRequestIdRef = useRef(0);
@@ -3363,6 +3436,17 @@ export function useTradingViewNativeKLine({
   return {
     calendarAvailableTimeRange,
     candleIntervalSeconds: displayedInterval.seconds,
+    chartType: getTradingViewNativeChartType({
+      hasSingleValueHistory: isSingleValueHistoryClassification(
+        historyPointTypeScopes.get(
+          getHistoryPointTypeScopeKey(
+            visibleChartData?.seriesKey ?? seriesKey,
+            visibleChartData?.interval ?? activeInterval,
+          ),
+        ),
+      ),
+      pointCount: visibleChartData?.points.length ?? 0,
+    }),
     chartPictureVersion: visibleChartData?.chartPictureVersion ?? 0,
     dataProviderKey: seriesKey,
     dataState,
