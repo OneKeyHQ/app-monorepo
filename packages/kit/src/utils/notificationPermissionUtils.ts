@@ -82,9 +82,15 @@ export async function enableNotificationsBestEffort({
       );
     }
     // 2) If the system permission is still missing, route to the existing
-    // notification permission guide page. Wait for any in-progress dismiss
+    // notification permission guide page. Desktop cannot resolve the real OS
+    // permission (see isNotificationFullyEnabled above), so the gate would
+    // stay open forever and push the guide on every enable; the master
+    // switch alone decides there. Wait for any in-progress dismiss
     // animation before pushing the modal, matching the NotificationsSettings
     // flow.
+    if (platformEnv.isDesktop) {
+      return;
+    }
     const permission =
       await backgroundApiProxy.serviceNotification.getPermission();
     if (

@@ -1,4 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -128,8 +130,20 @@ export async function getBulkExportHistoryNetworkAccountSafe({
         deriveType,
       });
     return accounts[0];
-  } catch {
-    return undefined;
+  } catch (error) {
+    // Only the "record not found" thrown for never-derived accounts is
+    // tolerated; any other failure (DB open, bridge call, etc.) must reach
+    // the caller so the page shows a retry state instead of silently
+    // dropping the account's tasks.
+    if (
+      errorUtils.isErrorByClassName({
+        error,
+        className: EOneKeyErrorClassNames.LocalDBRecordNotFoundError,
+      })
+    ) {
+      return undefined;
+    }
+    throw error;
   }
 }
 
