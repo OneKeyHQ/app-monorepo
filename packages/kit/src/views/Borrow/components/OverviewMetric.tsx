@@ -1,4 +1,4 @@
-import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { ButtonFrame, Skeleton, XStack, YStack } from '@onekeyhq/components';
 import type { IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
@@ -42,18 +42,32 @@ export function OverviewMetric({
       {action}
     </>
   );
+  const MetricFrame = onPress ? ButtonFrame : YStack;
 
   return (
-    <YStack
+    <MetricFrame
       testID={testID}
       p="$3"
       flexBasis={widthMode === 'hug' ? 'auto' : '50%'}
       $gtMd={{ flexBasis: 'auto', minWidth: 168 }}
       {...(onPress && {
         onPress,
+        accessibilityLabel: title.text,
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        justifyContent: 'flex-start',
+        borderRadius: '$0',
+        borderWidth: '$0',
+        bg: '$transparent',
+        focusable: true,
         cursor: 'pointer',
         hoverStyle: { opacity: 0.7 },
         pressStyle: { opacity: 0.5 },
+        focusVisibleStyle: {
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+        },
       })}
     >
       <XStack ai="center" gap="$1" mb="$1.5">
@@ -74,6 +88,6 @@ export function OverviewMetric({
           {valueContent}
         </XStack>
       )}
-    </YStack>
+    </MetricFrame>
   );
 }

@@ -224,6 +224,19 @@ function createCheck(
   };
 }
 
+const ONLY_FIAT_SHORTFALL_CHECK = {
+  canSwitch: false,
+  reasons: [],
+  disableCollateralAssets: [],
+  repayAssets: [],
+  additionalRepayAssets: [],
+  additionalRepayFiatValue: '$12.34',
+  collateral: {},
+  debt: {},
+  maxLtv: {},
+  healthFactor: {},
+} satisfies IBorrowEModeSwitchCheck;
+
 function renderFlow() {
   return renderHook(() =>
     useEModeNeedActionFlow({
@@ -678,6 +691,41 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     expect(switchMock.runCheck).not.toHaveBeenCalled();
     expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
     expect(universalMock.repay).not.toHaveBeenCalled();
+  });
+
+  it('exposes an only-fiat shortfall as unavailable without polling or switching', async () => {
+    const { result, rerender, unmount } = renderFlow();
+    await waitFor(() => {
+      expect(result.current.activeStep?.key).toBe('repay:0xreserve');
+    });
+
+    switchMock.check = ONLY_FIAT_SHORTFALL_CHECK;
+    rerender({});
+    await waitFor(() => {
+      expect(result.current.blockerDataUnavailable).toBe(true);
+      expect(result.current.activeStep?.kind).toBe('switch');
+    });
+    expect(result.current.steps.map((step) => step.key)).toEqual([
+      'repay:0xreserve',
+      'switch',
+    ]);
+
+    act(() => result.current.run());
+    await act(async () => Promise.resolve());
+    expect(universalMock.setEMode).not.toHaveBeenCalled();
+
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        jest.advanceTimersByTime(10 * 60 * 1000);
+        await Promise.resolve();
+      });
+      expect(switchMock.runCheck).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('bounds exact-tx recovery, preserves a recased pending lock, and retries by rechecking', async () => {

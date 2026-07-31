@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
 import {
+  Alert,
   Divider,
   Icon,
   Page,
@@ -65,6 +66,7 @@ import {
   balanceLookupAddress,
   formatBalanceDisplay,
 } from './needActionBalances';
+import { isEModeBlockerDataUnavailable } from './needActionContract';
 import {
   type ICompactStepStatus,
   getAuxiliaryLineKind,
@@ -378,6 +380,7 @@ function BorrowEModeNeedActionView() {
     lastCheckRef.current = check;
   }
   const displayCheck = check ?? lastCheckRef.current;
+  const blockerDataUnavailable = isEModeBlockerDataUnavailable(displayCheck);
 
   // Routed escape-hatch path: a Repay/Withdraw modal returns here on focus, and
   // a confirmed routed tx drops out of the pending list — both re-check so the
@@ -493,6 +496,7 @@ function BorrowEModeNeedActionView() {
     activeStep?.kind === 'switch' &&
     hasCheckedOnce &&
     !!displayCheck &&
+    !blockerDataUnavailable &&
     !displayCheck.canSwitch;
 
   const activeUnderfundedRepay =
@@ -636,7 +640,10 @@ function BorrowEModeNeedActionView() {
     confirmText = intl.formatMessage({ id: ETranslations.global_retry });
   }
   const canRetryCheck =
-    isFocused && !focusRevalidating && !isChecking && !check;
+    isFocused &&
+    !focusRevalidating &&
+    !isChecking &&
+    (!check || blockerDataUnavailable);
   // A retry only rechecks the exact submitted tx and switch state; it never
   // broadcasts. Keep that recovery path available even while serialized
   // history still reports the original transaction as pending.
@@ -660,12 +667,29 @@ function BorrowEModeNeedActionView() {
           })}
         </SizableText>
 
-        {!hasCheckedOnce && isChecking ? (
+        {blockerDataUnavailable ? (
+          <Alert
+            type="critical"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.defi_emode_load_error,
+            })}
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.global_retry,
+              }),
+              primaryTestID: 'borrow-e-mode-blocker-retry',
+              onPrimaryPress: () => void refresh(),
+            }}
+          />
+        ) : null}
+        {!blockerDataUnavailable && !hasCheckedOnce && isChecking ? (
           <YStack gap="$3">
             <Skeleton h="$16" w="100%" borderRadius="$3" />
             <Skeleton h="$16" w="100%" borderRadius="$3" />
           </YStack>
-        ) : (
+        ) : null}
+        {!blockerDataUnavailable && (hasCheckedOnce || !isChecking) ? (
           <YStack
             borderWidth={1}
             borderColor="$borderSubdued"
@@ -709,7 +733,7 @@ function BorrowEModeNeedActionView() {
               );
             })}
           </YStack>
-        )}
+        ) : null}
 
         {/* Server prose is a fallback for checks with no structured blocker
             rows; with rows on screen it only restates them. `steps` always

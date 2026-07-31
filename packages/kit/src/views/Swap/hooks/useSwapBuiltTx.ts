@@ -148,6 +148,10 @@ import {
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
+import {
+  completeBroadcastedSwapSuccess,
+  completeSignedNoSendSwapSuccess,
+} from './swapBroadcastSuccess';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
 import {
@@ -447,13 +451,14 @@ export function useSwapBuildTx({
         ) {
           void goBackQrCodeModal();
         }
-        await generateSwapHistoryItem({
+        await completeBroadcastedSwapSuccess({
           txId,
-          swapTxInfo: swapInfo,
+          swapInfo,
           gasFeeFiatValue,
           gasFeeInNative,
+          generateSwapHistoryItem,
+          onSwapBroadcast: onSwapBroadcastRef.current,
         });
-        await onSwapBroadcastRef.current?.();
         if (
           swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
         ) {
@@ -508,10 +513,11 @@ export function useSwapBuildTx({
             };
           },
         );
-        await generateSwapHistoryItem({
-          swapTxInfo: swapInfo,
+        await completeSignedNoSendSwapSuccess({
+          swapInfo,
+          generateSwapHistoryItem,
+          onSwapBroadcast: onSwapBroadcastRef.current,
         });
-        await onSwapBroadcastRef.current?.();
       }
     },
     [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],

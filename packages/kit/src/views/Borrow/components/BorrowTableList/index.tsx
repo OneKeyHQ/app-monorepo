@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Empty } from '@onekeyhq/components';
 import type {
   ITableColumn,
@@ -66,6 +68,14 @@ const BorrowTableList = <T,>({
   skeletonCount,
 }: IBorrowTableListProps<T>) => {
   const hasData = data && data.length > 0;
+  const tableColumns = useMemo(
+    () =>
+      columns.map((column) => ({
+        ...column,
+        headerNumberOfLines: column.headerNumberOfLines ?? 1,
+      })),
+    [columns],
+  );
 
   if (!hasData) {
     if (isLoading) {
@@ -83,7 +93,7 @@ const BorrowTableList = <T,>({
 
   return (
     <TableList
-      columns={columns}
+      columns={tableColumns}
       data={data}
       isLoading={isLoading}
       tableLayout

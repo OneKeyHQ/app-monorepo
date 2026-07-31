@@ -259,11 +259,12 @@ function BorrowClaimRewardsDialogContent({
     setLoading(true);
     try {
       await onClaimAll();
+      void dialogInstance.close();
     } finally {
       setLoading(false);
       setClaimingAllIds([]);
     }
-  }, [actionableIds, canClaimAll, onClaimAll]);
+  }, [actionableIds, canClaimAll, dialogInstance, onClaimAll]);
 
   return (
     <YStack gap="$4">

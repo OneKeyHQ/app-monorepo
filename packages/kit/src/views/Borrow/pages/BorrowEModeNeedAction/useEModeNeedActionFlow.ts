@@ -34,6 +34,7 @@ import {
   hasSufficientRepayFunding,
   repayShortfall,
 } from './needActionBalances';
+import { isEModeBlockerDataUnavailable } from './needActionContract';
 import {
   type IEModeStep,
   type IEModeStepState,
@@ -167,6 +168,7 @@ export function useEModeNeedActionFlow({
   const steps = withSwitchStep(stepState.seen);
   const stepIndex = activeStepIndex(steps, stepState.completed);
   const activeStep = steps[stepIndex];
+  const blockerDataUnavailable = isEModeBlockerDataUnavailable(check);
 
   // Wallet balances for the repay steps' funding tokens (lowercased address →
   // balanceParsed). Refetched whenever a fresh check lands (entry, focus
@@ -1109,6 +1111,7 @@ export function useEModeNeedActionFlow({
     hasCheckedOnce &&
     !isChecking &&
     !isBusy &&
+    !blockerDataUnavailable &&
     !check?.canSwitch;
   useEffect(() => {
     if (!waitingForUnlock) {
@@ -1197,6 +1200,7 @@ export function useEModeNeedActionFlow({
     balanceByKey,
     activeShortfall,
     checkingActiveBalance,
+    blockerDataUnavailable,
     failedKey,
     submittedKey,
     run,

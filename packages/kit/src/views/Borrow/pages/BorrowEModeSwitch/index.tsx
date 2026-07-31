@@ -67,13 +67,14 @@ function BorrowEModeSwitchView() {
   });
   const accountId = earnAccount?.account?.id || routeAccountId || '';
 
-  const { eModeStatus, isLoading, refresh } = useBorrowEModeStatus({
-    networkId,
-    provider,
-    marketAddress,
-    accountId,
-    enabled: !!accountId,
-  });
+  const { eModeStatus, isInitialLoading, isError, refresh } =
+    useBorrowEModeStatus({
+      networkId,
+      provider,
+      marketAddress,
+      accountId,
+      enabled: !!accountId,
+    });
   const currentEModeId = eModeStatus?.eModeId ?? null;
   const {
     healthFactorData,
@@ -299,9 +300,7 @@ function BorrowEModeSwitchView() {
         );
   }
 
-  // usePromiseResult exposes no error field; a settled load with no status is
-  // the existing signal that the request failed.
-  if (isLoading === false && !eModeStatus && accountId) {
+  if (isError && accountId) {
     return (
       <Page scrollEnabled>
         <Page.Header
@@ -326,7 +325,7 @@ function BorrowEModeSwitchView() {
     );
   }
 
-  const showInitialSkeleton = !eModeStatus;
+  const showInitialSkeleton = isInitialLoading || !eModeStatus;
   const showFooter = !showInitialSkeleton && !!selectedRow;
   const footerDisabled =
     isSubmitting ||

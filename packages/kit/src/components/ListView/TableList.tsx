@@ -29,6 +29,7 @@ export interface ITableColumn<T> {
   minWidth?: number | string;
   maxWidth?: number | string;
   align?: 'flex-start' | 'center' | 'flex-end';
+  headerNumberOfLines?: number;
   // Sorting
   sortable?: boolean;
   sortKey?: string;
@@ -234,10 +235,17 @@ interface ISortButtonProps {
   iconName?: IKeyOfIcons;
   onPress?: IXStackProps['onPress'];
   align?: 'flex-start' | 'center' | 'flex-end';
+  numberOfLines?: number;
 }
 
 const SortButton = memo(
-  ({ label, iconName, onPress, align = 'flex-start' }: ISortButtonProps) => (
+  ({
+    label,
+    iconName,
+    onPress,
+    align = 'flex-start',
+    numberOfLines,
+  }: ISortButtonProps) => (
     <XStack
       role="button"
       ai="center"
@@ -255,7 +263,7 @@ const SortButton = memo(
       <SizableText
         size="$bodySmMedium"
         color="$textSubdued"
-        numberOfLines={1}
+        numberOfLines={numberOfLines}
         flexShrink={1}
       >
         {label}
@@ -325,17 +333,15 @@ function TableListHeader<T>({
                 iconName={getSortIcon(column.sortKey ?? column.key)}
                 onPress={() => handleSort(column.sortKey ?? column.key)}
                 align={column.align ?? 'flex-start'}
+                numberOfLines={column.headerNumberOfLines}
               />
             );
           } else {
             content = (
-              // Columns are sized by flex weight, not by content, so a header
-              // can end up narrower than its own label. Clip it to the column
-              // instead of letting it spill over the column next to it.
               <SizableText
                 size="$bodySmMedium"
                 color="$textSubdued"
-                numberOfLines={1}
+                numberOfLines={column.headerNumberOfLines}
                 maxWidth="100%"
               >
                 {column.label}
