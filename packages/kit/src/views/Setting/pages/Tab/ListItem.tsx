@@ -56,13 +56,25 @@ export function TabSettingsListItem({
   );
 }
 
-export function MobileTabSettingsDivider() {
+/**
+ * Hairline divider indented past the leading icon column so it starts at the
+ * row text and bleeds to the card's right edge.
+ */
+export function TabSettingsInsetDivider({
+  iconWidth = '$6',
+}: {
+  iconWidth?: IStackProps['w'];
+}) {
   return (
     <XStack alignSelf="stretch" pl="$5">
-      <Stack w="$6" mr="$3" flexShrink={0} />
+      <Stack w={iconWidth} mr="$3" flexShrink={0} />
       <Stack flex={1} h={StyleSheet.hairlineWidth} bg="$neutral3" />
     </XStack>
   );
+}
+
+export function MobileTabSettingsDivider() {
+  return <TabSettingsInsetDivider iconWidth="$6" />;
 }
 
 export function TabSettingsListGrid({

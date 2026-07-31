@@ -1,15 +1,6 @@
 import { Fragment, useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
-
-import {
-  Divider,
-  Page,
-  ScrollView,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, Page, ScrollView, YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 
@@ -18,6 +9,7 @@ import { MobileAboutHeader } from './CustomElement';
 import {
   MobileTabSettingsDivider,
   MobileTabSettingsSection,
+  TabSettingsInsetDivider,
   TabSettingsListGrid,
   TabSettingsSection,
 } from './ListItem';
@@ -141,17 +133,8 @@ export function SubSettingsPage({
                             {isMobileLayout ? (
                               <MobileTabSettingsDivider />
                             ) : (
-                              // Explicit hairline instead of Separator: the
-                              // Separator's zero-height box plus its -0.5px
-                              // shift leaves a hover dead zone above the row
-                              // below it.
-                              <XStack w="100%" px="$5">
-                                <Stack
-                                  flex={1}
-                                  h={StyleSheet.hairlineWidth}
-                                  bg="$neutral3"
-                                />
-                              </XStack>
+                              // Desktop pane rows use $5 leading icons.
+                              <TabSettingsInsetDivider iconWidth="$5" />
                             )}
                           </>
                         ) : null}
