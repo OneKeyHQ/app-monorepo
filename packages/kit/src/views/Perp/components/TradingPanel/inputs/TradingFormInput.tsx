@@ -143,7 +143,6 @@ export const TradingFormInput = memo(
         {inputAccessoryAction.label}
       </SizableText>
     ) : undefined;
-
     const renderAddOns = () => {
       const addOns = [];
 
@@ -228,6 +227,15 @@ export const TradingFormInput = memo(
             InputComponentStyle={{
               p: 0,
               bg: 'transparent',
+              ...(!ifOnDialog
+                ? {
+                    fontFamily: platformEnv.isNative
+                      ? 'Roobert-Medium'
+                      : undefined,
+                    fontSize: 14,
+                    fontWeight: '500' as const,
+                  }
+                : {}),
             }}
             addOns={
               disabled && !showAddOnsWhenDisabled ? undefined : renderAddOns()

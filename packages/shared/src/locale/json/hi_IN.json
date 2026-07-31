@@ -2842,7 +2842,7 @@
   "perp.tp_sl_profit": "अपेक्षित लाभ",
   "perp.tp_sl_tooltip": "टेक प्रॉफिट (TP) और स्टॉप लॉस (SL) स्टॉप ऑर्डर के प्रकार हैं जो आपको लाभ सुनिश्चित करने (TP) या नुकसान कम करने (SL) के लिए एक ट्रिगर मूल्य सेट करने की अनुमति देते हैं। एक बार ऑर्डर पूरा हो जाने पर, सिस्टम पूर्व-निर्धारित मूल्य, ऑर्डर प्रकार और मात्रा के आधार पर स्वचालित रूप से स्टॉप ऑर्डर लगाएगा।",
   "perp.trade_account_overview": "खाता अवलोकन",
-  "perp.trade_account_overview_available": "ट्रेड के लिए उपलब्ध",
+  "perp.trade_account_overview_available": "उपलब्ध",
   "perp.trade_amount_place_holder": "राशि डालें",
   "perp.trade_button_account_unsupported": "खाता असमर्थित",
   "perp.trade_button_enable_trading": "ट्रेडिंग सक्षम करें",

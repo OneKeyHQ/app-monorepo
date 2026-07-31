@@ -52,7 +52,11 @@ import { TradingButtonGroup } from './TradingButtonGroup';
 import type { ISizeInputMinimumOrderAction } from './inputs/SizeInput';
 import type { LayoutChangeEvent } from 'react-native';
 
-function PerpTradingDisabledPlaceOrderButton() {
+function PerpTradingDisabledPlaceOrderButton({
+  isMobile = false,
+}: {
+  isMobile?: boolean;
+}) {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -185,6 +189,7 @@ function PerpTradingDisabledPlaceOrderButton() {
 
   return (
     <PerpTradingButton
+      isMobile={isMobile}
       disabledForAccountLoading={disabledForAccountLoading}
       handleShowConfirm={handleShowConfirm}
       formData={formData}
@@ -378,7 +383,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           enableTradingModeOverride={orderPanelEnableTradingMode}
         />
       ) : (
-        <PerpTradingDisabledPlaceOrderButtonMemo />
+        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
       )}
     </YStack>
   );

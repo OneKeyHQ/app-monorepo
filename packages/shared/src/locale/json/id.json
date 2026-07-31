@@ -2842,7 +2842,7 @@
   "perp.tp_sl_profit": "Keuntungan yang diharapkan",
   "perp.tp_sl_tooltip": "Take profit (TP) dan stop loss (SL) adalah jenis stop order yang memungkinkan Anda menetapkan harga pemicu untuk mengamankan keuntungan (TP) atau membatasi kerugian (SL). Setelah pesanan terpenuhi, sistem akan otomatis memasang stop order berdasarkan harga, jenis pesanan, dan jumlah yang telah ditetapkan sebelumnya.",
   "perp.trade_account_overview": "Ringkasan Akun",
-  "perp.trade_account_overview_available": "Tersedia untuk trading",
+  "perp.trade_account_overview_available": "Tersedia",
   "perp.trade_amount_place_holder": "Masukkan Jumlah",
   "perp.trade_button_account_unsupported": "Akun Tidak Didukung",
   "perp.trade_button_enable_trading": "Aktifkan Perdagangan",

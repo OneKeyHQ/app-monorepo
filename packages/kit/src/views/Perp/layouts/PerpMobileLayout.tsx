@@ -107,12 +107,17 @@ export const TabBarItem = memo(
       >
         <XStack
           py="$2"
-          borderBottomWidth={isFocused ? '$0.5' : '$0'}
-          borderBottomColor="$borderActive"
+          borderBottomWidth={1.5}
+          borderBottomColor={isFocused ? '$borderActive' : 'transparent'}
           onPress={() => onPress(name)}
-          mb={-2}
         >
-          <SizableText size="$bodyMdMedium" pr="$0.5">
+          <SizableText
+            size="$headingXs"
+            textTransform="none"
+            letterSpacing={0}
+            color={isFocused ? '$text' : '$textSubdued'}
+            pr="$0.5"
+          >
             {displayTitle}
           </SizableText>
         </XStack>
@@ -378,7 +383,7 @@ export function PerpMobileLayout() {
         <PerpTickerBar />
       </YStack>
       <XStack
-        gap="$3"
+        gap="$3.5"
         px="$4"
         pb="$4"
         onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
@@ -403,7 +408,7 @@ export function PerpMobileLayout() {
       </XStack>
       <XStack
         bg="$bgApp"
-        borderBottomWidth="$0.5"
+        borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         justifyContent="space-between"
         alignItems="center"

@@ -178,7 +178,10 @@ function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
         iconAfter="LockOutline"
         iconColor="$iconSubdued"
       >
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
+        <SizableText
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+          color="$textSubdued"
+        >
           {intl.formatMessage({
             id: ETranslations.trading_unavailable__action,
           })}
@@ -270,7 +273,8 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
   if (liquidationPrice) {
     return (
       <NumberSizeableText
-        size="$bodySm"
+        size="$bodySmMedium"
+        fontFamily="$body"
         color="$text"
         formatter="price"
         formatterOptions={{ currency: '$' }}
@@ -280,7 +284,7 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
     );
   }
   return (
-    <SizableText size="$bodySm" color="$text">
+    <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
       --
     </SizableText>
   );
@@ -1688,8 +1692,8 @@ function SideButtonInternal({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1750,7 +1754,8 @@ function SideButtonInternal({
               </DashText>
 
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -1796,7 +1801,8 @@ function SideButtonInternal({
               {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
             </SizableText>
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodySmMedium"
+              fontFamily="$body"
               color="$text"
               formatter="value"
               formatterOptions={{ currency: '$' }}
@@ -2234,8 +2240,8 @@ function EmptySizeSideButton({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -2278,7 +2284,8 @@ function EmptySizeSideButton({
                 }
               />
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -2313,7 +2320,11 @@ function EmptySizeSideButton({
                   </YStack>
                 }
               />
-              <SizableText size="$bodySm" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                fontFamily="$body"
+                color="$text"
+              >
                 --
               </SizableText>
             </XStack>
@@ -2349,7 +2360,8 @@ function EmptySizeSideButton({
               }
             />
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodySmMedium"
+              fontFamily="$body"
               color="$text"
               formatter="value"
               formatterOptions={{ currency: '$' }}
@@ -2377,7 +2389,7 @@ function EmptySizeSideButton({
                 </DashText>
               }
             />
-            <SizableText size="$bodySm" color="$text">
+            <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
               --
             </SizableText>
           </XStack>

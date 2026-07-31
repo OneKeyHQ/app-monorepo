@@ -2842,7 +2842,7 @@
   "perp.tp_sl_profit": "প্রত্যাশিত মুনাফা",
   "perp.tp_sl_tooltip": "টেক প্রফিট (TP) এবং স্টপ লস (SL) হলো স্টপ অর্ডারের ধরন, যা আপনাকে লাভ নিশ্চিত করতে (TP) বা ক্ষতি কমাতে (SL) একটি ট্রিগার মূল্য নির্ধারণ করতে দেয়। অর্ডারটি সম্পন্ন হওয়ার পর, সিস্টেম পূর্বনির্ধারিত মূল্য, অর্ডারের ধরন এবং পরিমাণের ভিত্তিতে স্বয়ংক্রিয়ভাবে স্টপ অর্ডার স্থাপন করবে।",
   "perp.trade_account_overview": "অ্যাকাউন্ট ওভারভিউ",
-  "perp.trade_account_overview_available": "লেনদেনের জন্য উপলব্ধ",
+  "perp.trade_account_overview_available": "উপলব্ধ",
   "perp.trade_amount_place_holder": "পরিমাণ লিখুন",
   "perp.trade_button_account_unsupported": "অ্যাকাউন্ট সমর্থিত নয়",
   "perp.trade_button_enable_trading": "ট্রেডিং চালু করুন",

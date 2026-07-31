@@ -58,6 +58,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -771,28 +772,6 @@ function PerpTradingForm({
       ? formatSpotPriceToValid(latestMidPrice, sizeSzDecimals)
       : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
   }, [actions, activeTradeInstrument, isSpot, sizeSzDecimals]);
-
-  const handleUseMidPriceForExecutionPrice = useCallback(() => {
-    void (async () => {
-      const nextPrice = await getFormattedMidPrice();
-      if (nextPrice) {
-        updateForm({
-          executionPrice: nextPrice,
-        });
-      }
-    })();
-  }, [getFormattedMidPrice, updateForm]);
-
-  const handleUseMidPriceForPrice = useCallback(() => {
-    void (async () => {
-      const nextPrice = await getFormattedMidPrice();
-      if (nextPrice) {
-        updateForm({
-          price: nextPrice,
-        });
-      }
-    })();
-  }, [getFormattedMidPrice, updateForm]);
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
 
@@ -2142,7 +2121,6 @@ function PerpTradingForm({
           />
           {isTriggerLimitOrder ? (
             <PriceInput
-              onUseMidPrice={handleUseMidPriceForExecutionPrice}
               placeholder={intl.formatMessage({
                 id: ETranslations.perps_input_price_place_holder,
               })}
@@ -2176,7 +2154,6 @@ function PerpTradingForm({
           ) : (
             <YStack flex={1}>
               <PriceInput
-                onUseMidPrice={handleUseMidPriceForPrice}
                 value={
                   formData.type === 'limit'
                     ? formData.price
@@ -2421,6 +2398,15 @@ function PerpTradingForm({
           }}
           InputComponentStyle={{
             bg: 'transparent',
+            ...(isMobile
+              ? {
+                  fontFamily: platformEnv.isNative
+                    ? 'Roobert-Medium'
+                    : undefined,
+                  fontSize: 14,
+                  fontWeight: '500' as const,
+                }
+              : {}),
           }}
           addOnsContainerProps={{
             pr: '$0.5',
@@ -2513,6 +2499,7 @@ function PerpTradingForm({
   };
 
   const checkboxSizeVal = isMobile ? '$3.5' : '$4';
+  const primaryCheckboxSizeVal = isMobile ? 15 : checkboxSizeVal;
   const tpLabelKey = isMobile
     ? ETranslations.perp_tp
     : ETranslations.perp_trade_tp_price;
@@ -2547,9 +2534,9 @@ function PerpTradingForm({
           alignItems: 'center',
           cursor: isSubmitting ? 'default' : 'pointer',
         }}
-        width={checkboxSizeVal}
-        height={checkboxSizeVal}
-        {...(isMobile && { p: '$0' })}
+        width={primaryCheckboxSizeVal}
+        height={primaryCheckboxSizeVal}
+        {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
         size={isMobile ? '$bodySm' : '$bodyMdMedium'}
@@ -2596,7 +2583,7 @@ function PerpTradingForm({
                 }}
                 width={checkboxSizeVal}
                 height={checkboxSizeVal}
-                {...(isMobile && { p: '$0' })}
+                {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
               <Tooltip
                 placement="top"
@@ -2717,9 +2704,9 @@ function PerpTradingForm({
                   alignItems: 'center',
                   ...(!isMobile && { cursor: 'pointer' }),
                 }}
-                width={checkboxSizeVal}
-                height={checkboxSizeVal}
-                {...(isMobile && { p: '$0' })}
+                width={primaryCheckboxSizeVal}
+                height={primaryCheckboxSizeVal}
+                {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
 
               <XStack alignItems="center" pt="$0.5">
