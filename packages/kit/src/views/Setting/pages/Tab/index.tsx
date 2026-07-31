@@ -100,12 +100,22 @@ function TabItemView({
         onPress={options.tabbarOnPress ?? onPress}
         trackId={options.trackId}
         testID={options.testID}
+        // 32px rows: 6px vertical padding around the 20px label line.
+        py="$1.5"
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
         tabBarItemStyle={options.tabBarItemStyle}
         tabBarIconStyle={options.tabBarIconStyle}
-        tabBarLabelStyle={options.tabBarLabelStyle}
+        // Selected rows emphasize the label with the medium weight.
+        tabBarLabelStyle={
+          isActive
+            ? {
+                size: '$bodyMdMedium',
+                ...(options.tabBarLabelStyle as ISizableTextProps | undefined),
+              }
+            : options.tabBarLabelStyle
+        }
         showDot={options.showDot}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
@@ -244,10 +254,9 @@ function SettingsTabNavigator() {
             tabBarLabel: mobileTitle ?? title,
             tabBarIcon: (focused: boolean) =>
               focused ? icon : (mobileIcon ?? icon),
-            // Sidebar rows use a one-step-smaller icon; per-category styles
-            // (e.g. Dev critical colors) still win. Labels keep the default
-            // regular weight — selection is conveyed by the row highlight.
-            tabBarIconStyle: { size: '$5', ...tabBarIconStyle } as IIconProps,
+            // 16px sidebar icons; per-category styles (e.g. Dev critical
+            // colors) still win.
+            tabBarIconStyle: { size: '$4', ...tabBarIconStyle } as IIconProps,
             trackId: name,
             tabBarPosition: 'left',
           }}
