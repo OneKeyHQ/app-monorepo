@@ -100,6 +100,24 @@ const DevSettingsSection = LazyLoadPage(
   true,
 );
 
+/**
+ * Panes backing the sidebar tabs derived from `desktopTab` annotations.
+ * `desktopTab` is typed against this map, so annotating an item with a tab
+ * that has no pane component is a compile error instead of a blank tab.
+ */
+const settingsLinkTabComponents = {
+  [ESettingsTabNames.Notifications]: SubNotificationsSettings,
+  [ESettingsTabNames.Connections]: SubConnectionsSettings,
+};
+
+// Selected-state (solid) sidebar icons for derived link tabs; tabs without a
+// solid pair fall back to the item's outline icon.
+const settingsLinkTabSelectedIcons: Partial<
+  Record<keyof typeof settingsLinkTabComponents, string>
+> = {
+  [ESettingsTabNames.Notifications]: 'BellSolid',
+};
+
 export interface ISubSettingConfig {
   /**
    * Stable identity for analytics and recent-search records; survives copy
@@ -116,9 +134,10 @@ export interface ISubSettingConfig {
   /**
    * Tab-navigator layouts promote this item to its own sidebar tab. The
    * synthetic tab category is derived from the item, so platform gating and
-   * copy never fork from the source item.
+   * copy never fork from the source item. Must key into
+   * `settingsLinkTabComponents` so every annotated tab has a pane.
    */
-  desktopTab?: ESettingsTabNames;
+  desktopTab?: keyof typeof settingsLinkTabComponents;
   testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
@@ -1035,15 +1054,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
-    const linkTabComponents = {
-      [ESettingsTabNames.Notifications]: SubNotificationsSettings,
-      [ESettingsTabNames.Connections]: SubConnectionsSettings,
-    };
-    // Selected-state (solid) sidebar icons for derived link tabs; tabs
-    // without a solid pair fall back to the item's outline icon.
-    const linkTabSelectedIcons: Partial<Record<ESettingsTabNames, string>> = {
-      [ESettingsTabNames.Notifications]: 'BellSolid',
-    };
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
     const linkTabCategories: ISettingsConfig = config.flatMap(
@@ -1060,7 +1070,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           .map((item) => ({
             name: item.desktopTab,
             icon:
-              linkTabSelectedIcons[item.desktopTab] ?? (item.icon as string),
+              settingsLinkTabSelectedIcons[item.desktopTab] ??
+              (item.icon as string),
             mobileIcon: item.icon,
             title: item.mobileTitle || item.title,
             // Suffixed so the derived tab never shares a testID with the
@@ -1068,10 +1079,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             // alongside a search-result row).
             testID: item.testID ? `${item.testID}-tab` : undefined,
             desktopOnlyTab: true,
-            Component:
-              linkTabComponents[
-                item.desktopTab as keyof typeof linkTabComponents
-              ],
+            Component: settingsLinkTabComponents[item.desktopTab],
             configs: [],
           })) ?? [],
     );
