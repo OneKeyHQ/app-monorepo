@@ -2,7 +2,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { mergePrimeInfiniPaymentProgressSnapshot } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
-import type { IPrimeInfiniPendingPaymentSession } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeInfiniPayment,
+  IPrimeInfiniPendingPaymentSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
 
 import {
   hasPrimeInfiniPaymentProgress,
@@ -62,11 +67,67 @@ export async function getPrimeInfiniPaymentEntryGuard() {
     };
   }
 
-  const latestPayment =
-    await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+  let latestPayment: IPrimeInfiniPayment;
+  try {
+    latestPayment = await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
       paymentId: pendingPaymentSession.paymentCacheKey.paymentId,
       expectedOneKeyUserId: onekeyUserId,
     });
+  } catch (error) {
+    logPrimeInfiniPaymentFlow({
+      stage: 'paymentContext',
+      status: 'failed',
+      checkoutType: 'internalWallet',
+      reason: 'entryGuardPaymentRefreshFailed',
+      sendStarted: pendingPaymentSession.sendStarted,
+      error,
+    });
+    // The invoice state is unknown, so neither releasing the session nor
+    // opening a second channel is safe. Throwing here used to lock every
+    // purchase channel behind a toast until the session TTL, with the one
+    // screen that can release the session sitting unreachable behind this
+    // gate. Degrade instead — but not on the pre-fetch snapshot alone:
+    // another window can atomically claim sendStarted while the fetch is in
+    // flight, and a stale "replaceable" verdict would open IAP/Stripe while
+    // that broadcast is already authorized. Retiring the session against the
+    // current stored state is the proof nothing was claimed: the discard
+    // refuses once sendStarted is latched, and a broadcast cannot be marked
+    // on a session that no longer exists.
+    const localSendStarted =
+      pendingPaymentSession.sendStarted ||
+      hasPrimeInfiniPaymentProgress(pendingPaymentSession.payment);
+    const isLocallyReplaceable = isPrimeInfiniPaymentReplaceable({
+      payment: pendingPaymentSession.payment,
+      sendStarted: localSendStarted,
+    });
+    const didRetireReplaceableSession = isLocallyReplaceable
+      ? await backgroundApiProxy.simpleDb.prime
+          .discardUnsentInfiniPendingPaymentSession({
+            onekeyUserId,
+            expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
+          })
+          .catch((discardError) => {
+            logPrimeInfiniPaymentFlow({
+              stage: 'paymentSession',
+              status: 'failed',
+              checkoutType: 'internalWallet',
+              reason: 'entryGuardSessionRetirementFailed',
+              sendStarted: pendingPaymentSession.sendStarted,
+              error: discardError,
+            });
+            return false;
+          })
+      : false;
+    return {
+      isLoggedIn: true,
+      // Anything not provably retired resumes the crypto flow, whose stale
+      // fallback screen still lets the user force a replacement.
+      hasPendingPayment: !didRetireReplaceableSession,
+      onekeyUserId,
+      pendingSubscriptionPeriod:
+        pendingPaymentSession.selectedSubscriptionPeriod,
+    };
+  }
   const paymentWithDurableProgress = mergePrimeInfiniPaymentProgressSnapshot({
     previous: pendingPaymentSession.payment,
     latest: latestPayment,

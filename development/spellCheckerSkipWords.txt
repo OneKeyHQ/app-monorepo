@@ -1059,6 +1059,7 @@ Overscroll
 Flatpak
 Rspack
 rspack
+rssi
 myposition
 favs
 extractable

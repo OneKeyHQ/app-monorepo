@@ -38,12 +38,15 @@ export function isPrimeInfiniExternalCheckoutInFlight() {
   return isExternalCheckoutInFlight;
 }
 
-async function ensurePrimeLoggedIn() {
+async function ensurePrimeLoggedIn(
+  intl: ReturnType<typeof useIntl>,
+): Promise<boolean> {
   const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
   if (!isLoggedIn) {
     Toast.error({
-      // TODO: i18n pending translation key
-      title: 'Please log in to your OneKey ID first',
+      title: intl.formatMessage({
+        id: ETranslations.prime_not_logged_in_description,
+      }),
     });
   }
   return isLoggedIn;
@@ -93,7 +96,7 @@ export function usePrimeInfiniPurchase() {
         // ensureOneKeyIDLoggedIn (usePrimeRequirements) before reaching here.
         // Calling usePrimeRequirements directly would create a circular import
         // with PrimePurchaseDialog, so the login state is verified via bg service.
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
             stage: 'externalCheckout',
             status: 'blocked',
@@ -117,22 +120,7 @@ export function usePrimeInfiniPurchase() {
           });
           return false;
         }
-        let checkoutGuard: Awaited<
-          ReturnType<typeof getPrimeInfiniExternalCheckoutGuard>
-        >;
-        try {
-          checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
-        } catch {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
-          throw new OneKeyLocalError({
-            message: 'Unable to verify the Infini payment session',
-            autoToast: false,
-          });
-        }
+        const checkoutGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (!checkoutGuard.isLoggedIn) {
           return false;
         }
@@ -160,21 +148,16 @@ export function usePrimeInfiniPurchase() {
             },
           );
         if (baselineSnapshot.onekeyUserId !== purchaserUserId) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before creation',
-            autoToast: false,
           });
         }
         const baselinePrimeSubscription = baselineSnapshot.primeSubscription;
         if (baselinePrimeSubscription?.isActive) {
           Toast.message({
-            // TODO: i18n pending translation key
-            title: 'OneKey Prime is already active for this account.',
+            title: intl.formatMessage({
+              id: ETranslations.prime_already_active__msg,
+            }),
           });
           logPrimeInfiniPaymentFlow({
             stage: 'externalCheckout',
@@ -198,37 +181,24 @@ export function usePrimeInfiniPurchase() {
             plan,
             expectedOneKeyUserId: purchaserUserId,
           });
-        const postCreateGuard =
-          await getPrimeInfiniExternalCheckoutGuard().catch(() => undefined);
+        const postCreateGuard = await getPrimeInfiniExternalCheckoutGuard();
         if (
           !postCreateGuard?.isLoggedIn ||
           postCreateGuard.onekeyUserId !== purchaserUserId ||
           postCreateGuard.hasPendingPayment
         ) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-          });
           throw new OneKeyLocalError({
             message: 'Infini checkout context changed before opening',
-            autoToast: false,
           });
         }
         const checkoutUrl = checkoutResult?.checkoutUrl;
         if (!checkoutUrl) {
           // Guards the unconfirmed backend response schema: a 200 response
           // with an unexpected field name must not become a silent dead end
-          // (plan §9 requires a toast on checkout creation failure). Network
-          // and business errors are already toasted by @toastIfError on
-          // apiGetInfiniCheckoutUrl; only this local throw needs it.
-          Toast.error({
-            // TODO: i18n pending translation key
-            title: 'Failed to create the checkout, please try again',
-          });
+          // (plan §9 requires a toast on checkout creation failure). The
+          // caller preserves this message in its payment error toast.
           throw new OneKeyLocalError({
             message: 'Infini checkout url is empty',
-            autoToast: false,
           });
         }
 
@@ -317,7 +287,7 @@ export function usePrimeInfiniPurchase() {
         checkoutType: 'internalWallet',
       });
       try {
-        if (!(await ensurePrimeLoggedIn())) {
+        if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
             stage: 'walletPaymentPage',
             status: 'blocked',
@@ -360,7 +330,7 @@ export function usePrimeInfiniPurchase() {
         isWalletPaymentPageOpening = false;
       }
     },
-    [navigation],
+    [intl, navigation],
   );
 
   return { purchaseByCrypto, purchaseByExternalCheckout };

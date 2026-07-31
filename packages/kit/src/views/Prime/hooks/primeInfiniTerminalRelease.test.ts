@@ -41,15 +41,19 @@ describe('capturePrimeInfiniSessionRevision', () => {
   // on a missing revision, so degrading here cannot widen the delete.
   it('degrades to no revision when the read fails', async () => {
     const queue = createPrimeInfiniPaymentSessionQueue();
+    const error = new OneKeyLocalError('storage is unavailable');
+    const onError = jest.fn();
 
     await expect(
       capturePrimeInfiniSessionRevision({
         queue,
         fetchPersistedSession: async () => {
-          throw new OneKeyLocalError('storage is unavailable');
+          throw error;
         },
+        onError,
       }),
     ).resolves.toBeUndefined();
+    expect(onError).toHaveBeenCalledWith(error);
   });
 
   it('leaves the queue usable after a failed read', async () => {

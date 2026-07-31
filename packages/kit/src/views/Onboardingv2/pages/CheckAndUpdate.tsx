@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import pRetry from 'p-retry';
+import pRetry, { AbortError } from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -27,6 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
@@ -46,7 +46,7 @@ import {
 } from '../hooks/useDeviceConnect';
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
 import { OnboardingTestIDs } from '../testIDs';
-import { getDeviceLabel, getForceTransportType } from '../utils';
+import { getForceTransportType } from '../utils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -74,6 +74,13 @@ const STEP_STATE_TONE: Partial<
   [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
+// Watchdog budgets. Post-update rounds must outlast the reconnect loop in
+// retryDeviceConnectionAfterUpdate (pRetry delays alone sum to ~63s — a
+// rebooting device after a firmware flash is expected to be away that long),
+// otherwise the watchdog would retire a round that is working as designed.
+const STEP_TIMEOUT_MS = 30 * 1000;
+const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -88,6 +95,20 @@ function CheckAndUpdatePage({
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
+  // Generation counter for checkFirmwareUpdate: each call claims a new id, so
+  // a previous round that out-lived its watchdog (hung transport call) cannot
+  // write its late result, error, or timeout over the state a newer retry
+  // round owns — step state alone can't tell two rounds apart.
+  const firmwareCheckRunIdRef = useRef(0);
+  // One-shot marker for the focus-effect auto-recheck after a firmware
+  // update: consumed when the scheduled recheck fires (or cleared by an
+  // explicit user Skip). Only drives scheduling/delay math.
+  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  // Carries the "device may still be rebooting" fact separately: set on
+  // FinishFirmwareUpdate, cleared only when a check COMPLETES successfully.
+  // While set, every round — including a manual Retry — upgrades to the
+  // patient reconnect path and the longer watchdog budget.
+  const pendingPostUpdateReconnectRef = useRef(false);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -105,10 +126,10 @@ function CheckAndUpdatePage({
   // is never empty.
   const deviceModelName = useMemo(() => {
     const deviceType = currentDevice?.deviceType;
-    if (!deviceType || deviceType === EDeviceType.Unknown) {
+    if (!deviceType) {
       return deviceLabel;
     }
-    return getDeviceLabel([deviceType]);
+    return deviceUtils.getDeviceModelNameByType(deviceType) || deviceLabel;
   }, [currentDevice, deviceLabel]);
 
   const {
@@ -171,16 +192,26 @@ function CheckAndUpdatePage({
   ]);
 
   const [celebrate, setCelebrate] = useState(false);
-  // Fire the celebratory confetti once everything is ready — i.e. the moment
-  // the firmware check passes and the "Continue" button appears.
+  // The flow may proceed once the firmware step is terminal-ok: Success or
+  // Skipped both reveal the "Continue" button, but only a real Success fires
+  // the celebratory confetti — skipping a check is not a pass.
+  const firmwareStepState = steps.find(
+    (step) => step.id === ECheckAndUpdateStepId.FirmwareCheck,
+  )?.state;
   const isReady =
-    steps.find((step) => step.id === ECheckAndUpdateStepId.FirmwareCheck)
-      ?.state === ECheckAndUpdateStepState.Success;
+    firmwareStepState === ECheckAndUpdateStepState.Success ||
+    firmwareStepState === ECheckAndUpdateStepState.Skipped;
   useEffect(() => {
-    if (isReady) {
+    if (firmwareStepState === ECheckAndUpdateStepState.Success) {
       setCelebrate(true);
     }
-  }, [isReady]);
+  }, [firmwareStepState]);
+  // Lets the focus-effect guard read the latest firmware step state without
+  // joining the focus callback's dependency array.
+  const firmwareStepStateRef = useRef(firmwareStepState);
+  useEffect(() => {
+    firmwareStepStateRef.current = firmwareStepState;
+  }, [firmwareStepState]);
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
@@ -201,24 +232,49 @@ function CheckAndUpdatePage({
     });
   }, [actions, currentDevice, prepareUSBConnect]);
 
-  const createStepTimeout = useCallback(() => {
-    const timeout = setTimeout(() => {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        const inProgressStep = newSteps.find(
-          (step) => step.state === ECheckAndUpdateStepState.InProgress,
-        );
-        if (inProgressStep) {
-          inProgressStep.state = ECheckAndUpdateStepState.Error;
-          inProgressStep.errorMessage = intl.formatMessage({
-            id: ETranslations.hardware_connect_timeout_error,
-          });
+  // 30s watchdog for checkFirmwareUpdate. It targets the firmware step
+  // explicitly — matching "whichever step is InProgress" could stamp the
+  // genuine row when both steps are momentarily in progress. On firing it
+  // retires the hung round BEFORE surfacing Retry, so that round's late
+  // result can never overwrite whatever the user chooses next, and it asks
+  // bg to cancel the in-flight device call — bg owns the SDK/device
+  // resource; a main-side ref alone cannot stop it on split-runtime targets.
+  const createStepTimeout = useCallback(
+    (
+      isStale: () => boolean,
+      getConnectId: () => string | undefined,
+      timeoutMs: number,
+    ) => {
+      const timeout = setTimeout(() => {
+        if (isStale()) {
+          // A newer round already took over; this watchdog is obsolete and
+          // must not retire or cancel that round.
+          return;
         }
-        return newSteps;
-      });
-    }, 30 * 1000);
-    return () => clearTimeout(timeout);
-  }, [intl]);
+        firmwareCheckRunIdRef.current += 1;
+        const connectId = getConnectId();
+        if (connectId) {
+          void backgroundApiProxy.serviceHardware.cancel({ connectId });
+        }
+        setSteps((prev) => {
+          if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
+            return prev;
+          }
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.hardware_connect_timeout_error,
+            }),
+          };
+          return newSteps;
+        });
+      }, timeoutMs);
+      return () => clearTimeout(timeout);
+    },
+    [intl],
+  );
 
   // Firmware check is done — hand off to the dedicated DeviceSetup page, which
   // runs the device-status check and shows the on-device setup instructions
@@ -240,10 +296,15 @@ function CheckAndUpdatePage({
 
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(
-    async (connectId: string) => {
+    async (connectId: string, isStale: () => boolean) => {
       try {
         await pRetry(
           async (attemptCount) => {
+            if (isStale()) {
+              // A newer round took over — stop touching the device from this
+              // retired reconnect loop instead of burning its retry budget.
+              throw new AbortError('stale firmware check round');
+            }
             console.log(
               `Attempting to connect to device after firmware update (attempt ${attemptCount}/5)...`,
             );
@@ -278,24 +339,15 @@ function CheckAndUpdatePage({
           },
         );
       } catch (error) {
-        // If all retries failed, set error state and throw
-        console.error(
-          'Failed to connect to device after firmware update, all retries exhausted',
-          error,
-        );
+        if (!isStale()) {
+          console.error(
+            'Failed to connect to device after firmware update, all retries exhausted',
+            error,
+          );
+        }
 
-        setSteps((prev) => {
-          const newSteps = [...prev];
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.Error,
-            errorMessage: intl.formatMessage({
-              id: ETranslations.hardware_device_not_find_error,
-            }),
-          };
-          return newSteps;
-        });
-
+        // No direct step write here — the thrown message reaches the row via
+        // checkFirmwareUpdate's guarded catch, which also drops stale rounds.
         throw new OneKeyLocalError(
           intl.formatMessage({
             id: ETranslations.hardware_device_not_find_error,
@@ -308,8 +360,22 @@ function CheckAndUpdatePage({
 
   const checkFirmwareUpdate = useCallback(
     async (params?: { checkAfterUpdate: boolean }) => {
+      // Claim the active round; any still-running older round becomes stale
+      // and all of its step writes below are dropped.
+      firmwareCheckRunIdRef.current += 1;
+      const runId = firmwareCheckRunIdRef.current;
+      const isStale = () => runId !== firmwareCheckRunIdRef.current;
+      // The watchdog cancels against whichever connectId this round has
+      // resolved so far.
+      let watchdogConnectId: string | undefined;
       const setDeviceNotFoundErrorMessageStep = () => {
         setSteps((prev) => {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
+            return prev;
+          }
           const newSteps = [...prev];
           newSteps[1] = {
             ...newSteps[1],
@@ -321,57 +387,87 @@ function CheckAndUpdatePage({
           return newSteps;
         });
       };
-      const cancelTimeout = createStepTimeout();
-      await ensureTransportType();
-      const baseDevice =
-        getActiveDevice() ?? currentDevice ?? deviceData.device;
-      if (!baseDevice?.connectId) {
-        cancelTimeout();
-        setDeviceNotFoundErrorMessageStep();
-        return;
-      }
-      await ensureActiveConnection(baseDevice as SearchDevice);
-      const latestDevice = getActiveDevice() ?? baseDevice;
-      setCurrentDevice(latestDevice as SearchDevice);
-
-      if (!latestDevice?.connectId) {
-        cancelTimeout();
-        setDeviceNotFoundErrorMessageStep();
-        return;
-      }
-      const compatibleConnectId =
-        await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
-          connectId: latestDevice.connectId,
-          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-        });
-
-      // Wait for hardware to restart after firmware update
-      if (params?.checkAfterUpdate) {
-        await retryDeviceConnectionAfterUpdate(compatibleConnectId);
-      }
-
-      const r =
-        await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
-          connectId: compatibleConnectId,
-          skipCancel: true,
-          firmwareType: undefined,
-        });
-      cancelTimeout();
-      if (r) {
-        if (r.features) {
-          deviceFeaturesRef.current = r.features;
+      // Re-entry (retry / recheck) may find the step still in Error from the
+      // previous attempt; flip it back to InProgress right away and drop the
+      // stale message so the UI shows the loading beam instead of the old
+      // failure while the new request runs. Unguarded on purpose — the newest
+      // round takes over the row.
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.InProgress,
+          errorMessage: undefined,
+        };
+        return newSteps;
+      });
+      // A pending post-update reconnect upgrades ANY round — including a
+      // manual Retry — to the patient path with its longer watchdog budget.
+      const checkAfterUpdate =
+        params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
+      const cancelTimeout = createStepTimeout(
+        isStale,
+        () => watchdogConnectId,
+        checkAfterUpdate ? POST_UPDATE_STEP_TIMEOUT_MS : STEP_TIMEOUT_MS,
+      );
+      try {
+        await ensureTransportType();
+        const baseDevice =
+          getActiveDevice() ?? currentDevice ?? deviceData.device;
+        if (!baseDevice?.connectId) {
+          setDeviceNotFoundErrorMessageStep();
+          return;
         }
-        hasUpgradeForceRef.current =
-          r.updateInfos?.firmware?.hasUpgradeForce ||
-          r.updateInfos?.ble?.hasUpgradeForce ||
-          false;
-        if (r.hasUpgrade) {
+        watchdogConnectId = baseDevice.connectId;
+        await ensureActiveConnection(baseDevice as SearchDevice);
+        const latestDevice = getActiveDevice() ?? baseDevice;
+        setCurrentDevice(latestDevice as SearchDevice);
+
+        if (!latestDevice?.connectId) {
+          setDeviceNotFoundErrorMessageStep();
+          return;
+        }
+        const compatibleConnectId =
+          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+            connectId: latestDevice.connectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+        watchdogConnectId = compatibleConnectId;
+
+        // Wait for hardware to restart after firmware update
+        if (checkAfterUpdate) {
+          await retryDeviceConnectionAfterUpdate(compatibleConnectId, isStale);
+        }
+
+        const r =
+          await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
+            {
+              connectId: compatibleConnectId,
+              skipCancel: true,
+              firmwareType: undefined,
+            },
+          );
+        if (isStale()) {
+          // A newer retry owns the UI (and the refs feeding DeviceSetup);
+          // this late result must not overwrite it.
+          return;
+        }
+        if (r) {
+          // The device answered and the check completed — future rounds no
+          // longer need the patient post-update reconnect path.
+          pendingPostUpdateReconnectRef.current = false;
+          if (r.features) {
+            deviceFeaturesRef.current = r.features;
+          }
+          hasUpgradeForceRef.current =
+            r.updateInfos?.firmware?.hasUpgradeForce ||
+            r.updateInfos?.ble?.hasUpgradeForce ||
+            false;
+          // Only the firmware step is written here — the genuine step's
+          // terminal state (Success or Skipped) belongs to handleVerifyHardware
+          // and must survive the firmware result.
           setSteps((prev) => {
             const newSteps = [...prev];
-            newSteps[0] = {
-              ...newSteps[0],
-              state: ECheckAndUpdateStepState.Success,
-            };
             newSteps[1] = {
               ...newSteps[1],
               state: r.hasUpgrade
@@ -383,29 +479,41 @@ function CheckAndUpdatePage({
         } else {
           setSteps((prev) => {
             const newSteps = [...prev];
-            newSteps[0] = {
-              ...newSteps[0],
-              state: ECheckAndUpdateStepState.Success,
-            };
             newSteps[1] = {
               ...newSteps[1],
-              state: ECheckAndUpdateStepState.Success,
+              state: ECheckAndUpdateStepState.Error,
+              errorMessage: intl.formatMessage({
+                id: ETranslations.hardware_hardware_device_not_find_error,
+              }),
             };
             return newSteps;
           });
         }
-      } else {
+      } catch (error) {
+        // Surface the real failure instead of leaving the row spinning until
+        // the watchdog replaces it with a generic timeout. Skip when this
+        // round went stale, and when a deeper layer already stamped a
+        // specific Error (connect-error events) — only claim the failure
+        // while the step is still in progress.
         setSteps((prev) => {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
+            return prev;
+          }
           const newSteps = [...prev];
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.Error,
-            errorMessage: intl.formatMessage({
-              id: ETranslations.hardware_hardware_device_not_find_error,
-            }),
+            errorMessage:
+              (error as Error | undefined)?.message ||
+              intl.formatMessage({ id: ETranslations.global_unknown_error }),
           };
           return newSteps;
         });
+      } finally {
+        cancelTimeout();
       }
     },
     [
@@ -420,8 +528,6 @@ function CheckAndUpdatePage({
     ],
   );
 
-  // Track firmware update completion time
-  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
   // Listen to firmware update completion event and record timestamp
@@ -429,6 +535,7 @@ function CheckAndUpdatePage({
     const handleFirmwareUpdateFinish = () => {
       console.log('Firmware update finished, recording timestamp...');
       firmwareUpdateFinishTimeRef.current = Date.now();
+      pendingPostUpdateReconnectRef.current = true;
     };
 
     appEventBus.on(
@@ -455,6 +562,18 @@ function CheckAndUpdatePage({
       if (!finishTime) {
         return;
       }
+      const firmwareState = firmwareStepStateRef.current;
+      if (
+        firmwareState === ECheckAndUpdateStepState.Skipped ||
+        firmwareState === ECheckAndUpdateStepState.Success ||
+        firmwareState === ECheckAndUpdateStepState.InProgress
+      ) {
+        // Never stomp a user decision (Skipped), a completed result
+        // (Success), or an in-flight round (InProgress) on focus regain.
+        // Warning stays eligible — the canonical post-update recheck starts
+        // from the Warning row the user updated from.
+        return;
+      }
 
       const elapsed = Date.now() - finishTime;
       const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
@@ -468,13 +587,15 @@ function CheckAndUpdatePage({
         return newSteps;
       });
 
-      // Wait for remaining delay (0 if already >= 10s), then recheck firmware
+      // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
       const timeoutId = setTimeout(() => {
+        // One-shot: consume the timestamp when the recheck actually fires.
+        // The patient-path upgrade for later rounds is carried by
+        // pendingPostUpdateReconnectRef instead.
+        firmwareUpdateFinishTimeRef.current = null;
         void checkFirmwareUpdate({
           checkAfterUpdate: true,
         });
-        // Clear the timestamp after rechecking
-        firmwareUpdateFinishTimeRef.current = null;
       }, remainingDelay);
 
       return () => {
@@ -502,6 +623,7 @@ function CheckAndUpdatePage({
       newSteps[0] = {
         ...newSteps[0],
         state: ECheckAndUpdateStepState.InProgress,
+        errorMessage: undefined,
       };
       return newSteps;
     });
@@ -524,17 +646,28 @@ function CheckAndUpdatePage({
           intl.formatMessage({ id: ETranslations.global_unknown_error }),
         );
       }
+      // Skipping (dev skip or "continue anyway" when the verify service is
+      // unavailable) is not a verification pass — record it as Skipped so the
+      // step doesn't claim the device is genuine.
+      let genuineState = ECheckAndUpdateStepState.Error;
+      if (result.verified) {
+        genuineState = ECheckAndUpdateStepState.Success;
+      } else if (result.skipVerification) {
+        genuineState = ECheckAndUpdateStepState.Skipped;
+      }
+      const shouldContinueToFirmwareCheck =
+        genuineState !== ECheckAndUpdateStepState.Error;
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state:
-            result.verified || result.skipVerification
-              ? ECheckAndUpdateStepState.Success
-              : ECheckAndUpdateStepState.Error,
-          errorMessage: result.verified ? undefined : result.result?.message,
+          state: genuineState,
+          errorMessage:
+            genuineState === ECheckAndUpdateStepState.Error
+              ? result.result?.message
+              : undefined,
         };
-        if (result.verified || result.skipVerification) {
+        if (shouldContinueToFirmwareCheck) {
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -542,7 +675,7 @@ function CheckAndUpdatePage({
         }
         return newSteps;
       });
-      if (result.verified || result.skipVerification) {
+      if (shouldContinueToFirmwareCheck) {
         setTimeout(() => {
           void checkFirmwareUpdate();
         }, 150);
@@ -611,11 +744,15 @@ function CheckAndUpdatePage({
             showConfirmButton
             showCancelButton
             onConfirm={() => {
+              // Declining the optional update is recorded honestly as
+              // Skipped — the flow continues, but without success visuals.
+              // Skipping also cancels any pending focus-effect auto-recheck.
+              firmwareUpdateFinishTimeRef.current = null;
               setSteps((prev) => {
                 const newSteps = [...prev];
                 newSteps[1] = {
                   ...newSteps[1],
-                  state: ECheckAndUpdateStepState.Success,
+                  state: ECheckAndUpdateStepState.Skipped,
                 };
                 return newSteps;
               });
@@ -649,6 +786,8 @@ function CheckAndUpdatePage({
 
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
+    // Skipping also cancels any pending focus-effect auto-recheck.
+    firmwareUpdateFinishTimeRef.current = null;
     setSteps((prev) => {
       const index = prev.findIndex(
         (step) => step.state === ECheckAndUpdateStepState.Error,
@@ -660,14 +799,16 @@ function CheckAndUpdatePage({
       const newSteps = [...prev];
       newSteps[index] = {
         ...newSteps[index],
-        state: ECheckAndUpdateStepState.Success,
+        state: ECheckAndUpdateStepState.Skipped,
+        errorMessage: undefined,
       };
       return newSteps;
     });
     setTimeout(() => {
       // GenuineCheck has no skip affordance today, but keep the chain intact
-      // defensively. Skipping a failed FirmwareCheck just marks it Success
-      // above, which reveals the "Continue" button.
+      // defensively. Skipping a failed FirmwareCheck marks it Skipped above,
+      // which still reveals "Continue" (isReady accepts Skipped) without the
+      // success visuals.
       if (currentStepId === ECheckAndUpdateStepId.GenuineCheck) {
         void checkFirmwareUpdate();
       }
@@ -719,26 +860,44 @@ function CheckAndUpdatePage({
         // the description. The genuine title interpolates the product model
         // name (e.g. "OneKey Pro"), not the BLE label.
         const isStepSuccess = step.state === ECheckAndUpdateStepState.Success;
+        // Skipped collapses like Success but states the outcome honestly
+        // ("You skipped verification") instead of claiming genuineness.
+        const isStepSkipped = step.state === ECheckAndUpdateStepState.Skipped;
+        // Success and Skipped both collapse the row: title only, no highlight.
+        const isStepCollapsed = isStepSuccess || isStepSkipped;
         // Glyph tint per state; the border beam runs only while in progress.
         const illustrationTone: ICheckStepIllustrationTone =
           (step.state && STEP_STATE_TONE[step.state]) || 'neutral';
-        const successTitle =
-          step.id === ECheckAndUpdateStepId.GenuineCheck
-            ? intl.formatMessage(
-                { id: ETranslations.genuine_check_success_title },
-                { deviceLabel: deviceModelName },
-              )
-            : intl.formatMessage({
-                id: ETranslations.firmware_check_success_title,
-              });
-        const displayTitle = isStepSuccess ? successTitle : step.title;
-        const displayDescription = isStepSuccess ? undefined : step.description;
+        let displayTitle = step.title;
+        if (isStepSuccess) {
+          displayTitle =
+            step.id === ECheckAndUpdateStepId.GenuineCheck
+              ? intl.formatMessage(
+                  { id: ETranslations.genuine_check_success_title },
+                  { deviceLabel: deviceModelName },
+                )
+              : intl.formatMessage({
+                  id: ETranslations.firmware_check_success_title,
+                });
+        } else if (isStepSkipped) {
+          displayTitle =
+            step.id === ECheckAndUpdateStepId.GenuineCheck
+              ? intl.formatMessage({
+                  id: ETranslations.genuine_check_skipped_title,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.firmware_check_skipped_title,
+                });
+        }
+        const displayDescription = isStepCollapsed
+          ? undefined
+          : step.description;
         return (
           <YStack key={step.title}>
             {/* highlight background */}
             <AnimatePresence>
               {step.state &&
-              step.state !== ECheckAndUpdateStepState.Success &&
+              !isStepCollapsed &&
               step.state !== ECheckAndUpdateStepState.Idle ? (
                 <YStack
                   animation="quick"

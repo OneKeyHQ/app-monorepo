@@ -37,7 +37,21 @@ import {
 } from '../../../services/ServicePrime/primeAuthSessionAccess';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-const INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Upper bound on how long an unsent pending session may block the purchase
+// entry when every server-side release path stays unreachable (for example the
+// invoice endpoint failing on that paymentId). It is the worst-case lockout, so
+// it must stay short; sessions with reachable escapes are released long before
+// this, and an unsent invoice commits no funds.
+const INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// A transfer that was broadcast (or shows recorded progress) can settle long
+// after it left this device — low fee, chain congestion, a server outage.
+// Expiring its session on the short bound would let the entry gate report no
+// pending payment and admit a second purchase while the first transfer can
+// still arrive, so sent sessions only age out here; the choice screen releases
+// them earlier with the user's explicit consent, and this never locks the user
+// out on its own. Tombstones and the superseded archive share this bound
+// because they fence the same in-flight risk.
+const INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 const INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT = 20;
 const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;
@@ -150,7 +164,7 @@ function getActiveInfiniPaymentCacheTombstones({
       isValidInfiniPaymentCacheKey(tombstone) &&
       Number.isFinite(tombstone.retiredAt) &&
       age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS &&
-      age <= INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS
+      age <= INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
     );
   });
 }
@@ -217,7 +231,7 @@ function getActiveInfiniSupersededPaymentSessions({
       session.supersededReason === 'user-forced-replacement' &&
       Number.isFinite(session.supersededAt) &&
       age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS &&
-      age <= INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS &&
+      age <= INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS &&
       isValidInfiniPendingPaymentSession(session, {
         onekeyUserId,
         now,
@@ -303,9 +317,15 @@ function isValidInfiniPendingPaymentSession(
     return false;
   }
   const age = now - session.updatedAt;
+  // Sent sessions fence funds that may still be in flight, so they age out on
+  // the long bound; only an unsent invoice may expire on the short one.
+  const maxAge =
+    session.sendStarted ||
+    hasPrimeInfiniPaymentProgressSnapshot(session.payment)
+      ? INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
+      : INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS;
   return (
-    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS &&
-    age <= INFINI_PENDING_PAYMENT_SESSION_MAX_AGE_MS
+    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS && age <= maxAge
   );
 }
 
@@ -351,6 +371,7 @@ export type IIdentityExitJournalEntry = {
     source: EPrimeAuthSessionSource;
     sessionCommitId: string;
     sessionTokenSub?: string;
+    allowSourceLessPreUpgrade?: boolean;
   };
   keyless?: {
     walletId: string;
