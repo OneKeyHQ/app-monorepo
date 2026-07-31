@@ -224,8 +224,17 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
+// 从服务端 available.text ("可用 220.09" / "Active 220.09") 中提取数值，
+// 客户端自行拼 "Balance {number}"，不依赖服务端文案格式 (OK-58877)
+const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
+function extractAvailableNumber(text?: string) {
+  return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
+}
+
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
+  const intl = useIntl();
   const onPress = useRecommendedItemPress(token);
+  const availableNumber = extractAvailableNumber(token.available?.text);
 
   return (
     <ListItem
@@ -252,14 +261,13 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
           </XStack>
         }
         secondary={
-          // 钱包持仓余额 subtitle (OK-58877)，服务端 available 字段直出
-          token.available?.text ? (
-            <SizableText
-              size="$bodyMd"
-              color={token.available.color || '$textSubdued'}
-              numberOfLines={1}
-            >
-              {token.available.text}
+          // "Balance {number}" subtitle (OK-58877)：文案客户端拼，
+          // 数值取自 available.text
+          availableNumber ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {`${intl.formatMessage({
+                id: ETranslations.global_balance,
+              })}: ${availableNumber}`}
             </SizableText>
           ) : undefined
         }

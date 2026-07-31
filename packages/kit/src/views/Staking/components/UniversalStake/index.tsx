@@ -43,6 +43,7 @@ import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -197,12 +198,9 @@ function ProtocolSwitchTriggerRow({
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
-  const subtitle = [
-    currentProtocol?.provider.vaultName,
-    tvlText ? `TVL ${tvlText}` : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // 与快速切换弹层 item 同款布局 (OK-58854)：左下只留 vaultName，
+  // TVL 移到右侧 APY/APR 下方
+  const subtitle = currentProtocol?.provider.vaultName || '';
   const aprDisplay = getProtocolAprDisplay({
     protocol: currentProtocol,
     fallbackText: fallbackAprText,
@@ -211,7 +209,8 @@ function ProtocolSwitchTriggerRow({
   let aprElement = null;
 
   if (aprDisplay) {
-    aprElement = (
+    // 删除线场景 (deprecated) 保留原渲染；常规场景数值+小字 APY/APR 后缀
+    aprElement = aprDisplay.textDecorationLine === 'line-through' ? (
       <SizableText
         size="$headingLg"
         color={aprDisplay.color}
@@ -219,6 +218,12 @@ function ProtocolSwitchTriggerRow({
       >
         {aprDisplay.text}
       </SizableText>
+    ) : (
+      <EarnAprSuffixText
+        text={aprDisplay.text}
+        size="$headingLg"
+        color={aprDisplay.color}
+      />
     );
   } else if (isLoading) {
     aprElement = <Skeleton h="$5" w={72} borderRadius="$2" />;
@@ -260,7 +265,14 @@ function ProtocolSwitchTriggerRow({
         </YStack>
       </XStack>
       <XStack alignItems="center" gap="$1" flexShrink={0}>
-        {aprElement}
+        <YStack alignItems="flex-end" gap="$0.5">
+          {aprElement}
+          {tvlText ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`TVL ${tvlText}`}
+            </SizableText>
+          ) : null}
+        </YStack>
         {showChevron ? (
           <Icon
             name="ChevronGrabberVerSolid"

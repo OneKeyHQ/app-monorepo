@@ -90,13 +90,13 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
 
   // 资产 logo 映射 (OK-58881)：协议列表行数据里没有 token logo，
   // 从 available-assets(all) 建 symbol→logoURI 映射（5 分钟缓存）
-  const { result: allAssets } = usePromiseResult(
+  const { result: allAssets, isLoading: isLogoMapLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
         type: EAvailableAssetsTypeEnum.All,
       }),
     [],
-    { undefinedResultIfError: true },
+    { watchLoading: true, undefinedResultIfError: true },
   );
   const assetLogoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -249,7 +249,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
           testID={EarnTestIDs.protocolTokensSortControl}
         />
       </XStack>
-      {isLoading && sortedTokens.length === 0 ? (
+      {(isLoading && sortedTokens.length === 0) ||
+      (isLogoMapLoading === true && !allAssets) ? (
         <EarnProtocolTokensSkeleton />
       ) : (
         <Stack>
@@ -260,13 +261,11 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
               userSelect="none"
               onPress={() => handleRowPress(row)}
               renderAvatar={
-                // 资产 logo，而非网络/协议 logo (OK-58881)
+                // 资产 logo (OK-58881)。不能拿网络 logo 兜底：映射未就绪时
+                // 会先闪几帧网络图再换成资产图；映射缺失时宁可显示占位图
                 <Token
                   size="md"
-                  tokenImageUri={
-                    assetLogoMap.get(row.symbol.toLowerCase()) ??
-                    row.item.network.logoURI
-                  }
+                  tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
                   borderRadius="$full"
                 />
               }
