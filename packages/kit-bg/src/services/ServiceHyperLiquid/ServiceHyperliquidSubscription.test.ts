@@ -1,3 +1,8 @@
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -75,6 +80,103 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     ).resolves.toBe(false);
     expect(service.subscriptionsHandlerDisabled).toBe(true);
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('announces a successful recovery on the event bus', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _watchSubscriptionAtoms: () => void;
+    };
+    jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      await service.disableSubscriptionsHandler();
+      const proofCount = await service.getSubscriptionsHandlerDisabledCount();
+
+      await expect(
+        service.recoverSubscriptionsAfterLivenessProof({
+          disabledCount: proofCount,
+        }),
+      ).resolves.toBe(true);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.PerpsSubscriptionsRecovered,
+        undefined,
+      );
+    } finally {
+      emit.mockRestore();
+    }
+  });
+
+  it('does not announce a rejected recovery', async () => {
+    const service = createService();
+    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      await service.disableSubscriptionsHandler();
+      const proofCount = await service.getSubscriptionsHandlerDisabledCount();
+      await service.disableSubscriptionsHandler();
+
+      await expect(
+        service.recoverSubscriptionsAfterLivenessProof({
+          disabledCount: proofCount,
+        }),
+      ).resolves.toBe(false);
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.PerpsSubscriptionsRecovered,
+        undefined,
+      );
+    } finally {
+      emit.mockRestore();
+    }
+  });
+
+  it('reinstalls the atom watcher before reconciling on a successful recovery', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _watchSubscriptionAtoms: () => void;
+    };
+    const watch = jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    const update = jest
+      .spyOn(service, 'updateSubscriptions')
+      .mockResolvedValue(undefined);
+    await service.disableSubscriptionsHandler();
+    const proofCount = await service.getSubscriptionsHandlerDisabledCount();
+
+    await expect(
+      service.recoverSubscriptionsAfterLivenessProof({
+        disabledCount: proofCount,
+      }),
+    ).resolves.toBe(true);
+    expect(watch).toHaveBeenCalledTimes(1);
+    expect(watch.mock.invocationCallOrder[0]).toBeLessThan(
+      update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not touch the atom watcher when the proof is stale', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _watchSubscriptionAtoms: () => void;
+    };
+    const watch = jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    await service.disableSubscriptionsHandler();
+    const proofCount = await service.getSubscriptionsHandlerDisabledCount();
+    await service.disableSubscriptionsHandler();
+
+    await expect(
+      service.recoverSubscriptionsAfterLivenessProof({
+        disabledCount: proofCount,
+      }),
+    ).resolves.toBe(false);
+    expect(watch).not.toHaveBeenCalled();
   });
 
   it('enables and reconciles when the proof matches the latest generation', async () => {

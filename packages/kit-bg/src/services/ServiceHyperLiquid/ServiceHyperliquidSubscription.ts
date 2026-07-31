@@ -1125,6 +1125,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (this.subscriptionsHandlerDisabled) {
       return false;
     }
+    // AutoPause in the UI runtime still reads a stale blur; announce so it
+    // drops the pending pause timer that would tear this recovery down.
+    appEventBus.emit(EAppEventBusNames.PerpsSubscriptionsRecovered, undefined);
+    // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
+    // before the reconcile (OK-53014 ordering).
+    this._watchSubscriptionAtoms();
     await this.updateSubscriptions();
     return true;
   }
