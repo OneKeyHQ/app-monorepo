@@ -4,7 +4,6 @@ import {
   Divider,
   Page,
   ScrollView,
-  SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -70,8 +69,8 @@ export function SubSettingsPage({
   const configList = useMemo(() => {
     return (
       config?.configs
-        .map((items, index) => {
-          const visibleItems = items.filter((item) => {
+        .map((items) =>
+          items.filter((item) => {
             if (!item) {
               return false;
             }
@@ -87,35 +86,11 @@ export function SubSettingsPage({
               return true;
             }
             return item.mobilePlacement !== 'home';
-          });
-          return {
-            index,
-            items: visibleItems,
-            title: isTabNavigator
-              ? config?.desktopSectionTitles?.[index]
-              : undefined,
-          };
-        })
-        .filter(({ items }) => items.length > 0) || []
+          }),
+        )
+        .filter((items) => items.length > 0) || []
     );
-  }, [
-    config?.configs,
-    config?.desktopSectionTitles,
-    isMobileLayout,
-    isTabNavigator,
-    registeredTabNames,
-  ]);
-  if (
-    platformEnv.isDev &&
-    config?.desktopSectionTitles &&
-    config.desktopSectionTitles.length !== config.configs.length
-  ) {
-    // Titles are positionally coupled to config sections; a mismatch means a
-    // section was added/removed without updating the titles.
-    console.warn(
-      `[settings] desktopSectionTitles length mismatch for ${config.name}`,
-    );
-  }
+  }, [config?.configs, isMobileLayout, isTabNavigator, registeredTabNames]);
   const isMobileAboutPage =
     isMobileLayout && config?.name === ESettingsTabNames.About;
 
@@ -140,52 +115,39 @@ export function SubSettingsPage({
             pt={isTabNavigator ? undefined : '$3'}
           >
             {configList.map((section, sectionIdx) => {
-              const list = section.items.filter(Boolean);
+              const list = section.filter(Boolean);
               const showMobileAboutHeader =
                 isMobileAboutPage && sectionIdx === 0;
               return list.length ? (
-                <YStack key={sectionIdx} gap={isMobileLayout ? '$1' : '$2'}>
-                  {section.title ? (
-                    <XStack
-                      ai="center"
-                      h="$8"
-                      px={isMobileLayout ? '$5' : '$1'}
-                    >
-                      <SizableText size="$headingXs" color="$textSubdued">
-                        {section.title}
-                      </SizableText>
-                    </XStack>
+                <SettingsSection key={sectionIdx}>
+                  {showMobileAboutHeader ? (
+                    <>
+                      <MobileAboutHeader />
+                      <Divider borderColor="$neutral3" />
+                    </>
                   ) : null}
-                  <SettingsSection>
-                    {showMobileAboutHeader ? (
-                      <>
-                        <MobileAboutHeader />
-                        <Divider borderColor="$neutral3" />
-                      </>
-                    ) : null}
-                    {list.map((i, idx) => {
-                      return i ? (
-                        <Fragment key={idx}>
-                          <TabSettingsListGrid
-                            item={i}
-                            useMobilePresentation={isMobileLayout}
-                          />
-                          {idx !== list.length - 1 ? (
-                            <>
-                              {isMobileLayout ? (
-                                <MobileTabSettingsDivider />
-                              ) : (
-                                <XStack w="100%" px="$5">
-                                  <Divider borderColor="$neutral3" />
-                                </XStack>
-                              )}
-                            </>
-                          ) : null}
-                        </Fragment>
-                      ) : null;
-                    })}
-                  </SettingsSection>
-                </YStack>
+                  {list.map((i, idx) => {
+                    return i ? (
+                      <Fragment key={idx}>
+                        <TabSettingsListGrid
+                          item={i}
+                          useMobilePresentation={isMobileLayout}
+                        />
+                        {idx !== list.length - 1 ? (
+                          <>
+                            {isMobileLayout ? (
+                              <MobileTabSettingsDivider />
+                            ) : (
+                              <XStack w="100%" px="$5">
+                                <Divider borderColor="$neutral3" />
+                              </XStack>
+                            )}
+                          </>
+                        ) : null}
+                      </Fragment>
+                    ) : null;
+                  })}
+                </SettingsSection>
               ) : null;
             })}
           </YStack>

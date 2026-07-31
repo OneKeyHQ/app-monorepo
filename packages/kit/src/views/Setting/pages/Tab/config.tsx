@@ -157,7 +157,6 @@ export type ISettingsConfig = (
         settingsConfig: ISettingsConfig;
       }>;
       configs: (ISubSettingConfig | undefined | null)[][];
-      desktopSectionTitles?: (string | undefined)[];
       // Custom tab item renderer for special tabs like OneKey ID
       renderTabItem?: ComponentType<{
         selected?: boolean;
@@ -195,49 +194,11 @@ const referenceSettingsCopy = {
     backupAndMigration: 'Backup & Migration',
     app: 'App',
     helpAndAbout: 'Help & About',
-    backupStatus: 'Backup Status',
-    migration: 'Migration',
-    otherBackupMethods: 'Other Backup Methods',
-    walletManagement: 'Wallet Management',
-    transactionSettings: 'Transaction Settings',
-    accountSettings: 'Account Settings',
-    maintenance: 'Maintenance',
-    accessControl: 'Access Control',
-    protectionAndPermissions: 'Protection & Permissions',
-    extension: 'Extension',
-    networkManagement: 'Network Management',
-    importAndExport: 'Import & Export',
-    general: 'General',
-    deviceAndWindow: 'Device & Window',
-    shortcuts: 'Shortcuts',
-    versionAndUpdates: 'Version & Updates',
-    help: 'Help',
-    legal: 'Legal',
-    diagnostics: 'Diagnostics',
   },
   zhCN: {
     backupAndMigration: '备份与迁移',
     app: '应用',
     helpAndAbout: '帮助与关于',
-    backupStatus: '备份状态',
-    migration: '迁移',
-    otherBackupMethods: '其他备份方式',
-    walletManagement: '钱包管理',
-    transactionSettings: '交易设置',
-    accountSettings: '账户设置',
-    maintenance: '维护',
-    accessControl: '访问控制',
-    protectionAndPermissions: '保护与权限',
-    extension: '扩展程序',
-    networkManagement: '网络管理',
-    importAndExport: '导入与导出',
-    general: '常规',
-    deviceAndWindow: '设备与窗口',
-    shortcuts: '快捷键',
-    versionAndUpdates: '版本与更新',
-    help: '帮助',
-    legal: '法律',
-    diagnostics: '诊断',
   },
 } as const;
 
@@ -294,11 +255,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             mobileTitle: intl.formatMessage({
               id: ETranslations.global_backup,
             }),
-            desktopSectionTitles: [
-              referenceCopy.backupStatus,
-              referenceCopy.migration,
-              referenceCopy.otherBackupMethods,
-            ],
             configs: [
               [
                 cloudBackupFeatureInfo?.supportCloudBackup
@@ -404,18 +360,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           },
       {
         name: ESettingsTabNames.Preferences,
-        icon: 'SettingsSolid',
+        // No solid pair exists for SliderThree; both states use the outline.
+        icon: 'SliderThreeOutline',
         mobileIcon: 'SliderThreeOutline',
         title: referenceCopy.app,
         mobileTitle: intl.formatMessage({
           id: ETranslations.global_preferences,
         }),
-        desktopSectionTitles: [
-          referenceCopy.general,
-          referenceCopy.deviceAndWindow,
-          referenceCopy.shortcuts,
-          referenceCopy.extension,
-        ],
         configs: [
           [
             !platformEnv.isWeb
@@ -581,12 +532,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_wallet,
             }),
-            desktopSectionTitles: [
-              referenceCopy.walletManagement,
-              referenceCopy.transactionSettings,
-              referenceCopy.accountSettings,
-              referenceCopy.maintenance,
-            ],
             configs: [
               [
                 {
@@ -700,11 +645,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_security,
             }),
-            desktopSectionTitles: [
-              referenceCopy.accessControl,
-              referenceCopy.protectionAndPermissions,
-              referenceCopy.extension,
-            ],
             configs: [
               [
                 isPasswordSet &&
@@ -859,10 +799,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             mobileTitle: intl.formatMessage({
               id: ETranslations.global_networks,
             }),
-            desktopSectionTitles: [
-              referenceCopy.networkManagement,
-              referenceCopy.importAndExport,
-            ],
             configs: [
               [
                 {
@@ -941,12 +877,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           id: ETranslations.about_onekey__title,
         }),
         showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
-        desktopSectionTitles: [
-          referenceCopy.versionAndUpdates,
-          referenceCopy.help,
-          referenceCopy.legal,
-          referenceCopy.diagnostics,
-        ],
         configs: [
           [
             {
@@ -1109,6 +1039,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       [ESettingsTabNames.Notifications]: SubNotificationsSettings,
       [ESettingsTabNames.Connections]: SubConnectionsSettings,
     };
+    // Selected-state (solid) sidebar icons for derived link tabs; tabs
+    // without a solid pair fall back to the item's outline icon.
+    const linkTabSelectedIcons: Partial<Record<ESettingsTabNames, string>> = {
+      [ESettingsTabNames.Notifications]: 'BellSolid',
+    };
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
     const linkTabCategories: ISettingsConfig = config.flatMap(
@@ -1124,7 +1059,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           )
           .map((item) => ({
             name: item.desktopTab,
-            icon: item.icon as string,
+            icon:
+              linkTabSelectedIcons[item.desktopTab] ?? (item.icon as string),
+            mobileIcon: item.icon,
             title: item.mobileTitle || item.title,
             testID: item.testID,
             desktopOnlyTab: true,

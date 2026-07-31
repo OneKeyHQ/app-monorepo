@@ -191,11 +191,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       borderColor="$neutral3"
     >
       <XStack my="$2.5" px="$3">
-        <SearchBar
-          onSearchTextChange={onSearch}
-          onFocus={onFocus}
-          size="small"
-        />
+        <SearchBar onSearchTextChange={onSearch} onFocus={onFocus} />
       </XStack>
       <Divider borderColor="$neutral3" />
       <YStack flex={1} pt="$3" px="$3">
@@ -203,7 +199,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <YStack gap="$4">{tabs}</YStack>
+          <YStack gap="$1">{tabs}</YStack>
         </ScrollView>
       </YStack>
       <Divider borderColor="$neutral3" />
@@ -237,9 +233,12 @@ function SettingsTabNavigator() {
           component={(Component || SubSettings) as any}
           options={{
             ...(options as any),
-            // Sidebar copy and icons follow the mobile naming.
+            // Sidebar copy and icons follow the mobile naming; the selected
+            // state uses the solid variant. TabItemView invokes tabBarIcon
+            // with a boolean focus flag.
             tabBarLabel: mobileTitle ?? title,
-            tabBarIcon: () => mobileIcon ?? icon,
+            tabBarIcon: (focused: boolean) =>
+              focused ? icon : (mobileIcon ?? icon),
             trackId: name,
             tabBarPosition: 'left',
           }}
