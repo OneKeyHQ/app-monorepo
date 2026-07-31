@@ -55,11 +55,21 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
   const dev = {
     getSkipBundleGPGVerification: jest.fn(),
   };
+  // OK-58962: the post-update gate asks ServiceDApp whether an approval is in
+  // flight before it will run the first-launch block on an extension surface.
+  const dapp = {
+    hasPendingDappRequest: jest.fn(),
+  };
   (globalThis as any).__mockSvc = svc;
   (globalThis as any).__mockDevSvc = dev;
+  (globalThis as any).__mockDappSvc = dapp;
   return {
     __esModule: true,
-    default: { serviceAppUpdate: svc, serviceDevSetting: dev },
+    default: {
+      serviceAppUpdate: svc,
+      serviceDevSetting: dev,
+      serviceDApp: dapp,
+    },
   };
 });
 
@@ -119,6 +129,15 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   };
 });
 
+// requireFreshHooks() reloads the module under test via jest.isolateModules,
+// which re-requires every UNMOCKED module — so a plain import here would hand
+// the test a different object than the one the hook reads. Mock it so the
+// identity is stable across isolation, as with the other shared singletons.
+jest.mock('@onekeyhq/shared/src/utils/sidePanelUtils', () => ({
+  sidePanelState: { isOpen: false },
+  sidePanelUiState: { isHostingPushedModal: false },
+}));
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   // Created inline — cannot reference __mocks here because jest hoists this
   // factory above the __mocks assignment.
@@ -129,6 +148,11 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     isNativeAndroid: false,
     isDesktop: false,
     isExtension: false,
+    // OK-58962: the two extension surfaces the post-update gate branches on.
+    // Declared here (not just left undefined) so a test can flip them and
+    // actually exercise the branch instead of silently short-circuiting.
+    isExtensionUiStandaloneWindow: false,
+    isExtensionUiSidePanel: false,
     isE2E: false,
     buildNumber: 1,
   };
@@ -307,6 +331,11 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+// Resolves to the jest.mock above. Imported directly rather than bridged via
+// globalThis so the alias exists even if production code stops importing it —
+// otherwise removing that import turns every test in the file into a confusing
+// "cannot set property of undefined" instead of a clean failure.
+import { sidePanelUiState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import {
   DownloadGaveUpError,
@@ -341,6 +370,7 @@ import {
 const g = globalThis as any;
 const svc = g.__mockSvc;
 const devSvc = g.__mockDevSvc;
+const dappSvc = g.__mockDappSvc;
 const nav = g.__mockNav;
 const appUpd = g.__mockAppUpd;
 const bundleUpd = g.__mockBundleUpd;
@@ -366,6 +396,13 @@ function setAtom(partial: Record<string, any>) {
 function resetAllMocks() {
   jest.clearAllMocks();
   setAtom({});
+
+  // OK-58962: these are module-level and leak across tests if not reset —
+  // a stale `true` here would silently defer every later first-launch test.
+  mockPlatformEnv.isExtensionUiStandaloneWindow = false;
+  mockPlatformEnv.isExtensionUiSidePanel = false;
+  sidePanelUiState.isHostingPushedModal = false;
+  dappSvc.hasPendingDappRequest.mockResolvedValue(false);
 
   // Default resolved values. getUpdateInfo uses mockImplementation so it
   // always returns the CURRENT mockAtomHolder.value — tests that reassign
@@ -2257,6 +2294,101 @@ describe('useAppUpdateInfo useEffect', () => {
       const successCall = resultCalls.find((c) => c[0]?.status === 'success');
       expect(successCall).toBeDefined();
       expect(successCall?.[0]?.attemptId).toBe(persistedId);
+    });
+
+    // ----- OK-58962: DApp-summoned extension surfaces stand down -----
+    //
+    // These pin the load-bearing half of the fix: the gate must DEFER, not
+    // skip. Everything in the first-launch block is one-shot — the
+    // softwareUpdateResult analytics event, the whatsNew marker, and the
+    // refreshUpdateStatus reset that flips status to `done` and makes
+    // isFirstLaunchAfterUpdated false forever. Consuming any of it on a
+    // surface that shows nothing retires the changelog for every later
+    // surface, and nothing in the type system stops a future edit from
+    // moving the guard below one of them.
+    describe('DApp-summoned surfaces defer the post-update block', () => {
+      // Shared assertion: the branch was entered, and nothing one-shot burned.
+      function expectDeferredNotConsumed() {
+        expect(svc.refreshUpdateStatus).not.toHaveBeenCalled();
+        const successCall = (
+          defaultLogger.app.appUpdate.softwareUpdateResult as jest.Mock
+        ).mock.calls.find((c) => c[0]?.status === 'success');
+        expect(successCall).toBeUndefined();
+      }
+
+      function setFirstLaunchAfterUpdate() {
+        setAtom({
+          status: EAppUpdateStatus.notify,
+          latestVersion: '1.0.0', // same as platformEnv.version
+          updateStrategy: EUpdateStrategy.manual,
+        });
+        svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      }
+
+      async function runFirstLaunchDispatch() {
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
+        await act(async () => {
+          await jest.runAllTimersAsync();
+        });
+      }
+
+      test('standalone window defers without consuming the one-shot state', async () => {
+        mockPlatformEnv.isExtensionUiStandaloneWindow = true;
+        setFirstLaunchAfterUpdate();
+
+        await runFirstLaunchDispatch();
+
+        expectDeferredNotConsumed();
+        // Decided unconditionally from the surface — no bg round trip.
+        expect(dappSvc.hasPendingDappRequest).not.toHaveBeenCalled();
+      });
+
+      test('side panel hosting a DApp approval defers', async () => {
+        mockPlatformEnv.isExtensionUiSidePanel = true;
+        dappSvc.hasPendingDappRequest.mockResolvedValue(true);
+        setFirstLaunchAfterUpdate();
+
+        await runFirstLaunchDispatch();
+
+        expectDeferredNotConsumed();
+      });
+
+      test('side panel hosting a Keyless hand-off defers without asking bg', async () => {
+        // The Keyless / OneKey-ID flow page-loads a panel purely to host its
+        // approval but never goes through ServiceDApp.openModal, so the bg
+        // flag stays false — the panel's own pushed-modal state is the only
+        // signal, and it is set before React renders.
+        mockPlatformEnv.isExtensionUiSidePanel = true;
+        sidePanelUiState.isHostingPushedModal = true;
+        dappSvc.hasPendingDappRequest.mockResolvedValue(false);
+        setFirstLaunchAfterUpdate();
+
+        await runFirstLaunchDispatch();
+
+        expectDeferredNotConsumed();
+        expect(dappSvc.hasPendingDappRequest).not.toHaveBeenCalled();
+      });
+
+      test('idle side panel does NOT defer — the block still runs', async () => {
+        mockPlatformEnv.isExtensionUiSidePanel = true;
+        dappSvc.hasPendingDappRequest.mockResolvedValue(false);
+        setFirstLaunchAfterUpdate();
+
+        await runFirstLaunchDispatch();
+
+        expect(dappSvc.hasPendingDappRequest).toHaveBeenCalled();
+        expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+      });
+
+      test('non-extension platforms are untouched and never reach the bridge', async () => {
+        setFirstLaunchAfterUpdate();
+
+        await runFirstLaunchDispatch();
+
+        expect(dappSvc.hasPendingDappRequest).not.toHaveBeenCalled();
+        expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+      });
     });
 
     test('isFirstLaunchAfterUpdated + seamless → no WhatsNew dialog', async () => {

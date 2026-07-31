@@ -24,7 +24,10 @@ import {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
-import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import {
+  sidePanelState,
+  sidePanelUiState,
+} from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
 const SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS = 3000;
@@ -601,6 +604,11 @@ export const setupSidePanelPortInUI = () => {
       switch (type) {
         case 'pushModal':
           {
+            // OK-58962: record synchronously, before any await. This message
+            // routinely arrives before React has rendered, and it is the only
+            // signal a Keyless-hosted panel gets — that flow page-loads the
+            // panel without going through ServiceDApp.openModal.
+            sidePanelUiState.isHostingPushedModal = true;
             const { screen, params } = payload.modalParams;
             const rejectId = extractDappRejectIdFromModalParams(
               payload.modalParams,

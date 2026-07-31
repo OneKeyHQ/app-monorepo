@@ -305,6 +305,14 @@ class ServiceDApp extends ServiceBase {
     },
   );
 
+  // True from the moment a DApp approval is queued — set before the debounced
+  // modal push and cleared when the request settles — so it already reads true
+  // in the window before the modal actually appears.
+  @backgroundMethod()
+  async hasPendingDappRequest(): Promise<boolean> {
+    return !!this.existingWindowOrigin;
+  }
+
   // Public so provider APIs that queue connect requests on their own
   // semaphore (e.g. eth_requestAccounts) can surface the pending approval
   // window before the queued call ever reaches openModal. Focusing requires
