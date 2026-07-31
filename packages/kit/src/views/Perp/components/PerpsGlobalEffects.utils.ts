@@ -7,6 +7,44 @@ type IShouldCheckPerpsAccountStatusOnFocusParams = {
   staleMs: number;
 };
 
+type IInitialTradeAsset<TUniverse = never> = {
+  coin: string;
+  universe?: TUniverse;
+};
+
+export function buildInitialTradeInstrumentSwitchParams<TSpotUniverse>({
+  mode,
+  perpAsset,
+  spotAsset,
+  force,
+}: {
+  mode: 'perp' | 'spot';
+  perpAsset?: IInitialTradeAsset;
+  spotAsset?: IInitialTradeAsset<TSpotUniverse>;
+  force?: boolean;
+}) {
+  if (mode === 'spot') {
+    if (!spotAsset?.coin) {
+      return undefined;
+    }
+    return {
+      mode: 'spot' as const,
+      coin: spotAsset.coin,
+      spotUniverse: spotAsset.universe,
+      force,
+    };
+  }
+
+  if (!perpAsset?.coin) {
+    return undefined;
+  }
+  return {
+    mode: 'perp' as const,
+    coin: perpAsset.coin,
+    force,
+  };
+}
+
 export function shouldCheckPerpsAccountStatusOnFocus({
   isFocused,
   hasSelectedAccountParams,

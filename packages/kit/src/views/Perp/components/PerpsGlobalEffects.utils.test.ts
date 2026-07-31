@@ -1,7 +1,48 @@
 import {
+  buildInitialTradeInstrumentSwitchParams,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
+
+describe('buildInitialTradeInstrumentSwitchParams', () => {
+  it('restores the persisted spot mode and asset after restart', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '@107', universe: { name: '@107' } },
+        force: true,
+      }),
+    ).toEqual({
+      mode: 'spot',
+      coin: '@107',
+      spotUniverse: { name: '@107' },
+      force: true,
+    });
+  });
+
+  it('restores the persisted perp mode and asset after restart', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'perp',
+        perpAsset: { coin: 'xyz:SKHX' },
+        spotAsset: { coin: '@107' },
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'xyz:SKHX',
+    });
+  });
+
+  it('does not switch when the persisted mode has no matching asset', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('shouldCheckPerpsAccountStatusOnFocus', () => {
   const staleMs = 60 * 60 * 1000;

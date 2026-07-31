@@ -91,6 +91,7 @@ import {
 } from '../utils/subscriptionPlanner';
 
 import {
+  buildInitialTradeInstrumentSwitchParams,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -127,26 +128,19 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
   const currentMode = (await tradingModeAtom.get()) ?? 'perp';
   if (currentMode === 'spot') {
     const spotAsset = await spotActiveAssetAtom.get();
-    if (!spotAsset?.coin) {
-      return undefined;
-    }
-    return {
-      mode: 'spot' as const,
-      coin: spotAsset.coin,
-      spotUniverse: spotAsset.universe,
+    return buildInitialTradeInstrumentSwitchParams({
+      mode: currentMode,
+      spotAsset,
       force: options?.force,
-    };
+    });
   }
 
   const perpAsset = await perpsActiveAssetAtom.get();
-  if (!perpAsset?.coin) {
-    return undefined;
-  }
-  return {
-    mode: 'perp' as const,
-    coin: perpAsset.coin,
+  return buildInitialTradeInstrumentSwitchParams({
+    mode: currentMode,
+    perpAsset,
     force: options?.force,
-  };
+  });
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {

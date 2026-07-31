@@ -17,9 +17,16 @@ import {
   perpsComputedAccountValueAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
+  tradingModeAtom,
 } from './perps';
 
 const now = 1_000_000;
+
+describe('tradingModeAtom', () => {
+  it('persists the selected trading mode across app restarts', () => {
+    expect(tradingModeAtom.atom().persist).toBe(true);
+  });
+});
 
 function buildEntry({
   accountAddress,
