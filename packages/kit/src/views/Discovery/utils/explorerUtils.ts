@@ -118,6 +118,40 @@ export const injectToResumeWebsocket = `
 })()
 `;
 
+// Off-route variants of the pair above, with their own save slot.
+//
+// The per-tab policy (setCurrentWebTab -> pauseDappInteraction) already pauses
+// the WebSocket of every tab the user switches away from, and resumes only the
+// tab being switched to. The off-route pass runs across every live WebView, so
+// it must not decide on its own what "resumed" means for a background tab —
+// using the shared slot would resume tabs the per-tab policy had deliberately
+// paused, and leave them with WebSocket running while their jsBridge stays
+// disabled.
+//
+// Instead this is a plain push/pop: pause saves whatever `send` is at that
+// moment (the real one, or the per-tab policy's no-op) and resume puts exactly
+// that back. Either way each page returns to the state it was in before the
+// user left the route.
+export const injectToPauseWebsocketOffRoute = `
+(function(){
+  if (!window.WebSocket || window.$$onekeyOffRouteWebSocketSend) {
+    return;
+  }
+  window.$$onekeyOffRouteWebSocketSend = window.WebSocket.prototype.send;
+  window.WebSocket.prototype.send = () => {};
+})()
+`;
+
+export const injectToResumeWebsocketOffRoute = `
+(function(){
+  if (!window.WebSocket || !window.$$onekeyOffRouteWebSocketSend) {
+    return;
+  }
+  window.WebSocket.prototype.send = window.$$onekeyOffRouteWebSocketSend;
+  window.$$onekeyOffRouteWebSocketSend = undefined;
+})()
+`;
+
 // Report the page as hidden while the user is away from the browser route.
 //
 // Suppressing WebSocket.send only stops OUTBOUND traffic; a push-heavy DApp
