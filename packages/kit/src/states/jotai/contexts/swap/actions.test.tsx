@@ -140,8 +140,9 @@ const mockFetchSwapTokens: jest.MockedFunction<
 const mockFetchSpeedSwapQuote: jest.MockedFunction<
   (params: unknown) => Promise<IFetchQuoteResult[]>
 > = jest.fn();
-const mockCancelFetchSpeedSwapQuote: jest.MockedFunction<() => Promise<void>> =
-  jest.fn();
+const mockCancelFetchSpeedSwapQuote: jest.MockedFunction<
+  (requestScopeKey?: string) => Promise<void>
+> = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -157,7 +158,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
       fetchSpeedSwapQuote: (params: unknown) => mockFetchSpeedSwapQuote(params),
-      cancelFetchSpeedSwapQuote: () => mockCancelFetchSpeedSwapQuote(),
+      cancelFetchSpeedSwapQuote: (requestScopeKey?: string) =>
+        mockCancelFetchSpeedSwapQuote(requestScopeKey),
     },
     simpleDb: {
       swapNetworksSort: {
@@ -432,6 +434,7 @@ describe('useSwapActions', () => {
     expect(mockFetchSpeedSwapQuote).not.toHaveBeenCalled();
     expect(store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
     expect(store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+      quoteId: expect.any(String),
       fromTokenInfo: ethToken,
       toTokenInfo: wethToken,
       fromAmount: '0.001',
@@ -442,6 +445,19 @@ describe('useSwapActions', () => {
         percentageFee: 0,
       },
     });
+    const firstQuoteId = store.get(swapSpeedQuoteResultAtom())?.quoteId;
+
+    await act(async () => {
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+    expect(store.get(swapSpeedQuoteResultAtom())?.quoteId).not.toBe(
+      firstQuoteId,
+    );
   });
 
   it('builds a 1:1 unwrap quote for the reverse Swap Pro pair', async () => {
@@ -526,6 +542,106 @@ describe('useSwapActions', () => {
         fromAmount: '1',
         toAmount: '1',
         isWrapped: true,
+      });
+    });
+  });
+
+  it('keeps speed quote requests isolated between Swap stores', async () => {
+    const firstSpeedQuoteRequest = createDeferred<IFetchQuoteResult[]>();
+    const secondSpeedQuoteRequest = createDeferred<IFetchQuoteResult[]>();
+    mockFetchSpeedSwapQuote
+      .mockReturnValueOnce(firstSpeedQuoteRequest.promise)
+      .mockReturnValueOnce(secondSpeedQuoteRequest.promise);
+    const firstContext = createWrapperWithStore((store) => {
+      store.set(swapProSelectTokenAtom(), usdcToken);
+      store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      store.set(swapProInputAmountAtom(), '1');
+    });
+    const secondContext = createWrapperWithStore((store) => {
+      store.set(swapProSelectTokenAtom(), usdcToken);
+      store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      store.set(swapProInputAmountAtom(), '2');
+    });
+    const firstInstance = renderHook(() => useSwapActions().current, {
+      wrapper: firstContext.Wrapper,
+    });
+    const secondInstance = renderHook(() => useSwapActions().current, {
+      wrapper: secondContext.Wrapper,
+    });
+
+    await act(async () => {
+      await firstInstance.result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+      await secondInstance.result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+
+    const firstRequestParams = mockFetchSpeedSwapQuote.mock.calls[0][0] as {
+      requestScopeKey?: string;
+    };
+    const secondRequestParams = mockFetchSpeedSwapQuote.mock.calls[1][0] as {
+      requestScopeKey?: string;
+    };
+    expect(firstRequestParams.requestScopeKey).toEqual(expect.any(String));
+    expect(secondRequestParams.requestScopeKey).toEqual(expect.any(String));
+    expect(secondRequestParams.requestScopeKey).not.toBe(
+      firstRequestParams.requestScopeKey,
+    );
+    expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+    expect(secondContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+
+    await act(async () => {
+      secondSpeedQuoteRequest.resolve([
+        {
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'provider', providerName: 'Provider' },
+          fromTokenInfo: bnbToken,
+          toTokenInfo: usdcToken,
+          fromAmount: '2',
+          toAmount: '600',
+        },
+      ]);
+      await secondSpeedQuoteRequest.promise;
+    });
+    await waitFor(() => {
+      expect(secondContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
+      expect(secondContext.store.get(swapSpeedQuoteResultAtom())).toMatchObject(
+        {
+          fromAmount: '2',
+          toAmount: '600',
+        },
+      );
+    });
+    expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+
+    await act(async () => {
+      firstSpeedQuoteRequest.resolve([
+        {
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'provider', providerName: 'Provider' },
+          fromTokenInfo: bnbToken,
+          toTokenInfo: usdcToken,
+          fromAmount: '1',
+          toAmount: '300',
+        },
+      ]);
+      await firstSpeedQuoteRequest.promise;
+    });
+    await waitFor(() => {
+      expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
+      expect(firstContext.store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+        fromAmount: '1',
+        toAmount: '300',
       });
     });
   });

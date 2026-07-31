@@ -1,3 +1,4 @@
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IFetchQuoteResult,
   ISwapTokenBase,
@@ -19,6 +20,7 @@ export function buildWrappedSwapQuoteResult({
   providerLogo?: string;
 }): IFetchQuoteResult {
   return {
+    quoteId: generateUUID(),
     protocol: EProtocolOfExchange.SWAP,
     info: {
       provider: 'wrapped',

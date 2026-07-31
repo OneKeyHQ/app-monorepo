@@ -151,6 +151,8 @@ import {
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSpeedQuoteFetchingAtom,
+  swapSpeedQuoteRequestIdAtom,
+  swapSpeedQuoteRequestScopeKeyAtom,
   swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
@@ -519,8 +521,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     | undefined;
 
   private limitOrderMarketPriceRequestId = 0;
-
-  private speedQuoteRequestId = 0;
 
   scheduleQuoteAutoRefresh = contextAtomMethod(
     (
@@ -1742,6 +1742,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       fromToken: ISwapToken,
       toToken: ISwapToken,
       requestId: number,
+      requestScopeKey: string,
       slippagePercentage: number,
       autoSlippage?: boolean,
       address?: string,
@@ -1757,6 +1758,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const res = await backgroundApiProxy.serviceSwap.fetchSpeedSwapQuote({
           fromToken,
           toToken,
+          requestScopeKey,
           fromTokenAmount,
           toTokenAmount,
           kind,
@@ -1767,7 +1769,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountId,
           protocol: ESwapTabSwitchType.SWAP,
         });
-        if (requestId !== this.speedQuoteRequestId) {
+        if (requestId !== get(swapSpeedQuoteRequestIdAtom())) {
           return;
         }
         if (res && res.length > 0) {
@@ -1784,7 +1786,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         set(swapSpeedQuoteFetchingAtom(), false);
       } catch (e: any) {
-        if (requestId !== this.speedQuoteRequestId) {
+        if (requestId !== get(swapSpeedQuoteRequestIdAtom())) {
           return;
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1804,8 +1806,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       receivingAddress?: string,
     ) => {
-      this.cancelSpeedQuote();
-      const requestId = this.speedQuoteRequestId;
+      let requestScopeKey = get(swapSpeedQuoteRequestScopeKeyAtom());
+      if (!requestScopeKey) {
+        requestScopeKey = generateUUID();
+        set(swapSpeedQuoteRequestScopeKeyAtom(), requestScopeKey);
+      }
+      const requestId = get(swapSpeedQuoteRequestIdAtom()) + 1;
+      set(swapSpeedQuoteRequestIdAtom(), requestId);
       const selectedToken = get(swapProSelectTokenAtom());
       const buySelectToken = get(swapProUseSelectBuyTokenAtom());
       const sellSelectToken = get(swapProSellToTokenAtom());
@@ -1820,11 +1827,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? selectedToken
           : sellSelectToken;
       if (!fromToken || !toToken || fromToken.networkId !== toToken.networkId) {
+        void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+          requestScopeKey,
+        );
         set(swapSpeedQuoteFetchingAtom(), false);
         set(swapSpeedQuoteResultAtom(), undefined);
         return;
       }
       if (checkWrappedTokenPair({ fromToken, toToken })) {
+        void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+          requestScopeKey,
+        );
         set(swapSpeedQuoteFetchingAtom(), false);
         set(
           swapSpeedQuoteResultAtom(),
@@ -1844,6 +1857,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         fromToken,
         toToken,
         requestId,
+        requestScopeKey,
         slippageItem.value,
         slippageItem.key === ESwapSlippageSegmentKey.AUTO,
         address,
@@ -1868,13 +1882,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents(quoteRequestId);
   };
 
-  cancelSpeedQuote = () => {
-    this.speedQuoteRequestId += 1;
-    void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote();
-  };
+  cancelSpeedQuote = contextAtomMethod((get, set) => {
+    set(swapSpeedQuoteRequestIdAtom(), get(swapSpeedQuoteRequestIdAtom()) + 1);
+    const requestScopeKey = get(swapSpeedQuoteRequestScopeKeyAtom());
+    if (requestScopeKey) {
+      void backgroundApiProxy.serviceSwap.cancelFetchSpeedSwapQuote(
+        requestScopeKey,
+      );
+    }
+  });
 
-  cleanSpeedQuote = contextAtomMethod(async (get, set) => {
-    this.speedQuoteRequestId += 1;
+  cleanSpeedQuote = contextAtomMethod((get, set) => {
+    set(swapSpeedQuoteRequestIdAtom(), get(swapSpeedQuoteRequestIdAtom()) + 1);
     set(swapSpeedQuoteFetchingAtom(), false);
     set(swapSpeedQuoteResultAtom(), undefined);
   });
@@ -3833,6 +3852,7 @@ export const useSwapActions = () => {
   const finishSwapProTokenBalanceRequest =
     actions.finishSwapProTokenBalanceRequest.use();
   const quoteSpeedAction = actions.quoteSpeedAction.use();
+  const cancelSpeedQuote = actions.cancelSpeedQuote.use();
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
   const cleanQuoteInterval = actions.cleanQuoteInterval.use();
   const setSwapProSelectToken = actions.setSwapProSelectToken.use();
@@ -3842,7 +3862,6 @@ export const useSwapActions = () => {
     closeQuoteEvent,
     needChangeToken,
     cleanLimitOrderMarketPriceInterval,
-    cancelSpeedQuote,
   } = actions;
 
   return useRef({
