@@ -28,6 +28,7 @@ import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
 import type {
   IIdentityExitOAuthHandoff,
@@ -117,6 +118,8 @@ function PrimeLoginOAuthDialog(props: {
   const signInMethodsAccordionValue = isEmailVerificationStep
     ? MORE_SIGN_IN_METHODS_VALUE
     : expandedSignInMethod;
+  const isSignInMethodsExpanded =
+    signInMethodsAccordionValue === MORE_SIGN_IN_METHODS_VALUE;
   const isLoginBusy = Boolean(loggingInProvider) || isEmailLoginStarting;
 
   // Fallback guard: the showOneKeyIdLoginDialog funnel already redirects the
@@ -655,9 +658,19 @@ function PrimeLoginOAuthDialog(props: {
             <Accordion.HeightAnimator animation="quick" overflow="hidden">
               <Accordion.Content
                 unstyled
+                forceMount
                 testID="prime-login-more-methods-content"
                 p={0}
                 pt={isEmailVerificationStep ? 0 : '$3'}
+                pointerEvents={isSignInMethodsExpanded ? 'auto' : 'none'}
+                aria-hidden={!isSignInMethodsExpanded}
+                accessibilityElementsHidden={!isSignInMethodsExpanded}
+                importantForAccessibility={
+                  isSignInMethodsExpanded ? 'auto' : 'no-hide-descendants'
+                }
+                {...(platformEnv.isNative
+                  ? {}
+                  : { inert: !isSignInMethodsExpanded })}
               >
                 <PrimeLoginEmailDialogV2
                   embedded
