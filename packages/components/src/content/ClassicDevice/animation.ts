@@ -81,15 +81,18 @@ function trackAt(t: number, kfs: IKeyframe[]): number {
 /* ---------------------------------------------------------------- *
  * Shared scene vocabulary. Every scene is built from the same three
  * primitives, parameterized only by its own schedule:
- *  - screen wake: glow rises over 280ms, content fades in 240-700ms
+ *  - screen wake: glow rises over 500ms, the panel holds lit-but-empty for a
+ *    beat, then content renders in over 720-1100ms (light first, then pixels)
  *  - screen sleep: glow and content drop together over 300ms
  *  - key press: 100ms down / 150ms hold / 100ms up (the envelope of the
  *    original Lottie files)
  * ---------------------------------------------------------------- */
 
-const WAKE_GLOW_MS = 280;
-const CONTENT_IN_START_MS = 240;
-const CONTENT_IN_END_MS = 700;
+const WAKE_GLOW_MS = 500;
+// A deliberate beat after the glow settles before pixels appear, so power-on
+// and first paint read as two events, the way real hardware boots.
+const CONTENT_IN_START_MS = 720;
+const CONTENT_IN_END_MS = 1100;
 const SLEEP_MS = 300;
 const PRESS_DOWN_MS = 100;
 const PRESS_HOLD_MS = 150;
@@ -196,10 +199,10 @@ function useSceneAnimation(scene: ISceneTracks): {
 }
 
 /* ---------------------------------------------------------------- *
- * Confirm, 3s loop: wake -> skeleton fades in -> one OK press -> sleep.
+ * Confirm, 3.2s loop: wake -> skeleton fades in -> one OK press -> sleep.
  * ---------------------------------------------------------------- */
 
-const CONFIRM = sceneTracks(3000, 900, 2100, [1100]);
+const CONFIRM = sceneTracks(3200, 1200, 2300, [1450]);
 
 export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
   return useSceneAnimation(CONFIRM).animation;
@@ -207,20 +210,20 @@ export function useConfirmOnClassicAnimation(): IClassicDeviceAnimation {
 
 /* ---------------------------------------------------------------- *
  * Character-entry scenes (Enter PIN / Enter Passphrase - the original
- * Lottie files are frame-identical too), 5.6s loop: wake -> empty row fades in
+ * Lottie files are frame-identical too), 5.8s loop: wake -> empty row fades in
  * -> six OK presses enter characters (each at mid-hold) -> the check appears at
  * the cursor -> one final OK press confirms -> sleep. Seven pulses total,
  * exactly like the Lottie files (their unexplained 7th press was this confirm).
  * ---------------------------------------------------------------- */
 
-const ENTRY_PRESS_START_MS = 900;
+const ENTRY_PRESS_START_MS = 1250;
 const ENTRY_PRESS_STEP_MS = 500;
 const ENTRY_FILL_COUNT = 6;
 const ENTRY = sceneTracks(
-  5600,
+  5800,
   // Rest on the completed row: everything entered, the confirm press over.
-  4400,
-  4700,
+  4750,
+  4900,
   Array.from(
     { length: ENTRY_FILL_COUNT + 1 },
     (_, i) => ENTRY_PRESS_START_MS + i * ENTRY_PRESS_STEP_MS,
