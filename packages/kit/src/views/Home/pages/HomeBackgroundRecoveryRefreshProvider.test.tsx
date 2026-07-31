@@ -6,9 +6,6 @@ import {
   useState,
 } from 'react';
 
-import fs from 'fs';
-import path from 'path';
-
 import { type ReactTestRenderer, act, create } from 'react-test-renderer';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -1025,39 +1022,6 @@ describe('Home background recovery refresh registry', () => {
       EHomeBackgroundRecoveryRefreshDomain.banner,
       EHomeBackgroundRecoveryRefreshDomain.nft,
     ]);
-  });
-
-  it('does not reintroduce global Home refresh broadcasts', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, 'HomeBackgroundRecoveryRefreshProvider.tsx'),
-      'utf8',
-    );
-    expect(source).not.toContain('EAppEventBusNames.AccountDataUpdate');
-    expect(source).not.toContain('EAppEventBusNames.RefreshTokenList');
-    expect(source).not.toContain('onHomePageRefresh');
-  });
-
-  it('updates committed owner state only from a layout effect', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, 'HomeBackgroundRecoveryRefreshProvider.tsx'),
-      'utf8',
-    );
-    const assignment = 'committedOwnerRef.current = {';
-    const assignmentIndex = source.indexOf(assignment);
-    const layoutEffectIndex = source.lastIndexOf(
-      'useLayoutEffect(() => {',
-      assignmentIndex,
-    );
-    const layoutEffectEndIndex = source.indexOf('}, [', assignmentIndex);
-
-    expect(source.match(/committedOwnerRef\.current = \{/g) ?? []).toHaveLength(
-      1,
-    );
-    expect(assignmentIndex).toBeGreaterThan(layoutEffectIndex);
-    expect(layoutEffectIndex).toBeGreaterThan(-1);
-    expect(layoutEffectEndIndex).toBeGreaterThan(assignmentIndex);
-    expect(source).not.toContain('latestOwnerRef.current = currentOwner');
-    expect(source).not.toContain('ownerActivationRef.current = {');
   });
 
   it('keeps the committed owner callback when a recovered signal interrupts a suspended candidate render', async () => {

@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { createHomeMarketCategoryTokensCache } from '../../components/PopularTrading/utils';
@@ -26,15 +23,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
 }));
-
-const controllerSource = fs.readFileSync(
-  path.join(__dirname, 'HomeMarketStoreController.tsx'),
-  'utf8',
-);
-const rendererSource = fs.readFileSync(
-  path.join(__dirname, '../../components/PopularTrading/PopularTrading.tsx'),
-  'utf8',
-);
 
 const handle = {
   payload: {
@@ -208,28 +196,6 @@ describe('HomeMarketStoreController', () => {
       }),
     ).rejects.toThrow('market unavailable');
     expect(completions).toEqual([{ handle, kind: 'error' }]);
-  });
-
-  it('owns every active Market source and refresh trigger outside the renderer', () => {
-    expect(controllerSource).toContain('beginHomeSectionRequest({');
-    expect(controllerSource).toContain('completeHomeSectionRequest');
-    expect(controllerSource).toContain('fetchMarketBasicConfig()');
-    expect(controllerSource).toContain('getMarketWatchListV2()');
-    expect(controllerSource).toContain('fetchMarketTokenListBatch({');
-    expect(controllerSource).toContain('fetchMarketTokenList({');
-    expect(controllerSource).toContain(
-      'fetchMarketPerpsTokenList({ category })',
-    );
-    expect(controllerSource).toContain('pollingInterval: viewVisible');
-    expect(controllerSource).toContain('revalidateOnFocus: viewVisible');
-    expect(controllerSource).toContain('if (!dataActive || !stableOwner)');
-    expect(controllerSource).toContain(
-      "navigation.value.selectedTabId === 'portfolio'",
-    );
-    expect(controllerSource).toContain('RefreshMarketWatchList');
-    expect(rendererSource).not.toContain('backgroundApiProxy');
-    expect(rendererSource).not.toContain('useHomeStoreSourcePublisher');
-    expect(rendererSource).not.toContain('usePromiseResult');
   });
 
   it('publishes the Perps recommendation rows in the same Market Store payload', async () => {

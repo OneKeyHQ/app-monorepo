@@ -6,6 +6,9 @@ This audit covers test files changed on the current branch compared with `x`.
 The branch changes 132 test files. Twenty-five of them read source files or
 configuration with `readFileSync` or `existsSync`.
 
+After the two cleanup batches, none of those 25 files still infer production
+behavior from source or configuration text.
+
 The problematic pattern is narrower than the presence of `toContain` itself:
 
 - A test reads production source code as text.
@@ -37,56 +40,42 @@ its parameterized renderer block expanded to eight Jest cases.
 
 | Status | Blocks | Test file | What the source scan claims to verify | Required replacement |
 | --- | ---: | --- | --- | --- |
-| Pending | 4 | `development/scripts/react-native-skeleton-lifecycle-patch.node-test.js` | Android disposal order and patch scope from Kotlin/patch text | Run the patched lifecycle implementation in the Android churn test; validate patch scope in the patch-generation workflow |
-| Pending | 5 | `packages/kit/src/views/Home/NativeHomeRuntimeSurface.test.tsx` | Cross-package renderer wiring, native owner switching, Android list updates, and deleted files | Render the registered renderer/provider; use the existing TS/Swift/Kotlin protocol tests for native behavior; delete tombstone checks |
-| Pending | 8 | `packages/kit/src/views/Home/components/DeFiListBlock/DeFiListBlock.storeAuthority.test.ts` | Renderer ownership, request ordering, polling, events, and aggregation | Render the DeFi surfaces and controller with mocked Store/BG gateways; extract request coordination policies |
-| Pending | 3 | `packages/kit/src/views/Home/components/PopularTrading/PopularTrading.storeAuthority.test.ts` | Market Store display authority and lack of renderer requests | Render `PopularTrading` from Store payloads and assert intents/output; enforce forbidden imports through lint/module boundaries |
-| Pending | 8 | `packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.storeBoundary.test.ts` | Portfolio producer ownership, polling, request fencing, and finalization | Render the controller/hook and assert gateway ordering and stale response rejection; extract finalization policies |
-| Pending | 2 | `packages/kit/src/views/Home/components/WalletBanner/WalletBanner.storeBoundary.test.ts` | Banner renderer and root-controller ownership | Render `WalletBanner` and `HomeBannerStoreController`; assert payload rendering, intents, and source calls |
-| Pending | 3 | `packages/kit/src/views/Home/model/react/HomeDeFiStoreController.test.ts` | DeFi applicability, visibility, and source identity handling | Render the controller for tab transitions; test identity/request-handle policies as pure functions |
-| Pending | 2 | `packages/kit/src/views/Home/model/react/HomeDisplaySnapshotController.shared.test.ts` | Lazy source selection and non-blocking warming | Mount the controller with a deferred repository and assert initial hydration completes before background chunks; extract source selection |
-| Pending | 3 | `packages/kit/src/views/Home/model/react/HomeHistoryStoreController.test.ts` | Controller ownership, pagination, and inactive-tab hydration | Keep existing request utility tests; render the controller for polling/load-more/visibility behavior |
-| Pending | 1 | `packages/kit/src/views/Home/model/react/HomeMarketStoreController.test.ts` | All Market producers live outside the renderer | Keep existing request/prefetch pure tests; mount the controller and assert actual API and refresh registrations |
+| Removed | 4 | `development/scripts/react-native-skeleton-lifecycle-patch.node-test.js` | Android disposal order and patch scope from Kotlin/patch text | Removed; lifecycle behavior remains in the Android churn test and patch scope belongs to the patch-generation workflow |
+| Removed | 5 | `packages/kit/src/views/Home/NativeHomeRuntimeSurface.test.tsx` | Cross-package renderer wiring, native owner switching, Android list updates, and deleted files | Removed; native behavior remains in TS/Swift/Kotlin protocol tests, and the real feature-flag assertion moved to `nativeHomeFeatureFlag.native.test.ts` |
+| Removed | 8 | `packages/kit/src/views/Home/components/DeFiListBlock/DeFiListBlock.storeAuthority.test.ts` | Renderer ownership, request ordering, polling, events, and aggregation | Removed; controller behavior is now rendered in `HomeDeFiStoreController.test.tsx` |
+| Removed | 3 | `packages/kit/src/views/Home/components/PopularTrading/PopularTrading.storeAuthority.test.ts` | Market Store display authority and lack of renderer requests | Removed; Market request and payload behavior remains in `HomeMarketStoreController.test.ts` |
+| Removed | 8 | `packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.storeBoundary.test.ts` | Portfolio producer ownership, polling, request fencing, and finalization | Removed; no coverage claim is made from implementation text |
+| Removed | 2 | `packages/kit/src/views/Home/components/WalletBanner/WalletBanner.storeBoundary.test.ts` | Banner renderer and root-controller ownership | Removed; banner commands remain covered by Store command/reducer tests |
+| Fixed | 3 | `packages/kit/src/views/Home/model/react/HomeDeFiStoreController.test.tsx` | DeFi applicability, visibility, and source identity handling | Replaced with component tests for tab activation, recovery registration, refresh commands, position actions, and acknowledgement |
+| Fixed | 2 | `packages/kit/src/views/Home/model/react/HomeDisplaySnapshotController.shared.test.tsx` | Lazy source selection and non-blocking warming | Replaced with a mounted controller test that verifies initial hydration order and the exact warmed source IDs |
+| Cleaned | 3 | `packages/kit/src/views/Home/model/react/HomeHistoryStoreController.test.ts` | Controller ownership, pagination, and inactive-tab hydration | Removed source assertions; retained request ordering, stale completion, side-effect, payload, and pure pagination tests |
+| Cleaned | 1 | `packages/kit/src/views/Home/model/react/HomeMarketStoreController.test.ts` | All Market producers live outside the renderer | Removed source assertions; retained request, failure, prefetch, recommendation, and control normalization tests |
 | Fixed | 1 | `packages/kit/src/views/Home/model/react/HomePerpsStoreController.test.tsx` | Producer activation and recovery registration | Replaced with component rendering that verifies producer arguments, recovery registration, tab transitions, and command acknowledgement |
-| Pending | 2 | `packages/kit/src/views/Home/model/react/useHomeNFTStoreSource.test.ts` | No renderer-facing state and identity implementation shape | Keep the existing hook behavior tests; add stale-response cases and remove implementation-shape assertions |
-| Pending | 3 | `packages/kit/src/views/Home/model/tests/homeStoreActionBoundary.test.ts` | Internal action exports and consumer allowlists | Make internal actions unavailable from the public module; enforce imports with lint/TypeScript boundaries |
+| Cleaned | 2 | `packages/kit/src/views/Home/model/react/useHomeNFTStoreSource.test.ts` | No renderer-facing state and identity implementation shape | Removed source assertions; retained five mounted hook tests covering cache/live ordering, inactive hydration, manual refresh, and all-network completion |
+| Fixed | 3 | `packages/kit/src/views/Home/model/tests/homeStoreActionBoundary.test.ts` | Internal action exports and consumer allowlists | Replaced with an exhaustive TypeScript public-action key contract; import restrictions belong to lint/module boundaries |
 | Removed | 7 | `packages/kit/src/views/Home/model/tests/homeUnifiedStoreProductionBoundary.test.ts` | Unified Store architecture from forbidden strings, component text counts, deleted files, and hook names | Removed. Controller composition is already rendered in `HomeStoreSourceControllers.test.tsx`; remaining behavior belongs in the owning component/hook tests |
-| Pending | 2 | `packages/kit/src/views/Home/pages/HomeBackgroundRecoveryRefreshProvider.test.tsx` | Event absence and layout-effect implementation | Keep the extensive provider behavior tests; add a suspended-owner commit test and remove source assertions |
-| Pending | 3 | `packages/kit/src/views/Home/pages/HomeControllerOwnership.test.ts` | Header, Wallet Home, and URL Account controller placement | Render each owning page/provider with controller probes and assert mount/unmount counts |
-| Pending | 2 | `packages/kit/src/views/Home/pages/HomePageView.storeTabAuthority.test.ts` | Store-selected tab authority and local state implementation | Render tab changes from Store navigation and assert pager/intent behavior |
-| Pending | 3 | `packages/kit/src/views/Home/pages/NFTListContainer.storeAuthority.test.ts` | NFT renderer/controller ownership and deleted producer | Render the NFT container and controller; retain the existing NFT source hook behavior tests; delete tombstone check |
-| Pending | 3 | `packages/kit/src/views/Home/pages/PerpsContainer.storeAuthority.test.ts` | Perps display authority, loading fallback, and lack of duplicate sources | Render loading/empty/ready Store payloads and assert output; verify producer calls through controller tests |
-| Pending | 4 | `packages/kit/src/views/Home/pages/TxHistoryContainer.storeAuthority.test.ts` | History payload authority, renderer restrictions, and deleted producer | Render full/recent History from Store payloads; assert intent/load-more behavior; delete tombstone check |
-| Pending | 6 | `packages/kit/src/views/Home/pages/usePerpsHomePortfolio.test.ts` | Scope invalidation, prefetch activation, request ordering, errors, and completion ordering | Keep existing pure scope/projection tests; extract request orchestration or test the hook with deferred BG promises |
+| Cleaned | 2 | `packages/kit/src/views/Home/pages/HomeBackgroundRecoveryRefreshProvider.test.tsx` | Event absence and layout-effect implementation | Removed source assertions; retained the provider's mounted transaction, dedupe, owner, suspension, and platform tests |
+| Removed | 3 | `packages/kit/src/views/Home/pages/HomeControllerOwnership.test.ts` | Header, Wallet Home, and URL Account controller placement | Removed; Wallet Home and source composition are already rendered by `HomePageContainer.test.tsx` and `HomeStoreSourceControllers.test.tsx` |
+| Removed | 2 | `packages/kit/src/views/Home/pages/HomePageView.storeTabAuthority.test.ts` | Store-selected tab authority and local state implementation | Removed; navigation and tab behavior remains in reducer, semantic, and page tests |
+| Removed | 3 | `packages/kit/src/views/Home/pages/NFTListContainer.storeAuthority.test.ts` | NFT renderer/controller ownership and deleted producer | Removed; NFT source behavior remains in the mounted hook suite |
+| Removed | 3 | `packages/kit/src/views/Home/pages/PerpsContainer.storeAuthority.test.ts` | Perps display authority, loading fallback, and lack of duplicate sources | Removed; Perps controller and projection policies have real tests |
+| Removed | 4 | `packages/kit/src/views/Home/pages/TxHistoryContainer.storeAuthority.test.ts` | History payload authority, renderer restrictions, and deleted producer | Removed; History controller utilities and Store model behavior have real tests |
+| Cleaned | 6 | `packages/kit/src/views/Home/pages/usePerpsHomePortfolio.test.ts` | Scope invalidation, prefetch activation, request ordering, errors, and completion ordering | Removed source assertions; retained six pure scope, persistence, authority, and evidence projection tests |
 | Fixed | 1 | `packages/kit/src/views/Prime/hooks/purchasesSdkLogout.native.test.ts` | Dynamic rather than static RevenueCat import | Replaced with a module-evaluation assertion proving RevenueCat loads only after `logoutPurchasesSdk` is called |
-| Pending | 2 | `packages/native-components/src/HomeContainerBackground.test.ts` | Prop wiring and initial-state effect implementation | Render `HomeContainer` with a mocked native host and assert submitted props/effects |
-| Replace with lint execution | 1 | `packages/native-components/src/importHierarchy.test.ts` | Presence of `no-restricted-imports` configuration | Run oxlint against positive and negative fixture imports, or rely on the repository lint gate |
+| Cleaned | 2 | `packages/native-components/src/HomeContainerBackground.test.ts` | Prop wiring and initial-state effect implementation | Removed source assertions; retained the pure background-color authority tests |
+| Removed | 1 | `packages/native-components/src/importHierarchy.test.ts` | Presence of `no-restricted-imports` configuration | Removed; the repository type-aware oxlint gate is the enforcement mechanism |
 | Fixed | 1 | `packages/shared/src/utils/nftUtils.test.ts` | Absence of a runtime transport import | Replaced with a mocked-module evaluation assertion while retaining the pure result assertion |
 
-## Priorities
+## Resolution principles
 
-### P0: remove duplicate source-only suites
-
-- `homeUnifiedStoreProductionBoundary.test.ts`
-- `HomeControllerOwnership.test.ts`
-- Per-renderer `*.storeAuthority.test.ts` and `*.storeBoundary.test.ts`
-
-These suites provide no runtime evidence and substantially duplicate each
-other.
-
-### P1: preserve mixed suites while replacing only bad blocks
-
-- Controller and hook suites with existing real behavior tests
-- `HomeBackgroundRecoveryRefreshProvider.test.tsx`
-- `usePerpsHomePortfolio.test.ts`
-- `HomeContainerBackground.test.ts`
-
-### P2: move static constraints to their real enforcement layer
-
-- Import hierarchy
-- Dynamic-import requirements
-- Public/internal API boundaries
-- Patch-package scope validation
+- Deleting a source assertion does not claim that the described behavior is
+  covered.
+- Existing behavior tests were retained even when they shared a file with
+  source assertions.
+- New tests were added only where an observable component, hook, module-load,
+  or pure-function contract was available.
+- Import and package constraints remain the responsibility of type-aware lint
+  and module visibility.
 
 ## Progress
 
@@ -102,3 +91,14 @@ other.
   evaluation assertions.
 - Reduced the changed-branch source/config-reading test file count from 25 to
   21.
+
+### Batch 2
+
+- Replaced DeFi Controller and Display Snapshot source assertions with mounted
+  component tests.
+- Removed source-only renderer/authority/tombstone suites.
+- Removed source blocks from mixed History, Market, NFT, background recovery,
+  Perps, and native background suites while preserving real tests.
+- Replaced the Home action boundary scan with an exhaustive TypeScript public
+  key contract.
+- Reduced the audited source/config-reading test file count from 21 to 0.

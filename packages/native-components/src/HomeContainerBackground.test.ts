@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import { resolveHomeContainerBackgroundColor } from './HomeContainerBackground';
 
 describe('resolveHomeContainerBackgroundColor', () => {
@@ -24,25 +21,5 @@ describe('resolveHomeContainerBackgroundColor', () => {
 
   it('uses white only when neither snapshot nor slots provide a color', () => {
     expect(resolveHomeContainerBackgroundColor({})).toBe('#FFFFFF');
-  });
-
-  it('feeds the same resolved color to the host and every slot', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, 'HomeContainer.native.tsx'),
-      'utf8',
-    );
-    expect(source).toContain('{ backgroundColor: resolvedBackgroundColor }');
-    expect(source).toContain('backgroundColor={resolvedBackgroundColor}');
-  });
-
-  it('does not resubmit the initial state from the first layout effect', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, 'HomeContainer.native.tsx'),
-      'utf8',
-    );
-    expect(source).toContain(
-      'const lastSubmittedStateJsonRef = useRef(initialStateJsonRef.current)',
-    );
-    expect(source).toContain('stateJson !== lastSubmittedStateJsonRef.current');
   });
 });

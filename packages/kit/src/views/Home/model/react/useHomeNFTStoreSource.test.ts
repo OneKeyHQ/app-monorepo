@@ -1,14 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useHomeNFTStoreSource } from './useHomeNFTStoreSource';
-
-const sourceHook = fs.readFileSync(
-  path.join(__dirname, 'useHomeNFTStoreSource.ts'),
-  'utf8',
-);
 
 interface ITestAllNetworkParams {
   allNetworkAccountsData?: (value: {
@@ -215,13 +207,6 @@ describe('useHomeNFTStoreSource', () => {
       id: 'btc--0',
       isAllNetworks: false,
     };
-  });
-
-  it('publishes display state only through the Home Store', () => {
-    expect(sourceHook).not.toMatch(
-      /setData|setInitialized|setIsRefreshing|setErrorCode/,
-    );
-    expect(sourceHook).toContain('return useMemo(() => ({ refresh })');
   });
 
   it('begins one owner-scoped request before cache and live BG work, then completes the same handle', async () => {
@@ -439,16 +424,5 @@ describe('useHomeNFTStoreSource', () => {
     ).toBeLessThan(publisher.complete.mock.invocationCallOrder[0]);
 
     view.unmount();
-  });
-
-  it('uses source identity and request handles instead of request start order', () => {
-    expect(sourceHook).not.toContain('requestSeq');
-    expect(sourceHook).not.toContain('requestIdRef');
-    expect(sourceHook).not.toContain('generation <');
-    expect(sourceHook).toContain(
-      'nftSourceIdentityKeyRef.current === requestSourceIdentityKey',
-    );
-    expect(sourceHook).toContain('handle: IHomeSectionSourceRequestHandle');
-    expect(sourceHook).toContain('allNetworkExpectedRequestCountRef');
   });
 });

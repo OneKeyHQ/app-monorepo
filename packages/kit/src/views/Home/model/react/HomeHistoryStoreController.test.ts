@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import {
@@ -33,11 +30,6 @@ const history = {
   id: 'history-a',
   decodedTx: { status: 'confirmed' },
 } as unknown as IAccountHistoryTx;
-
-const controllerSource = fs.readFileSync(
-  path.join(__dirname, 'HomeHistoryStoreController.tsx'),
-  'utf8',
-);
 
 describe('HomeHistoryStoreController', () => {
   it('opens the Store request before the real source await and completes the same handle', async () => {
@@ -146,48 +138,5 @@ describe('HomeHistoryStoreController', () => {
         },
       },
     });
-  });
-
-  it('owns cache, polling, events, pagination and explicit request lifecycle outside the renderer', () => {
-    expect(controllerSource).toContain('getAccountsLocalHistoryTxs');
-    expect(controllerSource).toContain('getLocalAddressesInfo');
-    expect(controllerSource).toContain('fetchAccountHistory');
-    expect(controllerSource).toContain('fetchAccountHistoryForMergeDerive');
-    expect(controllerSource).toContain('POLLING_INTERVAL_FOR_HISTORY');
-    expect(controllerSource).toContain('HistoryTxStatusChanged');
-    expect(controllerSource).toContain('beginHomeSectionRequest');
-    expect(controllerSource).toContain('completeHomeSectionRequest');
-    expect(controllerSource).toContain('loadMoreInFlightRef.current');
-    expect(controllerSource).toContain('pendingSectionCommands.find');
-    expect(controllerSource).toContain('tokenMap: tokenMapRef.current');
-    expect(controllerSource).toContain("useHomeSectionPayload('portfolio')");
-    expect(controllerSource).toContain('if (!sourceEnabled || !visible)');
-    expect(controllerSource).not.toContain('useHomeTokenListSnapshot');
-  });
-
-  it('expands All Networks History through limit-based load-more', () => {
-    expect(controllerSource).toContain(
-      '{ limit: getAllNetworksHomeHistoryLimit(page) }',
-    );
-    expect(controllerSource).toContain(
-      'hasMore: Boolean(response.hasMoreOnChainHistory)',
-    );
-    expect(controllerSource).not.toContain(
-      '!isAllNetworks && Boolean(response.hasMoreOnChainHistory)',
-    );
-  });
-
-  it('hydrates and revalidates before the History tab becomes visible', () => {
-    const initialLoadEffect = controllerSource.slice(
-      controllerSource.indexOf(
-        'const currentOwnerToken = stableOwnerTokenRef.current',
-      ),
-      controllerSource.indexOf(
-        'useEffect(\n    () => () => {\n      stopPendingTokenRefresh();',
-      ),
-    );
-
-    expect(initialLoadEffect).toContain('void seedCacheThenLoadRef.current();');
-    expect(initialLoadEffect).not.toContain('!visible');
   });
 });
