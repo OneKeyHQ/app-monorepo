@@ -260,7 +260,8 @@ function SettingsTabNavigator() {
             // 20px sidebar icons — same size as the pane rows' leading icons;
             // per-category styles (e.g. Dev critical colors) still win.
             tabBarIconStyle: { size: '$5', ...tabBarIconStyle } as IIconProps,
-            trackId: name,
+            // No trackId: DesktopTabItem would report it via the main tab
+            // bar's `tabBarClick` server event, polluting that vocabulary.
             tabBarPosition: 'left',
           }}
         />
