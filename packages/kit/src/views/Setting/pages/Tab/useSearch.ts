@@ -32,6 +32,9 @@ export const useSearch = () => {
   const settingsConfig = useSettingsConfig();
   const isTabNavigator = useIsTabNavigator();
   const isMobileLayout = platformEnv.isNative && !isTabNavigator;
+  // Tab layouts group search results under the sidebar's mobile naming and
+  // icons; list layouts (extension popup) keep the legacy category copy.
+  const preferMobileNaming = isMobileLayout || isTabNavigator;
   const flattenSettingsConfig = useMemo(() => {
     return settingsConfig.filter(Boolean).flatMap((config) =>
       config
@@ -47,13 +50,19 @@ export const useSearch = () => {
                   : undefined;
               return {
                 ...i,
-                sectionTitle: mobilePresentation?.title || config.title,
-                sectionIcon: mobilePresentation?.icon || config.icon,
+                sectionTitle:
+                  mobilePresentation?.title ||
+                  (preferMobileNaming ? config.mobileTitle : undefined) ||
+                  config.title,
+                sectionIcon:
+                  mobilePresentation?.icon ||
+                  (preferMobileNaming ? config.mobileIcon : undefined) ||
+                  config.icon,
               };
             })
         : [],
     );
-  }, [isMobileLayout, settingsConfig]);
+  }, [isMobileLayout, preferMobileNaming, settingsConfig]);
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
   const searchFuse = useFuse(flattenSettingsConfig, {
     keys: [...SETTINGS_SEARCH_KEYS],

@@ -101,8 +101,10 @@ export function SubSettingsPage({
       <Page.Header
         headerStyle={headerStyle}
         title={
+          // Tab layouts follow the sidebar's mobile naming; list layouts
+          // (extension popup) keep the legacy titles until the copy merge.
           titleFromProps ||
-          (isMobileLayout ? config?.mobileTitle : undefined) ||
+          (isMobileLayout || isTabNavigator ? config?.mobileTitle : undefined) ||
           config?.title
         }
       />
