@@ -1,6 +1,11 @@
 /* cspell:ignore Infini */
 import { ensurePrimePurchaseEligible } from './primePurchaseEligibility';
 
+import type { IntlShape } from 'react-intl';
+
+const mockIntl = {
+  formatMessage: ({ id }: { id: string }) => id,
+} as unknown as IntlShape;
 const mockApiFetchPrimeUserInfo = jest.fn<Promise<unknown>, [unknown]>();
 const mockToastError = jest.fn();
 const mockToastMessage = jest.fn();
@@ -70,7 +75,10 @@ describe('ensurePrimePurchaseEligible', () => {
     mockApiFetchPrimeUserInfo.mockResolvedValue(buildUserInfo());
 
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(true);
 
     expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
@@ -84,7 +92,10 @@ describe('ensurePrimePurchaseEligible', () => {
     );
 
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(false);
 
     expect(mockToastMessage).toHaveBeenCalledTimes(1);
@@ -96,7 +107,10 @@ describe('ensurePrimePurchaseEligible', () => {
     );
 
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(false);
 
     expect(mockToastError).toHaveBeenCalledTimes(1);
@@ -114,9 +128,11 @@ describe('ensurePrimePurchaseEligible', () => {
 
     const first = ensurePrimePurchaseEligible({
       expectedOneKeyUserId: 'user-1',
+      intl: mockIntl,
     });
     const second = ensurePrimePurchaseEligible({
       expectedOneKeyUserId: 'user-1',
+      intl: mockIntl,
     });
     resolveRequest?.(buildUserInfo());
 
@@ -129,12 +145,15 @@ describe('ensurePrimePurchaseEligible', () => {
     mockApiFetchPrimeUserInfo.mockRejectedValue(error);
 
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(false);
 
     expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
       error,
-      fallbackMessage: 'Unable to verify purchase eligibility',
+      fallbackMessage: 'prime_payment_start_failed__msg',
     });
     expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -150,10 +169,16 @@ describe('ensurePrimePurchaseEligible', () => {
       .mockResolvedValueOnce(buildUserInfo());
 
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(false);
     await expect(
-      ensurePrimePurchaseEligible({ expectedOneKeyUserId: 'user-1' }),
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
     ).resolves.toBe(true);
 
     expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledTimes(2);

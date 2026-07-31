@@ -63,14 +63,17 @@ function useDesktopDialogBodyMaxHeight() {
 // has to be resolved inside a component.
 function DesktopTransferBody({
   expectedRecipient,
+  onOpenTracker,
 }: {
   expectedRecipient: string;
+  onOpenTracker: () => void;
 }) {
   const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
   return (
     <UnifoldTransferContent
       expectedRecipient={expectedRecipient}
       bodyMaxHeight={bodyMaxHeight}
+      onOpenTracker={onOpenTracker}
       useDialogHeader
     />
   );
@@ -79,9 +82,11 @@ function DesktopTransferBody({
 function DesktopTrackerBody({
   expectedRecipient,
   onDepositPress,
+  onBackPress,
 }: {
   expectedRecipient: string;
   onDepositPress: () => void;
+  onBackPress?: () => void;
 }) {
   const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
   return (
@@ -90,6 +95,7 @@ function DesktopTrackerBody({
       listHeight={bodyMaxHeight}
       useDialogHeader
       onDepositPress={onDepositPress}
+      onBackPress={onBackPress}
     />
   );
 }
@@ -361,51 +367,27 @@ export function showPerpsUnifoldDepositMenuDialog({
 
 type IDialogInTab = ReturnType<typeof useInTabDialog>;
 
-export function showUnifoldTransferDialog({
+function showUnifoldTrackerDialogContent({
   dialogInTab,
   expectedRecipient,
   intl,
+  onDepositPress,
+  onBackPress,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
   intl: IntlShape;
-}) {
-  // The whole UnifoldDeposit module already sits behind the deposit-entry
-  // lazy chunk (preloadPerpsUnifoldDeposit), so static imports are fine here.
-  dialogInTab.show({
-    title: intl.formatMessage({
-      id: ETranslations.perp_unifold_transfer_crypto__title,
-    }),
-    showFooter: false,
-    dismissOnOverlayPress: true,
-    floatingPanelProps: {
-      width: DESKTOP_DIALOG_WIDTH,
-      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
-      maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
-    },
-    renderContent: (
-      <DesktopTransferBody expectedRecipient={expectedRecipient} />
-    ),
-  });
-}
-
-export function showUnifoldTrackerDialog({
-  dialogInTab,
-  expectedRecipient,
-  intl,
-}: {
-  dialogInTab: IDialogInTab;
-  expectedRecipient: string;
-  intl: IntlShape;
+  onDepositPress: () => void;
+  onBackPress?: () => void;
 }) {
   const holder: { instance?: IDialogInstance } = {};
   const handleDepositPress = async () => {
     await holder.instance?.close();
-    showUnifoldTransferDialog({
-      dialogInTab,
-      expectedRecipient,
-      intl,
-    });
+    onDepositPress();
+  };
+  const handleBackPress = async () => {
+    await holder.instance?.close();
+    onBackPress?.();
   };
   holder.instance = dialogInTab.show({
     title: intl.formatMessage({
@@ -424,8 +406,95 @@ export function showUnifoldTrackerDialog({
         onDepositPress={() => {
           void handleDepositPress();
         }}
+        onBackPress={
+          onBackPress
+            ? () => {
+                void handleBackPress();
+              }
+            : undefined
+        }
       />
     ),
   });
   return holder.instance;
+}
+
+export function showUnifoldTransferDialog({
+  dialogInTab,
+  expectedRecipient,
+  intl,
+}: {
+  dialogInTab: IDialogInTab;
+  expectedRecipient: string;
+  intl: IntlShape;
+}) {
+  // The whole UnifoldDeposit module already sits behind the deposit-entry
+  // lazy chunk (preloadPerpsUnifoldDeposit), so static imports are fine here.
+  const holder: { instance?: IDialogInstance } = {};
+  const handleOpenTracker = async () => {
+    await holder.instance?.close();
+    showUnifoldTrackerDialogContent({
+      dialogInTab,
+      expectedRecipient,
+      intl,
+      onDepositPress: () => {
+        showUnifoldTransferDialog({
+          dialogInTab,
+          expectedRecipient,
+          intl,
+        });
+      },
+      onBackPress: () => {
+        showUnifoldTransferDialog({
+          dialogInTab,
+          expectedRecipient,
+          intl,
+        });
+      },
+    });
+  };
+  holder.instance = dialogInTab.show({
+    title: intl.formatMessage({
+      id: ETranslations.perp_unifold_transfer_crypto__title,
+    }),
+    showFooter: false,
+    dismissOnOverlayPress: true,
+    floatingPanelProps: {
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+      maxHeight: DESKTOP_DIALOG_MAX_HEIGHT,
+    },
+    renderContent: (
+      <DesktopTransferBody
+        expectedRecipient={expectedRecipient}
+        onOpenTracker={() => {
+          void handleOpenTracker();
+        }}
+      />
+    ),
+  });
+  return holder.instance;
+}
+
+export function showUnifoldTrackerDialog({
+  dialogInTab,
+  expectedRecipient,
+  intl,
+}: {
+  dialogInTab: IDialogInTab;
+  expectedRecipient: string;
+  intl: IntlShape;
+}) {
+  return showUnifoldTrackerDialogContent({
+    dialogInTab,
+    expectedRecipient,
+    intl,
+    onDepositPress: () => {
+      showUnifoldTransferDialog({
+        dialogInTab,
+        expectedRecipient,
+        intl,
+      });
+    },
+  });
 }

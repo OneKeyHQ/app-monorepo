@@ -71,6 +71,7 @@ export type IModalPerpParamList = {
   };
   [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
     expectedRecipient: string;
+    openedFromTransfer?: boolean;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;

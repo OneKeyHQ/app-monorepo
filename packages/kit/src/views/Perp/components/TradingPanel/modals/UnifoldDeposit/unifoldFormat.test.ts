@@ -32,6 +32,16 @@ describe('normalizeUnifoldExplorerUrl', () => {
 });
 
 describe('Unifold destination labels', () => {
+  it('uses the standard numeric placeholder for a missing amount', () => {
+    expect(
+      formatUnifoldTokenAmount({
+        baseUnit: null,
+        decimals: 6,
+        currency: 'usdc',
+      }),
+    ).toBe('--');
+  });
+
   it('preserves the HyperCore account suffix in received amounts', () => {
     expect(
       formatUnifoldTokenAmount({

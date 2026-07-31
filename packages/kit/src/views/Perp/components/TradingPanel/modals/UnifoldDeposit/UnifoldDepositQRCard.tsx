@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/components';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  UNIFOLD_HELP_URL,
+  UNIFOLD_TERMS_URL,
+} from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -27,8 +31,6 @@ const QR_CODE_SIZE = QR_CANVAS_SIZE - QR_CODE_PADDING;
 const QR_QUIET_ZONE_MODULES = 2;
 const QR_LOGO_SIZE = 56;
 const QR_LOGO_MARGIN = 4;
-const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
-const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 
 // "Intent address" QR block. Deviation from the SDK (documented in the plan):
 // OneKey's QRCode always renders on an opaque light plate so it stays
