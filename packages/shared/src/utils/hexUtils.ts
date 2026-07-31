@@ -47,7 +47,7 @@ function isHexString(value: string, length?: number): boolean {
 }
 
 function hexStringToUtf8String(hexString: string): string {
-  const hex = hexString.replace('0x', '');
+  const hex = stripHexPrefix(hexString);
 
   try {
     const bytes = new Uint8Array(
