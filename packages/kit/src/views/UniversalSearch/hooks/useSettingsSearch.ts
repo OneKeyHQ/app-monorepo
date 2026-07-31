@@ -64,6 +64,7 @@ export function useSettingsSearch() {
       return results.map((result) => ({
         type: EUniversalSearchType.Settings,
         payload: {
+          id: result.item.id,
           title:
             (isMobileLayout ? result.item.mobileTitle : undefined) ||
             result.item.title,

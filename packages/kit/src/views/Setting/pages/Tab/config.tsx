@@ -101,6 +101,12 @@ const DevSettingsSection = LazyLoadPage(
 );
 
 export interface ISubSettingConfig {
+  /**
+   * Stable identity for analytics and recent-search records; survives copy
+   * changes. Items with a `settingRoute` already have a stable identity and
+   * may omit it.
+   */
+  id?: string;
   icon: string | IKeyOfIcons;
   title: string;
   mobileTitle?: string;
@@ -297,6 +303,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 cloudBackupFeatureInfo?.supportCloudBackup
                   ? {
+                      id: 'cloud-backup',
                       icon: cloudBackupFeatureInfo?.icon,
                       title: cloudBackupFeatureInfo?.title,
                       onPress: (navigation) => {
@@ -311,6 +318,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : null,
                 {
                   // OneKey Cloud
+                  id: 'onekey-cloud',
                   icon: 'CloudOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
@@ -332,6 +340,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 !platformEnv.isWebDappMode
                   ? {
                       // OneKey Transfer
+                      id: 'onekey-transfer',
                       icon: 'MultipleDevicesOutline',
                       title: intl.formatMessage({
                         id: ETranslations.transfer_transfer,
@@ -350,6 +359,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 !platformEnv.isWebDappMode
                   ? {
+                      id: 'manual-backup',
                       icon: 'SignatureOutline',
                       title: intl.formatMessage({
                         id: ETranslations.manual_backup,
@@ -363,6 +373,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : undefined,
                 platformEnv.isNative
                   ? {
+                      id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',
                       title: intl.formatMessage({
                         id: ETranslations.global_onekey_lite,
@@ -376,6 +387,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : undefined,
                 {
                   // OneKey Keytag
+                  id: 'onekey-keytag',
                   icon: 'OnekeyKeytagOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_keytag,
@@ -424,6 +436,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
             {
+              id: 'language',
               icon: 'TranslateOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_language,
@@ -431,6 +444,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <LanguageListItem />,
             },
             {
+              id: 'currency',
               icon: 'DollarOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_default_currency,
@@ -438,6 +452,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               renderElement: <CurrencyListItem />,
             },
             {
+              id: 'theme',
               icon: 'PaletteOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_theme,
@@ -446,6 +461,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             platformEnv.isNative
               ? {
+                  id: 'haptic-feedback',
                   icon: 'HandPointerOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_vibration_haptic,
@@ -457,6 +473,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             platformEnv.isSupportDesktopBle
               ? {
+                  id: 'desktop-bluetooth',
                   icon: 'BluetoothOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_bluetooth,
@@ -466,6 +483,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
             platformEnv.isDesktopMac
               ? {
+                  id: 'menu-bar-tray',
                   icon: 'DockOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_menu_bar_tray,
@@ -478,6 +496,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
             isNativeTablet()
               ? {
+                  id: 'split-view',
                   icon: 'LayoutColumnOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_split_view,
@@ -492,6 +511,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             platformEnv.isDesktop
               ? {
+                  id: 'shortcuts',
                   icon: 'ShortcutsCustom',
                   title: intl.formatMessage({
                     id: ETranslations.settings_shortcuts,
@@ -507,6 +527,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             platformEnv.isExtension
               ? {
+                  id: 'default-wallet-settings',
                   icon: 'ThumbtackOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_default_wallet_settings,
@@ -531,6 +552,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         configs: [
           [
             {
+              id: 'clear-cache',
               icon: 'BroomOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_cache_on_app,
@@ -540,6 +562,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              id: 'reset-app',
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_reset_app,
@@ -567,6 +590,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'address-book',
                   icon: 'ContactsOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
@@ -617,6 +641,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 },
                 {
+                  id: 'gas-account',
                   icon: 'GasOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_prefer_gas_account__title,
@@ -642,6 +667,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 },
                 {
+                  id: 'btc-multiple-addresses',
                   icon: 'FlashCardSolid',
                   title: intl.formatMessage({
                     id: ETranslations.settings_btc_multiple_addresses,
@@ -654,6 +680,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'clear-pending-transactions',
                   icon: 'ClockTimeHistoryOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_clear_pending_transactions,
@@ -684,6 +711,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 (biologyAuthIsSupport || webAuthIsSupport) &&
                 !platformEnv.isWebDappMode
                   ? {
+                      id: 'biometric-auth',
                       title: biometricAuthInfo.title,
                       icon: biometricAuthInfo.icon,
                       renderElement: <BiologyAuthListItem />,
@@ -691,6 +719,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   : null,
                 isPasswordSet && !platformEnv.isWebDappMode
                   ? {
+                      id: 'auto-lock',
                       icon: 'ClockTimeHistoryOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_auto_lock,
@@ -701,6 +730,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'passcode',
                       icon: 'KeyOutline',
                       title: intl.formatMessage({
                         id: isPasswordSet
@@ -712,6 +742,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode || !isKeylessWalletExistsLocal
                   ? undefined
                   : {
+                      id: 'reset-pin',
                       icon: 'InputOutline',
                       title: intl.formatMessage({
                         id: ETranslations.reset_pin,
@@ -752,6 +783,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'dapp-connections',
                       icon: 'LinkOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_connected_sites,
@@ -859,6 +891,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
                 platformEnv.isDev
                   ? {
+                      id: 'hardware-communication',
                       icon: 'UsbOutline',
                       title: intl.formatMessage({
                         id: ETranslations.device_hardware_communication,
@@ -869,6 +902,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 (platformEnv.isExtension || platformEnv.isWeb) &&
                 settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
                   ? {
+                      id: 'hardware-bridge-status',
                       icon: 'ApiConnectionOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_hardware_bridge_status,
@@ -916,6 +950,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         configs: [
           [
             {
+              id: 'whats-new',
               icon: 'InfoCircleOutline',
               title: intl.formatMessage({
                 id: appUpdateInfo.isNeedUpdate
@@ -927,6 +962,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              id: 'help-center',
               icon: 'BookOpenOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_help_center,
@@ -940,6 +976,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             {
+              id: 'contact-us',
               icon: 'HelpSupportOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
@@ -953,6 +990,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isNativeAndroidGooglePlay ||
             platformEnv.isNativeIOS
               ? {
+                  id: 'rate-app',
                   icon: 'StarOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_rate_app,
@@ -979,6 +1017,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              id: 'user-agreement',
               icon: 'PeopleOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_user_agreement,
@@ -992,6 +1031,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             {
+              id: 'privacy-policy',
               icon: 'FileTextOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_privacy_policy,
@@ -1007,6 +1047,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
           [
             {
+              id: 'export-state-logs',
               icon: 'FileDownloadOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
@@ -1042,6 +1083,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'dev-mode',
                   icon: 'CodeOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_dev_mode,

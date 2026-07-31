@@ -109,6 +109,8 @@ export type IUniversalSearchPerp = {
 export type IUniversalSearchSettings = {
   type: EUniversalSearchType.Settings;
   payload: {
+    /** Stable item identity for analytics and recent-search records. */
+    id?: string;
     title: string;
     icon: string;
     sectionName?: string;

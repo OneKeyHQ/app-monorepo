@@ -25,6 +25,7 @@ export function UniversalSearchSettingsItem({
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
   const {
+    id,
     title,
     icon,
     sectionName,
@@ -38,7 +39,9 @@ export function UniversalSearchSettingsItem({
     defaultLogger.universalSearch.search.universalSearchClick({
       searchText: getSearchInput(),
       type: item.type,
-      itemId: settingRoute ?? sectionName ?? title,
+      // Prefer stable identities (route, then explicit id) over localized
+      // fallbacks so analytics series survive copy changes.
+      itemId: settingRoute ?? id ?? sectionName ?? title,
       itemTitle: title,
     });
 
@@ -72,7 +75,7 @@ export function UniversalSearchSettingsItem({
 
     await timerUtils.wait(10);
     universalSearchActions.current.addIntoRecentSearchList({
-      id: `settings-${settingRoute ?? title}`,
+      id: `settings-${settingRoute ?? id ?? title}`,
       text: title,
       type: item.type,
       timestamp: Date.now(),
@@ -83,6 +86,7 @@ export function UniversalSearchSettingsItem({
     });
   }, [
     navigation,
+    id,
     settingRoute,
     onPress,
     sectionName,
