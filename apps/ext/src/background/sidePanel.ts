@@ -26,6 +26,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   PENDING_SIDE_PANEL_MESSAGE_TTL_MS,
+  clearPendingSidePanelBgToUiMessage,
   pendingSidePanelBgToUiMessage,
   sidePanelState,
   sidePanelUiState,
@@ -476,25 +477,33 @@ export const setupSidePanelPortInBg = () => {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name === SIDE_PANEL_PORT_NAME) {
       sidePanelState.isOpen = true;
+      let didPushOnboardingModal = false;
       if (pendingKeylessGetStartedParams) {
         port.postMessage(
           buildKeylessGetStartedModalMessage(pendingKeylessGetStartedParams),
         );
         pendingKeylessGetStartedParams = undefined;
+        didPushOnboardingModal = true;
       }
 
-      // Flush a push that was produced while no port existed (the panel was
-      // still booting). Dropped rather than replayed once stale, so a failed
-      // open cannot inject an unrelated modal into a much later boot.
+      // Flush a push produced while no port existed (the panel was still
+      // booting). Consumed either way — delivered only to the panel it was
+      // meant for, dropped otherwise, never left behind for a later connect.
       if (pendingSidePanelBgToUiMessage.value) {
         const isFresh =
           Date.now() - pendingSidePanelBgToUiMessage.stashedAt <
           PENDING_SIDE_PANEL_MESSAGE_TTL_MS;
-        if (isFresh) {
+        // When the port does not report a window we cannot tell the panels
+        // apart, so freshness is the only remaining guard.
+        const portWindowId = port.sender?.tab?.windowId;
+        const isTargetWindow =
+          pendingSidePanelBgToUiMessage.targetWindowId === undefined ||
+          portWindowId === undefined ||
+          portWindowId === pendingSidePanelBgToUiMessage.targetWindowId;
+        if (isFresh && isTargetWindow && !didPushOnboardingModal) {
           port.postMessage(pendingSidePanelBgToUiMessage.value);
         }
-        pendingSidePanelBgToUiMessage.value = undefined;
-        pendingSidePanelBgToUiMessage.stashedAt = 0;
+        clearPendingSidePanelBgToUiMessage();
       }
 
       let dappRejectId: string | number | undefined;

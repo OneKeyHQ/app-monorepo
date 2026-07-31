@@ -36,14 +36,30 @@ type ISidePanelBgToUiMessage =
 // callers do not have to guess a delay long enough for the panel to boot — and
 // the UI sees the push before it renders rather than racing it.
 //
-// TTL'd because the flush is not guaranteed: if the open fails and no port ever
-// connects, a stale entry must not be replayed into an unrelated later boot.
+// The flush is not guaranteed — the intended panel may never connect (the open
+// landed on another window, the user closed it immediately, chrome refused).
+// A stale entry must not then be delivered to whatever panel happens to connect
+// next, so it carries both a target window and a TTL: mis-delivering an
+// login modal the user never asked for is worse than dropping one they can
+// simply trigger again.
 export const pendingSidePanelBgToUiMessage: {
   value: ISidePanelBgToUiMessage | undefined;
   stashedAt: number;
+  targetWindowId: number | undefined;
 } = {
   value: undefined,
   stashedAt: 0,
+  targetWindowId: undefined,
 };
 
-export const PENDING_SIDE_PANEL_MESSAGE_TTL_MS = 30 * 1000;
+export function clearPendingSidePanelBgToUiMessage() {
+  pendingSidePanelBgToUiMessage.value = undefined;
+  pendingSidePanelBgToUiMessage.stashedAt = 0;
+  pendingSidePanelBgToUiMessage.targetWindowId = undefined;
+}
+
+// Sized for a panel that is already opening — the open() call has resolved by
+// the time anything is stashed, so a connect is normally under a second away.
+// Kept short because the window doubles as the exposure window for delivering
+// to a panel the user opened themselves.
+export const PENDING_SIDE_PANEL_MESSAGE_TTL_MS = 10 * 1000;

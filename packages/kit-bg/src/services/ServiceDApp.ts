@@ -252,7 +252,17 @@ class ServiceDApp extends ServiceBase {
             // callback has to be handed down. Left unsettled, `finally` never
             // runs and existingWindowOrigin stays set, which now also gates
             // user-visible update UI.
-            onError: (error) => reject(error),
+            //
+            // Goes through servicePromise rather than the raw `reject` so the
+            // registration is removed too; rejecting the promise directly would
+            // settle the caller but leave the entry dangling until the
+            // 30-minute expiry sweep re-rejects an already-settled promise.
+            onError: (error) => {
+              void this.backgroundApi.servicePromise.rejectCallback({
+                id,
+                error,
+              });
+            },
           });
         });
       } finally {

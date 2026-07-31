@@ -790,7 +790,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (!provider || !nonce) {
       throw new OneKeyLocalError('provider and nonce are required');
     }
-    await this.wallet_keylessOpenSidePanel(request);
+    const openResult = await this.wallet_keylessOpenSidePanel(request);
 
     const loginModalMessage = {
       type: 'pushModal',
@@ -808,23 +808,34 @@ class ProviderApiPrivate extends ProviderApiBase {
       },
     } as const;
 
+    const stashForNextConnect = () => {
+      // OK-58962: no port to emit into, so hand the push to the port-connect
+      // handler. It flushes before the page renders, which a fixed delay
+      // cannot guarantee — and a delay would also race the panel's own
+      // boot-time gates, letting the post-update changelog land on top of this
+      // login screen.
+      pendingSidePanelBgToUiMessage.value = loginModalMessage;
+      pendingSidePanelBgToUiMessage.stashedAt = Date.now();
+      pendingSidePanelBgToUiMessage.targetWindowId = openResult.windowId;
+    };
+
+    // `isOpen` only means a port is connected right now. The call above always
+    // runs setOptions({ path }), which reloads an open panel, so the page may
+    // already be on its way out — never assume this one booted long ago.
     if (sidePanelState.isOpen) {
-      // Panel was already open, so it booted long ago — the delay only gives
-      // the existing page a beat to settle.
       await timerUtils.wait(600);
       if (sidePanelState.isOpen) {
         appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, loginModalMessage);
+      } else {
+        // Disconnected inside the wait (reload, or the user closed it). Fall
+        // back rather than dropping the push — otherwise the user clicks
+        // Keyless login and the panel just sits on the wallet home.
+        stashForNextConnect();
       }
       return this.getKeylessSessionState({ request, provider, nonce });
     }
 
-    // OK-58962: the panel is still booting from the open() above, so there is
-    // no port to emit into yet. Racing a fixed delay here also races the
-    // panel's own boot-time gates — the post-update changelog could win and
-    // land on top of this login screen. Stash instead: the port-connect handler
-    // flushes it before the page renders.
-    pendingSidePanelBgToUiMessage.value = loginModalMessage;
-    pendingSidePanelBgToUiMessage.stashedAt = Date.now();
+    stashForNextConnect();
 
     return this.getKeylessSessionState({
       request,
