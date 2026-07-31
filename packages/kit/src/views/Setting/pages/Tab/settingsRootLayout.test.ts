@@ -1,6 +1,7 @@
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes/setting';
 
 import {
+  findSidebarOrphans,
   getDefaultSettingsTab,
   resolveSidebarGroups,
 } from './settingsRootLayout';
@@ -65,6 +66,23 @@ describe('resolveSidebarGroups', () => {
 
   it('ignores names outside the sidebar layout', () => {
     expect(resolveSidebarGroups([ESettingsTabNames.Search])).toEqual([]);
+  });
+});
+
+describe('findSidebarOrphans', () => {
+  it('flags visible tabs missing from the sidebar groups', () => {
+    expect(
+      findSidebarOrphans([
+        ESettingsTabNames.Wallet,
+        ESettingsTabNames.OneKeyID,
+      ]),
+    ).toEqual([ESettingsTabNames.OneKeyID]);
+  });
+
+  it('returns nothing when every tab is grouped', () => {
+    expect(
+      findSidebarOrphans([ESettingsTabNames.Wallet, ESettingsTabNames.Dev]),
+    ).toEqual([]);
   });
 });
 

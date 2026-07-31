@@ -25,11 +25,14 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useSettingsConfig } from './config';
 import { ConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
 import {
+  findSidebarOrphans,
   getDefaultSettingsTab,
   resolveSidebarGroups,
 } from './settingsRootLayout';
@@ -151,6 +154,15 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           !(descriptors[route.key].options as { isHidden?: boolean }).isHidden,
       )
       .map((route) => route.name);
+    if (platformEnv.isDev) {
+      const orphans = findSidebarOrphans(visibleNames);
+      if (orphans.length) {
+        console.warn(
+          '[settings] visible tabs missing from SETTINGS_SIDEBAR_GROUPS:',
+          orphans,
+        );
+      }
+    }
     // Sidebar groups mirror the mobile settings home cards.
     return resolveSidebarGroups(visibleNames).map((group, groupIndex) => (
       <YStack key={groupIndex} gap="$1">

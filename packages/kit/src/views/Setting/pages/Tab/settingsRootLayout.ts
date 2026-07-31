@@ -33,6 +33,16 @@ export function resolveSidebarGroups(
 }
 
 /**
+ * Registered, visible tab names missing from `SETTINGS_SIDEBAR_GROUPS`. Such
+ * tabs would silently never render in the sidebar (their pane stays reachable
+ * only through search), so callers surface them as a dev warning.
+ */
+export function findSidebarOrphans(availableNames: string[]): string[] {
+  const grouped = new Set<string>(SETTINGS_SIDEBAR_GROUPS.flat());
+  return availableNames.filter((name) => !grouped.has(name));
+}
+
+/**
  * First visible real category of the (already sorted) settings config. Used
  * for both the tab navigator's initial route and the search restore target so
  * the two can never drift apart.
