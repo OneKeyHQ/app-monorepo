@@ -166,8 +166,7 @@ export function SearchView({
                         )}
                       />
                       {index !== section.configs.length - 1 ? (
-                        // Desktop rows use $5 leading icons.
-                        <TabSettingsInsetDivider iconWidth="$5" />
+                        <TabSettingsInsetDivider />
                       ) : null}
                     </Fragment>
                   ))}

@@ -104,7 +104,9 @@ export function SubSettingsPage({
           // Tab layouts follow the sidebar's mobile naming; list layouts
           // (extension popup) keep the legacy titles until the copy merge.
           titleFromProps ||
-          (isMobileLayout || isTabNavigator ? config?.mobileTitle : undefined) ||
+          (isMobileLayout || isTabNavigator
+            ? config?.mobileTitle
+            : undefined) ||
           config?.title
         }
       />
@@ -142,8 +144,7 @@ export function SubSettingsPage({
                             {isMobileLayout ? (
                               <MobileTabSettingsDivider />
                             ) : (
-                              // Desktop pane rows use $5 leading icons.
-                              <TabSettingsInsetDivider iconWidth="$5" />
+                              <TabSettingsInsetDivider />
                             )}
                           </>
                         ) : null}

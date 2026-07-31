@@ -58,16 +58,23 @@ export function TabSettingsListItem({
 
 /**
  * Hairline divider indented past the leading icon column so it starts at the
- * row text and bleeds to the card's right edge.
+ * row text and bleeds to the card's right edge. By default the inset follows
+ * TabSettingsListGrid's non-mobile icon sizing ($5 on tab-navigator layouts,
+ * $6 on list layouts); mobile-presentation rows pass $6 explicitly.
  */
 export function TabSettingsInsetDivider({
-  iconWidth = '$6',
+  iconWidth,
 }: {
   iconWidth?: IStackProps['w'];
 }) {
+  const isTabNavigator = useIsTabNavigator();
   return (
     <XStack alignSelf="stretch" pl="$5">
-      <Stack w={iconWidth} mr="$3" flexShrink={0} />
+      <Stack
+        w={iconWidth ?? (isTabNavigator ? '$5' : '$6')}
+        mr="$3"
+        flexShrink={0}
+      />
       <Stack flex={1} h={StyleSheet.hairlineWidth} bg="$neutral3" />
     </XStack>
   );
