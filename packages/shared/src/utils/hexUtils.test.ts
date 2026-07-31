@@ -42,6 +42,43 @@ describe('hexUtils', () => {
     });
   });
 
+  describe('stripHexZeros', () => {
+    it('strips leading zeros from hex string', () => {
+      expect(hexUtils.stripHexZeros('0x000102')).toBe('0x102');
+    });
+
+    it('returns 0x for zero hex value', () => {
+      expect(hexUtils.stripHexZeros('0x0000')).toBe('0x');
+    });
+  });
+
+  describe('hexlify', () => {
+    it('hexlifies bytes with 0x prefix', () => {
+      expect(hexUtils.hexlify(Buffer.from([0, 1, 2]))).toBe('0x000102');
+    });
+
+    it('respects removeZeros option', () => {
+      expect(
+        hexUtils.hexlify(Buffer.from([0, 1, 2]), { removeZeros: true }),
+      ).toBe('0x102');
+    });
+
+    it('respects noPrefix option', () => {
+      expect(
+        hexUtils.hexlify(Buffer.from([0, 1, 2]), { noPrefix: true }),
+      ).toBe('000102');
+    });
+
+    it('respects removeZeros and noPrefix options combined', () => {
+      expect(
+        hexUtils.hexlify(Buffer.from([0, 1, 2]), {
+          removeZeros: true,
+          noPrefix: true,
+        }),
+      ).toBe('102');
+    });
+  });
+
   describe('hexStringToUtf8String', () => {
     it('converts hex string with lowercase 0x prefix to UTF-8', () => {
       expect(hexUtils.hexStringToUtf8String('0x68656c6c6f')).toBe('hello');
