@@ -157,9 +157,7 @@ describe('Analytics tier', () => {
       }),
     );
 
-    mockPost.mockRejectedValueOnce(
-      new OneKeyLocalError('network failed'),
-    );
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
 
     await expect(
       analytics.trackEventAsync('confirmedEvent', { source: 'campaign' }),
