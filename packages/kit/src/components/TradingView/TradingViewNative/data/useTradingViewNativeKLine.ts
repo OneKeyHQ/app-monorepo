@@ -73,6 +73,34 @@ function getHistoryPointTypeScopeKey(
   return `${seriesKey}:${interval}`;
 }
 
+type IHistoryPointTypeClassification = 'fallbackSingle' | 'ohlc' | 'single';
+
+function resolveHistoryPointTypeClassification({
+  currentClassification,
+  historySource,
+  pointType,
+}: {
+  currentClassification?: IHistoryPointTypeClassification;
+  historySource?: 'fallback';
+  pointType?: ITradingViewNativeHistoryResponse['pointType'];
+}): IHistoryPointTypeClassification {
+  if (isTradingViewNativeSingleValueHistory(pointType)) {
+    if (historySource === 'fallback') {
+      // A fallback page may fill an isolated gap, so it cannot replace a
+      // chart type already established by the primary history source.
+      return currentClassification ?? 'fallbackSingle';
+    }
+    return 'single';
+  }
+  return currentClassification === 'single' ? 'single' : 'ohlc';
+}
+
+function isSingleValueHistoryClassification(
+  classification?: IHistoryPointTypeClassification,
+) {
+  return classification === 'fallbackSingle' || classification === 'single';
+}
+
 interface IChartData {
   chartPictureVersion: number;
   interval: ITradingViewNativeChartInterval;
@@ -1267,30 +1295,31 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const seriesKey = rawHistoryProvider.key;
-  const [singleValueHistoryScopes, setSingleValueHistoryScopes] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const [historyPointTypeScopes, setHistoryPointTypeScopes] = useState<
+    ReadonlyMap<string, IHistoryPointTypeClassification>
+  >(() => new Map());
   const historyProvider = useMemo<ITradingViewNativeDataProvider>(
     () => ({
       ...rawHistoryProvider,
       fetchHistory: async (request) => {
         const data = await rawHistoryProvider.fetchHistory(request);
-        if (
-          !request.signal.aborted &&
-          data &&
-          data.points.length > 0 &&
-          isTradingViewNativeSingleValueHistory(data.pointType)
-        ) {
+        if (!request.signal.aborted && data && data.points.length > 0) {
           const scopeKey = getHistoryPointTypeScopeKey(
             seriesKey,
             request.interval.value,
           );
-          setSingleValueHistoryScopes((currentScopes) => {
-            if (currentScopes.has(scopeKey)) {
+          setHistoryPointTypeScopes((currentScopes) => {
+            const currentClassification = currentScopes.get(scopeKey);
+            const nextClassification = resolveHistoryPointTypeClassification({
+              currentClassification,
+              historySource: data.historySource,
+              pointType: data.pointType,
+            });
+            if (nextClassification === currentClassification) {
               return currentScopes;
             }
-            const nextScopes = new Set(currentScopes);
-            nextScopes.add(scopeKey);
+            const nextScopes = new Map(currentScopes);
+            nextScopes.set(scopeKey, nextClassification);
             return nextScopes;
           });
         }
@@ -3408,10 +3437,12 @@ export function useTradingViewNativeKLine({
     calendarAvailableTimeRange,
     candleIntervalSeconds: displayedInterval.seconds,
     chartType: getTradingViewNativeChartType({
-      hasSingleValueHistory: singleValueHistoryScopes.has(
-        getHistoryPointTypeScopeKey(
-          visibleChartData?.seriesKey ?? seriesKey,
-          visibleChartData?.interval ?? activeInterval,
+      hasSingleValueHistory: isSingleValueHistoryClassification(
+        historyPointTypeScopes.get(
+          getHistoryPointTypeScopeKey(
+            visibleChartData?.seriesKey ?? seriesKey,
+            visibleChartData?.interval ?? activeInterval,
+          ),
         ),
       ),
       pointCount: visibleChartData?.points.length ?? 0,

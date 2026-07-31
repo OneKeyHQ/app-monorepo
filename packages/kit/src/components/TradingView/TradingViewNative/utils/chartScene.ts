@@ -581,7 +581,6 @@ export function buildTradingViewNativeChartScene({
     chartType === 'candlestick'
       ? getTradingViewNativePriceExtrema({
           ...visiblePointRange,
-          chartType,
           points,
         })
       : null;
@@ -589,10 +588,7 @@ export function buildTradingViewNativeChartScene({
     const extrema = visiblePriceExtrema.low
       ? [visiblePriceExtrema.high, visiblePriceExtrema.low]
       : [visiblePriceExtrema.high];
-    const pointRadius =
-      chartType === 'line'
-        ? TRADING_VIEW_NATIVE_LINE_POINT_RADIUS
-        : candleBodyWidth / 2;
+    const pointRadius = candleBodyWidth / 2;
     for (const extremum of extrema) {
       const anchorX = getPointX(extremum.index);
       const isPointVisible =

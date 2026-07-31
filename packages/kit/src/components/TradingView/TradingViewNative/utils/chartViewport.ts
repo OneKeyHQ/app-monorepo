@@ -558,12 +558,10 @@ export function getTradingViewNativePointIndexAtX({
 }
 
 export function getTradingViewNativePriceExtrema({
-  chartType = 'candlestick',
   endIndex,
   points,
   startIndex,
 }: ITradingViewNativeVisiblePointRange & {
-  chartType?: ITradingViewNativeChartType;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativePriceExtrema | null {
   'worklet';
@@ -583,16 +581,14 @@ export function getTradingViewNativePriceExtrema({
 
   for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
     const point = points[index];
-    const pointHigh = chartType === 'line' ? point.c : point.h;
-    const pointLow = chartType === 'line' ? point.c : point.l;
-    if (Number.isFinite(pointLow) && Number.isFinite(pointHigh)) {
-      if (pointHigh > highPrice) {
+    if (Number.isFinite(point.l) && Number.isFinite(point.h)) {
+      if (point.h > highPrice) {
         highIndex = index;
-        highPrice = pointHigh;
+        highPrice = point.h;
       }
-      if (pointLow < lowPrice) {
+      if (point.l < lowPrice) {
         lowIndex = index;
-        lowPrice = pointLow;
+        lowPrice = point.l;
       }
     }
   }
