@@ -231,6 +231,22 @@ internal fun homeContainerTargetSynchronizedCollapseOffset(
     requestedOffset.coerceIn(0, maximumHeaderOffset)
   }
 
+internal fun homeContainerScrollOffsetForCollapse(
+  hasCommittedInitialRows: Boolean,
+  currentScrollOffset: Int,
+): Int = if (hasCommittedInitialRows) currentScrollOffset else 0
+
+internal fun homeContainerInitialRowsHaveCommitted(
+  hasPendingAdapterUpdates: Boolean,
+  firstVisibleItemPosition: Int,
+  hasFirstItemView: Boolean,
+  currentScrollOffset: Int,
+): Boolean =
+  !hasPendingAdapterUpdates &&
+    firstVisibleItemPosition == 0 &&
+    hasFirstItemView &&
+    currentScrollOffset <= 1
+
 internal fun homeContainerShouldSynchronizeBoundPage(
   currentTabId: String,
   nextTabId: String,
@@ -394,6 +410,18 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
     })
   }
 
+  fun submitInitialState(json: String) {
+    if (disposed.get()) return
+    try {
+      // Decode and apply the first state on the prop path so the initial
+      // ViewRoot traversal sees complete chrome and pager adapter data.
+      applyState(HomeContainerJson.parseState(json))
+      requestLayout()
+    } catch (error: Exception) {
+      reportError("state_decode_failed", error.message ?: error.javaClass.simpleName)
+    }
+  }
+
   fun submitState(json: String) {
     parser.execute {
       if (disposed.get()) return@execute
@@ -428,15 +456,19 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       }
       val next = pendingState ?: return@post
       pendingState = null
-      if (state?.owner != null && state?.owner != next.owner) {
-        resetViewportForOwnerChange()
-      }
-      state = next
-      applySnapshot(
-        next.snapshot,
-        allowsMissingSelectedTabFallback = false,
-      )
+      applyState(next)
     }
+  }
+
+  private fun applyState(next: HomeContainerState) {
+    if (state?.owner != null && state?.owner != next.owner) {
+      resetViewportForOwnerChange()
+    }
+    state = next
+    applySnapshot(
+      next.snapshot,
+      allowsMissingSelectedTabFallback = false,
+    )
   }
 
   override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
@@ -655,6 +687,7 @@ internal class HomeContainerView(context: Context) : SwipeRefreshLayout(context)
       setOnChildScrollUpCallback(null)
       activeRefreshRequestId = null
       isRefreshing = false
+      pendingState = null
       snapshot = null
       state = null
       mountedSlotKeys = emptySet()
@@ -1118,6 +1151,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   private var pendingSynchronizedCollapseOffset: Int? = null
   private var lastDispatchedCollapseOffset: Int? = null
   private var hasPendingListLayoutCommit = false
+  private var hasCommittedInitialRows = false
   private var isListLayoutCommitScheduled = false
   private val listLayoutCommitRunnable = Runnable {
     isListLayoutCommitScheduled = false
@@ -1129,7 +1163,10 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       val headerHeight =
         (topSpacerHeight - dp(HOME_CONTAINER_TAB_HEIGHT_DP)).coerceAtLeast(0)
       return min(
-        currentScrollOffset(),
+        homeContainerScrollOffsetForCollapse(
+          hasCommittedInitialRows,
+          currentScrollOffset(),
+        ),
         homeContainerMaximumHeaderOffset(
           headerHeight,
           dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
@@ -1171,6 +1208,9 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     theme: HomeContainerTheme,
     topSpacerHeight: Int,
   ) {
+    if (tabId != tab.id) {
+      hasCommittedInitialRows = false
+    }
     tabId = tab.id
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     this.topSpacerHeight = topSpacerHeight
@@ -1189,7 +1229,10 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       headerHeight,
       dp(HOME_CONTAINER_COMPACT_HEADER_HEIGHT_DP),
     )
-    val verticalOffset = currentScrollOffset()
+    val verticalOffset = homeContainerScrollOffsetForCollapse(
+      hasCommittedInitialRows,
+      currentScrollOffset(),
+    )
     val target = homeContainerTargetSynchronizedCollapseOffset(
       currentOffset = verticalOffset,
       requestedOffset = offset,
@@ -1221,6 +1264,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   fun recycle() {
     pendingSynchronizedCollapseOffset = null
     hasPendingListLayoutCommit = false
+    hasCommittedInitialRows = false
     recycler.removeCallbacks(listLayoutCommitRunnable)
     isListLayoutCommitScheduled = false
     recycler.adapter = null
@@ -1234,6 +1278,7 @@ private class HomePageView(context: Context) : FrameLayout(context) {
   fun resetViewportForOwnerChange() {
     pendingSynchronizedCollapseOffset = null
     lastDispatchedCollapseOffset = null
+    hasCommittedInitialRows = false
     userScrollActive = false
     suppressCollapseCallback = true
     recycler.stopScroll()
@@ -1354,7 +1399,8 @@ private class HomePageView(context: Context) : FrameLayout(context) {
     }
     if (recycler.scrollState != RecyclerView.SCROLL_STATE_IDLE) return
     if (!recycler.hasPendingAdapterUpdates()) {
-      hasPendingListLayoutCommit = false
+      completeInitialRowsCommitIfReady()
+      schedulePendingListLayoutCommit()
       return
     }
     // React Native owns the outer bounds, so a nested requestLayout() may not
@@ -1366,8 +1412,41 @@ private class HomePageView(context: Context) : FrameLayout(context) {
       MeasureSpec.makeMeasureSpec(recycler.height, MeasureSpec.EXACTLY),
     )
     recycler.layout(recycler.left, recycler.top, recycler.right, recycler.bottom)
-    hasPendingListLayoutCommit = recycler.hasPendingAdapterUpdates()
+    completeInitialRowsCommitIfReady()
     schedulePendingListLayoutCommit()
+  }
+
+  private fun completeInitialRowsCommitIfReady() {
+    if (hasCommittedInitialRows) {
+      hasPendingListLayoutCommit = false
+      return
+    }
+    val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+    val currentScrollOffset = currentScrollOffset()
+    val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
+    val hasFirstItemView = layoutManager.findViewByPosition(0) != null
+    if (
+      !recycler.hasPendingAdapterUpdates() &&
+        firstVisibleItemPosition == 0 &&
+        hasFirstItemView &&
+        currentScrollOffset > 1
+    ) {
+      pendingSynchronizedCollapseOffset = 0
+      applyPendingSynchronizedCollapseOffset()
+      recycler.requestLayout()
+      return
+    }
+    if (
+      homeContainerInitialRowsHaveCommitted(
+        hasPendingAdapterUpdates = recycler.hasPendingAdapterUpdates(),
+        firstVisibleItemPosition = firstVisibleItemPosition,
+        hasFirstItemView = hasFirstItemView,
+        currentScrollOffset = currentScrollOffset,
+      )
+    ) {
+      hasCommittedInitialRows = true
+      hasPendingListLayoutCommit = false
+    }
   }
 
   private fun applyPendingSynchronizedCollapseOffset() {

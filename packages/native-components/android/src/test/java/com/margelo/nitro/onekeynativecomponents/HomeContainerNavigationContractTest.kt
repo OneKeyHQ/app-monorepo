@@ -376,6 +376,60 @@ class HomeContainerNavigationContractTest {
   }
 
   @Test
+  fun `initial rows keep the shared header expanded until their first layout commit`() {
+    assertEquals(
+      0,
+      homeContainerScrollOffsetForCollapse(
+        hasCommittedInitialRows = false,
+        currentScrollOffset = 640,
+      ),
+    )
+    assertEquals(
+      640,
+      homeContainerScrollOffsetForCollapse(
+        hasCommittedInitialRows = true,
+        currentScrollOffset = 640,
+      ),
+    )
+  }
+
+  @Test
+  fun `initial rows commit only after the spacer is visibly laid out`() {
+    assertFalse(
+      homeContainerInitialRowsHaveCommitted(
+        hasPendingAdapterUpdates = true,
+        firstVisibleItemPosition = 0,
+        hasFirstItemView = true,
+        currentScrollOffset = 0,
+      ),
+    )
+    assertFalse(
+      homeContainerInitialRowsHaveCommitted(
+        hasPendingAdapterUpdates = false,
+        firstVisibleItemPosition = 1,
+        hasFirstItemView = false,
+        currentScrollOffset = 0,
+      ),
+    )
+    assertFalse(
+      homeContainerInitialRowsHaveCommitted(
+        hasPendingAdapterUpdates = false,
+        firstVisibleItemPosition = 0,
+        hasFirstItemView = true,
+        currentScrollOffset = 640,
+      ),
+    )
+    assertTrue(
+      homeContainerInitialRowsHaveCommitted(
+        hasPendingAdapterUpdates = false,
+        firstVisibleItemPosition = 0,
+        hasFirstItemView = true,
+        currentScrollOffset = 0,
+      ),
+    )
+  }
+
+  @Test
   fun `selected page rebind preserves its existing viewport`() {
     assertFalse(
       homeContainerShouldSynchronizeBoundPage(
