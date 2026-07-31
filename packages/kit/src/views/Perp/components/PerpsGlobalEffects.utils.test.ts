@@ -10,13 +10,13 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
       buildInitialTradeInstrumentSwitchParams({
         mode: 'spot',
         perpAsset: { coin: 'BTC' },
-        spotAsset: { coin: '@107', universe: { name: '@107' } },
+        spotAsset: { coin: '@107' },
         force: true,
       }),
     ).toEqual({
       mode: 'spot',
       coin: '@107',
-      spotUniverse: { name: '@107' },
+      spotUniverse: undefined,
       force: true,
     });
   });

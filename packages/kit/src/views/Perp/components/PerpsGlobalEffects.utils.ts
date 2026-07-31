@@ -1,3 +1,5 @@
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
+
 type IShouldCheckPerpsAccountStatusOnFocusParams = {
   isFocused: boolean;
   hasSelectedAccountParams: boolean;
@@ -7,12 +9,15 @@ type IShouldCheckPerpsAccountStatusOnFocusParams = {
   staleMs: number;
 };
 
-type IInitialTradeAsset<TUniverse = never> = {
+type IInitialTradeAsset = {
   coin: string;
-  universe?: TUniverse;
 };
 
-export function buildInitialTradeInstrumentSwitchParams<TSpotUniverse>({
+type IInitialSpotTradeAsset = IInitialTradeAsset & {
+  universe?: ISpotUniverse;
+};
+
+export function buildInitialTradeInstrumentSwitchParams({
   mode,
   perpAsset,
   spotAsset,
@@ -20,7 +25,7 @@ export function buildInitialTradeInstrumentSwitchParams<TSpotUniverse>({
 }: {
   mode: 'perp' | 'spot';
   perpAsset?: IInitialTradeAsset;
-  spotAsset?: IInitialTradeAsset<TSpotUniverse>;
+  spotAsset?: IInitialSpotTradeAsset;
   force?: boolean;
 }) {
   if (mode === 'spot') {

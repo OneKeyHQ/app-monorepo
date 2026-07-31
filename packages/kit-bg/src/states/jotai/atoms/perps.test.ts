@@ -5,6 +5,7 @@ import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
+  type ITradingMode,
   getPerpsAccountDisplaySnapshotEntry,
   getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
@@ -20,11 +21,16 @@ import {
   tradingModeAtom,
 } from './perps';
 
+import type { IJotaiAtomPro } from '../types';
+
 const now = 1_000_000;
 
 describe('tradingModeAtom', () => {
   it('persists the selected trading mode across app restarts', () => {
-    expect(tradingModeAtom.atom().persist).toBe(true);
+    expect(
+      (tradingModeAtom.atom() as unknown as IJotaiAtomPro<ITradingMode>)
+        .persist,
+    ).toBe(true);
   });
 });
 
