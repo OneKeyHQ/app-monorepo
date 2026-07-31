@@ -191,7 +191,11 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       borderColor="$neutral3"
     >
       <XStack my="$2.5" px="$3">
-        <SearchBar onSearchTextChange={onSearch} onFocus={onFocus} />
+        <SearchBar
+          onSearchTextChange={onSearch}
+          onFocus={onFocus}
+          size="small"
+        />
       </XStack>
       <Divider borderColor="$neutral3" />
       <YStack flex={1} pt="$3" px="$3">
@@ -225,7 +229,6 @@ function SettingsTabNavigator() {
         name,
         Component,
         tabBarIconStyle,
-        tabBarLabelStyle,
         ...options
       } = config;
       return (
@@ -241,13 +244,10 @@ function SettingsTabNavigator() {
             tabBarLabel: mobileTitle ?? title,
             tabBarIcon: (focused: boolean) =>
               focused ? icon : (mobileIcon ?? icon),
-            // Sidebar rows use a one-step-smaller icon and a medium-weight
-            // label; per-category styles (e.g. Dev critical colors) still win.
+            // Sidebar rows use a one-step-smaller icon; per-category styles
+            // (e.g. Dev critical colors) still win. Labels keep the default
+            // regular weight — selection is conveyed by the row highlight.
             tabBarIconStyle: { size: '$5', ...tabBarIconStyle } as IIconProps,
-            tabBarLabelStyle: {
-              size: '$bodyMdMedium',
-              ...tabBarLabelStyle,
-            } as ISizableTextProps,
             trackId: name,
             tabBarPosition: 'left',
           }}
