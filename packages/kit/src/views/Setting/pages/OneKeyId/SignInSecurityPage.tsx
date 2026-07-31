@@ -32,6 +32,17 @@ function SignInSecurityPageView() {
     [isTabNavigator],
   );
 
+  const valueTextProps = useMemo<ISizableTextProps>(
+    () =>
+      isTabNavigator
+        ? titleProps
+        : {
+            size: '$bodyLg',
+            color: '$textSubdued',
+          },
+    [isTabNavigator, titleProps],
+  );
+
   const iconProps = useMemo(
     () => ({
       size: (isTabNavigator ? '$5' : '$6') as IIconProps['size'],
@@ -113,7 +124,7 @@ function SignInSecurityPageView() {
                 onPress={handleEditEmail}
               >
                 <ListItem.Text
-                  primaryTextProps={titleProps}
+                  primaryTextProps={valueTextProps}
                   primary={email || 'Not set'}
                   align="right"
                 />

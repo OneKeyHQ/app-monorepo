@@ -34,6 +34,12 @@ export function TabSettingsSection(props: IStackProps) {
   );
 }
 
+export function MobileTabSettingsSection(props: IStackProps) {
+  return (
+    <TabSettingsSection bg="$bg" borderWidth={0} borderRadius="$4" {...props} />
+  );
+}
+
 export function TabSettingsListItem({
   showDot,
   children,
@@ -89,7 +95,7 @@ export function TabSettingsListGrid({
     if (useMobilePresentation) {
       return {
         size: '$6' as IIconProps['size'],
-        color: '$iconSubdued' as IIconProps['color'],
+        color: '$icon' as IIconProps['color'],
       };
     }
     return {
@@ -97,6 +103,8 @@ export function TabSettingsListGrid({
     };
   }, [isTabNavigator, useMobilePresentation]);
   const appNavigation = useAppNavigation();
+  const title =
+    (useMobilePresentation ? item?.mobileTitle : undefined) || item?.title;
   const onPress = useCallback(async () => {
     await dismissKeyboardWithDelay(100);
     item?.onPress?.(appNavigation);
@@ -104,7 +112,7 @@ export function TabSettingsListGrid({
   return item?.renderElement ? (
     cloneElement(item.renderElement, {
       titleMatch,
-      title: item.title,
+      title,
       subtitle: item?.subtitle,
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
@@ -124,10 +132,10 @@ export function TabSettingsListGrid({
       titleProps={titleProps}
       borderRadius={0}
       onPress={onPress}
-      key={item?.icon ?? item?.title}
+      key={item?.icon ?? title}
       icon={item?.icon as IKeyOfIcons}
       iconProps={iconProps}
-      title={item?.title}
+      title={title}
       subtitle={item?.subtitle}
       drillIn={!item?.isExternalLink}
     >

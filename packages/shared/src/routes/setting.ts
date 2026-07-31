@@ -64,12 +64,18 @@ export enum ESettingsTabNames {
   Dev = 'Dev',
 }
 
+export enum EMobileSettingsSubpage {
+  General = 'general',
+  AppData = 'appData',
+}
+
 export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
         name: ESettingsTabNames | string;
         title?: string;
+        mobileSubpage?: EMobileSettingsSubpage;
       }
     | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;

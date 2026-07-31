@@ -22,6 +22,7 @@ import {
   Badge,
   Dialog,
   ESwitchSize,
+  Icon,
   IconButton,
   Select,
   SizableText,
@@ -55,7 +56,7 @@ import {
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   displayAppUpdateVersion,
-  encodeBundleVersionForDisplay,
+  displayFullVersion,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
@@ -415,7 +416,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
         <TabSettingsListItem {...props} userSelect="none">
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.titleProps}
+              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
               primary={label}
               align="right"
             />
@@ -429,6 +430,8 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 
 export function ListVersionItem(props: ICustomElementProps) {
   const { iconProps, titleProps } = props;
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
@@ -462,11 +465,13 @@ export function ListVersionItem(props: ICustomElementProps) {
       onPress={appUpdateInfo.onViewReleaseInfo}
       drillIn
     >
-      <ListItem.Text
-        primaryTextProps={props?.titleProps}
-        primary={platformEnv.version}
-        align="right"
-      />
+      {isMobileLayout ? null : (
+        <ListItem.Text
+          primaryTextProps={props?.valueTextProps ?? props?.titleProps}
+          primary={platformEnv.version}
+          align="right"
+        />
+      )}
     </TabSettingsListItem>
   );
 }
@@ -488,7 +493,7 @@ export function AutoLockListItem(props: ICustomElementProps) {
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
       <ListItem.Text
-        primaryTextProps={props?.titleProps}
+        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
         primary={text}
         align="right"
       />
@@ -606,14 +611,11 @@ function SupportButton({ text }: { text: string }) {
   );
 }
 
-export function SocialButtonGroup() {
+function useAppVersionDetails() {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const [{ locale }] = useSettingsPersistAtom();
-  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
     useState(false);
-  const isTabNavigator = useIsTabNavigator();
 
   useEffect(() => {
     let isMounted = true;
@@ -634,11 +636,11 @@ export function SocialButtonGroup() {
   }, []);
 
   const version = useMemo(() => {
-    let bundleSuffix = '';
-    if (isSkipGpgVerificationAllowed && platformEnv.bundleVersion) {
-      bundleSuffix = `(${encodeBundleVersionForDisplay(platformEnv.bundleVersion)})`;
-    }
-    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
+    return displayFullVersion(
+      platformEnv.version,
+      platformEnv.buildNumber,
+      isSkipGpgVerificationAllowed ? platformEnv.bundleVersion : undefined,
+    );
   }, [isSkipGpgVerificationAllowed]);
   const versionString = intl.formatMessage(
     {
@@ -657,6 +659,80 @@ export function SocialButtonGroup() {
       ),
     );
   }, [copyText, versionString]);
+  const formattedVersion = upperFirst(versionString);
+
+  return {
+    copyVersionAccessibilityLabel: `${intl.formatMessage({
+      id: ETranslations.global_copy,
+    })}: ${formattedVersion}`,
+    formattedVersion,
+    handleCopyVersion,
+    isSkipGpgVerificationAllowed,
+  };
+}
+
+export function MobileAboutHeader() {
+  const {
+    copyVersionAccessibilityLabel,
+    formattedVersion,
+    handleCopyVersion,
+    isSkipGpgVerificationAllowed,
+  } = useAppVersionDetails();
+
+  return (
+    <YStack alignItems="center" pt="$5" pb="$2" userSelect="none">
+      <YStack
+        maxWidth="100%"
+        px="$3"
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="$2"
+        pressStyle={{ opacity: 0.7 }}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={copyVersionAccessibilityLabel}
+        testID={SettingTestIDs.versionItem}
+        onPress={handleCopyVersion}
+      >
+        <Icon name="OnekeyBrand" size="$14" />
+        <XStack
+          minHeight={44}
+          maxWidth="100%"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <SizableText
+            color="$textSubdued"
+            size="$bodyMd"
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {formattedVersion}
+          </SizableText>
+        </XStack>
+      </YStack>
+      {isSkipGpgVerificationAllowed ? (
+        <XStack gap="$2" alignItems="center">
+          <Badge badgeType="warning" badgeSize="lg">
+            TEST
+          </Badge>
+          <Badge badgeType="critical" badgeSize="lg">
+            SKIP GPG
+          </Badge>
+        </XStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+export function SocialButtonGroup() {
+  const intl = useIntl();
+  const [{ locale }] = useSettingsPersistAtom();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const { formattedVersion, handleCopyVersion, isSkipGpgVerificationAllowed } =
+    useAppVersionDetails();
+  const isTabNavigator = useIsTabNavigator();
+
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   const isUpToDate = useMemo(() => {
@@ -729,7 +805,7 @@ export function SocialButtonGroup() {
           numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
           onPress={handleCopyVersion}
         >
-          {upperFirst(versionString)}
+          {formattedVersion}
         </SizableText>
         {isSkipGpgVerificationAllowed ? (
           <XStack mt="$2" gap="$2" ai="center">

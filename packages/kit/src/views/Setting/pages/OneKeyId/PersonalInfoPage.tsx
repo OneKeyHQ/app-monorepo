@@ -30,6 +30,17 @@ function PersonalInfoPageView() {
     [isTabNavigator],
   );
 
+  const valueTextProps = useMemo<ISizableTextProps>(
+    () =>
+      isTabNavigator
+        ? titleProps
+        : {
+            size: '$bodyLg',
+            color: '$textSubdued',
+          },
+    [isTabNavigator, titleProps],
+  );
+
   const iconProps = useMemo(
     () => ({
       size: (isTabNavigator ? '$5' : '$6') as IIconProps['size'],
@@ -100,7 +111,7 @@ function PersonalInfoPageView() {
                 onPress={handleEditName}
               >
                 <ListItem.Text
-                  primaryTextProps={titleProps}
+                  primaryTextProps={valueTextProps}
                   primary={displayName || 'Not set'}
                   align="right"
                 />

@@ -8,12 +8,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalSettingRoutes,
   ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
 
-import { useSettingsConfig } from './config';
+import { getMobileSettingsPresentation, useSettingsConfig } from './config';
+import {
+  SETTINGS_SEARCH_KEYS,
+  getSettingsSearchSectionItem,
+} from './settingsSearchUtils';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISubSettingConfig } from './config';
@@ -27,27 +32,36 @@ export interface ISettingsSearchResult {
 
 export const useSearch = () => {
   const settingsConfig = useSettingsConfig();
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
   const flattenSettingsConfig = useMemo(() => {
     return settingsConfig.filter(Boolean).flatMap((config) =>
       config
         ? config?.configs
             .filter(Boolean)
             .flat()
-            .map((i) => ({
-              ...i,
-              sectionTitle: config.title,
-              sectionIcon: config.icon,
-            }))
+            .map((i) => {
+              const mobilePresentation =
+                isMobileLayout && i
+                  ? getMobileSettingsPresentation(config, {
+                      item: getSettingsSearchSectionItem(i),
+                    })
+                  : undefined;
+              return {
+                ...i,
+                sectionTitle: mobilePresentation?.title || config.title,
+                sectionIcon: mobilePresentation?.icon || config.icon,
+              };
+            })
         : [],
     );
-  }, [settingsConfig]);
+  }, [isMobileLayout, settingsConfig]);
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
   const searchFuse = useFuse(flattenSettingsConfig, {
-    keys: ['title', 'keywords'],
+    keys: [...SETTINGS_SEARCH_KEYS],
     shouldSort: false,
   });
 
-  const isTabNavigator = useIsTabNavigator();
   const searchTextRef = useRef<string>('');
   const previousTabRoute = useRef<ESettingsTabNames>(
     settingsConfig[0]?.name || ESettingsTabNames.Backup,

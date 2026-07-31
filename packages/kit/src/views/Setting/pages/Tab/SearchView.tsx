@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,7 +22,12 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
+import {
+  MobileTabSettingsDivider,
+  MobileTabSettingsSection,
+  TabSettingsListGrid,
+  TabSettingsSection,
+} from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
 import type { ISubSettingConfig } from './config';
@@ -42,7 +47,55 @@ export function SearchView({
   if (!isSearching) {
     return null;
   }
-  return sections.length ? (
+  if (!sections.length) {
+    return (
+      <YStack flex={1} ai="center" jc="center">
+        <Empty
+          illustration="SearchDocument"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      </YStack>
+    );
+  }
+  if (isMobileLayout) {
+    return (
+      <YStack gap="$5" px="$5" pt="$2">
+        {sections.map((section) => (
+          <YStack key={section.title} gap="$2">
+            <XStack gap="$1.5" alignItems="center" px="$5">
+              <Icon
+                name={section.icon as IKeyOfIcons}
+                size="$5"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {section.title}
+              </SizableText>
+            </XStack>
+            <MobileTabSettingsSection>
+              {section.configs.map((config, index) => (
+                <Fragment key={`${config.item.title}-${index}`}>
+                  <TabSettingsListGrid
+                    item={config.item}
+                    useMobilePresentation
+                    titleMatch={config.matches?.find(
+                      (match) => match.key === 'title',
+                    )}
+                  />
+                  {index !== section.configs.length - 1 ? (
+                    <MobileTabSettingsDivider />
+                  ) : null}
+                </Fragment>
+              ))}
+            </MobileTabSettingsSection>
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
+  return (
     <YStack gap="$4" px="$5">
       {sections.map((section) => (
         <Accordion
@@ -103,11 +156,7 @@ export function SearchView({
                 pt="$3.5"
                 gap="$2.5"
               >
-                <TabSettingsSection
-                  bg={isMobileLayout ? '$bg' : undefined}
-                  borderWidth={isMobileLayout ? 0 : undefined}
-                  borderRadius={isMobileLayout ? '$4' : undefined}
-                >
+                <TabSettingsSection>
                   {section.configs.map((config) => (
                     <TabSettingsListGrid
                       key={config.item.title}
@@ -123,15 +172,6 @@ export function SearchView({
           </Accordion.Item>
         </Accordion>
       ))}
-    </YStack>
-  ) : (
-    <YStack flex={1} ai="center" jc="center">
-      <Empty
-        illustration="SearchDocument"
-        title={intl.formatMessage({
-          id: ETranslations.global_no_results,
-        })}
-      />
     </YStack>
   );
 }

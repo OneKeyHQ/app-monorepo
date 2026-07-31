@@ -40,6 +40,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
   ELiteCardRoutes,
+  EMobileSettingsSubpage,
   EModalKeyTagRoutes,
   EModalRoutes,
   EModalSettingRoutes,
@@ -99,9 +100,10 @@ const DevSettingsSection = LazyLoadPage(
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
-  showOnMobileHome?: boolean;
+  mobilePlacement?: 'home' | EMobileSettingsSubpage;
   testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
@@ -136,7 +138,15 @@ export type ISettingsConfig = (
       }>;
       configs: (ISubSettingConfig | undefined | null)[][];
       desktopSectionTitles?: (string | undefined)[];
-      mobileVisibleSectionIndexes?: number[];
+      mobileSubpageConfigs?: Partial<
+        Record<
+          EMobileSettingsSubpage,
+          {
+            title: string;
+            icon: string | IKeyOfIcons;
+          }
+        >
+      >;
       // Custom tab item renderer for special tabs like OneKey ID
       renderTabItem?: ComponentType<{
         selected?: boolean;
@@ -146,19 +156,50 @@ export type ISettingsConfig = (
   | undefined
 )[];
 
+export type ISettingCategoryConfig = NonNullable<ISettingsConfig[number]>;
+
+export function getMobileSettingsPresentation(
+  config: ISettingCategoryConfig,
+  {
+    item,
+    mobileSubpage,
+  }: {
+    item?: ISubSettingConfig;
+    mobileSubpage?: EMobileSettingsSubpage;
+  } = {},
+) {
+  if (item?.mobilePlacement === 'home') {
+    return {
+      title: item.mobileTitle || item.title,
+      icon: item.icon,
+      mobileSubpage: undefined,
+    };
+  }
+
+  const itemSubpage = item?.mobilePlacement;
+  const resolvedMobileSubpage = mobileSubpage || itemSubpage;
+  const mobileSubpageConfig = resolvedMobileSubpage
+    ? config.mobileSubpageConfigs?.[resolvedMobileSubpage]
+    : undefined;
+
+  return {
+    title: mobileSubpageConfig?.title || config.mobileTitle || config.title,
+    icon: mobileSubpageConfig?.icon || config.mobileIcon || config.icon,
+    mobileSubpage: mobileSubpageConfig ? resolvedMobileSubpage : undefined,
+  };
+}
+
 const referenceSettingsCopy = {
   en: {
     backupAndMigration: 'Backup & Migration',
-    securityAndPermissions: 'Security & Permissions',
     app: 'App',
-    appMaintenance: 'App Maintenance',
-    supportAndAbout: 'Support & About',
+    helpAndAbout: 'Help & About',
     backupStatus: 'Backup Status',
     migration: 'Migration',
     otherBackupMethods: 'Other Backup Methods',
     walletManagement: 'Wallet Management',
     transactionSettings: 'Transaction Settings',
-    transactionAndAccountSettings: 'Transaction & Account Settings',
+    accountSettings: 'Account Settings',
     maintenance: 'Maintenance',
     accessControl: 'Access Control',
     protectionAndPermissions: 'Protection & Permissions',
@@ -175,16 +216,14 @@ const referenceSettingsCopy = {
   },
   zhCN: {
     backupAndMigration: '备份与迁移',
-    securityAndPermissions: '安全与权限',
     app: '应用',
-    appMaintenance: '应用维护',
-    supportAndAbout: '支持与关于',
+    helpAndAbout: '帮助与关于',
     backupStatus: '备份状态',
     migration: '迁移',
     otherBackupMethods: '其他备份方式',
     walletManagement: '钱包管理',
     transactionSettings: '交易设置',
-    transactionAndAccountSettings: '交易与账户设置',
+    accountSettings: '账户设置',
     maintenance: '维护',
     accessControl: '访问控制',
     protectionAndPermissions: '保护与权限',
@@ -251,6 +290,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             icon: 'CloudUploadSolid',
             mobileIcon: 'CloudUploadOutline',
             title: referenceCopy.backupAndMigration,
+            mobileTitle: intl.formatMessage({
+              id: ETranslations.global_backup,
+            }),
             desktopSectionTitles: [
               referenceCopy.backupStatus,
               referenceCopy.migration,
@@ -358,15 +400,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         icon: 'SettingsSolid',
         mobileIcon: 'SettingsOutline',
         title: referenceCopy.app,
-        mobileTitle: referenceCopy.appMaintenance,
         desktopSectionTitles: [
           referenceCopy.general,
           referenceCopy.deviceAndWindow,
           referenceCopy.shortcuts,
           referenceCopy.maintenance,
+          undefined,
           referenceCopy.extension,
         ],
-        mobileVisibleSectionIndexes: [1, 2, 3, 4],
+        mobileSubpageConfigs: {
+          [EMobileSettingsSubpage.General]: {
+            title: intl.formatMessage({
+              id: ETranslations.global_preferences,
+            }),
+            icon: 'SliderThreeOutline',
+          },
+          [EMobileSettingsSubpage.AppData]: {
+            title: intl.formatMessage({
+              id: ETranslations.app_data__title,
+            }),
+            icon: 'StorageOutline',
+          },
+        },
         configs: [
           [
             !platformEnv.isWeb
@@ -375,7 +430,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
-                  showOnMobileHome: true,
+                  mobilePlacement: 'home',
                   testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
@@ -390,7 +445,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
-              showOnMobileHome: true,
+              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <LanguageListItem />,
             },
             {
@@ -398,7 +453,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_default_currency,
               }),
-              showOnMobileHome: true,
+              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <CurrencyListItem />,
             },
             {
@@ -406,7 +461,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_theme,
               }),
-              showOnMobileHome: true,
+              mobilePlacement: EMobileSettingsSubpage.General,
               renderElement: <ThemeListItem />,
             },
             platformEnv.isNative
@@ -415,7 +470,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_vibration_haptic,
                   }),
-                  showOnMobileHome: true,
+                  mobilePlacement: EMobileSettingsSubpage.General,
                   renderElement: <HapticFeedbackListItem />,
                 }
               : undefined,
@@ -451,6 +506,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   subtitle: intl.formatMessage({
                     id: ETranslations.settings_split_view_desc,
                   }),
+                  mobilePlacement: EMobileSettingsSubpage.General,
                   renderElement: <SplitViewListItem />,
                 }
               : undefined,
@@ -476,13 +532,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_cache_on_app,
               }),
+              mobilePlacement: EMobileSettingsSubpage.AppData,
               renderElement: <ClearAppCacheListItem />,
             },
+          ],
+          [
             {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
                 id: ETranslations.settings_reset_app,
               }),
+              mobilePlacement: EMobileSettingsSubpage.AppData,
               renderElement: <ResetAppListItem />,
             },
           ],
@@ -515,7 +575,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             desktopSectionTitles: [
               referenceCopy.walletManagement,
               referenceCopy.transactionSettings,
-              referenceCopy.transactionAndAccountSettings,
+              referenceCopy.accountSettings,
               referenceCopy.maintenance,
             ],
             configs: [
@@ -552,7 +612,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
                   }),
-                  showOnMobileHome: true,
                   keywords: [
                     intl.formatMessage({
                       id: ETranslations.global_customize_nonce,
@@ -570,6 +629,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       EModalSettingRoutes.SettingCustomTransaction,
                     );
                   },
+                },
+                {
+                  icon: 'GasOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_prefer_gas_account__desc,
+                  }),
+                  renderElement: <UseGasAccountByDefaultListItem />,
                 },
               ],
               [
@@ -596,16 +665,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <BTCFreshAddressListItem />,
                 },
-                {
-                  icon: 'GasOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_prefer_gas_account__title,
-                  }),
-                  subtitle: intl.formatMessage({
-                    id: ETranslations.settings_prefer_gas_account__desc,
-                  }),
-                  renderElement: <UseGasAccountByDefaultListItem />,
-                },
               ],
               [
                 {
@@ -625,7 +684,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             icon: 'Shield2CheckSolid',
             mobileIcon: 'Shield2CheckOutline',
             testID: SettingTestIDs.securityItem,
-            title: referenceCopy.securityAndPermissions,
+            title: intl.formatMessage({
+              id: ETranslations.global_security,
+            }),
             desktopSectionTitles: [
               referenceCopy.accessControl,
               referenceCopy.protectionAndPermissions,
@@ -709,7 +770,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       title: intl.formatMessage({
                         id: ETranslations.settings_connected_sites,
                       }),
-                      showOnMobileHome: true,
+                      mobileTitle: intl.formatMessage({
+                        id: ETranslations.explore_dapp_connections,
+                      }),
+                      mobilePlacement: 'home',
+                      keywords: [
+                        intl.formatMessage({
+                          id: ETranslations.settings_connected_sites,
+                        }),
+                        intl.formatMessage({
+                          id: ETranslations.explore_dapp_connections,
+                        }),
+                        'dApp',
+                        'WalletConnect',
+                      ],
                       onPress: (navigation) => {
                         navigation?.pushModal(
                           EModalRoutes.DAppConnectionModal,
@@ -763,7 +837,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_network,
             }),
-            mobileTitle: referenceCopy.networkManagement,
+            mobileTitle: intl.formatMessage({
+              id: ETranslations.global_networks,
+            }),
             desktopSectionTitles: [
               referenceCopy.networkManagement,
               referenceCopy.importAndExport,
@@ -839,7 +915,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         icon: 'InfoCircleSolid',
         mobileIcon: 'InfoCircleOutline',
         testID: SettingTestIDs.aboutItem,
-        title: referenceCopy.supportAndAbout,
+        title: referenceCopy.helpAndAbout,
+        mobileTitle: intl.formatMessage({
+          id: ETranslations.about_onekey__title,
+        }),
         showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
         desktopSectionTitles: [
           referenceCopy.versionAndUpdates,
@@ -878,6 +957,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
               }),
+              mobilePlacement: 'home',
               onPress: () => {
                 void showIntercom();
               },

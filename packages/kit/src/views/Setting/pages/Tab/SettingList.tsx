@@ -14,12 +14,12 @@ import {
   SearchBar,
   XStack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EMobileSettingsSubpage,
   EModalSettingRoutes,
   ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
@@ -29,16 +29,19 @@ import { SettingTestIDs } from '../../testIDs';
 import {
   type ISettingsConfig,
   type ISubSettingConfig,
+  getMobileSettingsPresentation,
   useSettingsConfig,
 } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import {
   MobileTabSettingsDivider,
+  MobileTabSettingsSection,
   TabSettingsListGrid,
   TabSettingsListItem,
-  TabSettingsSection,
 } from './ListItem';
 import { SearchView } from './SearchView';
+import { useIsTabNavigator } from './useIsTabNavigator';
+import { useMobileSettingsPageStyle } from './useMobileSettingsPageStyle';
 import { useSearch } from './useSearch';
 
 type ISettingCategory = NonNullable<ISettingsConfig[number]>;
@@ -48,6 +51,7 @@ type IMobileHomeEntry =
       type: 'category';
       key: string;
       config: ISettingCategory;
+      mobileSubpage?: EMobileSettingsSubpage;
     }
   | {
       type: 'setting';
@@ -62,21 +66,24 @@ function isDefined<T>(value: T | undefined): value is T {
 function SettingCategoryListItem({
   config,
   useMobilePresentation = false,
+  mobileSubpage,
 }: {
   config: ISettingCategory;
   useMobilePresentation?: boolean;
+  mobileSubpage?: EMobileSettingsSubpage;
 }) {
   const navigation = useAppNavigation();
-  const title =
-    (useMobilePresentation ? config.mobileTitle : undefined) || config.title;
-  const icon =
-    (useMobilePresentation ? config.mobileIcon : undefined) || config.icon;
+  const mobilePresentation = useMobilePresentation
+    ? getMobileSettingsPresentation(config, { mobileSubpage })
+    : undefined;
+  const title = mobilePresentation?.title || config.title;
+  const icon = mobilePresentation?.icon || config.icon;
   const iconProps = useMemo<IIconProps | undefined>(
     () =>
       useMobilePresentation
         ? {
             size: '$6',
-            color: '$iconSubdued',
+            color: '$icon',
             ...config.tabBarIconStyle,
           }
         : config.tabBarIconStyle,
@@ -97,8 +104,9 @@ function SettingCategoryListItem({
     navigation.push(EModalSettingRoutes.SettingListSubModal, {
       title,
       name: config.name,
+      mobileSubpage,
     });
-  }, [navigation, title, config.name]);
+  }, [navigation, title, config.name, mobileSubpage]);
 
   // Use custom tab item renderer if provided
   if (config.renderTabItem) {
@@ -126,13 +134,14 @@ function SettingCategoryListItem({
 
 function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
   return (
-    <TabSettingsSection bg="$bg" borderWidth={0} borderRadius="$4">
+    <MobileTabSettingsSection>
       {entries.map((entry, index) => (
         <Fragment key={entry.key}>
           {entry.type === 'category' ? (
             <SettingCategoryListItem
               config={entry.config}
               useMobilePresentation
+              mobileSubpage={entry.mobileSubpage}
             />
           ) : (
             <TabSettingsListGrid item={entry.config} useMobilePresentation />
@@ -140,23 +149,16 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
           {index !== entries.length - 1 ? <MobileTabSettingsDivider /> : null}
         </Fragment>
       ))}
-    </TabSettingsSection>
+    </MobileTabSettingsSection>
   );
 }
 
 export function SettingList() {
   const intl = useIntl();
-  const theme = useTheme();
-  const isMobileLayout = platformEnv.isNative;
-  const headerStyle = useMemo(
-    () =>
-      isMobileLayout
-        ? {
-            backgroundColor: theme.bgSubdued.val,
-          }
-        : undefined,
-    [isMobileLayout, theme.bgSubdued.val],
-  );
+  const isTabNavigator = useIsTabNavigator();
+  const isMobileLayout = Boolean(platformEnv.isNative && !isTabNavigator);
+  const { headerStyle, pageBackgroundColor } =
+    useMobileSettingsPageStyle(isMobileLayout);
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
     return settingsConfig.filter((config): config is ISettingCategory =>
@@ -169,13 +171,15 @@ export function SettingList() {
     );
     const getCategoryEntry = (
       name: ESettingsTabNames,
+      mobileSubpage?: EMobileSettingsSubpage,
     ): IMobileHomeEntry | undefined => {
       const config = categoryMap.get(name);
       return config
         ? {
             type: 'category',
-            key: `category-${name}`,
+            key: `category-${name}-${mobileSubpage ?? 'root'}`,
             config,
+            mobileSubpage,
           }
         : undefined;
     };
@@ -187,7 +191,7 @@ export function SettingList() {
         config?.configs
           .flat()
           .filter((item): item is ISubSettingConfig =>
-            Boolean(item?.showOnMobileHome),
+            Boolean(item?.mobilePlacement === 'home'),
           ) || [];
       return items.map((item, index) => ({
         type: 'setting',
@@ -198,20 +202,29 @@ export function SettingList() {
 
     const sections: IMobileHomeEntry[][] = [
       [
-        getCategoryEntry(ESettingsTabNames.Backup),
         getCategoryEntry(ESettingsTabNames.Wallet),
-        ...getPromotedEntries(ESettingsTabNames.Wallet),
+        getCategoryEntry(ESettingsTabNames.Backup),
+        getCategoryEntry(ESettingsTabNames.Security),
       ].filter(isDefined),
       [
-        getCategoryEntry(ESettingsTabNames.Security),
         ...getPromotedEntries(ESettingsTabNames.Security),
         getCategoryEntry(ESettingsTabNames.Network),
       ].filter(isDefined),
       [
         ...getPromotedEntries(ESettingsTabNames.Preferences),
-        getCategoryEntry(ESettingsTabNames.Preferences),
+        getCategoryEntry(
+          ESettingsTabNames.Preferences,
+          EMobileSettingsSubpage.General,
+        ),
+        getCategoryEntry(
+          ESettingsTabNames.Preferences,
+          EMobileSettingsSubpage.AppData,
+        ),
       ].filter(isDefined),
-      [getCategoryEntry(ESettingsTabNames.About)].filter(isDefined),
+      [
+        ...getPromotedEntries(ESettingsTabNames.About),
+        getCategoryEntry(ESettingsTabNames.About),
+      ].filter(isDefined),
       [getCategoryEntry(ESettingsTabNames.Dev)].filter(isDefined),
     ];
     return sections.filter((section) => section.length > 0);
@@ -220,7 +233,7 @@ export function SettingList() {
   let content: ReactNode;
   if (isSearching) {
     content = <SearchView sections={searchResult} isSearching={isSearching} />;
-  } else if (platformEnv.isNative) {
+  } else if (isMobileLayout) {
     content = (
       <YStack gap="$5" px="$5" pt="$4">
         {mobileSections.map((section, index) => (
@@ -236,7 +249,7 @@ export function SettingList() {
   return (
     <Page
       testID={SettingTestIDs.settingsPage}
-      backgroundColor={isMobileLayout ? '$bgSubdued' : undefined}
+      backgroundColor={pageBackgroundColor}
       safeAreaEnabled={!isMobileLayout}
     >
       <Page.Header
@@ -244,7 +257,7 @@ export function SettingList() {
         headerStyle={headerStyle}
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
-      <Page.Body bg={isMobileLayout ? '$bgSubdued' : undefined}>
+      <Page.Body bg={pageBackgroundColor}>
         <XStack px="$5" pb={isMobileLayout ? '$2' : '$4'}>
           <SearchBar onSearchTextChange={onSearch} />
         </XStack>

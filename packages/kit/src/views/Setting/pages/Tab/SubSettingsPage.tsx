@@ -7,17 +7,23 @@ import {
   SizableText,
   XStack,
   YStack,
-  useTheme,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  type EMobileSettingsSubpage,
+  ESettingsTabNames,
+} from '@onekeyhq/shared/src/routes';
 
 import { useConfigContext } from './configContext';
+import { MobileAboutHeader } from './CustomElement';
 import {
   MobileTabSettingsDivider,
+  MobileTabSettingsSection,
   TabSettingsListGrid,
   TabSettingsSection,
 } from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
+import { useMobileSettingsPageStyle } from './useMobileSettingsPageStyle';
 
 import type { ISettingsConfig } from './config';
 import type { RouteProp } from '@react-navigation/native';
@@ -28,11 +34,13 @@ export function SubSettingsPage({
   name: nameFromProps,
   title: titleFromProps,
   settingsConfig: settingsConfigFromProps,
+  mobileSubpage,
   route,
 }: {
   name: ISettingName;
   title: string;
   settingsConfig: ISettingsConfig;
+  mobileSubpage?: EMobileSettingsSubpage;
 } & { route?: RouteProp<any, any> }) {
   const context = useConfigContext();
   const name = useMemo(() => {
@@ -44,58 +52,66 @@ export function SubSettingsPage({
       : settingsConfigFromProps;
   }, [context.settingsConfig, settingsConfigFromProps]);
   const isTabNavigator = useIsTabNavigator();
-  const theme = useTheme();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
-  const headerStyle = useMemo(
-    () =>
-      isMobileLayout
-        ? {
-            backgroundColor: theme.bgSubdued.val,
-          }
-        : undefined,
-    [isMobileLayout, theme.bgSubdued.val],
-  );
+  const isMobileLayout = Boolean(platformEnv.isNative && !isTabNavigator);
+  const { headerStyle, pageBackgroundColor } =
+    useMobileSettingsPageStyle(isMobileLayout);
+  const SettingsSection = isMobileLayout
+    ? MobileTabSettingsSection
+    : TabSettingsSection;
   const config = useMemo(() => {
     return settingsConfig
       ? settingsConfig?.find((item) => item?.name === name)
       : null;
   }, [name, settingsConfig]);
+  const mobileSubpageTitle =
+    isMobileLayout && mobileSubpage
+      ? config?.mobileSubpageConfigs?.[mobileSubpage]?.title
+      : undefined;
   const configList = useMemo(() => {
-    const visibleSectionIndexes = isTabNavigator
-      ? undefined
-      : config?.mobileVisibleSectionIndexes;
     return (
       config?.configs
-        .map((items, index) => ({
-          index,
-          items,
-          title: isTabNavigator
-            ? config?.desktopSectionTitles?.[index]
-            : undefined,
-        }))
-        .filter(
-          ({ index, items }) =>
-            (!visibleSectionIndexes || visibleSectionIndexes.includes(index)) &&
-            items.some(Boolean),
-        ) || []
+        .map((items, index) => {
+          const visibleItems = items.filter((item) => {
+            if (!item) {
+              return false;
+            }
+            if (!isMobileLayout) {
+              return true;
+            }
+            if (mobileSubpage) {
+              return item.mobilePlacement === mobileSubpage;
+            }
+            return item.mobilePlacement !== 'home';
+          });
+          return {
+            index,
+            items: visibleItems,
+            title: isTabNavigator
+              ? config?.desktopSectionTitles?.[index]
+              : undefined,
+          };
+        })
+        .filter(({ items }) => items.length > 0) || []
     );
   }, [
     config?.configs,
     config?.desktopSectionTitles,
-    config?.mobileVisibleSectionIndexes,
+    isMobileLayout,
     isTabNavigator,
+    mobileSubpage,
   ]);
+  const isMobileAboutPage =
+    isMobileLayout &&
+    config?.name === ESettingsTabNames.About &&
+    mobileSubpage === undefined;
 
   return (
-    <Page
-      scrollEnabled
-      backgroundColor={isMobileLayout ? '$bgSubdued' : undefined}
-    >
+    <Page scrollEnabled backgroundColor={pageBackgroundColor}>
       <Page.Header
         headerStyle={headerStyle}
-        title={titleFromProps || config?.title}
+        title={mobileSubpageTitle || titleFromProps || config?.title}
       />
-      <Page.Body bg={isMobileLayout ? '$bgSubdued' : undefined}>
+      <Page.Body bg={pageBackgroundColor}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
@@ -107,6 +123,8 @@ export function SubSettingsPage({
           >
             {configList.map((section, sectionIdx) => {
               const list = section.items.filter(Boolean);
+              const showMobileAboutHeader =
+                isMobileAboutPage && sectionIdx === 0;
               return list.length ? (
                 <YStack key={sectionIdx} gap={isMobileLayout ? '$1' : '$2'}>
                   {section.title ? (
@@ -120,11 +138,13 @@ export function SubSettingsPage({
                       </SizableText>
                     </XStack>
                   ) : null}
-                  <TabSettingsSection
-                    bg={isMobileLayout ? '$bg' : undefined}
-                    borderWidth={isMobileLayout ? 0 : undefined}
-                    borderRadius={isMobileLayout ? '$4' : undefined}
-                  >
+                  <SettingsSection>
+                    {showMobileAboutHeader ? (
+                      <>
+                        <MobileAboutHeader />
+                        <Divider borderColor="$neutral3" />
+                      </>
+                    ) : null}
                     {list.map((i, idx) => {
                       return i ? (
                         <Fragment key={idx}>
@@ -146,7 +166,7 @@ export function SubSettingsPage({
                         </Fragment>
                       ) : null;
                     })}
-                  </TabSettingsSection>
+                  </SettingsSection>
                 </YStack>
               ) : null;
             })}

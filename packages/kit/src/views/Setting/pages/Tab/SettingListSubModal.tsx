@@ -21,7 +21,7 @@ function SettingListSubModalView() {
     useRoute<
       RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingListSubModal>
     >();
-  const { name, title } = route.params || {};
+  const { name, title, mobileSubpage } = route.params || {};
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
     return settingsConfig.filter((config) => config && !config.isHidden);
@@ -31,6 +31,7 @@ function SettingListSubModalView() {
       name={name as ISettingName}
       title={title || ''}
       settingsConfig={filteredSettingsConfig}
+      mobileSubpage={mobileSubpage}
     />
   );
 }

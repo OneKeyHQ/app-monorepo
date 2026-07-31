@@ -55,6 +55,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EMobileSettingsSubpage,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
@@ -1035,6 +1036,7 @@ const MoreActionWalletGrid = () => {
       screen: EModalSettingRoutes.SettingListSubModal,
       params: {
         name: ESettingsTabNames.Preferences,
+        mobileSubpage: EMobileSettingsSubpage.General,
       },
     });
   }, [navigation]);
