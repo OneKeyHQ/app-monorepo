@@ -3,17 +3,12 @@ import { StyleSheet } from 'react-native';
 
 import { DashText, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IBorrowEModeStatus,
-  IEarnText,
-  IEarnTooltip,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
 
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { useBorrowContext } from '../BorrowProvider';
 
 import { BorrowBonusMetric } from './BorrowBonusMetric';
-import { BorrowEModeMetric } from './BorrowEModeMetric';
 import { BorrowRewardsMetric } from './BorrowRewardsMetric';
 import { OverviewMetric } from './OverviewMetric';
 
@@ -75,16 +70,10 @@ function BalanceMetric({
 }
 
 export function BorrowMobileSummary({
-  eModeStatus,
-  isEModeLoading = false,
-  isEModeError = false,
   overviewData,
   showPositionTotals = true,
   isPositionTotalsLoading = false,
 }: {
-  eModeStatus?: IBorrowEModeStatus | null;
-  isEModeLoading?: boolean;
-  isEModeError?: boolean;
   overviewData: IBorrowOverviewData;
   showPositionTotals?: boolean;
   isPositionTotalsLoading?: boolean;
@@ -131,12 +120,6 @@ export function BorrowMobileSummary({
           onClaimed={requestRefresh}
         />
       </XStack>
-      <BorrowEModeMetric
-        eModeStatus={eModeStatus}
-        isLoading={isEModeLoading}
-        isError={isEModeError}
-        variant="bar"
-      />
     </YStack>
   );
 }

@@ -2,8 +2,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
+import {
+  Alert,
+  DashText,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { BorrowTableList } from '@onekeyhq/kit/src/views/Borrow/components/BorrowTableList';
@@ -38,6 +44,10 @@ function CapabilityBadge({
   );
 }
 
+// The dashed underline carries the "there is more to read here" cue that an
+// info icon used to, without spending a second glyph of column width — these
+// columns are only 76–104px wide. The column Stack centers this via its
+// `align`, so the label needs no wrapper of its own.
 function CapabilityHeader({
   label,
   tooltip,
@@ -46,17 +56,16 @@ function CapabilityHeader({
   tooltip: string;
 }) {
   return (
-    <XStack ai="center" jc="center" gap="$0.5" minWidth={0}>
-      <SizableText
-        size="$bodySmMedium"
-        color="$textSubdued"
-        minWidth={0}
-        numberOfLines={1}
-      >
-        {label}
-      </SizableText>
-      <InfoIcon size="$4" tooltip={tooltip} />
-    </XStack>
+    <DashText
+      size="$bodySmMedium"
+      color="$textSubdued"
+      dashColor="$borderStrong"
+      dashThickness={0.5}
+      numberOfLines={1}
+      tooltip={tooltip}
+    >
+      {label}
+    </DashText>
   );
 }
 

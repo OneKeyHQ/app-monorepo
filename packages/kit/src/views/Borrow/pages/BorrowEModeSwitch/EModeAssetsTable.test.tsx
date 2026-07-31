@@ -13,20 +13,15 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Alert: View,
+    // Rendered as Text so the dashed capability headers keep contributing their
+    // label to the serialized output the assertions read.
+    DashText: Text,
     Icon: View,
     SizableText: Text,
     Stack: View,
     XStack: View,
     YStack: View,
   };
-});
-
-jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => {
-  const { View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
-
-  return { InfoIcon: View };
 });
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => {

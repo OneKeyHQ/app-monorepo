@@ -269,7 +269,7 @@ function StepRow({
           ) : (
             <Icon
               testID={BorrowTestIDs.eModeNeedActionSwitchIcon}
-              name="SwitchOutline"
+              name="FlashOutline"
               size="$6"
               color={isMuted ? '$iconSubdued' : '$icon'}
             />
@@ -309,8 +309,11 @@ function StepRow({
           ) : null}
         </XStack>
         {underfunded ? (
-          // Match the title column after its $6 icon slot and $2 gap.
-          <Stack ml="$8">
+          // Align the card's text with the title text, not its border. The
+          // title column starts $8 in ($6 token slot + $2 gap), so the card
+          // hangs back by exactly its own $3 padding and its headline lands on
+          // the same left edge as the step title.
+          <Stack ml="$5">
             <EModeShortfallCard
               symbol={step.symbol ?? ''}
               balanceText={balanceText}

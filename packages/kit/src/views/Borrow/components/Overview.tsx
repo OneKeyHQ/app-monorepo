@@ -37,8 +37,8 @@ import type { IBorrowOverviewData } from '../hooks/useBorrowOverviewData';
 /**
  * Top of the Borrow home. Desktop keeps the net worth hero with the whole
  * metric strip under it; phones drop the hero and show net worth, health factor
- * and net APY as three equal metrics, with the rest of the strip moved to the
- * summary below the positions.
+ * and net APY as three equal metrics followed by the E-Mode row, with the rest
+ * of the strip moved to the summary below the positions.
  */
 export const Overview = ({
   eModeStatus,
@@ -246,28 +246,41 @@ export const Overview = ({
            wrapping onto a second only when they stop fitting, with the tools
            pinned to the right of that first row. Top-aligned rather than
            centred so they stay on the net worth line once the numbers wrap. */
-        <XStack ai="flex-start" gap="$2">
-          <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-            <OverviewMetric
-              title={{ text: labels.netWorth }}
-              text={netWorthText}
-              widthMode="hug"
-            />
-            <BorrowHealthFactorSummary
-              {...healthSummaryProps}
-              widthMode="hug"
-            />
-            <OverviewMetric
-              testID={BorrowTestIDs.overviewNetApy}
-              title={{ text: labels.netApy }}
-              text={netApyText}
-              isLoading={isNetApyLoading}
-              widthMode="hug"
-            />
+        <>
+          <XStack ai="flex-start" gap="$2">
+            <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
+              <OverviewMetric
+                title={{ text: labels.netWorth }}
+                text={netWorthText}
+                widthMode="hug"
+              />
+              <BorrowHealthFactorSummary
+                {...healthSummaryProps}
+                widthMode="hug"
+              />
+              <OverviewMetric
+                testID={BorrowTestIDs.overviewNetApy}
+                title={{ text: labels.netApy }}
+                text={netApyText}
+                isLoading={isNetApyLoading}
+                widthMode="hug"
+              />
+            </XStack>
+            {/* Clears the metric cells' own $3 of top padding */}
+            <XStack pt="$3">{tools}</XStack>
           </XStack>
-          {/* Clears the metric cells' own $3 of top padding */}
-          <XStack pt="$3">{tools}</XStack>
-        </XStack>
+          {/* E-Mode scopes the very numbers above it, so on phones it follows
+              them as a full-width row rather than trailing the summary below
+              the positions. Its $4 inset lands its label on the same left edge
+              as the metric labels, which carry $3 of cell padding on top of the
+              grid's $4. */}
+          <BorrowEModeMetric
+            eModeStatus={eModeStatus}
+            isError={isEModeError}
+            isLoading={isEModeLoading}
+            variant="bar"
+          />
+        </>
       )}
     </YStack>
   );

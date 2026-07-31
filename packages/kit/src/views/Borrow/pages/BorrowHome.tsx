@@ -408,9 +408,6 @@ const BorrowHomeContent = memo(
               />
             )}
             <BorrowMobileSummary
-              eModeStatus={eModeStatus}
-              isEModeError={isEModeError}
-              isEModeLoading={isEModeInitialLoading}
               isPositionTotalsLoading={isReservesPending}
               overviewData={overviewData}
               showPositionTotals={hasPositions}
