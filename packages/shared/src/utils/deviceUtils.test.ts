@@ -4,6 +4,7 @@ import deviceUtils, { ESupportSettings } from './deviceUtils';
 
 const mockGetAutoLockOptions = jest.fn();
 const mockGetAutoShutDownOptions = jest.fn();
+const PROTOCOL_V2_NEVER_TIMEOUT_MS = 0x10_00_00_00;
 
 jest.mock('../hardware/instance', () => ({
   CoreSDKLoader: jest.fn(async () => ({
@@ -19,6 +20,7 @@ jest.mock('../hardware/instance', () => ({
     ),
     getAutoLockOptions: mockGetAutoLockOptions,
     getAutoShutDownOptions: mockGetAutoShutDownOptions,
+    PROTOCOL_V2_NEVER_TIMEOUT_MS,
   })),
 }));
 
@@ -190,9 +192,34 @@ describe('deviceUtils', () => {
         deviceType: EDeviceType.Pro,
         protocol: 'V1',
       }),
-    ).resolves.toEqual([{ label: 'Never', valueMs: 0 }]);
+    ).resolves.toEqual([{ isNever: true, label: 'Never', valueMs: 0 }]);
     expect(mock).toHaveBeenCalledWith(EDeviceType.Pro, 'V1');
   });
+
+  it.each([
+    ['getAutoLockOptions', mockGetAutoLockOptions],
+    ['getAutoShutDownOptions', mockGetAutoShutDownOptions],
+  ] as const)(
+    'marks the Protocol V2 never timeout returned by %s',
+    async (method, mock) => {
+      mock.mockReturnValueOnce([
+        { label: 'Never', valueMs: PROTOCOL_V2_NEVER_TIMEOUT_MS },
+      ]);
+
+      await expect(
+        deviceUtils[method]({
+          deviceType: EDeviceType.Pro2,
+          protocol: 'V2',
+        }),
+      ).resolves.toEqual([
+        {
+          isNever: true,
+          label: 'Never',
+          valueMs: PROTOCOL_V2_NEVER_TIMEOUT_MS,
+        },
+      ]);
+    },
+  );
 
   it.each([
     ['en-US', 'en'],

@@ -905,8 +905,15 @@ async function getAutoLockOptions({
   deviceType: IDeviceType;
   protocol: DeviceSettingsProtocol;
 }) {
-  const { getAutoLockOptions: sdkGetAutoLockOptions } = await CoreSDKLoader();
-  return sdkGetAutoLockOptions(deviceType, protocol);
+  const {
+    getAutoLockOptions: sdkGetAutoLockOptions,
+    PROTOCOL_V2_NEVER_TIMEOUT_MS,
+  } = await CoreSDKLoader();
+  return sdkGetAutoLockOptions(deviceType, protocol).map((option) => ({
+    ...option,
+    isNever:
+      option.valueMs === 0 || option.valueMs === PROTOCOL_V2_NEVER_TIMEOUT_MS,
+  }));
 }
 
 async function getAutoShutDownOptions({
@@ -916,9 +923,15 @@ async function getAutoShutDownOptions({
   deviceType: IDeviceType;
   protocol: DeviceSettingsProtocol;
 }) {
-  const { getAutoShutDownOptions: sdkGetAutoShutDownOptions } =
-    await CoreSDKLoader();
-  return sdkGetAutoShutDownOptions(deviceType, protocol);
+  const {
+    getAutoShutDownOptions: sdkGetAutoShutDownOptions,
+    PROTOCOL_V2_NEVER_TIMEOUT_MS,
+  } = await CoreSDKLoader();
+  return sdkGetAutoShutDownOptions(deviceType, protocol).map((option) => ({
+    ...option,
+    isNever:
+      option.valueMs === 0 || option.valueMs === PROTOCOL_V2_NEVER_TIMEOUT_MS,
+  }));
 }
 
 export enum ESupportSettings {

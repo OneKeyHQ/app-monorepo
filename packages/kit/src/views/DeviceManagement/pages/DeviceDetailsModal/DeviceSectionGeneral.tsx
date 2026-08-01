@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { PROTOCOL_V2_NEVER_TIMEOUT_MS } from '@onekeyfe/hd-core';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -49,6 +48,7 @@ type IDeviceLanguageOption = {
 };
 
 type IDeviceDelayOption = {
+  isNever: boolean;
   label: string;
   valueMs: number;
 };
@@ -80,12 +80,14 @@ function getDurationLabel({
 
 function getDeviceDurationLabel({
   intl,
+  isNever,
   valueMs,
 }: {
   intl: ReturnType<typeof useIntl>;
+  isNever: boolean;
   valueMs: number;
 }) {
-  if (valueMs === 0 || valueMs === PROTOCOL_V2_NEVER_TIMEOUT_MS) {
+  if (isNever) {
     return intl.formatMessage({ id: ETranslations.global_never });
   }
   if (valueMs < 60_000) {
@@ -186,7 +188,11 @@ export function AutoLockListItem({
   autoLockOptions,
   disabled,
 }: {
-  autoLockOptions: Array<{ label: string; value: number }>;
+  autoLockOptions: Array<{
+    isNever?: boolean;
+    label: string;
+    value: number;
+  }>;
   disabled?: boolean;
 }) {
   const intl = useIntl();
@@ -199,11 +205,10 @@ export function AutoLockListItem({
   });
 
   const { displayLabel } = useMemo(() => {
-    const never = autoLockOptions.some(
-      (option) =>
-        option.value === stateful.value &&
-        (option.value === 0 || option.value === PROTOCOL_V2_NEVER_TIMEOUT_MS),
+    const selectedOption = autoLockOptions.find(
+      (option) => option.value === stateful.value,
     );
+    const never = Boolean(selectedOption?.isNever);
     const locked = stateful.value === LOCKED_VALUE && !never;
 
     let label = '';
@@ -266,7 +271,11 @@ export function AutoShutDownListItem({
   autoShutDownOptions,
   disabled,
 }: {
-  autoShutDownOptions: Array<{ label: string; value: number }>;
+  autoShutDownOptions: Array<{
+    isNever?: boolean;
+    label: string;
+    value: number;
+  }>;
   disabled?: boolean;
 }) {
   const intl = useIntl();
@@ -279,11 +288,10 @@ export function AutoShutDownListItem({
   });
 
   const { displayLabel } = useMemo(() => {
-    const never = autoShutDownOptions.some(
-      (option) =>
-        option.value === stateful.value &&
-        (option.value === 0 || option.value === PROTOCOL_V2_NEVER_TIMEOUT_MS),
+    const selectedOption = autoShutDownOptions.find(
+      (option) => option.value === stateful.value,
     );
+    const never = Boolean(selectedOption?.isNever);
     const locked = stateful.value === LOCKED_VALUE && !never;
 
     let label = '';
@@ -465,7 +473,12 @@ function DeviceSectionGeneral() {
         protocol: settingsProtocol,
       })) as IDeviceDelayOption[];
       return options.map((option) => ({
-        label: getDeviceDurationLabel({ intl, valueMs: option.valueMs }),
+        isNever: option.isNever,
+        label: getDeviceDurationLabel({
+          intl,
+          isNever: option.isNever,
+          valueMs: option.valueMs,
+        }),
         value: option.valueMs,
       }));
     },
@@ -485,7 +498,12 @@ function DeviceSectionGeneral() {
         protocol: settingsProtocol,
       })) as IDeviceDelayOption[];
       return options.map((option) => ({
-        label: getDeviceDurationLabel({ intl, valueMs: option.valueMs }),
+        isNever: option.isNever,
+        label: getDeviceDurationLabel({
+          intl,
+          isNever: option.isNever,
+          valueMs: option.valueMs,
+        }),
         value: option.valueMs,
       }));
     },
