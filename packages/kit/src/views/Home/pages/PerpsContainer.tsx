@@ -621,7 +621,9 @@ function PerpsEmptyRecommendSection() {
                     ) : null}
                   </XStack>
                   {token.perpsSubtitle ? (
-                    <SubtitleText subtitle={token.perpsSubtitle} />
+                    <XStack alignItems="center" minWidth={0}>
+                      <SubtitleText subtitle={token.perpsSubtitle} />
+                    </XStack>
                   ) : null}
                 </YStack>
               </XStack>

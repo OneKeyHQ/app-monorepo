@@ -51,16 +51,23 @@ jest.mock('@onekeyhq/components', () => ({
   Haptics: { selection: jest.fn() },
   Icon: () => null,
   Popover: () => null,
+  Portal: {
+    Body: ({ children }: { children?: ReactNode }) => <>{children}</>,
+    Constant: { FULL_WINDOW_OVERLAY_PORTAL: 'full-window-overlay' },
+  },
   Select: () => null,
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   TABULAR_NUMS: ['tabular-nums'],
   YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   useTheme: () => ({
     bgAccent: { val: '#0a0' },
     bgCriticalStrong: { val: '#f00' },
+    bgHover: { val: '#f5f5f5' },
     bgSubdued: { val: '#eee' },
+    borderActive: { val: '#333' },
     text: { val: '#111' },
     textSubdued: { val: '#666' },
   }),
