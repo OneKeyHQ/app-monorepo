@@ -13,17 +13,20 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
   const readDisk = () =>
     (globalThis as { __swrFakeDisk?: Record<string, string> }).__swrFakeDisk ??
     {};
+  // Counts every disk read regardless of which accessor performed it, so the
+  // reload-throttle assertions keep measuring reads rather than one accessor.
+  const countRead = () => {
+    const globalState = globalThis as { __swrFakeDiskReadCount?: number };
+    globalState.__swrFakeDiskReadCount =
+      (globalState.__swrFakeDiskReadCount ?? 0) + 1;
+  };
   const storage = {
     set: () => {},
     setObject: (key: string, value: Record<string, unknown>) => {
       readDisk()[key] = JSON.stringify(value);
     },
     getObject: (key: string) => {
-      const globalState = globalThis as {
-        __swrFakeDiskReadCount?: number;
-      };
-      globalState.__swrFakeDiskReadCount =
-        (globalState.__swrFakeDiskReadCount ?? 0) + 1;
+      countRead();
       const raw = readDisk()[key];
       return raw === undefined
         ? undefined
@@ -31,7 +34,10 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
     },
     // Mirrors the real backends: setObject stores JSON, getString hands the
     // raw string back, so a caller can tell "absent" from "unparseable".
-    getString: (key: string) => readDisk()[key],
+    getString: (key: string) => {
+      countRead();
+      return readDisk()[key];
+    },
     getNumber: () => undefined,
     getBoolean: () => undefined,
     delete: (key: string) => {
@@ -230,6 +236,27 @@ describe('SWR cache cross-runtime flush merge', () => {
     // merge exists to prevent, with every other entry silently dropped.
     expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
     expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
+  });
+
+  it('keeps the in-memory copy when a reload hits an unparseable disk', () => {
+    otherRuntimeFlush({ kept: { d: 'disk', t: 500 } });
+    const swr = loadFreshRuntime();
+    expect(swr.get('kept')).toBe('disk');
+    // Not dirty here, which is the normal state right after a flush, so the
+    // reload below has nothing to write back before it rebuilds the copy.
+    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
+    swr.reloadFromStorage();
+
+    // Dropping the entry here would strand every namespace for the rest of the
+    // session and leave the next flush nothing to repair the file with.
+    expect(swr.get('kept')).toBe('disk');
+
+    setNow(3000);
+    swr.set('fresh', 'local');
+    swr.flushNow();
+    const disk = readDiskStore();
+    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
+    expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
   });
 
   it('does not resurrect a removed key from the other runtime copy', () => {

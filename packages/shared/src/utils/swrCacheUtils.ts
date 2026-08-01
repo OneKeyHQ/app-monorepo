@@ -101,8 +101,17 @@ function readStoreFromDisk(): {
 
 function reloadFromStorage(): void {
   flush();
-  _cache = undefined;
-  loadStore();
+  const { store, unreadable } = readStoreFromDisk();
+  if (unreadable && _cache) {
+    // The file is corrupt but this runtime still holds an intact copy. Swapping
+    // it for an empty store would strand every namespace for the rest of the
+    // session and leave the next flush nothing to repair the file with, since
+    // flush() rebuilds from exactly this copy.
+    _dirty = true;
+    scheduleFlush();
+  } else {
+    _cache = store ?? {};
+  }
   _lastReloadFromStorageAt = Date.now();
 }
 
