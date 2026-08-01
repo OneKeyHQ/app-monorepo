@@ -14,6 +14,8 @@ import { createLazyServiceProxy } from './lazyServiceProxy';
 import type { IBackgroundApi } from './IBackgroundApi';
 import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type ServiceDemo from '../services/ServiceDemo';
+import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
@@ -444,6 +446,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
+    return this.buildLazyService(
+      'serviceHardwarePortfolioSync',
+      () => import('../services/ServiceHardware/serviceHardwarePortfolioSync'),
+    ) as unknown as ServiceHardwarePortfolioSync;
+  }
+
   get serviceKeylessCloudSync() {
     const Service =
       require('../services/ServiceKeylessCloudSync') as typeof import('../services/ServiceKeylessCloudSync');
@@ -534,14 +543,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceFirmwareUpdate() {
-    const Service =
-      require('../services/ServiceFirmwareUpdate') as typeof import('../services/ServiceFirmwareUpdate');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceFirmwareUpdate', { value });
-    return value;
+  get serviceFirmwareUpdate(): ServiceFirmwareUpdate {
+    return this.buildLazyService(
+      'serviceFirmwareUpdate',
+      () => import('../services/ServiceFirmwareUpdate'),
+    ) as unknown as ServiceFirmwareUpdate;
   }
 
   get serviceOnboarding() {

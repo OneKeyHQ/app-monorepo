@@ -360,4 +360,127 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       },
     );
   });
+
+  it('uploads a portfolio package through the SDK with a silent context', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    const uploadPortfolio = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { portfolioUpdated: true },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = getSDKInstance;
+
+    const packageBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    await expect(
+      service.uploadPortfolioPackage({
+        connectId: 'ONEKEY_USB',
+        packageBytes,
+      }),
+    ).resolves.toEqual({ portfolioUpdated: true });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
+      packageBytes,
+    });
+  });
+
+  it('forwards an explicit Protocol V2 selection during Pro 2 discovery', async () => {
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    await expect(
+      service.searchDevices({ connectProtocol: 'V2' }),
+    ).resolves.toEqual({ success: true, payload: [] });
+
+    expect(searchDevices).toHaveBeenCalledWith({ connectProtocol: 'V2' });
+  });
+});
+
+describe('ServiceHardware.getDeviceStateWithUnlock', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('unlocks once and rereads the canonical state', async () => {
+    const lockedState = {
+      status: { initialized: true, unlocked: false },
+    } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
+    const unlockedState = {
+      status: { initialized: true, unlocked: true },
+    } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    service.getDeviceState = jest
+      .fn()
+      .mockResolvedValueOnce(lockedState)
+      .mockResolvedValueOnce(unlockedState);
+    const unlockDevice = jest
+      .spyOn(service, 'unlockDevice')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.getDeviceStateWithUnlock({
+        connectId: 'ORIGINAL_CONNECT_ID',
+        params: { scope: 'runtime' },
+      }),
+    ).resolves.toBe(unlockedState);
+
+    expect(unlockDevice).toHaveBeenCalledTimes(1);
+    expect(unlockDevice).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(service.getDeviceState).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not request an unlock before the device wallet is initialized', async () => {
+    const uninitializedState = {
+      status: { initialized: false, unlocked: false },
+    } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    service.getDeviceState = jest.fn().mockResolvedValue(uninitializedState);
+    const unlockDevice = jest
+      .spyOn(service, 'unlockDevice')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.getDeviceStateWithUnlock({
+        connectId: 'ORIGINAL_CONNECT_ID',
+        params: { scope: 'runtime' },
+      }),
+    ).rejects.toThrow('Device is not initialized');
+
+    expect(unlockDevice).not.toHaveBeenCalled();
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    expect(service.getDeviceState).toHaveBeenCalledTimes(1);
+  });
 });

@@ -46,8 +46,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { RefTransaction } from '@onekeyfe/hd-core';
-import type { HDNodeType, Messages } from '@onekeyfe/hd-transport';
+import type { HDNodeType, PROTO, RefTransaction } from '@onekeyfe/hd-core';
 
 export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   abstract override coreApi: CoreChainSoftwareBtc | undefined;
@@ -145,7 +144,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   private buildHardwareInput = async (
     input: IBtcInput,
     path: string,
-  ): Promise<Messages.TxInputType> => {
+  ): Promise<PROTO.TxInputType> => {
     const { getHDPath, getScriptType } = await CoreSDKLoader();
     const addressN = getHDPath(path);
     const scriptType = getScriptType(addressN);
@@ -162,7 +161,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
   private buildHardwareOutput = async (
     output: IBtcOutput,
-  ): Promise<Messages.TxOutputType> => {
+  ): Promise<PROTO.TxOutputType> => {
     const { isChange, bip44Path, opReturn } = output.payload || {};
 
     if (opReturn && typeof opReturn === 'string' && opReturn.length > 0) {

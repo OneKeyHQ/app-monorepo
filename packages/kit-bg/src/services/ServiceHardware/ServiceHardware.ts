@@ -26,6 +26,7 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -54,6 +55,7 @@ import type {
   IFirmwareReleasePayload,
   IHardwareCallContext,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
@@ -77,7 +79,14 @@ import ServiceBase from '../ServiceBase';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
+import {
+  HardwareUiEventQueue,
+  createHardwareUiEventState,
+  reduceHardwareUiEventState,
+} from './hardwareUiEventStateMachine';
+import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
+import { decodeJpegToRgba } from './jpegRgbaUtils';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
@@ -85,7 +94,6 @@ import type {
   IThirdPartyHardwareAdapter,
 } from './adapters/types';
 import type {
-  IBaseDeviceProcessingParams,
   IChangePinParams,
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
@@ -93,6 +101,7 @@ import type {
   IHardwareHomeScreenData,
   ISetAutoLockDelayMsParams,
   ISetAutoShutDownDelayMsParams,
+  ISetBrightnessParams,
   ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
   ISetHapticFeedbackParams,
@@ -121,17 +130,30 @@ import type {
   CommonParams,
   CoreApi,
   CoreMessage,
+  DeviceStateEvent,
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
+  GetDeviceStateParams,
+  Response as HardwareResponse,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
-  Response,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
+const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
+  EDeviceType.Touch,
+  EDeviceType.Pro,
+  EDeviceType.Pro2,
+]);
+const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
+
+/**
+ * @deprecated 新代码使用 IDeviceGetStateOptions；仅保留给旧 Features 兼容路径。
+ */
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
   vendor?: EHardwareVendor;
@@ -142,6 +164,80 @@ export type IDeviceGetFeaturesOptions = {
   };
   hardwareCallContext?: IHardwareCallContext;
 };
+
+export type IDeviceGetStateOptions = Omit<
+  IDeviceGetFeaturesOptions,
+  'params'
+> & {
+  params?: GetDeviceStateParams & {
+    allowEmptyConnectId?: boolean;
+  };
+};
+
+export type IDeviceManagementSnapshot = {
+  state: IOneKeyDeviceState;
+};
+
+export type IUploadPro2NftParams = {
+  connectId: string;
+  imageHex: string;
+  thumbnailHex: string;
+  title: string;
+  subtitle: string;
+  timestampMs?: number;
+};
+
+const nullableToUndefined = (value?: string | null) => value ?? undefined;
+
+const isOneKeyLoaderMode = (mode?: string | null) =>
+  mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
+
+function buildOnekeyFeaturesFromState(
+  state: IOneKeyDeviceState,
+): OnekeyFeatures {
+  const { verification: verify, versions } = state;
+
+  return {
+    onekey_serial_no: state.identity.serialNo,
+    onekey_ble_name: state.identity.bleName || '',
+    onekey_firmware_version: nullableToUndefined(versions.firmware),
+    onekey_boot_version: nullableToUndefined(versions.bootloader),
+    onekey_board_version: nullableToUndefined(versions.board),
+    onekey_ble_version: nullableToUndefined(versions.ble),
+    onekey_firmware_hash: verify?.firmwareHash,
+    onekey_boot_hash: verify?.bootloaderHash,
+    onekey_board_hash: verify?.boardHash,
+    onekey_ble_hash: verify?.bleHash,
+    onekey_firmware_build_id: verify?.firmwareBuildId,
+    onekey_boot_build_id: verify?.bootloaderBuildId,
+    onekey_board_build_id: verify?.boardBuildId,
+    onekey_ble_build_id: verify?.bleBuildId,
+    onekey_se01_version: nullableToUndefined(versions.se01),
+    onekey_se02_version: nullableToUndefined(versions.se02),
+    onekey_se03_version: nullableToUndefined(versions.se03),
+    onekey_se04_version: nullableToUndefined(versions.se04),
+    onekey_se01_hash: verify?.se01Hash,
+    onekey_se02_hash: verify?.se02Hash,
+    onekey_se03_hash: verify?.se03Hash,
+    onekey_se04_hash: verify?.se04Hash,
+    onekey_se01_build_id: verify?.se01BuildId,
+    onekey_se02_build_id: verify?.se02BuildId,
+    onekey_se03_build_id: verify?.se03BuildId,
+    onekey_se04_build_id: verify?.se04BuildId,
+    onekey_se01_boot_version: nullableToUndefined(versions.se01Boot),
+    onekey_se02_boot_version: nullableToUndefined(versions.se02Boot),
+    onekey_se03_boot_version: nullableToUndefined(versions.se03Boot),
+    onekey_se04_boot_version: nullableToUndefined(versions.se04Boot),
+    onekey_se01_boot_hash: verify?.se01BootHash,
+    onekey_se02_boot_hash: verify?.se02BootHash,
+    onekey_se03_boot_hash: verify?.se03BootHash,
+    onekey_se04_boot_hash: verify?.se04BootHash,
+    onekey_se01_boot_build_id: verify?.se01BootBuildId,
+    onekey_se02_boot_build_id: verify?.se02BootBuildId,
+    onekey_se03_boot_build_id: verify?.se03BootBuildId,
+    onekey_se04_boot_build_id: verify?.se04BootBuildId,
+  };
+}
 
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
@@ -167,6 +263,43 @@ const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  private deviceStateSyncQueues = new Map<string, Promise<void>>();
+
+  private getDeviceStateSyncKeys(values: Array<string | null | undefined>) {
+    const keys = values
+      .map((value) => value?.trim().toLowerCase())
+      .filter((value): value is string => Boolean(value));
+    return [...new Set(keys)];
+  }
+
+  async waitForDeviceStateSync({
+    connectIds,
+  }: {
+    connectIds: Array<string | null | undefined>;
+  }): Promise<void> {
+    // SDK events are emitted before the corresponding call resolves. Yield once
+    // so split background runtimes can register the event persistence task.
+    await Promise.resolve();
+    const queueKeys = this.getDeviceStateSyncKeys(connectIds);
+    let tasks = queueKeys
+      .map((key) => this.deviceStateSyncQueues.get(key))
+      .filter((task): task is Promise<void> => Boolean(task));
+    while (tasks.length > 0) {
+      await Promise.all(new Set(tasks));
+      tasks = queueKeys
+        .map((key) => this.deviceStateSyncQueues.get(key))
+        .filter((task): task is Promise<void> => Boolean(task));
+    }
+  }
+
+  private deviceProtocolByConnectId = new Map<string, 'V1' | 'V2'>();
+
+  /** Coalesce concurrent device-management reads for the same connection. */
+  private deviceManagementSnapshotInFlight = new Map<
+    string,
+    Promise<IDeviceManagementSnapshot>
+  >();
+
   private bridgeAvailabilityChecked = false;
 
   private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
@@ -189,6 +322,71 @@ class ServiceHardware extends ServiceBase {
       EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
       this.handleHardwareAvatarChanged,
     );
+  }
+
+  private rememberDeviceProtocol({
+    connectIds,
+    protocol,
+  }: {
+    connectIds: Array<string | null | undefined>;
+    protocol?: string | null;
+  }) {
+    if (protocol !== 'V1' && protocol !== 'V2') {
+      return;
+    }
+    for (const connectId of connectIds) {
+      if (connectId) {
+        this.deviceProtocolByConnectId.set(connectId, protocol);
+      }
+    }
+  }
+
+  private async getKnownDeviceProtocol(connectId?: string) {
+    if (!connectId) {
+      return undefined;
+    }
+    const cachedProtocol = this.deviceProtocolByConnectId.get(connectId);
+    if (cachedProtocol) {
+      return cachedProtocol;
+    }
+    try {
+      const device = await localDb.getDeviceByQuery({ connectId });
+      const protocol =
+        device?.connectProtocol ?? device?.deviceStateInfo?.protocol;
+      if (
+        device?.id &&
+        !device.connectProtocol &&
+        (protocol === 'V1' || protocol === 'V2')
+      ) {
+        try {
+          await localDb.updateDeviceConnectProtocol?.({
+            dbDeviceId: device.id,
+            connectProtocol: protocol,
+          });
+        } catch (error) {
+          serviceHardwareUtils.hardwareLog(
+            'backfill device connect protocol failed',
+            error,
+          );
+        }
+      }
+      this.rememberDeviceProtocol({
+        connectIds: [
+          connectId,
+          device?.connectId,
+          device?.usbConnectId,
+          device?.bleConnectId,
+        ],
+        protocol,
+      });
+      return protocol === 'V1' || protocol === 'V2' ? protocol : undefined;
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'restore device protocol from persistence failed',
+        error,
+      );
+      return undefined;
+    }
   }
 
   handleHardwareLabelChanged = cacheUtils.memoizee(
@@ -276,7 +474,16 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private hardwareUiEventQueue = new HardwareUiEventQueue<UiEvent>();
+
+  private hardwareUiEventState = createHardwareUiEventState();
+
   private connectedDeviceTracked = new Set<string>();
+
+  private resetHardwareUiEventQueue() {
+    this.hardwareUiEventQueue.reset();
+    this.hardwareUiEventState = createHardwareUiEventState();
+  }
 
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
@@ -322,6 +529,10 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'usePreReleaseConfig',
       );
+    const hardwareConfigUrl =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'hardwareConfigUrl',
+      );
     const debugMode =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
@@ -350,6 +561,7 @@ class ServiceHardware extends ServiceBase {
           } → ${hardwareTransportType}`,
         );
         // Reset SDK instance to use new transport type
+        this.resetHardwareUiEventQueue();
         await resetHardwareSDKInstance();
         this.registeredEvents = false;
 
@@ -361,11 +573,19 @@ class ServiceHardware extends ServiceBase {
     this.connectionManager.setCurrentTransportType(hardwareTransportType);
 
     try {
+      if (hardwareConfigUrl) {
+        serviceHardwareUtils.hardwareLog(
+          '[HardwareSDK] using hardware config source:',
+          hardwareConfigUrl,
+        );
+      }
+
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
-        isPreRelease: isPreRelease === true,
+        isPreRelease: !hardwareConfigUrl && isPreRelease === true,
+        hardwareConfigUrl: hardwareConfigUrl || undefined,
         hardwareConnectSrc,
         debugMode,
       });
@@ -378,11 +598,14 @@ class ServiceHardware extends ServiceBase {
 
       return instance;
     } catch (error) {
-      // always show error toast when sdk init, so user can report to us
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: (error as Error)?.message || 'Hardware SDK init failed',
-      });
+      if (
+        hardwareCallContext !== EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+      ) {
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: (error as Error)?.message || 'Hardware SDK init failed',
+        });
+      }
       throw error;
     }
   }
@@ -404,9 +627,11 @@ class ServiceHardware extends ServiceBase {
   private async specialProcessingEvent({
     originEvent,
     usedPayload,
+    isCurrent,
   }: {
     originEvent: UiEvent;
     usedPayload: IHardwareUiPayload;
+    isCurrent: () => boolean;
   }): Promise<{
     uiRequestType: EHardwareUiStateAction;
     payload: IHardwareUiPayload;
@@ -420,13 +645,19 @@ class ServiceHardware extends ServiceBase {
     // Handler Request Pin
     // If the user set is to enter pin on the device, change the event to enter pin on the hardware
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PIN) {
+      const { device, type } = originEvent.payload || {};
+      const { features } = device || {};
       const dbDevice = await localDb.getDeviceByQuery({
         connectId: newPayload.connectId,
       });
+      const payloadDeviceType = features
+        ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+        : undefined;
+      const requestDeviceType = dbDevice?.deviceType || payloadDeviceType;
 
       if (
-        dbDevice?.deviceType &&
-        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
+        requestDeviceType &&
+        DEVICE_PIN_ON_DEVICE_TYPES.has(requestDeviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
         if (
@@ -441,10 +672,9 @@ class ServiceHardware extends ServiceBase {
           newPayload.requestPinType = 'AttachPin';
         }
       } else {
-        const { device, type } = originEvent.payload || {};
-        const { features } = device || {};
-
-        const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
+        const inputPinOnSoftware = features
+          ? supportInputPinOnSoftwareSdk(features)
+          : { support: false };
         const supportInputPinOnSoftware =
           dbDevice?.settings?.inputPinOnSoftware !== false &&
           inputPinOnSoftware.support;
@@ -452,7 +682,7 @@ class ServiceHardware extends ServiceBase {
         const isAttachPin = type === 'PinMatrixRequestType_AttachToPin';
         newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
-        if (!supportInputPinOnSoftware) {
+        if (!supportInputPinOnSoftware && isCurrent()) {
           await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
           newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
         }
@@ -469,7 +699,7 @@ class ServiceHardware extends ServiceBase {
     }
 
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-      newPayload.existsAttachPinUser = originEvent.payload.existsAttachPinUser;
+      copyWalletSessionUiMetadata(newPayload, originEvent.payload);
     }
 
     return {
@@ -480,6 +710,7 @@ class ServiceHardware extends ServiceBase {
 
   async registerSdkEvents(instance: CoreApi) {
     if (!this.registeredEvents) {
+      this.resetHardwareUiEventQueue();
       this.registeredEvents = true;
       const {
         UI_EVENT,
@@ -489,97 +720,242 @@ class ServiceHardware extends ServiceBase {
         FIRMWARE_EVENT,
         // UI_REQUEST,
       } = await CoreSDKLoader();
-      instance.on(UI_EVENT, async (e) => {
-        const originEvent = e as UiEvent;
-        const { type: uiRequestType, payload } = e;
-        // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
-        defaultLogger.hardware.sdkLog.uiEvent(uiRequestType, payload);
+      instance.on(UI_EVENT, (e) =>
+        this.hardwareUiEventQueue
+          .enqueue(e as UiEvent, async (queuedEvent, { isCurrent }) => {
+            const originEvent = queuedEvent;
+            const { type: uiRequestType, payload } = queuedEvent;
+            // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
+            defaultLogger.hardware.sdkLog.uiEvent(uiRequestType, payload);
 
-        const { device, type: eventType, passphraseState } = payload || {};
-        const { deviceType, connectId, deviceId, features } = device || {};
-        const deviceMode = await this.getDeviceModeFromFeatures({
-          features: features || {},
-        });
-        const isBootloaderMode = deviceMode === EOneKeyDeviceMode.bootloader;
-
-        const usedPayload: IHardwareUiPayload = {
-          uiRequestType,
-          eventType,
-          deviceType,
-          deviceId,
-          connectId,
-          deviceMode,
-          isBootloaderMode: Boolean(isBootloaderMode),
-          passphraseState,
-          rawPayload: payload,
-        };
-
-        const { uiRequestType: newUiRequestType, payload: newPayload } =
-          await this.specialProcessingEvent({
-            originEvent,
-            usedPayload,
-          });
-
-        // >>> mock hardware forceInputOnDevice
-        // if (usedPayload) {
-        //   usedPayload.supportInputPinOnSoftware = false;
-        // }
-
-        // skip ui-close_window event, which cause infinite loop
-        //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (!SKIPPED_EVENTS.has(newUiRequestType)) {
-          defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
-            action: newUiRequestType,
-            connectId,
-            payload: newPayload,
-          });
-
-          if (NEW_DIALOG_EVENTS.has(newUiRequestType)) {
-            appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
-              uiRequestType: newUiRequestType,
-            });
-          } else if (
-            newUiRequestType ===
-            EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE
-          ) {
-            appEventBus.emit(
-              EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-              undefined,
-            );
-          } else if (
-            newUiRequestType ===
-            EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE
-          ) {
-            appEventBus.emit(
-              EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
-              undefined,
-            );
-          } else {
-            if (newUiRequestType === ('ui-device_progress' as any)) {
-              console.log('ui-device_progress', originEvent);
+            const eventPayload =
+              payload && typeof payload === 'object'
+                ? (payload as {
+                    device?: {
+                      deviceType?: IDeviceType | null;
+                      connectId?: string | null;
+                      deviceId?: string | null;
+                      features?: IOneKeyDeviceFeatures;
+                    };
+                    type?: string;
+                    passphraseState?: string;
+                  })
+                : undefined;
+            const {
+              device,
+              type: eventType,
+              passphraseState,
+            } = eventPayload || {};
+            const { deviceType, connectId, deviceId, features } = device || {};
+            const deviceMode = features
+              ? await this.getDeviceModeFromFeatures({ features })
+              : EOneKeyDeviceMode.normal;
+            if (!isCurrent()) {
+              return;
             }
-            // show hardware ui dialog
-            await hardwareUiStateAtom.set(
-              (): IHardwareUiState => ({
-                action: newUiRequestType,
-                connectId,
-                payload: newPayload,
-              }),
+            const isBootloaderMode = isOneKeyLoaderMode(deviceMode);
+
+            const usedPayload: IHardwareUiPayload = {
+              uiRequestType,
+              eventType: eventType ?? '',
+              deviceType: deviceType ?? EDeviceType.Unknown,
+              deviceId: deviceId ?? '',
+              connectId: connectId ?? '',
+              deviceMode,
+              isBootloaderMode: Boolean(isBootloaderMode),
+              passphraseState,
+              rawPayload: payload,
+            };
+
+            const { uiRequestType: newUiRequestType, payload: newPayload } =
+              await this.specialProcessingEvent({
+                originEvent,
+                usedPayload,
+                isCurrent,
+              });
+            if (!isCurrent()) {
+              return;
+            }
+
+            const reduction = reduceHardwareUiEventState(
+              this.hardwareUiEventState,
+              {
+                type: uiRequestType as EHardwareUiStateAction,
+                renderAction: newUiRequestType,
+                connectId: connectId ?? undefined,
+                payload,
+              },
             );
+            this.hardwareUiEventState = reduction.state;
+            if (!reduction.applied || !reduction.action) {
+              return;
+            }
+            const appliedUiRequestType = reduction.action;
+            const appliedConnectId =
+              reduction.connectId ?? connectId ?? newPayload.connectId;
+            const appliedPayload: IHardwareUiPayload =
+              appliedUiRequestType === EHardwareUiStateAction.ProcessLoading
+                ? {
+                    ...newPayload,
+                    uiRequestType: appliedUiRequestType,
+                    connectId: appliedConnectId,
+                  }
+                : newPayload;
+
+            // >>> mock hardware forceInputOnDevice
+            // if (usedPayload) {
+            //   usedPayload.supportInputPinOnSoftware = false;
+            // }
+
+            // skip ui-close_window event, which cause infinite loop
+            //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
+            if (!SKIPPED_EVENTS.has(appliedUiRequestType)) {
+              defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
+                action: appliedUiRequestType,
+                connectId: appliedConnectId,
+                payload: appliedPayload,
+              });
+
+              if (NEW_DIALOG_EVENTS.has(appliedUiRequestType)) {
+                appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+                  uiRequestType: appliedUiRequestType,
+                });
+              } else if (
+                appliedUiRequestType ===
+                EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE
+              ) {
+                appEventBus.emit(
+                  EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+                  undefined,
+                );
+              } else if (
+                appliedUiRequestType ===
+                EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE
+              ) {
+                appEventBus.emit(
+                  EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
+                  undefined,
+                );
+              } else {
+                if (appliedUiRequestType === ('ui-device_progress' as any)) {
+                  console.log('ui-device_progress', originEvent);
+                }
+                // show hardware ui dialog
+                await hardwareUiStateAtom.set(
+                  (): IHardwareUiState => ({
+                    action: appliedUiRequestType,
+                    connectId: appliedConnectId,
+                    payload: appliedPayload,
+                  }),
+                );
+                if (!isCurrent()) {
+                  return;
+                }
+              }
+            }
+            if (!isCurrent()) {
+              return;
+            }
+            await hardwareUiStateCompletedAtom.set({
+              action: appliedUiRequestType,
+              connectId: appliedConnectId,
+              payload: appliedPayload,
+            });
+          })
+          .catch((error: unknown) => {
+            defaultLogger.hardware.sdkLog.log(
+              'hardware-ui-event-queue',
+              error instanceof Error ? error.message : 'Unknown event error',
+            );
+          }),
+      );
+
+      instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
+        serviceHardwareUtils.hardwareLog('device state update', event);
+        const queueKeys = this.getDeviceStateSyncKeys([
+          event.state.identity.serialNo,
+          event.state.identity.deviceId,
+          event.connectId,
+        ]);
+        const previousTasks = queueKeys
+          .map((key) => this.deviceStateSyncQueues.get(key))
+          .filter((task): task is Promise<void> => Boolean(task));
+        const task = Promise.all(new Set(previousTasks))
+          .catch(() => undefined)
+          .then(async () => {
+            let persistenceResult:
+              | Awaited<ReturnType<typeof localDb.updateDeviceState>>
+              | undefined;
+            try {
+              persistenceResult = await localDb.updateDeviceState(event);
+            } catch (error) {
+              serviceHardwareUtils.hardwareLog(
+                'device state persistence failed',
+                error,
+              );
+            }
+            if (persistenceResult?.kind === 'identity-mismatch') {
+              try {
+                await this.deprecateWalletsForResetDevice(
+                  persistenceResult.deviceDbId,
+                );
+              } catch (error) {
+                serviceHardwareUtils.hardwareLog(
+                  'device reset wallet isolation failed',
+                  error,
+                );
+              }
+              return;
+            }
+            if (
+              persistenceResult?.kind === 'ignored' &&
+              persistenceResult.reason === 'stale'
+            ) {
+              return;
+            }
+            this.rememberDeviceProtocol({
+              connectIds: [event.connectId, event.state.identity.serialNo],
+              protocol: event.state.protocol,
+            });
+            try {
+              appEventBus.emit(
+                EAppEventBusNames.HardwareDeviceStateUpdate,
+                event,
+              );
+            } catch (error) {
+              serviceHardwareUtils.hardwareLog(
+                'device state subscriber failed',
+                error,
+              );
+            }
+          });
+        for (const queueKey of queueKeys) {
+          this.deviceStateSyncQueues.set(queueKey, task);
+        }
+        try {
+          await task;
+        } finally {
+          for (const queueKey of queueKeys) {
+            if (this.deviceStateSyncQueues.get(queueKey) === task) {
+              this.deviceStateSyncQueues.delete(queueKey);
+            }
           }
         }
-        await hardwareUiStateCompletedAtom.set({
-          action: newUiRequestType,
-          connectId,
-          payload: newPayload,
-        });
       });
 
       instance.on(
         DEVICE.SUPPORT_FEATURES,
         (message: DeviceSupportFeaturesPayload) => {
           const { features } = message.device || {};
-          if (!features || !features.device_id) return;
+          if (
+            !features ||
+            !deviceUtils.getRawDeviceId({
+              device: message.device as any,
+              features,
+            })
+          ) {
+            return;
+          }
 
           // TODO: save features to dbDevice
           serviceHardwareUtils.hardwareLog('features update', features);
@@ -591,9 +967,24 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const activeConnectId = message.device?.connectId;
+        const serialNo = (
+          message.device as KnownDevice & {
+            serialNo?: string;
+          }
+        )?.serialNo;
         const { features } = message.device || {};
-        if (!features || !features.device_id) return;
-        const { device_id: deviceId } = features;
+        this.rememberDeviceProtocol({
+          connectIds: [activeConnectId, serialNo || message.device?.uuid],
+          protocol: message.device?.state?.protocol ?? features?.protocol,
+        });
+        const deviceId = features
+          ? deviceUtils.getRawDeviceId({
+              device: message.device as any,
+              features,
+            })
+          : '';
+        if (!features || !deviceId) return;
 
         void (async () => {
           try {
@@ -633,9 +1024,20 @@ class ServiceHardware extends ServiceBase {
         })();
       });
 
+      instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        const activeConnectId = message.device?.connectId;
+        if (activeConnectId) {
+          this.deviceProtocolByConnectId.delete(activeConnectId);
+        }
+      });
+
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
       instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
+        if (SKIP_APP_FIRMWARE_UPDATE_EVENT) {
+          return;
+        }
+
         if (messages.type === FIRMWARE.RELEASE_INFO) {
           const payload: IFirmwareReleasePayload = {
             ...messages.payload,
@@ -687,12 +1089,47 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async deprecateWalletsForResetDevice(deviceDbId: string) {
+    const allHwWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: false,
+        filterQrWallet: true,
+      });
+    const willUpdateDeprecateMap: Record<string, boolean> = {};
+    for (const walletWithDevice of Object.values(allHwWallets)) {
+      const { wallet, device } = walletWithDevice;
+      if (
+        wallet?.id &&
+        (wallet.associatedDevice === deviceDbId || device?.id === deviceDbId)
+      ) {
+        willUpdateDeprecateMap[wallet.id] = true;
+      }
+    }
+    if (Object.keys(willUpdateDeprecateMap).length === 0) {
+      return;
+    }
+    const updated =
+      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    if (updated) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
+  }
+
   @backgroundMethod()
   async init() {
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,
     });
+  }
+
+  @backgroundMethod()
+  async resetHardwareSDK() {
+    this.resetHardwareUiEventQueue();
+    this.registeredEvents = false;
+    await resetHardwareSDKInstance();
   }
 
   @backgroundMethod()
@@ -775,6 +1212,7 @@ class ServiceHardware extends ServiceBase {
   // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices(params?: {
+    connectProtocol?: HardwareConnectProtocol;
     vendor?: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
@@ -797,7 +1235,11 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    const response = await hardwareSDK?.searchDevices();
+    const response = await hardwareSDK?.searchDevices(
+      params?.connectProtocol
+        ? { connectProtocol: params.connectProtocol }
+        : undefined,
+    );
     defaultLogger.hardware.sdkLog.log(
       'searchDevices response: ',
       JSON.stringify(response),
@@ -809,7 +1251,11 @@ class ServiceHardware extends ServiceBase {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
       if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
-        const retryResponse = await hardwareSDK?.searchDevices();
+        const retryResponse = await hardwareSDK?.searchDevices(
+          params?.connectProtocol
+            ? { connectProtocol: params.connectProtocol }
+            : undefined,
+        );
         defaultLogger.hardware.sdkLog.log(
           'searchDevices response after udev rules: ',
           JSON.stringify(retryResponse),
@@ -1085,6 +1531,86 @@ class ServiceHardware extends ServiceBase {
     return this.getFeaturesWithoutCache(params);
   }
 
+  @backgroundMethod()
+  async getPro2OnboardingStatus({ connectId }: { connectId: string }) {
+    const hardwareCallContext =
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceGetOnboardingStatus(compatibleConnectId, {
+        connectProtocol: 'V2',
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getDeviceManagementSnapshot({
+    connectId,
+    refreshInfo = false,
+  }: {
+    connectId: string;
+    refreshInfo?: boolean;
+  }): Promise<IDeviceManagementSnapshot> {
+    const hardwareCallContext =
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext,
+    });
+    const snapshotKey = `${compatibleConnectId}:${
+      refreshInfo ? 'firmware-and-settings' : 'settings'
+    }`;
+    const existingRequest =
+      this.deviceManagementSnapshotInFlight.get(snapshotKey);
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = (async () => {
+      let state: IOneKeyDeviceState;
+      try {
+        state = await this.getDeviceState({
+          connectId: compatibleConnectId,
+          params: { scope: refreshInfo ? 'firmware' : 'settings' },
+          hardwareCallContext,
+        });
+        if (refreshInfo) {
+          state = await this.getDeviceState({
+            connectId: compatibleConnectId,
+            params: { scope: 'settings' },
+            hardwareCallContext,
+          });
+        }
+      } catch (error) {
+        serviceHardwareUtils.hardwareLog(
+          'device settings snapshot unavailable',
+          error,
+        );
+        state = await this.getDeviceState({
+          connectId: compatibleConnectId,
+          hardwareCallContext,
+        });
+      }
+      return { state };
+    })();
+    this.deviceManagementSnapshotInFlight.set(snapshotKey, request);
+
+    try {
+      return await request;
+    } finally {
+      if (this.deviceManagementSnapshotInFlight.get(snapshotKey) === request) {
+        this.deviceManagementSnapshotInFlight.delete(snapshotKey);
+      }
+    }
+  }
+
   private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
       e as deviceErrors.OneKeyHardwareError;
@@ -1102,9 +1628,11 @@ class ServiceHardware extends ServiceBase {
   async connect({
     device,
     hardwareCallContext,
+    connectProtocol,
   }: {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
+    connectProtocol?: HardwareConnectProtocol;
   }): Promise<Features | undefined> {
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
     if (vendor && vendor !== EHardwareVendor.onekey) {
@@ -1126,37 +1654,70 @@ class ServiceHardware extends ServiceBase {
       );
     }
 
-    // Get compatible connectId for the current transport type
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId: connectId || undefined,
-      featuresDeviceId: device.deviceId,
-      hardwareCallContext:
-        hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+    // Electron BLE discovery returns the Noble peripheral ID as the canonical
+    // connection identifier. Replacing it with the Pro USB serial number would
+    // make Noble run a targeted scan for PRB... and never find the peripheral.
+    // Keep the existing compatibility lookup for native transports only.
+    const isDesktopBleSearchDevice =
+      platformEnv.isSupportDesktopBle &&
+      deviceUtils.isBluetoothSearchDevice(device);
+    const compatibleConnectId = isDesktopBleSearchDevice
+      ? connectId || undefined
+      : await this.getCompatibleConnectId({
+          connectId: connectId || undefined,
+          featuresDeviceId: device.deviceId,
+          hardwareCallContext:
+            hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+        });
+    const protocolAwareDevice = device as SearchDevice & {
+      connectProtocol?: HardwareConnectProtocol;
+      state?: { protocol?: HardwareConnectProtocol | null };
+    };
+    const resolvedConnectProtocol =
+      connectProtocol ??
+      protocolAwareDevice.connectProtocol ??
+      protocolAwareDevice.state?.protocol ??
+      (await this.getKnownDeviceProtocol(compatibleConnectId));
+    this.rememberDeviceProtocol({
+      connectIds: [
+        connectId,
+        compatibleConnectId,
+        (device as SearchDevice & { serialNo?: string }).serialNo,
+        device.uuid,
+      ],
+      protocol: resolvedConnectProtocol,
     });
+
+    const knownFeatures = (device as KnownDevice).features;
+    if (!platformEnv.isNative && knownFeatures) {
+      // WebUSB discovery already initialized the device. Reuse its result to
+      // avoid reconnecting and prompting for device access again.
+      return knownFeatures;
+    }
+
+    const params = {
+      ...(resolvedConnectProtocol
+        ? { connectProtocol: resolvedConnectProtocol }
+        : {}),
+      ...(hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE
+        ? { allowEmptyConnectId: true }
+        : {}),
+    } as IDeviceGetFeaturesOptions['params'];
 
     if (platformEnv.isNative) {
       try {
         return await this.connectDevice({
           connectId: compatibleConnectId,
+          params,
         });
       } catch (e: any) {
         this.handlerConnectError(e);
       }
     } else {
-      /**
-       * USB does not need the extra getFeatures call
-       */
-      try {
-        return await this.connectDevice({
-          connectId: compatibleConnectId,
-          params: {
-            allowEmptyConnectId:
-              hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
-          },
-        });
-      } catch (_e: any) {
-        return (device as KnownDevice).features;
-      }
+      return this.connectDevice({
+        connectId: compatibleConnectId,
+        params,
+      });
     }
   }
 
@@ -1173,26 +1734,6 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
     );
-  }
-
-  @backgroundMethod()
-  async getFeaturesWithUnlock({ connectId }: { connectId: string }) {
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    let features = await this.getFeaturesWithoutCache({
-      connectId: compatibleConnectId,
-    });
-
-    if (!features.unlocked) {
-      // unlock device
-      features = await this.unlockDevice({
-        connectId: compatibleConnectId,
-      });
-    }
-
-    return features;
   }
 
   cancelTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1289,10 +1830,10 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    // TODO get connectId from SDK: connectId = getDeviceUUID() only works on usb sdk
-    // connectId: DataManager.isBleConnect(env) ? this.mainId || null : getDeviceUUID(this.features),
+    // TODO get connectId from SDK: USB connectId should use the standard device identity helper.
+    // For App-side compatibility use deviceUtils.buildDeviceUSBConnectId({ features }).
     // TODO uuid is equal to connectId in ble sdk?
-    // const connectId = getDeviceUUID(features);
+    // const connectId = await deviceUtils.buildDeviceUSBConnectId({ features });
     // if (connectId) {
     //   return connectId;
     // }
@@ -1324,8 +1865,10 @@ class ServiceHardware extends ServiceBase {
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
     const { connectId, params, silentMode, hardwareCallContext } = options;
-    serviceHardwareUtils.hardwareLog('call getFeatures()', connectId);
-    if (!params?.allowEmptyConnectId && !connectId) {
+    const { allowEmptyConnectId, detectBootloaderDevice, ...sdkParams } =
+      params ?? {};
+    serviceHardwareUtils.hardwareLog('read legacy app features', connectId);
+    if (!allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
@@ -1334,11 +1877,62 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext,
     });
-    const features = await convertDeviceResponse(
-      () => hardwareSDK?.getFeatures(connectId, params),
+    const knownProtocol =
+      sdkParams.connectProtocol ??
+      (await this.getKnownDeviceProtocol(connectId ?? undefined));
+    const getFeaturesParams = {
+      ...sdkParams,
+      ...(knownProtocol ? { connectProtocol: knownProtocol } : {}),
+      ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
+    };
+    const readV1Features = async () => {
+      const features = await convertDeviceResponse(
+        () =>
+          hardwareSDK?.getFeatures(
+            connectId as string,
+            Object.keys(getFeaturesParams).length > 0
+              ? getFeaturesParams
+              : undefined,
+          ),
+        { silentMode },
+      );
+      this.rememberDeviceProtocol({
+        connectIds: [connectId],
+        protocol: 'V1',
+      });
+      return features;
+    };
+    if (knownProtocol === 'V1') {
+      return readV1Features();
+    }
+    let readParams = Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
+    if (knownProtocol) {
+      readParams = { ...sdkParams, connectProtocol: knownProtocol };
+    }
+    const currentState = await convertDeviceResponse(
+      () => hardwareSDK?.getDeviceState(connectId as string, readParams),
       { silentMode },
     );
-    return features;
+    if (sdkParams.onlyConnectBleDevice) {
+      // Preserve the x-branch connection-only contract: the SDK returns an
+      // empty payload after establishing BLE. Pro 2 still enters through the
+      // V2 getDeviceState API, but the expected null is not a full DeviceState.
+      return currentState as unknown as IOneKeyDeviceFeatures;
+    }
+    this.rememberDeviceProtocol({
+      connectIds: [connectId, currentState.identity.serialNo],
+      protocol: currentState.protocol,
+    });
+    if (currentState.protocol === 'V1') {
+      return readV1Features();
+    }
+    if (
+      detectBootloaderDevice &&
+      isOneKeyLoaderMode(currentState.status.mode)
+    ) {
+      throw new deviceErrors.DeviceDetectInBootloaderMode();
+    }
+    return projectLegacyDeviceFeaturesFromState(currentState);
   };
 
   _getFeaturesWithTimeout = makeTimeoutPromise({
@@ -1376,18 +1970,117 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
+  _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
+    const { connectId, params, silentMode, hardwareCallContext } = options;
+    const { allowEmptyConnectId, ...sdkParams } = params ?? {};
+    serviceHardwareUtils.hardwareLog('call getDeviceState()', connectId);
+    if (!allowEmptyConnectId && !connectId) {
+      throw new OneKeyLocalError(
+        'hardware getDeviceState ERROR: connectId is undefined',
+      );
+    }
+    const knownProtocol =
+      sdkParams.connectProtocol ??
+      (await this.getKnownDeviceProtocol(connectId ?? undefined));
+    const normalizedSdkParams =
+      params || knownProtocol
+        ? {
+            ...sdkParams,
+            ...(knownProtocol ? { connectProtocol: knownProtocol } : {}),
+          }
+        : undefined;
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+      hardwareCallContext,
+    });
+    const state = await convertDeviceResponse(
+      () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
+      { silentMode },
+    );
+    this.rememberDeviceProtocol({
+      connectIds: [connectId, state.identity.serialNo],
+      protocol: state.protocol,
+    });
+    return state;
+  };
+
+  _getDeviceStateWithTimeout = makeTimeoutPromise({
+    asyncFunc: this._getDeviceStateLowLevel,
+    timeout: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    timeoutRejectError: new deviceErrors.DeviceMethodCallTimeout(),
+  });
+
+  _getDeviceStateWithMutex = async (
+    options: IDeviceGetStateOptions,
+  ): Promise<IOneKeyDeviceState> =>
+    this.getFeaturesMutex.runExclusive(async () =>
+      this._getDeviceStateWithTimeout(options),
+    );
+
+  @backgroundMethod()
+  async getDeviceState(options: IDeviceGetStateOptions) {
+    const hardwareCallContext =
+      options.hardwareCallContext ??
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const compatibleConnectId = options.connectId
+      ? await this.getCompatibleConnectId({
+          connectId: options.connectId,
+          hardwareCallContext,
+        })
+      : options.connectId;
+    return this._getDeviceStateWithMutex({
+      ...options,
+      connectId: compatibleConnectId,
+      hardwareCallContext,
+    });
+  }
+
+  @backgroundMethod()
+  async getDeviceStateWithUnlock({
+    connectId,
+    params,
+  }: {
+    connectId: string;
+    params?: GetDeviceStateParams;
+  }) {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    let state = await this.getDeviceState({
+      connectId: compatibleConnectId,
+      params,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    if (state.status.initialized === false) {
+      throw new OneKeyLocalError('Device is not initialized');
+    }
+    if (state.status.unlocked === false) {
+      await this.unlockDevice({ connectId: compatibleConnectId });
+      state = await this.getDeviceState({
+        connectId: compatibleConnectId,
+        params,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+    }
+    return state;
+  }
+
+  /** @deprecated 使用 getDeviceState。 */
   @backgroundMethod()
   async getFeatures(options: IDeviceGetFeaturesOptions) {
     const features = await this._getFeaturesWithCache(options);
     return features;
   }
 
+  /** @deprecated 使用 getDeviceState。 */
   @backgroundMethod()
   async getFeaturesWithoutCache(options: IDeviceGetFeaturesOptions) {
     const features = await this._getFeaturesWithMutex(options);
     return features;
   }
 
+  /** @deprecated 使用 getDeviceStateByWallet。 */
   @backgroundMethod()
   async getFeaturesByWallet({ walletId }: { walletId: string }) {
     const device = await this.backgroundApi.serviceAccount.getWalletDevice({
@@ -1397,6 +2090,24 @@ class ServiceHardware extends ServiceBase {
     return this.getFeatures({ connectId: device.connectId });
   }
 
+  @backgroundMethod()
+  async getDeviceStateByWallet({
+    walletId,
+    params,
+  }: {
+    walletId: string;
+    params?: GetDeviceStateParams;
+  }) {
+    const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+      walletId,
+    });
+    return this.getDeviceState({
+      connectId: device.connectId,
+      params,
+    });
+  }
+
+  /** @deprecated 使用 getDeviceState，并按 scope 读取所需分区。 */
   @backgroundMethod()
   async getAboutDeviceFeatures(params: { connectId: string }) {
     const dbDevice = await localDb.getDeviceByQuery({
@@ -1479,9 +2190,64 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
+    let protocol = await this.getKnownDeviceProtocol(connectId);
+    if (!protocol) {
+      const state = await convertDeviceResponse(() =>
+        hardwareSDK.getDeviceState(connectId),
+      );
+      protocol =
+        state.protocol === 'V1' || state.protocol === 'V2'
+          ? state.protocol
+          : undefined;
+      this.rememberDeviceProtocol({
+        connectIds: [connectId, state.identity.serialNo],
+        protocol,
+      });
+    }
+    if (protocol === 'V2') {
+      const openWalletSession = hardwareSDK?.openWalletSession;
+      if (!openWalletSession) {
+        throw new OneKeyLocalError(
+          'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
+        );
+      }
+      const walletSession = await convertDeviceResponse(() =>
+        useEmptyPassphrase
+          ? openWalletSession(connectId, { mode: 'standard' })
+          : openWalletSession(connectId, { mode: 'select-hidden' }),
+      );
+      const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
+      if (walletSession.walletType !== expectedWalletType) {
+        throw new OneKeyLocalError(
+          `Protocol V2 wallet type mismatch: expected ${expectedWalletType}, received ${walletSession.walletType}`,
+        );
+      }
+      if (walletSession.walletType === 'standard') {
+        return undefined;
+      }
+      const passphraseState = nullableToUndefined(
+        walletSession.passphraseState,
+      );
+      if (!passphraseState) {
+        throw new OneKeyLocalError(
+          'Protocol V2 hidden wallet response is missing passphraseState',
+        );
+      }
+      return passphraseState;
+    }
+
+    const getPassphraseState = hardwareSDK?.getPassphraseState as
+      | ((
+          targetConnectId: string,
+          params: CommonParams,
+        ) => HardwareResponse<string | undefined>)
+      | undefined;
+    if (!getPassphraseState) {
+      return undefined;
+    }
 
     return convertDeviceResponse(() =>
-      hardwareSDK?.getPassphraseState(connectId, {
+      getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
@@ -1514,7 +2280,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async setBrightness(p: IBaseDeviceProcessingParams) {
+  async setBrightness(p: ISetBrightnessParams) {
     return this.deviceSettingsManager.setBrightness(p);
   }
 
@@ -1527,35 +2293,30 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async wipeDevice(p: IWipeDeviceParams) {
-    return this.deviceSettingsManager.wipeDevice(p);
+    let deviceDbId: string | undefined;
+    if (p.walletId) {
+      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+        walletId: p.walletId,
+      });
+      deviceDbId = device?.id;
+    } else if (p.connectId || p.featuresDeviceId) {
+      const device = await localDb.getDeviceByQuery({
+        connectId: p.connectId,
+        featuresDeviceId: p.featuresDeviceId,
+      });
+      deviceDbId = device?.id;
+    }
+    const result = await this.deviceSettingsManager.wipeDevice(p);
+    if (deviceDbId) {
+      await this.deprecateWalletsForResetDevice(deviceDbId);
+    }
+    return result;
   }
 
   @backgroundMethod()
   @toastIfError()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
-    const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
-    if (result.message) {
-      let dbDeviceId: string | undefined;
-      if (p.walletId) {
-        const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-          walletId: p.walletId,
-        });
-        dbDeviceId = wallet?.associatedDevice;
-      } else {
-        const device = await localDb.getDeviceByQuery({
-          connectId: p.connectId,
-          featuresDeviceId: p.featuresDeviceId,
-        });
-        dbDeviceId = device?.id;
-      }
-      if (dbDeviceId) {
-        await localDb.updateDeviceFeaturesPassphraseProtection({
-          dbDeviceId,
-          passphraseProtection: p.passphraseEnabled,
-        });
-      }
-    }
-    return result;
+    return this.deviceSettingsManager.setPassphraseEnabled(p);
   }
 
   @backgroundMethod()
@@ -1586,17 +2347,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // update db features label
-        await localDb.updateDeviceFeaturesLabel({
-          dbDeviceId,
-          label: p.label,
-        });
-        // After device label is updated, notify UI/hardware interaction layer to refresh cached device info,
-        // otherwise the hardware interaction dialog may keep showing the old name until app restart.
-        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-          deviceId: dbDeviceId,
-        });
-        // update db wallet name
+        // DeviceState 持久化和界面刷新由 SDK DEVICE.STATE 统一驱动。
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
           walletId: p.walletId,
           dbDeviceId,
@@ -1674,15 +2425,55 @@ class ServiceHardware extends ServiceBase {
       homeScreenType,
       thumbnail: false,
     });
-    const thumbnailSize = getHomeScreenSize({
+    let thumbnailSize = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,
       thumbnail: true,
     });
+    size =
+      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      }) ?? size;
+    thumbnailSize =
+      serviceHardwareUtils.getPro2HomeScreenSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      }) ?? thumbnailSize;
     if (!size && isT1Model) {
       size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
     }
     return { names, size, thumbnailSize };
+  }
+
+  @backgroundMethod()
+  async getDeviceNftConfig({
+    dbDeviceId,
+  }: {
+    dbDeviceId: string | undefined;
+  }): Promise<IDeviceHomeScreenConfig> {
+    const { getNftSize } = await CoreSDKLoader();
+    const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
+    const size =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      });
+    const thumbnailSize =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      });
+
+    return { names: [], size, thumbnailSize };
   }
 
   @backgroundMethod()
@@ -1731,6 +2522,79 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async uploadPro2Nft({
+    connectId,
+    imageHex,
+    thumbnailHex,
+    title,
+    subtitle,
+    timestampMs,
+  }: IUploadPro2NftParams) {
+    const image = decodeJpegToRgba({
+      imageHex,
+      expectedWidth: 540,
+      expectedHeight: 540,
+      label: 'Pro2 NFT image',
+    });
+    const thumbnail = decodeJpegToRgba({
+      imageHex: thumbnailHex,
+      expectedWidth: 263,
+      expectedHeight: 263,
+      label: 'Pro2 NFT thumbnail',
+    });
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.deviceUploadNft(compatibleConnectId, {
+        image: { width: image.width, height: image.height, rgba: image.data },
+        thumbnail: {
+          width: thumbnail.width,
+          height: thumbnail.height,
+          rgba: thumbnail.data,
+        },
+        title,
+        subtitle,
+        timestampMs,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async uploadPortfolioPackage({
+    connectId,
+    packageBytes,
+  }: {
+    connectId: string;
+    packageBytes: ArrayBuffer;
+  }) {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    const portfolioSDK = hardwareSDK as typeof hardwareSDK & {
+      uploadPortfolio: (
+        targetConnectId: string,
+        params: { packageBytes: ArrayBuffer },
+      ) => HardwareResponse<{ portfolioUpdated: true }>;
+    };
+    return convertDeviceResponse(() =>
+      portfolioSDK.uploadPortfolio(compatibleConnectId, {
+        packageBytes,
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async getLogs(): Promise<string[]> {
     const logs: string[] = ['===== device logs ====='];
     try {
@@ -1746,6 +2610,25 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getFirmwareVerificationFeatures({
+    connectId,
+  }: {
+    connectId: string;
+  }): Promise<OnekeyFeatures> {
+    const compatibleConnectId = await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    const state = await this.getDeviceState({
+      connectId: compatibleConnectId,
+      params: { scope: 'firmware' },
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    return buildOnekeyFeaturesFromState(state);
+  }
+
+  /** @deprecated 使用 getFirmwareVerificationFeatures。 */
+  @backgroundMethod()
   async getOneKeyFeatures({
     connectId,
     deviceType,
@@ -1753,25 +2636,8 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: compatibleConnectId,
-    });
-    return convertDeviceResponse(() => {
-      // classic1s does not support getOnekeyFeatures method
-      if (
-        deviceType === EDeviceType.Classic1s ||
-        deviceType === EDeviceType.ClassicPure
-      ) {
-        return hardwareSDK?.getFeatures(
-          compatibleConnectId,
-        ) as unknown as Response<OnekeyFeatures>;
-      }
-      return hardwareSDK?.getOnekeyFeatures(compatibleConnectId);
-    });
+    void deviceType;
+    return this.getFirmwareVerificationFeatures({ connectId });
   }
 
   private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
@@ -1842,26 +2708,22 @@ class ServiceHardware extends ServiceBase {
       return;
     }
     const versionInfo: IDeviceVersionCacheInfo = {
-      onekey_firmware_version: undefined,
-      onekey_ble_version: undefined,
-      ble_ver: undefined,
-      onekey_boot_version: undefined,
-      bootloader_version: undefined,
+      firmwareVersion: undefined,
+      bleVersion: undefined,
+      bootloaderVersion: undefined,
     };
     if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
       const bootVersion =
         params.releaseResult.updateInfos.bootloader?.toVersion;
-      versionInfo.onekey_boot_version = bootVersion;
-      versionInfo.bootloader_version = bootVersion;
+      versionInfo.bootloaderVersion = bootVersion;
     }
     if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
-      versionInfo.onekey_firmware_version =
+      versionInfo.firmwareVersion =
         params.releaseResult.updateInfos.firmware?.toVersion;
     }
     if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
       const bleVersion = params.releaseResult.updateInfos.ble?.toVersion;
-      versionInfo.onekey_ble_version = bleVersion;
-      versionInfo.ble_ver = bleVersion;
+      versionInfo.bleVersion = bleVersion;
     }
 
     const filteredVersionInfo: Partial<IDeviceVersionCacheInfo> = {};
@@ -2196,18 +3058,39 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
+    let result: { device: KnownDevice | null };
     try {
-      return await convertDeviceResponse(() =>
+      result = await convertDeviceResponse(() =>
         hardwareSDK?.promptWebDeviceAccess(params),
       );
     } catch (error) {
       if (await this.recoverLinuxWebUsbAccessDeniedError(error)) {
-        return convertDeviceResponse(() =>
+        result = await convertDeviceResponse(() =>
           hardwareSDK?.promptWebDeviceAccess(params),
         );
+      } else {
+        throw error;
       }
-      throw error;
     }
+    const device = result.device as KnownDevice | undefined;
+    this.rememberDeviceProtocol({
+      connectIds: [
+        params.deviceSerialNumberFromUI,
+        device?.connectId,
+        (device as (KnownDevice & { serialNo?: string }) | undefined)?.serialNo,
+        device?.uuid,
+        device?.path,
+      ],
+      protocol:
+        device?.state?.protocol ??
+        (
+          device as
+            | (KnownDevice & { connectProtocol?: 'V1' | 'V2' })
+            | undefined
+        )?.connectProtocol ??
+        device?.features?.protocol,
+    });
+    return result;
   }
 
   private async _needCheckBridgeStatus() {
@@ -2294,6 +3177,7 @@ class ServiceHardware extends ServiceBase {
       );
 
       // Reset event registration flag to allow re-registration
+      this.resetHardwareUiEventQueue();
       this.registeredEvents = false;
 
       // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
@@ -2445,7 +3329,7 @@ class ServiceHardware extends ServiceBase {
       }
 
       // Step 2: Get expected device name from features
-      const expectedDeviceName = features.ble_name;
+      const expectedDeviceName = features.bleName;
 
       // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find((device) => {
@@ -2463,16 +3347,23 @@ class ServiceHardware extends ServiceBase {
         });
       }
 
+      const expectedDeviceId =
+        featuresDeviceId ||
+        deviceUtils.getRawDeviceId({
+          device: matchingDevice as any,
+          features,
+        });
+
       // Step 4: Try to connect and verify
       const connectResult = await this.connect({
         device: {
           ...matchingDevice,
           connectId: matchingDevice.connectId || '',
-          deviceId: features.device_id,
+          deviceId: expectedDeviceId,
         },
       });
 
-      if (connectResult && connectResult.device_id === features.device_id) {
+      if (connectResult && connectResult.deviceId === expectedDeviceId) {
         // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,
@@ -2601,7 +3492,11 @@ class ServiceHardware extends ServiceBase {
         if (!platformEnv.isSupportDesktopBle) {
           return device.connectId || connectId;
         }
-        if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+        if (
+          hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+          hardwareCallContext ===
+            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+        ) {
           const currentTransportType = await this.getCurrentTransportType();
           const preferredBle = await this.resolveTrezorPreferredBleConnectId({
             device,
@@ -2633,7 +3528,10 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+    if (
+      hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+      hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+    ) {
       const currentTransportType = await this.getCurrentTransportType();
       if (
         currentTransportType === EHardwareTransportType.DesktopWebBle &&
@@ -2684,7 +3582,12 @@ class ServiceHardware extends ServiceBase {
             {
               device,
               deviceId:
-                featuresDeviceId || device.featuresInfo?.device_id || '',
+                featuresDeviceId ||
+                deviceUtils.getRawDeviceId({
+                  device: deviceUtils.dbDeviceToSearchDevice(device),
+                  features: device.featuresInfo,
+                }) ||
+                '',
               usbConnectId: connectId,
               features: features || device.featuresInfo,
               promiseId,
@@ -2741,18 +3644,20 @@ class ServiceHardware extends ServiceBase {
     firmwareVersion: string;
   }): Promise<IHardwareHomeScreenData[]> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const serverDeviceType =
+      serviceHardwareUtils.getHomeScreenServerDeviceType(deviceType);
     const response = await client.get<{
       data: IHardwareHomeScreenResponse[];
     }>('/utility/v1/wallet-homescreen/list', {
       params: {
-        deviceType,
+        deviceType: serverDeviceType,
         serialNumber,
         firmwareVersion,
       },
     });
     const { data } = response.data;
     return data
-      .filter((item) => item.deviceTypes.includes(deviceType))
+      .filter((item) => item.deviceTypes.includes(serverDeviceType))
       .filter(
         (item) =>
           item.resType === 'system' ||

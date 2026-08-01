@@ -53,6 +53,56 @@ export type IFirmwareAuthenticateParams = {
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
 
+function buildSkippedFirmwareAuthenticateResult(
+  device: SearchDevice | IDBDevice,
+): IFirmwareVerifyResult {
+  return {
+    verified: true,
+    skipVerification: true,
+    device,
+    payload: {
+      deviceType: device.deviceType,
+      data: '',
+      cert: '',
+      signature: '',
+    },
+    result: {
+      code: 0,
+      message: 'Firmware authentication skipped',
+    },
+  };
+}
+
+function buildSkippedFirmwareHashResult(
+  onekeyFeatures: OnekeyFeatures | undefined,
+): IDeviceVerifyVersionCompareResult {
+  const localVerifyInfos = onekeyFeatures
+    ? deviceUtils.parseLocalDeviceVersions({ onekeyFeatures })
+    : undefined;
+
+  return {
+    certificate: {
+      isMatch: true,
+      format: onekeyFeatures?.onekey_serial_no ?? '',
+    },
+    firmware: {
+      isMatch: true,
+      format: localVerifyInfos?.firmware.formatted ?? '',
+      releaseUrl: localVerifyInfos?.firmware.releaseUrl,
+    },
+    bluetooth: {
+      isMatch: true,
+      format: localVerifyInfos?.bluetooth.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bluetooth.releaseUrl,
+    },
+    bootloader: {
+      isMatch: true,
+      format: localVerifyInfos?.bootloader.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bootloader.releaseUrl,
+    },
+  };
+}
+
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async getDeviceCertWithSig({
@@ -79,9 +129,15 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
+    if (!deviceUtils.isFirmwareVerifySupported(device.deviceType)) {
+      return false;
+    }
+
     const dbDevice: IDBDevice | undefined = await localDb.getExistingDevice({
       rawDeviceId: device.deviceId || '',
-      uuid: device.uuid,
+      uuid:
+        (device as SearchDevice & { serialNo?: string | null }).serialNo ||
+        device.uuid,
     });
     // const versionText = deviceUtils.getDeviceVersionStr(device);
     // return dbDevice?.verifiedAtVersion !== versionText;
@@ -102,6 +158,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     skipDeviceCancel,
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
+    if (!deviceUtils.isFirmwareVerifySupported(deviceType)) {
+      return buildSkippedFirmwareAuthenticateResult(device);
+    }
+
     if (!connectId) {
       throw new OneKeyLocalError(
         'firmwareAuthenticate ERROR: device connectId is undefined',
@@ -204,12 +264,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }: {
     features: IOneKeyDeviceFeatures | undefined;
   }) {
-    // onekey_firmware_version
-    // onekey_firmware_hash
-    // onekey_ble_version
-    // onekey_ble_hash
-    // onekey_boot_version
-    // onekey_boot_hash
+    const deviceType = features
+      ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+      : undefined;
+    if (!deviceUtils.isFirmwareVerifySupported(deviceType)) {
+      return false;
+    }
+
     if (!features) {
       return false;
     }
@@ -267,6 +328,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
+    if (!deviceUtils.isFirmwareVerifySupported(params.deviceType)) {
+      return [];
+    }
+
     try {
       return await this.fetchFirmwareVerifyHashWithCache(params);
     } catch {
@@ -313,6 +378,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
+    if (!deviceUtils.isFirmwareVerifySupported(deviceType)) {
+      return buildSkippedFirmwareHashResult(onekeyFeatures);
+    }
+
     const defaultResult = {
       certificate: {
         isMatch: true,
@@ -328,8 +397,8 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
 
     const verifyVersions =
-      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
-        features: onekeyFeatures,
+      await deviceUtils.getDeviceVerifyVersionsFromRawOnekeyFeatures({
+        onekeyFeatures,
         deviceType,
       });
     if (!verifyVersions) {
@@ -370,7 +439,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return {
       certificate: {
         isMatch: true,
-        format: onekeyFeatures?.onekey_serial_no ?? '',
+        format: onekeyFeatures.onekey_serial_no ?? '',
       },
       firmware: {
         isMatch: firmwareMatch,

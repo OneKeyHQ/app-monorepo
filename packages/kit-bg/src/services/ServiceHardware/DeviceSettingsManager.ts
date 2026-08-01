@@ -1,4 +1,11 @@
-import { ResourceType, type Success } from '@onekeyfe/hd-transport';
+import {
+  type CoreApi,
+  type DeviceSettingsParams,
+  type DeviceSuccess,
+  type DeviceUploadResourceParams,
+  type DeviceUploadResourceResponse,
+} from '@onekeyfe/hd-core';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -9,7 +16,7 @@ import {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -24,6 +31,8 @@ import {
   getTrezorAdapterFromBackgroundApi,
 } from '../../vaults/base/trezorTransportUtils';
 
+import { getWallpaperResourceType } from './getWallpaperResourceType';
+import { decodeJpegToRgba } from './jpegRgbaUtils';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type { TrezorDeviceSettingsParams } from './adapters/types';
@@ -32,12 +41,6 @@ import type {
   IDBDeviceSettings as IDBDeviceDbSettings,
 } from '../../dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
-import type {
-  CoreApi,
-  DeviceSettingsParams,
-  DeviceUploadResourceParams,
-  DeviceUploadResourceResponse,
-} from '@onekeyfe/hd-core';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -65,6 +68,10 @@ export type ISetLanguageParams = IBaseDeviceProcessingParams & {
 
 export type ISetHapticFeedbackParams = IBaseDeviceProcessingParams & {
   hapticFeedback: boolean;
+};
+
+export type ISetBrightnessParams = IBaseDeviceProcessingParams & {
+  brightness?: number;
 };
 
 export type ISetPassphraseEnabledParams = IBaseDeviceProcessingParams & {
@@ -162,6 +169,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     );
   }
 
+  private _isPro2Device(device: IDBDevice | undefined): boolean {
+    return device?.deviceType === EDeviceType.Pro2;
+  }
+
   private async _withTrezorDeviceProcessing({
     walletId,
     connectId,
@@ -182,7 +193,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   > & {
     action: ITrezorDeviceSettingsAction;
     preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
-  }): Promise<Success> {
+  }): Promise<DeviceSuccess> {
     const device = await this._getDeviceForSettings({
       walletId,
       connectId,
@@ -240,7 +251,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   > & {
     settings: TrezorDeviceSettingsParams;
     preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
-  }): Promise<Success> {
+  }): Promise<DeviceSuccess> {
     return this._withTrezorDeviceProcessing({
       walletId,
       connectId,
@@ -303,9 +314,24 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const hardwareSDK = await this.getSDKInstance({
           connectId: compatibleConnectId,
         });
-        return convertDeviceResponse(() =>
+        const result = await convertDeviceResponse(() =>
           action(hardwareSDK, compatibleConnectId, device),
         );
+        if (this._isPro2Device(device)) {
+          await this.serviceHardware.waitForDeviceStateSync({
+            connectIds: [
+              compatibleConnectId,
+              device.connectId,
+              device.usbConnectId,
+              device.bleConnectId,
+              device.uuid,
+              device.deviceId,
+              device.deviceStateInfo?.identity.serialNo,
+              device.deviceStateInfo?.identity.deviceId,
+            ],
+          });
+        }
+        return result;
       },
       {
         deviceParams: {
@@ -324,7 +350,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     connectId,
     featuresDeviceId,
     remove,
-  }: IChangePinParams): Promise<Success> {
+  }: IChangePinParams): Promise<DeviceSuccess> {
     const device = await this._getDeviceForSettings({
       walletId,
       connectId,
@@ -392,9 +418,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     if (this._isTrezorDevice(dbDevice)) {
       return {
-        passphraseEnabled: Boolean(
-          dbDevice.featuresInfo?.passphrase_protection,
-        ),
+        passphraseEnabled: Boolean(dbDevice.featuresInfo?.passphraseProtection),
         inputPinOnSoftware: false,
         inputPinOnSoftwareSupport: false,
       };
@@ -402,13 +426,14 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        // touch or Pro should unlock device first, otherwise features?.passphrase_protection will return undefined
+        // touch or Pro should unlock device first, otherwise features?.passphraseProtection will return undefined
         await this.serviceHardware.unlockDevice({
           connectId: dbDevice.connectId,
         });
 
-        const features = await this.serviceHardware.getFeaturesByWallet({
+        const state = await this.serviceHardware.getDeviceStateByWallet({
           walletId,
+          params: { scope: 'settings' },
         });
         const supportFeatures =
           await this.serviceHardware.getDeviceSupportFeatures(
@@ -417,7 +442,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const inputPinOnSoftwareSupport = Boolean(
           supportFeatures?.inputPinOnSoftware?.support,
         );
-        const passphraseEnabled = Boolean(features?.passphrase_protection);
+        const passphraseEnabled = Boolean(state.status.passphraseProtection);
         const inputPinOnSoftware = Boolean(
           dbDevice?.settings?.inputPinOnSoftware,
         );
@@ -450,20 +475,17 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             connectId: device.connectId,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
-        const features =
-          await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+        const state =
+          await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock({
             connectId: compatibleConnectId,
-            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            params: { scope: 'settings' },
           });
         await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: compatibleConnectId,
           skipDeviceCancel: true,
           deviceResetToHome: false,
         });
-        const label = await deviceUtils.buildDeviceLabel({
-          features,
-        });
-        return label || 'Unknown';
+        return state.identity.label || '';
       },
       {
         deviceParams: {
@@ -477,6 +499,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
+    if (this._isPro2Device(device) && !isAsciiAlphanumericWithSpaces(label)) {
+      throw new OneKeyLocalError(
+        'OneKey Pro 2 device labels only support ASCII letters, numbers, and spaces',
+      );
+    }
     if (this._isTrezorDevice(device)) {
       return this._applyTrezorSettings({
         walletId,
@@ -486,18 +513,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         preciseUpdateFields: { label },
       });
     }
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.applySettingsToDevice(device.connectId, {
-          label,
-        }),
-      {
-        deviceParams: {
-          dbDevice: device,
-        },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
-      },
-    );
+    return this._withDeviceProcessing({
+      walletId,
+      dbDevice: device,
+      debugMethodName: 'deviceSettings.setDeviceLabel',
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, { label }),
+    });
   }
 
   @backgroundMethod()
@@ -531,6 +553,41 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       async () => {
         // pro touch custom upload wallpaper
         if (needUploadResource) {
+          if (this._isPro2Device(device)) {
+            if (!finallyScreenHex) {
+              throw new OneKeyLocalError(
+                'Upload Pro2 wallpaper error: screenHex not defined',
+              );
+            }
+            const decoded = decodeJpegToRgba({
+              imageHex: finallyScreenHex,
+              expectedWidth: 604,
+              expectedHeight: 1024,
+              label: 'Pro2 wallpaper',
+            });
+            const compatibleConnectId =
+              await this.serviceHardware.getCompatibleConnectId({
+                connectId: device.connectId,
+                featuresDeviceId: device.deviceId,
+                hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+              });
+            const hardwareSDK = await this.getSDKInstance({
+              connectId: compatibleConnectId,
+            });
+            const response = await convertDeviceResponse(() =>
+              hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
+                width: decoded.width,
+                height: decoded.height,
+                rgba: decoded.data,
+                fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
+              }),
+            );
+            return {
+              ...response,
+              message: response.message ?? 'Success',
+              applyScreen: true,
+            };
+          }
           if (!finallyThumbnailHex) {
             throw new OneKeyLocalError(
               'Upload screen item error: thumbnailHex not defined',
@@ -547,7 +604,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             connectId: compatibleConnectId,
           });
           const uploadResParams: DeviceUploadResourceParams = {
-            resType: ResourceType.WallPaper,
+            resType: getWallpaperResourceType(),
             suffix: 'jpeg',
             dataHex: finallyScreenHex,
             thumbnailDataHex: finallyThumbnailHex,
@@ -606,7 +663,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         debugMethodName: 'deviceSettings.setPassphraseEnabled.trezor',
         settings: { use_passphrase: passphraseEnabled },
         preciseUpdateFields: {
-          passphrase_protection: passphraseEnabled,
+          passphraseProtection: passphraseEnabled,
         },
       });
     }
@@ -616,22 +673,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setPassphraseEnabled',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            usePassphrase: passphraseEnabled,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  passphrase_protection: passphraseEnabled,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          usePassphrase: passphraseEnabled,
+        }),
     });
   }
 
@@ -656,7 +701,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         debugMethodName: 'deviceSettings.setAutoLockDelayMs.trezor',
         settings: { auto_lock_delay_ms: autoLockDelayMs },
         preciseUpdateFields: {
-          auto_lock_delay_ms: autoLockDelayMs,
+          autoLockDelayMs,
         },
       });
     }
@@ -666,22 +711,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoLockDelayMs',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            autoLockDelayMs,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  auto_lock_delay_ms: autoLockDelayMs,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          autoLockDelayMs,
+        }),
     });
   }
 
@@ -706,22 +739,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoShutDownDelayMs',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            autoShutdownDelayMs,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  auto_shutdown_delay_ms: autoShutdownDelayMs,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          autoShutdownDelayMs,
+        }),
     });
   }
 
@@ -756,22 +777,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setLanguage',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            language,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  language,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          language,
+        }),
     });
   }
 
@@ -780,7 +789,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     walletId,
     connectId,
     featuresDeviceId,
-  }: IBaseDeviceProcessingParams) {
+    brightness,
+  }: ISetBrightnessParams) {
     const device = await this._getDeviceForSettings({
       walletId,
       connectId,
@@ -813,9 +823,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       dbDevice: device,
       debugMethodName: 'deviceSettings.setBrightness',
       action: async (sdk, compatibleConnectId, _device) =>
-        sdk.deviceSettings(compatibleConnectId, {
-          changeBrightness: true,
-        }),
+        sdk.deviceSettings(
+          compatibleConnectId,
+          typeof brightness === 'number'
+            ? { brightness }
+            : { changeBrightness: true },
+        ),
     });
   }
 
@@ -839,9 +852,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setHapticFeedback.trezor',
         settings: { haptic_feedback: hapticFeedback },
-        preciseUpdateFields: {
-          haptic_feedback: hapticFeedback,
-        },
       });
     }
     return this._withDeviceProcessing({
@@ -850,22 +860,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setHapticFeedback',
-      action: async (sdk, compatibleConnectId, targetDevice) =>
-        sdk
-          .deviceSettings(compatibleConnectId, {
-            hapticFeedback,
-          })
-          .then(async (res) => {
-            if (res.success && targetDevice.featuresInfo) {
-              await localDb.updateDevice({
-                features: targetDevice.featuresInfo,
-                preciseUpdateFields: {
-                  haptic_feedback: hapticFeedback,
-                },
-              });
-            }
-            return res;
-          }),
+      action: async (sdk, compatibleConnectId) =>
+        sdk.deviceSettings(compatibleConnectId, {
+          hapticFeedback,
+        }),
     });
   }
 

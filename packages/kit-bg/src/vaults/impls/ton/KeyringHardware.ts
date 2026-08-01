@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TonWalletVersion } from '@onekeyfe/hd-transport';
+import { TonWalletVersion } from '@onekeyfe/hd-core';
 import { Cell } from '@ton/core';
 
 import {

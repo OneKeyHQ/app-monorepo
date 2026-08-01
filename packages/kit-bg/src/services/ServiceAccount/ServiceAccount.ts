@@ -90,6 +90,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -210,6 +211,7 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { resolveDeviceStateForHwWalletCreate } from './deviceStateForHwWalletCreate';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 import {
   type IKeylessWalletRemovalCapability,
@@ -3445,6 +3447,11 @@ class ServiceAccount extends ServiceBase {
     }
 
     const wallet = await this.getWallet({ walletId });
+    if (accountUtils.isWalletDeprecatedOrMocked(wallet)) {
+      throw new OneKeyLocalError(
+        'Hardware wallet is unavailable after device reset',
+      );
+    }
     const dbDevice = await this.getWalletDevice({ walletId });
 
     // Ensure connectId is compatible for the current transport type
@@ -3468,6 +3475,23 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    const isOneKeyDevice =
+      (dbDevice.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey;
+    const connectProtocol =
+      dbDevice.connectProtocol ??
+      dbDevice.deviceStateInfo?.protocol ??
+      (isOneKeyDevice ? undefined : dbDevice.featuresInfo?.protocol);
+    if (
+      !dbDevice.connectProtocol &&
+      (connectProtocol === 'V1' || connectProtocol === 'V2')
+    ) {
+      await localDb.updateDeviceConnectProtocol({
+        dbDeviceId: dbDevice.id,
+        connectProtocol,
+      });
+      dbDevice.connectProtocol = connectProtocol;
+    }
+
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
@@ -3477,6 +3501,9 @@ class ServiceAccount extends ServiceBase {
         useEmptyPassphrase: !wallet.passphraseState,
         // Pre-warm signal; only sign methods honor it (getAddress etc. just MISS)
         usePreInitialize: true,
+        ...(connectProtocol === 'V1' || connectProtocol === 'V2'
+          ? { connectProtocol }
+          : {}),
       },
     };
   }
@@ -3502,11 +3529,29 @@ class ServiceAccount extends ServiceBase {
         features = connected.payload.features as IOneKeyDeviceFeatures;
       }
     } else {
-      features = await this.backgroundApi.serviceHardware.getFeatures({
-        connectId: compatibleConnectId,
-      });
+      const persistedState = dbDevice.deviceStateInfo;
+      const protocol = dbDevice.connectProtocol ?? persistedState?.protocol;
+      // Pro 1 already opened the hidden-wallet session in the previous step.
+      // Reading live state without its passphrase context would restore the
+      // standard Protocol V1 session and prompt again while deriving the XFP.
+      const state =
+        protocol === 'V1' && persistedState
+          ? persistedState
+          : await this.backgroundApi.serviceHardware.getDeviceState({
+              connectId: compatibleConnectId,
+            });
+      features = projectLegacyDeviceFeaturesFromState(state);
     }
-    return features || dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
+    if (features) {
+      return features;
+    }
+    if (
+      (dbDevice.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
+      dbDevice.deviceStateInfo
+    ) {
+      return projectLegacyDeviceFeaturesFromState(dbDevice.deviceStateInfo);
+    }
+    return dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
   }
 
   private async getFirstEvmAddressForHwWalletCreate({
@@ -3524,15 +3569,6 @@ class ServiceAccount extends ServiceBase {
   }): Promise<string | null> {
     if (isMockedStandardHwWallet) {
       return '';
-    }
-    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
-    if (!vendorProfile?.isThirdParty) {
-      return this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
-        connectId: compatibleConnectId,
-        deviceId,
-        path: FIRST_EVM_ADDRESS_PATH,
-        vendor,
-      });
     }
     return this.backgroundApi.serviceHardware.getEvmAddressByWalletState({
       connectId: compatibleConnectId,
@@ -3558,6 +3594,12 @@ class ServiceAccount extends ServiceBase {
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
+    const storedConnectProtocol =
+      dbDevice.connectProtocol ?? dbDevice.deviceStateInfo?.protocol;
+    const connectProtocol =
+      storedConnectProtocol === 'V1' || storedConnectProtocol === 'V2'
+        ? storedConnectProtocol
+        : undefined;
     const compatibleConnectId =
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
@@ -3602,6 +3644,8 @@ class ServiceAccount extends ServiceBase {
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
           features: resolvedFeatures,
+          connectProtocol,
+          deviceState: dbDevice.deviceStateInfo,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3632,7 +3676,7 @@ class ServiceAccount extends ServiceBase {
 
         return {
           ...dbWallet,
-          isAttachPinMode: resolvedFeatures.unlocked_attach_pin,
+          isAttachPinMode: resolvedFeatures.unlockedAttachPin,
         };
       },
       {
@@ -3754,22 +3798,40 @@ class ServiceAccount extends ServiceBase {
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
-    const deviceId = deviceUtils.getRawDeviceId({
+    let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
 
-    let xfp: string | undefined;
-    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
-      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
-        deviceId,
-        passphraseState,
-        throwError: true,
-        withUserInteraction: true,
-        vendor,
-      });
+    const deviceState = await resolveDeviceStateForHwWalletCreate({
+      existingState: params.deviceState,
+      preserveWalletSession:
+        !vendorProfile?.isThirdParty &&
+        params.connectProtocol === 'V1' &&
+        Boolean(passphraseState),
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      isMocked: Boolean(isMockedStandardHwWallet),
+      connectId: compatibleConnectId,
+      getDeviceState: (connectId, stateParams) =>
+        this.backgroundApi.serviceHardware.getDeviceState({
+          connectId,
+          params: {
+            ...stateParams,
+            ...(params.connectProtocol
+              ? { connectProtocol: params.connectProtocol }
+              : {}),
+          },
+        }),
+      onError: (error) =>
+        console.warn(
+          'createHWWalletBase: unable to seed canonical device state',
+          error,
+        ),
+    });
+    const liveDeviceId = deviceState?.identity.deviceId;
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      deviceId = liveDeviceId;
     }
     // Refresh DB info when compatibility lookup resolves to another connectId.
     // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
@@ -3787,8 +3849,25 @@ class ServiceAccount extends ServiceBase {
         params.device = refreshedDevice;
       }
     }
+    if (!vendorProfile?.isThirdParty && liveDeviceId) {
+      params.device = { ...params.device, deviceId: liveDeviceId };
+      params.features = { ...params.features, deviceId: liveDeviceId };
+    }
+
+    let xfp: string | undefined;
+    if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
+      xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
+        connectId: compatibleConnectId,
+        deviceId,
+        passphraseState,
+        throwError: true,
+        withUserInteraction: true,
+        vendor,
+      });
+    }
     const result = await localDb.createHwWallet({
       ...params,
+      deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',
@@ -8057,7 +8136,7 @@ class ServiceAccount extends ServiceBase {
       promise: true,
       primitive: true,
       normalizer: ([options]) => {
-        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const fwVendor = options.featuresInfo?.vendor || '';
         const capabilities =
           options.featuresInfo?.capabilities?.join(',') ?? '';
         const unitBtcOnly = String(

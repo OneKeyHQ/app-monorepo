@@ -1,4 +1,7 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -38,6 +41,10 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
     emit: jest.fn(),
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
+  CoreSDKLoader: jest.fn(),
 }));
 
 jest.mock('../../dbs/local/localDb', () => ({
@@ -82,6 +89,7 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
+const mockedCoreSDKLoader = jest.mocked(CoreSDKLoader);
 
 describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   beforeEach(() => {
@@ -120,6 +128,81 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       expect(getCompatibleConnectId).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('ServiceFirmwareUpdate.checkAllFirmwareRelease', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns no update for Pro2 without calling the Protocol V1 release API', async () => {
+    const checkAllFirmwareRelease = jest.fn();
+    const closeHardwareUiStateDialog = jest.fn();
+    const features = {
+      deviceType: EDeviceType.Pro2,
+      serialNo: 'PRO2_SERIAL',
+      bleName: 'Pro2 6136',
+      label: 'OneKey Pro 2',
+    } as never;
+    mockedCoreSDKLoader.mockResolvedValue({
+      getDeviceType: jest.fn(() => EDeviceType.Pro2),
+      getDeviceLabel: jest.fn(() => 'OneKey Pro 2'),
+      getDeviceSerialNo: jest.fn(() => 'PRO2_SERIAL'),
+      getDeviceUUID: jest.fn(() => 'PRO2_SERIAL'),
+    } as never);
+
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest.fn().mockResolvedValue({
+            cancel: jest.fn(),
+            checkAllFirmwareRelease,
+          }),
+        },
+        serviceHardwareUI: {
+          closeHardwareUiStateDialog,
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
+      isBootloaderMode: false,
+      features,
+      error: undefined,
+    });
+    const baseCheckSpy = jest.spyOn(service, 'baseCheckAllFirmwareRelease');
+
+    await expect(
+      service.checkAllFirmwareRelease({
+        connectId: 'PRO2_CONNECT_ID',
+        firmwareType: undefined,
+        skipCancel: true,
+      }),
+    ).resolves.toMatchObject({
+      deviceType: EDeviceType.Pro2,
+      deviceUUID: 'PRO2_SERIAL',
+      hasUpgrade: false,
+      totalPhase: [],
+      updateInfos: {
+        firmware: undefined,
+        ble: undefined,
+        bootloader: undefined,
+        bridge: undefined,
+      },
+    });
+    expect(baseCheckSpy).not.toHaveBeenCalled();
+    expect(checkAllFirmwareRelease).not.toHaveBeenCalled();
+    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: 'PRO2_CONNECT_ID',
+        skipDeviceCancel: true,
+      }),
+    );
+  });
 });
 
 describe('ServiceFirmwareUpdate workflow tracking', () => {

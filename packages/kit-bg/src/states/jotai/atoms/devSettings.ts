@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
@@ -127,6 +128,14 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Build App -> Pro 2 portfolio artifacts locally in dev. Production must use
+  // server-packed archive responses and must not upload client-packed archives.
+  enablePortfolioSyncDev?: boolean;
+  // Expose the Pro 2 onboarding entry and its Protocol V2 connection flow.
+  enablePro2OnboardingDev?: boolean;
+  // Expose Pro 2 development entry points and allow explicit Protocol V2
+  // sessions without changing the default protocol for existing devices.
+  enablePro2TestMode?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
 }
@@ -137,6 +146,31 @@ export type IDevSettingsPersistAtom = {
   enabled: boolean;
   settings?: IDevSettings;
 };
+
+export function isPro2TestModeEnabled(
+  devSettings: IDevSettingsPersistAtom,
+): boolean {
+  return Boolean(
+    devSettings.enabled && devSettings.settings?.enablePro2TestMode,
+  );
+}
+
+export type IPro2DebugModule = 'onboarding' | 'portfolio';
+
+export function isPro2DebugModuleEnabled(
+  devSettings: IDevSettingsPersistAtom,
+  module: IPro2DebugModule,
+): boolean {
+  if (!isPro2TestModeEnabled(devSettings)) {
+    return false;
+  }
+
+  if (module === 'onboarding') {
+    return Boolean(devSettings.settings?.enablePro2OnboardingDev);
+  }
+
+  return Boolean(devSettings.settings?.enablePortfolioSyncDev);
+}
 
 export function getDevSettingsNetworkThrottleEnabled(
   devSettings: IDevSettingsPersistAtom,
@@ -187,6 +221,9 @@ export const {
       forceIpTableStrict: false, // Strict mode: disabled by default
       disableIpTableFailover: false, // Fast failover enabled by default
       useFastPbkdf2NativeBackend: false,
+      enablePortfolioSyncDev: false,
+      enablePro2OnboardingDev: false,
+      enablePro2TestMode: false,
     },
   },
 });
@@ -198,6 +235,8 @@ export type IFirmwareUpdateDevSettings = {
   shouldUpdateFromWeb: boolean;
   allIsUpToDate: boolean;
   usePreReleaseConfig: boolean;
+  hardwareConfigUrl: string;
+  forceUpdateResource: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
   forceUpdateOnceFirmware: boolean;
@@ -209,8 +248,11 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
+  pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
+export type { IPro2FirmwareUpdateTarget };
 export const {
   target: firmwareUpdateDevSettingsPersistAtom,
   use: useFirmwareUpdateDevSettingsPersistAtom,
@@ -224,6 +266,8 @@ export const {
     shouldUpdateFromWeb: false,
     allIsUpToDate: false,
     usePreReleaseConfig: false,
+    hardwareConfigUrl: '',
+    forceUpdateResource: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,
     forceUpdateOnceFirmware: false,
@@ -235,6 +279,8 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    pro2ForceUpdateTargets: [],
+    pro2ForceUpdateOnceTargets: [],
   },
 });
 
