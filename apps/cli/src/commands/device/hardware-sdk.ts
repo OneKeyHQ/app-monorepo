@@ -11,6 +11,82 @@ import { AppError, ERROR_CODES } from '../../errors';
 import type { PassphraseMode } from '../../core/auth/auth-types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
+export type IResolvedPassphraseSession = {
+  passphraseState?: string;
+  sessionId?: string;
+};
+
+export function extractPassphraseSessionFromPayload(
+  payload:
+    | string
+    | {
+        passphraseState?: string | null;
+        sessionId?: string | null;
+        [key: string]: unknown;
+      }
+    | undefined,
+): IResolvedPassphraseSession {
+  return {
+    passphraseState:
+      typeof payload === 'string'
+        ? payload || undefined
+        : payload?.passphraseState || undefined,
+    sessionId:
+      typeof payload === 'object' && payload
+        ? payload.sessionId || undefined
+        : undefined,
+  };
+}
+
+export function extractPassphraseStateFromPayload(
+  payload:
+    | string
+    | {
+        passphraseState?: string | null;
+        [key: string]: unknown;
+      }
+    | undefined,
+): string | undefined {
+  return extractPassphraseSessionFromPayload(payload).passphraseState;
+}
+
+export async function openHiddenWalletSession({
+  sdk,
+  connectId,
+}: {
+  sdk: CoreApi;
+  connectId: string;
+}): Promise<IResolvedPassphraseSession> {
+  const openWalletSession = sdk.openWalletSession as unknown as (
+    targetConnectId: string,
+    params: { mode: 'hidden'; access: 'passphrase' },
+  ) => ReturnType<CoreApi['openWalletSession']>;
+  const result = await openWalletSession(connectId, {
+    mode: 'hidden',
+    access: 'passphrase',
+  });
+  if (!result.success) {
+    const err = result.payload as { error?: string; code?: string | number };
+    throw new AppError(
+      ERROR_CODES.BIZ_UNKNOWN.code,
+      `openWalletSession failed: ${err.error ?? 'unknown'} (code ${
+        err.code ?? '?'
+      })`,
+      'Check device connection and passphrase, then retry',
+    );
+  }
+
+  const session = extractPassphraseSessionFromPayload(result.payload);
+  if (!session.passphraseState || !session.sessionId) {
+    throw new AppError(
+      ERROR_CODES.AUTH_SESSION_INVALID.code,
+      'openWalletSession returned an incomplete wallet session',
+      'Update the hardware SDK and retry',
+    );
+  }
+  return session;
+}
+
 /**
  * CLI-local analogue of `@onekeyhq/shared` `CoreSDKLoader`.
  *
@@ -119,7 +195,7 @@ export async function disposeSDK(): Promise<void> {
   if (!sdkReadyPromise) return;
   try {
     const sdk = await sdkReadyPromise;
-    sdk.dispose();
+    await sdk.dispose();
   } catch {
     // ignore errors during cleanup
   } finally {
@@ -284,7 +360,9 @@ export function unwrapSDKResult<T>(
     const err = result.payload as { error?: string; code?: string | number };
     throw new AppError(
       ERROR_CODES.BIZ_UNKNOWN.code,
-      `Hardware ${operation} failed: ${err.error ?? 'unknown'} (code ${err.code ?? '?'})`,
+      `Hardware ${operation} failed: ${err.error ?? 'unknown'} (code ${
+        err.code ?? '?'
+      })`,
       'Check device connection and try again',
     );
   }
@@ -345,19 +423,16 @@ export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
 }
 
 /**
- * Obtain a passphraseState session token from the device.
+ * Obtain a passphrase session token pair from the device.
  *
- * Matches the app-monorepo pattern (ServiceHardware.getPassphraseStateBase):
- * - Calls sdk.getPassphraseState with initSession=true so the device
- *   prompts for passphrase entry (host input or on-device input).
- * - Returns the session token that must be passed in all subsequent
- *   SDK calls for this hidden wallet (replaces re-sending the passphrase).
- * - Returns undefined for standard wallets (no passphrase).
+ * Uses the unified V1/V2 wallet-session API and consumes the exact
+ * passphraseState/sessionId pair returned by the hardware SDK.
+ * - Returns an empty object for standard wallets (no passphrase).
  */
-export async function resolvePassphraseState(
+export async function resolvePassphraseSession(
   connectId: string,
   opts: { passphrase?: string; passphraseOnDevice?: boolean },
-): Promise<string | undefined> {
+): Promise<IResolvedPassphraseSession> {
   // BIP-39 treats an empty-string passphrase as a distinct hidden wallet
   // from the standard (no-passphrase) wallet. A falsy check would silently
   // map `{ passphrase: '' }` onto the standard wallet and derive the wrong
@@ -371,7 +446,7 @@ export async function resolvePassphraseState(
     );
   }
   if (opts.passphrase === undefined && !opts.passphraseOnDevice) {
-    return undefined; // standard wallet — no passphrase needed
+    return {}; // standard wallet — no passphrase needed
   }
 
   const sdk = await ensureSDKReady();
@@ -382,32 +457,24 @@ export async function resolvePassphraseState(
   }));
 
   try {
-    // Matches app-monorepo ServiceHardware.getPassphraseStateBase:
-    //   initSession: true  → force device to prompt for passphrase
-    //   useEmptyPassphrase: false → this IS a hidden wallet session
-    const result = await sdk.getPassphraseState(connectId, {
-      initSession: true,
-      useEmptyPassphrase: false,
-    });
-    if (!result.success) {
-      const err = result.payload as { error?: string; code?: string | number };
-      throw new AppError(
-        ERROR_CODES.BIZ_UNKNOWN.code,
-        `getPassphraseState failed: ${err.error ?? 'unknown'} (code ${err.code ?? '?'})`,
-        'Check device connection and passphrase, then retry',
-      );
-    }
-    // SDK returns the passphraseState token (a short hex string like "abc12345")
-    return typeof result.payload === 'string' ? result.payload : undefined;
+    return await openHiddenWalletSession({ sdk, connectId });
   } finally {
     setPassphraseProvider(undefined);
   }
 }
 
+export async function resolvePassphraseState(
+  connectId: string,
+  opts: { passphrase?: string; passphraseOnDevice?: boolean },
+): Promise<string | undefined> {
+  const session = await resolvePassphraseSession(connectId, opts);
+  return session.passphraseState;
+}
+
 /**
- * Resolve passphraseState based on session mode.
+ * Resolve passphrase session based on session mode.
  *
- * Unlike resolvePassphraseState(), this function does NOT require the
+ * Unlike resolvePassphraseSession(), this function does NOT require the
  * passphrase value upfront. Instead, it sets up a lazy provider:
  *
  * - 'none': standard wallet → useEmptyPassphrase, no prompt ever
@@ -418,14 +485,15 @@ export async function resolvePassphraseState(
  *   provider tells device to show passphrase input on its screen.
  *
  * SECURITY: passphrase exists only in memory during provider callback.
- * passphraseState is returned in memory, never persisted to disk.
+ * passphraseState is returned in memory; persistence is handled by the caller
+ * only after the downstream operation succeeds.
  */
-export async function resolvePassphraseStateByMode(
+export async function resolvePassphraseSessionByMode(
   connectId: string,
   mode: PassphraseMode,
-): Promise<string | undefined> {
+): Promise<IResolvedPassphraseSession> {
   if (mode === 'none') {
-    return undefined;
+    return {};
   }
 
   const sdk = await ensureSDKReady();
@@ -447,24 +515,20 @@ export async function resolvePassphraseStateByMode(
   }
 
   try {
-    const result = await sdk.getPassphraseState(connectId, {
-      initSession: true,
-      useEmptyPassphrase: false,
-    });
-    if (!result.success) {
-      const err = result.payload as { error?: string; code?: string | number };
-      throw new AppError(
-        ERROR_CODES.BIZ_UNKNOWN.code,
-        `getPassphraseState failed: ${err.error ?? 'unknown'} (code ${err.code ?? '?'})`,
-        'Check device connection and passphrase, then retry',
-      );
-    }
-    return typeof result.payload === 'string' ? result.payload : undefined;
+    return await openHiddenWalletSession({ sdk, connectId });
   } finally {
     // Don't clear provider here — keep it active for subsequent SDK calls.
     // The SDK fires REQUEST_PASSPHRASE on every new USB connection, so the
     // provider must remain installed for the process lifetime.
   }
+}
+
+export async function resolvePassphraseStateByMode(
+  connectId: string,
+  mode: PassphraseMode,
+): Promise<string | undefined> {
+  const session = await resolvePassphraseSessionByMode(connectId, mode);
+  return session.passphraseState;
 }
 
 /**
