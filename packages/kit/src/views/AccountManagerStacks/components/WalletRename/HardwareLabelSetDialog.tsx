@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
-import { Dialog, Keyboard, Toast } from '@onekeyhq/components';
+import {
+  Dialog,
+  Keyboard,
+  Toast,
+  useDialogInstance,
+} from '@onekeyhq/components';
+import { useFormWatch } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
@@ -20,6 +26,101 @@ import { getHardwareLabelValidationError } from './hardwareLabelValidation';
 
 import type { IntlShape } from 'react-intl';
 
+function DeviceLabelFormField(props: {
+  wallet: IDBWallet | undefined;
+  asciiOnly?: boolean;
+  asciiAlphanumericWithSpacesOnly?: boolean;
+}) {
+  const intl = useIntl();
+  const { wallet, asciiOnly, asciiAlphanumericWithSpacesOnly } = props;
+  const maxLength = MAX_LENGTH_HW_LABEL_NAME;
+  const labelValue = useFormWatch<{ name: string }>({ name: 'name' }) ?? '';
+  const validationError = getHardwareLabelValidationError({
+    value: labelValue,
+    maxLength,
+    asciiOnly,
+    asciiAlphanumericWithSpacesOnly,
+  });
+  let validationErrorMessage: string | undefined;
+  if (!labelValue.trim()) {
+    validationErrorMessage = intl.formatMessage({
+      id: ETranslations.form_rename_error_empty,
+    });
+  } else if (validationError === 'tooLong') {
+    validationErrorMessage = intl.formatMessage({
+      id: ETranslations.global_hardware_name_input_max,
+    });
+  } else if (validationError === 'invalid') {
+    validationErrorMessage = intl.formatMessage({
+      id: ETranslations.global_hardware_label_input_error,
+    });
+  }
+
+  return (
+    <Dialog.FormField
+      testID={AccountManagerTestIDs.walletRenameInput}
+      name="name"
+      renderErrorMessage={() => <></>}
+      label={intl.formatMessage({
+        id: ETranslations.global_hardware_label_title,
+      })}
+      rules={{
+        maxLength: {
+          value: maxLength,
+          message: 'Label is too long',
+        },
+        validate: (value: string) => {
+          if (!value.trim()) {
+            return intl.formatMessage({
+              id: ETranslations.form_rename_error_empty,
+            });
+          }
+          const formValidationError = getHardwareLabelValidationError({
+            value,
+            maxLength,
+            asciiOnly,
+            asciiAlphanumericWithSpacesOnly,
+          });
+          if (formValidationError === 'tooLong') {
+            return intl.formatMessage({
+              id: ETranslations.global_hardware_name_input_max,
+            });
+          }
+          if (formValidationError === 'invalid') {
+            return intl.formatMessage({
+              id: ETranslations.global_hardware_label_input_error,
+            });
+          }
+          return true;
+        },
+        required: {
+          value: true,
+          message: intl.formatMessage({
+            id: ETranslations.form_rename_error_empty,
+          }),
+        },
+      }}
+    >
+      <RenameInputWithNameSelector
+        inputTestID={AccountManagerTestIDs.walletRenameInput}
+        forceHasError={Boolean(validationErrorMessage)}
+        validationErrorMessage={validationErrorMessage}
+        validationErrorTestID={AccountManagerTestIDs.walletRenameError}
+        disabledMaxLengthLabel
+        maxLength={maxLength}
+        description={intl.formatMessage({
+          id: ETranslations.global_hardware_label_desc,
+        })}
+        nameHistoryInfo={{
+          entityId: wallet?.id || '',
+          entityType: EChangeHistoryEntityType.Wallet,
+          contentType: EChangeHistoryContentType.Name,
+        }}
+      />
+    </Dialog.FormField>
+  );
+}
+
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
@@ -28,6 +129,7 @@ function DeviceLabelDialogContent(props: {
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
+  const dialog = useDialogInstance();
   const [isLoading, setIsLoading] = useState(false);
   const {
     wallet,
@@ -37,7 +139,6 @@ function DeviceLabelDialogContent(props: {
     onSubmit,
   } = props;
 
-  const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
     <>
       <Dialog.Form
@@ -47,69 +148,21 @@ function DeviceLabelDialogContent(props: {
           reValidateMode: 'onChange',
         }}
       >
-        <Dialog.FormField
-          testID={AccountManagerTestIDs.walletRenameInput}
-          name="name"
-          label={intl.formatMessage({
-            id: ETranslations.global_hardware_label_title,
-          })}
-          rules={{
-            maxLength: {
-              value: maxLength,
-              message: 'Label is too long',
-              // message: intl.formatMessage({
-              //   id: 'Label is too long',
-              // }),
-            },
-            validate: (value: string) => {
-              const validationError = getHardwareLabelValidationError({
-                value,
-                maxLength,
-                asciiOnly,
-                asciiAlphanumericWithSpacesOnly,
-              });
-              if (validationError === 'tooLong') {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_name_input_max,
-                });
-              }
-              if (validationError === 'invalid') {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_label_input_error,
-                });
-              }
-              return true;
-            },
-            required: {
-              value: true,
-              message: intl.formatMessage({
-                id: ETranslations.form_rename_error_empty,
-              }),
-            },
-          }}
-        >
-          <RenameInputWithNameSelector
-            inputTestID={AccountManagerTestIDs.walletRenameInput}
-            disabledMaxLengthLabel
-            maxLength={maxLength}
-            description={intl.formatMessage({
-              id: ETranslations.global_hardware_label_desc,
-            })}
-            nameHistoryInfo={{
-              entityId: wallet?.id || '',
-              entityType: EChangeHistoryEntityType.Wallet,
-              contentType: EChangeHistoryContentType.Name,
-            }}
-          />
-        </Dialog.FormField>
+        <DeviceLabelFormField
+          wallet={wallet}
+          asciiOnly={asciiOnly}
+          asciiAlphanumericWithSpacesOnly={asciiAlphanumericWithSpacesOnly}
+        />
       </Dialog.Form>
       <Dialog.Footer
         confirmButtonProps={{
           loading: isLoading,
           testID: AccountManagerTestIDs.walletRenameConfirm,
-          disabledOn: ({ getForm }) => !getForm()?.formState.isValid,
         }}
-        onCancel={Keyboard.dismiss}
+        onCancel={async () => {
+          Keyboard.dismiss();
+          await dialog.close();
+        }}
         onConfirm={async ({ getForm, close }) => {
           await Keyboard.dismissWithDelay(350);
           try {

@@ -30,6 +30,7 @@ node scenarios/pro2/diagnose-device-connection.mjs
 
 ```bash
 node scenarios/pro2/device-management-smoke.mjs
+node scenarios/pro2/label-validation-smoke.mjs
 ```
 
 The scenario verifies that the Pro2 appears in device management, records its
