@@ -1305,6 +1305,8 @@ function AutoPauseSubscriptions() {
   // handled by useHandleAppStateActive.
 
   const [isLocked] = useAppIsLockedAtom();
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
 
   useEffect(() => {
     if (isLocked) {
@@ -1320,6 +1322,11 @@ function AutoPauseSubscriptions() {
     // Drop the pending pause timer so it cannot tear the recovery down, and
     // update the dedup state so the next real blur/lock disable gets through.
     const handleRecovered = () => {
+      // The announce and the lock disable cross the bridge unordered; a lock
+      // already in effect outranks it, so keep its freshly armed pause timer.
+      if (isLockedRef.current) {
+        return;
+      }
       clearTimeout(pauseSubscriptionsTimerRef.current);
       lastFocusStateRef.current = true;
       if (!isFocusedRef.current) {
