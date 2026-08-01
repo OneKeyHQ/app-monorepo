@@ -179,7 +179,7 @@ export async function executeHardwareLoginCommand({
   output.info('Searching for OneKey hardware device...');
   const { connectId, deviceId } = await searchDevice({ deviceIdHint });
 
-  // 通过统一设备状态读取身份和动态状态。
+  // Read identity and dynamic status from the unified device state.
   const sdk = await ensureSDKReady();
   const getDeviceState = async () => {
     const deviceStateResult = await sdk.getDeviceState(connectId);
@@ -207,7 +207,7 @@ export async function executeHardwareLoginCommand({
   // Only offer the hidden-wallet choice when the device has passphrase
   // protection turned on. If it's off, a hidden wallet cannot be derived on
   // this device — prompting would just trap the user into invalid choices.
-  // 与 DeviceSettingsManager 的设备 passphraseProtection 判断保持一致。
+  // Keep passphrase-protection detection aligned with DeviceSettingsManager.
   let passphraseMode: PassphraseMode = PASSPHRASE_MODE_NONE;
   let passphraseState: string | undefined;
   const passphraseEnabled = Boolean(deviceState.status?.passphraseProtection);

@@ -71,7 +71,7 @@ Portfolio 构建、服务端提交和硬件上传由 `kit-bg` 执行。
 10. 文件写入完成后发送 `PortfolioUpdate`；
 11. 只有设备返回 `Success` 才记录为上传成功。
 
-当前同步目标键优先使用硬件 `connectId`，没有连接 ID 时使用 `walletId`。去重和冷却状态按目标设备隔离。
+同步仅面向已连接的硬件钱包。目标键使用硬件 `connectId`，去重和冷却状态按目标设备隔离；软件钱包或缺少连接 ID 的事件不会构建数据，也不会提交服务端。
 
 ## 5. App 生成的数据结构
 
@@ -121,7 +121,7 @@ type IPortfolioPayloadToken = {
 | --- | --- |
 | `v` | 固定为整数 `1` |
 | `ts` | 毫秒时间戳；App 预先按当前时区调整展示语义 |
-| `account.label` | 优先使用索引账户名称、账户名称或账户 ID |
+| `account.label` | 优先使用索引账户名称或账户名称；否则使用 `Account #N` 或缩短地址 |
 | `account.addressMasked` | 索引账户使用 `Account #N`，否则使用缩短地址 |
 | `totalFiat` | App 格式化后的完整法币展示字符串 |
 | `tokenCount` | `tokens.length`，当前最大为 5 |
@@ -509,24 +509,21 @@ SDK 执行两阶段流程：
 
 | 状态 | 含义 |
 | --- | --- |
-| `disabled` | Portfolio 调试功能未开启 |
+| `disabled` | Portfolio 调试功能未开启，或目标不是已连接的硬件钱包 |
 | `empty` | 当前没有需要同步的正余额资产 |
 | `duplicate` | 内容哈希与已完成或正在处理的内容相同 |
 | `cooldown` | 目标设备仍在 20 秒冷却期 |
-| `device-disconnected` | 目标设备已断开 |
 | `hardware-busy` | Hardware Channel 正在执行其他操作 |
-| `cancelled` | 被用户发起的高优先级硬件操作取消 |
-| `built` | 非硬件目标已完成构建和服务端提交 |
 | `uploaded` | 设备已成功执行 `PortfolioUpdate` |
 | `error` | 构建、服务端或硬件步骤失败 |
 
-硬件忙碌和取消场景会保留最新事件，并在冷却后重新尝试。
+硬件忙碌场景会保留最新事件，并在冷却后重新尝试。
 
 ## 18. 安全与隐私
 
 Portfolio JSON 包含：
 
-- 账户名称或账户 ID 回退值；
+- 账户名称、账户编号或缩短地址回退值；
 - 账户编号或缩短地址；
 - 主要资产的余额和法币价值；
 - Token Symbol、名称、网络和合约地址；

@@ -346,6 +346,37 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
+  test('does not build or submit portfolio data for a software wallet', async () => {
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const serviceInternals = service as unknown as {
+      getCurrencyMapForBuild: jest.Mock;
+      submitPortfolioJsonToServer: jest.Mock;
+      syncSettledPortfolio: (
+        eventPayload: IPortfolioSyncSettledPayload,
+      ) => Promise<void>;
+    };
+    serviceInternals.getCurrencyMapForBuild = jest.fn();
+    serviceInternals.submitPortfolioJsonToServer = jest.fn();
+    (accountUtils.isHwWallet as jest.Mock).mockReturnValue(false);
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      walletId: 'hd-1',
+      walletType: 'hd',
+    });
+
+    expect(serviceInternals.getCurrencyMapForBuild).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
+      expect.objectContaining({
+        status: 'disabled',
+        walletId: 'hd-1',
+      }),
+    );
+  });
+
   test('uses the real upload result instead of a cached connection flag', async () => {
     const uploadPortfolioPackage = jest
       .fn()

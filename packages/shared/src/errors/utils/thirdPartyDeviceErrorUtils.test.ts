@@ -33,6 +33,15 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
   });
 
+  it('maps the adapter network error code to the retryable network error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.NetworkError,
+      error: 'Network request failed',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
   it('normalizes numeric string error codes before classification', () => {
     expect(
       normalizeThirdPartyDeviceErrorCode({

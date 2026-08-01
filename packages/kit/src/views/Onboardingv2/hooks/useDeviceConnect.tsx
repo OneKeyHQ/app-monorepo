@@ -547,7 +547,7 @@ export function useDeviceConnect({
           }
         }
 
-        // 连接前根据当前平台选择传输类型；Native 蓝牙必须使用 BLE。
+        // Select transport for the current platform; native Bluetooth requires BLE.
         forceTransportType = await getForceTransportType(tabValue);
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
@@ -698,7 +698,8 @@ export function useDeviceConnect({
         // }
 
         return {
-          verified: true,
+          verified: false,
+          skipVerification: true,
           device: latestDevice,
           payload: {
             deviceType: latestDevice.deviceType,

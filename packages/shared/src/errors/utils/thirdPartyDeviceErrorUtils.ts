@@ -145,6 +145,7 @@ export function convertThirdPartyDeviceError(
       return new ThirdPartyErrors.ThirdPartyDeviceOutOfMemory(props);
 
     case ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE:
+    case ThirdPartyHwErrorCode.NetworkError:
       return new ThirdPartyErrors.ThirdPartyNetworkError(props);
 
     case ThirdPartyHwErrorCode.WrongApp:

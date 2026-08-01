@@ -190,4 +190,30 @@ describe('hardware UI event state machine', () => {
     expect(result.state.connectId).toBe('PRO2_USB_B');
     expect(result.state.phase).toBe('button');
   });
+
+  it('lets a new device request replace a stale open interaction', () => {
+    const state = reduceHardwareUiEventState(createHardwareUiEventState(), {
+      type: EHardwareUiStateAction.REQUEST_BUTTON,
+      renderAction: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: 'PRO2_USB_A',
+      payload: {
+        interaction: createInteraction({ phase: 'button' }),
+      },
+    }).state;
+
+    const result = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.REQUEST_BUTTON,
+      renderAction: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: 'PRO2_USB_B',
+      payload: {
+        interaction: createInteraction({
+          interactionId: 'interaction-2',
+          phase: 'button',
+        }),
+      },
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.state.connectId).toBe('PRO2_USB_B');
+  });
 });

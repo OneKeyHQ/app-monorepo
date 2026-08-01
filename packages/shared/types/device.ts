@@ -26,7 +26,7 @@ export type IOneKeyDeviceType = IDeviceType;
 export type IOneKeyDeviceState = DeviceState;
 export type IOneKeyPersistedDeviceState = DeviceState;
 
-/** 仅用于 Protocol V1、第三方硬件适配和历史数据库迁移。 */
+/** Used only for Protocol V1, third-party hardware adapters, and legacy DB migration. */
 export type IOneKeyDeviceFeatures = FeaturesCore & {
   autoShutdownDelayMs?: number | null;
   wallpaperPath?: string | null;

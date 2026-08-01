@@ -199,7 +199,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         iconName: string | null;
         isAllNetworks: boolean;
         isNative: boolean;
-        logoURI: string;
         portfolioPercentage: number;
       }[];
     };
@@ -222,7 +221,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: true,
-          logoURI: 'https://example.com/eth.png',
           portfolioPercentage: 28,
         },
         {
@@ -231,7 +229,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: false,
-          logoURI: 'https://example.com/usdt.png',
           portfolioPercentage: 27.71,
         },
         {
@@ -240,7 +237,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: false,
-          logoURI: '',
           portfolioPercentage: 27.43,
         },
       ],
@@ -326,7 +322,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     });
   });
 
-  test('keeps server logoURI aligned after filtering ineligible tokens', () => {
+  test('does not send remote logo URLs after filtering ineligible tokens', () => {
     const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
       {
         accountAddress: '0x1234567890abcdef',
@@ -372,7 +368,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     expect(artifacts.portfolio.tokens).toHaveLength(1);
     expect(artifacts.portfolio.tokens[0]).toMatchObject({
       symbol: 'ETH',
-      logoURI: 'https://example.com/eth.png',
     });
+    expect(artifacts.portfolio.tokens[0]).not.toHaveProperty('logoURI');
   });
 });

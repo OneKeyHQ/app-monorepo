@@ -657,10 +657,10 @@ function CheckAndUpdatePage({
       // unavailable) is not a verification pass — record it as Skipped so the
       // step doesn't claim the device is genuine.
       let genuineState = ECheckAndUpdateStepState.Error;
-      if (result.verified) {
-        genuineState = ECheckAndUpdateStepState.Success;
-      } else if (result.skipVerification) {
+      if (result.skipVerification) {
         genuineState = ECheckAndUpdateStepState.Skipped;
+      } else if (result.verified) {
+        genuineState = ECheckAndUpdateStepState.Success;
       }
       const shouldContinueToFirmwareCheck =
         genuineState !== ECheckAndUpdateStepState.Error;

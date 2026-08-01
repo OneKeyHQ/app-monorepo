@@ -18,10 +18,7 @@ import {
   Dialog,
   DialogContainer,
   Portal,
-  Progress,
   SizableText,
-  XStack,
-  YStack,
 } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
@@ -79,7 +76,6 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { normalizeDeviceProgress } from './deviceProgressUtils';
 import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
 
 let globalShowDeviceProgressDialogEnabled = true;
@@ -249,42 +245,6 @@ function HardwareSingletonDialogCmp(
     if (action === EHardwareUiStateAction.ProcessLoading) {
       title = intl.formatMessage({ id: ETranslations.global_processing });
       content = defaultLoadingView;
-    }
-
-    if (action === EHardwareUiStateAction.DEVICE_PROGRESS) {
-      const progress = normalizeDeviceProgress(
-        state?.payload?.deviceProgress?.progress,
-      );
-      content = (
-        <YStack gap="$5">
-          {defaultLoadingView}
-          <YStack gap="$2" px="$5" pb="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.hardware_transferring_data,
-                })}
-              </SizableText>
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                testID="hardware-device-progress-value"
-              >
-                {`${Math.round(progress)}%`}
-              </SizableText>
-            </XStack>
-            <Progress
-              immediate
-              animated
-              width="100%"
-              size="medium"
-              value={progress}
-              indicatorColor="$bgSuccessStrong"
-              testID="hardware-device-progress-bar"
-            />
-          </YStack>
-        </YStack>
-      );
     }
 
     // EnterPin on Device

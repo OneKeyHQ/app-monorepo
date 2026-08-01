@@ -83,9 +83,9 @@ type IConvertFiatStrictResult = {
 
 const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
 const PORTFOLIO_TOKEN_LIMIT = 5;
-// 固件使用 char symbol[16]，需要为字符串结尾的 \0 预留 1 字节。
+// Firmware uses char symbol[16], reserving one byte for the trailing null.
 const PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES = 15;
-// Token symbol 不应承载联系方式、URL 或广告文案。
+// Token symbols must not carry contact details, URLs, or advertising copy.
 const PORTFOLIO_ADVERTISING_SYMBOL_PATTERN = /[\s@]|:\/\/|www\./iu;
 const PORTFOLIO_PERCENTAGE_DECIMAL_PLACES = 2;
 const PORTFOLIO_DISPLAY_AMOUNT_MAX_BYTES = 47;

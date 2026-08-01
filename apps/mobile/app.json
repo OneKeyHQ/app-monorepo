@@ -29,14 +29,10 @@
         "applinks:perps.onekey.so",
         "applinks:perps.onekeytest.com",
         "applinks:swap.onekey.so"
-      ],
-      "appleTeamId": "BVJ3FU5H2K"
+      ]
     },
     "android": {
-      "googleServicesFile": "./android/app/google-services.json",
-      "permissions": [
-        "android.permission.CAMERA"
-      ]
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "extra": {
       "eas": {

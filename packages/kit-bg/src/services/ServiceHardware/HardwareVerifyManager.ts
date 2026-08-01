@@ -57,7 +57,7 @@ function buildSkippedFirmwareAuthenticateResult(
   device: SearchDevice | IDBDevice,
 ): IFirmwareVerifyResult {
   return {
-    verified: true,
+    verified: false,
     skipVerification: true,
     device,
     payload: {
@@ -82,21 +82,21 @@ function buildSkippedFirmwareHashResult(
 
   return {
     certificate: {
-      isMatch: true,
+      isMatch: false,
       format: onekeyFeatures?.onekey_serial_no ?? '',
     },
     firmware: {
-      isMatch: true,
+      isMatch: false,
       format: localVerifyInfos?.firmware.formatted ?? '',
       releaseUrl: localVerifyInfos?.firmware.releaseUrl,
     },
     bluetooth: {
-      isMatch: true,
+      isMatch: false,
       format: localVerifyInfos?.bluetooth.formatted ?? '',
       releaseUrl: localVerifyInfos?.bluetooth.releaseUrl,
     },
     bootloader: {
-      isMatch: true,
+      isMatch: false,
       format: localVerifyInfos?.bootloader.formatted ?? '',
       releaseUrl: localVerifyInfos?.bootloader.releaseUrl,
     },

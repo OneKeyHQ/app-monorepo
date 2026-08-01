@@ -4,6 +4,7 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import {
+  cloneDeep,
   debounce,
   isEmpty,
   isNil,
@@ -210,7 +211,7 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 export function sanitizeDeviceStateForPersistence(
   state: IOneKeyDeviceState,
 ): IOneKeyDeviceState {
-  const persistedState = structuredClone(state);
+  const persistedState = cloneDeep(state);
   delete (persistedState as unknown as { raw?: unknown }).raw;
   delete (persistedState as unknown as { session?: unknown }).session;
   delete (
@@ -3453,7 +3454,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 (isBleNamePollution && state.identity.deviceType
                   ? deviceUtils.getDefaultDeviceLabel(state.identity.deviceType)
                   : undefined)
-              : device?.name;
+              : device?.featuresInfo?.label;
             if (device && displayName && displayName !== wallet.name) {
               appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
                 walletId: wallet.id,

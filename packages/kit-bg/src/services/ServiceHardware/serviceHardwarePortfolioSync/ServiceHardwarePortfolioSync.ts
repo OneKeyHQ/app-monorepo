@@ -35,7 +35,6 @@ import type {
 } from './serviceHardwarePortfolioSyncUtils';
 
 export type IPortfolioSyncStatus =
-  | 'built'
   | 'cooldown'
   | 'disabled'
   | 'duplicate'
@@ -513,32 +512,40 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       });
       const deviceConnectId = eventPayload.deviceConnectId;
 
-      if (isHardwareWallet && deviceConnectId) {
-        const cooldownRemainingMs = await this.getHardwareCooldownRemainingMs({
-          targetKey,
-          now: updatedAt,
+      if (!isHardwareWallet || !deviceConnectId) {
+        debugPortfolioSyncLog('skip-non-hardware');
+        this.setLastResult({
+          status: 'disabled',
+          updatedAt,
+          walletId: eventPayload.walletId,
         });
-        if (cooldownRemainingMs > 0) {
-          this.scheduleSyncAfterCooldown({
-            deviceConnectId,
-            eventPayload,
-            remainingMs: cooldownRemainingMs,
-          });
-          debugPortfolioSyncLog('skip-cooldown', {
-            cooldownRemainingMs,
-            deviceConnectId,
-            totalTokenCount: eventPayload.tokens.length,
-          });
-          this.setLastResult({
-            cooldownRemainingMs,
-            deviceConnectId,
-            status: 'cooldown',
-            totalTokenCount: eventPayload.tokens.length,
-            updatedAt,
-            walletId: eventPayload.walletId,
-          });
-          return;
-        }
+        return;
+      }
+
+      const cooldownRemainingMs = await this.getHardwareCooldownRemainingMs({
+        targetKey,
+        now: updatedAt,
+      });
+      if (cooldownRemainingMs > 0) {
+        this.scheduleSyncAfterCooldown({
+          deviceConnectId,
+          eventPayload,
+          remainingMs: cooldownRemainingMs,
+        });
+        debugPortfolioSyncLog('skip-cooldown', {
+          cooldownRemainingMs,
+          deviceConnectId,
+          totalTokenCount: eventPayload.tokens.length,
+        });
+        this.setLastResult({
+          cooldownRemainingMs,
+          deviceConnectId,
+          status: 'cooldown',
+          totalTokenCount: eventPayload.tokens.length,
+          updatedAt,
+          walletId: eventPayload.walletId,
+        });
+        return;
       }
 
       const { currencyMap, displayCurrency } =
@@ -587,33 +594,31 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
       this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
 
-      if (isHardwareWallet && deviceConnectId) {
-        const hardwareBusy =
-          await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
-            connectId: deviceConnectId,
-          });
-        if (hardwareBusy) {
-          // Release the reservation and do not persist dedup state: this
-          // snapshot was never uploaded, so an identical settled event must be
-          // allowed to retry once the hardware channel frees up.
-          this.inFlightContentHashByTargetKey.delete(targetKey);
-          debugPortfolioSyncLog('skip-hardware-busy', {
-            contentHash: artifacts.contentHash,
-          });
-          this.setLastResult(
-            this.buildResultBase({
-              artifacts,
-              eventPayload,
-              status: 'hardware-busy',
-              updatedAt,
-            }),
-          );
-          this.scheduleHardwareBusyRetry({
-            deviceConnectId,
-            retry: () => this.syncSettledPortfolio(eventPayload),
-          });
-          return;
-        }
+      const hardwareBusy =
+        await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
+          connectId: deviceConnectId,
+        });
+      if (hardwareBusy) {
+        // Release the reservation and do not persist dedup state: this
+        // snapshot was never uploaded, so an identical settled event must be
+        // allowed to retry once the hardware channel frees up.
+        this.inFlightContentHashByTargetKey.delete(targetKey);
+        debugPortfolioSyncLog('skip-hardware-busy', {
+          contentHash: artifacts.contentHash,
+        });
+        this.setLastResult(
+          this.buildResultBase({
+            artifacts,
+            eventPayload,
+            status: 'hardware-busy',
+            updatedAt,
+          }),
+        );
+        this.scheduleHardwareBusyRetry({
+          deviceConnectId,
+          retry: () => this.syncSettledPortfolio(eventPayload),
+        });
+        return;
       }
 
       const { serverPackageBytes, serverSubmit } =
@@ -621,32 +626,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           artifacts,
         });
 
-      if (isHardwareWallet && deviceConnectId) {
-        await this.uploadPreparedHardwarePortfolio({
-          artifacts,
-          deviceConnectId,
-          eventPayload,
-          serverPackageBytes,
-          serverSubmit,
-          targetKey,
-          updatedAt,
-        });
-        return;
-      }
-
-      await this.commitProcessedArtifacts({ artifacts, targetKey });
-      this.setLastResult(
-        this.buildResultBase({
-          artifacts,
-          eventPayload,
-          serverSubmit,
-          status: 'built',
-          updatedAt,
-        }),
-      );
-      debugPortfolioSyncLog('built', {
-        contentHash: artifacts.contentHash,
-        portfolioJsonBytesLength: artifacts.portfolioJsonBytes.byteLength,
+      await this.uploadPreparedHardwarePortfolio({
+        artifacts,
+        deviceConnectId,
+        eventPayload,
+        serverPackageBytes,
+        serverSubmit,
+        targetKey,
+        updatedAt,
       });
     } catch (error) {
       // Release the in-flight reservation so the same snapshot can be retried.

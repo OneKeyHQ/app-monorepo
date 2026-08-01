@@ -1,7 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -15,7 +12,9 @@ import {
   firmwareUpdateWorkflowRunningAtom,
 } from '../../states/jotai/atoms';
 
-import ServiceFirmwareUpdate from './ServiceFirmwareUpdate';
+import ServiceFirmwareUpdate, {
+  buildPro2TargetsToUpdate,
+} from './ServiceFirmwareUpdate';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -89,8 +88,6 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
-const mockedCoreSDKLoader = jest.mocked(CoreSDKLoader);
-
 describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,78 +127,53 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   );
 });
 
-describe('ServiceFirmwareUpdate.checkAllFirmwareRelease', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('returns no update for Pro2 without calling the Protocol V1 release API', async () => {
-    const checkAllFirmwareRelease = jest.fn();
-    const closeHardwareUiStateDialog = jest.fn();
-    const features = {
-      deviceType: EDeviceType.Pro2,
-      serialNo: 'PRO2_SERIAL',
-      bleName: 'Pro2 6136',
-      label: 'OneKey Pro 2',
-    } as never;
-    mockedCoreSDKLoader.mockResolvedValue({
-      getDeviceType: jest.fn(() => EDeviceType.Pro2),
-      getDeviceLabel: jest.fn(() => 'OneKey Pro 2'),
-      getDeviceSerialNo: jest.fn(() => 'PRO2_SERIAL'),
-      getDeviceUUID: jest.fn(() => 'PRO2_SERIAL'),
-    } as never);
-
-    const service = new ServiceFirmwareUpdate({
-      backgroundApi: {
-        serviceHardware: {
-          getSDKInstance: jest.fn().mockResolvedValue({
-            cancel: jest.fn(),
-            checkAllFirmwareRelease,
-          }),
-        },
-        serviceHardwareUI: {
-          closeHardwareUiStateDialog,
-        },
-        serviceSetting: {
-          getHardwareTransportType: jest
-            .fn()
-            .mockResolvedValue(EHardwareTransportType.WEBUSB),
-        },
-      } as unknown as IBackgroundApi,
-    });
-    jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
-      isBootloaderMode: false,
-      features,
-      error: undefined,
-    });
-    const baseCheckSpy = jest.spyOn(service, 'baseCheckAllFirmwareRelease');
-
-    await expect(
-      service.checkAllFirmwareRelease({
-        connectId: 'PRO2_CONNECT_ID',
-        firmwareType: undefined,
-        skipCancel: true,
-      }),
-    ).resolves.toMatchObject({
-      deviceType: EDeviceType.Pro2,
-      deviceUUID: 'PRO2_SERIAL',
+describe('buildPro2TargetsToUpdate', () => {
+  const buildFirmware = (components: Record<string, unknown>) =>
+    ({
       hasUpgrade: false,
-      totalPhase: [],
-      updateInfos: {
-        firmware: undefined,
+      releasePayload: {
+        release: { components },
+      },
+    }) as never;
+
+  it('does not update a secure element when its current version is unknown', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        features: {} as never,
+        firmware: buildFirmware({
+          se01: { target: 'SE01', version: [1, 0, 0] },
+        }),
         ble: undefined,
         bootloader: undefined,
-        bridge: undefined,
-      },
-    });
-    expect(baseCheckSpy).not.toHaveBeenCalled();
-    expect(checkAllFirmwareRelease).not.toHaveBeenCalled();
-    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        connectId: 'PRO2_CONNECT_ID',
-        skipDeviceCancel: true,
+        forceTargets: [],
       }),
-    );
+    ).toEqual([]);
+  });
+
+  it('updates a secure element only when a known version is older', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        features: { se01Version: '1.0.0' } as never,
+        firmware: buildFirmware({
+          se01: { target: 'SE01', version: [1, 1, 0] },
+        }),
+        ble: undefined,
+        bootloader: undefined,
+        forceTargets: [],
+      }),
+    ).toEqual(['se01']);
+  });
+
+  it('preserves explicit force-update targets', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        features: {} as never,
+        firmware: buildFirmware({}),
+        ble: undefined,
+        bootloader: undefined,
+        forceTargets: ['se01'],
+      }),
+    ).toEqual(['se01']);
   });
 });
 
