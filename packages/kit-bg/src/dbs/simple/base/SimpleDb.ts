@@ -387,6 +387,19 @@ export class SimpleDb {
     return value;
   }
 
+  get hardwarePortfolioSync() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@hardwarePortfolioSync',
+      loader: () =>
+        import('../entity/SimpleDbEntityHardwarePortfolioSync').then(
+          ({ SimpleDbEntityHardwarePortfolioSync }) =>
+            new SimpleDbEntityHardwarePortfolioSync(),
+        ),
+    });
+    Object.defineProperty(this, 'hardwarePortfolioSync', { value });
+    return value;
+  }
+
   get appStatus() {
     const SimpleDbEntityAppStatus = (
       require('../entity/SimpleDbEntityAppStatus') as unknown as typeof import('../entity/SimpleDbEntityAppStatus')

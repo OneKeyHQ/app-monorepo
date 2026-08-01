@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
@@ -34,6 +36,16 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.xprvt],
+
+  supportedDeviceTypes: [
+    EDeviceType.Classic,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro,
+    EDeviceType.Pro2,
+  ],
 
   dappInteractionEnabled: true,
 

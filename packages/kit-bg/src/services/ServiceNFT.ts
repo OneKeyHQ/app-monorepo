@@ -1,5 +1,6 @@
 import qs from 'querystring';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { debounce, isArray, isNil, isObject, omitBy } from 'lodash';
 
 import {
@@ -7,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -26,6 +28,14 @@ import ServiceBase from './ServiceBase';
 import type { IDBAccount } from '../dbs/local/types';
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 
+export type IPro2NftUploadParams = {
+  imageHex: string;
+  thumbnailHex: string;
+  title: string;
+  subtitle: string;
+  timestampMs?: number;
+};
+
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -39,20 +49,39 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   public async uploadNFTImageToDevice(params: {
     accountId: string;
-    uploadResParams: DeviceUploadResourceParams;
+    uploadResParams?: DeviceUploadResourceParams;
+    pro2UploadParams?: IPro2NftUploadParams;
   }) {
-    const { accountId, uploadResParams } = params;
+    const { accountId, uploadResParams, pro2UploadParams } = params;
     const { deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.Default,
       });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () =>
-        this.backgroundApi.serviceHardware.uploadResource(
-          deviceParams?.dbDevice.connectId ?? '',
+      async () => {
+        const device = deviceParams?.dbDevice;
+        if (device?.deviceType === EDeviceType.Pro2) {
+          if (!pro2UploadParams) {
+            throw new OneKeyLocalError(
+              'Pro2 NFT upload parameters are required',
+            );
+          }
+          return this.backgroundApi.serviceHardware.uploadPro2Nft({
+            connectId: device.connectId ?? '',
+            ...pro2UploadParams,
+          });
+        }
+        if (!uploadResParams) {
+          throw new OneKeyLocalError(
+            'Legacy NFT upload parameters are required',
+          );
+        }
+        return this.backgroundApi.serviceHardware.uploadResource(
+          device?.connectId ?? '',
           uploadResParams,
-        ),
+        );
+      },
       { deviceParams, debugMethodName: 'nft.uploadNFTImageToDevice' },
     );
   }

@@ -28,6 +28,7 @@ import type {
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -53,7 +54,10 @@ import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaH
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  EFirmwareType,
+  HardwareConnectProtocol,
+} from '@onekeyfe/hd-shared';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
@@ -205,6 +209,9 @@ export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
+  connectProtocol?: HardwareConnectProtocol;
+  /** OneKey SDK 的统一状态快照；仅由后台服务填充，不增加 UI 接入负担。 */
+  deviceState?: IOneKeyDeviceState;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
@@ -404,17 +411,34 @@ export type IDBDeviceSettings = {
   vendorFirmwareVersion?: string;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
-  features: string; // TODO rename to featuresRaw
+  /**
+   * 旧 Features 持久化字段。
+   * OneKey DeviceState 设备只允许存放 `$app_*` 本地元数据；
+   * V1 兼容记录、二维码钱包和第三方设备仍可保存完整 Features。
+   */
+  features: string;
+  /**
+   * 运行时兼容投影，不是 OneKey 设备的事实来源。
+   * @deprecated OneKey 业务请读取 deviceStateInfo；第三方设备仍使用此字段。
+   */
   featuresInfo?: IOneKeyDeviceFeatures & {
     // only qr wallet
     $app_firmware_type?: EFirmwareType;
-  }; // readonly field // TODO rename to features
+  };
+  deviceState?: string;
+  deviceStateInfo?: IOneKeyDeviceState;
+  /**
+   * Transport handshake protocol selected before device communication.
+   * This is independent from DeviceState.protocolVersion.
+   */
+  connectProtocol?: HardwareConnectProtocol;
   // TODO make index for better performance (getDeviceByQuery)
   connectId: string; // alias BLE mac or USB sn, never changed even if device reset
   name: string;
   // TODO make index for better performance (getDeviceByQuery)
   uuid: string;
-  deviceId: string; // features.device_id changed after device reset, use deviceUtils.getRawDeviceId()
+  /** Wallet-lifecycle ID; stable across reboots and changes after wipe/reinitialization. */
+  deviceId: string;
   deviceType: IDeviceType;
   settingsRaw: string;
   settings?: IDBDeviceSettings;
