@@ -229,6 +229,44 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     );
   });
 
+  it('allows a V2 hidden-wallet login when the SDK does not expose a V1 session id', async () => {
+    const output = makeOutputMock();
+    const getStatus = jest
+      .fn()
+      .mockResolvedValueOnce(makeUnauthenticatedStatus())
+      .mockResolvedValueOnce(makeAuthenticatedStatus());
+    const persistSession = jest.fn(async () => undefined);
+    hardwareSdkMocks.mockResolvePassphraseSession.mockResolvedValue({
+      deviceId: 'device-1',
+      passphraseState: 'state-1',
+      protocol: 'V2',
+    });
+
+    await executeHardwareLoginCommand({
+      output: output as OutputFormatter,
+      isTTY: false,
+      isHumanMode: false,
+      passphraseMode: 'on-device',
+      getStatus,
+      persistSession,
+    });
+
+    const sdk = await hardwareSdkMocks.mockEnsureSDKReady.mock.results[0].value;
+    expect(sdk.evmGetAddress).toHaveBeenCalledWith(
+      'connect-1',
+      'device-1',
+      expect.objectContaining({
+        passphraseState: 'state-1',
+      }),
+    );
+    expect(persistSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        passphraseState: 'state-1',
+        sessionId: undefined,
+      }),
+    );
+  });
+
   it('rejects explicit hidden-wallet mode when device passphrase protection is disabled', async () => {
     const output = makeOutputMock();
     const getStatus = jest.fn(async () => makeUnauthenticatedStatus());

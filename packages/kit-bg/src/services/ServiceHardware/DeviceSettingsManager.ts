@@ -17,6 +17,7 @@ import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceE
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -417,8 +418,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const dbDevice = await localDb.getWalletDevice({ walletId });
 
     if (this._isTrezorDevice(dbDevice)) {
+      const thirdPartyState = thirdPartyDeviceUtils.getDeviceState({
+        features: dbDevice.featuresInfo as Record<string, unknown>,
+      });
       return {
-        passphraseEnabled: Boolean(dbDevice.featuresInfo?.passphraseProtection),
+        passphraseEnabled: Boolean(thirdPartyState.passphraseProtection),
         inputPinOnSoftware: false,
         inputPinOnSoftwareSupport: false,
       };

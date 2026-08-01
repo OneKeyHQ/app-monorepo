@@ -265,10 +265,7 @@ export async function executeHardwareLoginCommand({
   }
   // passphraseMode === PASSPHRASE_MODE_NONE → no passphrase needed
 
-  if (
-    passphraseMode !== PASSPHRASE_MODE_NONE &&
-    (!passphraseState || !resolvedSessionId)
-  ) {
+  if (passphraseMode !== PASSPHRASE_MODE_NONE && !passphraseState) {
     throw new AppError(
       ERROR_CODES.AUTH_SESSION_INVALID.code,
       `Failed to resolve wallet session for mode "${passphraseMode}".`,

@@ -112,6 +112,7 @@ function DeviceSetupPage({
   const onboardingRequestInFlightRef = useRef(false);
   const hasNavigatedToFinalizeRef = useRef(false);
   const isPageActiveRef = useRef(true);
+  const checkDeviceRunIdRef = useRef(0);
 
   const { getActiveDevice } = useDeviceConnect({ setCurrentDevice });
 
@@ -129,11 +130,14 @@ function DeviceSetupPage({
 
   const navigateToFinalize = useCallback(
     (device: SearchDevice) => {
-      if (hasNavigatedToFinalizeRef.current) {
+      if (!isPageActiveRef.current || hasNavigatedToFinalizeRef.current) {
         return;
       }
       hasNavigatedToFinalizeRef.current = true;
       navigateTimeoutRef.current = setTimeout(() => {
+        if (!isPageActiveRef.current) {
+          return;
+        }
         navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
           connectProtocol,
           deviceData: {
@@ -275,10 +279,18 @@ function DeviceSetupPage({
   }, [intl, currentDevice]);
 
   const checkDeviceInitialized = useCallback(async () => {
+    checkDeviceRunIdRef.current += 1;
+    const checkDeviceRunId = checkDeviceRunIdRef.current;
+    const isDeviceCheckStale = () =>
+      !isPageActiveRef.current ||
+      checkDeviceRunIdRef.current !== checkDeviceRunId;
     setErrorMessage(undefined);
     setSetupState(EDeviceSetupState.Checking);
     try {
       await ensureTransportType();
+      if (isDeviceCheckStale()) {
+        return;
+      }
       const baseDevice =
         getActiveDevice() ??
         currentDevice ??
@@ -299,9 +311,15 @@ function DeviceSetupPage({
             setTimeout(resolve, 1200);
           }),
         ]);
+        if (isDeviceCheckStale()) {
+          return;
+        }
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
+        if (isDeviceCheckStale()) {
+          return;
+        }
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
           setSetupState(EDeviceSetupState.NeedSetup);
           return;
@@ -311,10 +329,16 @@ function DeviceSetupPage({
         return;
       }
     } catch {
+      if (isDeviceCheckStale()) {
+        return;
+      }
       // A failed status read falls back to the on-device setup instructions
       // (the user can re-trigger via Done once the device responds). Hard
       // connection/permission errors surface separately via useConnectDeviceError.
       setSetupState(EDeviceSetupState.NeedSetup);
+      return;
+    }
+    if (isDeviceCheckStale()) {
       return;
     }
     setSetupState(EDeviceSetupState.Success);
@@ -350,6 +374,7 @@ function DeviceSetupPage({
     }
     return () => {
       isPageActiveRef.current = false;
+      checkDeviceRunIdRef.current += 1;
       if (navigateTimeoutRef.current) {
         clearTimeout(navigateTimeoutRef.current);
       }

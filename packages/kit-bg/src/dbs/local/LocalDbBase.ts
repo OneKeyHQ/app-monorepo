@@ -5251,8 +5251,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     vendor: EHardwareVendor;
     features: IOneKeyDeviceFeatures;
   }) {
-    const featuresDeviceId =
-      typeof features.deviceId === 'string' ? features.deviceId : undefined;
+    const featuresDeviceId = thirdPartyDeviceUtils.getDeviceId(
+      features as Record<string, unknown>,
+    );
     if (!featuresDeviceId) {
       return;
     }

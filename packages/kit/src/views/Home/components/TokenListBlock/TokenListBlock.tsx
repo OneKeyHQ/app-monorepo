@@ -77,6 +77,10 @@ import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  isPro2DebugModuleEnabled,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -253,6 +257,11 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isPortfolioSyncDevEnabled = isPro2DebugModuleEnabled(
+    devSettings,
+    'portfolio',
+  );
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
   // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
@@ -1829,46 +1838,48 @@ function TokenListBlock({
         createAtNetworkWorth: snapshot.createAtNetworkWorth,
       });
 
-      const flattenedAggregateTokenMap = flattenAggregateTokensMap(
-        snapshot.aggregateTokenMap,
-      );
-      const portfolioTokenMap = {
-        ...snapshot.mergeTokenListMap,
-        ...flattenedAggregateTokenMap,
-      };
-      const portfolioTokens = [
-        ...snapshot.orderedTokens,
-        ...snapshot.smallBalanceTokens,
-      ].filter((token) =>
-        new BigNumber(
-          portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
-        ).isGreaterThan(0),
-      );
-
-      appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
-        accountAddress: account?.address,
-        accountId: account?.id,
-        accountName,
-        aggregateTokenMap: flattenedAggregateTokenMap,
-        deviceConnectId:
-          device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
-        indexedAccountId: indexedAccount?.id,
-        indexedAccountIndex: indexedAccount?.index,
-        indexedAccountName: indexedAccount?.name,
-        networkId: network?.id,
-        ownerAccountId: allNetworksResult[0].ownerAccountId,
-        ownerNetworkId: allNetworksResult[0].ownerNetworkId,
-        totalFiat: snapshot.createAtNetworkWorth,
-        totalTokenCount: portfolioTokens.length,
-        tokenMap: {
+      if (isPortfolioSyncDevEnabled) {
+        const flattenedAggregateTokenMap = flattenAggregateTokensMap(
+          snapshot.aggregateTokenMap,
+        );
+        const portfolioTokenMap = {
           ...snapshot.mergeTokenListMap,
-          ...snapshot.riskyTokenListMap,
           ...flattenedAggregateTokenMap,
-        },
-        tokens: portfolioTokens,
-        walletId: wallet?.id,
-        walletType: wallet?.type,
-      });
+        };
+        const portfolioTokens = [
+          ...snapshot.orderedTokens,
+          ...snapshot.smallBalanceTokens,
+        ].filter((token) =>
+          new BigNumber(
+            portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
+          ).isGreaterThan(0),
+        );
+
+        appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
+          accountAddress: account?.address,
+          accountId: account?.id,
+          accountName,
+          aggregateTokenMap: flattenedAggregateTokenMap,
+          deviceConnectId:
+            device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+          indexedAccountId: indexedAccount?.id,
+          indexedAccountIndex: indexedAccount?.index,
+          indexedAccountName: indexedAccount?.name,
+          networkId: network?.id,
+          ownerAccountId: allNetworksResult[0].ownerAccountId,
+          ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+          totalFiat: snapshot.createAtNetworkWorth,
+          totalTokenCount: portfolioTokens.length,
+          tokenMap: {
+            ...snapshot.mergeTokenListMap,
+            ...snapshot.riskyTokenListMap,
+            ...flattenedAggregateTokenMap,
+          },
+          tokens: portfolioTokens,
+          walletId: wallet?.id,
+          walletType: wallet?.type,
+        });
+      }
     }
 
     // Authoritative ingest (facade, design §2): ingest the FULL merged
@@ -1904,6 +1915,7 @@ function TokenListBlock({
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
+    isPortfolioSyncDevEnabled,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
