@@ -184,7 +184,7 @@ describe('LocalDb DeviceState persistence', () => {
     expect(result.name).toBe('OneKey Pro 2');
   });
 
-  it('uses the persisted device name for records created before DeviceState persistence', async () => {
+  it('uses the legacy Features label before DeviceState persistence', async () => {
     const state = createState({
       revision: 1,
       updatedAt: 100,
@@ -193,7 +193,7 @@ describe('LocalDb DeviceState persistence', () => {
     });
     const db = new DeviceStateTestLocalDb(state);
     db.device.deviceState = undefined;
-    db.device.name = 'Legacy OneKey Name';
+    db.device.features = JSON.stringify({ label: 'Legacy OneKey Name' });
     const wallet: IDBWallet = {
       id: 'hw-wallet-legacy',
       name: 'Old Wallet Name',
@@ -230,6 +230,36 @@ describe('LocalDb DeviceState persistence', () => {
     expect(persisted).not.toHaveProperty('raw');
     expect(persisted).not.toHaveProperty('session');
     expect(state).toHaveProperty('session');
+  });
+
+  it('sanitizes device state when structuredClone is unavailable on Hermes', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'structuredClone',
+    );
+    Object.defineProperty(globalThis, 'structuredClone', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(
+        sanitizeDeviceStateForPersistence(
+          createState({
+            revision: 2,
+            updatedAt: 2,
+            label: null,
+            language: null,
+          }),
+        ),
+      ).toMatchObject({ revision: 2, updatedAt: 2 });
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'structuredClone', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'structuredClone');
+      }
+    }
   });
 
   it('merges sparse reconnect state without erasing the persisted label or settings', async () => {

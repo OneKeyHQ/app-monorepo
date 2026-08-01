@@ -35,10 +35,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-import type {
-  ICheckAllFirmwareReleaseResult,
-  IPro2FirmwareUpdateTarget,
-} from '@onekeyhq/shared/types/device';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
@@ -57,31 +54,6 @@ interface IFirmwareUpdateVersions {
   type: string;
   info: IFirmwareUpdateVersionInfo;
 }
-
-type IProtocolV2FirmwareComponentDisplay = {
-  target?: string;
-  version?: number[];
-  resourceManifest?: {
-    packages?: Array<{
-      name?: string;
-      path?: string;
-    }>;
-  };
-};
-
-const PRO2_FORCE_TARGET_BY_COMPONENT_TARGET = new Map<
-  string,
-  IPro2FirmwareUpdateTarget
->([
-  ['BOOTLOADER', 'boot'],
-  ['APPLICATION_P1', 'app_v1'],
-  ['APPLICATION_P2', 'app_v2'],
-  ['CRATE', 'resource'],
-  ['SE01', 'se01'],
-  ['SE02', 'se02'],
-  ['SE03', 'se03'],
-  ['SE04', 'se04'],
-]);
 
 type IProgressType =
   | EFirmwareUpdateTipMessages
@@ -189,13 +161,6 @@ function FirmwareUpdateVersionItem({
   );
 }
 
-function formatVersion(version: string | number[] | undefined) {
-  if (Array.isArray(version)) {
-    return version.join('.');
-  }
-  return version ?? '';
-}
-
 function isPro2SafeOSFirmwareUpdate(
   result: ICheckAllFirmwareReleaseResult | undefined,
 ) {
@@ -205,91 +170,8 @@ function isPro2SafeOSFirmwareUpdate(
   );
 }
 
-function FirmwareUpdateDebugPayloadSection({
-  result,
-}: {
-  result: ICheckAllFirmwareReleaseResult | undefined;
-}) {
-  const release = result?.updateInfos?.firmware?.releasePayload?.release;
-  const components = release?.components as
-    | Record<string, IProtocolV2FirmwareComponentDisplay>
-    | undefined;
-  const pro2ForceTargets = result?.pro2ForceTargets;
-  const componentEntries = useMemo(() => {
-    if (!components) return [];
-    const forceTargets = new Set(pro2ForceTargets ?? []);
-    const orderedKeys = [
-      ...(release?.installOrder ?? []),
-      ...Object.keys(components).filter(
-        (key) => !release?.installOrder?.includes(key),
-      ),
-    ];
-    return orderedKeys
-      .map((key) => [key, components[key]] as const)
-      .filter(([, component]) => {
-        if (!component) return false;
-        if (forceTargets.size === 0) return true;
-        const target = component.target?.toUpperCase();
-        const pro2ForceTarget = target
-          ? PRO2_FORCE_TARGET_BY_COMPONENT_TARGET.get(target)
-          : undefined;
-        return Boolean(pro2ForceTarget && forceTargets.has(pro2ForceTarget));
-      });
-  }, [components, pro2ForceTargets, release?.installOrder]);
-
-  if (componentEntries.length === 0) {
-    return null;
-  }
-
-  return (
-    <Stack
-      bg="$bgSubdued"
-      borderRadius="$2"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      px="$4"
-      py="$3"
-      mt="$3"
-      gap="$2"
-    >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        Debug update payload
-      </SizableText>
-      {componentEntries.map(([key, component]) => {
-        const packageNames = component.resourceManifest?.packages
-          ?.map((pkg) => pkg.name || pkg.path)
-          .filter(Boolean)
-          .join(', ');
-        const version = formatVersion(component.version);
-        return (
-          <XStack key={key} gap="$2" alignItems="center" minWidth={0}>
-            <SizableText size="$bodySm" color="$text" flex={1} minWidth={0}>
-              {key}
-            </SizableText>
-            {packageNames ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                flex={1}
-                minWidth={0}
-                numberOfLines={1}
-              >
-                {packageNames}
-              </SizableText>
-            ) : null}
-            <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-              {[component.target, version].filter(Boolean).join(' / ')}
-            </SizableText>
-          </XStack>
-        );
-      })}
-    </Stack>
-  );
-}
-
 export function FirmwareUpdateProgressBarView({
   versions,
-  result,
   title,
   progress,
   desc,
@@ -297,7 +179,6 @@ export function FirmwareUpdateProgressBarView({
   isVerified,
 }: {
   versions: IFirmwareUpdateVersions[];
-  result: ICheckAllFirmwareReleaseResult | undefined;
   title: string;
   progress: number | null | undefined;
   desc: string;
@@ -340,10 +221,8 @@ export function FirmwareUpdateProgressBarView({
             </Fragment>
           ))}
         </Stack>
-        <FirmwareUpdateDebugPayloadSection result={result} />
         <Stack mt="$12" mb="$3">
           <Progress
-            immediate
             size="medium"
             value={progress}
             indicatorColor="$bgSuccessStrong"
@@ -735,7 +614,6 @@ export function FirmwareUpdateProgressBarV2({
     <Stack>
       <FirmwareUpdateProgressBarView
         versions={upgradeVersions}
-        result={result}
         title={
           isDoneInternal
             ? intl.formatMessage({

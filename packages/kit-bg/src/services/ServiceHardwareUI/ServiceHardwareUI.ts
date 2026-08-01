@@ -78,12 +78,12 @@ class ServiceHardwareUI extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
-    // 设备状态（包括 label）变化后清理缓存，避免交互弹窗展示旧名称。
+    // Clear cached dialogs after device state changes so labels cannot become stale.
     appEventBus.on(
       EAppEventBusNames.HardwareDeviceStateUpdate,
       this.onHardwareDeviceStateUpdate,
     );
-    // 第三方硬件仍由各自 SDK 的 features 事件驱动。
+    // Third-party hardware remains driven by each SDK's features events.
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
       this.onThirdPartyHardwareFeaturesUpdate,

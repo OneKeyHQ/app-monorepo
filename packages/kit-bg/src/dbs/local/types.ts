@@ -210,7 +210,7 @@ export type IDBCreateHwWalletParamsBase = {
   device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
   connectProtocol?: HardwareConnectProtocol;
-  /** OneKey SDK 的统一状态快照；仅由后台服务填充，不增加 UI 接入负担。 */
+  /** Unified OneKey SDK state snapshot populated only by background services. */
   deviceState?: IOneKeyDeviceState;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
@@ -412,14 +412,14 @@ export type IDBDeviceSettings = {
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   /**
-   * 旧 Features 持久化字段。
-   * OneKey DeviceState 设备只允许存放 `$app_*` 本地元数据；
-   * V1 兼容记录、二维码钱包和第三方设备仍可保存完整 Features。
+   * Legacy persisted Features field.
+   * OneKey DeviceState devices may store only `$app_*` local metadata here;
+   * V1 compatibility records, QR wallets, and third-party devices may persist full Features.
    */
   features: string;
   /**
-   * 运行时兼容投影，不是 OneKey 设备的事实来源。
-   * @deprecated OneKey 业务请读取 deviceStateInfo；第三方设备仍使用此字段。
+   * Runtime compatibility projection, not the source of truth for OneKey devices.
+   * @deprecated OneKey flows should read deviceStateInfo; third-party devices still use this field.
    */
   featuresInfo?: IOneKeyDeviceFeatures & {
     // only qr wallet

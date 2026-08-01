@@ -606,17 +606,28 @@ function CheckAndUpdatePage({
           intl.formatMessage({ id: ETranslations.global_unknown_error }),
         );
       }
+      // Skipping (dev skip or "continue anyway" when the verify service is
+      // unavailable) is not a verification pass — record it as Skipped so the
+      // step doesn't claim the device is genuine.
+      let genuineState = ECheckAndUpdateStepState.Error;
+      if (result.skipVerification) {
+        genuineState = ECheckAndUpdateStepState.Skipped;
+      } else if (result.verified) {
+        genuineState = ECheckAndUpdateStepState.Success;
+      }
+      const shouldContinueToFirmwareCheck =
+        genuineState !== ECheckAndUpdateStepState.Error;
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state:
-            result.verified || result.skipVerification
-              ? ECheckAndUpdateStepState.Success
-              : ECheckAndUpdateStepState.Error,
-          errorMessage: result.verified ? undefined : result.result?.message,
+          state: genuineState,
+          errorMessage:
+            genuineState === ECheckAndUpdateStepState.Error
+              ? result.result?.message
+              : undefined,
         };
-        if (result.verified || result.skipVerification) {
+        if (shouldContinueToFirmwareCheck) {
           newSteps[1] = {
             ...newSteps[1],
             state: ECheckAndUpdateStepState.InProgress,
@@ -624,7 +635,7 @@ function CheckAndUpdatePage({
         }
         return newSteps;
       });
-      if (result.verified || result.skipVerification) {
+      if (shouldContinueToFirmwareCheck) {
         setTimeout(() => {
           void checkFirmwareUpdate();
         }, 150);

@@ -202,7 +202,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     const manager = buildManager(device, {
       deviceSettings,
     } as unknown as CoreApi);
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.updateDevice).mockClear();
 
     await manager.setAutoShutDownDelayMs({
@@ -210,7 +210,7 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
       autoShutdownDelayMs: 300_000,
     });
 
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(localDb.updateDevice).not.toHaveBeenCalled();
   });
 

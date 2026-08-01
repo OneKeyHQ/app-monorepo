@@ -152,7 +152,7 @@ const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
 const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
 
 /**
- * @deprecated 新代码使用 IDeviceGetStateOptions；仅保留给旧 Features 兼容路径。
+ * @deprecated New code should use IDeviceGetStateOptions; retained for legacy Features compatibility.
  */
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
@@ -1043,6 +1043,9 @@ class ServiceHardware extends ServiceBase {
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           this.deviceProtocolByConnectId.delete(activeConnectId);
+          if (this.hardwareUiEventState.connectId === activeConnectId) {
+            this.resetHardwareUiEventQueue();
+          }
         }
       });
 
@@ -2084,21 +2087,21 @@ class ServiceHardware extends ServiceBase {
     return state;
   }
 
-  /** @deprecated 使用 getDeviceState。 */
+  /** @deprecated Use getDeviceState. */
   @backgroundMethod()
   async getFeatures(options: IDeviceGetFeaturesOptions) {
     const features = await this._getFeaturesWithCache(options);
     return features;
   }
 
-  /** @deprecated 使用 getDeviceState。 */
+  /** @deprecated Use getDeviceState. */
   @backgroundMethod()
   async getFeaturesWithoutCache(options: IDeviceGetFeaturesOptions) {
     const features = await this._getFeaturesWithMutex(options);
     return features;
   }
 
-  /** @deprecated 使用 getDeviceStateByWallet。 */
+  /** @deprecated Use getDeviceStateByWallet. */
   @backgroundMethod()
   async getFeaturesByWallet({ walletId }: { walletId: string }) {
     const device = await this.backgroundApi.serviceAccount.getWalletDevice({
@@ -2125,7 +2128,7 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
-  /** @deprecated 使用 getDeviceState，并按 scope 读取所需分区。 */
+  /** @deprecated Use getDeviceState and request the required scope. */
   @backgroundMethod()
   async getAboutDeviceFeatures(params: { connectId: string }) {
     const dbDevice = await localDb.getDeviceByQuery({
@@ -2365,7 +2368,7 @@ class ServiceHardware extends ServiceBase {
       const walletName = wallet?.name;
       const dbDeviceId = wallet?.associatedDevice;
       if (dbDeviceId) {
-        // DeviceState 持久化和界面刷新由 SDK DEVICE.STATE 统一驱动。
+        // SDK DEVICE.STATE drives both persistence and UI refreshes.
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
           walletId: p.walletId,
           dbDeviceId,
@@ -2645,7 +2648,7 @@ class ServiceHardware extends ServiceBase {
     return buildOnekeyFeaturesFromState(state);
   }
 
-  /** @deprecated 使用 getFirmwareVerificationFeatures。 */
+  /** @deprecated Use getFirmwareVerificationFeatures. */
   @backgroundMethod()
   async getOneKeyFeatures({
     connectId,

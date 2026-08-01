@@ -109,7 +109,7 @@ const createService = ({
     settings: { language: 'en-US' },
     versions: { firmware: '1.0.0' },
   };
-  // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+  // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
   jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
     id: 'db-device-1',
     connectId: 'PRO2_USB',
@@ -247,7 +247,7 @@ describe('ServiceHardware wallet session compatibility', () => {
     const { service, openWalletSession, getPassphraseState } = createService({
       unlocked: true,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
       id: 'db-classic-device-1',
       connectId: 'CLASSIC',
@@ -274,7 +274,7 @@ describe('ServiceHardware wallet session compatibility', () => {
     const { service, getDeviceState, openWalletSession } = createService({
       unlocked: true,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(undefined);
 
     await service.getPassphraseStateBase({
@@ -294,7 +294,7 @@ describe('ServiceHardware wallet session compatibility', () => {
 describe('ServiceHardware.getDeviceState', () => {
   it('does not infer the protocol from deviceType when no negotiated protocol is stored', async () => {
     const { service, getDeviceState } = createService({ unlocked: false });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
       id: 'db-device-without-protocol',
       connectId: 'PRO2_USB',
@@ -380,7 +380,7 @@ describe('ServiceHardware.getDeviceState', () => {
     const { service, getDeviceState, getFeatures } = createService({
       unlocked: true,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
       id: 'db-classic-device-1',
       connectId: 'CLASSIC',
@@ -767,7 +767,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       changedKeys: ['identity.label'],
     });
 
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(localDb.updateDeviceState).toHaveBeenCalledWith({
       changedKeys: ['identity.label'],
       connectId: 'PRO2_USB',
@@ -775,7 +775,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       source: 'apply-settings',
       state,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.objectContaining({ state, revision: 2 }),
@@ -783,7 +783,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
   });
 
   it('still broadcasts the in-memory state when persistence fails', async () => {
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
     const listeners = new Map<
@@ -815,7 +815,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     };
 
     await expect(listeners.get('state')?.(event)).resolves.toBeUndefined();
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.HardwareDeviceStateUpdate,
       event,
@@ -823,14 +823,14 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
   });
 
   it('does not broadcast an event rejected as stale by persistence', async () => {
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
     updateDeviceStateMock.mockResolvedValueOnce({
       kind: 'ignored',
       reason: 'stale',
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const emitMock = jest.mocked(appEventBus.emit);
     emitMock.mockClear();
     const listeners = new Map<
@@ -875,13 +875,13 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
   });
 
   it('cleans the device event queue when an App subscriber throws', async () => {
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.updateDeviceState).mockResolvedValueOnce({
       kind: 'updated',
       deviceDbId: 'db-device-1',
       state: {} as never,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const emitMock = jest.mocked(appEventBus.emit);
     emitMock.mockImplementationOnce(() => {
       throw new OneKeyLocalError('Subscriber failed');
@@ -996,10 +996,10 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
   });
 
   it('serializes state persistence in SDK event order', async () => {
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     const emitMock = jest.mocked(appEventBus.emit);
     emitMock.mockClear();
     const listeners = new Map<
@@ -1055,7 +1055,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     await new Promise<void>((resolve) => {
       setImmediate(resolve);
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(localDb.updateDeviceState).toHaveBeenCalledTimes(1);
     expect(emitMock).not.toHaveBeenCalledWith(
       EAppEventBusNames.HardwareDeviceStateUpdate,
@@ -1063,7 +1063,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     );
     resolveFirst?.({ kind: 'ignored', reason: 'device-not-found' });
     await Promise.all([first, second]);
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(localDb.updateDeviceState).toHaveBeenCalledTimes(2);
     expect(emitMock).toHaveBeenCalledTimes(2);
   });
@@ -1082,19 +1082,19 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     service.deviceSettingsManager.setDeviceLabel = jest
       .fn()
       .mockResolvedValue({ message: 'Success' });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(appEventBus.emit).mockClear();
     await service.setDeviceLabel({
       walletId: 'wallet-1',
       label: 'Renamed Pro 2',
     });
 
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.anything(),
     );
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.SyncDeviceLabelToWalletName,
       expect.objectContaining({ label: 'Renamed Pro 2' }),

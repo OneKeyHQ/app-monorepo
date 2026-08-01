@@ -1,3 +1,5 @@
+import { cloneDeep } from 'lodash';
+
 import { EOneKeyDeviceMode } from '../../types/device';
 
 import type {
@@ -38,7 +40,7 @@ export function hasDeviceStateIdentityMismatch({
 }
 
 function sanitizeState(state: IOneKeyDeviceState) {
-  const nextState = structuredClone(state);
+  const nextState = cloneDeep(state);
   delete (nextState as unknown as { raw?: unknown }).raw;
   delete (nextState as unknown as { session?: unknown }).session;
   delete (
@@ -82,7 +84,7 @@ export function mergeDeviceStateEvent({
       const mergedRecord = mergedState as unknown as Record<string, unknown>;
       if (!field) {
         if (section in incomingRecord) {
-          mergedRecord[section] = structuredClone(incomingRecord[section]);
+          mergedRecord[section] = cloneDeep(incomingRecord[section]);
         }
       } else {
         const incomingSection = incomingRecord[section];
@@ -91,7 +93,7 @@ export function mergeDeviceStateEvent({
             mergedRecord[section] && typeof mergedRecord[section] === 'object'
               ? (mergedRecord[section] as Record<string, unknown>)
               : {};
-          targetSection[field] = structuredClone(
+          targetSection[field] = cloneDeep(
             (incomingSection as Record<string, unknown>)[field],
           );
           mergedRecord[section] = targetSection;

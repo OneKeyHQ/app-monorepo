@@ -141,11 +141,7 @@ const PRO2_COMPONENT_TARGET_MAP: Partial<
   SE04: 'se04',
 };
 
-function shouldSkipFirmwareUpdate(deviceType: IDeviceType): boolean {
-  return deviceType === EDeviceType.Pro2;
-}
-
-function buildPro2TargetsToUpdate({
+export function buildPro2TargetsToUpdate({
   features,
   firmware,
   ble,
@@ -200,8 +196,6 @@ function buildPro2TargetsToUpdate({
       aggregateHasUpgrade = firmware?.hasUpgrade;
     } else if (target === 'coprocessor') {
       aggregateHasUpgrade = ble?.hasUpgrade;
-    } else {
-      aggregateHasUpgrade = currentVersion !== targetVersion;
     }
     if (aggregateHasUpgrade) {
       targets.add(target);
@@ -577,44 +571,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-
-    // Pro2 uses the Protocol V2 firmwareUpdateV4 flow. Its release-check flow
-    // is not ready in the app yet, so do not call the Protocol V1 SDK API.
-    if (shouldSkipFirmwareUpdate(deviceType)) {
-      if (originalConnectId) {
-        await this.detectMap.deleteUpdateInfo({
-          connectId: originalConnectId,
-        });
-        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: originalConnectId,
-          skipDeviceCancel: true,
-          deviceResetToHome: false,
-          skipDelayClose: true,
-          reason: 'skip Pro2 firmware update check',
-        });
-      }
-
-      return {
-        updatingConnectId,
-        originalConnectId,
-        features,
-        deviceType,
-        deviceName: await deviceUtils.buildDeviceName({ features }),
-        deviceBleName: deviceUtils.buildDeviceBleName({ features }),
-        deviceUUID: getDeviceSerialNo(features),
-        hasUpgrade: false,
-        isBootloaderMode,
-        updateInfos: {
-          firmware: undefined,
-          ble: undefined,
-          bootloader: undefined,
-          bridge: undefined,
-        },
-        totalPhase: [],
-        pro2ForceTargets: undefined,
-        pro2TargetsToUpdate: undefined,
-      };
-    }
 
     const releaseInfo =
       releaseInfoCache ??

@@ -11,15 +11,32 @@ let configFetcherAxios: AxiosInstance | null = null;
 
 const FIRMWARE_UPDATE_DEV_SETTINGS_STORAGE_KEY =
   'g_states_v5:firmwareUpdateDevSettingsPersistAtom';
+const DEV_SETTINGS_STORAGE_KEY = 'g_states_v5:devSettingsPersistAtom';
 
 type IFirmwareUpdateDevSettingsPersisted = {
   hardwareConfigUrl?: string;
+};
+type IDevSettingsPersisted = {
+  enabled?: boolean;
 };
 
 type IHardwareConfigSource = {
   url: string;
   isCustomSource: boolean;
 };
+
+const LOCAL_CONFIG_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
+function validateCustomConfigUrl(targetUrl: URL) {
+  const isLocalHttpSource =
+    targetUrl.protocol === 'http:' &&
+    LOCAL_CONFIG_HOSTS.has(targetUrl.hostname);
+  if (targetUrl.protocol !== 'https:' && !isLocalHttpSource) {
+    throw new TypeError(
+      'Hardware config sources must use HTTPS, except for localhost development sources.',
+    );
+  }
+}
 
 function parseFirmwareUpdateDevSettings(
   raw: string | null | undefined,
@@ -58,6 +75,29 @@ async function getFirmwareUpdateDevSettingsFromStorage() {
   );
 }
 
+async function getDevSettingsFromStorage() {
+  if (platformEnv.isNative) {
+    try {
+      const { default: jotaiMMKV } =
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
+      const mmkvValue = parseFirmwareUpdateDevSettings(
+        jotaiMMKV.getString(DEV_SETTINGS_STORAGE_KEY),
+      );
+      if (mmkvValue) {
+        return mmkvValue as IDevSettingsPersisted;
+      }
+    } catch {
+      // fallback to AsyncStorage below
+    }
+  }
+
+  const storage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
+  return parseFirmwareUpdateDevSettings(
+    await storage.getItem(DEV_SETTINGS_STORAGE_KEY),
+  ) as IDevSettingsPersisted | undefined;
+}
+
 async function getHardwareConfigSource(
   originalUrl: string,
   hardwareConfigUrl?: string,
@@ -70,7 +110,10 @@ async function getHardwareConfigSource(
     };
   }
 
-  const devSettings = await getFirmwareUpdateDevSettingsFromStorage();
+  const devMode = await getDevSettingsFromStorage();
+  const devSettings = devMode?.enabled
+    ? await getFirmwareUpdateDevSettingsFromStorage()
+    : undefined;
   const customUrl =
     devSettings?.hardwareConfigUrl?.trim() ||
     process.env.HARDWARE_SDK_CONFIG_SRC?.trim();
@@ -104,6 +147,7 @@ async function resolveHardwareConfigUrl(
   }
 
   const targetUrl = new URL(targetHardwareConfigUrl);
+  validateCustomConfigUrl(targetUrl);
   if (targetUrl.pathname === '/') {
     targetUrl.pathname = sourceUrl.pathname;
   }

@@ -136,14 +136,14 @@ export const reduceHardwareUiEventState = (
   const interaction = getInteraction(event.payload);
   const connectId =
     event.connectId ?? getPayloadConnectId(event.payload) ?? state.connectId;
-  const canSwitchFromClosedDevice =
-    state.phase === 'closed' &&
+  const requestedPhase = REQUEST_PHASES[event.type];
+  const isDifferentDevice =
     Boolean(state.connectId) &&
     Boolean(connectId) &&
     state.connectId !== connectId;
-  const currentState = canSwitchFromClosedDevice
-    ? createHardwareUiEventState()
-    : state;
+  const canSwitchDevice =
+    isDifferentDevice && (state.phase === 'closed' || Boolean(requestedPhase));
+  const currentState = canSwitchDevice ? createHardwareUiEventState() : state;
 
   if (
     !isSameDevice(currentState, connectId) ||
@@ -152,7 +152,6 @@ export const reduceHardwareUiEventState = (
     return { state, applied: false };
   }
 
-  const requestedPhase = REQUEST_PHASES[event.type];
   if (requestedPhase) {
     const nextState = applyInteraction(
       {

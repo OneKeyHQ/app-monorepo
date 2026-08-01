@@ -36,7 +36,6 @@ import type {
   ICheckAllFirmwareReleaseResult,
   IFirmwareChangeLog,
   IFirmwareUpdateInfo,
-  IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
@@ -46,40 +45,6 @@ import { FirmwareUpdateTestIDs } from '../testIDs';
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
-
-type IProtocolV2FirmwareComponentDisplay = {
-  target?: string;
-  version?: number[];
-  url?: string;
-  resourceManifest?: {
-    packages?: Array<{
-      name?: string;
-      path?: string;
-      version?: number[];
-    }>;
-  };
-};
-
-const PRO2_FORCE_TARGET_BY_COMPONENT_TARGET = new Map<
-  string,
-  IPro2FirmwareUpdateTarget
->([
-  ['BOOTLOADER', 'boot'],
-  ['APPLICATION_P1', 'app_v1'],
-  ['APPLICATION_P2', 'app_v2'],
-  ['CRATE', 'resource'],
-  ['SE01', 'se01'],
-  ['SE02', 'se02'],
-  ['SE03', 'se03'],
-  ['SE04', 'se04'],
-]);
-
-function formatVersion(version: string | number[] | undefined) {
-  if (Array.isArray(version)) {
-    return version.join('.');
-  }
-  return version ?? '';
-}
 
 function isPro2SafeOSFirmwareUpdate(
   result: ICheckAllFirmwareReleaseResult | undefined,
@@ -263,89 +228,6 @@ function ChangeLogSection({
   );
 }
 
-function FirmwareUpdateDebugPayloadSection({
-  result,
-}: {
-  result: ICheckAllFirmwareReleaseResult | undefined;
-}) {
-  const release = result?.updateInfos?.firmware?.releasePayload?.release;
-  const components = release?.components as
-    | Record<string, IProtocolV2FirmwareComponentDisplay>
-    | undefined;
-  const pro2ForceTargets = result?.pro2ForceTargets;
-
-  const componentEntries = useMemo(() => {
-    if (!components) return [];
-    const forceTargets = new Set(pro2ForceTargets ?? []);
-    const orderedKeys = [
-      ...(release?.installOrder ?? []),
-      ...Object.keys(components).filter(
-        (key) => !release?.installOrder?.includes(key),
-      ),
-    ];
-    return orderedKeys
-      .map((key) => [key, components[key]] as const)
-      .filter(([, component]) => {
-        if (!component) return false;
-        if (forceTargets.size === 0) return true;
-        const target = component.target?.toUpperCase();
-        const pro2ForceTarget = target
-          ? PRO2_FORCE_TARGET_BY_COMPONENT_TARGET.get(target)
-          : undefined;
-        return Boolean(pro2ForceTarget && forceTargets.has(pro2ForceTarget));
-      });
-  }, [components, pro2ForceTargets, release?.installOrder]);
-
-  if (componentEntries.length === 0) {
-    return null;
-  }
-
-  return (
-    <Stack
-      mx="$5"
-      mt="$2"
-      mb="$3"
-      py="$3"
-      borderTopWidth={1}
-      borderColor="$borderSubdued"
-    >
-      <SizableText size="$bodyMdMedium" color="$textSubdued" mb="$2">
-        Debug update payload
-      </SizableText>
-      <Stack gap="$2">
-        {componentEntries.map(([key, component]) => {
-          const packageNames = component.resourceManifest?.packages
-            ?.map((pkg) => pkg.name || pkg.path)
-            .filter(Boolean)
-            .join(', ');
-          const version = formatVersion(component.version);
-          return (
-            <XStack key={key} gap="$2" alignItems="center" minWidth={0}>
-              <SizableText size="$bodyMd" color="$text" flex={1} minWidth={0}>
-                {key}
-              </SizableText>
-              {packageNames ? (
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  flex={1}
-                  minWidth={0}
-                  numberOfLines={1}
-                >
-                  {packageNames}
-                </SizableText>
-              ) : null}
-              <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-                {[component.target, version].filter(Boolean).join(' / ')}
-              </SizableText>
-            </XStack>
-          );
-        })}
-      </Stack>
-    </Stack>
-  );
-}
-
 export function FirmwareChangeLogContentView({
   result,
   ...rest
@@ -397,9 +279,6 @@ export function FirmwareChangeLogContentView({
           />
         ) : null}
       </Accordion>
-      {isPro2SafeOSUpdate ? (
-        <FirmwareUpdateDebugPayloadSection result={result} />
-      ) : null}
     </Stack>
   );
 }

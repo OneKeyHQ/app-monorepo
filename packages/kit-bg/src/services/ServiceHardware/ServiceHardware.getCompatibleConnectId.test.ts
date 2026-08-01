@@ -277,7 +277,7 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     expect(unlockDevice).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(service.getDeviceState).toHaveBeenCalledTimes(2);
   });
 
@@ -303,7 +303,7 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     ).rejects.toThrow('Device is not initialized');
 
     expect(unlockDevice).not.toHaveBeenCalled();
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock 不依赖 this 绑定
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(service.getDeviceState).toHaveBeenCalledTimes(1);
   });
 });

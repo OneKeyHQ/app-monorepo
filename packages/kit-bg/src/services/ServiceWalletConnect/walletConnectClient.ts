@@ -1,11 +1,10 @@
 import { WalletKit } from '@reown/walletkit';
 import { Core } from '@walletconnect/core';
-import { safeJsonParse, safeJsonStringify } from '@walletconnect/safe-json';
+import { KeyValueStorage } from '@walletconnect/keyvaluestorage';
 import SignClient, { SESSION_CONTEXT } from '@walletconnect/sign-client';
 import { isArray, isString } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_LOGGER_LEVEL,
@@ -13,7 +12,6 @@ import {
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
-  IWalletConnectKeyValueStorage,
   IWalletConnectSession,
   IWalletConnectSignClient,
   IWalletConnectWeb3Wallet,
@@ -29,47 +27,11 @@ const sharedOptions: CoreTypes.Options = {
 const DAPP_STORAGE_PREFIX = '1k-wc-dapp-kit';
 const WALLET_STORAGE_PREFIX = '1k-wc-wallet-kit';
 
-const STORAGE_KEY_PREFIX = 'wallet_connect_v2:';
-
-let sharedStorage: IWalletConnectKeyValueStorage | undefined;
-function getSharedStorage(): IWalletConnectKeyValueStorage {
+// TODO remove walletConnectStorage, use sharedStorage instead
+let sharedStorage: KeyValueStorage | undefined;
+function getSharedStorage(): KeyValueStorage {
   if (!sharedStorage) {
-    const toStorageKey = (key: string) => `${STORAGE_KEY_PREFIX}${key}`;
-    const storage: IWalletConnectKeyValueStorage = {
-      async getKeys() {
-        const keys = await appStorage.getAllKeys();
-        const currentKeys = keys
-          .filter((key) => key.startsWith(STORAGE_KEY_PREFIX))
-          .map((key) => key.slice(STORAGE_KEY_PREFIX.length));
-        return currentKeys;
-      },
-      async getEntries<T = unknown>() {
-        const entries: [string, T][] = [];
-        const keys = await this.getKeys();
-        for (const key of keys) {
-          const value = await this.getItem<T>(key);
-          if (value !== undefined) {
-            entries.push([key, value]);
-          }
-        }
-        return entries;
-      },
-      async getItem<T = unknown>(key: string) {
-        const value = await appStorage.getItem(toStorageKey(key));
-        if (value !== null) {
-          return safeJsonParse<T>(value) as T;
-        }
-        return undefined;
-      },
-      async setItem<T = unknown>(key: string, value: T) {
-        await appStorage.setItem(toStorageKey(key), safeJsonStringify(value));
-      },
-      async removeItem(key: string) {
-        await appStorage.removeItem(toStorageKey(key));
-      },
-    };
-    sharedStorage = storage;
-    return storage;
+    sharedStorage = new KeyValueStorage();
   }
   return sharedStorage;
 }
@@ -78,7 +40,7 @@ async function coreInit({
   storage,
   customStoragePrefix,
 }: {
-  storage: IWalletConnectKeyValueStorage;
+  storage: KeyValueStorage;
   customStoragePrefix: string;
 }) {
   if (!customStoragePrefix) {

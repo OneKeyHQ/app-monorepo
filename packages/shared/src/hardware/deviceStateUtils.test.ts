@@ -129,4 +129,34 @@ describe('deviceStateUtils', () => {
 
     expect(merged.protocolVersion).toBe(1);
   });
+
+  it('merges state when structuredClone is unavailable on Hermes', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'structuredClone',
+    );
+    Object.defineProperty(globalThis, 'structuredClone', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      const merged = mergeDeviceStateEvent({
+        currentState: createState(),
+        incomingState: createState({
+          revision: 2,
+          updatedAt: 2,
+          unlocked: true,
+        }),
+        changedKeys: ['status.unlocked'],
+      });
+      expect(merged.status.unlocked).toBe(true);
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'structuredClone', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'structuredClone');
+      }
+    }
+  });
 });
