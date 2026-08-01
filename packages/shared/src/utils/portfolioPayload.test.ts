@@ -1,0 +1,956 @@
+/*
+yarn test packages/shared/src/utils/portfolioPayload.test.ts
+*/
+import { appLocale } from '../locale/appLocale';
+
+import {
+  buildPortfolioPayload,
+  buildPortfolioPayloadHash,
+} from './portfolioPayload';
+
+import type { ICurrencyItem } from '../../types/currency';
+import type { IAccountToken, ITokenFiat } from '../../types/token';
+
+const currencyMap: Record<string, ICurrencyItem> = {
+  usd: { id: 'usd', unit: '$', name: 'US Dollar', type: ['fiat'], value: '1' },
+  cny: {
+    id: 'cny',
+    unit: '¥',
+    name: 'Chinese Yuan',
+    type: ['fiat'],
+    value: '7',
+  },
+};
+const defaultLocale = appLocale.intl.locale;
+const defaultMessages = appLocale.intl.messages;
+
+function buildToken(params: Partial<IAccountToken>): IAccountToken {
+  return {
+    $key: params.$key ?? 'eth',
+    address: params.address ?? '0xeeee',
+    decimals: params.decimals ?? 18,
+    isNative: params.isNative ?? true,
+    name: params.name ?? 'Ethereum',
+    symbol: params.symbol ?? 'ETH',
+    ...params,
+  };
+}
+
+function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
+  return {
+    balance: params.balance ?? '1',
+    balanceParsed: params.balanceParsed ?? '1',
+    fiatValue: params.fiatValue ?? '100',
+    price: params.price ?? 100,
+    currency: params.currency ?? 'usd',
+    ...params,
+  };
+}
+
+describe('buildPortfolioPayload', () => {
+  afterEach(() => {
+    appLocale.setLocale(defaultLocale, defaultMessages);
+  });
+
+  test.each([
+    ['123456789012345', '123456789012345'],
+    ['1234567890123456', '123456789012345'],
+    ['币币币币A币', '币币币币A'],
+    ['ABC😀DEF😀GHI', 'ABC😀DEF😀G'],
+  ])(
+    'truncates token symbol %s to the firmware 15-byte limit',
+    (symbol, expected) => {
+      const token = buildToken({ $key: 'token', symbol });
+      const payload = buildPortfolioPayload({
+        account: { label: 'Account #1', addressMasked: '0x12...ab' },
+        aggregateTokenMap: {},
+        currencyMap,
+        displayCurrency: { id: 'usd', symbol: '$' },
+        totalFiat: '1',
+        totalTokenCount: 1,
+        timestamp: 1_780_900_000,
+        tokenMap: {
+          token: buildFiat({ fiatValue: '1' }),
+        },
+        tokens: [token],
+      });
+
+      expect(payload.tokens[0].symbol).toBe(expected);
+      expect(
+        Buffer.byteLength(payload.tokens[0].symbol, 'utf8'),
+      ).toBeLessThanOrEqual(15);
+    },
+  );
+
+  test('excludes advertising and zero-fiat tokens before selecting the hardware top five', () => {
+    const advertising = buildToken({
+      $key: 'advertising',
+      name: 'Telegram @TronVanity88_bot',
+      symbol: 'Telegram @TronVanity88_bot',
+    });
+    const zeroFiat = buildToken({
+      $key: 'zero-fiat',
+      name: 'Binance USD',
+      symbol: 'BUSD.e',
+    });
+    const valid = buildToken({
+      $key: 'valid',
+      name: 'Solana',
+      symbol: 'SOL',
+    });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '150',
+      totalTokenCount: 3,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        advertising: buildFiat({ fiatValue: '100' }),
+        'zero-fiat': buildFiat({ fiatValue: '0' }),
+        valid: buildFiat({ fiatValue: '50' }),
+      },
+      tokens: [advertising, zeroFiat, valid],
+    });
+
+    expect(payload.tokens.map((token) => token.symbol)).toEqual(['SOL']);
+    expect(payload.otherTokens).toEqual({
+      count: 2,
+      fiat: '$100.00',
+      portfolioPercentage: 66.67,
+    });
+  });
+
+  test.each([
+    ['0', '0'],
+    ['0.123456', '0.1235'],
+    ['0.0123456', '0.01235'],
+    ['0.00123456', '0.001235'],
+    ['0.000123456', '0.0001235'],
+    ['0.00099999', '0.001'],
+    ['0.000099999', '0.0001'],
+    ['0.0000099999', '0.0₄1'],
+    ['0.00007276', '0.0₄7276'],
+    ['0.0000041', '0.0₅41'],
+    ['1.23456', '1.235'],
+    ['12.3456', '12.35'],
+    ['123.456', '123.5'],
+    ['999.94', '999.9'],
+    ['999.99', '1K'],
+    ['1234.5678', '1.235K'],
+    ['12345.678', '12.35K'],
+    ['123456.789', '123.5K'],
+    ['999950', '1M'],
+    ['999999.9', '1M'],
+    ['123456789', '123.5M'],
+    ['1234567890', '1.235B'],
+    ['1234567890123', '1.235T'],
+    ['1234567890123456', '1.235Q'],
+    ['999940000000000000', '999.9Q'],
+    ['999950000000000000', '>999.9Q'],
+  ])('formats Pro 2 token balance %s as %s', (balanceParsed, expected) => {
+    const token = buildToken({ $key: 'token', symbol: 'TOKEN' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '1',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        token: buildFiat({ balanceParsed, fiatValue: '1' }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].balance).toBe(expected);
+  });
+
+  test.each([
+    ['0', '$0.00'],
+    ['0.009', '< $0.01'],
+    ['75.247', '$75.25'],
+    ['123456789012.34', '$123,456,789,012.34'],
+    ['122222222222222222222222222222222', '$1.222e+32'],
+    ['123456789012345678901234567890.12', '$1.235e+29'],
+  ])('formats Pro 2 total fiat %s as %s', (totalFiat, expected) => {
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat,
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload.totalFiat).toBe(expected);
+  });
+
+  test('uses the App locale separators and preserves an ISO currency unit space', () => {
+    appLocale.setLocale('de', {} as typeof defaultMessages);
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'khr', symbol: 'KHR' },
+      totalFiat: '123456789012.34',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload.totalFiat).toBe('KHR 123.456.789.012,34');
+  });
+
+  test.each([
+    ['eur', '€'],
+    ['krw', '₩'],
+    ['inr', '₹'],
+    ['rub', '₽'],
+    ['try', '₺'],
+    ['vnd', '₫'],
+    ['thb', '฿'],
+    ['php', '₱'],
+    ['ngn', '₦'],
+    ['uah', '₴'],
+    ['ils', '₪'],
+    ['btc', '₿'],
+    ['kzt', '₸'],
+    ['crc', '₡'],
+    ['pyg', '₲'],
+    ['ghs', '₵'],
+    ['lak', '₭'],
+    ['mnt', '₮'],
+    ['azn', '₼'],
+    ['gel', '₾'],
+    ['pkr', '₨'],
+    ['bdt', '৳'],
+    ['khr', '៛'],
+    ['afn', '؋'],
+  ])('keeps firmware-supported %s currency glyph %s', (id, symbol) => {
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id, symbol },
+      totalFiat: '0',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload.totalFiat).toBe(`${symbol}0.00`);
+  });
+
+  test('falls back to the ISO code only for glyphs unavailable in the firmware fonts', () => {
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'xyz', symbol: '🪙' },
+      totalFiat: '0',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload.totalFiat).toBe('XYZ 0.00');
+  });
+
+  test('keeps every hardware amount within seven significant digits', () => {
+    const token = buildToken({ $key: 'token', symbol: 'TOKEN' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '12345678.9012345',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        token: buildFiat({
+          balanceParsed: '12345678.9012345',
+          fiatValue: '12345678.9012345',
+        }),
+      },
+      tokens: [token],
+    });
+    const amounts = [
+      payload.tokens[0].balance,
+      payload.tokens[0].fiatValue,
+      payload.otherTokens.fiat,
+    ];
+
+    for (const amount of amounts) {
+      const significantDigits = amount
+        .replace(/[^0-9]/gu, '')
+        .replace(/^0+/u, '').length;
+      expect(significantDigits).toBeLessThanOrEqual(7);
+    }
+  });
+
+  test('uses the UI token order and converts fiat values to the display currency', () => {
+    const lowValueFirst = buildToken({
+      $key: 'low',
+      symbol: 'LOW',
+      name: 'Low Value',
+      coingeckoId: 'low-value',
+    });
+    const highValueSecond = buildToken({
+      $key: 'high',
+      symbol: 'HIGH',
+      name: 'High Value',
+      coingeckoId: 'high-value',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '707.004',
+      totalTokenCount: 2,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        low: buildFiat({ fiatValue: '1', price: 1 }),
+        high: buildFiat({ fiatValue: '100', price: 100 }),
+      },
+      tokens: [lowValueFirst, highValueSecond],
+    });
+
+    expect(payload.tokens.map((token) => token.symbol)).toEqual([
+      'LOW',
+      'HIGH',
+    ]);
+    expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '',
+      fiatValue: '¥7.00',
+      iconName: null,
+      isAllNetworks: false,
+      isNative: true,
+      portfolioPercentage: 0.99,
+    });
+    expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '',
+      fiatValue: '¥700.00',
+      iconName: null,
+      isAllNetworks: false,
+      isNative: true,
+      portfolioPercentage: 99.01,
+    });
+    expect(Object.keys(payload).toSorted()).toEqual(
+      [
+        'account',
+        'otherTokens',
+        'tokenCount',
+        'tokens',
+        'totalFiat',
+        'ts',
+        'v',
+      ].toSorted(),
+    );
+    expect(Object.keys(payload.tokens[0]).toSorted()).toEqual(
+      [
+        'balance',
+        'contractAddress',
+        'fiatValue',
+        'iconName',
+        'isAllNetworks',
+        'isNative',
+        'name',
+        'networkId',
+        'portfolioPercentage',
+        'symbol',
+      ].toSorted(),
+    );
+    expect(payload.totalFiat).toBe('¥707.00');
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '< ¥0.01',
+      portfolioPercentage: 0,
+    });
+  });
+
+  test('only marks iconName for allowlisted native and contract tokens', () => {
+    const ethNative = buildToken({
+      $key: 'eth',
+      address: '0xeeee',
+      isNative: true,
+      name: 'Ethereum',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+    });
+    const fakeUsdt = buildToken({
+      $key: 'fake-usdt',
+      address: '0x0000000000000000000000000000000000000001',
+      isNative: false,
+      name: 'Tether USD',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+    const realUsdt = buildToken({
+      $key: 'real-usdt',
+      address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      isNative: false,
+      name: 'Tether USD',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '297',
+      totalTokenCount: 3,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        eth: buildFiat({ fiatValue: '100', price: 100 }),
+        'fake-usdt': buildFiat({ fiatValue: '99', price: 1 }),
+        'real-usdt': buildFiat({ fiatValue: '98', price: 1 }),
+      },
+      tokens: [ethNative, fakeUsdt, realUsdt],
+    });
+
+    expect(payload.tokens.map((token) => token.iconName)).toEqual([
+      'ETH',
+      null,
+      'USDT',
+    ]);
+    expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '',
+      isNative: true,
+    });
+    expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '0x0000000000000000000000000000000000000001',
+      isNative: false,
+    });
+    expect(payload.tokens[2]).toMatchObject({
+      contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      isNative: false,
+    });
+  });
+
+  test('normalizes names only for allowlisted portfolio tokens', () => {
+    const ethNative = buildToken({
+      $key: 'eth',
+      isNative: true,
+      name: 'Ether',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+    });
+    const ethUsdt = buildToken({
+      $key: 'eth-usdt',
+      address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      isNative: false,
+      name: 'Tether',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+    const aggregateUsdc = buildToken({
+      $key: 'aggregate_USDC_',
+      commonSymbol: 'USDC',
+      isAggregateToken: true,
+      name: 'USDC',
+      networkId: 'aggregate',
+      symbol: 'USDC',
+    });
+    const unknownUsdt = buildToken({
+      $key: 'unknown-usdt',
+      address: '0x0000000000000000000000000000000000000001',
+      isNative: false,
+      name: 'Unknown Tether',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {
+        aggregate_USDC_: buildFiat({ fiatValue: '100', price: 1 }),
+      },
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '400',
+      totalTokenCount: 4,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        eth: buildFiat({ fiatValue: '100', price: 100 }),
+        'eth-usdt': buildFiat({ fiatValue: '100', price: 1 }),
+        'unknown-usdt': buildFiat({ fiatValue: '100', price: 1 }),
+      },
+      tokens: [ethNative, ethUsdt, aggregateUsdc, unknownUsdt],
+    });
+
+    expect(payload.tokens.map((token) => token.name)).toEqual([
+      'Ethereum',
+      'Tether USD',
+      'USD Coin',
+      'Unknown Tether',
+    ]);
+  });
+
+  test('keeps chain-native contract addresses when the native coin has one', () => {
+    const suiNative = buildToken({
+      $key: 'sui',
+      address: '0x2::sui::SUI',
+      isNative: true,
+      name: 'Sui',
+      networkId: 'sui--mainnet',
+      symbol: 'SUI',
+    });
+    const aptNative = buildToken({
+      $key: 'apt',
+      address: '0x1::aptos_coin::AptosCoin',
+      isNative: true,
+      name: 'Aptos',
+      networkId: 'aptos--1',
+      symbol: 'APT',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '199',
+      totalTokenCount: 2,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        apt: buildFiat({ fiatValue: '100', price: 100 }),
+        sui: buildFiat({ fiatValue: '99', price: 1 }),
+      },
+      tokens: [suiNative, aptNative],
+    });
+
+    expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '0x2::sui::SUI',
+      isNative: true,
+      networkId: 'sui--mainnet',
+    });
+    expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '0x1::aptos_coin::AptosCoin',
+      isNative: true,
+      networkId: 'aptos--1',
+    });
+  });
+
+  test('keeps an aggregate token grouped and reads fiat basis from aggregateTokenMap', () => {
+    const aggregate = buildToken({
+      $key: 'aggregate_ETH_',
+      address: 'aggregate_ETH_',
+      commonSymbol: 'ETH',
+      isAggregateToken: true,
+      name: 'Ethereum',
+      networkId: 'aggregate',
+      symbol: 'ETH',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {
+        aggregate_ETH_: buildFiat({
+          balanceParsed: '2',
+          fiatValue: '200',
+          price: 100,
+        }),
+      },
+      currencyMap,
+      displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '1400',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [aggregate],
+    });
+
+    expect(payload.tokens).toHaveLength(1);
+    expect(payload.tokens[0]).toMatchObject({
+      balance: '2',
+      contractAddress: '',
+      fiatValue: '¥1.40K',
+      iconName: 'ETH',
+      isAllNetworks: true,
+      isNative: false,
+      networkId: '',
+      portfolioPercentage: 100,
+    });
+  });
+
+  test('excludes a token when its fiat value cannot be converted', () => {
+    const first = buildToken({ $key: 'first', symbol: 'FIRST' });
+    const missingRate = buildToken({ $key: 'missing', symbol: 'MISS' });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'eur', symbol: '€' },
+      totalFiat: '101',
+      totalTokenCount: 2,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        first: buildFiat({ fiatValue: '1', price: 1, currency: undefined }),
+        missing: buildFiat({ fiatValue: '100', price: 100, currency: 'usd' }),
+      },
+      tokens: [first, missingRate],
+    });
+
+    expect(payload.tokens.map((token) => token.symbol)).toEqual(['FIRST']);
+    expect(payload.tokens[0].fiatValue).toBe('€1.00');
+    expect(payload.totalFiat).toBe('€101.00');
+    expect(payload.otherTokens).toEqual({
+      count: 1,
+      fiat: '€100.00',
+      portfolioPercentage: 99.01,
+    });
+  });
+
+  test('limits the payload to five tokens and summarizes the remainder', () => {
+    const tokens = Array.from({ length: 12 }, (_, index) =>
+      buildToken({
+        $key: `token-${index}`,
+        name: `Token ${index}`,
+        symbol: `T${index}`,
+      }),
+    );
+    const tokenMap = Object.fromEntries(
+      tokens.map((token, index) => [
+        token.$key,
+        buildFiat({ fiatValue: String(100 - index), price: 1 }),
+      ]),
+    );
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '1134',
+      totalTokenCount: 12,
+      timestamp: 1_780_900_000,
+      tokenMap,
+      tokens,
+    });
+
+    expect(payload.tokens).toHaveLength(5);
+    expect(payload.tokenCount).toBe(5);
+    expect(payload.tokens.map((token) => token.symbol)).toEqual(
+      tokens.slice(0, 5).map((token) => token.symbol),
+    );
+    expect(payload.otherTokens).toEqual({
+      count: 7,
+      fiat: '$644.00',
+      portfolioPercentage: 56.79,
+    });
+    expect(
+      payload.tokens.reduce(
+        (total, token) => total + token.portfolioPercentage,
+        payload.otherTokens.portfolioPercentage,
+      ),
+    ).toBe(100);
+  });
+
+  test('uses the dedicated Pro 2 precision for fiat and balances', () => {
+    const token = buildToken({ $key: 'btc', symbol: 'BTC' });
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '27112.105',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        btc: buildFiat({
+          balanceParsed: '0.41308123',
+          fiatValue: '27112.105',
+          price: 65_631.11,
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.totalFiat).toBe('$27,112.11');
+    expect(payload.tokens[0]).toMatchObject({
+      balance: '0.4131',
+      fiatValue: '$27.11K',
+      portfolioPercentage: 100,
+    });
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '$0.00',
+      portfolioPercentage: 0,
+    });
+  });
+
+  test('uses two decimals for large fiat units and caps values beyond Q', () => {
+    const billionToken = buildToken({ $key: 'billion', symbol: 'BILLION' });
+    const trillionToken = buildToken({
+      $key: 'trillion',
+      symbol: 'TRILLION',
+    });
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '39477128561230002184512.1242',
+      totalTokenCount: 2,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        billion: buildFiat({
+          fiatValue: '235382184512.1242',
+          price: 1,
+        }),
+        trillion: buildFiat({
+          fiatValue: '564230002184512.1242',
+          price: 1,
+        }),
+      },
+      tokens: [billionToken, trillionToken],
+    });
+
+    expect(payload.totalFiat).toBe('$39,477,128,561,230,002,184,512.12');
+    expect(payload.tokens.map((token) => token.fiatValue)).toEqual([
+      '$235.38B',
+      '$564.23T',
+    ]);
+  });
+
+  test('keeps four meaningful balance decimals after leading zeros', () => {
+    const token = buildToken({ $key: 'small', symbol: 'SMALL' });
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.01',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        small: buildFiat({
+          balanceParsed: '0.00001234567',
+          fiatValue: '0.01',
+          price: 1,
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].balance).toBe('0.0₄1235');
+  });
+
+  test('uses a Unicode subscript starting at four leading zeros', () => {
+    const token = buildToken({ $key: 'small', symbol: 'SMALL' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.1',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        small: buildFiat({
+          balanceParsed: '0.00007276',
+          fiatValue: '0.1',
+          price: 1,
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].balance).toBe('0.0₄7276');
+    expect(payload.tokens[0].balance).not.toMatch(/[eE]/);
+  });
+
+  test('uses App display formatting for sub-cent fiat values', () => {
+    const token = buildToken({ $key: 'dust', symbol: 'DUST' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.009',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        dust: buildFiat({ balanceParsed: '0.0000041', fiatValue: '0.009' }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.totalFiat).toBe('< $0.01');
+    expect(payload.totalFiat).not.toContain('＜');
+    expect(payload.tokens[0]).toMatchObject({
+      balance: '0.0₅41',
+      fiatValue: '< $0.01',
+      portfolioPercentage: 100,
+    });
+  });
+
+  test('serializes multi-digit leading-zero counts as Unicode subscripts', () => {
+    const token = buildToken({ $key: 'dust', symbol: 'DUST' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0.01',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        dust: buildFiat({
+          balanceParsed: `0.${'0'.repeat(12)}41`,
+          fiatValue: '0.01',
+        }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].balance).toBe('0.0₁₂41');
+  });
+
+  test('validates the final display amount against the 47-byte limit', () => {
+    const baseParams = {
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      totalFiat: '0',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    };
+
+    expect(
+      buildPortfolioPayload({
+        ...baseParams,
+        displayCurrency: { id: 'usd', symbol: 'A'.repeat(43) },
+      }).totalFiat,
+    ).toHaveLength(47);
+    expect(() =>
+      buildPortfolioPayload({
+        ...baseParams,
+        displayCurrency: { id: 'usd', symbol: '₅'.repeat(15) },
+      }),
+    ).toThrow(/1-47 UTF-8 bytes/u);
+  });
+
+  test('summarizes zero-fiat tokens instead of including them in the hardware list', () => {
+    const token = buildToken({ $key: 'zero', symbol: 'ZERO' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: { zero: buildFiat({ fiatValue: '0' }) },
+      tokens: [token],
+    });
+
+    expect(payload.tokens).toEqual([]);
+    expect(payload.otherTokens.count).toBe(1);
+    expect(payload.otherTokens.portfolioPercentage).toBe(0);
+  });
+
+  test('builds an empty portfolio without NaN display values', () => {
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '0',
+      totalTokenCount: 0,
+      timestamp: 1_780_900_000,
+      tokenMap: {},
+      tokens: [],
+    });
+
+    expect(payload).toMatchObject({
+      tokenCount: 0,
+      tokens: [],
+      totalFiat: '$0.00',
+      otherTokens: {
+        count: 0,
+        fiat: '$0.00',
+        portfolioPercentage: 0,
+      },
+    });
+  });
+
+  test('content hash excludes ts but includes portfolio content', () => {
+    const token = buildToken({ $key: 'eth', symbol: 'ETH' });
+    const basePayload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'cny', symbol: '¥' },
+      totalFiat: '700',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        eth: buildFiat({ fiatValue: '100', price: 100 }),
+      },
+      tokens: [token],
+    });
+
+    expect(
+      buildPortfolioPayloadHash({
+        ...basePayload,
+        ts: 1_780_909_999,
+      }),
+    ).toBe(buildPortfolioPayloadHash(basePayload));
+    expect(
+      buildPortfolioPayloadHash({
+        ...basePayload,
+        totalFiat: '¥701.00',
+      }),
+    ).not.toBe(buildPortfolioPayloadHash(basePayload));
+  });
+});

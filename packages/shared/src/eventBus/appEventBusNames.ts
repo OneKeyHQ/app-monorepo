@@ -71,6 +71,8 @@ export enum EAppEventBusNames {
   // risky-token snapshot for an owner with its OWN monotonic version (independent
   // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
   TokenListRiskyFrame = 'TokenListRiskyFrame',
+  TokenListUpdate = 'TokenListUpdate',
+  AllNetworksTokenListSettled = 'AllNetworksTokenListSettled',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -119,6 +121,7 @@ export enum EAppEventBusNames {
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
+  HardwareDeviceStateUpdate = 'HardwareDeviceStateUpdate',
   UnlockApp = 'UnlockApp',
   LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
