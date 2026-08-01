@@ -698,6 +698,23 @@ class ServiceHardware extends ServiceBase {
       newPayload.firmwareProgressType = originEvent.payload.progressType;
     }
 
+    if (originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS) {
+      const {
+        progress,
+        transferredBytes,
+        totalBytes,
+        rateBytesPerSecond,
+        elapsedMs,
+      } = originEvent.payload;
+      newPayload.deviceProgress = {
+        progress,
+        transferredBytes,
+        totalBytes,
+        rateBytesPerSecond,
+        elapsedMs,
+      };
+    }
+
     if (originEvent.type === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
       copyWalletSessionUiMetadata(newPayload, originEvent.payload);
     }
@@ -837,9 +854,6 @@ class ServiceHardware extends ServiceBase {
                   undefined,
                 );
               } else {
-                if (appliedUiRequestType === ('ui-device_progress' as any)) {
-                  console.log('ui-device_progress', originEvent);
-                }
                 // show hardware ui dialog
                 await hardwareUiStateAtom.set(
                   (): IHardwareUiState => ({
@@ -1580,12 +1594,14 @@ class ServiceHardware extends ServiceBase {
           connectId: compatibleConnectId,
           params: { scope: refreshInfo ? 'firmware' : 'settings' },
           hardwareCallContext,
+          silentMode: true,
         });
         if (refreshInfo) {
           state = await this.getDeviceState({
             connectId: compatibleConnectId,
             params: { scope: 'settings' },
             hardwareCallContext,
+            silentMode: true,
           });
         }
       } catch (error) {
@@ -1596,6 +1612,7 @@ class ServiceHardware extends ServiceBase {
         state = await this.getDeviceState({
           connectId: compatibleConnectId,
           hardwareCallContext,
+          silentMode: true,
         });
       }
       return { state };

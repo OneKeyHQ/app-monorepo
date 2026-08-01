@@ -304,6 +304,7 @@ function SidebarBottomItem({
         pressStyle={PRESS_STYLE_BG_ACTIVE}
         cursor="default"
         onPress={onPress}
+        testID={route.name.toLowerCase()}
       >
         <Icon
           name={iconName}
@@ -312,7 +313,7 @@ function SidebarBottomItem({
         />
       </YStack>
     ),
-    [isActive, onPress, iconName],
+    [isActive, onPress, iconName, route.name],
   );
 
   return (

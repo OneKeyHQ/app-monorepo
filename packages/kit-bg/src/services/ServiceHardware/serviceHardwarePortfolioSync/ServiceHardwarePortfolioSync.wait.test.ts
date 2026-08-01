@@ -190,7 +190,9 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
       }) => void;
       syncSettledPortfolio: jest.Mock;
     };
-    serviceInternals.syncSettledPortfolio = jest.fn().mockResolvedValue(undefined);
+    serviceInternals.syncSettledPortfolio = jest
+      .fn()
+      .mockResolvedValue(undefined);
     serviceInternals.scheduleHardwareBusyRetry({
       deviceConnectId: 'PRO2_A',
       retry,
