@@ -34,11 +34,42 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
     });
   });
 
-  it('does not switch when the persisted mode has no matching asset', () => {
+  // changeActiveSpotAsset persists the mode before the asset and can return
+  // early in between, so a restart can restore spot with the atom still at its
+  // empty default. Returning undefined there strands the page: the initial
+  // symbol latch is process-wide and already consumed by then.
+  it('falls back to the perp asset when the restored spot mode has no coin', () => {
     expect(
       buildInitialTradeInstrumentSwitchParams({
         mode: 'spot',
         perpAsset: { coin: 'BTC' },
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+  });
+
+  it('treats an empty spot coin as unusable, matching the atom default', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '' },
+        force: true,
+      }),
+    ).toEqual({
+      mode: 'perp',
+      coin: 'BTC',
+      force: true,
+    });
+  });
+
+  it('does not switch when neither mode has a usable asset', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: '' },
       }),
     ).toBeUndefined();
   });

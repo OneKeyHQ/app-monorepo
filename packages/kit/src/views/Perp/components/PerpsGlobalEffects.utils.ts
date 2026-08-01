@@ -28,10 +28,7 @@ export function buildInitialTradeInstrumentSwitchParams({
   spotAsset?: IInitialSpotTradeAsset;
   force?: boolean;
 }) {
-  if (mode === 'spot') {
-    if (!spotAsset?.coin) {
-      return undefined;
-    }
+  if (mode === 'spot' && spotAsset?.coin) {
     return {
       mode: 'spot' as const,
       coin: spotAsset.coin,
@@ -40,6 +37,11 @@ export function buildInitialTradeInstrumentSwitchParams({
     };
   }
 
+  // A restored spot mode can outlive its asset: changeActiveSpotAsset persists
+  // the mode before the asset and can return early in between, leaving the spot
+  // atom at its empty default. Falling back to perp instead of bailing out
+  // matters because the caller's initial-symbol latch is process-wide and is
+  // already consumed by the time this returns — no second chance this session.
   if (!perpAsset?.coin) {
     return undefined;
   }

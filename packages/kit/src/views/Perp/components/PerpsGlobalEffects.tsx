@@ -127,10 +127,16 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
 }) {
   const currentMode = (await tradingModeAtom.get()) ?? 'perp';
   if (currentMode === 'spot') {
-    const spotAsset = await spotActiveAssetAtom.get();
+    // The perp asset is read here too so the builder can fall back to it when
+    // the restored spot mode has no usable coin.
+    const [spotAsset, perpAsset] = await Promise.all([
+      spotActiveAssetAtom.get(),
+      perpsActiveAssetAtom.get(),
+    ]);
     return buildInitialTradeInstrumentSwitchParams({
       mode: currentMode,
       spotAsset,
+      perpAsset,
       force: options?.force,
     });
   }
