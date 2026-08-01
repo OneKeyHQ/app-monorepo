@@ -148,6 +148,46 @@ describe('DeviceScannerUtils', () => {
     scanner.stopScan();
   });
 
+  it('does not deliver an in-flight BLE result to a new USB scan', async () => {
+    const bleSearch = createDeferred<Success<SearchDevice[]>>();
+    const usbSearch = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest
+      .fn()
+      .mockReturnValueOnce(bleSearch.promise)
+      .mockReturnValueOnce(usbSearch.promise);
+    const scanner = createScanner(searchDevices);
+    const bleCallback = jest.fn();
+    const usbCallback = jest.fn();
+
+    scanner.startDeviceScan(bleCallback, jest.fn(), 1, 60_000, 1, undefined, {
+      connectProtocol: 'V2',
+      transportType: 'ble',
+    });
+    await flushMicrotasks();
+
+    scanner.stopScan();
+    scanner.startDeviceScan(usbCallback, jest.fn(), 1, 60_000, 1, undefined, {
+      connectProtocol: 'V2',
+      transportType: 'usb',
+    });
+    await flushMicrotasks();
+
+    const bleResponse = successResponse('pro2-ble');
+    bleSearch.resolve(bleResponse);
+    await flushMicrotasks();
+
+    expect(bleCallback).not.toHaveBeenCalled();
+    expect(usbCallback).not.toHaveBeenCalled();
+    expect(searchDevices).toHaveBeenCalledTimes(2);
+
+    const usbResponse = successResponse('pro2-usb');
+    usbSearch.resolve(usbResponse);
+    await flushMicrotasks();
+
+    expect(usbCallback).toHaveBeenCalledWith(usbResponse);
+    scanner.stopScan();
+  });
+
   it('does not block a different vendor search behind an in-flight search', async () => {
     const trezorSearch = createDeferred<Success<SearchDevice[]>>();
     const ledgerSearch = createDeferred<Success<SearchDevice[]>>();
@@ -251,6 +291,25 @@ describe('DeviceScannerUtils', () => {
     });
 
     search.resolve(successResponse('trezor'));
+    await flushMicrotasks();
+    scanner.stopScan();
+  });
+
+  it('passes an explicit Protocol V2 selection to OneKey device search', async () => {
+    const search = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest.fn(() => search.promise);
+    const scanner = createScanner(searchDevices);
+
+    scanner.startDeviceScan(jest.fn(), jest.fn(), 1, 60_000, 1, undefined, {
+      connectProtocol: 'V2',
+    });
+    await flushMicrotasks();
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      connectProtocol: 'V2',
+    });
+
+    search.resolve(successResponse('pro2'));
     await flushMicrotasks();
     scanner.stopScan();
   });

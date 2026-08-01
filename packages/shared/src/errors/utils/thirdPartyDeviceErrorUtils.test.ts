@@ -9,6 +9,7 @@ import {
 import {
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+  THIRD_PARTY_HW_NETWORK_ERROR_CODE,
   THIRD_PARTY_HW_PIN_MISMATCH_CODE,
 } from '../errors/thirdPartyHardwareErrors';
 
@@ -29,7 +30,7 @@ describe('convertThirdPartyDeviceError', () => {
       _tag: 'InvalidGetFirmwareMetadataResponseError',
     });
 
-    expect(error.code).toBe(ThirdPartyHwErrorCode.NetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
   });
 
   it('normalizes numeric string error codes before classification', () => {
@@ -161,7 +162,7 @@ describe('convertDeviceError', () => {
     };
     const error = convertDeviceError(sdkPayload);
 
-    expect(error.code).toBe(ThirdPartyHwErrorCode.NetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
   });
 
   it('maps all-network install cancel code before generic hardware fallback', () => {

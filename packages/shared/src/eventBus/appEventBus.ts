@@ -63,6 +63,7 @@ import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -356,6 +357,25 @@ export interface IAppEventBusPayload {
     riskyMap: Record<string, ITokenFiat>;
     storeData: IJotaiContextStoreData;
   };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    deviceConnectId?: string;
+    indexedAccountId?: string;
+    indexedAccountIndex?: number;
+    indexedAccountName?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    totalFiat: string;
+    totalTokenCount: number;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
+  };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
@@ -517,6 +537,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
+  [EAppEventBusNames.HardwareDeviceStateUpdate]: DeviceStateEvent;
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;

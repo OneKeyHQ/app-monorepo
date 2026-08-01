@@ -38,7 +38,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
 
       // Dispose SDK instance
       if (typeof HardwareSDK.dispose === 'function') {
-        HardwareSDK.dispose();
+        await HardwareSDK.dispose();
       }
 
       if (HardwareLowLevelSDK) {
@@ -47,7 +47,7 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
           HardwareLowLevelSDK.removeAllListeners();
         }
         if (typeof HardwareLowLevelSDK.dispose === 'function') {
-          HardwareLowLevelSDK.dispose();
+          await HardwareLowLevelSDK.dispose();
         }
       }
 
@@ -67,6 +67,7 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
+  hardwareConfigUrl?: string;
 }) =>
   // eslint-disable-next-line no-async-promise-executor
   new Promise<CoreApi>(async (resolve, reject) => {
@@ -85,13 +86,18 @@ const createHardwareSDKInstance = async (params: {
       env = 'desktop-web-ble' as const;
     }
 
-    const configFetcher = await createConfigFetcher();
+    const configFetcher = await createConfigFetcher({
+      hardwareConfigUrl: params.hardwareConfigUrl,
+    });
 
-    const settings: Partial<ConnectSettings> = {
+    const settings: Partial<ConnectSettings> & {
+      protocolV2DeviceInfoMockEnabled?: boolean;
+    } = {
       debug: params.debugMode,
       fetchConfig: true,
       env,
       configFetcher,
+      protocolV2DeviceInfoMockEnabled: false,
     };
 
     HardwareSDK = await importHardwareSDK({
