@@ -154,9 +154,9 @@ function DeviceBasicInfo({
           <XStack ml={-5} pr="$5">
             <DeviceWalletRenameButton textSize={titleTextSize} />
           </XStack>
-          {deviceMetaStatic.deviceName ? (
+          {deviceMetaStatic.serialNo ? (
             <SizableText size="$bodyMd" color="$textSubdued" pl="$0.5">
-              {deviceMetaStatic.deviceName}
+              {deviceMetaStatic.serialNo}
             </SizableText>
           ) : null}
           {isQrWallet || !showFirmwareVersion ? null : (

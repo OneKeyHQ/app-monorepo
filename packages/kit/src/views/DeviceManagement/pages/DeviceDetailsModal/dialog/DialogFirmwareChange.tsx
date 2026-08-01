@@ -172,7 +172,9 @@ function FirmwareChangeDialogContentBase({
         // get device version information
         const versions = await deviceUtils.getDeviceVersion({
           device,
-          features: checkAllResultInfo?.features,
+          features: checkAllResultInfo?.features as
+            | import('@onekeyhq/shared/types/device').IOneKeyDeviceFeatures
+            | undefined,
         });
 
         // check bootloader version

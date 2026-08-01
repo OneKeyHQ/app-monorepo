@@ -1,5 +1,8 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -61,6 +64,46 @@ export function buildDeviceDetailsVisibility({
       Boolean(profile?.supportsPassphraseSetting) && hasLoadedDevice,
     showDeviceConnection: !isQrWallet && hasLoadedDevice,
   };
+}
+
+export function shouldShowDeviceInteractiveSections(
+  deviceType: EDeviceType | undefined,
+  deviceStateReady: boolean,
+) {
+  return Boolean(deviceType) || deviceStateReady;
+}
+
+export type IFirmwareTypeChangeAvailability =
+  | 'enabled'
+  | 'comingSoon'
+  | 'hidden';
+
+export function getFirmwareTypeChangeAvailability(
+  deviceType: EDeviceType | undefined,
+): IFirmwareTypeChangeAvailability {
+  if (deviceType === EDeviceType.Pro2) {
+    return 'comingSoon';
+  }
+  if (deviceType && deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
+    return 'enabled';
+  }
+  return 'hidden';
+}
+
+export async function syncRelevantDeviceStateEvent<T>({
+  event,
+  applyEvent,
+  refresh,
+}: {
+  event: T;
+  applyEvent: (event: T) => Promise<boolean>;
+  refresh: () => Promise<unknown>;
+}) {
+  const applied = await applyEvent(event);
+  if (applied) {
+    await refresh();
+  }
+  return applied;
 }
 
 export function canShowTrezorBleBinding(

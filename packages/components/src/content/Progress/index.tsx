@@ -19,32 +19,50 @@ export type IProgressProps = {
    * @platform web
    */
   animated?: boolean;
+  /**
+   * Whether to render value changes immediately without the web indicator delay.
+   * Intended for realtime progress such as hardware data transfer.
+   * @default false
+   * @platform web
+   */
+  immediate?: boolean;
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
 
 const INDICATOR_DELAY = 300;
-const useLazyShowIndicator: (value: number) => [boolean, number] =
-  platformEnv.isNative
-    ? (value: number) => [true, value]
-    : (value: number) => {
-        const [showIndicator, setIsShowIndicator] = useState(false);
-        const [rawValue, setRawValue] = useState(0);
-        useEffect(() => {
-          setTimeout(() => {
-            setIsShowIndicator(true);
-            setTimeout(() => {
-              setRawValue(value);
-            }, INDICATOR_DELAY);
+const useLazyShowIndicator: (
+  value: number,
+  immediate: boolean,
+) => [boolean, number] = platformEnv.isNative
+  ? (value: number) => [true, value]
+  : (value: number, immediate: boolean) => {
+      const [showIndicator, setIsShowIndicator] = useState(false);
+      const [rawValue, setRawValue] = useState(0);
+      useEffect(() => {
+        if (immediate) {
+          return;
+        }
+        let valueTimer: ReturnType<typeof setTimeout> | undefined;
+        const indicatorTimer = setTimeout(() => {
+          setIsShowIndicator(true);
+          valueTimer = setTimeout(() => {
+            setRawValue(value);
           }, INDICATOR_DELAY);
-        }, [value]);
-        return [showIndicator, rawValue];
-      };
+        }, INDICATOR_DELAY);
+        return () => {
+          clearTimeout(indicatorTimer);
+          clearTimeout(valueTimer);
+        };
+      }, [immediate, value]);
+      return [showIndicator, rawValue];
+    };
 
 export function Progress({
   size,
   value,
   animated,
+  immediate = false,
   progressColor = '$neutral5',
   indicatorColor = '$bgPrimary',
   gap = 0,
@@ -57,7 +75,12 @@ export function Progress({
     () => (Number(value) > DEFAULT_MAX ? DEFAULT_MAX : value || 0),
     [value],
   );
-  const [showIndicator, progressValue] = useLazyShowIndicator(val);
+  const [lazyShowIndicator, lazyProgressValue] = useLazyShowIndicator(
+    val,
+    immediate,
+  );
+  const showIndicator = immediate || lazyShowIndicator;
+  const progressValue = immediate ? val : lazyProgressValue;
   const [width, setWidth] = useState(0);
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {

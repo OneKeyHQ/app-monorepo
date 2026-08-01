@@ -88,8 +88,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
-  const { deviceData, tabValue } = routeParams?.params || {};
-  console.log('deviceData', deviceData);
+  const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -283,6 +282,7 @@ function CheckAndUpdatePage({
   // and FinalizeWalletSetup talk to the right device.
   const toDeviceSetup = useCallback(() => {
     navigation.push(EOnboardingPagesV2.DeviceSetup, {
+      connectProtocol,
       deviceData: {
         ...deviceData,
         device: (getActiveDevice() ??
@@ -292,7 +292,14 @@ function CheckAndUpdatePage({
       tabValue,
       isFirmwareVerified: isFirmwareVerifiedRef.current,
     });
-  }, [navigation, deviceData, getActiveDevice, currentDevice, tabValue]);
+  }, [
+    connectProtocol,
+    navigation,
+    deviceData,
+    getActiveDevice,
+    currentDevice,
+    tabValue,
+  ]);
 
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(

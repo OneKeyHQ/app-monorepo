@@ -617,7 +617,7 @@ export default function HardwareHomeScreenModal({
     if ([EDeviceType.Touch].includes(deviceType)) {
       canUpload = true;
     }
-    if ([EDeviceType.Pro].includes(deviceType)) {
+    if ([EDeviceType.Pro, EDeviceType.Pro2].includes(deviceType)) {
       canUpload = true;
     }
 
@@ -637,10 +637,10 @@ export default function HardwareHomeScreenModal({
     isLoadingError: boolean;
   }>(
     async () => {
-      const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
+      const { getDeviceFirmwareVersion } = await CoreSDKLoader();
 
       const serialNumber = device?.featuresInfo
-        ? getDeviceUUID(device.featuresInfo)
+        ? (deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ?? '')
         : '';
 
       const firmwareVersion = device?.featuresInfo

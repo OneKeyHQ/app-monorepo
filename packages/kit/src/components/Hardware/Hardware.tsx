@@ -453,6 +453,7 @@ export function ConfirmOnDeviceToastContent({
         return import('@onekeyhq/kit/assets/animations/confirm-on-mini.json');
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
+      case EDeviceType.Pro2:
       case EDeviceType.Pro:
         return import('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json');
       default:
@@ -572,6 +573,7 @@ export function EnterPinOnDevice({
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-touch.json');
       case EDeviceType.Pro:
+      case EDeviceType.Pro2:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
@@ -832,6 +834,7 @@ export function EnterPassphraseOnDevice({
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json');
       case EDeviceType.Pro:
+      case EDeviceType.Pro2:
         return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations

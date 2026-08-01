@@ -111,6 +111,7 @@ import {
 import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
+  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
@@ -243,6 +244,7 @@ function TokenListBlock({
       accountName,
       network,
       wallet,
+      device,
       indexedAccount,
       isOthersWallet,
       deriveInfo,
@@ -1838,6 +1840,47 @@ function TokenListBlock({
         worth: snapshot.accountsWorth,
         createAtNetworkWorth: snapshot.createAtNetworkWorth,
       });
+
+      const flattenedAggregateTokenMap = flattenAggregateTokensMap(
+        snapshot.aggregateTokenMap,
+      );
+      const portfolioTokenMap = {
+        ...snapshot.mergeTokenListMap,
+        ...flattenedAggregateTokenMap,
+      };
+      const portfolioTokens = [
+        ...snapshot.orderedTokens,
+        ...snapshot.smallBalanceTokens,
+      ].filter((token) =>
+        new BigNumber(
+          portfolioTokenMap[token.$key]?.balanceParsed ?? 0,
+        ).isGreaterThan(0),
+      );
+
+      appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
+        accountAddress: account?.address,
+        accountId: account?.id,
+        accountName,
+        aggregateTokenMap: flattenedAggregateTokenMap,
+        deviceConnectId:
+          device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+        indexedAccountId: indexedAccount?.id,
+        indexedAccountIndex: indexedAccount?.index,
+        indexedAccountName: indexedAccount?.name,
+        networkId: network?.id,
+        ownerAccountId: allNetworksResult[0].ownerAccountId,
+        ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+        totalFiat: snapshot.createAtNetworkWorth,
+        totalTokenCount: portfolioTokens.length,
+        tokenMap: {
+          ...snapshot.mergeTokenListMap,
+          ...snapshot.riskyTokenListMap,
+          ...flattenedAggregateTokenMap,
+        },
+        tokens: portfolioTokens,
+        walletId: wallet?.id,
+        walletType: wallet?.type,
+      });
     }
 
     // Authoritative ingest (facade, design §2): ingest the FULL merged
@@ -1865,9 +1908,14 @@ function TokenListBlock({
       isRefreshing: false,
     });
   }, [
+    account?.address,
     account?.id,
     account?.indexedAccountId,
+    accountName,
+    device?.connectId,
     indexedAccount?.id,
+    indexedAccount?.index,
+    indexedAccount?.name,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
@@ -1876,6 +1924,9 @@ function TokenListBlock({
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
+    wallet?.associatedDeviceInfo?.connectId,
+    wallet?.id,
+    wallet?.type,
   ]);
 
   // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED
@@ -2763,7 +2814,7 @@ function TokenListBlock({
           showLpTokensOnly ? false : !!network?.isAllNetworks
         }
         deferTokenManagement={!!network?.isAllNetworks}
-        manageTokenEnabled={manageTokenEnabled && !showLpTokensOnly}
+        manageTokenEnabled={Boolean(manageTokenEnabled && !showLpTokensOnly)}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
         isAllNetworks={network?.isAllNetworks}

@@ -299,7 +299,10 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-      const isSingleInput = !!state?.payload?.passphraseState;
+      const isSingleInput = !!(
+        state?.payload?.passphraseState ||
+        state?.payload?.expectedPassphraseState
+      );
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -319,6 +322,10 @@ function HardwareSingletonDialogCmp(
         <EnterPhase
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
+          deviceOnly={state?.payload?.deviceOnly === true}
+          allowProtocolV2Utf8={
+            state?.payload?.source === 'wallet-session-coordinator'
+          }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,

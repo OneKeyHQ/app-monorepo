@@ -36,6 +36,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
   IOneKeyDeviceFeatures,
@@ -151,10 +152,11 @@ function useFirmwareVerifyBase({
       if (useNewProcess) {
         // verify firmware hash
         const latestFeatures =
-          await backgroundApiProxy.serviceHardware.getOneKeyFeatures({
-            connectId: device?.connectId ?? '',
-            deviceType: device.deviceType,
-          });
+          await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
+            {
+              connectId: device?.connectId ?? '',
+            },
+          );
         const verifyResult =
           await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
             deviceType: device.deviceType,
@@ -1051,6 +1053,11 @@ export function useFirmwareVerifyDialog() {
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
     }) => {
+      if (!deviceUtils.isFirmwareVerifySupported(device.deviceType)) {
+        await onContinue({ checked: false });
+        return;
+      }
+
       const onCloseFn = async () => {
         await onClose?.();
         setIsLoading(false);

@@ -11,13 +11,13 @@ import {
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useFirmwareChangeDialog } from './dialog/DialogFirmwareChange';
+import { getFirmwareTypeChangeAvailability } from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 
@@ -34,8 +34,12 @@ function DeviceSectionDangerZone({
   const [deviceMetaStatic] = useDeviceMetaStaticAtom();
 
   const [deviceType] = useDeviceTypeAtom();
+  const firmwareTypeChangeAvailability =
+    getFirmwareTypeChangeAvailability(deviceType);
   const isAllowChangeFirmwareType =
-    deviceType && deviceUtils.checkAllowChangeFirmwareType(deviceType);
+    firmwareTypeChangeAvailability === 'enabled';
+  const isFirmwareTypeChangeComingSoon =
+    firmwareTypeChangeAvailability === 'comingSoon';
 
   const { show: showFirmwareChangeDialog } = useFirmwareChangeDialog({
     onSuccess: (
@@ -71,7 +75,7 @@ function DeviceSectionDangerZone({
   ]);
 
   const firmwareTypeChangeView = useMemo(() => {
-    if (!isAllowChangeFirmwareType) {
+    if (firmwareTypeChangeAvailability === 'hidden') {
       return null;
     }
     return (
@@ -92,15 +96,26 @@ function DeviceSectionDangerZone({
           },
         )}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressFirmwareTypeChange}
+        subtitle={
+          isFirmwareTypeChangeComingSoon
+            ? intl.formatMessage({
+                id: ETranslations.wallet_feature_coming_soon,
+              })
+            : undefined
+        }
+        disabled={isFirmwareTypeChangeComingSoon}
+        drillIn={!isFirmwareTypeChangeComingSoon}
+        onPress={
+          isFirmwareTypeChangeComingSoon ? undefined : onPressFirmwareTypeChange
+        }
         testID={DeviceManagementTestIDs.switchFirmwareTypeItem}
       />
     );
   }, [
-    isAllowChangeFirmwareType,
+    firmwareTypeChangeAvailability,
     deviceMetaStatic.firmwareType,
     intl,
+    isFirmwareTypeChangeComingSoon,
     onPressFirmwareTypeChange,
   ]);
 

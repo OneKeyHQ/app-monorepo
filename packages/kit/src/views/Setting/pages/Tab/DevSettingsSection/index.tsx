@@ -116,6 +116,7 @@ import { IpTableSelector } from './IpTableSelector';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
+import { Pro2DebugDevSettings } from './Pro2DebugDevSettings';
 import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
@@ -1156,6 +1157,8 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
+                      <Pro2DebugDevSettings />
+
                       {platformEnv.isDesktop ? (
                         <SectionPressItem
                           icon="SpeedLowOutline"
@@ -1490,6 +1493,17 @@ const BaseDevSettingsSection = () => {
                         onPress={() => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Pro2 boot/app_v1/app_v2/resource/se01-se04"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
                           );
                         }}
                       />
