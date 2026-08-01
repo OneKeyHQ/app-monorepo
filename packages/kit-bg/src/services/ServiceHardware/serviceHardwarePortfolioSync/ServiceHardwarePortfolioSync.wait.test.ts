@@ -104,6 +104,78 @@ describe('ServiceHardwarePortfolioSync.waitForActivePortfolioSync', () => {
   });
 });
 
+describe('ServiceHardwarePortfolioSync settled event debounce', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
+  test('debounces each sync target independently', () => {
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const serviceInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: (
+        eventPayload: IPortfolioSyncSettledPayload,
+      ) => void;
+      syncSettledPortfolio: jest.Mock<
+        Promise<void>,
+        [IPortfolioSyncSettledPayload]
+      >;
+    };
+    serviceInternals.syncSettledPortfolio = jest
+      .fn<Promise<void>, [IPortfolioSyncSettledPayload]>()
+      .mockResolvedValue(undefined);
+    const buildPayload = ({
+      connectId,
+      totalFiat,
+    }: {
+      connectId: string;
+      totalFiat: string;
+    }) =>
+      ({
+        aggregateTokenMap: {},
+        deviceConnectId: connectId,
+        totalFiat,
+        totalTokenCount: 0,
+        tokenMap: {},
+        tokens: [],
+        walletId: `hw-${connectId}`,
+        walletType: 'hw',
+      }) as IPortfolioSyncSettledPayload;
+
+    serviceInternals.handleAllNetworksTokenListSettled(
+      buildPayload({ connectId: 'PRO2_A', totalFiat: '1' }),
+    );
+    serviceInternals.handleAllNetworksTokenListSettled(
+      buildPayload({ connectId: 'PRO2_B', totalFiat: '2' }),
+    );
+    serviceInternals.handleAllNetworksTokenListSettled(
+      buildPayload({ connectId: 'PRO2_A', totalFiat: '3' }),
+    );
+
+    jest.advanceTimersByTime(1000);
+
+    expect(serviceInternals.syncSettledPortfolio).toHaveBeenCalledTimes(2);
+    expect(serviceInternals.syncSettledPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceConnectId: 'PRO2_A',
+        totalFiat: '3',
+      }),
+    );
+    expect(serviceInternals.syncSettledPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceConnectId: 'PRO2_B',
+        totalFiat: '2',
+      }),
+    );
+  });
+});
+
 describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   test('short-circuits an empty portfolio before build or upload', async () => {
     const service = new ServiceHardwarePortfolioSync({

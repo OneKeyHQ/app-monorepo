@@ -120,12 +120,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     Promise<{ portfolioUpdated: boolean }>
   >();
 
-  private syncDebounced = debounce(
-    (eventPayload: IPortfolioSyncSettledPayload) => {
-      void this.syncSettledPortfolio(eventPayload);
-    },
-    1000,
-  );
+  private syncDebouncedByTargetKey = new Map<
+    string,
+    ReturnType<typeof debounce>
+  >();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -153,7 +151,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       }),
       totalTokenCount: eventPayload.tokens.length,
     });
-    this.syncDebounced(eventPayload);
+    const targetKey = this.getSyncTargetKey(eventPayload);
+    let syncDebounced = this.syncDebouncedByTargetKey.get(targetKey);
+    if (!syncDebounced) {
+      syncDebounced = debounce((payload: IPortfolioSyncSettledPayload) => {
+        this.syncDebouncedByTargetKey.delete(targetKey);
+        void this.syncSettledPortfolio(payload);
+      }, 1000);
+      this.syncDebouncedByTargetKey.set(targetKey, syncDebounced);
+    }
+    syncDebounced(eventPayload);
   };
 
   private setLastResult(result: IPortfolioSyncLastResult) {
