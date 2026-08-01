@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  type HardwareConnectProtocol,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -21,17 +24,19 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import type {
   IFirmwareVerifyResult,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
@@ -47,6 +52,11 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
+import {
+  type IHardwareWalletCreationMode,
+  resolveAutomaticWalletCreationMode,
+  shouldCheckExistingStandardWallet,
+} from '../../Onboarding/pages/ConnectHardwareWallet/walletCreationMode';
 import {
   getForceTransportType,
   getHardwareCommunicationTypeString,
@@ -107,9 +117,9 @@ async function createLedgerHwWallet({
       device,
       hideCheckingDeviceLoading: true,
       features: {
-        device_id: device.deviceId || '',
+        deviceId: device.deviceId || '',
         vendor,
-      } as IOneKeyDeviceFeatures,
+      } as unknown as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
       defaultIsTemp: true,
       vendor,
@@ -200,10 +210,12 @@ export function useDeviceConnect({
     async (
       device: SearchDevice,
       hardwareCallContext?: EHardwareCallContext,
+      connectProtocol?: HardwareConnectProtocol,
     ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
+          connectProtocol,
           device,
           hardwareCallContext,
         });
@@ -238,7 +250,13 @@ export function useDeviceConnect({
   );
 
   const ensureActiveConnection = useCallback(
-    async (device: SearchDevice, options?: { forceReconnect?: boolean }) => {
+    async (
+      device: SearchDevice,
+      options?: {
+        connectProtocol?: HardwareConnectProtocol;
+        forceReconnect?: boolean;
+      },
+    ) => {
       // If device was in bootloader mode, force reconnect to get fresh features
       const shouldForceReconnect =
         options?.forceReconnect || wasInBootloaderModeRef.current;
@@ -264,9 +282,13 @@ export function useDeviceConnect({
         isBootMode = true;
       }
 
-      const features = await connectDevice(device, hardwareCallContext);
+      const features = await connectDevice(
+        device,
+        hardwareCallContext,
+        options?.connectProtocol,
+      );
       // If device was in bootloader mode and connectId is empty, search for the updated device
-      if (device.connectId === '' && isBootMode && !features?.bootloader_mode) {
+      if (device.connectId === '' && isBootMode && !features?.bootloaderMode) {
         const searchedDevices =
           await backgroundApiProxy.serviceHardware.searchDevices();
         if (searchedDevices.success && searchedDevices.payload.length === 1) {
@@ -525,12 +547,8 @@ export function useDeviceConnect({
           }
         }
 
-        // Set global transport type based on selected channel before connecting
-        if (tabValue === EConnectDeviceChannel.bluetooth) {
-          forceTransportType = EHardwareTransportType.DesktopWebBle;
-        } else {
-          forceTransportType = await getForceTransportType(tabValue);
-        }
+        // 连接前根据当前平台选择传输类型；Native 蓝牙必须使用 BLE。
+        forceTransportType = await getForceTransportType(tabValue);
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,
@@ -593,7 +611,10 @@ export function useDeviceConnect({
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...latestDevice,
-              deviceId: latestDevice.deviceId || features.device_id,
+              deviceId: deviceUtils.getRawDeviceId({
+                device: latestDevice,
+                features,
+              }),
             },
           });
 
@@ -720,16 +741,6 @@ export function useDeviceConnect({
     ],
   );
 
-  const extractDeviceState = useCallback(
-    (features: IOneKeyDeviceFeatures) => ({
-      unlockedAttachPin: features.unlocked_attach_pin,
-      unlocked: features.unlocked,
-      passphraseEnabled: Boolean(features.passphrase_protection),
-      deviceId: features.device_id,
-    }),
-    [],
-  );
-
   const closeDialogAndReturn = useCallback(
     async (device: SearchDevice, options: { skipDelayClose?: boolean }) => {
       void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -741,62 +752,35 @@ export function useDeviceConnect({
     [],
   );
 
-  type IWalletCreationStrategy = {
-    createHiddenWalletOnly: boolean;
-    createStandardWalletOnly: boolean;
-  };
-
   const determineWalletCreationStrategy = useCallback(
     async (
-      deviceState: ReturnType<typeof extractDeviceState>,
+      deviceState: IOneKeyDeviceState,
       device: SearchDevice,
-    ): Promise<IWalletCreationStrategy | null> => {
-      if (!deviceState.unlocked) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
-      }
-
-      if (deviceState.unlockedAttachPin) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      const existsStandardWallet =
-        await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
-          connectId: device.connectId ?? '',
-          deviceId: deviceState.deviceId ?? '',
-        });
-
-      if (existsStandardWallet) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      if (!deviceState.passphraseEnabled) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+    ): Promise<IHardwareWalletCreationMode | null> => {
+      const existsStandardWallet = shouldCheckExistingStandardWallet(
+        deviceState,
+      )
+        ? await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
+            connectId: device.connectId ?? '',
+            deviceId:
+              deviceState.identity.deviceId ??
+              deviceUtils.getRawDeviceId({ device }),
+          })
+        : false;
+      const automaticMode = resolveAutomaticWalletCreationMode({
+        state: deviceState,
+        existsStandardWallet,
+      });
+      if (automaticMode) {
+        return automaticMode;
       }
 
       const walletType = await showSelectAddWalletTypeDialog();
       if (walletType === 'Standard') {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+        return 'standard';
       }
       if (walletType === 'Hidden') {
-        return {
-          createHiddenWalletOnly: true,
-          createStandardWalletOnly: false,
-        };
+        return 'hidden';
       }
 
       return null;
@@ -807,10 +791,11 @@ export function useDeviceConnect({
   const createHwWallet = useCallback(
     async (
       device: SearchDevice,
-      strategy: IWalletCreationStrategy,
+      walletMode: IHardwareWalletCreationMode,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
-      deviceState?: ReturnType<typeof extractDeviceState>,
+      deviceState?: IOneKeyDeviceState,
+      connectProtocol?: HardwareConnectProtocol,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -819,11 +804,13 @@ export function useDeviceConnect({
           device,
           hideCheckingDeviceLoading: true,
           features,
+          deviceState,
+          connectProtocol,
           isFirmwareVerified,
           defaultIsTemp: true,
-          isAttachPinMode: deviceState?.unlockedAttachPin,
+          isAttachPinMode: deviceState?.status.unlockedAttachPin ?? undefined,
         };
-        if (strategy.createStandardWalletOnly) {
+        if (walletMode === 'standard') {
           await actions.current.createHWWalletWithoutHidden(params);
         } else {
           await actions.current.createHWWalletWithHidden(params);
@@ -839,7 +826,7 @@ export function useDeviceConnect({
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: features.device_id || device.deviceId || '',
+          deviceId: deviceUtils.getRawDeviceId({ device, features }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
@@ -870,10 +857,12 @@ export function useDeviceConnect({
       device,
       isFirmwareVerified,
       vendor,
+      connectProtocol,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       vendor?: EHardwareVendor;
+      connectProtocol?: HardwareConnectProtocol;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
       // connection/features flow and create wallet directly.
@@ -888,31 +877,35 @@ export function useDeviceConnect({
         });
       }
 
-      await ensureActiveConnection(device);
+      await ensureActiveConnection(device, { connectProtocol });
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: currentDevice.connectId ?? '',
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
+      let deviceState: IOneKeyDeviceState;
 
       try {
-        features =
-          await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
-            connectId: currentDevice.connectId ?? '',
-          });
+        deviceState = await backgroundApiProxy.serviceHardware.getDeviceState({
+          connectId: currentDevice.connectId ?? '',
+          params: {
+            connectProtocol,
+            scope: 'runtime',
+          },
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+        features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         throw error;
       }
 
-      const deviceState = extractDeviceState(features);
       const strategy = await determineWalletCreationStrategy(
         deviceState,
         currentDevice,
       );
 
-      console.log('Current hardware wallet State', deviceState, strategy);
       if (!strategy) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         throw new OneKeyLocalError({
@@ -928,12 +921,12 @@ export function useDeviceConnect({
         features,
         isFirmwareVerified,
         deviceState,
+        connectProtocol,
       );
     },
     [
       ensureActiveConnection,
       getActiveDevice,
-      extractDeviceState,
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,

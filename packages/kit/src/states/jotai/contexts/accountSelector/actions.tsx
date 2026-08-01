@@ -2124,15 +2124,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const shouldCreateHiddenWalletOnly = Boolean(
-            params?.features?.passphrase_protection,
-          );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
                 ...params,
-                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
+                isMockedStandardHwWallet: true,
                 skipDeviceCancel: true,
               },
               {
@@ -2140,56 +2137,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               },
             );
 
-          let hiddenWalletCreatedResult:
-            | {
-                wallet: IDBWallet;
-                indexedAccount: IDBIndexedAccount | undefined;
-              }
-            | undefined;
-          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
-          if (device && shouldCreateHiddenWalletOnly) {
-            // wait previous action done, wait device ready
-            if (!params.hideCheckingDeviceLoading) {
-              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
-                {
-                  connectId: device.connectId,
-                },
-              );
-            }
-            await timerUtils.wait(100);
+          if (!device) {
+            throw new OneKeyLocalError(
+              'Unable to create hidden wallet without a hardware device',
+            );
+          }
 
-            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
-              set,
+          // wait previous action done, wait device ready
+          if (!params.hideCheckingDeviceLoading) {
+            await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
               {
-                walletId: wallet.id,
-                skipDeviceCancel: true,
-                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+                connectId: device.connectId,
               },
             );
           }
+          await timerUtils.wait(100);
+
+          const hiddenWalletCreatedResult =
+            await this.createHWHiddenWallet.call(set, {
+              walletId: wallet.id,
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+            });
 
           await serviceAccount.restoreTempCreatedWallet({
             walletId: wallet.id,
           });
-          if (!hiddenWalletCreatedResult) {
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-
           return {
             isOverrideWallet,
             wallet,
             indexedAccount,
-            hidden: hiddenWalletCreatedResult
-              ? {
-                  wallet: hiddenWalletCreatedResult?.wallet,
-                  indexedAccount: hiddenWalletCreatedResult?.indexedAccount,
-                }
-              : undefined,
+            hidden: {
+              wallet: hiddenWalletCreatedResult.wallet,
+              indexedAccount: hiddenWalletCreatedResult.indexedAccount,
+            },
           };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {

@@ -27,6 +27,16 @@ describe('shouldShowAddHiddenWalletButtonForWallet', () => {
     ).toBe(false);
   });
 
+  it('allows Pro2 hidden wallet creation', () => {
+    expect(
+      shouldShowAddHiddenWalletButtonForWallet({
+        isHiddenWallet: false,
+        isHwOrQrWallet: true,
+        vendor: EHardwareVendor.onekey,
+      }),
+    ).toBe(true);
+  });
+
   it('allows the Trezor sidebar add-hidden entry when passphrase is enabled', () => {
     expect(
       shouldShowCreateHiddenWalletSidebarButtonForWallet({

@@ -2,11 +2,20 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { Children, cloneElement, useCallback } from 'react';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
-import { ESwitchSize, SizableText, Switch, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  ESwitchSize,
+  SizableText,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFirmwareUpdateDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { HARDWARE_CONFIG_URL_LOCAL } from '@onekeyhq/shared/src/hardware/configUrls';
 
 import { FirmwareUpdateActions } from './FirmwareUpdateActions';
 
@@ -14,7 +23,7 @@ interface IFirmwareUpdateSectionFieldItem extends PropsWithChildren {
   name?: IFirmwareUpdateDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
-  onValueChange?: (v: any) => void;
+  onValueChange?: (v: any) => Promise<void> | void;
 }
 
 function FirmwareUpdateSectionFieldItem({
@@ -32,7 +41,7 @@ function FirmwareUpdateSectionFieldItem({
     async (v: any) => {
       if (name) {
         setDevSetting((o) => ({ ...o, [name]: v }));
-        onValueChange?.(v);
+        await onValueChange?.(v);
       }
     },
     [name, onValueChange, setDevSetting],
@@ -51,8 +60,59 @@ function FirmwareUpdateSectionFieldItem({
   );
 }
 
+function HardwareConfigUrlDevButtons() {
+  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const updateHardwareConfigUrl = useCallback(
+    async (hardwareConfigUrl: string) => {
+      setDevSetting((o) => ({
+        ...o,
+        hardwareConfigUrl,
+        usePreReleaseConfig: false,
+      }));
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        { hardwareConfigUrl, usePreReleaseConfig: false },
+      );
+      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
+    },
+    [setDevSetting],
+  );
+  const currentUrl = devSetting.hardwareConfigUrl;
+
+  return (
+    <ListItem
+      title="Hardware config source"
+      titleProps={{ color: '$textCritical' }}
+    >
+      <XStack gap="$2">
+        <Button
+          size="small"
+          disabled={currentUrl === HARDWARE_CONFIG_URL_LOCAL}
+          onPress={() => updateHardwareConfigUrl(HARDWARE_CONFIG_URL_LOCAL)}
+        >
+          Localhost
+        </Button>
+      </XStack>
+    </ListItem>
+  );
+}
+
 export function FirmwareUpdateDevSettings() {
-  const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const handlePreReleaseConfigChange = useCallback(
+    async (usePreReleaseConfig: boolean) => {
+      const values = usePreReleaseConfig
+        ? { usePreReleaseConfig, hardwareConfigUrl: '' }
+        : { usePreReleaseConfig };
+      if (usePreReleaseConfig) {
+        setDevSetting((o) => ({ ...o, hardwareConfigUrl: '' }));
+      }
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        values,
+      );
+      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
+    },
+    [setDevSetting],
+  );
 
   return (
     <YStack>
@@ -95,6 +155,14 @@ export function FirmwareUpdateDevSettings() {
       <FirmwareUpdateSectionFieldItem
         name="usePreReleaseConfig"
         title="Use pre-release config"
+        onValueChange={handlePreReleaseConfigChange}
+      >
+        <Switch size={ESwitchSize.small} />
+      </FirmwareUpdateSectionFieldItem>
+      <HardwareConfigUrlDevButtons />
+      <FirmwareUpdateSectionFieldItem
+        name="forceUpdateResource"
+        title="Force update resource"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

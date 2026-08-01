@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
@@ -15,23 +14,41 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
+import { getHardwareLabelValidationError } from './hardwareLabelValidation';
+
 import type { IntlShape } from 'react-intl';
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
   asciiOnly?: boolean;
+  asciiAlphanumericWithSpacesOnly?: boolean;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { wallet, deviceLabel, asciiOnly, onSubmit } = props;
+  const {
+    wallet,
+    deviceLabel,
+    asciiOnly,
+    asciiAlphanumericWithSpacesOnly,
+    onSubmit,
+  } = props;
 
   const maxLength = MAX_LENGTH_HW_LABEL_NAME;
   return (
     <>
-      <Dialog.Form formProps={{ values: { name: deviceLabel || '' } }}>
+      <Dialog.Form
+        formProps={{
+          values: { name: deviceLabel || '' },
+          mode: 'onChange',
+          reValidateMode: 'onChange',
+        }}
+      >
         <Dialog.FormField
+          testID={AccountManagerTestIDs.walletRenameInput}
           name="name"
           label={intl.formatMessage({
             id: ETranslations.global_hardware_label_title,
@@ -45,29 +62,23 @@ function DeviceLabelDialogContent(props: {
               // }),
             },
             validate: (value: string) => {
-              if (!value.length) return true;
-
-              if (Buffer.from(value, 'utf-8').length > maxLength) {
+              const validationError = getHardwareLabelValidationError({
+                value,
+                maxLength,
+                asciiOnly,
+                asciiAlphanumericWithSpacesOnly,
+              });
+              if (validationError === 'tooLong') {
                 return intl.formatMessage({
                   id: ETranslations.global_hardware_name_input_max,
                 });
               }
-
-              const regexRule = emojiRegex();
-              if (regexRule.test(value)) {
+              if (validationError === 'invalid') {
                 return intl.formatMessage({
                   id: ETranslations.global_hardware_label_input_error,
                 });
               }
-
-              // Some devices (e.g. Trezor) can only store printable ASCII
-              // labels, so reject anything outside ASCII 32-126 (CJK, control
-              // chars, etc.) before writing it to the device.
-              if (asciiOnly && /[^\x20-\x7E]/.test(value)) {
-                return intl.formatMessage({
-                  id: ETranslations.global_hardware_label_input_error,
-                });
-              }
+              return true;
             },
             required: {
               value: true,
@@ -78,6 +89,7 @@ function DeviceLabelDialogContent(props: {
           }}
         >
           <RenameInputWithNameSelector
+            inputTestID={AccountManagerTestIDs.walletRenameInput}
             disabledMaxLengthLabel
             maxLength={maxLength}
             description={intl.formatMessage({
@@ -94,6 +106,8 @@ function DeviceLabelDialogContent(props: {
       <Dialog.Footer
         confirmButtonProps={{
           loading: isLoading,
+          testID: AccountManagerTestIDs.walletRenameConfirm,
+          disabledOn: ({ getForm }) => !getForm()?.formState.isValid,
         }}
         onCancel={Keyboard.dismiss}
         onConfirm={async ({ getForm, close }) => {
@@ -126,10 +140,12 @@ export const showLabelSetDialog = async (
     wallet,
     intl,
     asciiOnly,
+    asciiAlphanumericWithSpacesOnly,
   }: {
     wallet: IDBWallet | undefined;
     intl: IntlShape;
     asciiOnly?: boolean;
+    asciiAlphanumericWithSpacesOnly?: boolean;
   },
   {
     onSubmit,
@@ -154,6 +170,7 @@ export const showLabelSetDialog = async (
           wallet={wallet}
           deviceLabel={deviceLabel}
           asciiOnly={asciiOnly}
+          asciiAlphanumericWithSpacesOnly={asciiAlphanumericWithSpacesOnly}
           onSubmit={onSubmit}
         />
       ),

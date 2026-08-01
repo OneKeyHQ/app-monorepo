@@ -75,9 +75,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
-  const { deviceData, tabValue } = routeParams?.params || {};
-  console.log('deviceData', deviceData);
-  const themeVariant = useThemeName();
+  const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -269,41 +267,55 @@ function CheckAndUpdatePage({
           setWarningStep();
           return;
         }
-      } else {
-        setWarningStep();
-        return;
-      }
-    } catch (error) {
-      setWarningStep();
-      throw error;
-    }
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[2] = {
-        ...newSteps[2],
-        state: ECheckAndUpdateStepState.Success,
-      };
-      return newSteps;
+        firmwareCheckRunIdRef.current += 1;
+        const connectId = getConnectId();
+        if (connectId) {
+          void backgroundApiProxy.serviceHardware.cancel({ connectId });
+        }
+        setSteps((prev) => {
+          if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
+            return prev;
+          }
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: ECheckAndUpdateStepState.Error,
+            errorMessage: intl.formatMessage({
+              id: ETranslations.hardware_connect_timeout_error,
+            }),
+          };
+          return newSteps;
+        });
+      }, timeoutMs);
+      return () => clearTimeout(timeout);
+    },
+    [intl],
+  );
+
+  // Firmware check is done — hand off to the dedicated DeviceSetup page, which
+  // runs the device-status check and shows the on-device setup instructions
+  // when the device is not yet initialized. Pass the latest device reference
+  // (its connectId may have changed after a firmware update) so DeviceSetup
+  // and FinalizeWalletSetup talk to the right device.
+  const toDeviceSetup = useCallback(() => {
+    navigation.push(EOnboardingPagesV2.DeviceSetup, {
+      connectProtocol,
+      deviceData: {
+        ...deviceData,
+        device: (getActiveDevice() ??
+          currentDevice ??
+          deviceData.device) as SearchDevice,
+      },
+      tabValue,
+      isFirmwareVerified: isFirmwareVerifiedRef.current,
     });
-    const deviceForFinalize =
-      getActiveDevice() ??
-      currentDevice ??
-      (deviceData.device as SearchDevice | undefined);
-    setTimeout(async () => {
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData: {
-          ...deviceData,
-          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
-        },
-        isFirmwareVerified: isFirmwareVerifiedRef.current,
-      });
-    }, 1200);
   }, [
-    currentDevice,
-    deviceData,
-    ensureTransportType,
-    getActiveDevice,
+    connectProtocol,
     navigation,
+    deviceData,
+    getActiveDevice,
+    currentDevice,
+    tabValue,
   ]);
 
   // Retry connecting to device after firmware update

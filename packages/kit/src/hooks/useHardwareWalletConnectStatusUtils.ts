@@ -14,6 +14,7 @@ type IWalletHardwareIdentity = {
   associatedDeviceInfo?: {
     vendor?: EHardwareVendor;
     deviceId?: string;
+    uuid?: string;
     connectId?: string;
     usbConnectId?: string;
     bleConnectId?: string;
@@ -43,7 +44,7 @@ export function getWalletHardwareConnectionKeys(
   const keys =
     vendor === EHardwareVendor.trezor
       ? [device.connectId, device.usbConnectId, device.bleConnectId]
-      : [device.deviceId];
+      : [device.deviceId, device.uuid, device.usbConnectId, device.connectId];
   return [...new Set(keys.filter((key): key is string => Boolean(key)))];
 }
 

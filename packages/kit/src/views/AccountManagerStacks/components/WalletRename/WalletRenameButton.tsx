@@ -1,5 +1,6 @@
 import { type ComponentProps, useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
@@ -57,6 +58,11 @@ export function WalletRenameButton({
     [wallet?.associatedDeviceInfo?.vendor],
   );
 
+  const labelAsciiAlphanumericWithSpacesOnly = useMemo(
+    () => wallet?.associatedDeviceInfo?.deviceType === EDeviceType.Pro2,
+    [wallet?.associatedDeviceInfo?.deviceType],
+  );
+
   return (
     <>
       <XStack
@@ -82,6 +88,8 @@ export function WalletRenameButton({
                   wallet,
                   intl,
                   asciiOnly: labelAsciiOnly,
+                  asciiAlphanumericWithSpacesOnly:
+                    labelAsciiAlphanumericWithSpacesOnly,
                 },
                 {
                   onSubmit: async (name) => {

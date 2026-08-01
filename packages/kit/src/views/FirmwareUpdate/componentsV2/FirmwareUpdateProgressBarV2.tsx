@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -26,6 +27,7 @@ import {
   useFirmwareUpdateResultVerifyAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
+  useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -33,7 +35,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
+import type {
+  ICheckAllFirmwareReleaseResult,
+  IPro2FirmwareUpdateTarget,
+} from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
@@ -51,6 +57,31 @@ interface IFirmwareUpdateVersions {
   type: string;
   info: IFirmwareUpdateVersionInfo;
 }
+
+type IProtocolV2FirmwareComponentDisplay = {
+  target?: string;
+  version?: number[];
+  resourceManifest?: {
+    packages?: Array<{
+      name?: string;
+      path?: string;
+    }>;
+  };
+};
+
+const PRO2_FORCE_TARGET_BY_COMPONENT_TARGET = new Map<
+  string,
+  IPro2FirmwareUpdateTarget
+>([
+  ['BOOTLOADER', 'boot'],
+  ['APPLICATION_P1', 'app_v1'],
+  ['APPLICATION_P2', 'app_v2'],
+  ['CRATE', 'resource'],
+  ['SE01', 'se01'],
+  ['SE02', 'se02'],
+  ['SE03', 'se03'],
+  ['SE04', 'se04'],
+]);
 
 type IProgressType =
   | EFirmwareUpdateTipMessages
@@ -158,8 +189,107 @@ function FirmwareUpdateVersionItem({
   );
 }
 
+function formatVersion(version: string | number[] | undefined) {
+  if (Array.isArray(version)) {
+    return version.join('.');
+  }
+  return version ?? '';
+}
+
+function isPro2SafeOSFirmwareUpdate(
+  result: ICheckAllFirmwareReleaseResult | undefined,
+) {
+  return (
+    result?.deviceType === EDeviceType.Pro2 &&
+    result?.updateInfos?.firmware?.hasUpgrade === true
+  );
+}
+
+function FirmwareUpdateDebugPayloadSection({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const release = result?.updateInfos?.firmware?.releasePayload?.release;
+  const components = release?.components as
+    | Record<string, IProtocolV2FirmwareComponentDisplay>
+    | undefined;
+  const pro2ForceTargets = result?.pro2ForceTargets;
+  const componentEntries = useMemo(() => {
+    if (!components) return [];
+    const forceTargets = new Set(pro2ForceTargets ?? []);
+    const orderedKeys = [
+      ...(release?.installOrder ?? []),
+      ...Object.keys(components).filter(
+        (key) => !release?.installOrder?.includes(key),
+      ),
+    ];
+    return orderedKeys
+      .map((key) => [key, components[key]] as const)
+      .filter(([, component]) => {
+        if (!component) return false;
+        if (forceTargets.size === 0) return true;
+        const target = component.target?.toUpperCase();
+        const pro2ForceTarget = target
+          ? PRO2_FORCE_TARGET_BY_COMPONENT_TARGET.get(target)
+          : undefined;
+        return Boolean(pro2ForceTarget && forceTargets.has(pro2ForceTarget));
+      });
+  }, [components, pro2ForceTargets, release?.installOrder]);
+
+  if (componentEntries.length === 0) {
+    return null;
+  }
+
+  return (
+    <Stack
+      bg="$bgSubdued"
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      px="$4"
+      py="$3"
+      mt="$3"
+      gap="$2"
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        Debug update payload
+      </SizableText>
+      {componentEntries.map(([key, component]) => {
+        const packageNames = component.resourceManifest?.packages
+          ?.map((pkg) => pkg.name || pkg.path)
+          .filter(Boolean)
+          .join(', ');
+        const version = formatVersion(component.version);
+        return (
+          <XStack key={key} gap="$2" alignItems="center" minWidth={0}>
+            <SizableText size="$bodySm" color="$text" flex={1} minWidth={0}>
+              {key}
+            </SizableText>
+            {packageNames ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                flex={1}
+                minWidth={0}
+                numberOfLines={1}
+              >
+                {packageNames}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+              {[component.target, version].filter(Boolean).join(' / ')}
+            </SizableText>
+          </XStack>
+        );
+      })}
+    </Stack>
+  );
+}
+
 export function FirmwareUpdateProgressBarView({
   versions,
+  result,
   title,
   progress,
   desc,
@@ -167,6 +297,7 @@ export function FirmwareUpdateProgressBarView({
   isVerified,
 }: {
   versions: IFirmwareUpdateVersions[];
+  result: ICheckAllFirmwareReleaseResult | undefined;
   title: string;
   progress: number | null | undefined;
   desc: string;
@@ -209,8 +340,10 @@ export function FirmwareUpdateProgressBarView({
             </Fragment>
           ))}
         </Stack>
+        <FirmwareUpdateDebugPayloadSection result={result} />
         <Stack mt="$12" mb="$3">
           <Progress
+            immediate
             size="medium"
             value={progress}
             indicatorColor="$bgSuccessStrong"
@@ -236,6 +369,7 @@ export function FirmwareUpdateProgressBarV2({
   const intl = useIntl();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
+  const [completedState] = useHardwareUiStateCompletedAtom();
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
@@ -250,8 +384,18 @@ export function FirmwareUpdateProgressBarV2({
   );
   const [desc, setDesc] = useState(defaultDesc());
 
-  const firmwareProgress = state?.payload?.firmwareProgress;
-  const firmwareProgressType = state?.payload?.firmwareProgressType;
+  // The active state may be cleared when the confirmation dialog closes.
+  // Use the latest completed event so the firmware page can still consume it.
+  let progressState;
+  if (state?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+    progressState = state;
+  } else if (
+    completedState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS
+  ) {
+    progressState = completedState;
+  }
+  const firmwareProgress = progressState?.payload?.firmwareProgress;
+  const firmwareProgressType = progressState?.payload?.firmwareProgressType;
   const firmwareTipMessage = state?.payload?.firmwareTipData?.message;
 
   const firmwareProgressRef = useRef(firmwareProgress);
@@ -301,7 +445,9 @@ export function FirmwareUpdateProgressBarV2({
           progressMax: () => 99,
           desc: () =>
             intl.formatMessage({
-              id: ETranslations.firmware_update_switch_firmware_reconnect_device,
+              id: isPro2SafeOSFirmwareUpdate(result)
+                ? ETranslations.update_keep_usb_connected_and_app_active
+                : ETranslations.firmware_update_switch_firmware_reconnect_device,
             }),
         },
         {
@@ -377,7 +523,7 @@ export function FirmwareUpdateProgressBarV2({
         }
       }
     },
-    [intl],
+    [intl, result],
   );
 
   const updateProgressRef = useRef(updateProgress);
@@ -442,12 +588,15 @@ export function FirmwareUpdateProgressBarV2({
     if (!result?.updateInfos) return [];
 
     const versions: IFirmwareUpdateVersions[] = [];
+    const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
 
     if (result.updateInfos.firmware?.hasUpgrade) {
       versions.push({
-        type: 'Firmware',
+        type: isPro2SafeOSUpdate ? 'SafeOS' : 'Firmware',
         info: {
-          title: intl.formatMessage({ id: ETranslations.global_firmware }),
+          title: isPro2SafeOSUpdate
+            ? 'SafeOS'
+            : intl.formatMessage({ id: ETranslations.global_firmware }),
           fromVersion: result.updateInfos.firmware.fromVersion ?? '',
           toVersion: result.updateInfos.firmware.toVersion ?? '',
           verifyVersion: resultVerifyVersions?.finalFirmwareVersion,
@@ -457,7 +606,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     }
 
-    if (result.updateInfos.bootloader?.hasUpgrade) {
+    if (result.updateInfos.bootloader?.hasUpgrade && !isPro2SafeOSUpdate) {
       versions.push({
         type: 'Bootloader',
         info: {
@@ -471,7 +620,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     }
 
-    if (result.updateInfos.ble?.hasUpgrade) {
+    if (result.updateInfos.ble?.hasUpgrade && !isPro2SafeOSUpdate) {
       versions.push({
         type: 'Bluetooth',
         info: {
@@ -586,6 +735,7 @@ export function FirmwareUpdateProgressBarV2({
     <Stack>
       <FirmwareUpdateProgressBarView
         versions={upgradeVersions}
+        result={result}
         title={
           isDoneInternal
             ? intl.formatMessage({
