@@ -6,7 +6,6 @@ import {
   extractPassphraseStateFromPayload,
   openHiddenWalletSession,
 } from '../commands/device/hardware-sdk';
-import { ERROR_CODES } from '../errors';
 
 import type { CoreApi } from '@onekeyfe/hd-core';
 
@@ -151,6 +150,7 @@ describe('extractPassphraseStateFromPayload', () => {
     };
     expect(extractPassphraseStateFromPayload(payload)).toBe('state-2');
     expect(extractPassphraseSessionFromPayload(payload)).toEqual({
+      deviceId: 'device-1',
       passphraseState: 'state-2',
       sessionId: 'session-2',
     });
@@ -170,7 +170,7 @@ describe('extractPassphraseStateFromPayload', () => {
 });
 
 describe('openHiddenWalletSession', () => {
-  it('uses the unified V1/V2 API and returns its CLI compatibility session', async () => {
+  it('uses the supported hidden-wallet mode and accepts the real V2 payload', async () => {
     const searchDevices = jest.fn();
     const openWalletSession = jest.fn().mockResolvedValue({
       success: true,
@@ -179,7 +179,6 @@ describe('openHiddenWalletSession', () => {
         walletType: 'hidden',
         deviceId: 'device-1',
         passphraseState: 'state-1',
-        sessionId: 'session-1',
         resumed: false,
       },
     });
@@ -193,17 +192,17 @@ describe('openHiddenWalletSession', () => {
         connectId: 'connect-1',
       }),
     ).resolves.toEqual({
+      deviceId: 'device-1',
       passphraseState: 'state-1',
-      sessionId: 'session-1',
+      protocol: 'V2',
     });
     expect(openWalletSession).toHaveBeenCalledWith('connect-1', {
-      mode: 'hidden',
-      access: 'passphrase',
+      mode: 'select-hidden',
     });
     expect(searchDevices).not.toHaveBeenCalled();
   });
 
-  it('rejects an SDK response without sessionId instead of deriving it from Features', async () => {
+  it('reads the V1 compatibility session id from the refreshed device features', async () => {
     const sdk = {
       openWalletSession: jest.fn().mockResolvedValue({
         success: true,
@@ -215,7 +214,16 @@ describe('openHiddenWalletSession', () => {
           resumed: false,
         },
       }),
-      searchDevices: jest.fn(),
+      searchDevices: jest.fn().mockResolvedValue({
+        success: true,
+        payload: [
+          {
+            connectId: 'connect-1',
+            deviceId: 'device-1',
+            features: { sessionId: 'session-1' },
+          },
+        ],
+      }),
     };
 
     await expect(
@@ -223,9 +231,12 @@ describe('openHiddenWalletSession', () => {
         sdk: sdk as unknown as CoreApi,
         connectId: 'connect-1',
       }),
-    ).rejects.toMatchObject({
-      code: ERROR_CODES.AUTH_SESSION_INVALID.code,
+    ).resolves.toEqual({
+      deviceId: 'device-1',
+      passphraseState: 'state-1',
+      protocol: 'V1',
+      sessionId: 'session-1',
     });
-    expect(sdk.searchDevices).not.toHaveBeenCalled();
+    expect(sdk.searchDevices).toHaveBeenCalledTimes(1);
   });
 });

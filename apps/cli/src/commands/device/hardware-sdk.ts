@@ -12,7 +12,9 @@ import type { PassphraseMode } from '../../core/auth/auth-types';
 import type { CoreApi } from '@onekeyfe/hd-core';
 
 export type IResolvedPassphraseSession = {
+  deviceId?: string;
   passphraseState?: string;
+  protocol?: 'V1' | 'V2';
   sessionId?: string;
 };
 
@@ -20,17 +22,23 @@ export function extractPassphraseSessionFromPayload(
   payload:
     | string
     | {
+        deviceId?: string | null;
         passphraseState?: string | null;
+        protocol?: 'V1' | 'V2';
         sessionId?: string | null;
         [key: string]: unknown;
       }
     | undefined,
 ): IResolvedPassphraseSession {
+  const objectPayload =
+    typeof payload === 'object' && payload ? payload : undefined;
   return {
+    ...(objectPayload?.deviceId ? { deviceId: objectPayload.deviceId } : {}),
     passphraseState:
       typeof payload === 'string'
         ? payload || undefined
         : payload?.passphraseState || undefined,
+    ...(objectPayload?.protocol ? { protocol: objectPayload.protocol } : {}),
     sessionId:
       typeof payload === 'object' && payload
         ? payload.sessionId || undefined
@@ -57,13 +65,8 @@ export async function openHiddenWalletSession({
   sdk: CoreApi;
   connectId: string;
 }): Promise<IResolvedPassphraseSession> {
-  const openWalletSession = sdk.openWalletSession as unknown as (
-    targetConnectId: string,
-    params: { mode: 'hidden'; access: 'passphrase' },
-  ) => ReturnType<CoreApi['openWalletSession']>;
-  const result = await openWalletSession(connectId, {
-    mode: 'hidden',
-    access: 'passphrase',
+  const result = await sdk.openWalletSession(connectId, {
+    mode: 'select-hidden',
   });
   if (!result.success) {
     const err = result.payload as { error?: string; code?: string | number };
@@ -76,13 +79,44 @@ export async function openHiddenWalletSession({
     );
   }
 
+  if (result.payload.walletType !== 'hidden') {
+    throw new AppError(
+      ERROR_CODES.AUTH_SESSION_INVALID.code,
+      'openWalletSession did not select a hidden wallet',
+      'Update the hardware SDK and retry',
+    );
+  }
+
   const session = extractPassphraseSessionFromPayload(result.payload);
-  if (!session.passphraseState || !session.sessionId) {
+  if (!session.passphraseState) {
     throw new AppError(
       ERROR_CODES.AUTH_SESSION_INVALID.code,
       'openWalletSession returned an incomplete wallet session',
       'Update the hardware SDK and retry',
     );
+  }
+
+  if (session.protocol === 'V1') {
+    const refreshedDevices = await sdk.searchDevices();
+    if (refreshedDevices.success) {
+      const devices = refreshedDevices.payload as unknown as Array<{
+        connectId?: string | null;
+        deviceId?: string | null;
+        features?: {
+          sessionId?: string | null;
+          session_id?: string | null;
+        };
+      }>;
+      const targetDevice = devices.find(
+        (device) =>
+          device.connectId === connectId ||
+          (session.deviceId && device.deviceId === session.deviceId),
+      );
+      session.sessionId =
+        targetDevice?.features?.sessionId ??
+        targetDevice?.features?.session_id ??
+        undefined;
+    }
   }
   return session;
 }

@@ -169,20 +169,22 @@ async function buildDeviceMetaState(
   if (!features) {
     return undefined;
   }
+  const thirdPartyState = thirdPartyDeviceUtils.getDeviceState({
+    features: features as Record<string, unknown>,
+  });
   const isVerified = Boolean(device.verifiedAtVersion);
-  const autoLockDelayMs = features.autoLockDelayMs ?? 0;
-  const autoShutDownDelayMs =
-    features.autoShutdownDelayMs ?? features.autoLockDelayMs ?? 0;
+  const autoLockDelayMs = thirdPartyState.autoLockDelayMs ?? 0;
+  const autoShutDownDelayMs = thirdPartyState.autoShutDownDelayMs ?? 0;
   const language = features.language ?? undefined;
-  const hapticFeedback = false;
+  const hapticFeedback = thirdPartyState.hapticFeedback ?? false;
 
   return {
     isVerified,
-    unlocked: features.unlocked !== false,
-    initialized: features.initialized !== false,
+    unlocked: thirdPartyState.unlocked !== false,
+    initialized: thirdPartyState.initialized !== false,
     backupRequired: Boolean(features.backupRequired),
     unlockedByAttachToPin: false,
-    passphraseEnabled: Boolean(features?.passphraseProtection),
+    passphraseEnabled: Boolean(thirdPartyState.passphraseProtection),
     pinOnAppEnabled: Boolean(device.settings?.inputPinOnSoftware),
     autoLockDelayMs,
     autoShutDownDelayMs,

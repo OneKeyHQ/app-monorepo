@@ -174,9 +174,139 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
       }),
     );
   });
+
+  test('cancels an older hardware-busy retry as soon as a newer event arrives', async () => {
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const retry = jest.fn().mockResolvedValue(undefined);
+    const serviceInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: (
+        eventPayload: IPortfolioSyncSettledPayload,
+      ) => void;
+      scheduleHardwareBusyRetry: (params: {
+        deviceConnectId: string;
+        retry: () => Promise<void>;
+      }) => void;
+      syncSettledPortfolio: jest.Mock;
+    };
+    serviceInternals.syncSettledPortfolio = jest.fn().mockResolvedValue(undefined);
+    serviceInternals.scheduleHardwareBusyRetry({
+      deviceConnectId: 'PRO2_A',
+      retry,
+    });
+
+    serviceInternals.handleAllNetworksTokenListSettled({
+      aggregateTokenMap: {},
+      deviceConnectId: 'PRO2_A',
+      totalFiat: '2',
+      totalTokenCount: 0,
+      tokenMap: {},
+      tokens: [],
+      walletId: 'hw-PRO2_A',
+      walletType: 'hw',
+    } as IPortfolioSyncSettledPayload);
+
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(retry).not.toHaveBeenCalled();
+    expect(serviceInternals.syncSettledPortfolio).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
+  function buildHardwarePayload() {
+    return {
+      accountAddress: '0x1234567890abcdef',
+      accountId: 'evm--1',
+      aggregateTokenMap: {},
+      deviceConnectId: 'PRO2_CONNECT_ID',
+      totalFiat: '0.00007276',
+      totalTokenCount: 1,
+      tokenMap: {
+        eth: {
+          balance: '0.00007276',
+          balanceParsed: '0.00007276',
+          currency: 'usd',
+          fiatValue: '0.1',
+          price: 1374.38,
+        },
+      },
+      tokens: [
+        {
+          $key: 'eth',
+          address: '',
+          decimals: 18,
+          isNative: true,
+          name: 'Ethereum',
+          networkId: 'evm--1',
+          symbol: 'ETH',
+        },
+      ],
+      walletId: 'hw-1',
+      walletType: 'hw',
+    } as unknown as IPortfolioSyncSettledPayload;
+  }
+
+  function prepareHardwareSync({ busyResults }: { busyResults: boolean[] }) {
+    const uploadPortfolioPackage = jest
+      .fn()
+      .mockResolvedValue({ portfolioUpdated: true });
+    const updateTargetState = jest.fn().mockResolvedValue(undefined);
+    const isHardwareChannelBusy = jest.fn();
+    for (const busy of busyResults) {
+      isHardwareChannelBusy.mockResolvedValueOnce(busy);
+    }
+    isHardwareChannelBusy.mockResolvedValue(false);
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {
+        serviceHardware: { uploadPortfolioPackage },
+        serviceHardwareUI: { isHardwareChannelBusy },
+        simpleDb: {
+          hardwarePortfolioSync: {
+            getTargetState: jest.fn().mockResolvedValue(undefined),
+            updateTargetState,
+          },
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const serviceInternals = service as unknown as {
+      getCurrencyMapForBuild: () => Promise<{
+        currencyMap: Record<string, never>;
+        displayCurrency: { id: string; symbol: string };
+      }>;
+      getHardwareCooldownRemainingMs: () => Promise<number>;
+      submitPortfolioJsonToServer: jest.Mock;
+      syncSettledPortfolio: (
+        eventPayload: IPortfolioSyncSettledPayload,
+      ) => Promise<void>;
+    };
+    serviceInternals.getHardwareCooldownRemainingMs = jest
+      .fn()
+      .mockResolvedValue(0);
+    serviceInternals.getCurrencyMapForBuild = jest.fn().mockResolvedValue({
+      currencyMap: {},
+      displayCurrency: { id: 'usd', symbol: '$' },
+    });
+    serviceInternals.submitPortfolioJsonToServer = jest.fn().mockResolvedValue({
+      serverPackageBytes: new Uint8Array([1, 2, 3]).buffer,
+      serverSubmit: {
+        bytesLength: 3,
+        contentHash: 'server-content-hash',
+        serverPackageBase64Length: 4,
+        serverPackageBytesLength: 3,
+      },
+    });
+    (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
+    return {
+      isHardwareChannelBusy,
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    };
+  }
+
   test('short-circuits an empty portfolio before build or upload', async () => {
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {} as IBackgroundApi,
@@ -316,5 +446,41 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         upload: { portfolioUpdated: true },
       }),
     );
+  });
+
+  test('retries the latest snapshot when hardware is busy before server packing', async () => {
+    jest.useFakeTimers();
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [true, false, false],
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('retries an already-packed snapshot without another server request', async () => {
+    jest.useFakeTimers();
+    const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false, true, false],
+      });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
   });
 });

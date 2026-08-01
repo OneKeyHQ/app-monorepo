@@ -70,6 +70,7 @@ type IPortfolioServerSubmitResult = NonNullable<
 >;
 
 const LOG_PREFIX = '[PRO2-PORTFOLIO-SYNC]';
+const PORTFOLIO_SYNC_HARDWARE_BUSY_RETRY_MS = 1000;
 
 function stringifyLogValue(value: unknown) {
   try {
@@ -115,6 +116,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     ReturnType<typeof setTimeout>
   >();
 
+  private pendingHardwareRetryTimerByConnectId = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+
   private activeUploadByConnectId = new Map<
     string,
     Promise<{ portfolioUpdated: boolean }>
@@ -144,6 +150,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private handleAllNetworksTokenListSettled = (
     eventPayload: IPortfolioSyncSettledPayload,
   ) => {
+    if (eventPayload.deviceConnectId) {
+      this.cancelHardwareBusyRetry(eventPayload.deviceConnectId);
+    }
     debugPortfolioSyncLog('settled-event', {
       hasDeviceConnectId: Boolean(eventPayload.deviceConnectId),
       isHardwareWallet: accountUtils.isHwWallet({
@@ -229,6 +238,30 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     }, remainingMs);
 
     this.pendingCooldownTimerByConnectId.set(deviceConnectId, timer);
+  }
+
+  private cancelHardwareBusyRetry(deviceConnectId: string) {
+    const timer =
+      this.pendingHardwareRetryTimerByConnectId.get(deviceConnectId);
+    if (timer) {
+      clearTimeout(timer);
+      this.pendingHardwareRetryTimerByConnectId.delete(deviceConnectId);
+    }
+  }
+
+  private scheduleHardwareBusyRetry({
+    deviceConnectId,
+    retry,
+  }: {
+    deviceConnectId: string;
+    retry: () => Promise<void>;
+  }) {
+    this.cancelHardwareBusyRetry(deviceConnectId);
+    const timer = setTimeout(() => {
+      this.pendingHardwareRetryTimerByConnectId.delete(deviceConnectId);
+      void retry();
+    }, PORTFOLIO_SYNC_HARDWARE_BUSY_RETRY_MS);
+    this.pendingHardwareRetryTimerByConnectId.set(deviceConnectId, timer);
   }
 
   private async getHardwareCooldownRemainingMs({
@@ -351,11 +384,102 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     };
   }
 
+  private async uploadPreparedHardwarePortfolio({
+    artifacts,
+    deviceConnectId,
+    eventPayload,
+    serverPackageBytes,
+    serverSubmit,
+    targetKey,
+    updatedAt,
+  }: {
+    artifacts: IPortfolioSyncArtifacts;
+    deviceConnectId: string;
+    eventPayload: IPortfolioSyncSettledPayload;
+    serverPackageBytes: ArrayBuffer;
+    serverSubmit: IPortfolioServerSubmitResult;
+    targetKey: string;
+    updatedAt: number;
+  }) {
+    this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
+    const hardwareBusy =
+      await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
+        connectId: deviceConnectId,
+      });
+    if (hardwareBusy) {
+      this.inFlightContentHashByTargetKey.delete(targetKey);
+      this.setLastResult(
+        this.buildResultBase({
+          artifacts,
+          eventPayload,
+          serverSubmit,
+          status: 'hardware-busy',
+          updatedAt,
+        }),
+      );
+      debugPortfolioSyncLog('skip-hardware-busy', {
+        contentHash: artifacts.contentHash,
+      });
+      this.scheduleHardwareBusyRetry({
+        deviceConnectId,
+        retry: () =>
+          this.uploadPreparedHardwarePortfolio({
+            artifacts,
+            deviceConnectId,
+            eventPayload,
+            serverPackageBytes,
+            serverSubmit,
+            targetKey,
+            updatedAt: Date.now(),
+          }),
+      });
+      return;
+    }
+
+    const uploadPromise =
+      this.backgroundApi.serviceHardware.uploadPortfolioPackage({
+        connectId: deviceConnectId,
+        packageBytes: serverPackageBytes,
+      });
+    this.activeUploadByConnectId.set(deviceConnectId, uploadPromise);
+    let upload: { portfolioUpdated: boolean };
+    try {
+      upload = await uploadPromise;
+    } finally {
+      if (this.activeUploadByConnectId.get(deviceConnectId) === uploadPromise) {
+        this.activeUploadByConnectId.delete(deviceConnectId);
+      }
+    }
+    this.setLastResult({
+      ...this.buildResultBase({
+        artifacts,
+        eventPayload,
+        serverSubmit,
+        status: 'uploaded',
+        updatedAt,
+      }),
+      upload,
+    });
+    debugPortfolioSyncLog('uploaded', {
+      bytesLength: serverPackageBytes.byteLength,
+      contentHash: artifacts.contentHash,
+    });
+    await this.commitProcessedArtifacts({
+      artifacts,
+      targetKey,
+      transferAt: Date.now(),
+    });
+  }
+
   private async syncSettledPortfolio(
     eventPayload: IPortfolioSyncSettledPayload,
   ) {
     const updatedAt = Date.now();
     const targetKey = this.getSyncTargetKey(eventPayload);
+    const pendingDeviceConnectId = eventPayload.deviceConnectId;
+    if (pendingDeviceConnectId) {
+      this.cancelHardwareBusyRetry(pendingDeviceConnectId);
+    }
     try {
       if (!(await this.shouldRunDevFlow())) {
         debugPortfolioSyncLog('skip-disabled');
@@ -484,6 +608,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               updatedAt,
             }),
           );
+          this.scheduleHardwareBusyRetry({
+            deviceConnectId,
+            retry: () => this.syncSettledPortfolio(eventPayload),
+          });
           return;
         }
       }
@@ -494,61 +622,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
 
       if (isHardwareWallet && deviceConnectId) {
-        const hardwareBusy =
-          await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
-            connectId: deviceConnectId,
-          });
-        if (hardwareBusy) {
-          this.inFlightContentHashByTargetKey.delete(targetKey);
-          this.setLastResult(
-            this.buildResultBase({
-              artifacts,
-              eventPayload,
-              serverSubmit,
-              status: 'hardware-busy',
-              updatedAt,
-            }),
-          );
-          debugPortfolioSyncLog('skip-hardware-busy', {
-            contentHash: artifacts.contentHash,
-          });
-          return;
-        }
-
-        const uploadPromise =
-          this.backgroundApi.serviceHardware.uploadPortfolioPackage({
-            connectId: deviceConnectId,
-            packageBytes: serverPackageBytes,
-          });
-        this.activeUploadByConnectId.set(deviceConnectId, uploadPromise);
-        let upload: { portfolioUpdated: boolean };
-        try {
-          upload = await uploadPromise;
-        } finally {
-          if (
-            this.activeUploadByConnectId.get(deviceConnectId) === uploadPromise
-          ) {
-            this.activeUploadByConnectId.delete(deviceConnectId);
-          }
-        }
-        this.setLastResult({
-          ...this.buildResultBase({
-            artifacts,
-            eventPayload,
-            serverSubmit,
-            status: 'uploaded',
-            updatedAt,
-          }),
-          upload,
-        });
-        debugPortfolioSyncLog('uploaded', {
-          bytesLength: serverPackageBytes.byteLength,
-          contentHash: artifacts.contentHash,
-        });
-        await this.commitProcessedArtifacts({
+        await this.uploadPreparedHardwarePortfolio({
           artifacts,
+          deviceConnectId,
+          eventPayload,
+          serverPackageBytes,
+          serverSubmit,
           targetKey,
-          transferAt: Date.now(),
+          updatedAt,
         });
         return;
       }
