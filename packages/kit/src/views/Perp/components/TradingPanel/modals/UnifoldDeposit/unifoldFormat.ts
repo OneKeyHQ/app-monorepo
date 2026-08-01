@@ -92,6 +92,12 @@ export function formatUnifoldRouteAssetDescription({
     : tokenSymbol;
 }
 
+export function isUnifoldNativeTokenAddress(
+  tokenAddress: string | null | undefined,
+): boolean {
+  return tokenAddress?.trim().toLowerCase() === 'native';
+}
+
 // The vendor serves every icon as both SVG and PNG under parallel paths
 // (/icons/<kind>/svg/x.svg and /icons/<kind>/png/x.png) and the API hands us
 // the SVG one. React Native's Image cannot render SVG, so native falls back to
