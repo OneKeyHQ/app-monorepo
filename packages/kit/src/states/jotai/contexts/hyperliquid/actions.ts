@@ -560,12 +560,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
     try {
       if (params.subscriptionRecoveryProof) {
-        await backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
-          {
-            disabledCount: params.subscriptionRecoveryProof.disabledCount,
-          },
-        );
-        return;
+        const recovered =
+          await backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+            {
+              disabledCount: params.subscriptionRecoveryProof.disabledCount,
+            },
+          );
+        if (recovered) {
+          return;
+        }
+        // A rejected proof only means it went stale; the handler may have
+        // been re-enabled meanwhile, so fall back to the normal reconcile.
       }
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
