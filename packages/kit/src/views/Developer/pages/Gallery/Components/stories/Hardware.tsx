@@ -54,6 +54,9 @@ const HardwareActionTest = () => {
     if (uiRequestType === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
       usedPayload.firmwareProgress = payload;
     }
+    if (uiRequestType === EHardwareUiStateAction.DEVICE_PROGRESS) {
+      usedPayload.deviceProgress = payload;
+    }
 
     if (
       ![
@@ -78,6 +81,29 @@ const HardwareActionTest = () => {
 
   return (
     <Stack gap="$6">
+      <Stack gap="$2">
+        <SizableText textAlign="left" size="$bodySmMedium" color="$text">
+          Device transfer progress
+        </SizableText>
+        <Button
+          testID="hardware-device-progress-demo-button"
+          onPress={async () => {
+            await generateAction(EHardwareUiStateAction.DEVICE_PROGRESS, {
+              payload: {
+                progress: 42,
+                transferredBytes: 420,
+                totalBytes: 1000,
+                rateBytesPerSecond: 210,
+                elapsedMs: 2000,
+              },
+              deviceType: EDeviceType.Pro2,
+            });
+          }}
+        >
+          Test Device Transfer Progress
+        </Button>
+      </Stack>
+
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
           事件：Confirm =》Confirm =》Pin =》Pin =》Confirm =》Confirm =》Pin

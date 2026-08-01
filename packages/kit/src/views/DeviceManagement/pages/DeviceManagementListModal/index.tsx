@@ -233,6 +233,11 @@ function DeviceListItem({
             w: 56,
             h: 56,
           }}
+          testID={
+            isConnected
+              ? DeviceManagementTestIDs.deviceStatusConnected
+              : DeviceManagementTestIDs.deviceStatusDisconnected
+          }
         >
           <WalletAvatar
             {...walletAvatarProps}

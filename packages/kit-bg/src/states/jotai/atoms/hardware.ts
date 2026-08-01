@@ -42,6 +42,14 @@ export type IHardwareUiPayload = {
   // firmware update progress
   firmwareProgress?: number;
   firmwareProgressType?: 'transferData' | 'installingFirmware';
+  // generic device data transfer progress
+  deviceProgress?: {
+    progress?: number;
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    elapsedMs?: number;
+  };
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';

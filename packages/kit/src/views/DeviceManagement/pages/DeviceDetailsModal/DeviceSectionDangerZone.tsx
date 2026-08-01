@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
+import { XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -96,20 +97,28 @@ function DeviceSectionDangerZone({
           },
         )}
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        subtitle={
-          isFirmwareTypeChangeComingSoon
-            ? intl.formatMessage({
-                id: ETranslations.wallet_feature_coming_soon,
-              })
-            : undefined
-        }
         disabled={isFirmwareTypeChangeComingSoon}
         drillIn={!isFirmwareTypeChangeComingSoon}
         onPress={
           isFirmwareTypeChangeComingSoon ? undefined : onPressFirmwareTypeChange
         }
         testID={DeviceManagementTestIDs.switchFirmwareTypeItem}
-      />
+      >
+        {isFirmwareTypeChangeComingSoon ? (
+          <XStack alignItems="center">
+            <ListItem.Text
+              primary={intl.formatMessage({
+                id: ETranslations.wallet_feature_coming_soon,
+              })}
+              align="right"
+              primaryTextProps={{
+                size: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+            />
+          </XStack>
+        ) : null}
+      </ListItem>
     );
   }, [
     firmwareTypeChangeAvailability,

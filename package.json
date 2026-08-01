@@ -315,6 +315,7 @@
     "@types/w3c-web-hid": "^1.0.6",
     "@types/w3c-web-usb": "^1.0.10",
     "@types/web": "0.0.269",
+    "@types/web-bluetooth": "0.0.21",
     "@types/zxcvbn": "^4",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",

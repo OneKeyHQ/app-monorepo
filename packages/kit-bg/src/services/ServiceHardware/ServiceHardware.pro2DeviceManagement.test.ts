@@ -502,11 +502,13 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
       connectId: 'PRO2_USB',
       params: { scope: 'settings' },
       hardwareCallContext: 'user_interaction_no_ble_dialog',
+      silentMode: true,
     });
     expect(getDeviceState).toHaveBeenNthCalledWith(2, {
       connectId: 'PRO2_USB',
       params: undefined,
       hardwareCallContext: 'user_interaction_no_ble_dialog',
+      silentMode: true,
     });
   });
 
@@ -676,6 +678,55 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EHardwareUiStateAction.EnterPinOnDevice,
       EHardwareUiStateAction.REQUEST_PASSPHRASE,
     ]);
+  });
+
+  it('forwards device transfer progress to the hardware UI state', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+
+    await listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.DEVICE_PROGRESS,
+      payload: {
+        progress: 42,
+        transferredBytes: 420,
+        totalBytes: 1000,
+        rateBytesPerSecond: 210,
+        elapsedMs: 2000,
+      },
+    });
+
+    const updater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const state = typeof updater === 'function' ? updater(undefined) : updater;
+    expect(state).toMatchObject({
+      action: EHardwareUiStateAction.DEVICE_PROGRESS,
+      payload: {
+        deviceProgress: {
+          progress: 42,
+          transferredBytes: 420,
+          totalBytes: 1000,
+          rateBytesPerSecond: 210,
+          elapsedMs: 2000,
+        },
+      },
+    });
   });
 
   it('persists and broadcasts canonical SDK state events', async () => {

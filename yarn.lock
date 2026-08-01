@@ -9866,6 +9866,7 @@ __metadata:
     "@types/w3c-web-hid": "npm:^1.0.6"
     "@types/w3c-web-usb": "npm:^1.0.10"
     "@types/web": "npm:0.0.269"
+    "@types/web-bluetooth": "npm:0.0.21"
     "@types/zxcvbn": "npm:^4"
     "@typescript-eslint/eslint-plugin": "npm:^8.4.0"
     "@typescript-eslint/parser": "npm:^8.4.0"
@@ -19831,6 +19832,13 @@ __metadata:
   version: 0.0.269
   resolution: "@types/web@npm:0.0.269"
   checksum: 10/8003f221e8ea67c5e6b020c164f9cf9b063c93907550bfdd8642ed07b82efd0e7d1e00b90f87151f9cd96e53874732cc543e0323c7e4ac04e65ccd3aeafe4f4c
+  languageName: node
+  linkType: hard
+
+"@types/web-bluetooth@npm:0.0.21":
+  version: 0.0.21
+  resolution: "@types/web-bluetooth@npm:0.0.21"
+  checksum: 10/f8796dc9f67ee556a2c895ee7d6c4f62b2a8c52963c3d5e81a2938d3313130f9f7330ff82a6a3dceb63217ba615020e1d4cca8842d469ba6d8ac782853d47d0d
   languageName: node
   linkType: hard
 
