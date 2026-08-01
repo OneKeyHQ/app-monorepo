@@ -4,6 +4,7 @@ import {
   type SniConnectOptionalBodyMethod,
   type SniConnectRequest,
   type SniConnectRequiredBodyMethod,
+  cancelRequest as nativeCancelRequest,
   isProxyActiveForUrl as nativeIsProxyActiveForUrl,
   request as nativeSniRequest,
 } from '@onekeyfe/react-native-sni-connect';
@@ -11,8 +12,13 @@ import {
 import { defaultLogger } from '../../logger/logger';
 
 import { safeSniLogValue } from './sniLogRedaction';
+import { executeSniRequestWithAbort } from './sniRequestAbort';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 
 const SNI_CONNECT_NO_BODY_METHODS = [
   'GET',
@@ -59,8 +65,14 @@ function isRequiredBodyMethod(
  */
 export async function sniRequest(
   config: ISniRequestConfig,
+  options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
-  const response = await nativeSniRequest(buildNativeSniRequest(config));
+  const response = await executeSniRequestWithAbort(
+    config,
+    options,
+    (requestConfig) => nativeSniRequest(buildNativeSniRequest(requestConfig)),
+    nativeCancelRequest,
+  );
   const multiValueHeaders = (
     response as typeof response & {
       multiValueHeaders?: Record<string, string[]>;

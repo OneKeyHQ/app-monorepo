@@ -1,3 +1,5 @@
+import type { GenericAbortSignal } from 'axios';
+
 // ==================== Existing IP Table Config (Backward Compatible) ====================
 
 /**
@@ -142,6 +144,14 @@ export interface ISniRequestConfig {
   body: string | null;
   timeout: number;
   port?: number;
+}
+
+/**
+ * Local-only SNI request options. These values must not cross a native or IPC
+ * bridge; platform adapters translate them into transport cancellation calls.
+ */
+export interface ISniRequestOptions {
+  signal?: GenericAbortSignal;
 }
 
 /**

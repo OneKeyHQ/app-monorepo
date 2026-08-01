@@ -1259,15 +1259,18 @@ export function createIpTableAdapter(
     };
 
     try {
-      const sniResponse = await sniRequest({
-        ip: selectedIp,
-        hostname,
-        path: fullPath,
-        headers: requestHeaders,
-        method: (config.method || 'GET').toUpperCase(),
-        body: requestBody,
-        timeout: config.timeout || 60_000,
-      });
+      const sniResponse = await sniRequest(
+        {
+          ip: selectedIp,
+          hostname,
+          path: fullPath,
+          headers: requestHeaders,
+          method: (config.method || 'GET').toUpperCase(),
+          body: requestBody,
+          timeout: config.timeout || 60_000,
+        },
+        { signal: config.signal },
+      );
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {

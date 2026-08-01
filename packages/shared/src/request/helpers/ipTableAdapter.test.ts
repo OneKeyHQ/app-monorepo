@@ -157,10 +157,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       body: '{"ok":true}',
     });
     const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
 
-    await expect(
-      adapter(buildConfig('https://api.example.com/v1')),
-    ).resolves.toMatchObject({
+    await expect(adapter(config)).resolves.toMatchObject({
       status: 200,
       data: { ok: true },
     });
@@ -171,6 +172,7 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         ip: '93.184.216.34',
         hostname: 'api.example.com',
       }),
+      { signal: controller.signal },
     );
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
@@ -994,6 +996,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
     expect(mockedSniRequest).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: 'utility.onekeycn.com' }),
+      { signal: undefined },
     );
   });
 });
