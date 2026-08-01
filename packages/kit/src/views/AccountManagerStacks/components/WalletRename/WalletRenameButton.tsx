@@ -66,6 +66,7 @@ export function WalletRenameButton({
   return (
     <>
       <XStack
+        testID={AccountManagerTestIDs.walletRenameButton}
         py="$1"
         px="$1.5"
         flexShrink={1}
