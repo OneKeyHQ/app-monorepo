@@ -259,6 +259,23 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
   });
 
+  it('leaves an unparseable file alone when this copy has nothing to restore', () => {
+    const corrupt = '{"kept":{"d":"disk"';
+    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: corrupt };
+    // This runtime hydrates after the corruption, so its copy is empty and it
+    // has nothing to rebuild the file with.
+    const swr = loadFreshRuntime();
+    expect(swr.get('kept')).toBeUndefined();
+
+    swr.reloadFromStorage();
+    swr.flushNow();
+
+    // Writing an empty store here would make the file parseable-and-empty and
+    // strand the runtime that still holds a full copy: it would then merge
+    // against {} and truncate itself instead of repairing the file.
+    expect(fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]).toBe(corrupt);
+  });
+
   it('does not resurrect a removed key from the other runtime copy', () => {
     otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
     const swr = loadFreshRuntime();

@@ -102,11 +102,16 @@ function readStoreFromDisk(): {
 function reloadFromStorage(): void {
   flush();
   const { store, unreadable } = readStoreFromDisk();
-  if (unreadable && _cache) {
+  if (unreadable && _cache && Object.keys(_cache).length > 0) {
     // The file is corrupt but this runtime still holds an intact copy. Swapping
     // it for an empty store would strand every namespace for the rest of the
     // session and leave the next flush nothing to repair the file with, since
     // flush() rebuilds from exactly this copy.
+    //
+    // The emptiness check is what makes that repair safe to schedule: a runtime
+    // that first hydrated after the corruption also holds {}, and flushing that
+    // would turn the file into a parseable empty store — which then costs the
+    // runtime that does hold a full copy its only chance to restore it.
     _dirty = true;
     scheduleFlush();
   } else {
