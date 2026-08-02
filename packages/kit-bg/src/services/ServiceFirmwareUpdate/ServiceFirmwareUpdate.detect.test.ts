@@ -128,52 +128,31 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 });
 
 describe('buildPro2TargetsToUpdate', () => {
-  const buildFirmware = (components: Record<string, unknown>) =>
-    ({
-      hasUpgrade: false,
-      releasePayload: {
-        release: { components },
-      },
-    }) as never;
-
-  it('does not update a secure element when its current version is unknown', () => {
+  it('uses SDK targets as the update source of truth', () => {
     expect(
       buildPro2TargetsToUpdate({
-        features: {} as never,
-        firmware: buildFirmware({
-          se01: { target: 'SE01', version: [1, 0, 0] },
-        }),
-        ble: undefined,
-        bootloader: undefined,
+        sdkTargets: ['app_v1', 'resource'],
         forceTargets: [],
       }),
-    ).toEqual([]);
+    ).toEqual(['app_v1', 'resource']);
   });
 
-  it('updates a secure element only when a known version is older', () => {
+  it('does not infer a resource update from an app update', () => {
     expect(
       buildPro2TargetsToUpdate({
-        features: { se01Version: '1.0.0' } as never,
-        firmware: buildFirmware({
-          se01: { target: 'SE01', version: [1, 1, 0] },
-        }),
-        ble: undefined,
-        bootloader: undefined,
+        sdkTargets: ['app_v1'],
         forceTargets: [],
       }),
-    ).toEqual(['se01']);
+    ).toEqual(['app_v1']);
   });
 
-  it('preserves explicit force-update targets', () => {
+  it('preserves and deduplicates explicit force-update targets', () => {
     expect(
       buildPro2TargetsToUpdate({
-        features: {} as never,
-        firmware: buildFirmware({}),
-        ble: undefined,
-        bootloader: undefined,
-        forceTargets: ['se01'],
+        sdkTargets: ['se01'],
+        forceTargets: ['se01', 'resource'],
       }),
-    ).toEqual(['se01']);
+    ).toEqual(['se01', 'resource']);
   });
 });
 
