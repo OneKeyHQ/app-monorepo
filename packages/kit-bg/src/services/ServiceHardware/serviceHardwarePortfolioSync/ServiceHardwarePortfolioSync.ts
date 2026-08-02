@@ -13,6 +13,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
@@ -70,6 +71,33 @@ type IPortfolioServerSubmitResult = NonNullable<
 
 const LOG_PREFIX = '[PRO2-PORTFOLIO-SYNC]';
 const PORTFOLIO_SYNC_HARDWARE_BUSY_RETRY_MS = 1000;
+const PORTFOLIO_PACKAGE_MAX_BYTES = PORTFOLIO_ARCHIVE_MAX_BYTES * 2;
+const PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH =
+  Math.ceil(PORTFOLIO_PACKAGE_MAX_BYTES / 3) * 4;
+
+export function decodePortfolioPackageBase64(packageBase64: string) {
+  if (packageBase64.length > PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH) {
+    throw new OneKeyLocalError('Portfolio pack response is too large');
+  }
+  if (
+    packageBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(packageBase64)
+  ) {
+    throw new OneKeyLocalError('Portfolio pack response is invalid');
+  }
+
+  const packageBuffer = bufferUtils.toBuffer(packageBase64, 'base64');
+  if (packageBuffer.byteLength === 0) {
+    throw new OneKeyLocalError('Portfolio pack response is invalid');
+  }
+  if (packageBuffer.byteLength > PORTFOLIO_PACKAGE_MAX_BYTES) {
+    throw new OneKeyLocalError('Portfolio pack response is too large');
+  }
+
+  const packageBytes = new ArrayBuffer(packageBuffer.byteLength);
+  new Uint8Array(packageBytes).set(packageBuffer);
+  return packageBytes;
+}
 
 function stringifyLogValue(value: unknown) {
   try {
@@ -360,10 +388,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         'Portfolio pack response missing packageBase64',
       );
     }
-    const serverPackageBuffer = bufferUtils.toBuffer(packageBase64, 'base64');
-    // Copy into a standalone ArrayBuffer (Buffer.buffer is a shared pool slice).
-    const serverPackageBytes = new ArrayBuffer(serverPackageBuffer.byteLength);
-    new Uint8Array(serverPackageBytes).set(serverPackageBuffer);
+    const serverPackageBytes = decodePortfolioPackageBase64(packageBase64);
 
     debugPortfolioSyncLog('server-submit-packed', {
       bytesLength: portfolioJsonBytes.byteLength,

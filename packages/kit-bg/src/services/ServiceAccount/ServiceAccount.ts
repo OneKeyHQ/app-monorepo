@@ -3825,9 +3825,9 @@ class ServiceAccount extends ServiceBase {
           },
         }),
       onError: (error) =>
-        console.warn(
+        defaultLogger.hardware.sdkLog.log(
           'createHWWalletBase: unable to seed canonical device state',
-          error,
+          error instanceof Error ? error.message : 'Unknown error',
         ),
     });
     const liveDeviceId = deviceState?.identity.deviceId;

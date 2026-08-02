@@ -2,7 +2,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { currencyPersistAtom } from '../../../states/jotai/atoms';
 
-import ServiceHardwarePortfolioSync from './ServiceHardwarePortfolioSync';
+import ServiceHardwarePortfolioSync, {
+  decodePortfolioPackageBase64,
+} from './ServiceHardwarePortfolioSync';
 
 import type { IPortfolioSyncSettledPayload } from './serviceHardwarePortfolioSyncUtils';
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
@@ -54,6 +56,30 @@ jest.mock('../../../states/jotai/atoms/devSettings', () => ({
   },
   isPro2DebugModuleEnabled: jest.fn().mockReturnValue(true),
 }));
+
+describe('decodePortfolioPackageBase64', () => {
+  test('returns a standalone buffer for a valid package', () => {
+    expect(
+      Array.from(new Uint8Array(decodePortfolioPackageBase64('AQID'))),
+    ).toEqual([1, 2, 3]);
+  });
+
+  test.each(['not-base64', 'AQI', 'AQID\n'])(
+    'rejects an invalid package response: %s',
+    (packageBase64) => {
+      expect(() => decodePortfolioPackageBase64(packageBase64)).toThrow(
+        'response is invalid',
+      );
+    },
+  );
+
+  test('rejects a package larger than the signed envelope limit', () => {
+    const oversizedPackage = Buffer.alloc(128 * 1024 + 1).toString('base64');
+    expect(() => decodePortfolioPackageBase64(oversizedPackage)).toThrow(
+      'response is too large',
+    );
+  });
+});
 
 describe('ServiceHardwarePortfolioSync.waitForActivePortfolioSync', () => {
   test('waits for the active upload instead of cancelling it', async () => {
