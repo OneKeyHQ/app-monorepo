@@ -61,9 +61,11 @@ export function extractPassphraseStateFromPayload(
 export async function openHiddenWalletSession({
   sdk,
   connectId,
+  expectedDeviceId,
 }: {
   sdk: CoreApi;
   connectId: string;
+  expectedDeviceId: string;
 }): Promise<IResolvedPassphraseSession> {
   const result = await sdk.openWalletSession(connectId, {
     mode: 'select-hidden',
@@ -88,6 +90,13 @@ export async function openHiddenWalletSession({
   }
 
   const session = extractPassphraseSessionFromPayload(result.payload);
+  if (session.deviceId !== expectedDeviceId) {
+    throw new AppError(
+      ERROR_CODES.AUTH_SESSION_INVALID.code,
+      'openWalletSession returned a session for an unexpected device',
+      'Reconnect the expected hardware device and retry',
+    );
+  }
   if (!session.passphraseState) {
     throw new AppError(
       ERROR_CODES.AUTH_SESSION_INVALID.code,
@@ -108,9 +117,7 @@ export async function openHiddenWalletSession({
         };
       }>;
       const targetDevice = devices.find(
-        (device) =>
-          device.connectId === connectId ||
-          (session.deviceId && device.deviceId === session.deviceId),
+        (device) => device.deviceId === expectedDeviceId,
       );
       session.sessionId =
         targetDevice?.features?.sessionId ??
@@ -465,7 +472,11 @@ export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
  */
 export async function resolvePassphraseSession(
   connectId: string,
-  opts: { passphrase?: string; passphraseOnDevice?: boolean },
+  opts: {
+    expectedDeviceId: string;
+    passphrase?: string;
+    passphraseOnDevice?: boolean;
+  },
 ): Promise<IResolvedPassphraseSession> {
   // BIP-39 treats an empty-string passphrase as a distinct hidden wallet
   // from the standard (no-passphrase) wallet. A falsy check would silently
@@ -491,7 +502,11 @@ export async function resolvePassphraseSession(
   }));
 
   try {
-    return await openHiddenWalletSession({ sdk, connectId });
+    return await openHiddenWalletSession({
+      sdk,
+      connectId,
+      expectedDeviceId: opts.expectedDeviceId,
+    });
   } finally {
     setPassphraseProvider(undefined);
   }
@@ -499,7 +514,11 @@ export async function resolvePassphraseSession(
 
 export async function resolvePassphraseState(
   connectId: string,
-  opts: { passphrase?: string; passphraseOnDevice?: boolean },
+  opts: {
+    expectedDeviceId: string;
+    passphrase?: string;
+    passphraseOnDevice?: boolean;
+  },
 ): Promise<string | undefined> {
   const session = await resolvePassphraseSession(connectId, opts);
   return session.passphraseState;
@@ -524,6 +543,7 @@ export async function resolvePassphraseState(
  */
 export async function resolvePassphraseSessionByMode(
   connectId: string,
+  expectedDeviceId: string,
   mode: PassphraseMode,
 ): Promise<IResolvedPassphraseSession> {
   if (mode === 'none') {
@@ -549,7 +569,7 @@ export async function resolvePassphraseSessionByMode(
   }
 
   try {
-    return await openHiddenWalletSession({ sdk, connectId });
+    return await openHiddenWalletSession({ sdk, connectId, expectedDeviceId });
   } finally {
     // Don't clear provider here — keep it active for subsequent SDK calls.
     // The SDK fires REQUEST_PASSPHRASE on every new USB connection, so the
@@ -559,9 +579,14 @@ export async function resolvePassphraseSessionByMode(
 
 export async function resolvePassphraseStateByMode(
   connectId: string,
+  expectedDeviceId: string,
   mode: PassphraseMode,
 ): Promise<string | undefined> {
-  const session = await resolvePassphraseSessionByMode(connectId, mode);
+  const session = await resolvePassphraseSessionByMode(
+    connectId,
+    expectedDeviceId,
+    mode,
+  );
   return session.passphraseState;
 }
 

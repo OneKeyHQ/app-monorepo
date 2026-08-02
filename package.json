@@ -383,7 +383,6 @@
     "socket.io": "^4.7.5",
     "style-loader": "^3.3.3",
     "tamagui-loader": "1.108.0",
-    "typescript": "5.9.3",
     "ultra-runner": "^3.10.5",
     "webpack": "5.90.3",
     "webpack-bundle-analyzer": "^4.9.1",

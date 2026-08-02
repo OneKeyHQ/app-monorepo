@@ -1,7 +1,15 @@
+import { Semaphore } from 'async-mutex';
+
 import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
 
 export class HardwareProcessingManager {
   private cancelCallbacks: Map<string, () => void> = new Map();
+
+  private oneKeyOperationSemaphore = new Semaphore(1);
+
+  runExclusiveOneKeyOperation<T>(operation: () => Promise<T>): Promise<T> {
+    return this.oneKeyOperationSemaphore.runExclusive(operation);
+  }
 
   registerCancelCallback(connectId: string, callback: () => void) {
     this.cancelCallbacks.set(connectId, callback);

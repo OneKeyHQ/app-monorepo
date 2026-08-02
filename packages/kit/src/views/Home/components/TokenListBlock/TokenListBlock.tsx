@@ -1850,7 +1850,11 @@ function TokenListBlock({
         createAtNetworkWorth: snapshot.createAtNetworkWorth,
       });
 
-      if (isPortfolioSyncDevEnabled) {
+      if (
+        isPortfolioSyncDevEnabled &&
+        wallet &&
+        !accountUtils.isHwHiddenWallet({ wallet })
+      ) {
         const flattenedAggregateTokenMap = flattenAggregateTokensMap(
           snapshot.aggregateTokenMap,
         );
@@ -1867,31 +1871,33 @@ function TokenListBlock({
           ).isGreaterThan(0),
         );
 
-        appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
-          accountAddress: account?.address,
-          accountId: account?.id,
-          accountName,
-          aggregateTokenMap: flattenedAggregateTokenMap,
-          deviceConnectId:
-            device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
-          deviceDbId: device?.id ?? wallet?.associatedDeviceInfo?.id,
-          indexedAccountId: indexedAccount?.id,
-          indexedAccountIndex: indexedAccount?.index,
-          indexedAccountName: indexedAccount?.name,
-          networkId: network?.id,
-          ownerAccountId: allNetworksResult[0].ownerAccountId,
-          ownerNetworkId: allNetworksResult[0].ownerNetworkId,
-          totalFiat: snapshot.createAtNetworkWorth,
-          totalTokenCount: portfolioTokens.length,
-          tokenMap: {
-            ...snapshot.mergeTokenListMap,
-            ...snapshot.riskyTokenListMap,
-            ...flattenedAggregateTokenMap,
+        void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+          {
+            accountAddress: account?.address,
+            accountId: account?.id,
+            accountName,
+            aggregateTokenMap: flattenedAggregateTokenMap,
+            deviceConnectId:
+              device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+            deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+            indexedAccountId: indexedAccount?.id,
+            indexedAccountIndex: indexedAccount?.index,
+            indexedAccountName: indexedAccount?.name,
+            networkId: network?.id,
+            ownerAccountId: allNetworksResult[0].ownerAccountId,
+            ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+            totalFiat: snapshot.createAtNetworkWorth,
+            totalTokenCount: portfolioTokens.length,
+            tokenMap: {
+              ...snapshot.mergeTokenListMap,
+              ...snapshot.riskyTokenListMap,
+              ...flattenedAggregateTokenMap,
+            },
+            tokens: portfolioTokens,
+            walletId: wallet.id,
+            walletType: wallet.type,
           },
-          tokens: portfolioTokens,
-          walletId: wallet?.id,
-          walletType: wallet?.type,
-        });
+        );
       }
     }
 
@@ -1938,10 +1944,7 @@ function TokenListBlock({
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
-    wallet?.associatedDeviceInfo?.connectId,
-    wallet?.associatedDeviceInfo?.id,
-    wallet?.id,
-    wallet?.type,
+    wallet,
   ]);
 
   // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED

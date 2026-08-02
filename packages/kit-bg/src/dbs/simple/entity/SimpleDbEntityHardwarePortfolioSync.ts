@@ -7,12 +7,14 @@ export type IHardwarePortfolioSyncTargetState = {
   // Timestamp of the last successful hardware transfer for this target. Used
   // for the transfer cooldown.
   lastTransferAt?: number;
+  // Standard wallet whose snapshot was last applied. Missing legacy values
+  // force one overwrite so unknown hidden-wallet remnants cannot survive.
+  lastWalletId?: string;
 };
 
 export type IHardwarePortfolioSyncData = {
-  // Keyed by the sync target: hardware device `connectId` when available,
-  // otherwise the `walletId`. Per-target so multiple simultaneously-connected
-  // devices each keep their own dedup/cooldown state.
+  // Keyed by the authoritative persisted device id. Per-target state keeps
+  // simultaneously connected devices in independent dedup/cooldown domains.
   targets: Record<string, IHardwarePortfolioSyncTargetState>;
 };
 
