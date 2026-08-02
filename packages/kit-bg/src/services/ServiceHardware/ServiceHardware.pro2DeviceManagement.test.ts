@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import localDb from '../../dbs/local/localDb';
@@ -163,6 +164,32 @@ const createService = ({
 };
 
 describe('ServiceHardware wallet session compatibility', () => {
+  it('uses the GetFeatures-only state scope for Classic-family firmware verification', async () => {
+    const { service, state } = createService({ unlocked: true });
+    state.protocol = 'V1';
+    state.identity.deviceType = EDeviceType.Classic1s;
+    service.getDeviceState = jest.fn().mockResolvedValue({
+      ...state,
+      versions: { ...state.versions, se: '1.1.0.2' },
+    } as never);
+
+    await expect(
+      service.getFirmwareVerificationFeatures({
+        connectId: 'CLASSIC',
+        deviceType: EDeviceType.Classic1s,
+      }),
+    ).resolves.toMatchObject({
+      onekey_firmware_version: '1.0.0',
+      onekey_se01_version: '1.1.0.2',
+    });
+
+    expect(service.getDeviceState).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+      params: { scope: 'runtime' },
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+  });
+
   it('opens the Protocol V2 wallet selector after device unlock', async () => {
     const { service, openWalletSession, getPassphraseState } = createService({
       unlocked: false,

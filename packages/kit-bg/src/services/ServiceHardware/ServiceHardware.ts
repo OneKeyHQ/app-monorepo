@@ -192,6 +192,11 @@ const nullableToUndefined = (value?: string | null) => value ?? undefined;
 const isOneKeyLoaderMode = (mode?: string | null) =>
   mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
 
+const supportsDedicatedFirmwareFeatures = (deviceType: IDeviceType) =>
+  deviceType === EDeviceType.Touch ||
+  deviceType === EDeviceType.Pro ||
+  deviceType === EDeviceType.Pro2;
+
 function buildOnekeyFeaturesFromState(
   state: IOneKeyDeviceState,
 ): OnekeyFeatures {
@@ -212,7 +217,7 @@ function buildOnekeyFeaturesFromState(
     onekey_boot_build_id: verify?.bootloaderBuildId,
     onekey_board_build_id: verify?.boardBuildId,
     onekey_ble_build_id: verify?.bleBuildId,
-    onekey_se01_version: nullableToUndefined(versions.se01),
+    onekey_se01_version: nullableToUndefined(versions.se01 ?? versions.se),
     onekey_se02_version: nullableToUndefined(versions.se02),
     onekey_se03_version: nullableToUndefined(versions.se03),
     onekey_se04_version: nullableToUndefined(versions.se04),
@@ -2621,8 +2626,10 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async getFirmwareVerificationFeatures({
     connectId,
+    deviceType,
   }: {
     connectId: string;
+    deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
@@ -2630,7 +2637,11 @@ class ServiceHardware extends ServiceBase {
     });
     const state = await this.getDeviceState({
       connectId: compatibleConnectId,
-      params: { scope: 'firmware' },
+      params: {
+        scope: supportsDedicatedFirmwareFeatures(deviceType)
+          ? 'firmware'
+          : 'runtime',
+      },
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     return buildOnekeyFeaturesFromState(state);
@@ -2645,8 +2656,7 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     deviceType: IDeviceType;
   }): Promise<OnekeyFeatures> {
-    void deviceType;
-    return this.getFirmwareVerificationFeatures({ connectId });
+    return this.getFirmwareVerificationFeatures({ connectId, deviceType });
   }
 
   private fixHardwareBitcoinOnlyState(params: IUpdateFirmwareWorkflowParams) {
