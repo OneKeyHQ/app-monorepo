@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -875,8 +876,20 @@ const SwapActionsState = ({
     [swapActionState.label, shouldShowQuoteActionLoading, themeVariant],
   );
 
-  const actionRowComponent = useMemo(
-    () => (
+  const actionRowComponent = useMemo(() => {
+    let savingsBelowButton: ReactNode = null;
+    if (!isDesktopModalPage) {
+      savingsBelowButton = costSavingsComponent;
+      if (reserveCostSavingsSlot) {
+        savingsBelowButton = (
+          <Stack minHeight="$5" alignItems="center" justifyContent="center">
+            {costSavingsComponent}
+          </Stack>
+        );
+      }
+    }
+
+    return (
       <Stack
         flex={1}
         {...(isDesktopModalPage
@@ -905,28 +918,20 @@ const SwapActionsState = ({
             {actionButtonChildren}
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
-          {!isDesktopModalPage &&
-            (reserveCostSavingsSlot ? (
-              <Stack minHeight="$5" alignItems="center" justifyContent="center">
-                {costSavingsComponent}
-              </Stack>
-            ) : (
-              costSavingsComponent
-            ))}
+          {savingsBelowButton}
         </Stack>
       </Stack>
-    ),
-    [
-      onActionHandlerBefore,
-      actionButtonChildren,
-      isActionDisabled,
-      isDesktopModalPage,
-      recipientComponent,
-      shouldShowRecipientInActionRow,
-      costSavingsComponent,
-      reserveCostSavingsSlot,
-    ],
-  );
+    );
+  }, [
+    onActionHandlerBefore,
+    actionButtonChildren,
+    isActionDisabled,
+    isDesktopModalPage,
+    recipientComponent,
+    shouldShowRecipientInActionRow,
+    costSavingsComponent,
+    reserveCostSavingsSlot,
+  ]);
 
   const actionComponent = useMemo(() => {
     let metaRow = incognitoComponent;

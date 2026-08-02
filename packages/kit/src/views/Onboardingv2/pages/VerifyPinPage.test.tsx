@@ -57,7 +57,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('../../../components/AccountSelector/AccountSelectorProvider', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   return {
     AccountSelectorProviderMirror: ({
       children,
@@ -85,7 +85,7 @@ jest.mock('../../../hooks/useFormatDate', () => ({
 }));
 
 jest.mock('../components/PinInputLayout', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   return {
     PinInputLayout: React.forwardRef(() =>
       React.createElement('div', { 'data-testid': 'pin-input-layout' }),
