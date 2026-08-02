@@ -1721,7 +1721,7 @@ describe('ServiceIdentityExit', () => {
 
     await expect(
       fixture.service.executeIdentityExit({
-        planId: staged.planId,
+        planId: staged.planId as IIdentityExitPlanId,
       }),
     ).resolves.toMatchObject({
       status: 'completed',

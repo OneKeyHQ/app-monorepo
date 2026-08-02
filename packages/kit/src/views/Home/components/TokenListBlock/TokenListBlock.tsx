@@ -1874,6 +1874,7 @@ function TokenListBlock({
           aggregateTokenMap: flattenedAggregateTokenMap,
           deviceConnectId:
             device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+          deviceDbId: device?.id ?? wallet?.associatedDeviceInfo?.id,
           indexedAccountId: indexedAccount?.id,
           indexedAccountIndex: indexedAccount?.index,
           indexedAccountName: indexedAccount?.name,
@@ -1924,6 +1925,7 @@ function TokenListBlock({
     account?.indexedAccountId,
     accountName,
     device?.connectId,
+    device?.id,
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
@@ -1937,6 +1939,7 @@ function TokenListBlock({
     updateAccountWorth,
     updateTokenListState,
     wallet?.associatedDeviceInfo?.connectId,
+    wallet?.associatedDeviceInfo?.id,
     wallet?.id,
     wallet?.type,
   ]);

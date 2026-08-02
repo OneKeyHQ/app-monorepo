@@ -729,26 +729,11 @@ async function fetchPrivateSendTokenDisplayPriceMap({
           tokenDetailsByAddress.set(address.toLowerCase(), tokenDetail);
         }
       });
-      // Native tokens often come back with an empty info.address, so they are
-      // absent from the address map; match them via info.isNative.
-      const nativeTokenDetail = tokenDetails.find(
-        (tokenDetail) => tokenDetail.info.isNative,
-      );
 
-      uniqueTokenAddresses.forEach((tokenAddress) => {
+      uniqueTokenAddresses.forEach((tokenAddress, index) => {
         const tokenAddressKey = tokenAddress.toLowerCase();
-        const isNativeAddress = validTargets.some(
-          (target) =>
-            target.isNative &&
-            target.tokenAddress.toLowerCase() === tokenAddressKey,
-        );
-        // Match strictly by address (or by isNative for the native token).
-        // Never fall back to a positional index: fetchTokensDetails does not
-        // guarantee the response order/length matches the request, so an index
-        // match can read a different token's price.
-        const tokenDetail = isNativeAddress
-          ? nativeTokenDetail
-          : tokenDetailsByAddress.get(tokenAddressKey);
+        const tokenDetail =
+          tokenDetailsByAddress.get(tokenAddressKey) ?? tokenDetails[index];
         const price = convertPrivateSendTokenDisplayPrice({
           price: tokenDetail?.price,
           sourceCurrency: tokenDetail?.currency ?? USD_CURRENCY_ID,

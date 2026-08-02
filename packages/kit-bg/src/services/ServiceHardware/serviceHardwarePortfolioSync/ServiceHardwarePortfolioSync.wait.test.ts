@@ -150,7 +150,7 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
       ) => void;
       syncSettledPortfolio: jest.Mock<
         Promise<void>,
-        [IPortfolioSyncSettledPayload]
+        [IPortfolioSyncSettledPayload, number?]
       >;
     };
     serviceInternals.syncSettledPortfolio = jest
@@ -192,12 +192,14 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
         deviceConnectId: 'PRO2_A',
         totalFiat: '3',
       }),
+      expect.any(Number),
     );
     expect(serviceInternals.syncSettledPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
         deviceConnectId: 'PRO2_B',
         totalFiat: '2',
       }),
+      expect.any(Number),
     );
   });
 
@@ -541,5 +543,149 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     expect(updateTargetState).toHaveBeenCalledTimes(1);
     jest.useRealTimers();
+  });
+
+  test('uploads only the latest snapshot for the same physical device', async () => {
+    const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false, false] });
+    let resolveOlderSubmit:
+      | ((value: {
+          serverPackageBytes: ArrayBuffer;
+          serverSubmit: {
+            bytesLength: number;
+            contentHash: string;
+            serverPackageBase64Length: number;
+            serverPackageBytesLength: number;
+          };
+        }) => void)
+      | undefined;
+    let notifyOlderSubmitStarted: (() => void) | undefined;
+    const olderSubmitStarted = new Promise<void>((resolve) => {
+      notifyOlderSubmitStarted = resolve;
+    });
+    const olderSubmit = new Promise<{
+      serverPackageBytes: ArrayBuffer;
+      serverSubmit: {
+        bytesLength: number;
+        contentHash: string;
+        serverPackageBase64Length: number;
+        serverPackageBytesLength: number;
+      };
+    }>((resolve) => {
+      resolveOlderSubmit = resolve;
+    });
+    serviceInternals.submitPortfolioJsonToServer
+      .mockImplementationOnce(() => {
+        notifyOlderSubmitStarted?.();
+        return olderSubmit;
+      })
+      .mockResolvedValueOnce({
+        serverPackageBytes: new Uint8Array([2]).buffer,
+        serverSubmit: {
+          bytesLength: 1,
+          contentHash: 'newer-hash',
+          serverPackageBase64Length: 4,
+          serverPackageBytesLength: 1,
+        },
+      });
+    const olderPayload = {
+      ...buildHardwarePayload(),
+      deviceDbId: 'db-device-1',
+      totalFiat: '1',
+    };
+    const newerPayload = {
+      ...buildHardwarePayload(),
+      deviceDbId: 'db-device-1',
+      totalFiat: '2',
+    };
+
+    const olderTask = serviceInternals.syncSettledPortfolio(olderPayload);
+    await olderSubmitStarted;
+    await serviceInternals.syncSettledPortfolio(newerPayload);
+    resolveOlderSubmit?.({
+      serverPackageBytes: new Uint8Array([1]).buffer,
+      serverSubmit: {
+        bytesLength: 1,
+        contentHash: 'older-hash',
+        serverPackageBase64Length: 4,
+        serverPackageBytesLength: 1,
+      },
+    });
+    await olderTask;
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(
+      Array.from(
+        new Uint8Array(
+          uploadPortfolioPackage.mock.calls[0][0].packageBytes as ArrayBuffer,
+        ),
+      ),
+    ).toEqual([2]);
+    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastContentHash: expect.any(String) }),
+    );
+  });
+
+  test('releases a prepared retry reservation when upload fails', async () => {
+    jest.useFakeTimers();
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, true, false] });
+    uploadPortfolioPackage.mockRejectedValueOnce(new Error('Device unplugged'));
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await jest.advanceTimersByTimeAsync(1000);
+
+    const inFlightReservations = (
+      service as unknown as {
+        inFlightReservationByTargetKey: Map<
+          string,
+          { contentHash: string; generation: number }
+        >;
+      }
+    ).inFlightReservationByTargetKey;
+    expect(inFlightReservations.size).toBe(0);
+    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
+      expect.objectContaining({
+        errorMessage: 'Device unplugged',
+        status: 'error',
+      }),
+    );
+    jest.useRealTimers();
+  });
+
+  test('keeps a newer same-hash reservation when a stale generation finishes', () => {
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const serviceInternals = service as unknown as {
+      inFlightReservationByTargetKey: Map<
+        string,
+        { contentHash: string; generation: number }
+      >;
+      releaseInFlightReservation: (params: {
+        contentHash: string;
+        generation: number;
+        targetKey: string;
+      }) => void;
+    };
+    serviceInternals.inFlightReservationByTargetKey.set('db-device-1', {
+      contentHash: 'same-hash',
+      generation: 2,
+    });
+
+    serviceInternals.releaseInFlightReservation({
+      contentHash: 'same-hash',
+      generation: 1,
+      targetKey: 'db-device-1',
+    });
+
+    expect(
+      serviceInternals.inFlightReservationByTargetKey.get('db-device-1'),
+    ).toEqual({
+      contentHash: 'same-hash',
+      generation: 2,
+    });
   });
 });

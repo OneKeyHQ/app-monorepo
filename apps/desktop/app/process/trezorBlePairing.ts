@@ -409,7 +409,7 @@ export function createTrezorBlePairingIpcMain(
               await new Promise((resolve) => {
                 setTimeout(resolve, 3000);
               });
-              return attemptConnect(2);
+              return await attemptConnect(2);
             }
             // Bonded but unreachable: waking the device is the cure, not
             // re-pairing. Appended so trezorTransportUtils substring match survives.

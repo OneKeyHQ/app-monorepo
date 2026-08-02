@@ -165,6 +165,32 @@ const createService = ({
 };
 
 describe('ServiceHardware wallet session compatibility', () => {
+  it('keeps Pro2 firmware verification disabled until the SDK supports V2 attestation', async () => {
+    const getFirmwareUpdateDevSettings = jest.fn().mockResolvedValue(true);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: { getFirmwareUpdateDevSettings },
+      } as unknown as IBackgroundApi,
+    });
+    const getSDKInstanceSpy = jest.spyOn(service, 'getSDKInstance');
+
+    await expect(
+      service.firmwareAuthenticate({
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        skipVerification: true,
+        verified: false,
+      }),
+    );
+    expect(getFirmwareUpdateDevSettings).not.toHaveBeenCalled();
+    expect(getSDKInstanceSpy).not.toHaveBeenCalled();
+  });
+
   it('uses the GetFeatures-only state scope for Classic-family firmware verification', async () => {
     const { service, state } = createService({ unlocked: true });
     state.protocol = 'V1';

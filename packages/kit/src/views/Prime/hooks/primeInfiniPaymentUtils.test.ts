@@ -275,17 +275,17 @@ describe('primeInfiniPaymentUtils', () => {
     ]);
 
     expect(asset).toBeDefined();
-    expect(isPrimeInfiniPaymentForAsset({ payment, asset })).toBe(true);
+    expect(isPrimeInfiniPaymentForAsset({ payment, asset: asset! })).toBe(true);
     expect(
       isPrimeInfiniPaymentForAsset({
         payment: { ...payment, token: 'USDT' },
-        asset,
+        asset: asset!,
       }),
     ).toBe(false);
     expect(
       isPrimeInfiniPaymentForAsset({
         payment: { ...payment, amountDue: '0' },
-        asset,
+        asset: asset!,
       }),
     ).toBe(false);
   });
@@ -313,14 +313,14 @@ describe('primeInfiniPaymentUtils', () => {
             ...payment,
             ...refreshedPaymentOverride,
           },
-          asset,
+          asset: asset!,
         }),
       ).toBe(true);
       expect(
         shouldBlockPrimeInfiniPaymentRefresh({
           currentPayment: payment,
           refreshedPayment: { ...payment },
-          asset,
+          asset: asset!,
         }),
       ).toBe(false);
     },
@@ -335,22 +335,22 @@ describe('primeInfiniPaymentUtils', () => {
       },
     ]);
 
-    expect(getCanonicalPrimeInfiniPaymentAsset(asset)).toEqual(asset);
+    expect(getCanonicalPrimeInfiniPaymentAsset(asset!)).toEqual(asset);
     expect(
       getCanonicalPrimeInfiniPaymentAsset({
-        ...asset,
-        key: `${asset.key}-changed`,
+        ...asset!,
+        key: `${asset!.key}-changed`,
       }),
     ).toBeUndefined();
     expect(
       getCanonicalPrimeInfiniPaymentAsset({
-        ...asset,
+        ...asset!,
         networkId: 'unsupported--1',
       }),
     ).toBeUndefined();
     expect(
       getCanonicalPrimeInfiniPaymentAsset({
-        ...asset,
+        ...asset!,
         networkId: networkIdsMap.btc,
       }),
     ).toBeUndefined();

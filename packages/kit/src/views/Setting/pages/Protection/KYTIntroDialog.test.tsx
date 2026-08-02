@@ -170,7 +170,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useRunAfterTokensDone', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
+  const React = jest.requireActual('react') as typeof import('react');
   return {
     useAppUpdatePersistAtom: () => [mockAppUpdateInfo],
     usePrimePersistAtom: () => {

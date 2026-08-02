@@ -124,7 +124,12 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   // durable last-synced hash + cooldown timestamp live in simpleDb
   // (hardwarePortfolioSync), keyed per device so multiple simultaneously
   // connected devices keep independent dedup/cooldown state.
-  private inFlightContentHashByTargetKey = new Map<string, string>();
+  private inFlightReservationByTargetKey = new Map<
+    string,
+    { contentHash: string; generation: number }
+  >();
+
+  private syncGenerationByTargetKey = new Map<string, number>();
 
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
 
@@ -185,11 +190,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       totalTokenCount: eventPayload.tokens.length,
     });
     const targetKey = this.getSyncTargetKey(eventPayload);
+    this.advanceSyncGeneration(targetKey);
     let syncDebounced = this.syncDebouncedByTargetKey.get(targetKey);
     if (!syncDebounced) {
       syncDebounced = debounce((payload: IPortfolioSyncSettledPayload) => {
         this.syncDebouncedByTargetKey.delete(targetKey);
-        void this.syncSettledPortfolio(payload);
+        const generation = this.syncGenerationByTargetKey.get(targetKey);
+        if (generation !== undefined) {
+          void this.syncSettledPortfolio(payload, generation);
+        }
       }, 1000);
       this.syncDebouncedByTargetKey.set(targetKey, syncDebounced);
     }
@@ -204,44 +213,119 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     return this.backgroundApi.simpleDb.hardwarePortfolioSync;
   }
 
-  // Sync target identity: the hardware device connectId when available,
-  // otherwise the walletId. Dedup/cooldown state is scoped per target so
-  // multiple simultaneously-connected devices each keep independent state.
+  // Prefer the persisted device record so USB/BLE transports and hidden-wallet
+  // views of the same physical device share one ordering domain.
   private getSyncTargetKey(eventPayload: IPortfolioSyncSettledPayload): string {
-    return eventPayload.deviceConnectId || eventPayload.walletId || '';
+    return (
+      eventPayload.deviceDbId ||
+      eventPayload.deviceConnectId ||
+      eventPayload.walletId ||
+      ''
+    );
+  }
+
+  private advanceSyncGeneration(targetKey: string) {
+    const generation = (this.syncGenerationByTargetKey.get(targetKey) ?? 0) + 1;
+    this.syncGenerationByTargetKey.set(targetKey, generation);
+    this.inFlightReservationByTargetKey.delete(targetKey);
+    return generation;
+  }
+
+  private isCurrentSyncGeneration(targetKey: string, generation: number) {
+    return this.syncGenerationByTargetKey.get(targetKey) === generation;
+  }
+
+  private releaseInFlightReservation({
+    contentHash,
+    generation,
+    targetKey,
+  }: {
+    contentHash: string;
+    generation: number;
+    targetKey: string;
+  }) {
+    const reservation = this.inFlightReservationByTargetKey.get(targetKey);
+    if (
+      reservation?.contentHash === contentHash &&
+      reservation.generation === generation
+    ) {
+      this.inFlightReservationByTargetKey.delete(targetKey);
+    }
+  }
+
+  private handleSyncError({
+    contentHash,
+    error,
+    generation,
+    targetKey,
+  }: {
+    contentHash?: string;
+    error: unknown;
+    generation: number;
+    targetKey: string;
+  }) {
+    if (contentHash) {
+      this.releaseInFlightReservation({ contentHash, generation, targetKey });
+    }
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      return;
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    debugPortfolioSyncLog('error', { message: errorMessage });
+    this.setLastResult({
+      errorMessage,
+      status: 'error',
+      updatedAt: Date.now(),
+    });
   }
 
   private async commitProcessedArtifacts({
     artifacts,
+    generation,
     targetKey,
     transferAt,
   }: {
     artifacts: IPortfolioSyncArtifacts;
+    generation: number;
     targetKey: string;
     transferAt?: number;
   }) {
-    // Persist the dedup hash (and optional transfer timestamp) only after the
-    // snapshot has actually been submitted/uploaded. Committing earlier means a
-    // hardware-busy skip (or a future failed server submit) would permanently
-    // dedupe — and thereby silently drop — the same unchanged snapshot until the
-    // portfolio changes. Persist BEFORE clearing the in-flight reservation so a
-    // concurrent invocation in the gap still sees this target as taken.
-    this.lastArtifacts = artifacts;
+    // Persist only the latest generation after a successful device upload.
+    // Compare-and-delete keeps stale cleanup from clearing a newer reservation.
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      this.releaseInFlightReservation({
+        contentHash: artifacts.contentHash,
+        generation,
+        targetKey,
+      });
+      return;
+    }
     await this.portfolioSyncDb.updateTargetState(targetKey, {
       lastContentHash: artifacts.contentHash,
       ...(transferAt !== undefined ? { lastTransferAt: transferAt } : {}),
     });
-    this.inFlightContentHashByTargetKey.delete(targetKey);
+    if (this.isCurrentSyncGeneration(targetKey, generation)) {
+      this.lastArtifacts = artifacts;
+    }
+    this.releaseInFlightReservation({
+      contentHash: artifacts.contentHash,
+      generation,
+      targetKey,
+    });
   }
 
   private scheduleSyncAfterCooldown({
     deviceConnectId,
     eventPayload,
+    generation,
     remainingMs,
+    targetKey,
   }: {
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
+    generation: number;
     remainingMs: number;
+    targetKey: string;
   }) {
     this.pendingCooldownPayloadByConnectId.set(deviceConnectId, eventPayload);
 
@@ -256,8 +340,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       const pendingPayload =
         this.pendingCooldownPayloadByConnectId.get(deviceConnectId);
       this.pendingCooldownPayloadByConnectId.delete(deviceConnectId);
-      if (pendingPayload) {
-        void this.syncSettledPortfolio(pendingPayload);
+      if (
+        pendingPayload &&
+        this.isCurrentSyncGeneration(targetKey, generation)
+      ) {
+        void this.syncSettledPortfolio(pendingPayload, generation);
       }
     }, remainingMs);
 
@@ -274,16 +361,37 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }
 
   private scheduleHardwareBusyRetry({
+    contentHash,
     deviceConnectId,
+    generation,
     retry,
+    targetKey,
   }: {
+    contentHash: string;
     deviceConnectId: string;
+    generation: number;
     retry: () => Promise<void>;
+    targetKey: string;
   }) {
     this.cancelHardwareBusyRetry(deviceConnectId);
     const timer = setTimeout(() => {
       this.pendingHardwareRetryTimerByConnectId.delete(deviceConnectId);
-      void retry();
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash,
+          generation,
+          targetKey,
+        });
+        return;
+      }
+      void retry().catch((error) => {
+        this.handleSyncError({
+          contentHash,
+          error,
+          generation,
+          targetKey,
+        });
+      });
     }, PORTFOLIO_SYNC_HARDWARE_BUSY_RETRY_MS);
     this.pendingHardwareRetryTimerByConnectId.set(deviceConnectId, timer);
   }
@@ -409,6 +517,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     artifacts,
     deviceConnectId,
     eventPayload,
+    generation,
     serverPackageBytes,
     serverSubmit,
     targetKey,
@@ -417,18 +526,54 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     artifacts: IPortfolioSyncArtifacts;
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
+    generation: number;
     serverPackageBytes: ArrayBuffer;
     serverSubmit: IPortfolioServerSubmitResult;
     targetKey: string;
     updatedAt: number;
   }) {
-    this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      this.releaseInFlightReservation({
+        contentHash: artifacts.contentHash,
+        generation,
+        targetKey,
+      });
+      return;
+    }
+    this.inFlightReservationByTargetKey.set(targetKey, {
+      contentHash: artifacts.contentHash,
+      generation,
+    });
+    const activeUpload = this.activeUploadByConnectId.get(deviceConnectId);
+    if (activeUpload) {
+      await activeUpload.catch(() => undefined);
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        return;
+      }
+    }
     const hardwareBusy =
       await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
         connectId: deviceConnectId,
       });
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      this.releaseInFlightReservation({
+        contentHash: artifacts.contentHash,
+        generation,
+        targetKey,
+      });
+      return;
+    }
     if (hardwareBusy) {
-      this.inFlightContentHashByTargetKey.delete(targetKey);
+      this.releaseInFlightReservation({
+        contentHash: artifacts.contentHash,
+        generation,
+        targetKey,
+      });
       this.setLastResult(
         this.buildResultBase({
           artifacts,
@@ -442,67 +587,92 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         contentHash: artifacts.contentHash,
       });
       this.scheduleHardwareBusyRetry({
+        contentHash: artifacts.contentHash,
         deviceConnectId,
+        generation,
         retry: () =>
           this.uploadPreparedHardwarePortfolio({
             artifacts,
             deviceConnectId,
             eventPayload,
+            generation,
             serverPackageBytes,
             serverSubmit,
             targetKey,
             updatedAt: Date.now(),
           }),
+        targetKey,
       });
       return;
     }
 
-    const uploadPromise =
-      this.backgroundApi.serviceHardware.uploadPortfolioPackage({
-        connectId: deviceConnectId,
-        packageBytes: serverPackageBytes,
+    const uploadPromise = (async () => {
+      const upload: { portfolioUpdated: boolean } =
+        await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
+          connectId: deviceConnectId,
+          packageBytes: serverPackageBytes,
+        });
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        return upload;
+      }
+      this.setLastResult({
+        ...this.buildResultBase({
+          artifacts,
+          eventPayload,
+          serverSubmit,
+          status: 'uploaded',
+          updatedAt,
+        }),
+        upload,
       });
+      debugPortfolioSyncLog('uploaded', {
+        bytesLength: serverPackageBytes.byteLength,
+        contentHash: artifacts.contentHash,
+      });
+      await this.commitProcessedArtifacts({
+        artifacts,
+        generation,
+        targetKey,
+        transferAt: Date.now(),
+      });
+      return upload;
+    })();
     this.activeUploadByConnectId.set(deviceConnectId, uploadPromise);
-    let upload: { portfolioUpdated: boolean };
     try {
-      upload = await uploadPromise;
+      await uploadPromise;
     } finally {
       if (this.activeUploadByConnectId.get(deviceConnectId) === uploadPromise) {
         this.activeUploadByConnectId.delete(deviceConnectId);
       }
     }
-    this.setLastResult({
-      ...this.buildResultBase({
-        artifacts,
-        eventPayload,
-        serverSubmit,
-        status: 'uploaded',
-        updatedAt,
-      }),
-      upload,
-    });
-    debugPortfolioSyncLog('uploaded', {
-      bytesLength: serverPackageBytes.byteLength,
-      contentHash: artifacts.contentHash,
-    });
-    await this.commitProcessedArtifacts({
-      artifacts,
-      targetKey,
-      transferAt: Date.now(),
-    });
   }
 
   private async syncSettledPortfolio(
     eventPayload: IPortfolioSyncSettledPayload,
+    requestedGeneration?: number,
   ) {
     const updatedAt = Date.now();
     const targetKey = this.getSyncTargetKey(eventPayload);
+    const generation =
+      requestedGeneration ?? this.advanceSyncGeneration(targetKey);
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      return;
+    }
     const pendingDeviceConnectId = eventPayload.deviceConnectId;
+    let reservedContentHash: string | undefined;
     if (pendingDeviceConnectId) {
       this.cancelHardwareBusyRetry(pendingDeviceConnectId);
     }
     try {
       if (!(await this.shouldRunDevFlow())) {
+        if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+          return;
+        }
         debugPortfolioSyncLog('skip-disabled');
         this.setLastResult({ status: 'disabled', updatedAt });
         return;
@@ -548,11 +718,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         targetKey,
         now: updatedAt,
       });
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        return;
+      }
       if (cooldownRemainingMs > 0) {
         this.scheduleSyncAfterCooldown({
           deviceConnectId,
           eventPayload,
+          generation,
           remainingMs: cooldownRemainingMs,
+          targetKey,
         });
         debugPortfolioSyncLog('skip-cooldown', {
           cooldownRemainingMs,
@@ -572,6 +747,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
       const { currencyMap, displayCurrency } =
         await this.getCurrencyMapForBuild();
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        return;
+      }
       const artifacts = buildPortfolioSyncArtifacts({
         currencyMap,
         displayCurrency,
@@ -593,10 +771,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       // exactly why the reservation must be taken here, not after that await.
       const persistedTargetState =
         await this.portfolioSyncDb.getTargetState(targetKey);
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        return;
+      }
       const isDuplicate =
         artifacts.contentHash === persistedTargetState?.lastContentHash ||
         artifacts.contentHash ===
-          this.inFlightContentHashByTargetKey.get(targetKey);
+          this.inFlightReservationByTargetKey.get(targetKey)?.contentHash;
       if (isDuplicate) {
         debugPortfolioSyncLog('skip-duplicate', {
           contentHash: artifacts.contentHash,
@@ -614,17 +795,33 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
-      this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
+      this.inFlightReservationByTargetKey.set(targetKey, {
+        contentHash: artifacts.contentHash,
+        generation,
+      });
+      reservedContentHash = artifacts.contentHash;
 
       const hardwareBusy =
         await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
           connectId: deviceConnectId,
         });
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        return;
+      }
       if (hardwareBusy) {
         // Release the reservation and do not persist dedup state: this
         // snapshot was never uploaded, so an identical settled event must be
         // allowed to retry once the hardware channel frees up.
-        this.inFlightContentHashByTargetKey.delete(targetKey);
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
         debugPortfolioSyncLog('skip-hardware-busy', {
           contentHash: artifacts.contentHash,
         });
@@ -637,8 +834,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           }),
         );
         this.scheduleHardwareBusyRetry({
+          contentHash: artifacts.contentHash,
           deviceConnectId,
-          retry: () => this.syncSettledPortfolio(eventPayload),
+          generation,
+          retry: () => this.syncSettledPortfolio(eventPayload, generation),
+          targetKey,
         });
         return;
       }
@@ -647,26 +847,31 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         await this.submitPortfolioJsonToServer({
           artifacts,
         });
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        return;
+      }
 
       await this.uploadPreparedHardwarePortfolio({
         artifacts,
         deviceConnectId,
         eventPayload,
+        generation,
         serverPackageBytes,
         serverSubmit,
         targetKey,
         updatedAt,
       });
     } catch (error) {
-      // Release the in-flight reservation so the same snapshot can be retried.
-      this.inFlightContentHashByTargetKey.delete(targetKey);
-      debugPortfolioSyncLog('error', {
-        message: (error as Error)?.message,
-      });
-      this.setLastResult({
-        errorMessage: (error as Error)?.message,
-        status: 'error',
-        updatedAt,
+      this.handleSyncError({
+        contentHash: reservedContentHash,
+        error,
+        generation,
+        targetKey,
       });
     }
   }

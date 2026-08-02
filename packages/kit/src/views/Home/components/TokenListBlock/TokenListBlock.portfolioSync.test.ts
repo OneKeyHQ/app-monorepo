@@ -13,6 +13,9 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
 
     expect(source).toContain('useDevSettingsPersistAtom');
+    expect(source).toContain(
+      'deviceDbId: device?.id ?? wallet?.associatedDeviceInfo?.id',
+    );
     expect(source).toMatch(
       /isPro2DebugModuleEnabled\(\s*devSettings,\s*'portfolio',?\s*\)/,
     );

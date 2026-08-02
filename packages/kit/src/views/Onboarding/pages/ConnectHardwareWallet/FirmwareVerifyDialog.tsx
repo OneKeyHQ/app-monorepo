@@ -1054,14 +1054,7 @@ export function useFirmwareVerifyDialog() {
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
     }) => {
-      const enablePro2FirmwareVerification =
-        await backgroundApiProxy.serviceDevSetting.getFirmwareUpdateDevSettings(
-          'enablePro2FirmwareVerification',
-        );
-      if (
-        !deviceUtils.isFirmwareVerifySupported(device.deviceType) &&
-        !enablePro2FirmwareVerification
-      ) {
+      if (!deviceUtils.isFirmwareVerifySupported(device.deviceType)) {
         await onContinue({ checked: false });
         return;
       }

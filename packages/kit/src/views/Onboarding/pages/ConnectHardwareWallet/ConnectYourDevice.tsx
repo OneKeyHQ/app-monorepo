@@ -1475,13 +1475,11 @@ export function ConnectYourDevicePage() {
       let deviceState: IOneKeyDeviceState;
 
       try {
-        deviceState = await backgroundApiProxy.serviceHardware.getDeviceState({
-          connectId: device.connectId ?? '',
-          params: { scope: 'runtime' },
-        });
-        if (deviceState.status.initialized === false) {
-          throw new OneKeyLocalError('Device is not initialized');
-        }
+        deviceState =
+          await backgroundApiProxy.serviceHardware.getDeviceStateWithUnlock({
+            connectId: device.connectId ?? '',
+            params: { scope: 'runtime' },
+          });
         features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });

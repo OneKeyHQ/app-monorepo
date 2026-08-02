@@ -19,7 +19,7 @@ function buildState(
 }
 
 describe('walletCreationMode', () => {
-  it('锁定状态只创建标准钱包', () => {
+  it('锁定状态不提前选择钱包模式', () => {
     const state = buildState({ unlocked: false });
 
     expect(shouldCheckExistingStandardWallet(state)).toBe(false);
@@ -28,7 +28,7 @@ describe('walletCreationMode', () => {
         state,
         existsStandardWallet: false,
       }),
-    ).toBe('standard');
+    ).toBeUndefined();
   });
 
   it('attach PIN 隐藏钱包直接进入隐藏钱包流程', () => {

@@ -144,8 +144,12 @@ export const reduceHardwareUiEventState = (
   const canSwitchDevice =
     isDifferentDevice && (state.phase === 'closed' || Boolean(requestedPhase));
   const currentState = canSwitchDevice ? createHardwareUiEventState() : state;
+  const isCloseEvent =
+    event.type === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW ||
+    event.type === EHardwareUiStateAction.CLOSE_UI_WINDOW;
 
   if (
+    (isCloseEvent && !interaction && Boolean(currentState.interactionId)) ||
     !isSameDevice(currentState, connectId) ||
     !isNewerEvent(currentState, interaction)
   ) {

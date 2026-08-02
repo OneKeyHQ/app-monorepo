@@ -2732,7 +2732,7 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
       .spyOn(service, 'updatePrimeAtomByServerUserInfo')
       .mockResolvedValue({ primeSubscription: undefined });
 
-    const result = await service._fetchPrimeUserInfo();
+    const result = await (service as any)._fetchPrimeUserInfo();
 
     expect(updateSpy).not.toHaveBeenCalled();
     expect(result.serverUserInfo).toBeUndefined();
