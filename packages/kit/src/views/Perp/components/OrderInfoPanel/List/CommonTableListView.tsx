@@ -167,20 +167,20 @@ const PaginationDoneOnKeyboard = ({
       <XStack>
         {totalAmount ? (
           <>
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_page })}{' '}
             </SizableText>
-            <SizableText size="$bodyLg" color="$text">
+            <SizableText size="$bodyMdMedium" color="$text">
               {inputAmount ?? ''}
             </SizableText>
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {' '}
               / {totalAmount}
             </SizableText>
           </>
         ) : null}
         {inputAmount && !totalAmount ? (
-          <SizableText size="$bodyLg" color="$textSubdued">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
             {inputAmount}
           </SizableText>
         ) : null}
@@ -188,12 +188,15 @@ const PaginationDoneOnKeyboard = ({
       <Button
         testID="perp-btn"
         variant="tertiary"
+        childrenAsText={false}
         onPress={() => {
           Keyboard.dismiss();
           onDone();
         }}
       >
-        {intl.formatMessage({ id: ETranslations.global_done })}
+        <SizableText size="$bodyMdMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.global_done })}
+        </SizableText>
       </Button>
     </XStack>
   ) : null;
