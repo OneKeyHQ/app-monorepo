@@ -235,7 +235,7 @@ export type IFirmwareUpdateDevSettings = {
   shouldUpdateFromWeb: boolean;
   allIsUpToDate: boolean;
   usePreReleaseConfig: boolean;
-  hardwareConfigUrl: string;
+  enablePro2FirmwareVerification: boolean;
   forceUpdateResource: boolean;
   forceUpdateResEvenSameVersion: boolean;
   forceUpdateFirmware: boolean;
@@ -266,7 +266,7 @@ export const {
     shouldUpdateFromWeb: false,
     allIsUpToDate: false,
     usePreReleaseConfig: false,
-    hardwareConfigUrl: '',
+    enablePro2FirmwareVerification: false,
     forceUpdateResource: false,
     forceUpdateResEvenSameVersion: false,
     forceUpdateFirmware: false,

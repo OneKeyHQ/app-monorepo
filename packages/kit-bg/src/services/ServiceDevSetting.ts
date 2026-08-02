@@ -222,8 +222,8 @@ class ServiceDevSetting extends ServiceBase {
     }));
     await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareConfigUrl: '',
       usePreReleaseConfig: false,
+      enablePro2FirmwareVerification: false,
     }));
     await this.saveDevModeToSyncStorage();
     await this.syncCryptoSettings();
