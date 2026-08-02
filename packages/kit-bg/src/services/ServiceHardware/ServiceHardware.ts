@@ -529,10 +529,6 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'usePreReleaseConfig',
       );
-    const hardwareConfigUrl =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'hardwareConfigUrl',
-      );
     const debugMode =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
@@ -574,19 +570,11 @@ class ServiceHardware extends ServiceBase {
     this.connectionManager.setCurrentTransportType(hardwareTransportType);
 
     try {
-      if (hardwareConfigUrl) {
-        serviceHardwareUtils.hardwareLog(
-          '[HardwareSDK] using hardware config source:',
-          hardwareConfigUrl,
-        );
-      }
-
       const instance = await getHardwareSDKInstance({
         hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
-        isPreRelease: !hardwareConfigUrl && isPreRelease === true,
-        hardwareConfigUrl: hardwareConfigUrl || undefined,
+        isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
         debugMode,
       });

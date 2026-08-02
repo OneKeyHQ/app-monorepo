@@ -13,10 +13,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  HARDWARE_CONFIG_URL_LOCAL,
-  HARDWARE_CONFIG_URL_PRO2_DEDICATED,
-} from '@onekeyhq/shared/src/hardware/configUrls';
 import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdateActions } from '../Tab/DevSettingsSection/FirmwareUpdateActions';
@@ -27,53 +23,6 @@ const PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS: {
 }[] = PRO2_FIRMWARE_UPDATE_TARGETS.map((value) => ({ value, label: value }));
 
 const EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS: IPro2FirmwareUpdateTarget[] = [];
-
-function HardwareConfigUrlDevButtons() {
-  const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
-  const updateHardwareConfigUrl = useCallback(
-    async (hardwareConfigUrl: string) => {
-      setDevSetting((o) => ({
-        ...o,
-        hardwareConfigUrl,
-        usePreReleaseConfig: false,
-      }));
-      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
-        { hardwareConfigUrl, usePreReleaseConfig: false },
-      );
-      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
-    },
-    [setDevSetting],
-  );
-  const currentUrl = devSetting.hardwareConfigUrl;
-
-  return (
-    <ListItem
-      title="Hardware config source"
-      titleProps={{ color: '$textCritical' }}
-    >
-      <XStack gap="$2">
-        <Button
-          size="small"
-          disabled={currentUrl === HARDWARE_CONFIG_URL_LOCAL}
-          onPress={() => updateHardwareConfigUrl(HARDWARE_CONFIG_URL_LOCAL)}
-          testID="pro2-firmware-config-url-localhost"
-        >
-          Localhost
-        </Button>
-        <Button
-          size="small"
-          disabled={currentUrl === HARDWARE_CONFIG_URL_PRO2_DEDICATED}
-          onPress={() =>
-            updateHardwareConfigUrl(HARDWARE_CONFIG_URL_PRO2_DEDICATED)
-          }
-          testID="pro2-firmware-config-url-pro2"
-        >
-          Pro2
-        </Button>
-      </XStack>
-    </ListItem>
-  );
-}
 
 function Pro2FirmwareUpdateTargetRow({
   target,
@@ -190,7 +139,26 @@ function FirmwareUpdatePro2DevSettings() {
 
   return (
     <YStack>
-      <HardwareConfigUrlDevButtons />
+      <ListItem
+        title="Enable Pro2 firmware verification"
+        subtitle="Development only. Calls the verification service for Pro2 instead of skipping it."
+        titleProps={{ color: '$textCritical' }}
+      >
+        <Switch
+          size={ESwitchSize.small}
+          value={devSetting.enablePro2FirmwareVerification}
+          onChange={async (enablePro2FirmwareVerification) => {
+            setDevSetting((prev) => ({
+              ...prev,
+              enablePro2FirmwareVerification,
+            }));
+            await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+              { enablePro2FirmwareVerification },
+            );
+          }}
+          testID="pro2-enable-firmware-verification"
+        />
+      </ListItem>
       <ListItem
         title="Pro2 force targets"
         subtitle="boot / app_v1 / app_v2 / coprocessor / resource / se01-se04"

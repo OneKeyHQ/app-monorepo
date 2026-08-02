@@ -67,7 +67,6 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
-  hardwareConfigUrl?: string;
 }) =>
   // eslint-disable-next-line no-async-promise-executor
   new Promise<CoreApi>(async (resolve, reject) => {
@@ -86,9 +85,7 @@ const createHardwareSDKInstance = async (params: {
       env = 'desktop-web-ble' as const;
     }
 
-    const configFetcher = await createConfigFetcher({
-      hardwareConfigUrl: params.hardwareConfigUrl,
-    });
+    const configFetcher = await createConfigFetcher();
 
     const settings: Partial<ConnectSettings> & {
       protocolV2DeviceInfoMockEnabled?: boolean;
