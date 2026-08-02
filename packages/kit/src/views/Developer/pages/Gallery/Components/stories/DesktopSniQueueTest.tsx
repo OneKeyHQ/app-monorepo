@@ -10,6 +10,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
+import { sniRequestQaAdapter } from '@onekeyhq/shared/src/request/helpers/sniRequestQa';
 import type {
   ISniRequestConfig,
   ISniRequestDebugSnapshot,
@@ -239,7 +240,7 @@ function buildRequestConfig({
   };
 }
 
-export function DesktopSniQueueTest() {
+export function SniRequestQaTest() {
   const [target, setTarget] = useState<IQueueTarget>(DEFAULT_QUEUE_TARGET);
   const [selectedCaseIds, setSelectedCaseIds] = useState<IQaCaseId[]>([
     ...QA_CASE_IDS,
@@ -253,6 +254,9 @@ export function DesktopSniQueueTest() {
   const [snapshotError, setSnapshotError] = useState<string>();
   const [isRunning, setIsRunning] = useState(false);
   const [runCompleted, setRunCompleted] = useState(false);
+  const [expandedEvidenceCaseIds, setExpandedEvidenceCaseIds] = useState<
+    IQaCaseId[]
+  >([]);
   const generationRef = useRef(0);
   const stopRequestedRef = useRef(false);
   const controllersRef = useRef(new Map<string, AbortController>());
@@ -330,6 +334,7 @@ export function DesktopSniQueueTest() {
     setSnapshot(null);
     setSnapshotError(undefined);
     setItems([]);
+    setExpandedEvidenceCaseIds([]);
     setCaseResults(() => {
       const next = { ...EMPTY_CASE_RESULTS };
       QA_CASE_IDS.forEach((caseId) => {
@@ -347,17 +352,11 @@ export function DesktopSniQueueTest() {
       }
     };
 
-    const proxy = globalThis.desktopApiProxy?.sniRequest;
-
     const readSnapshot = async (): Promise<ISniRequestDebugSnapshot> => {
       ensureActive();
-      if (typeof proxy?.getDebugSnapshot !== 'function') {
-        throw new QaRunnerError(
-          'Electron main limiter snapshot API is unavailable',
-        );
-      }
       try {
-        const nextSnapshot = await proxy.getDebugSnapshot(runTarget);
+        const nextSnapshot =
+          await sniRequestQaAdapter.getDebugSnapshot(runTarget);
         ensureActive();
         setSnapshot(nextSnapshot);
         setSnapshotError(undefined);
@@ -410,15 +409,16 @@ export function DesktopSniQueueTest() {
 
     const prepareCase = async (caseId: IQaCaseId) => {
       await waitForDrain(caseId, 'Target idle before case');
-      if (typeof proxy?.clearDNSCache !== 'function') {
-        throw new QaRunnerError('Electron main DNS cache API is unavailable');
-      }
-      const result = await proxy.clearDNSCache();
+      const result = await sniRequestQaAdapter.clearDNSCache();
       requireObservation(
         result.success,
         'clearDNSCache returned success=false',
       );
-      appendEvidence(caseId, 'Fresh Electron agent', 'clearDNSCache success');
+      appendEvidence(
+        caseId,
+        'Transport cache reset',
+        `${sniRequestQaAdapter.transportLabel}: clearDNSCache success`,
+      );
     };
 
     const startRequest = ({
@@ -514,8 +514,8 @@ export function DesktopSniQueueTest() {
           status: item.index < QUEUE_TEST_ACTIVE_LIMIT ? 'active' : 'queued',
           detail:
             item.index < QUEUE_TEST_ACTIVE_LIMIT
-              ? 'Observed active in Electron main'
-              : 'Observed pending in Electron main',
+              ? `Observed active in ${sniRequestQaAdapter.transportLabel}`
+              : `Observed pending in ${sniRequestQaAdapter.transportLabel}`,
         })),
       );
     };
@@ -722,6 +722,9 @@ export function DesktopSniQueueTest() {
           } else {
             const { message } = getErrorDetails(error);
             appendEvidence(caseId, 'Case failed', message, 'critical');
+            setExpandedEvidenceCaseIds((current) =>
+              current.includes(caseId) ? current : [...current, caseId],
+            );
             updateCaseResult(caseId, {
               status: 'failed',
               durationMs,
@@ -764,6 +767,7 @@ export function DesktopSniQueueTest() {
     setSnapshot(null);
     setSnapshotError(undefined);
     setItems([]);
+    setExpandedEvidenceCaseIds([]);
     setCaseResults(EMPTY_CASE_RESULTS);
   }, [abortOwnRequests]);
 
@@ -826,8 +830,9 @@ export function DesktopSniQueueTest() {
       <Stack gap="$1">
         <SizableText size="$headingMd">SNI request QA</SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          Evidence comes from real renderer outcomes and Electron main limiter
-          snapshots. A missing observation is reported as FAIL.
+          Evidence comes from real renderer outcomes and{' '}
+          {sniRequestQaAdapter.transportLabel} limiter snapshots. A missing
+          observation is reported as FAIL.
         </SizableText>
       </Stack>
 
@@ -902,10 +907,50 @@ export function DesktopSniQueueTest() {
           </XStack>
         </XStack>
 
+        <XStack gap="$3" flexWrap="wrap" alignItems="center">
+          <Button
+            variant="primary"
+            onPress={() => void handleRun()}
+            disabled={isRunning || selectedCaseIds.length === 0}
+            testID="desktop-sni-queue-run"
+          >
+            Run selected ({selectedCaseIds.length})
+          </Button>
+          <Button
+            variant="destructive"
+            onPress={handleStop}
+            disabled={!isRunning}
+            testID="desktop-sni-queue-cancel-all"
+          >
+            Stop run
+          </Button>
+          <Button
+            variant="secondary"
+            onPress={handleReset}
+            disabled={isRunning}
+          >
+            Reset results
+          </Button>
+          <Badge
+            testID="desktop-sni-queue-result"
+            badgeType={overallBadgeType}
+            badgeSize="lg"
+          >
+            <Badge.Text>{overallLabel}</Badge.Text>
+          </Badge>
+          <SizableText size="$bodySm" color="$textSubdued">
+            Passed {summary.passed} / Failed {summary.failed} / Stopped{' '}
+            {summary.stopped}
+          </SizableText>
+        </XStack>
+
         <Stack borderTopWidth={1} borderColor="$borderSubdued">
           {QA_CASES.map((qaCase) => {
             const result = caseResults[qaCase.id];
             const isSelected = selectedCaseIds.includes(qaCase.id);
+            const isEvidenceExpanded = expandedEvidenceCaseIds.includes(
+              qaCase.id,
+            );
             return (
               <Stack
                 key={qaCase.id}
@@ -946,33 +991,53 @@ export function DesktopSniQueueTest() {
                 </XStack>
 
                 {result.evidence.length > 0 ? (
-                  <Stack pl="$8" gap="$1">
-                    {result.evidence.map((evidence) => (
-                      <Stack key={evidence.id} gap="$1" py="$1">
-                        <XStack gap="$2" alignItems="center">
-                          <SizableText
-                            minWidth={64}
-                            size="$bodyXs"
-                            color="$textSubdued"
-                          >
-                            +{evidence.elapsedMs} ms
-                          </SizableText>
-                          <Badge badgeType={evidence.tone} badgeSize="sm">
-                            <Badge.Text>{evidence.label}</Badge.Text>
-                          </Badge>
-                        </XStack>
-                        <SizableText
-                          size="$bodyXs"
-                          color={
-                            evidence.tone === 'critical'
-                              ? '$textCritical'
-                              : '$textSubdued'
-                          }
-                        >
-                          {evidence.value}
-                        </SizableText>
+                  <Stack pl="$8" gap="$2" alignItems="flex-start">
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      testID={`desktop-sni-case-${qaCase.id}-evidence-toggle`}
+                      onPress={() =>
+                        setExpandedEvidenceCaseIds((current) =>
+                          current.includes(qaCase.id)
+                            ? current.filter((caseId) => caseId !== qaCase.id)
+                            : [...current, qaCase.id],
+                        )
+                      }
+                    >
+                      {isEvidenceExpanded
+                        ? 'Hide evidence'
+                        : `View evidence (${result.evidence.length})`}
+                    </Button>
+                    {isEvidenceExpanded ? (
+                      <Stack gap="$1">
+                        {result.evidence.map((evidence) => (
+                          <Stack key={evidence.id} gap="$1" py="$1">
+                            <XStack gap="$2" alignItems="center">
+                              <SizableText
+                                minWidth={64}
+                                size="$bodyXs"
+                                color="$textSubdued"
+                              >
+                                +{evidence.elapsedMs} ms
+                              </SizableText>
+                              <Badge badgeType={evidence.tone} badgeSize="sm">
+                                <Badge.Text>{evidence.label}</Badge.Text>
+                              </Badge>
+                            </XStack>
+                            <SizableText
+                              size="$bodyXs"
+                              color={
+                                evidence.tone === 'critical'
+                                  ? '$textCritical'
+                                  : '$textSubdued'
+                              }
+                            >
+                              {evidence.value}
+                            </SizableText>
+                          </Stack>
+                        ))}
                       </Stack>
-                    ))}
+                    ) : null}
                   </Stack>
                 ) : null}
               </Stack>
@@ -980,39 +1045,6 @@ export function DesktopSniQueueTest() {
           })}
         </Stack>
       </Stack>
-
-      <XStack gap="$3" flexWrap="wrap" alignItems="center">
-        <Button
-          variant="primary"
-          onPress={() => void handleRun()}
-          disabled={isRunning || selectedCaseIds.length === 0}
-          testID="desktop-sni-queue-run"
-        >
-          Run selected ({selectedCaseIds.length})
-        </Button>
-        <Button
-          variant="destructive"
-          onPress={handleStop}
-          disabled={!isRunning}
-          testID="desktop-sni-queue-cancel-all"
-        >
-          Stop run
-        </Button>
-        <Button variant="secondary" onPress={handleReset} disabled={isRunning}>
-          Reset results
-        </Button>
-        <Badge
-          testID="desktop-sni-queue-result"
-          badgeType={overallBadgeType}
-          badgeSize="lg"
-        >
-          <Badge.Text>{overallLabel}</Badge.Text>
-        </Badge>
-        <SizableText size="$bodySm" color="$textSubdued">
-          Passed {summary.passed} / Failed {summary.failed} / Stopped{' '}
-          {summary.stopped}
-        </SizableText>
-      </XStack>
 
       <XStack gap="$5" flexWrap="wrap">
         <Stack minWidth={120}>
@@ -1111,3 +1143,5 @@ export function DesktopSniQueueTest() {
     </Stack>
   );
 }
+
+export const DesktopSniQueueTest = SniRequestQaTest;

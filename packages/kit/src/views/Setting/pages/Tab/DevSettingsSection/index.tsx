@@ -138,10 +138,10 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
-const LazyDesktopSniQueueTest = LazyLoad(async () => {
-  const { DesktopSniQueueTest } =
+const LazySniRequestQaTest = LazyLoad(async () => {
+  const { SniRequestQaTest } =
     await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DesktopSniQueueTest');
-  return { default: DesktopSniQueueTest };
+  return { default: SniRequestQaTest };
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -1330,21 +1330,21 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
-                      {platformEnv.isDesktop ? (
+                      {platformEnv.isDesktop || platformEnv.isNative ? (
                         <SectionPressItem
                           icon="LabOutline"
-                          title="Desktop SNI Queue & Abort QA"
+                          title="SNI Queue & Abort QA"
                           subtitle="Run queue saturation, AbortController cancellation, cleanup, and recovery cases"
-                          searchKeywords="Desktop SNI Queue AbortController QA 20 requests concurrency cancellation"
+                          searchKeywords="SNI Queue AbortController QA 20 requests concurrency cancellation Native Desktop"
                           testID="desktop-sni-queue-qa-menu"
                           onPress={() => {
                             Dialog.cancel({
-                              title: 'Desktop SNI Queue & Abort QA',
+                              title: 'SNI Queue & Abort QA',
                               floatingPanelProps: {
                                 width: 720,
                                 maxWidth: '90vw',
                               },
-                              renderContent: <LazyDesktopSniQueueTest />,
+                              renderContent: <LazySniRequestQaTest />,
                             });
                           }}
                         />

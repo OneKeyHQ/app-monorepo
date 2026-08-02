@@ -1,8 +1,48 @@
 diff --git a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
-index 265d61b..e031b7a 100644
+index 265d61b..ad5b9f6 100644
 --- a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
 +++ b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectModule.kt
-@@ -84,9 +84,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -43,6 +43,39 @@ import javax.net.ssl.SSLPeerUnverifiedException
+ 
+ private const val TAG = "SniConnect"
+ 
++internal data class SniConnectRequestTag(
++  val hostname: String,
++  val ip: String,
++)
++
++internal data class SniConnectDebugSnapshotCounts(
++  val activeRequests: Int,
++  val activeRequestsForPair: Int,
++  val pendingRequests: Int,
++  val pendingRequestsForPair: Int,
++)
++
++// OneKey patch: Build count-only QA evidence from the real OkHttp dispatcher.
++internal fun buildSniConnectDebugSnapshot(
++  runningCalls: List<Call>,
++  queuedCalls: List<Call>,
++  hostname: String,
++  ip: String,
++): SniConnectDebugSnapshotCounts {
++  val normalizedHostname = hostname.lowercase(Locale.US)
++  val isTargetPair = { call: Call ->
++    call.request().tag(SniConnectRequestTag::class.java)?.let { tag ->
++      tag.hostname == normalizedHostname && tag.ip == ip
++    } == true
++  }
++  return SniConnectDebugSnapshotCounts(
++    activeRequests = runningCalls.size,
++    activeRequestsForPair = runningCalls.count(isTargetPair),
++    pendingRequests = queuedCalls.size,
++    pendingRequestsForPair = queuedCalls.count(isTargetPair),
++  )
++}
++
+ internal fun classifySniFailureCode(error: Throwable): String {
+   if (hasCause(error, SSLPeerUnverifiedException::class.java) ||
+     hasCause(error, CertificateException::class.java)
+@@ -84,9 +117,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
      // A single dispatcher + connection pool shared across all cached clients so we
      // don't spawn a thread pool / connection pool per (hostname, ip) pair.
      private val sharedDispatcher = Dispatcher().apply {
@@ -17,7 +57,7 @@ index 265d61b..e031b7a 100644
      private val sharedConnectionPool = ConnectionPool()
    }
  
-@@ -127,7 +130,8 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -127,7 +163,8 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
    private val activeCalls = ConcurrentHashMap<String, Call>()
    private val allActiveCalls = Collections.newSetFromMap(ConcurrentHashMap<Call, Boolean>())
    private val activeCallsLock = Any()
@@ -27,7 +67,40 @@ index 265d61b..e031b7a 100644
  
    override fun getName(): String = NAME
  
-@@ -223,10 +227,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -212,6 +249,32 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+     promise.resolve(Arguments.createMap().apply { putBoolean("success", true) })
+   }
+ 
++  @ReactMethod
++  override fun getDebugSnapshot(target: ReadableMap, promise: Promise) {
++    try {
++      val ip = target.getString("ip") ?: throw IllegalArgumentException("ip is required")
++      val hostname = target.getString("hostname")
++        ?: throw IllegalArgumentException("hostname is required")
++      SniConnectValidation.validatePublicIp(ip)
++      SniConnectValidation.validateHostname(hostname)
++      val snapshot = buildSniConnectDebugSnapshot(
++        runningCalls = sharedDispatcher.runningCalls(),
++        queuedCalls = sharedDispatcher.queuedCalls(),
++        hostname = hostname,
++        ip = ip,
++      )
++
++      promise.resolve(Arguments.createMap().apply {
++        putInt("activeRequests", snapshot.activeRequests)
++        putInt("activeRequestsForPair", snapshot.activeRequestsForPair)
++        putInt("pendingRequests", snapshot.pendingRequests)
++        putInt("pendingRequestsForPair", snapshot.pendingRequestsForPair)
++      })
++    } catch (error: Exception) {
++      promise.reject("SNI_INVALID_CONFIG", error.message, error)
++    }
++  }
++
+   @ReactMethod
+   override fun isProxyActiveForUrl(url: String, promise: Promise) {
+     try {
+@@ -223,10 +286,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
  
    private fun performRequest(config: RequestConfig, promise: Promise) {
      val startedAtMs = android.os.SystemClock.elapsedRealtime()
@@ -42,7 +115,7 @@ index 265d61b..e031b7a 100644
        val client = getOrCreateClient(config)
        val request = buildRequest(config)
        val call = client.newCall(request)
-@@ -254,10 +260,11 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -254,10 +319,11 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
        // Guard against double-settling the promise (RN hard-crashes otherwise).
        val settled = AtomicBoolean(false)
  
@@ -56,7 +129,7 @@ index 265d61b..e031b7a 100644
            if (!settled.compareAndSet(false, true)) return
  
            if (call.isCanceled()) {
-@@ -338,15 +345,18 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -338,15 +404,18 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
              promise.reject("SNI_RESPONSE_FAILED", error.message, error)
            } finally {
              unregisterCall(config.requestId, call)
@@ -78,7 +151,7 @@ index 265d61b..e031b7a 100644
        val code = if (error is SniConnectValidation.ValidationException) {
          "SNI_RESOURCE_LIMIT"
        } else {
-@@ -371,6 +381,27 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+@@ -371,6 +440,27 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
      }
    }
  
@@ -106,6 +179,20 @@ index 265d61b..e031b7a 100644
    private fun registerCall(requestId: String?, call: Call) {
      val previousCall = synchronized(activeCallsLock) {
        val previous = requestId?.let { activeCalls.put(it, call) }
+@@ -471,7 +561,12 @@ class SniConnectModule(reactContext: ReactApplicationContext) :
+    */
+   private fun buildRequest(config: RequestConfig): Request {
+     val url = "https://${config.hostname}${config.path}"
+-    val builder = Request.Builder().url(url)
++    val builder = Request.Builder()
++      .url(url)
++      .tag(
++        SniConnectRequestTag::class.java,
++        SniConnectRequestTag(config.hostname.lowercase(Locale.US), config.ip),
++      )
+ 
+     config.headers.forEach { (key, value) ->
+       builder.addHeader(key, value)
 diff --git a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt b/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt
 index 995b327..8c4badc 100644
 --- a/node_modules/@onekeyfe/react-native-sni-connect/android/src/main/java/com/sniconnect/SniConnectValidation.kt
@@ -118,8 +205,140 @@ index 995b327..8c4badc 100644
  
    private val ALLOWED_METHODS =
      setOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/android/src/test/java/com/sniconnect/SniConnectValidationTest.kt b/node_modules/@onekeyfe/react-native-sni-connect/android/src/test/java/com/sniconnect/SniConnectValidationTest.kt
+index c7e0d71..066f63e 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/android/src/test/java/com/sniconnect/SniConnectValidationTest.kt
++++ b/node_modules/@onekeyfe/react-native-sni-connect/android/src/test/java/com/sniconnect/SniConnectValidationTest.kt
+@@ -9,6 +9,8 @@ import java.io.InterruptedIOException
+ import java.net.SocketTimeoutException
+ import java.net.UnknownHostException
+ import java.security.cert.CertificateException
++import okhttp3.OkHttpClient
++import okhttp3.Request
+ import javax.net.ssl.SSLHandshakeException
+ import javax.net.ssl.SSLPeerUnverifiedException
+ 
+@@ -210,6 +212,36 @@ class SniConnectValidationTest {
+     assertTrue(true)
+   }
+ 
++  @Test
++  fun debugSnapshotCountsOnlyTheRequestedDestinationPair() {
++    val client = OkHttpClient()
++    fun call(hostname: String, ip: String) = client.newCall(
++      Request.Builder()
++        .url("https://$hostname/health")
++        .tag(
++          SniConnectRequestTag::class.java,
++          SniConnectRequestTag(hostname.lowercase(), ip),
++        )
++        .build(),
++    )
++    val targetActive = call("wallet.onekeytest.com", "104.18.31.39")
++    val otherActive = call("wallet.onekeytest.com", "104.18.30.39")
++    val targetPending = call("wallet.onekeytest.com", "104.18.31.39")
++    val otherPending = call("example.com", "93.184.216.34")
++
++    val snapshot = buildSniConnectDebugSnapshot(
++      runningCalls = listOf(targetActive, otherActive),
++      queuedCalls = listOf(targetPending, otherPending),
++      hostname = "Wallet.OneKeyTest.com",
++      ip = "104.18.31.39",
++    )
++
++    assertEquals(2, snapshot.activeRequests)
++    assertEquals(1, snapshot.activeRequestsForPair)
++    assertEquals(2, snapshot.pendingRequests)
++    assertEquals(1, snapshot.pendingRequestsForPair)
++  }
++
+   @Test
+   fun classifiesSecurityFailuresAsFailClosedErrorCodes() {
+     assertEquals(
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.mm b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.mm
+index 94a4ad6..ab62d72 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.mm
++++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.mm
+@@ -18,6 +18,9 @@
+                    reject:(RCTPromiseRejectBlock)reject;
+ - (void)clearDNSCache:(RCTPromiseResolveBlock)resolve
+                reject:(RCTPromiseRejectBlock)reject;
++- (void)getDebugSnapshot:(NSDictionary *)target
++                 resolve:(RCTPromiseResolveBlock)resolve
++                  reject:(RCTPromiseRejectBlock)reject;
+ - (void)isProxyActiveForUrl:(NSString *)url
+                     resolve:(RCTPromiseResolveBlock)resolve
+                      reject:(RCTPromiseRejectBlock)reject;
+@@ -89,6 +92,16 @@ RCT_EXPORT_MODULE(SniConnect)
+   [_implementation clearDNSCache:resolve reject:reject];
+ }
+ 
++- (void)getDebugSnapshot:(JS::NativeSniConnect::SniConnectDebugTarget &)target
++                  resolve:(RCTPromiseResolveBlock)resolve
++                   reject:(RCTPromiseRejectBlock)reject {
++  NSDictionary *targetDict = @{
++    @"ip": target.ip() ?: @"",
++    @"hostname": target.hostname() ?: @"",
++  };
++  [_implementation getDebugSnapshot:targetDict resolve:resolve reject:reject];
++}
++
+ - (void)isProxyActiveForUrl:(NSString *)url
+                     resolve:(RCTPromiseResolveBlock)resolve
+                      reject:(RCTPromiseRejectBlock)reject {
+@@ -124,6 +137,12 @@ RCT_EXPORT_METHOD(clearDNSCache:(RCTPromiseResolveBlock)resolver
+   [_implementation clearDNSCache:resolver reject:rejecter];
+ }
+ 
++RCT_EXPORT_METHOD(getDebugSnapshot:(NSDictionary *)target
++                  resolver:(RCTPromiseResolveBlock)resolver
++                  rejecter:(RCTPromiseRejectBlock)rejecter) {
++  [_implementation getDebugSnapshot:target resolve:resolver reject:rejecter];
++}
++
+ RCT_EXPORT_METHOD(isProxyActiveForUrl:(NSString *)url
+                   resolver:(RCTPromiseResolveBlock)resolver
+                   rejecter:(RCTPromiseRejectBlock)rejecter) {
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.swift
+index b2ed45b..98205c1 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.swift
++++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnect.swift
+@@ -133,6 +133,33 @@ final class SniConnectImpl: NSObject {
+     resolve(["success": true])
+   }
+ 
++  @objc
++  public func getDebugSnapshot(
++    _ target: NSDictionary,
++    resolve: @escaping RCTPromiseResolveBlock,
++    reject: @escaping RCTPromiseRejectBlock
++  ) {
++    do {
++      guard let ip = target["ip"] as? String, !ip.isEmpty else {
++        throw SniConnectError.invalidConfig("Missing ip")
++      }
++      guard let hostname = target["hostname"] as? String, !hostname.isEmpty else {
++        throw SniConnectError.invalidConfig("Missing hostname")
++      }
++      try SniConnectValidation.validatePublicIP(ip)
++      try SniConnectValidation.validateHostname(hostname)
++      let snapshot = client.debugSnapshot(hostname: hostname, ip: ip)
++      resolve([
++        "activeRequests": snapshot.activeRequests,
++        "activeRequestsForPair": snapshot.activeRequestsForPair,
++        "pendingRequests": snapshot.pendingRequests,
++        "pendingRequestsForPair": snapshot.pendingRequestsForPair,
++      ])
++    } catch {
++      reject("SNI_INVALID_CONFIG", "\(error)", error)
++    }
++  }
++
+   @objc
+   public func isProxyActiveForUrl(
+     _ url: String,
 diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
-index f660eed..ec166e3 100644
+index f660eed..bab0ab4 100644
 --- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
 +++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectClient.swift
 @@ -120,7 +120,9 @@ final class SniConnectClient {
@@ -133,7 +352,18 @@ index f660eed..ec166e3 100644
  
    private struct SessionKey: Hashable {
      let hostname: String
-@@ -616,9 +618,16 @@ final class SniConnectClient {
+@@ -510,6 +512,10 @@ final class SniConnectClient {
+     ]))
+   }
+ 
++  func debugSnapshot(hostname: String, ip: String) -> SniConnectRequestLimiter.Snapshot {
++    requestLimiter.snapshot(hostname: hostname, ip: ip)
++  }
++
+   /// Cancel a request by ID
+   func cancelRequest(requestId: String) -> Bool {
+     return tasksQueue.sync(flags: .barrier) { [weak self] in
+@@ -616,9 +622,16 @@ final class SniConnectClient {
  
      let requestSlot: SniConnectRequestLimiter.Token
      do {
@@ -152,7 +382,7 @@ index f660eed..ec166e3 100644
        SniConnectLog.error(SniConnectLog.event("sni_request_result", [
          ("result", "error"),
          ("code", sniError.code),
-@@ -636,6 +645,14 @@ final class SniConnectClient {
+@@ -636,6 +649,14 @@ final class SniConnectClient {
      defer {
        requestSlot.release()
      }
@@ -167,7 +397,7 @@ index f660eed..ec166e3 100644
  
      let url = try Self.buildURL(hostname: config.hostname, normalizedPath: normalizedPath)
  
-@@ -643,8 +660,9 @@ final class SniConnectClient {
+@@ -643,8 +664,9 @@ final class SniConnectClient {
      mutableRequest.httpMethod = method
  
      // Convert milliseconds to seconds for timeout values
@@ -179,7 +409,7 @@ index f660eed..ec166e3 100644
  
      // URLRequest.timeoutInterval is not a full request deadline. Keep it aligned
      // with the caller timeout as a transport guard; the wall-clock deadline below
-@@ -674,12 +692,15 @@ final class SniConnectClient {
+@@ -674,12 +696,15 @@ final class SniConnectClient {
        ("method", method),
        ("timeoutMs", Int(config.effectiveTotalTimeout)),
        ("connectTimeoutMs", Int(config.effectiveConnectTimeout)),
@@ -197,7 +427,7 @@ index f660eed..ec166e3 100644
          defer {
            self.releaseSessionLease(lease)
 diff --git a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
-index 1070c23..a3d348e 100644
+index 1070c23..d304719 100644
 --- a/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
 +++ b/node_modules/@onekeyfe/react-native-sni-connect/ios/SniConnectValidation.swift
 @@ -32,6 +32,7 @@ enum SniConnectValidation {
@@ -208,7 +438,7 @@ index 1070c23..a3d348e 100644
  
    /// HTTP methods the module is allowed to issue.
    private static let allowedMethods: Set<String> = [
-@@ -301,8 +302,10 @@ enum SniConnectValidation {
+@@ -301,8 +302,17 @@ enum SniConnectValidation {
    }
  }
  
@@ -217,11 +447,18 @@ index 1070c23..a3d348e 100644
 +final class SniConnectRequestLimiter: @unchecked Sendable {
 +  static let shared = SniConnectRequestLimiter()
 +
++  struct Snapshot {
++    let activeRequests: Int
++    let activeRequestsForPair: Int
++    let pendingRequests: Int
++    let pendingRequestsForPair: Int
++  }
++
 +  final class Token: @unchecked Sendable {
      private weak var limiter: SniConnectRequestLimiter?
      private let key: String
      private let lock = NSLock()
-@@ -329,61 +332,213 @@ final class SniConnectRequestLimiter {
+@@ -329,61 +339,225 @@ final class SniConnectRequestLimiter {
      }
    }
  
@@ -274,6 +511,41 @@ index 1070c23..a3d348e 100644
    }
  
 -  func acquire(hostname: String, ip: String) throws -> Token {
++  func snapshot(hostname: String, ip: String) -> Snapshot {
+     let key = pairKey(hostname: hostname, ip: ip)
+-    return try queue.sync {
+-      if activeRequests >= maxActiveRequests {
+-        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
+-          ("activeCount", activeRequests),
+-          ("pairCount", activeRequestsByPair[key] ?? 0),
+-          ("limit", maxActiveRequests),
+-          ("reason", "max_active_requests"),
+-          ("hostname", hostname.lowercased()),
+-          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
+-        ]))
+-        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests")
+-      }
+-      let pairCount = activeRequestsByPair[key] ?? 0
+-      if pairCount >= maxActiveRequestsPerPair {
+-        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
+-          ("activeCount", activeRequests),
+-          ("pairCount", pairCount),
+-          ("limit", maxActiveRequestsPerPair),
+-          ("reason", "max_active_requests_per_pair"),
+-          ("hostname", hostname.lowercased()),
+-          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
+-        ]))
+-        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests for destination")
++    return queue.sync {
++      Snapshot(
++        activeRequests: activeRequests,
++        activeRequestsForPair: activeRequestsByPair[key] ?? 0,
++        pendingRequests: pendingRequests.count,
++        pendingRequestsForPair: pendingRequests.filter { $0.key == key }.count
++      )
++    }
++  }
++
 +  // OneKey patch: Saturated requests must wait for a native transport slot
 +  // instead of failing transiently with SNI_RESOURCE_LIMIT.
 +  // func acquire(hostname: String, ip: String) throws -> Token {
@@ -311,30 +583,7 @@ index 1070c23..a3d348e 100644
 +    try Task.checkCancellation()
 +
 +    let id = UUID()
-     let key = pairKey(hostname: hostname, ip: ip)
--    return try queue.sync {
--      if activeRequests >= maxActiveRequests {
--        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
--          ("activeCount", activeRequests),
--          ("pairCount", activeRequestsByPair[key] ?? 0),
--          ("limit", maxActiveRequests),
--          ("reason", "max_active_requests"),
--          ("hostname", hostname.lowercased()),
--          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
--        ]))
--        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests")
--      }
--      let pairCount = activeRequestsByPair[key] ?? 0
--      if pairCount >= maxActiveRequestsPerPair {
--        SniConnectCoreDiagnostics.warn(SniConnectCoreDiagnostics.event("sni_resource_limit", [
--          ("activeCount", activeRequests),
--          ("pairCount", pairCount),
--          ("limit", maxActiveRequestsPerPair),
--          ("reason", "max_active_requests_per_pair"),
--          ("hostname", hostname.lowercased()),
--          ("ipHash", SniConnectCoreDiagnostics.shortHash(ip)),
--        ]))
--        throw SniConnectValidation.ValidationError.resourceLimit("Too many active SNI requests for destination")
++    let key = pairKey(hostname: hostname, ip: ip)
 +    let cancellationState = CancellationState()
 +
 +    return try await withTaskCancellationHandler {
@@ -593,3 +842,128 @@ index 6e3403c..7ca4ddb 100644
 +    )
 +  }
  }
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/lib/module/index.js b/node_modules/@onekeyfe/react-native-sni-connect/lib/module/index.js
+index a63f743..222af17 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/lib/module/index.js
++++ b/node_modules/@onekeyfe/react-native-sni-connect/lib/module/index.js
+@@ -13,6 +13,9 @@ export function cancelAllRequests() {
+ export function clearDNSCache() {
+   return NativeSniConnect.clearDNSCache();
+ }
++export function getDebugSnapshot(target) {
++  return NativeSniConnect.getDebugSnapshot(target);
++}
+ export function isProxyActiveForUrl(url) {
+   return NativeSniConnect.isProxyActiveForUrl(url);
+ }
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/NativeSniConnect.d.ts b/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/NativeSniConnect.d.ts
+index 10f4a01..4a1aa0e 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/NativeSniConnect.d.ts
++++ b/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/NativeSniConnect.d.ts
+@@ -39,6 +39,16 @@ export type SniConnectResponse = {
+     headers: HeaderMap;
+     multiValueHeaders?: MultiValueHeaderMap;
+ };
++export type SniConnectDebugTarget = {
++    ip: string;
++    hostname: string;
++};
++export type SniConnectDebugSnapshot = {
++    activeRequests: Int32;
++    activeRequestsForPair: Int32;
++    pendingRequests: Int32;
++    pendingRequestsForPair: Int32;
++};
+ export interface Spec extends TurboModule {
+     request(config: NativeSniConnectRequest): Promise<SniConnectResponse>;
+     cancelRequest(requestId: string): Promise<{
+@@ -50,6 +60,7 @@ export interface Spec extends TurboModule {
+     clearDNSCache(): Promise<{
+         success: boolean;
+     }>;
++    getDebugSnapshot(target: SniConnectDebugTarget): Promise<SniConnectDebugSnapshot>;
+     isProxyActiveForUrl(url: string): Promise<boolean>;
+ }
+ export type SniConnectModule = Spec;
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/index.d.ts b/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/index.d.ts
+index 76dfb19..0392ba7 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/index.d.ts
++++ b/node_modules/@onekeyfe/react-native-sni-connect/lib/typescript/src/index.d.ts
+@@ -1,4 +1,4 @@
+-import { type SniConnectRequest, type SniConnectResponse } from './NativeSniConnect';
++import { type SniConnectDebugSnapshot, type SniConnectDebugTarget, type SniConnectRequest, type SniConnectResponse } from './NativeSniConnect';
+ export declare function request(config: SniConnectRequest): Promise<SniConnectResponse>;
+ export declare function cancelRequest(requestId: string): Promise<{
+     success: boolean;
+@@ -9,6 +9,7 @@ export declare function cancelAllRequests(): Promise<{
+ export declare function clearDNSCache(): Promise<{
+     success: boolean;
+ }>;
++export declare function getDebugSnapshot(target: SniConnectDebugTarget): Promise<SniConnectDebugSnapshot>;
+ export declare function isProxyActiveForUrl(url: string): Promise<boolean>;
+-export type { SniConnectBodylessMethod, SniConnectMethod, SniConnectOptionalBodyMethod, SniConnectRequest, SniConnectRequiredBodyMethod, SniConnectResponse, } from './NativeSniConnect';
++export type { SniConnectBodylessMethod, SniConnectDebugSnapshot, SniConnectDebugTarget, SniConnectMethod, SniConnectOptionalBodyMethod, SniConnectRequest, SniConnectRequiredBodyMethod, SniConnectResponse, } from './NativeSniConnect';
+ //# sourceMappingURL=index.d.ts.map
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/src/NativeSniConnect.ts b/node_modules/@onekeyfe/react-native-sni-connect/src/NativeSniConnect.ts
+index 46ee808..027490d 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/src/NativeSniConnect.ts
++++ b/node_modules/@onekeyfe/react-native-sni-connect/src/NativeSniConnect.ts
+@@ -58,11 +58,26 @@ export type SniConnectResponse = {
+   multiValueHeaders?: MultiValueHeaderMap;
+ };
+ 
++export type SniConnectDebugTarget = {
++  ip: string;
++  hostname: string;
++};
++
++export type SniConnectDebugSnapshot = {
++  activeRequests: Int32;
++  activeRequestsForPair: Int32;
++  pendingRequests: Int32;
++  pendingRequestsForPair: Int32;
++};
++
+ export interface Spec extends TurboModule {
+   request(config: NativeSniConnectRequest): Promise<SniConnectResponse>;
+   cancelRequest(requestId: string): Promise<{ success: boolean }>;
+   cancelAllRequests(): Promise<{ success: boolean }>;
+   clearDNSCache(): Promise<{ success: boolean }>;
++  getDebugSnapshot(
++    target: SniConnectDebugTarget
++  ): Promise<SniConnectDebugSnapshot>;
+   isProxyActiveForUrl(url: string): Promise<boolean>;
+ }
+ 
+diff --git a/node_modules/@onekeyfe/react-native-sni-connect/src/index.tsx b/node_modules/@onekeyfe/react-native-sni-connect/src/index.tsx
+index 8333a07..bdf9ad7 100644
+--- a/node_modules/@onekeyfe/react-native-sni-connect/src/index.tsx
++++ b/node_modules/@onekeyfe/react-native-sni-connect/src/index.tsx
+@@ -1,4 +1,6 @@
+ import NativeSniConnect, {
++  type SniConnectDebugSnapshot,
++  type SniConnectDebugTarget,
+   type SniConnectRequest,
+   type SniConnectResponse,
+ } from './NativeSniConnect';
+@@ -23,12 +25,20 @@ export function clearDNSCache(): Promise<{ success: boolean }> {
+   return NativeSniConnect.clearDNSCache();
+ }
+ 
++export function getDebugSnapshot(
++  target: SniConnectDebugTarget
++): Promise<SniConnectDebugSnapshot> {
++  return NativeSniConnect.getDebugSnapshot(target);
++}
++
+ export function isProxyActiveForUrl(url: string): Promise<boolean> {
+   return NativeSniConnect.isProxyActiveForUrl(url);
+ }
+ 
+ export type {
+   SniConnectBodylessMethod,
++  SniConnectDebugSnapshot,
++  SniConnectDebugTarget,
+   SniConnectMethod,
+   SniConnectOptionalBodyMethod,
+   SniConnectRequest,
