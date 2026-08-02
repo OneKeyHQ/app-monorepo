@@ -23,6 +23,13 @@ const expectedHost = stripWww(new URL(targetUrl).hostname);
 const expectedContentText =
   process.env.DESKTOP_E2E_EXPECT_TEXT ||
   (expectedHost === 'apple.com' ? 'Apple' : expectedHost);
+const sniTarget = {
+  hostname: process.env.DESKTOP_E2E_SNI_HOSTNAME || 'wallet.onekeytest.com',
+  ip: process.env.DESKTOP_E2E_SNI_IP || '104.18.31.39',
+  path: process.env.DESKTOP_E2E_SNI_PATH || '/wallet/v1/health',
+  timeout: Number(process.env.DESKTOP_E2E_SNI_TIMEOUT_MS) || 15_000,
+};
+const SNI_CANCEL_ALL_REQUEST_COUNT = 4;
 
 const COPY_INJECT_TIMEOUT_MS =
   Number(process.env.DESKTOP_E2E_COPY_INJECT_TIMEOUT_MS) || 60_000;
@@ -44,8 +51,25 @@ function log(message) {
   console.log(`[desktop-e2e] ${message}`);
 }
 
-function yarnBin() {
-  return process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
+function getRepoYarnCliPath() {
+  const yarnRc = fs.readFileSync(path.join(repoRoot, '.yarnrc.yml'), 'utf8');
+  const yarnPathMatch = /^yarnPath:\s*["']?([^"'\r\n]+)["']?\s*$/mu.exec(
+    yarnRc,
+  );
+  if (!yarnPathMatch) {
+    throw new Error('Unable to resolve yarnPath from .yarnrc.yml');
+  }
+  return path.resolve(repoRoot, yarnPathMatch[1].trim());
+}
+
+function yarnInvocation(args) {
+  if (process.platform === 'win32') {
+    return {
+      command: process.execPath,
+      args: [getRepoYarnCliPath(), ...args],
+    };
+  }
+  return { command: 'yarn', args };
 }
 
 function getHostnameFromUrlLikeInput(input) {
@@ -116,7 +140,8 @@ function appendOutput(buffer, chunk) {
 
 function runYarn(args, { timeoutMs }) {
   log(`run: yarn ${args.join(' ')}`);
-  const result = spawnSync(yarnBin(), args, {
+  const invocation = yarnInvocation(args);
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: repoRoot,
     env: process.env,
     stdio: 'inherit',
@@ -193,22 +218,26 @@ async function startRenderer() {
   const rendererUrl = `http://localhost:${port}/`;
 
   log(`start renderer on ${rendererUrl}`);
-  const child = spawn(
-    yarnBin(),
-    ['workspace', '@onekeyhq/desktop', 'exec', 'rspack', 'serve'],
-    {
-      cwd: repoRoot,
-      detached: process.platform !== 'win32',
-      env: {
-        ...process.env,
-        ...desktopE2EEnv,
-        BROWSER: 'none',
-        TRANSFORM_REGENERATOR_DISABLED: 'true',
-        WEB_PORT: String(port),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
+  const rspackPackagePath = require.resolve('@rspack/cli/package.json', {
+    paths: [repoRoot],
+  });
+  const rspackCliPath = path.join(
+    path.dirname(rspackPackagePath),
+    'bin',
+    'rspack.js',
   );
+  const child = spawn(process.execPath, [rspackCliPath, 'serve'], {
+    cwd: desktopDir,
+    detached: process.platform !== 'win32',
+    env: {
+      ...process.env,
+      ...desktopE2EEnv,
+      BROWSER: 'none',
+      TRANSFORM_REGENERATOR_DISABLED: 'true',
+      WEB_PORT: String(port),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   let output = '';
   child.stdout.on('data', (chunk) => {
@@ -597,6 +626,142 @@ async function runLocalSecretEnvelopeFlow(page) {
   );
 }
 
+function assertSniResponseStatus(statusCode, label) {
+  assert(
+    Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599,
+    `${label} should return a valid HTTPS status, got ${statusCode}`,
+  );
+}
+
+function assertSniCancelled(outcome, label) {
+  assert.equal(outcome.state, 'rejected', `${label} should reject`);
+  assert(
+    outcome.code === 'SNI_CANCELLED' ||
+      /\bSNI_CANCELLED\b/u.test(outcome.message),
+    `${label} should reject with SNI_CANCELLED, got ${JSON.stringify(outcome)}`,
+  );
+}
+
+async function runSniRequestFlow(page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: APP_TIMEOUT_MS });
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        globalThis.desktopApiProxy?.sniRequest?.request &&
+        globalThis.desktopApiProxy.sniRequest.cancelRequest &&
+        globalThis.desktopApiProxy.sniRequest.cancelAllRequests,
+      ),
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+
+  const result = await page.evaluate(
+    async ({ cancelAllRequestCount, target }) => {
+      const proxy = globalThis.desktopApiProxy?.sniRequest;
+      if (!proxy) {
+        throw new Error('desktopApiProxy.sniRequest unavailable');
+      }
+
+      const runId = `${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      const buildConfig = (requestId, phase) => ({
+        requestId,
+        ip: target.ip,
+        hostname: target.hostname,
+        path: `${target.path}${target.path.includes('?') ? '&' : '?'}desktopE2E=${phase}-${runId}`,
+        headers: {
+          Accept: 'application/json',
+          'X-OneKey-Desktop-E2E': phase,
+        },
+        method: 'GET',
+        body: null,
+        timeout: target.timeout,
+      });
+      const toOutcome = (promise) =>
+        promise.then(
+          (response) => ({
+            state: 'resolved',
+            statusCode: response.statusCode,
+          }),
+          (error) => ({
+            state: 'rejected',
+            code:
+              error && typeof error === 'object' && 'code' in error
+                ? String(error.code)
+                : '',
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        );
+
+      const supported = await proxy.isSupported();
+      const initialResponse = await proxy.request(
+        buildConfig(`desktop-e2e-success-${runId}`, 'success'),
+      );
+
+      await proxy.clearDNSCache();
+      const targetedRequestId = `desktop-e2e-cancel-${runId}`;
+      const targetedOutcomePromise = toOutcome(
+        proxy.request(buildConfig(targetedRequestId, 'cancel')),
+      );
+      const targetedCancelResult = await proxy.cancelRequest(targetedRequestId);
+      const targetedOutcome = await targetedOutcomePromise;
+
+      await proxy.clearDNSCache();
+      const cancelAllOutcomes = Array.from(
+        { length: cancelAllRequestCount },
+        (_, index) =>
+          toOutcome(
+            proxy.request(
+              buildConfig(
+                `desktop-e2e-cancel-all-${runId}-${index}`,
+                `cancel-all-${index}`,
+              ),
+            ),
+          ),
+      );
+      const cancelAllResult = await proxy.cancelAllRequests();
+      const cancelAllRequestOutcomes = await Promise.all(cancelAllOutcomes);
+
+      const recoveryResponse = await proxy.request(
+        buildConfig(`desktop-e2e-recovery-${runId}`, 'recovery'),
+      );
+
+      return {
+        supported,
+        initialStatusCode: initialResponse.statusCode,
+        targetedCancelSuccess: targetedCancelResult.success,
+        targetedOutcome,
+        cancelAllSuccess: cancelAllResult.success,
+        cancelAllRequestOutcomes,
+        recoveryStatusCode: recoveryResponse.statusCode,
+      };
+    },
+    {
+      cancelAllRequestCount: SNI_CANCEL_ALL_REQUEST_COUNT,
+      target: sniTarget,
+    },
+  );
+
+  assert.equal(result.supported, true);
+  assertSniResponseStatus(result.initialStatusCode, 'initial SNI request');
+  assert.equal(result.targetedCancelSuccess, true);
+  assertSniCancelled(result.targetedOutcome, 'targeted SNI cancellation');
+  assert.equal(result.cancelAllSuccess, true);
+  assert.equal(
+    result.cancelAllRequestOutcomes.length,
+    SNI_CANCEL_ALL_REQUEST_COUNT,
+  );
+  result.cancelAllRequestOutcomes.forEach((outcome, index) => {
+    assertSniCancelled(outcome, `cancel-all SNI request ${index}`);
+  });
+  assertSniResponseStatus(result.recoveryStatusCode, 'recovery SNI request');
+
+  log(
+    `SNI Node integration passed (${sniTarget.hostname} via ${sniTarget.ip}, statuses ${result.initialStatusCode}/${result.recoveryStatusCode}, targeted cancel + ${SNI_CANCEL_ALL_REQUEST_COUNT} cancel-all)`,
+  );
+}
+
 async function main() {
   fs.mkdirSync(artifactDir, { recursive: true });
 
@@ -647,6 +812,8 @@ async function main() {
       await runBrowserOpenUrlFlow(app, page);
     } else if (desktopE2EFlow === 'local-secret-envelope') {
       await runLocalSecretEnvelopeFlow(page);
+    } else if (desktopE2EFlow === 'sni-request') {
+      await runSniRequestFlow(page);
     } else {
       throw new Error(`Unknown desktop E2E flow: ${desktopE2EFlow}`);
     }

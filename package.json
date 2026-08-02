@@ -102,6 +102,7 @@
     "test": "yarn jest",
     "test:e2e:desktop:browser": "node apps/desktop/e2e/open-url.e2e.js",
     "test:e2e:desktop:lse": "cross-env DESKTOP_E2E_FLOW=local-secret-envelope node apps/desktop/e2e/open-url.e2e.js",
+    "test:e2e:desktop:sni-request": "cross-env DESKTOP_E2E_FLOW=sni-request node apps/desktop/e2e/open-url.e2e.js",
     "test:e2e:ext:lse": "node apps/ext/e2e/local-secret-envelope.e2e.js",
     "test:e2e:native:lse": "yarn test:e2e:native:lse:ios",
     "test:e2e:native:lse:android": "yarn workspace @onekeyhq/mobile harness:test:android --runTestsByPath e2e/local-secret-envelope.harness.ts",
