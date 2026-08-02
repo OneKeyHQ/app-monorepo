@@ -38,6 +38,7 @@ import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosit
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDeFiProtocolLendingActionSource } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -979,8 +980,10 @@ function ProtocolLendingActionBorrowContent({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { bodyMaxHeight, feedbackMaxHeight } =
+  const { bodyMaxHeight: defaultBodyMaxHeight, feedbackMaxHeight } =
     resolveProtocolPositionActionDialogLayout({ gtMd });
+  const bodyMaxHeight =
+    platformEnv.isDesktop && gtMd ? 480 : defaultBodyMaxHeight;
   const [
     {
       currencyInfo: { symbol: currencySymbol },
@@ -1735,7 +1738,7 @@ function ProtocolLendingActionBorrowContent({
                   id: ETranslations.defi_health_factor,
                 })}
                 valueNode={
-                  <Skeleton height="$4" width="$16" borderRadius="$1" />
+                  <Skeleton height={24} width="$16" borderRadius="$1" />
                 }
               />
               {remainingDebtChange ? (
