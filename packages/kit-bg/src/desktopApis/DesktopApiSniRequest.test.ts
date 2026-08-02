@@ -318,6 +318,53 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     });
   });
 
+  test('exposes the live 16 active plus pending limiter state in development', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const limiter = getRequestLimiter(api);
+    const releases: Array<() => void> = [];
+    for (let index = 0; index < 16; index += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      releases.push(await limiter.acquire('example.com', '93.184.216.34'));
+    }
+    const pendingReleasePromise = limiter.acquire(
+      'example.com',
+      '93.184.216.34',
+    );
+
+    await expect(
+      api.getDebugSnapshot({
+        hostname: 'example.com',
+        ip: '93.184.216.34',
+      }),
+    ).resolves.toEqual({
+      activeRequests: 16,
+      activeRequestsForPair: 16,
+      pendingRequests: 1,
+      pendingRequestsForPair: 1,
+    });
+
+    releases.forEach((release) => release());
+    const pendingRelease = await pendingReleasePromise;
+    pendingRelease();
+  });
+
+  test('does not expose the limiter snapshot in production', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      await expect(
+        api.getDebugSnapshot({
+          hostname: 'example.com',
+          ip: '93.184.216.34',
+        }),
+      ).rejects.toMatchObject({ code: 'SNI_INVALID_CONFIG' });
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
   test('queues the 65th global request until a slot is released', async () => {
     const limiter = new SniRequestLimiter();
     const releases = await Promise.all(

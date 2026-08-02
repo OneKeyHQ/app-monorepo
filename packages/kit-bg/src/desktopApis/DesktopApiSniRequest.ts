@@ -8,6 +8,7 @@ import { isSniFailClosedError } from '@onekeyhq/shared/src/request/helpers/sniFa
 import { safeSniLogValue } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import type {
   ISniRequestConfig,
+  ISniRequestDebugSnapshot,
   ISniResponse,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
@@ -1081,6 +1082,24 @@ class DesktopApiSniRequest {
       pendingCount: this.requestLimiter.snapshot().pendingRequests,
     });
     return { success: true };
+  }
+
+  async getDebugSnapshot({
+    hostname,
+    ip,
+  }: Pick<
+    ISniRequestConfig,
+    'hostname' | 'ip'
+  >): Promise<ISniRequestDebugSnapshot> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new SniRequestError(
+        'SNI_INVALID_CONFIG',
+        'SNI debug snapshot is unavailable in production',
+      );
+    }
+    validateHostname(hostname);
+    validatePublicIp(ip);
+    return this.requestLimiter.snapshot(hostname, ip);
   }
 
   async cancelAllRequests(): Promise<{ success: boolean }> {

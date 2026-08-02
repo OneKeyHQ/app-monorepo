@@ -154,6 +154,13 @@ export interface ISniRequestOptions {
   signal?: GenericAbortSignal;
 }
 
+export interface ISniRequestDebugSnapshot {
+  activeRequests: number;
+  activeRequestsForPair: number;
+  pendingRequests: number;
+  pendingRequestsForPair: number;
+}
+
 /**
  * SNI response
  */
