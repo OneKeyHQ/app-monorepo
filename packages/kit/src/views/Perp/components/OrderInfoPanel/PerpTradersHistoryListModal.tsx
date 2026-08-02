@@ -66,7 +66,7 @@ function TabHeader({
   return (
     <XStack
       bg="$bgApp"
-      borderBottomWidth="$0.5"
+      borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
       {HISTORY_TABS.map((tab, index) => (
@@ -75,12 +75,18 @@ function TabHeader({
           py="$3"
           ml={index === 0 ? '$5' : '$2'}
           mr="$2"
-          borderBottomWidth={activeTab === tab.name ? '$0.5' : '$0'}
-          borderBottomColor="$borderActive"
+          borderBottomWidth={1.5}
+          borderBottomColor={
+            activeTab === tab.name ? '$borderActive' : 'transparent'
+          }
           onPress={() => onTabChange(tab.name)}
-          mb={-2}
         >
-          <SizableText size="$headingXs">
+          <SizableText
+            size="$headingXs"
+            textTransform="none"
+            letterSpacing={0}
+            color={activeTab === tab.name ? '$text' : '$textSubdued'}
+          >
             {intl.formatMessage({ id: tab.labelId })}
           </SizableText>
         </XStack>

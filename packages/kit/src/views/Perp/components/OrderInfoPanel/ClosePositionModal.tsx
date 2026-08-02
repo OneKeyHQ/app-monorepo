@@ -237,18 +237,6 @@ const ClosePositionForm = memo(
       [userSetPrice],
     );
 
-    const handleUseMid = useCallback(() => {
-      const latestMidPrice = midPrice;
-      if (latestMidPrice && latestMidPrice !== '0') {
-        setFormData((prev) => ({
-          ...prev,
-          limitPrice: formatPriceToSignificantDigits(latestMidPrice),
-        }));
-        setUserSetPrice(false);
-        initPriceRef.current = true;
-      }
-    }, [midPrice]);
-
     const handleTypeChange = useCallback((value: string) => {
       setFormData((prev) => ({
         ...prev,
@@ -498,7 +486,6 @@ const ClosePositionForm = memo(
             })}
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
-            onUseMidPrice={handleUseMid}
             disabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
