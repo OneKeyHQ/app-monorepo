@@ -1908,19 +1908,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   checkAddressNeedCreate = (
     swapSupportAllNetworks: ISwapNetwork[],
-    fromToken: ISwapToken,
+    token: ISwapToken,
     addressInfo: ReturnType<typeof useSwapAddressInfo>,
     directionType: ESwapDirectionType,
   ) => {
+    const networkId = addressInfo.networkId || token.networkId;
     const netInfo = swapSupportAllNetworks.find(
-      (net) => net.networkId === fromToken.networkId,
+      (net) => net.networkId === networkId,
     );
-    const isAllNetwork = networkUtils.isAllNetwork({
-      networkId: addressInfo.accountInfo?.network?.id,
-    });
-    const networkId = isAllNetwork
-      ? fromToken.networkId
-      : addressInfo.accountInfo?.network?.id;
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const indexedAccountId = addressInfo.accountInfo?.indexedAccount?.id;
     const deriveType = addressInfo.accountInfo?.deriveType;
