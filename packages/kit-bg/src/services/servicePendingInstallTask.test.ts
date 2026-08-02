@@ -515,6 +515,32 @@ describe('servicePendingInstallTask', () => {
     expect(appUpdateState.downloadedEvent).toBeUndefined();
   });
 
+  test('unavailable app shell package triggers full-flow re-download', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+      status: 'unavailable',
+      errorCode: 'EACCES',
+    });
+    setState({
+      latestVersion: '2.0.0',
+      status: 'ready' as any,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe('notify');
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+  });
+
   test('bundle missing triggers full-flow retry and clears task', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');

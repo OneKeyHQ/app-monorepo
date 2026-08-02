@@ -67,6 +67,7 @@ const expectedRuntimePatchMarkers = [
   ['out/AppUpdater.js', 'resetForRetry()'],
   ['out/AppUpdater.js', 'this.emit("update-download-fileInfo", fileInfo);'],
   ['out/BaseUpdater.js', 'isExistInstallerPath()'],
+  ['out/BaseUpdater.js', 'isInstallerPath(installerPath)'],
   ['out/BaseUpdater.js', 'async updateInstallerPath(installerPath)'],
   ['out/DownloadedUpdateHelper.js', 'updateFile(file)'],
   [

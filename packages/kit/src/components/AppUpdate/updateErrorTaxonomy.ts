@@ -92,11 +92,15 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
   if (!msg) return undefined;
 
   if (
-    /\b(?:APP_PACKAGE_MISSING|NOT_FOUND_PACKAGE|ENOENT|ENOTDIR)\b/i.test(msg)
+    /\b(?:APP_PACKAGE_MISSING|NOT_FOUND_PACKAGE|NOT_FOUND_FILE|ENOENT|ENOTDIR)\b/i.test(
+      msg,
+    )
   ) {
     return EAppUpdatePackageErrorCode.packageMissing;
   }
-  if (/\b(?:APP_PACKAGE_UNAVAILABLE|EACCES|EPERM|EIO|EROFS)\b/i.test(msg)) {
+  if (
+    /\b(?:APP_PACKAGE_UNAVAILABLE|EACCES|EPERM|EIO|EBUSY|EROFS)\b/i.test(msg)
+  ) {
     return EAppUpdatePackageErrorCode.packageUnavailable;
   }
 

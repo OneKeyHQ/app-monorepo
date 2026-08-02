@@ -573,6 +573,7 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

@@ -396,7 +396,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
   });
 
-  describe('ready app shell package reconciliation', () => {
+  describe('app shell package reconciliation', () => {
     test('missing manual package invalidates ready state and clears matching pending task', async () => {
       const {
         AppUpdate,
@@ -422,7 +422,7 @@ describe('ServiceAppUpdate state transitions', () => {
         targetAppVersion: '2.0.0',
       });
 
-      const result = await service.reconcileReadyAppShellPackage();
+      const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
@@ -447,10 +447,100 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileReadyAppShellPackage();
+      const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
+
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
+    });
+
+    test('unavailable manual package invalidates ready state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'unavailable',
+        errorCode: 'EACCES',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test('missing package during verification enters the recovery flow', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'missing',
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test('concurrent strategy changes do not invalidate state using a stale recovery decision', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      let resolveAvailability: (value: { status: string }) => void = () => {};
+      AppUpdate.checkPackageAvailability.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveAvailability = resolve;
+          }),
+      );
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadedEvent: {
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const reconciliation = service.reconcileAppShellPackage();
+      await Promise.resolve();
+      atomValue = {
+        ...atomValue,
+        updateStrategy: EUpdateStrategy.seamless,
+      };
+      resolveAvailability({ status: 'missing' });
+      const result = await reconciliation;
+
+      expect(result.status).toBe(EAppUpdateStatus.ready);
+      expect(result.updateStrategy).toBe(EUpdateStrategy.seamless);
+      expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');
     });
 
     test('JS bundle ready state is not inspected by app shell reconciliation', async () => {
@@ -467,7 +557,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileReadyAppShellPackage();
+      const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
@@ -490,7 +580,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileReadyAppShellPackage();
+      const result = await service.reconcileAppShellPackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');

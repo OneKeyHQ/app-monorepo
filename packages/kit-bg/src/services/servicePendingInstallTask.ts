@@ -909,19 +909,25 @@ class ServicePendingInstallTask {
     const isAppPackageMissing =
       platformEnv.isDesktop &&
       message.includes(EAppUpdatePackageErrorCode.packageMissing);
+    const isAppPackageUnavailable =
+      platformEnv.isDesktop &&
+      message.includes(EAppUpdatePackageErrorCode.packageUnavailable);
+    const isAppPackageInvalid = isAppPackageMissing || isAppPackageUnavailable;
     const isFullFlowRetryTrigger =
       message.includes(RETRY_TRIGGER_BUNDLE_MISSING) ||
       message.includes(RETRY_TRIGGER_VERIFY_FAILED) ||
-      isAppPackageMissing;
+      isAppPackageInvalid;
 
     if (isFullFlowRetryTrigger) {
       let fullFlowTrigger = 'verify_failed';
       if (isAppPackageMissing) {
         fullFlowTrigger = 'app_package_missing';
+      } else if (isAppPackageUnavailable) {
+        fullFlowTrigger = 'app_package_unavailable';
       } else if (message.includes(RETRY_TRIGGER_BUNDLE_MISSING)) {
         fullFlowTrigger = 'bundle_missing';
       }
-      if (isAppPackageMissing) {
+      if (isAppPackageInvalid) {
         await appUpdatePersistAtom.set((current) => {
           if (
             current.latestVersion !== task.targetAppVersion ||

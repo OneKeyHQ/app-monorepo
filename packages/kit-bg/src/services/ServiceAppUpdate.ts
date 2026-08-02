@@ -82,6 +82,17 @@ const failedRecoveryRetryCount = new Map<string, number>();
 const MAX_FAILED_RECOVERY_RETRY = 3;
 const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
 const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
+const APP_SHELL_PACKAGE_RECONCILE_STATUSES: ReadonlySet<EAppUpdateStatus> =
+  new Set([
+    EAppUpdateStatus.downloadASC,
+    EAppUpdateStatus.downloadASCFailed,
+    EAppUpdateStatus.verifyASC,
+    EAppUpdateStatus.verifyASCFailed,
+    EAppUpdateStatus.verifyPackage,
+    EAppUpdateStatus.verifyPackageFailed,
+    EAppUpdateStatus.ready,
+    EAppUpdateStatus.manualInstall,
+  ]);
 
 // ---------------------------------------------------------------------------
 // Download attempt budget
@@ -404,10 +415,10 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async reconcileReadyAppShellPackage() {
+  async reconcileAppShellPackage() {
     const snapshot = await appUpdatePersistAtom.get();
     if (
-      snapshot.status !== EAppUpdateStatus.ready ||
+      !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
       snapshot.storeUrl ||
       getUpdateFileType(snapshot) !== EUpdateFileType.appShell
     ) {
@@ -419,20 +430,14 @@ class ServiceAppUpdate extends ServiceBase {
       availability = await AppUpdate.checkPackageAvailability(snapshot);
     } catch {
       defaultLogger.app.appUpdate.log(
-        'reconcileReadyAppShellPackage: package availability check failed',
+        'reconcileAppShellPackage: package availability check failed',
       );
       return snapshot;
     }
-    if (availability.status !== EAppUpdatePackageAvailabilityStatus.missing) {
-      if (
-        availability.status === EAppUpdatePackageAvailabilityStatus.unavailable
-      ) {
-        defaultLogger.app.appUpdate.log(
-          `reconcileReadyAppShellPackage: package availability check failed (${
-            availability.errorCode || 'IO_ERROR'
-          })`,
-        );
-      }
+    if (
+      availability.status !== EAppUpdatePackageAvailabilityStatus.missing &&
+      availability.status !== EAppUpdatePackageAvailabilityStatus.unavailable
+    ) {
       return snapshot;
     }
 
@@ -441,12 +446,15 @@ class ServiceAppUpdate extends ServiceBase {
       : EAppUpdateStatus.updateIncomplete;
     let invalidated = false;
     await appUpdatePersistAtom.set((current) => {
-      const isSameReadyPackage =
-        current.status === EAppUpdateStatus.ready &&
+      const isSamePackageState =
+        current.status === snapshot.status &&
         current.latestVersion === snapshot.latestVersion &&
+        current.jsBundleVersion === snapshot.jsBundleVersion &&
+        current.updateStrategy === snapshot.updateStrategy &&
+        current.storeUrl === snapshot.storeUrl &&
         current.downloadedEvent?.downloadedFile ===
           snapshot.downloadedEvent?.downloadedFile;
-      if (!isSameReadyPackage) {
+      if (!isSamePackageState) {
         return current;
       }
       invalidated = true;
@@ -459,6 +467,7 @@ class ServiceAppUpdate extends ServiceBase {
     });
 
     if (invalidated) {
+      clearTimeout(failedRecoveryTimerId);
       const latest = await appUpdatePersistAtom.get();
       if (
         latest.status === nextStatus &&
@@ -474,8 +483,25 @@ class ServiceAppUpdate extends ServiceBase {
         }
       }
       defaultLogger.app.appUpdate.log(
-        `reconcileReadyAppShellPackage: missing package invalidated ready state (${nextStatus})`,
+        `reconcileAppShellPackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
       );
+      if (nextStatus === EAppUpdateStatus.notify) {
+        setTimeout(() => {
+          void (async () => {
+            const current = await appUpdatePersistAtom.get();
+            if (
+              current.status === EAppUpdateStatus.notify &&
+              current.latestVersion === snapshot.latestVersion &&
+              isAutoUpdateStrategy(current.updateStrategy) &&
+              !current.downloadedEvent
+            ) {
+              appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+                decision: 'appShellPackageRecovery',
+              });
+            }
+          })();
+        }, 0);
+      }
     }
     return appUpdatePersistAtom.get();
   }

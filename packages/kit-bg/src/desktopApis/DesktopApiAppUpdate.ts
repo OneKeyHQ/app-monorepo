@@ -477,10 +477,7 @@ class DesktopApiAppUpdate {
       downloadUrl,
     );
 
-    if (!downloadedFile || !fs.existsSync(downloadedFile)) {
-      logger.info('auto-updater', 'no such file');
-      throw new OneKeyLocalError('NOT_FOUND_FILE');
-    }
+    await this.assertDownloadedFileAvailable(downloadedFile);
 
     if (downloadUrl) {
       try {
@@ -682,14 +679,6 @@ class DesktopApiAppUpdate {
   }
 
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
-    const verified = await this.verifyFile(verifyParams);
-    if (!verified) {
-      throw new OneKeyLocalError(
-        ElectronTranslations.update_installation_not_safe_alert_text,
-      );
-    }
-    const buildNumber = verifyParams.buildNumber;
-    logger.info('auto-updater', 'Installation request', buildNumber);
     const selection = await dialog.showMessageBox({
       type: 'question',
       buttons: [
@@ -699,58 +688,72 @@ class DesktopApiAppUpdate {
       defaultId: 0,
       message: i18nText(ElectronTranslations.update_new_update_downloaded),
     });
-    if (selection.response === 0) {
-      await this.assertDownloadedFileAvailable(verifyParams.downloadedFile);
-      store.setUpdateBuildNumber(buildNumber);
-      logger.info('auto-update', 'button[0] was clicked', buildNumber);
-      // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
-      /**
-       * On macOS 15+ auto-update / relaunch issues:
-       * - https://github.com/electron-userland/electron-builder/issues/8795
-       * - https://github.com/electron-userland/electron-builder/issues/8997
-       */
-      if (isMac) {
-        app.removeAllListeners('before-quit');
-        app.removeAllListeners('window-all-closed');
-        BrowserWindow.getAllWindows().forEach((win) => {
-          if (win.isDestroyed()) {
-            return;
-          }
-          win.removeAllListeners('close');
-          win.close();
-        });
-        nativeUpdater.once('before-quit-for-update', () => {
-          app.exit();
-        });
-        autoUpdater.quitAndInstall(false);
+    if (selection.response !== 0) {
+      return;
+    }
+    const buildNumber = verifyParams.buildNumber;
+    logger.info('auto-updater', 'Installation request', buildNumber);
+    if (!isMac) {
+      // On Linux AppImage, bail out early if APPIMAGE env is unusable —
+      // quitAndInstall would otherwise crash inside electron-updater with
+      // `ENOENT: ... unlink ''` and leave the user stuck.
+      if (isLinux && isAppImage && !this.canAutoInstallAppImage()) {
+        await this.manualInstallPackage(verifyParams);
         return;
       }
-      if (!isMac) {
-        logger.info('auto-update', 'button[0] was clicked', buildNumber);
-        // On Linux AppImage, bail out early if APPIMAGE env is unusable —
-        // quitAndInstall would otherwise crash inside electron-updater with
-        // `ENOENT: ... unlink ''` and leave the user stuck.
-        if (isLinux && isAppImage && !this.canAutoInstallAppImage()) {
-          await this.manualInstallPackage(verifyParams);
-          return;
-        }
+      const downloadedFilePath = verifyParams.downloadedFile;
+      if (downloadedFilePath) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const isExist = autoUpdater?.isExistInstallerPath();
-        const downloadedFilePath = verifyParams.downloadedFile;
-        if (!isExist && downloadedFilePath) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          await autoUpdater?.updateInstallerPath(downloadedFilePath);
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const isUpdated = autoUpdater?.isExistInstallerPath();
-        logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
-        if (!isUpdated) {
-          await this.manualInstallPackage(verifyParams);
-          return;
-        }
+        await autoUpdater?.updateInstallerPath(downloadedFilePath);
       }
-      autoUpdater.quitAndInstall(false);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const isUpdated = downloadedFilePath
+        ? autoUpdater?.isInstallerPath(downloadedFilePath)
+        : false;
+      logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
+      if (!isUpdated) {
+        await this.manualInstallPackage(verifyParams);
+        return;
+      }
     }
+    // This is intentionally the last asynchronous operation before handing the
+    // exact bound path to electron-updater. It closes the user-confirmation and
+    // updater-rehydration windows without trusting an earlier renderer result.
+    const verified = await this.verifyFile(verifyParams);
+    if (!verified) {
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_installation_not_safe_alert_text,
+      );
+    }
+    store.setUpdateBuildNumber(buildNumber);
+    logger.info(
+      'auto-update',
+      'install confirmed in native dialog',
+      buildNumber,
+    );
+    // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
+    /**
+     * On macOS 15+ auto-update / relaunch issues:
+     * - https://github.com/electron-userland/electron-builder/issues/8795
+     * - https://github.com/electron-userland/electron-builder/issues/8997
+     */
+    if (isMac) {
+      app.removeAllListeners('before-quit');
+      app.removeAllListeners('window-all-closed');
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (win.isDestroyed()) {
+          return;
+        }
+        win.removeAllListeners('close');
+        win.close();
+      });
+      nativeUpdater.once('before-quit-for-update', () => {
+        app.exit();
+      });
+      autoUpdater.quitAndInstall(false);
+      return;
+    }
+    autoUpdater.quitAndInstall(false);
   }
 
   async manualInstallPackage(
@@ -764,8 +767,11 @@ class DesktopApiAppUpdate {
     );
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
-      return;
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_installation_not_safe_alert_text,
+      );
     }
+    await this.assertDownloadedFileAvailable(verifyParams.downloadedFile);
     logger.info(
       'auto-updater',
       'Manual installation request',
@@ -777,9 +783,17 @@ class DesktopApiAppUpdate {
         // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         const { shell } = require('electron');
         // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- shell from dynamic require is untyped
-        await shell.openPath(path.dirname(verifyParams.downloadedFile));
+        const openPathError = await shell.openPath(
+          path.dirname(verifyParams.downloadedFile),
+        );
+        if (openPathError) {
+          throw new OneKeyLocalError(
+            EAppUpdatePackageErrorCode.packageUnavailable,
+          );
+        }
       } catch (error) {
         logger.error('auto-updater', 'Failed to open downloaded file', error);
+        throw error;
       }
     } else {
       logger.warn('auto-updater', 'No downloaded file to open');

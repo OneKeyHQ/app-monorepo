@@ -50,14 +50,73 @@ describe('getDownloadedFileAvailability', () => {
     });
   });
 
+  test('rejects a symbolic link even when its target is a valid package', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    const linkPath = path.join(tempDir, 'package-link.zip');
+    fs.writeFileSync(packagePath, 'package');
+    fs.symlinkSync(packagePath, linkPath);
+
+    expect(getDownloadedFileAvailability(linkPath)).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.missing,
+    });
+  });
+
+  test('rejects a path replaced between lstat and fstat', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    fs.writeFileSync(packagePath, 'package');
+    const pathStat = fs.lstatSync(packagePath);
+    jest.spyOn(fs, 'fstatSync').mockReturnValueOnce({
+      dev: pathStat.dev,
+      ino: pathStat.ino + 1,
+      isFile: () => true,
+      size: pathStat.size,
+    } as fs.Stats);
+
+    expect(getDownloadedFileAvailability(packagePath)).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.missing,
+    });
+  });
+
+  test('closes the file descriptor when fstat fails', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    fs.writeFileSync(packagePath, 'package');
+    const error = new Error('read failure') as NodeJS.ErrnoException;
+    error.code = 'EIO';
+    const closeSpy = jest.spyOn(fs, 'closeSync');
+    jest.spyOn(fs, 'fstatSync').mockImplementationOnce(() => {
+      throw error;
+    });
+
+    expect(getDownloadedFileAvailability(packagePath)).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.unavailable,
+      errorCode: 'EIO',
+    });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
   test('keeps non-missing file-system failures distinct', () => {
     const error = new Error('permission denied') as NodeJS.ErrnoException;
     error.code = 'EACCES';
-    jest.spyOn(fs, 'statSync').mockImplementationOnce(() => {
+    jest.spyOn(fs, 'lstatSync').mockImplementationOnce(() => {
       throw error;
     });
 
     expect(getDownloadedFileAvailability('/tmp/package.zip')).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.unavailable,
+      errorCode: 'EACCES',
+    });
+  });
+
+  test('returns unavailable when a regular file cannot be opened for reading', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    fs.writeFileSync(packagePath, 'package');
+    const error = new Error('permission denied') as NodeJS.ErrnoException;
+    error.code = 'EACCES';
+    jest.spyOn(fs, 'openSync').mockImplementationOnce(() => {
+      throw error;
+    });
+
+    expect(getDownloadedFileAvailability(packagePath)).toEqual({
       status: EAppUpdatePackageAvailabilityStatus.unavailable,
       errorCode: 'EACCES',
     });

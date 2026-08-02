@@ -23,7 +23,7 @@
 jest.mock('../../background/instance/backgroundApiProxy', () => {
   const svc = {
     getUpdateInfo: jest.fn(),
-    reconcileReadyAppShellPackage: jest.fn(),
+    reconcileAppShellPackage: jest.fn(),
     getDownloadEvent: jest.fn(),
     downloadPackage: jest.fn(),
     downloadPackageFailed: jest.fn(),
@@ -306,6 +306,10 @@ import {
   EUpdateFileType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -368,6 +372,14 @@ function resetAllMocks() {
   jest.clearAllMocks();
   setAtom({});
 
+  // OK-58962: these are module-level and leak across tests if not reset —
+  // a stale `true` here would silently defer every later first-launch test.
+  mockPlatformEnv.isExtensionUiStandaloneWindow = false;
+  mockPlatformEnv.isExtensionUiSidePanel = false;
+  mockPlatformEnv.isDesktop = false;
+  sidePanelUiState.hasReceivedPushedModal = false;
+  dappSvc.hasPendingDappRequest.mockResolvedValue(false);
+
   // Default resolved values. getUpdateInfo uses mockImplementation so it
   // always returns the CURRENT mockAtomHolder.value — tests that reassign
   // the holder via setAtom() after resetAllMocks() don't have to repeat
@@ -376,9 +388,7 @@ function resetAllMocks() {
   svc.getUpdateInfo.mockImplementation(() =>
     Promise.resolve(mockAtomHolder.value),
   );
-  svc.reconcileReadyAppShellPackage.mockImplementation(() =>
-    svc.getUpdateInfo(),
-  );
+  svc.reconcileAppShellPackage.mockImplementation(() => svc.getUpdateInfo());
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
   svc.downloadPackageFailed.mockResolvedValue(undefined);
@@ -1013,11 +1023,23 @@ describe('extractUpdateErrorCode', () => {
     expect(extractUpdateErrorCode(new Error('NOT_FOUND_PACKAGE'))).toBe(
       'APP_PACKAGE_MISSING',
     );
+    expect(extractUpdateErrorCode(new Error('NOT_FOUND_FILE'))).toBe(
+      'APP_PACKAGE_MISSING',
+    );
     expect(
       extractUpdateErrorCode(
         new Error("ENOENT: no such file, open '/tmp/app.zip'"),
       ),
     ).toBe('APP_PACKAGE_MISSING');
+  });
+
+  test('normalizes unreadable app package errors', () => {
+    expect(
+      extractUpdateErrorCode(new Error('APP_PACKAGE_UNAVAILABLE:EACCES')),
+    ).toBe('APP_PACKAGE_UNAVAILABLE');
+    expect(extractUpdateErrorCode(new Error('EBUSY: file is locked'))).toBe(
+      'APP_PACKAGE_UNAVAILABLE',
+    );
   });
 
   test('iOS / Android SHA256 verification failure → SHA256_<reason>', () => {
@@ -1549,6 +1571,55 @@ describe('useDownloadPackage', () => {
         expect.objectContaining({ message: 'ASC download failed' }),
       );
     });
+
+    test('desktop package missing during downloadASC enters recovery instead of failed state', async () => {
+      mockPlatformEnv.isDesktop = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.downloadASC,
+      });
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
+      });
+      appUpd.downloadASC.mockRejectedValue(new Error('APP_PACKAGE_MISSING'));
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadASC();
+      });
+
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.downloadASCFailed).not.toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+        undefined,
+      );
+    });
+
+    test('desktop downloadASC with no event first enters the stage, then recovers', async () => {
+      mockPlatformEnv.isDesktop = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.downloadPackage,
+      });
+      svc.getDownloadEvent.mockResolvedValue(null);
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadASC();
+      });
+
+      expect(svc.downloadASC).toHaveBeenCalled();
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.downloadASCFailed).not.toHaveBeenCalled();
+    });
   });
 
   // ----- B3. verifyASC -----
@@ -1685,6 +1756,57 @@ describe('useDownloadPackage', () => {
       expect(svc.verifyPackageFailed).toHaveBeenCalledWith(
         expect.objectContaining({ message: 'Hash mismatch' }),
       );
+    });
+
+    test('desktop unavailable package during verification enters recovery instead of failed state', async () => {
+      mockPlatformEnv.isDesktop = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+      });
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
+      });
+      appUpd.verifyPackage.mockRejectedValue(
+        new Error('APP_PACKAGE_UNAVAILABLE:EACCES'),
+      );
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+        undefined,
+      );
+    });
+
+    test('desktop verification with no event first enters the stage, then recovers', async () => {
+      mockPlatformEnv.isDesktop = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyASC,
+      });
+      svc.getDownloadEvent.mockResolvedValue(null);
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(svc.verifyPackage).toHaveBeenCalled();
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
     });
   });
 
@@ -1881,9 +2003,14 @@ describe('useDownloadPackage', () => {
     test('install throws NOT_FOUND_PACKAGE → calls onFail', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
+      mockPlatformEnv.isDesktop = true;
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
       });
       appUpd.installPackage.mockRejectedValue(new Error('NOT_FOUND_PACKAGE'));
 
@@ -1895,7 +2022,7 @@ describe('useDownloadPackage', () => {
 
       expect(onFail).toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(svc.reconcileReadyAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
     });
 
     test('install throws + silent → no Toast and no onFail', async () => {
@@ -2091,7 +2218,8 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.verifyPackage).toHaveBeenCalled();
     });
 
-    test('status=updateIncomplete → does nothing', async () => {
+    test('desktop appShell status=updateIncomplete → shows the recovery dialog', async () => {
+      mockPlatformEnv.isDesktop = true;
       setAtom({
         status: EAppUpdateStatus.updateIncomplete,
         latestVersion: '2.0.0',
@@ -2109,6 +2237,46 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.downloadASC).not.toHaveBeenCalled();
       expect(svc.verifyASC).not.toHaveBeenCalled();
       expect(svc.verifyPackage).not.toHaveBeenCalled();
+      expect(mockDialogShow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description:
+            ETranslations.update_update_incomplete_package_missing_desc,
+        }),
+      );
+    });
+
+    test('non-desktop status=updateIncomplete → does not add a startup dialog', async () => {
+      setAtom({
+        status: EAppUpdateStatus.updateIncomplete,
+        latestVersion: '2.0.0',
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+
+    test('desktop JS Bundle status=updateIncomplete → does not add a startup dialog', async () => {
+      mockPlatformEnv.isDesktop = true;
+      setAtom({
+        status: EAppUpdateStatus.updateIncomplete,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(mockDialogShow).not.toHaveBeenCalled();
     });
   });
 

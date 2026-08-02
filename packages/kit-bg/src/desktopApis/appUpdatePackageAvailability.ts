@@ -15,8 +15,29 @@ export function getDownloadedFileAvailability(
     };
   }
   try {
-    const stat = fs.statSync(downloadedFile);
-    if (!stat.isFile() || stat.size <= 0) {
+    const pathStat = fs.lstatSync(downloadedFile);
+    if (!pathStat.isFile() || pathStat.size <= 0) {
+      return {
+        status: EAppUpdatePackageAvailabilityStatus.missing,
+      };
+    }
+    const noFollowFlag = fs.constants.O_NOFOLLOW ?? 0;
+    const fileDescriptor = fs.openSync(
+      downloadedFile,
+      fs.constants.O_RDONLY | noFollowFlag,
+    );
+    let openedFileStat: fs.Stats;
+    try {
+      openedFileStat = fs.fstatSync(fileDescriptor);
+    } finally {
+      fs.closeSync(fileDescriptor);
+    }
+    if (
+      !openedFileStat.isFile() ||
+      openedFileStat.size <= 0 ||
+      openedFileStat.dev !== pathStat.dev ||
+      openedFileStat.ino !== pathStat.ino
+    ) {
       return {
         status: EAppUpdatePackageAvailabilityStatus.missing,
       };

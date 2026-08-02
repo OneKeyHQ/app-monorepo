@@ -106,6 +106,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     verifyASC,
     downloadASC,
     installPackage,
+    showUpdateInCompleteDialog,
   } = useDownloadPackage();
 
   const onViewReleaseInfo = useCallback(() => {
@@ -327,7 +328,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // following cold launch instead of the one right after the install.
     void (async () => {
       const info =
-        await backgroundApiProxy.serviceAppUpdate.reconcileReadyAppShellPackage();
+        await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
 
       if (isFirstLaunchAfterUpdated(info)) {
@@ -372,6 +373,17 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
+      const isDesktopAppShellRecovery =
+        platformEnv.isDesktop &&
+        getUpdateFileType(info) === EUpdateFileType.appShell;
+      if (
+        info.status === EAppUpdateStatus.updateIncomplete &&
+        !forceUpdate &&
+        isDesktopAppShellRecovery
+      ) {
+        showUpdateInCompleteDialog({});
+        return;
+      }
       if (info.status !== EAppUpdateStatus.done && forceUpdate) {
         isShowForceUpdatePreviewPage = true;
         // Pass the force semantics derived from the authoritative `info` so
@@ -383,9 +395,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         toUpdatePreviewPage(true, { ...info, isForceUpdate: forceUpdate });
       }
 
-      if (info.status === EAppUpdateStatus.updateIncomplete) {
-        // do nothing
-      } else if (info.status === EAppUpdateStatus.downloadPackage) {
+      if (info.status === EAppUpdateStatus.downloadPackage) {
         void downloadPackage();
       } else if (info.status === EAppUpdateStatus.downloadASC) {
         void downloadASC();
@@ -429,7 +439,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         } else {
           showUpdateDialog();
         }
-      } else {
+      } else if (info.status !== EAppUpdateStatus.updateIncomplete) {
         scheduleFetchUpdateInfo();
       }
     })();
@@ -522,6 +532,17 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
     };
   }, [downloadPackage, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = () => {
+      showUpdateInCompleteDialog({});
+    };
+    appEventBus.on(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    };
+  }, [enabled, showUpdateInCompleteDialog]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-

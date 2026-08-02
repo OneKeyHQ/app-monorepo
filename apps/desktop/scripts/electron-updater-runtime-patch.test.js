@@ -125,4 +125,25 @@ describe('electron-updater runtime patch', () => {
       fs.rmSync(cacheDir, { recursive: true, force: true });
     }
   });
+
+  test('only accepts the updater-bound installer path', () => {
+    const updater = {
+      downloadedUpdateHelper: {
+        file: '/tmp/OneKey-Wallet-verified.zip',
+      },
+    };
+
+    expect(
+      BaseUpdater.prototype.isInstallerPath.call(
+        updater,
+        '/tmp/OneKey-Wallet-verified.zip',
+      ),
+    ).toBe(true);
+    expect(
+      BaseUpdater.prototype.isInstallerPath.call(
+        updater,
+        '/tmp/OneKey-Wallet-stale.zip',
+      ),
+    ).toBe(false);
+  });
 });
