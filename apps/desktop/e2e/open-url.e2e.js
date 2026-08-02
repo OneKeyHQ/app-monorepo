@@ -855,6 +855,14 @@ async function runSniRequestFlow(page) {
   const queuePanel = page.locator('[data-testid="desktop-sni-queue-panel"]');
   const queueRunButton = page.locator('[data-testid="desktop-sni-queue-run"]');
   await queueRunButton.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
+  await page.locator('[data-testid="desktop-sni-cases-clear"]').click();
+  assert.equal(await queueRunButton.isDisabled(), true);
+  await page
+    .locator('[data-testid="desktop-sni-case-queue-pending-abort"]')
+    .click();
+  assert((await queueRunButton.textContent()).includes('Run selected (1)'));
+  await page.locator('[data-testid="desktop-sni-cases-select-all"]').click();
+  assert((await queueRunButton.textContent()).includes('Run selected (4)'));
   await queueRunButton.click();
   await page.waitForFunction(
     () =>
@@ -865,21 +873,49 @@ async function runSniRequestFlow(page) {
     { timeout: APP_TIMEOUT_MS },
   );
   const queuePanelText = await queuePanel.textContent();
+  const caseIds = [
+    'https-success',
+    'active-abort',
+    'queue-pending-abort',
+    'abort-all-recovery',
+  ];
+  const caseResultTexts = await Promise.all(
+    caseIds.map((caseId) =>
+      page
+        .locator(`[data-testid="desktop-sni-case-${caseId}-result"]`)
+        .textContent(),
+    ),
+  );
+  caseResultTexts.forEach((caseResultText, index) => {
+    assert(
+      caseResultText.includes('PASSED'),
+      `desktop SNI QA case ${caseIds[index]} should pass`,
+    );
+  });
   assert(
-    queuePanelText.includes('16 active + 4 pending observed'),
-    'desktop SNI queue panel should display the saturated queue observation',
+    queuePanelText.includes('Queue saturation observed') &&
+      queuePanelText.includes('pair active=16, pending=4'),
+    'desktop SNI queue panel should display the observed main-process queue evidence',
   );
   assert(
-    queuePanelText.includes('Queued cancelled 4/4'),
-    'desktop SNI queue panel should display queued AbortController success',
+    queuePanelText.includes('Pending renderer outcomes') &&
+      queuePanelText.includes('cancelled=4, responded=0, failed=0'),
+    'desktop SNI queue panel should display real pending cancellation outcomes',
   );
   assert(
-    queuePanelText.includes('Active cancelled 16/16'),
-    'desktop SNI queue panel should display active AbortController success',
+    queuePanelText.includes('Renderer outcome') &&
+      queuePanelText.includes('SNI_CANCELLED'),
+    'desktop SNI queue panel should display the active AbortController outcome',
   );
   assert(
-    queuePanelText.includes('Recovery succeeded'),
-    'desktop SNI queue panel should display recovery success',
+    queuePanelText.includes('Batch renderer outcomes') &&
+      queuePanelText.includes('cancelled=20, responded=0, failed=0'),
+    'desktop SNI queue panel should display real abort-all outcomes',
+  );
+  assert(
+    queuePanelText.includes('Recovery response') &&
+      queuePanelText.includes('HTTP 200'),
+    'desktop SNI queue panel should display the real recovery response',
   );
   await queuePanel.screenshot({
     path: path.join(artifactDir, 'sni-queue-panel.png'),

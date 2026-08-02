@@ -1340,6 +1340,10 @@ const BaseDevSettingsSection = () => {
                           onPress={() => {
                             Dialog.cancel({
                               title: 'Desktop SNI Queue & Abort QA',
+                              floatingPanelProps: {
+                                width: 720,
+                                maxWidth: '90vw',
+                              },
                               renderContent: <LazyDesktopSniQueueTest />,
                             });
                           }}
