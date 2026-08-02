@@ -87,9 +87,6 @@ export function decodePortfolioPackageBase64(packageBase64: string) {
   }
 
   const packageBuffer = bufferUtils.toBuffer(packageBase64, 'base64');
-  if (packageBuffer.byteLength === 0) {
-    throw new OneKeyLocalError('Portfolio pack response is invalid');
-  }
   if (packageBuffer.byteLength > PORTFOLIO_PACKAGE_MAX_BYTES) {
     throw new OneKeyLocalError('Portfolio pack response is too large');
   }
