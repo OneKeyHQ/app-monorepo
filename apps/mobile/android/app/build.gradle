@@ -161,7 +161,7 @@ android {
         buildConfigField(
             "boolean",
             "ENABLE_NATIVE_BACKGROUND_THREAD",
-            defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+            defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'true').toLowerCase()
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md

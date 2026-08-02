@@ -11,6 +11,8 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
+import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.StateListDrawable
 import android.graphics.drawable.TransitionDrawable
 import android.text.SpannableString
@@ -1846,6 +1848,18 @@ private class HomeListAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() 
   }
 }
 
+private class HomeContainerHoverGroup(context: Context) : LinearLayout(context) {
+  override fun dispatchHoverEvent(event: MotionEvent): Boolean {
+    when (event.actionMasked) {
+      MotionEvent.ACTION_HOVER_ENTER,
+      MotionEvent.ACTION_HOVER_MOVE,
+      -> isHovered = true
+      MotionEvent.ACTION_HOVER_EXIT -> isHovered = false
+    }
+    return super.dispatchHoverEvent(event) || isClickable
+  }
+}
+
 private class HomeHeaderView(context: Context) : LinearLayout(context) {
   var onAction: ((String, String) -> Unit)? = null
   var onSlotLayoutChange: (() -> Unit)? = null
@@ -1853,12 +1867,12 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     private set
   private val accountIcon = headerImage(24)
   private val accountButton = text("", 17f, Typeface.BOLD, "#111111")
-  private val accountGroup = LinearLayout(context)
+  private val accountGroup = HomeContainerHoverGroup(context)
   private val copyButton = text("⧉", 20f, Typeface.NORMAL, "#777777")
   private val networkIcon = headerImage(20)
   private val networkIconSecondary = headerImage(20)
   private val networkButton = text("", 15f, Typeface.BOLD, "#111111")
-  private val networkGroup = LinearLayout(context)
+  private val networkGroup = HomeContainerHoverGroup(context)
   private val accountRow = LinearLayout(context)
   private val accountRowHost = HomeContainerSlotHostView(context)
   private val balanceContainer = HomeContainerSlotHostView(context)
@@ -1916,6 +1930,21 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       addView(copyButton, LinearLayout.LayoutParams(dp(36), dp(32)))
       addView(networkGroup, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, dp(32)))
     }
+    accountGroup.setOnClickListener {
+      header?.accountActionId
+        ?.takeIf(String::isNotEmpty)
+        ?.let { onAction?.invoke(it, "account") }
+    }
+    copyButton.setOnClickListener {
+      header?.copyActionId
+        ?.takeIf(String::isNotEmpty)
+        ?.let { onAction?.invoke(it, "copy") }
+    }
+    networkGroup.setOnClickListener {
+      header?.networkActionId
+        ?.takeIf(String::isNotEmpty)
+        ?.let { onAction?.invoke(it, "network") }
+    }
     accountRowHost.addView(
       accountRow,
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
@@ -1968,6 +1997,24 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
     compactBackdropPaint.color = backgroundColor
     val primary = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
     val secondary = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
+    accountGroup.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
+      radius = dp(10).toFloat(),
+    )
+    copyButton.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
+      radius = dp(10).toFloat(),
+    )
+    networkGroup.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
+      radius = dp(10).toFloat(),
+    )
     accountButton.text = "${header.accountName} ⌄"
     accountButton.setTextColor(primary)
     copyButton.setTextColor(secondary)
@@ -2099,6 +2146,12 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
       balanceActionViews[action.id]?.apply {
         text = "${action.title} ⓘ"
         setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
+        background = homeContainerInteractiveBackground(
+          normalColor = Color.TRANSPARENT,
+          hoverColor = theme.homeContainerHoverColor(),
+          activeColor = theme.homeContainerActiveColor(),
+          radius = dp(10).toFloat(),
+        )
         setOnClickListener { onAction?.invoke(action.actionId, action.id) }
       }
     }
@@ -2120,18 +2173,33 @@ private class HomeHeaderView(context: Context) : LinearLayout(context) {
         })
       }
     }
-    actions.forEach { actionViews[it.id]?.bind(it, theme) }
+    actions.forEach { action ->
+      actionViews[action.id]?.apply {
+        bind(action, theme)
+        setOnClickListener {
+          action.actionId
+            .takeIf(String::isNotEmpty)
+            ?.let { onAction?.invoke(it, action.id) }
+        }
+      }
+    }
     updateNativeOwnershipVisibility()
   }
 
   private fun updateNativeOwnershipVisibility() {
     val ownsAccountRow = !mountedSlotKeys.contains("header.account-row")
+    val canUseAccount = ownsAccountRow && header?.accountActionId?.isNotEmpty() == true
+    val canCopyAccount = ownsAccountRow && header?.copyActionId?.isNotEmpty() == true
+    val canSelectNetwork = ownsAccountRow && header?.networkActionId?.isNotEmpty() == true
     accountGroup.alpha = if (ownsAccountRow) 1f else 0f
-    accountGroup.isClickable = ownsAccountRow
+    accountGroup.isClickable = canUseAccount
+    accountGroup.isFocusable = canUseAccount
     copyButton.alpha = if (ownsAccountRow) 1f else 0f
-    copyButton.isClickable = ownsAccountRow
+    copyButton.isClickable = canCopyAccount
+    copyButton.isFocusable = canCopyAccount
     networkGroup.alpha = if (ownsAccountRow) 1f else 0f
-    networkGroup.isClickable = ownsAccountRow
+    networkGroup.isClickable = canSelectNetwork
+    networkGroup.isFocusable = canSelectNetwork
 
     val ownsActionRow = !mountedSlotKeys.contains("header.action-row")
     actionViews.values.forEach { view ->
@@ -2372,11 +2440,25 @@ private class HomeBannerView(context: Context) : FrameLayout(context) {
     subtitle.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
     dismiss.visibility =
       if (isLoading || value.dismissActionId.isEmpty()) GONE else VISIBLE
+    dismiss.isClickable = !isLoading && value.dismissActionId.isNotEmpty()
+    dismiss.isFocusable = dismiss.isClickable
     dismiss.setTextColor(parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY))
-    background = GradientDrawable().apply {
-      setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
-      cornerRadius = dp(16).toFloat()
-    }
+    val hoverColor = theme.homeContainerHoverColor()
+    val activeColor = theme.homeContainerActiveColor()
+    background = homeContainerInteractiveBackground(
+      normalColor = parseHomeContainerColor(theme.cardColor, Color.LTGRAY),
+      hoverColor = hoverColor,
+      activeColor = activeColor,
+      radius = dp(16).toFloat(),
+      strokeColor = hoverColor,
+      strokeWidth = dp(1),
+    )
+    dismiss.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = hoverColor,
+      activeColor = activeColor,
+      radius = dp(10).toFloat(),
+    )
     (image.layoutParams as LayoutParams).apply {
       width = if (isTronResourceBanner) 0 else dp(50)
       height = if (isTronResourceBanner) 0 else dp(50)
@@ -2520,10 +2602,12 @@ private class HomeActionView(context: Context) : LinearLayout(context) {
     icon.setTextColor(foreground)
     title.text = action.title
     title.setTextColor(foreground)
-    background = GradientDrawable().apply {
-      setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
-      cornerRadius = dp(16).toFloat()
-    }
+    background = homeContainerInteractiveBackground(
+      normalColor = parseHomeContainerColor(theme.cardColor, Color.LTGRAY),
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
+      radius = dp(16).toFloat(),
+    )
   }
 
   private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -2670,6 +2754,12 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
           Color.BLACK,
         ),
       )
+      button.background = homeContainerInteractiveBackground(
+        normalColor = Color.TRANSPARENT,
+        hoverColor = value.homeContainerHoverColor(),
+        activeColor = value.homeContainerActiveColor(),
+        radius = dp(10).toFloat(),
+      )
     }
   }
 
@@ -2680,6 +2770,12 @@ private class HomeTabsView(context: Context) : FrameLayout(context) {
       tabsById[selectedTabId]?.toolbarAction != null || mountedSlotKeys.contains(accessoryKey)
     ) VISIBLE else GONE
     toolbar.setTextColor(parseHomeContainerColor(value.secondaryTextColor, Color.DKGRAY))
+    toolbar.background = homeContainerInteractiveBackground(
+      normalColor = Color.TRANSPARENT,
+      hoverColor = value.homeContainerHoverColor(),
+      activeColor = value.homeContainerActiveColor(),
+      radius = dp(10).toFloat(),
+    )
     toolbar.alpha = 0f
     toolbar.isClickable = false
   }
@@ -2739,11 +2835,15 @@ private class HomeHorizontalView(context: Context) : AxisLockHorizontalScrollVie
           }
           height = dp(if (isSupportPromo) 151 else 120)
         }
-        setOnClickListener {
-          item.actionId.takeIf { it.isNotEmpty() }?.let { actionId ->
-            onAction?.invoke(actionId, item.id)
-          }
-        }
+        isClickable = item.actionId.isNotEmpty()
+        isFocusable = isClickable
+        setOnClickListener(
+          if (isClickable) {
+            View.OnClickListener { onAction?.invoke(item.actionId, item.id) }
+          } else {
+            null
+          },
+        )
         bind(item, theme)
       }
     }
@@ -2824,9 +2924,16 @@ private class HomeHorizontalCardView(context: Context) : LinearLayout(context) {
     ).apply {
       marginEnd = dp(12)
     }
-    background = GradientDrawable().apply {
-      setColor(parseHomeContainerColor(theme.cardColor, Color.LTGRAY))
-      cornerRadius = dp(16).toFloat()
+    val normalColor = parseHomeContainerColor(theme.cardColor, Color.LTGRAY)
+    background = if (isClickable) {
+      homeContainerInteractiveBackground(
+        normalColor = normalColor,
+        hoverColor = theme.homeContainerHoverColor(),
+        activeColor = theme.homeContainerActiveColor(),
+        radius = dp(16).toFloat(),
+      )
+    } else {
+      homeContainerRoundedBackground(normalColor, dp(16).toFloat())
     }
   }
 
@@ -2882,12 +2989,16 @@ private class HomeNftGridRowView(context: Context) : LinearLayout(context) {
         card.recycle()
       } else {
         card.visibility = VISIBLE
+        card.isClickable = item.actionId.isNotEmpty()
+        card.isFocusable = card.isClickable
         card.bind(item, theme)
-        card.setOnClickListener {
-          item.actionId.takeIf { it.isNotEmpty() }?.let { actionId ->
-            onAction?.invoke(actionId, item.id)
-          }
-        }
+        card.setOnClickListener(
+          if (card.isClickable) {
+            View.OnClickListener { onAction?.invoke(item.actionId, item.id) }
+          } else {
+            null
+          },
+        )
       }
     }
   }
@@ -2912,8 +3023,8 @@ private class HomeNftCardView(context: Context) : LinearLayout(context) {
   init {
     orientation = VERTICAL
     setPadding(dp(10), dp(10), dp(10), dp(10))
-    isClickable = true
-    isFocusable = true
+    isClickable = false
+    isFocusable = false
     image.scaleType = ImageView.ScaleType.CENTER_CROP
     image.background = roundedBackground(Color.LTGRAY, dp(10).toFloat())
     image.clipToOutline = true
@@ -2972,7 +3083,16 @@ private class HomeNftCardView(context: Context) : LinearLayout(context) {
     item: HomeContainerItem,
     theme: HomeContainerTheme,
   ) {
-    setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
+    val normalColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
+    background = if (isClickable) {
+      homeContainerInteractiveBackground(
+        normalColor = normalColor,
+        hoverColor = theme.homeContainerHoverColor(),
+        activeColor = theme.homeContainerActiveColor(),
+      )
+    } else {
+      homeContainerRoundedBackground(normalColor, 0f)
+    }
     image.background = roundedBackground(
       parseHomeContainerColor(theme.cardColor, Color.LTGRAY),
       dp(10).toFloat(),
@@ -2999,6 +3119,8 @@ private class HomeNftCardView(context: Context) : LinearLayout(context) {
     networkImage.setImageDrawable(null)
     networkImage.visibility = GONE
     setOnClickListener(null)
+    isClickable = false
+    isFocusable = false
   }
 
   private fun loadImage(value: String, isNetwork: Boolean) {
@@ -3225,27 +3347,89 @@ private class HomeContainerImageBinding(private val context: Context) {
   }
 }
 
-private fun homeContainerRoundedBackground(color: Int, radius: Float): GradientDrawable =
+private fun HomeContainerTheme.homeContainerHoverColor(): Int =
+  parseHomeContainerColor(hoverColor.ifEmpty { cardColor }, Color.LTGRAY)
+
+private fun HomeContainerTheme.homeContainerActiveColor(): Int =
+  parseHomeContainerColor(activeColor.ifEmpty { hoverColor.ifEmpty { cardColor } }, Color.LTGRAY)
+
+private fun homeContainerRoundedBackground(
+  color: Int,
+  radius: Float,
+  strokeColor: Int? = null,
+  strokeWidth: Int = 0,
+): GradientDrawable =
   GradientDrawable().apply {
     setColor(color)
     cornerRadius = radius
+    if (strokeColor != null && strokeWidth > 0) {
+      setStroke(strokeWidth, strokeColor)
+    }
   }
 
 private fun homeContainerInteractiveBackground(
   normalColor: Int,
   hoverColor: Int,
   activeColor: Int,
+  radius: Float = 0f,
+  strokeColor: Int? = null,
+  strokeWidth: Int = 0,
+): StateListDrawable = homeContainerInteractiveStateList(
+  normal = {
+    homeContainerRoundedBackground(normalColor, radius, strokeColor, strokeWidth)
+  },
+  hover = {
+    homeContainerRoundedBackground(hoverColor, radius, strokeColor, strokeWidth)
+  },
+  active = {
+    homeContainerRoundedBackground(activeColor, radius, strokeColor, strokeWidth)
+  },
+)
+
+private fun homeContainerInsetInteractiveBackground(
+  baseColor: Int,
+  hoverColor: Int,
+  activeColor: Int,
   radius: Float,
+  horizontalInset: Int,
+): StateListDrawable = homeContainerInteractiveStateList(
+  normal = { homeContainerRoundedBackground(baseColor, 0f) },
+  hover = {
+    homeContainerLayeredBackground(baseColor, hoverColor, radius, horizontalInset)
+  },
+  active = {
+    homeContainerLayeredBackground(baseColor, activeColor, radius, horizontalInset)
+  },
+)
+
+private fun homeContainerLayeredBackground(
+  baseColor: Int,
+  overlayColor: Int,
+  radius: Float,
+  horizontalInset: Int,
+): LayerDrawable = LayerDrawable(
+  arrayOf(
+    homeContainerRoundedBackground(baseColor, 0f),
+    InsetDrawable(
+      homeContainerRoundedBackground(overlayColor, radius),
+      horizontalInset,
+      0,
+      horizontalInset,
+      0,
+    ),
+  ),
+)
+
+private fun homeContainerInteractiveStateList(
+  normal: () -> Drawable,
+  hover: () -> Drawable,
+  active: () -> Drawable,
 ): StateListDrawable = StateListDrawable().apply {
-  addState(
-    intArrayOf(android.R.attr.state_pressed),
-    homeContainerRoundedBackground(activeColor, radius),
-  )
-  addState(
-    intArrayOf(android.R.attr.state_hovered),
-    homeContainerRoundedBackground(hoverColor, radius),
-  )
-  addState(intArrayOf(), homeContainerRoundedBackground(normalColor, radius))
+  addState(intArrayOf(-android.R.attr.state_enabled), normal())
+  addState(intArrayOf(android.R.attr.state_pressed), active())
+  addState(intArrayOf(android.R.attr.state_hovered), hover())
+  addState(intArrayOf(android.R.attr.state_focused), hover())
+  addState(intArrayOf(), normal())
 }
 
 private fun View.dp(value: Float): Int = (value * resources.displayMetrics.density).roundToInt()
@@ -3279,8 +3463,8 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
   private var measuredTextHeight = 0
 
   init {
-    isClickable = true
-    isFocusable = true
+    isClickable = false
+    isFocusable = false
     clipChildren = false
     setWillNotDraw(false)
 
@@ -3370,6 +3554,8 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     theme: HomeContainerTheme,
     onAction: ((String, String) -> Unit)?,
   ) {
+    isClickable = item.actionId.isNotEmpty()
+    isFocusable = isClickable
     val backgroundColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
     val primaryColor = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
     val secondaryColor = parseHomeContainerColor(theme.secondaryTextColor, Color.DKGRAY)
@@ -3380,37 +3566,29 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     setBackgroundColor(backgroundColor)
     highlight.background = homeContainerInteractiveBackground(
       normalColor = Color.TRANSPARENT,
-      hoverColor = parseHomeContainerColor(
-        theme.hoverColor.ifEmpty { theme.activeColor.ifEmpty { theme.cardColor } },
-        Color.TRANSPARENT,
-      ),
-      activeColor = parseHomeContainerColor(
-        theme.activeColor.ifEmpty { theme.hoverColor.ifEmpty { theme.cardColor } },
-        Color.LTGRAY,
-      ),
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
       radius = dp(12).toFloat(),
     )
 
     showsFavorite = item.favoriteActionId.isNotEmpty()
     favoriteButton.visibility = if (showsFavorite) VISIBLE else GONE
+    favoriteButton.isClickable = showsFavorite
+    favoriteButton.isFocusable = showsFavorite
     favoriteButton.contentDescription = item.favoriteLabel
     favoriteButton.background = homeContainerInteractiveBackground(
       normalColor = Color.TRANSPARENT,
-      hoverColor = parseHomeContainerColor(
-        theme.hoverColor.ifEmpty { theme.activeColor.ifEmpty { theme.cardColor } },
-        Color.TRANSPARENT,
-      ),
-      activeColor = parseHomeContainerColor(
-        theme.activeColor.ifEmpty { theme.hoverColor.ifEmpty { theme.cardColor } },
-        Color.LTGRAY,
-      ),
+      hoverColor = Color.TRANSPARENT,
+      activeColor = Color.TRANSPARENT,
       radius = dp(24).toFloat(),
     )
-    favoriteButton.setOnClickListener {
-      if (item.favoriteActionId.isNotEmpty()) {
-        onAction?.invoke(item.favoriteActionId, item.id)
-      }
-    }
+    favoriteButton.setOnClickListener(
+      if (showsFavorite) {
+        View.OnClickListener { onAction?.invoke(item.favoriteActionId, item.id) }
+      } else {
+        null
+      },
+    )
     val favoriteColor = if (item.favorite) primaryColor else subduedColor
     val nextStar = HomeContainerMarketArtwork.star(item.favorite, favoriteColor)
     val shouldAnimateFavorite =
@@ -3524,9 +3702,13 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     contentDescription = listOf(item.title, item.subtitle, item.subtitleDetail, item.value, item.detail)
       .filter(String::isNotEmpty)
       .joinToString(", ")
-    setOnClickListener {
-      if (item.actionId.isNotEmpty()) onAction?.invoke(item.actionId, item.id)
-    }
+    setOnClickListener(
+      if (isClickable) {
+        View.OnClickListener { onAction?.invoke(item.actionId, item.id) }
+      } else {
+        null
+      },
+    )
     requestLayout()
   }
 
@@ -3627,6 +3809,8 @@ private class HomeMarketItemView(context: Context) : FrameLayout(context) {
     titleAccessoryBinding.recycle()
     favoriteButton.setOnClickListener(null)
     setOnClickListener(null)
+    isClickable = false
+    isFocusable = false
     iconImage.setImageDrawable(null)
     badgeImage.setImageDrawable(null)
     titleAccessory.setImageDrawable(null)
@@ -3797,8 +3981,8 @@ private class HomeMarketRecommendationCardView(context: Context) : FrameLayout(c
   private var measuredSubtitleHeight = 0
 
   init {
-    isClickable = true
-    isFocusable = true
+    isClickable = false
+    isFocusable = false
     clipChildren = false
     iconContainer.clipToOutline = true
     iconImage.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -3843,6 +4027,8 @@ private class HomeMarketRecommendationCardView(context: Context) : FrameLayout(c
     theme: HomeContainerTheme,
     onAction: ((String, String) -> Unit)?,
   ) {
+    isClickable = item.actionId.isNotEmpty()
+    isFocusable = isClickable
     val backgroundColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
     val cardColor = parseHomeContainerColor(theme.cardColor, Color.LTGRAY)
     val primaryColor = parseHomeContainerColor(theme.primaryTextColor, Color.BLACK)
@@ -3853,11 +4039,8 @@ private class HomeMarketRecommendationCardView(context: Context) : FrameLayout(c
     )
     background = homeContainerInteractiveBackground(
       normalColor = cardColor,
-      hoverColor = parseHomeContainerColor(theme.hoverColor.ifEmpty { theme.cardColor }, cardColor),
-      activeColor = parseHomeContainerColor(
-        theme.activeColor.ifEmpty { theme.hoverColor.ifEmpty { theme.cardColor } },
-        cardColor,
-      ),
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
       radius = dp(12).toFloat(),
     )
     foreground = GradientDrawable().apply {
@@ -3940,9 +4123,13 @@ private class HomeMarketRecommendationCardView(context: Context) : FrameLayout(c
       .filter(String::isNotEmpty)
       .joinToString(", ")
     isSelected = item.favorite
-    setOnClickListener {
-      if (item.actionId.isNotEmpty()) onAction?.invoke(item.actionId, item.id)
-    }
+    setOnClickListener(
+      if (isClickable) {
+        View.OnClickListener { onAction?.invoke(item.actionId, item.id) }
+      } else {
+        null
+      },
+    )
     requestLayout()
   }
 
@@ -4002,6 +4189,8 @@ private class HomeMarketRecommendationCardView(context: Context) : FrameLayout(c
     badgeImage.setImageDrawable(null)
     titleAccessory.setImageDrawable(null)
     setOnClickListener(null)
+    isClickable = false
+    isFocusable = false
   }
 
   fun preferredHeight(): Int {
@@ -4285,12 +4474,15 @@ private class HomeSectionTitleView(context: Context) : LinearLayout(context) {
     }
     action.setCompoundDrawablesRelative(leadingDrawable, null, null, null)
     action.compoundDrawablePadding = if (leadingDrawable == null) 0 else dp(4)
-    action.isEnabled = !row.actionDisabled
+    val isInteractive = row.actionTitle.isNotEmpty() && row.actionId.isNotEmpty()
+    action.isEnabled = isInteractive && !row.actionDisabled
+    action.isClickable = action.isEnabled
+    action.isFocusable = action.isEnabled
     action.alpha = if (row.actionDisabled) 0.45f else 1f
     action.background = homeContainerInteractiveBackground(
       normalColor = Color.TRANSPARENT,
-      hoverColor = parseHomeContainerColor(theme.hoverColor, Color.TRANSPARENT),
-      activeColor = parseHomeContainerColor(theme.activeColor, Color.TRANSPARENT),
+      hoverColor = theme.homeContainerHoverColor(),
+      activeColor = theme.homeContainerActiveColor(),
       radius = dp(10).toFloat(),
     )
     action.contentDescription = if (isMarketRecommendation) {
@@ -4298,9 +4490,9 @@ private class HomeSectionTitleView(context: Context) : LinearLayout(context) {
     } else {
       "native-home-section-action-${row.stableId.removePrefix("section:")}"
     }
-    action.setOnClickListener {
-      if (!row.actionDisabled) row.actionId.takeIf { it.isNotEmpty() }?.let(onAction)
-    }
+    action.setOnClickListener(
+      if (action.isEnabled) View.OnClickListener { onAction(row.actionId) } else null,
+    )
     setBackgroundColor(parseHomeContainerColor(theme.backgroundColor, Color.WHITE))
     layoutParams = RecyclerView.LayoutParams(LayoutParams.MATCH_PARENT, dp(if (isHistory) 44 else 56))
   }
@@ -4582,11 +4774,16 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
         item.renderer == "showMore" ||
         item.renderer == "marketTabs" ||
         item.renderer == "empty"
-    setOnClickListener {
-      item.actionId.takeIf { it.isNotEmpty() }?.let { actionId ->
-        onAction?.invoke(actionId, item.id)
-      }
-    }
+    val isInteractive = item.actionId.isNotEmpty()
+    isClickable = isInteractive
+    isFocusable = isInteractive
+    setOnClickListener(
+      if (isInteractive) {
+        View.OnClickListener { onAction?.invoke(item.actionId, item.id) }
+      } else {
+        null
+      },
+    )
     centerPill.isClickable = isCentered && item.actionId.isNotEmpty()
     centerPill.isFocusable = centerPill.isClickable
     centerPill.setOnClickListener(
@@ -4712,17 +4909,33 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     ).apply {
       if (usesCard) setMargins(dp(16), dp(6), dp(16), dp(6))
     }
-    background = GradientDrawable().apply {
-      setColor(
-        parseHomeContainerColor(
-          if (usesCard) theme.cardColor else theme.backgroundColor,
-          Color.WHITE,
-        ),
+    val pageBackgroundColor = parseHomeContainerColor(theme.backgroundColor, Color.WHITE)
+    val cardColor = parseHomeContainerColor(theme.cardColor, Color.LTGRAY)
+    val strokeColor = parseHomeContainerColor(theme.dividerColor, Color.GRAY)
+    background = when {
+      item.renderer == "showMore" -> homeContainerRoundedBackground(pageBackgroundColor, 0f)
+      usesCard && isInteractive -> homeContainerInteractiveBackground(
+        normalColor = cardColor,
+        hoverColor = theme.homeContainerHoverColor(),
+        activeColor = theme.homeContainerActiveColor(),
+        radius = dp(12).toFloat(),
+        strokeColor = strokeColor,
+        strokeWidth = dp(1),
       )
-      if (usesCard) {
-        setStroke(dp(1), parseHomeContainerColor(theme.dividerColor, Color.GRAY))
-        cornerRadius = dp(12).toFloat()
-      }
+      usesCard -> homeContainerRoundedBackground(
+        color = cardColor,
+        radius = dp(12).toFloat(),
+        strokeColor = strokeColor,
+        strokeWidth = dp(1),
+      )
+      isInteractive -> homeContainerInsetInteractiveBackground(
+        baseColor = pageBackgroundColor,
+        hoverColor = theme.homeContainerHoverColor(),
+        activeColor = theme.homeContainerActiveColor(),
+        radius = dp(12).toFloat(),
+        horizontalInset = dp(8),
+      )
+      else -> homeContainerRoundedBackground(pageBackgroundColor, 0f)
     }
     invalidate()
   }
@@ -4756,6 +4969,8 @@ private class HomeItemView(context: Context) : LinearLayout(context) {
     icon.visibility = VISIBLE
     centerPill.setOnClickListener(null)
     setOnClickListener(null)
+    isClickable = false
+    isFocusable = false
     clearSkeletonViews()
   }
 

@@ -24,6 +24,8 @@ const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
 const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 const backgroundProtocolVersion = '1';
 const useUnionBuild = process.env.UNION_BUILD === 'true';
+process.env.ENABLE_NATIVE_BACKGROUND_THREAD =
+  process.env.ENABLE_NATIVE_BACKGROUND_THREAD ?? 'true';
 const enableNativeBackgroundThread =
   process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
 
