@@ -155,6 +155,7 @@ function useFirmwareVerifyBase({
           await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
             {
               connectId: device?.connectId ?? '',
+              deviceType: device.deviceType,
             },
           );
         const verifyResult =

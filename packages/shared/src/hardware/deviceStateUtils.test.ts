@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   mergeDeviceStateEvent,
   projectLegacyDeviceFeaturesFromState,
@@ -99,6 +101,20 @@ describe('deviceStateUtils', () => {
     expect(projectLegacyDeviceFeaturesFromState(state).protocolVersion).toBe(
       null,
     );
+  });
+
+  it('preserves the single SE version for legacy devices', () => {
+    const state = createState();
+    state.protocol = 'V1';
+    state.identity.deviceType = EDeviceType.Classic1s;
+    state.versions.se = '1.1.0.2';
+    delete state.versions.se01;
+
+    expect(projectLegacyDeviceFeaturesFromState(state)).toMatchObject({
+      onekey_se01_version: '1.1.0.2',
+      seVersion: '1.1.0.2',
+      se01Version: '1.1.0.2',
+    });
   });
 
   it('updates root protocol metadata while merging a partial event', () => {

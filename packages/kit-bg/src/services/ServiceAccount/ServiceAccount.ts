@@ -211,6 +211,7 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { buildBtcOnlyFirmwareCacheKey } from './btcOnlyFirmwareCacheUtils';
 import { resolveDeviceStateForHwWalletCreate } from './deviceStateForHwWalletCreate';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 import {
@@ -8135,16 +8136,7 @@ class ServiceAccount extends ServiceBase {
     {
       promise: true,
       primitive: true,
-      normalizer: ([options]) => {
-        const fwVendor = options.featuresInfo?.vendor || '';
-        const capabilities =
-          options.featuresInfo?.capabilities?.join(',') ?? '';
-        const unitBtcOnly = String(
-          (options.featuresInfo as { unit_btconly?: boolean } | undefined)
-            ?.unit_btconly ?? '',
-        );
-        return `${options.walletId}-${fwVendor}-${capabilities}-${unitBtcOnly}`;
-      },
+      normalizer: ([options]) => buildBtcOnlyFirmwareCacheKey(options),
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,
     },
