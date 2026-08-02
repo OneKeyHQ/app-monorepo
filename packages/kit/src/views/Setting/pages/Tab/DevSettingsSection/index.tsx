@@ -138,6 +138,12 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
+const LazyDesktopSniQueueTest = LazyLoad(async () => {
+  const { DesktopSniQueueTest } =
+    await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DesktopSniQueueTest');
+  return { default: DesktopSniQueueTest };
+});
+
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 type ILocalSecretEnvelopeSimulatedKeyLossResult = {
@@ -737,7 +743,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1324,6 +1330,21 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
+                      {platformEnv.isDesktop ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="Desktop SNI Queue & Abort QA"
+                          subtitle="Run queue saturation, AbortController cancellation, cleanup, and recovery cases"
+                          searchKeywords="Desktop SNI Queue AbortController QA 20 requests concurrency cancellation"
+                          testID="desktop-sni-queue-qa-menu"
+                          onPress={() => {
+                            Dialog.cancel({
+                              title: 'Desktop SNI Queue & Abort QA',
+                              renderContent: <LazyDesktopSniQueueTest />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"

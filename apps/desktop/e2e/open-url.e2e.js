@@ -819,14 +819,39 @@ async function runSniRequestFlow(page) {
     undefined,
     { timeout: APP_TIMEOUT_MS },
   );
-  await page.evaluate(() => {
-    globalThis.$$appGlobals.$navigationRef.current.navigate('main', {
-      screen: 'Developer',
+  await page.keyboard.press('Escape');
+  await page.evaluate(async () => {
+    await globalThis.$$appGlobals.$backgroundApiProxy.serviceDevSetting.switchDevMode(
+      true,
+    );
+    await globalThis.$$appGlobals.$backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'networkThrottleEnabled',
+      false,
+    );
+    globalThis.$$appGlobals.$navigationRef.current.navigate('modal', {
+      screen: 'SettingModal',
       params: {
-        screen: 'component-IpRequest',
+        screen: 'SettingListModal',
       },
     });
   });
+  const settingsModal = page.locator('[data-testid="APP-Modal-Screen"]').last();
+  const developerModeTab = settingsModal.locator(
+    '[data-testid="tab-modal-no-active-item-CodeSolid"], [data-testid="tab-modal-active-item-CodeSolid"]',
+  );
+  await developerModeTab.waitFor({
+    state: 'visible',
+    timeout: APP_TIMEOUT_MS,
+  });
+  await developerModeTab.click();
+  await settingsModal
+    .getByText('Dev Tools & Dev Settings', { exact: true })
+    .click();
+  const queueQaMenu = settingsModal.locator(
+    '[data-testid="desktop-sni-queue-qa-menu"]',
+  );
+  await queueQaMenu.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
+  await queueQaMenu.click();
   const queuePanel = page.locator('[data-testid="desktop-sni-queue-panel"]');
   const queueRunButton = page.locator('[data-testid="desktop-sni-queue-run"]');
   await queueRunButton.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
@@ -839,9 +864,22 @@ async function runSniRequestFlow(page) {
     undefined,
     { timeout: APP_TIMEOUT_MS },
   );
+  const queuePanelText = await queuePanel.textContent();
   assert(
-    (await queuePanel.textContent()).includes('16 active + 4 pending observed'),
+    queuePanelText.includes('16 active + 4 pending observed'),
     'desktop SNI queue panel should display the saturated queue observation',
+  );
+  assert(
+    queuePanelText.includes('Queued cancelled 4/4'),
+    'desktop SNI queue panel should display queued AbortController success',
+  );
+  assert(
+    queuePanelText.includes('Active cancelled 16/16'),
+    'desktop SNI queue panel should display active AbortController success',
+  );
+  assert(
+    queuePanelText.includes('Recovery succeeded'),
+    'desktop SNI queue panel should display recovery success',
   );
   await queuePanel.screenshot({
     path: path.join(artifactDir, 'sni-queue-panel.png'),

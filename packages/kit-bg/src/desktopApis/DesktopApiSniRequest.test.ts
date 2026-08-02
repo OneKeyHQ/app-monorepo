@@ -348,7 +348,7 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     pendingRelease();
   });
 
-  test('does not expose the limiter snapshot in production', async () => {
+  test('exposes count-only limiter state in production QA builds', async () => {
     const api = new DesktopApiSniRequest({ desktopApi: {} as never });
     const previousNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -359,9 +359,18 @@ describe('DesktopApiSniRequest OSCS validation', () => {
           hostname: 'example.com',
           ip: '93.184.216.34',
         }),
-      ).rejects.toMatchObject({ code: 'SNI_INVALID_CONFIG' });
+      ).resolves.toEqual({
+        activeRequests: 0,
+        activeRequestsForPair: 0,
+        pendingRequests: 0,
+        pendingRequestsForPair: 0,
+      });
     } finally {
-      process.env.NODE_ENV = previousNodeEnv;
+      if (previousNodeEnv === undefined) {
+        Reflect.deleteProperty(process.env, 'NODE_ENV');
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
     }
   });
 

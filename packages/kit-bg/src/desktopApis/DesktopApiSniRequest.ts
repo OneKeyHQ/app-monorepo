@@ -1091,12 +1091,6 @@ class DesktopApiSniRequest {
     ISniRequestConfig,
     'hostname' | 'ip'
   >): Promise<ISniRequestDebugSnapshot> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new SniRequestError(
-        'SNI_INVALID_CONFIG',
-        'SNI debug snapshot is unavailable in production',
-      );
-    }
     validateHostname(hostname);
     validatePublicIp(ip);
     return this.requestLimiter.snapshot(hostname, ip);

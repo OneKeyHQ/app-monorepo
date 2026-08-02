@@ -384,7 +384,7 @@ const IpRequestGallery = () => {
             </Stack>
           ),
         },
-        ...(platformEnv.isDesktop && platformEnv.isDev
+        ...(platformEnv.isDesktop
           ? [
               {
                 title: '20-request Queue + Cancel (Desktop Dev)',

@@ -36,6 +36,7 @@ type IQueueRequestItem = {
 };
 
 type IQueueTarget = Pick<ISniRequestConfig, 'hostname' | 'ip' | 'path'>;
+type IRecoveryStatus = 'idle' | 'running' | 'succeeded' | 'failed';
 
 const DEFAULT_QUEUE_TARGET: IQueueTarget = {
   ip: '104.18.31.39',
@@ -86,7 +87,10 @@ export function DesktopSniQueueTest() {
   );
   const [snapshotError, setSnapshotError] = useState<string>();
   const [queueObserved, setQueueObserved] = useState(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<IRecoveryStatus>('idle');
+  const [recoveryDetail, setRecoveryDetail] = useState<string>();
   const controllersRef = useRef(new Map<number, AbortController>());
+  const recoveryControllerRef = useRef<AbortController | undefined>(undefined);
   const generationRef = useRef(0);
   const queueObservedRef = useRef(false);
   const runActiveRef = useRef(false);
@@ -116,8 +120,13 @@ export function DesktopSniQueueTest() {
   }, []);
 
   const cancelAllRequests = useCallback(() => {
-    controllersRef.current.forEach((controller) => controller.abort());
-  }, []);
+    // Cancel pending requests first so releasing active slots cannot admit them.
+    cancelQueuedRequests();
+    for (let index = 0; index < QUEUE_TEST_ACTIVE_LIMIT; index += 1) {
+      controllersRef.current.get(index)?.abort();
+    }
+    recoveryControllerRef.current?.abort();
+  }, [cancelQueuedRequests]);
 
   const refreshSnapshot = useCallback(async () => {
     if (snapshotInFlightRef.current || !runActiveRef.current) return;
@@ -154,7 +163,7 @@ export function DesktopSniQueueTest() {
             };
           }),
         );
-        cancelQueuedRequests();
+        cancelAllRequests();
       }
     } catch (error) {
       if (generationRef.current === generation) {
@@ -163,7 +172,7 @@ export function DesktopSniQueueTest() {
     } finally {
       snapshotInFlightRef.current = false;
     }
-  }, [cancelQueuedRequests]);
+  }, [cancelAllRequests]);
 
   const handleRun = useCallback(() => {
     generationRef.current += 1;
@@ -173,6 +182,8 @@ export function DesktopSniQueueTest() {
     queueObservedRef.current = false;
     runActiveRef.current = true;
     setQueueObserved(false);
+    setRecoveryStatus('idle');
+    setRecoveryDetail(undefined);
     setSnapshot(null);
     setSnapshotError(undefined);
 
@@ -251,6 +262,8 @@ export function DesktopSniQueueTest() {
     controllersRef.current.clear();
     queueObservedRef.current = false;
     setQueueObserved(false);
+    setRecoveryStatus('idle');
+    setRecoveryDetail(undefined);
     setSnapshot(null);
     setSnapshotError(undefined);
     setItems([]);
@@ -266,6 +279,8 @@ export function DesktopSniQueueTest() {
       runActiveRef.current = false;
       controllersRef.current.forEach((controller) => controller.abort());
       controllersRef.current.clear();
+      recoveryControllerRef.current?.abort();
+      recoveryControllerRef.current = undefined;
     },
     [],
   );
@@ -280,24 +295,31 @@ export function DesktopSniQueueTest() {
       queuedCancelled: items
         .slice(QUEUE_TEST_ACTIVE_LIMIT)
         .filter((item) => item.status === 'cancelled').length,
+      activeCancelled: items
+        .slice(0, QUEUE_TEST_ACTIVE_LIMIT)
+        .filter((item) => item.status === 'cancelled').length,
     }),
     [items],
   );
-  const queuePassed =
-    queueObserved &&
-    counts.queuedCancelled === QUEUE_TEST_PENDING_COUNT &&
-    counts.settled === QUEUE_TEST_REQUEST_COUNT &&
-    snapshot?.activeRequestsForPair === 0 &&
-    snapshot.pendingRequestsForPair === 0;
   const allRequestsSettled =
     items.length === QUEUE_TEST_REQUEST_COUNT &&
     counts.settled === QUEUE_TEST_REQUEST_COUNT;
   const mainRequestPairDrained =
     snapshot?.activeRequestsForPair === 0 &&
     snapshot.pendingRequestsForPair === 0;
+  const recoveryFinished =
+    recoveryStatus === 'succeeded' || recoveryStatus === 'failed';
+  const queuePassed =
+    queueObserved &&
+    counts.queuedCancelled === QUEUE_TEST_PENDING_COUNT &&
+    counts.activeCancelled === QUEUE_TEST_ACTIVE_LIMIT &&
+    counts.settled === QUEUE_TEST_REQUEST_COUNT &&
+    recoveryStatus === 'succeeded' &&
+    mainRequestPairDrained;
   const testFinished =
     allRequestsSettled &&
-    (mainRequestPairDrained || snapshotError !== undefined);
+    (snapshotError !== undefined ||
+      (mainRequestPairDrained && (!queueObserved || recoveryFinished)));
   const testRunning = items.length > 0 && !testFinished;
   let resultBadgeType: 'critical' | 'default' | 'success' = 'default';
   let resultLabel = 'RUNNING';
@@ -319,6 +341,69 @@ export function DesktopSniQueueTest() {
     return () => clearInterval(intervalId);
   }, [refreshSnapshot, testRunning]);
 
+  useEffect(() => {
+    if (
+      !queueObserved ||
+      !allRequestsSettled ||
+      !mainRequestPairDrained ||
+      recoveryStatus !== 'idle'
+    ) {
+      return;
+    }
+
+    const generation = generationRef.current;
+    const requestTarget = activeTargetRef.current;
+    const controller = new AbortController();
+    const requestId = `qa-sni-recovery-${Date.now().toString(36)}`;
+    const pathSeparator = requestTarget.path.includes('?') ? '&' : '?';
+    recoveryControllerRef.current = controller;
+    setRecoveryStatus('running');
+    setRecoveryDetail(undefined);
+    void sniRequest(
+      {
+        requestId,
+        ip: requestTarget.ip,
+        hostname: requestTarget.hostname,
+        path: `${requestTarget.path}${pathSeparator}qaSniRecovery=${requestId}`,
+        headers: {
+          Accept: 'application/json',
+          'X-OneKey-SNI-QA': 'recovery-test',
+        },
+        method: 'GET',
+        body: null,
+        timeout: 30_000,
+      },
+      { signal: controller.signal },
+    )
+      .then((response) => {
+        if (generationRef.current !== generation) return;
+        setRecoveryStatus(response ? 'succeeded' : 'failed');
+        setRecoveryDetail(
+          response ? `HTTP ${response.statusCode}` : 'SNI response unavailable',
+        );
+      })
+      .catch((error: unknown) => {
+        if (generationRef.current !== generation) return;
+        const { code, message } = getErrorDetails(error);
+        setRecoveryStatus('failed');
+        setRecoveryDetail(code || message);
+      })
+      .finally(() => {
+        if (recoveryControllerRef.current === controller) {
+          recoveryControllerRef.current = undefined;
+        }
+        if (generationRef.current === generation) {
+          void refreshSnapshot();
+        }
+      });
+  }, [
+    allRequestsSettled,
+    mainRequestPairDrained,
+    queueObserved,
+    recoveryStatus,
+    refreshSnapshot,
+  ]);
+
   return (
     <Stack gap="$4" testID="desktop-sni-queue-panel">
       <XStack gap="$3" flexWrap="wrap">
@@ -329,7 +414,7 @@ export function DesktopSniQueueTest() {
           <Input
             value={target.ip}
             onChangeText={(ip) => setTarget((current) => ({ ...current, ip }))}
-            disabled={hasUnsettledRequests}
+            disabled={testRunning}
             autoCapitalize="none"
           />
         </Stack>
@@ -342,7 +427,7 @@ export function DesktopSniQueueTest() {
             onChangeText={(hostname) =>
               setTarget((current) => ({ ...current, hostname }))
             }
-            disabled={hasUnsettledRequests}
+            disabled={testRunning}
             autoCapitalize="none"
           />
         </Stack>
@@ -355,7 +440,7 @@ export function DesktopSniQueueTest() {
             onChangeText={(path) =>
               setTarget((current) => ({ ...current, path }))
             }
-            disabled={hasUnsettledRequests}
+            disabled={testRunning}
             autoCapitalize="none"
           />
         </Stack>
@@ -368,12 +453,12 @@ export function DesktopSniQueueTest() {
           disabled={testRunning}
           testID="desktop-sni-queue-run"
         >
-          Run 20-request queue test
+          Run all SNI cases
         </Button>
         <Button
           variant="destructive"
           onPress={cancelAllRequests}
-          disabled={!hasUnsettledRequests}
+          disabled={!hasUnsettledRequests && recoveryStatus !== 'running'}
           testID="desktop-sni-queue-cancel-all"
         >
           Cancel all
@@ -411,19 +496,19 @@ export function DesktopSniQueueTest() {
         </Stack>
         <Stack minWidth={110}>
           <SizableText size="$bodyXs" color="$textSubdued">
-            Succeeded
+            Batch succeeded
           </SizableText>
           <SizableText size="$headingLg">{counts.succeeded}</SizableText>
         </Stack>
         <Stack minWidth={110}>
           <SizableText size="$bodyXs" color="$textSubdued">
-            Cancelled
+            Batch cancelled
           </SizableText>
           <SizableText size="$headingLg">{counts.cancelled}</SizableText>
         </Stack>
         <Stack minWidth={110}>
           <SizableText size="$bodyXs" color="$textSubdued">
-            Failed
+            Batch failed
           </SizableText>
           <SizableText size="$headingLg">{counts.failed}</SizableText>
         </Stack>
@@ -445,6 +530,27 @@ export function DesktopSniQueueTest() {
         >
           <Badge.Text>
             Queued cancelled {counts.queuedCancelled}/{QUEUE_TEST_PENDING_COUNT}
+          </Badge.Text>
+        </Badge>
+        <Badge
+          badgeType={
+            counts.activeCancelled === QUEUE_TEST_ACTIVE_LIMIT
+              ? 'success'
+              : 'default'
+          }
+          badgeSize="sm"
+        >
+          <Badge.Text>
+            Active cancelled {counts.activeCancelled}/{QUEUE_TEST_ACTIVE_LIMIT}
+          </Badge.Text>
+        </Badge>
+        <Badge
+          badgeType={recoveryStatus === 'succeeded' ? 'success' : 'default'}
+          badgeSize="sm"
+        >
+          <Badge.Text>
+            Recovery {recoveryStatus}
+            {recoveryDetail ? `: ${recoveryDetail}` : ''}
           </Badge.Text>
         </Badge>
       </XStack>
