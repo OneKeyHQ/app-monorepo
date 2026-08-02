@@ -288,21 +288,12 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       device: IDBDevice,
     ) => Promise<IDeviceResponseResult<T>>;
   }): Promise<T> {
-    let device = dbDevice;
-    if (!device && walletId) {
-      device = await localDb.getWalletDevice({ walletId });
-    }
-    if (!device) {
-      if (connectId || featuresDeviceId) {
-        device = await localDb.getDeviceByQuery({
-          connectId,
-          featuresDeviceId,
-        });
-      }
-    }
-    if (!device) {
-      throw new OneKeyLocalError('Device not found');
-    }
+    const device = await this._getDeviceForSettings({
+      walletId,
+      connectId,
+      featuresDeviceId,
+      dbDevice,
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
@@ -667,7 +658,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         debugMethodName: 'deviceSettings.setPassphraseEnabled.trezor',
         settings: { use_passphrase: passphraseEnabled },
         preciseUpdateFields: {
-          passphraseProtection: passphraseEnabled,
+          passphrase_protection: passphraseEnabled,
         },
       });
     }
@@ -705,7 +696,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         debugMethodName: 'deviceSettings.setAutoLockDelayMs.trezor',
         settings: { auto_lock_delay_ms: autoLockDelayMs },
         preciseUpdateFields: {
-          autoLockDelayMs,
+          auto_lock_delay_ms: autoLockDelayMs,
         },
       });
     }
@@ -856,6 +847,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         dbDevice: device,
         debugMethodName: 'deviceSettings.setHapticFeedback.trezor',
         settings: { haptic_feedback: hapticFeedback },
+        preciseUpdateFields: {
+          haptic_feedback: hapticFeedback,
+        },
       });
     }
     return this._withDeviceProcessing({

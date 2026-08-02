@@ -879,7 +879,11 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
-        serviceHardwareUtils.hardwareLog('device state update', event);
+        serviceHardwareUtils.hardwareLog('device state update', {
+          revision: event.revision,
+          source: event.source,
+          changedKeys: event.changedKeys,
+        });
         const queueKeys = this.getDeviceStateSyncKeys([
           event.state.identity.serialNo,
           event.state.identity.deviceId,

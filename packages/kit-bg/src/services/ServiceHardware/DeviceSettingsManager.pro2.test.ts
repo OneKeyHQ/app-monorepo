@@ -62,6 +62,21 @@ function buildDevice(deviceType: EDeviceType): IDBDevice {
   } as IDBDevice;
 }
 
+function buildTrezorDevice(): IDBDevice {
+  return {
+    ...buildDevice(EDeviceType.Unknown),
+    connectId: 'TREZOR_CONNECT_ID',
+    deviceId: 'TREZOR_DEVICE_ID',
+    vendor: EHardwareVendor.trezor,
+    featuresInfo: {
+      device_id: 'TREZOR_DEVICE_ID',
+      passphrase_protection: false,
+      auto_lock_delay_ms: 60_000,
+      haptic_feedback: false,
+    },
+  } as IDBDevice;
+}
+
 function buildManager(device: IDBDevice, sdk: CoreApi) {
   jest.spyOn(localDb, 'getDeviceByQuery').mockResolvedValue(device);
   jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
@@ -78,7 +93,7 @@ function buildManager(device: IDBDevice, sdk: CoreApi) {
   return manager;
 }
 
-describe('DeviceSettingsManager Pro2 adapter', () => {
+describe('DeviceSettingsManager device adapters', () => {
   test.each([
     ['setLanguage', { language: 'ja-Jpan-JP' }, { language: 'ja-Jpan-JP' }],
     [
@@ -380,4 +395,69 @@ describe('DeviceSettingsManager Pro2 adapter', () => {
     });
     expect(result).toMatchObject({ message: 'Success', applyScreen: true });
   });
+
+  test.each([
+    [
+      'setPassphraseEnabled',
+      { passphraseEnabled: true },
+      { use_passphrase: true },
+      { passphrase_protection: true },
+    ],
+    [
+      'setAutoLockDelayMs',
+      { autoLockDelayMs: 120_000 },
+      { auto_lock_delay_ms: 120_000 },
+      { auto_lock_delay_ms: 120_000 },
+    ],
+    [
+      'setHapticFeedback',
+      { hapticFeedback: true },
+      { haptic_feedback: true },
+      { haptic_feedback: true },
+    ],
+  ] as const)(
+    'persists Trezor %s using canonical feature fields',
+    async (methodName, params, settings, preciseUpdateFields) => {
+      const device = buildTrezorDevice();
+      const deviceSettings = jest.fn(async () => ({
+        success: true as const,
+        payload: {},
+      }));
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(device);
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(localDb.updateDevice).mockClear();
+      const manager = new DeviceSettingsManager({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId: jest.fn(async () => device.connectId),
+          },
+          serviceHardwareUI: {
+            withHardwareProcessing: jest.fn(
+              async (action: () => Promise<unknown>) => action(),
+            ),
+          },
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest.fn(async () => ({ deviceSettings })),
+            requestTrezorBleConnectIdForDevice: jest.fn(),
+          },
+        } as unknown as IBackgroundApi,
+      });
+
+      const method = manager[methodName] as (
+        input: typeof params & { connectId: string },
+      ) => Promise<unknown>;
+      await method.call(manager, {
+        connectId: device.connectId,
+        ...params,
+      });
+
+      expect(deviceSettings).toHaveBeenCalledWith(device.connectId, settings);
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(localDb.updateDevice).toHaveBeenCalledWith({
+        features: device.featuresInfo,
+        preciseUpdateFields,
+      });
+    },
+  );
 });

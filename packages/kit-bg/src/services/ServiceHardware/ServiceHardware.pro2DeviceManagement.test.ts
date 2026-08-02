@@ -14,6 +14,7 @@ import localDb from '../../dbs/local/localDb';
 import { hardwareUiStateAtom } from '../../states/jotai/atoms';
 
 import ServiceHardware from './ServiceHardware';
+import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -774,6 +775,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
     });
+    const hardwareLogSpy = jest
+      .spyOn(serviceHardwareUtils, 'hardwareLog')
+      .mockImplementation(() => undefined);
     await service.registerSdkEvents(instance as never);
 
     const state = {
@@ -807,6 +811,15 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       EAppEventBusNames.HardwareDeviceStateUpdate,
       expect.objectContaining({ state, revision: 2 }),
     );
+    expect(hardwareLogSpy).toHaveBeenCalledWith('device state update', {
+      changedKeys: ['identity.label'],
+      revision: 2,
+      source: 'apply-settings',
+    });
+    expect(JSON.stringify(hardwareLogSpy.mock.calls)).not.toContain(
+      'PRO2_SERIAL',
+    );
+    hardwareLogSpy.mockRestore();
   });
 
   it('still broadcasts the in-memory state when persistence fails', async () => {
