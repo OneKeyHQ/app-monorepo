@@ -480,6 +480,7 @@ class ServiceToken extends ServiceBase {
     // cache and account-worth consumers see them.
     const tokenSelectorFilterParams = {
       withoutDappToken: rest.withoutDappToken,
+      withoutWalletToken: rest.withoutWalletToken,
     };
     resp.data.data.tokens = filterTokenSelectorTokenDataByDappTokenFilterParams(
       {

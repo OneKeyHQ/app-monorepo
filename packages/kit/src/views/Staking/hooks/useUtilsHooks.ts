@@ -129,15 +129,19 @@ export function useTrackTokenAllowance({
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
   useEffect(() => {
+    let cancelled = false;
     if (isExistApproveTarget) {
       const fetchAllowance = async () => {
         if (!txDetails && !shouldFetchInitialAllowance) {
-          setLoading(false);
+          if (!cancelled) {
+            setLoading(false);
+          }
           return;
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
           if (
+            !cancelled &&
             allowanceInfo &&
             allowanceTargetKeyRef.current === allowanceTargetKey
           ) {
@@ -147,11 +151,19 @@ export function useTrackTokenAllowance({
             });
           }
         } finally {
-          setLoading(false);
+          if (
+            !cancelled &&
+            allowanceTargetKeyRef.current === allowanceTargetKey
+          ) {
+            setLoading(false);
+          }
         }
       };
       void fetchAllowance().catch(() => undefined);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [
     txDetails,
     networkId,

@@ -1918,7 +1918,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     );
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const indexedAccountId = addressInfo.accountInfo?.indexedAccount?.id;
-    const deriveType = addressInfo.accountInfo?.deriveType;
+    const deriveType = addressInfo.deriveType;
     const account = {
       walletId,
       indexedAccountId,

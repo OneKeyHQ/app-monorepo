@@ -12,7 +12,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -69,5 +69,69 @@ describe('useTrackTokenAllowance', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.allowance).toBe('0');
+  });
+
+  it('ignores an outdated request while loading the current target', async () => {
+    let resolveFirstRequest:
+      | ((value: { allowance: string; allowanceParsed: string }) => void)
+      | undefined;
+    let resolveSecondRequest:
+      | ((value: { allowance: string; allowanceParsed: string }) => void)
+      | undefined;
+    serviceStaking.fetchTokenAllowance
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstRequest = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecondRequest = resolve;
+          }),
+      );
+
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useTrackTokenAllowance({
+          ...params,
+          accountId,
+          initialValue: undefined,
+        }),
+      { initialProps: { accountId: 'account-1' } },
+    );
+
+    await waitFor(() =>
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1),
+    );
+    rerender({ accountId: 'account-2' });
+    await waitFor(() =>
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(2),
+    );
+
+    await act(async () => {
+      resolveFirstRequest?.({
+        allowance: '10000000',
+        allowanceParsed: '10',
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.allowance).toBe('0');
+
+    await act(async () => {
+      resolveSecondRequest?.({
+        allowance: '20000000',
+        allowanceParsed: '20',
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.allowance).toBe('20');
+    });
   });
 });

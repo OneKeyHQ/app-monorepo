@@ -3677,7 +3677,7 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('creates a missing recipient address on the resolved target network', async () => {
+  it('creates a missing recipient address with the resolved target identity', async () => {
     const hdWallet: IDBWallet = {
       id: 'hd-1',
       name: 'HD Wallet 1',
@@ -3689,6 +3689,7 @@ describe('useSwapActions', () => {
     };
     const ethActiveAccountInfo: IAccountSelectorActiveAccountInfo = {
       ...activeAccountInfo,
+      deriveType: 'default',
       wallet: hdWallet,
       indexedAccount: {
         id: 'hd-1--0',
@@ -3703,6 +3704,7 @@ describe('useSwapActions', () => {
     };
     const ethAddressInfo: ISwapAddressInfo = {
       ...fromAddressInfo,
+      deriveType: ethActiveAccountInfo.deriveType,
       accountInfo: ethActiveAccountInfo,
       activeAccount: ethActiveAccountInfo,
     };
@@ -3710,6 +3712,7 @@ describe('useSwapActions', () => {
       ...ethAddressInfo,
       address: undefined,
       networkId: ltcToken.networkId,
+      deriveType: 'BIP84',
     };
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapNetworks(), [evmSwapNetwork, ltcSwapNetwork]);
@@ -3735,6 +3738,7 @@ describe('useSwapActions', () => {
           actionData: expect.objectContaining({
             account: expect.objectContaining({
               networkId: ltcToken.networkId,
+              deriveType: 'BIP84',
             }),
           }),
         }),
