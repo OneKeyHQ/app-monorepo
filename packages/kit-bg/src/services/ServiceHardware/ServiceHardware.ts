@@ -2595,14 +2595,8 @@ class ServiceHardware extends ServiceBase {
       connectId: compatibleConnectId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
     });
-    const portfolioSDK = hardwareSDK as typeof hardwareSDK & {
-      uploadPortfolio: (
-        targetConnectId: string,
-        params: { packageBytes: ArrayBuffer },
-      ) => HardwareResponse<{ portfolioUpdated: true }>;
-    };
     return convertDeviceResponse(() =>
-      portfolioSDK.uploadPortfolio(compatibleConnectId, {
+      hardwareSDK.uploadPortfolio(compatibleConnectId, {
         packageBytes,
       }),
     );

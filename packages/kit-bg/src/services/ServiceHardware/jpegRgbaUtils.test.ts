@@ -25,6 +25,13 @@ describe('decodeJpegToRgba', () => {
         label: 'NFT image',
       }),
     ).toMatchObject({ width: 2, height: 1, data: expect.any(Uint8Array) });
+    expect(mockDecode).toHaveBeenCalledWith(
+      Buffer.from('ffd8ff', 'hex'),
+      expect.objectContaining({
+        maxMemoryUsageInMB: 32,
+        maxResolutionInMP: 1,
+      }),
+    );
   });
 
   it('rejects empty image data', () => {
@@ -47,6 +54,30 @@ describe('decodeJpegToRgba', () => {
         label: 'NFT image',
       }),
     ).toThrow('expected 1x1');
+  });
+
+  it('rejects malformed hex before decoding', () => {
+    expect(() =>
+      decodeJpegToRgba({
+        imageHex: 'not-hex',
+        expectedWidth: 2,
+        expectedHeight: 1,
+        label: 'NFT image',
+      }),
+    ).toThrow('image hex is invalid');
+    expect(mockDecode).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized encoded image before decoding', () => {
+    expect(() =>
+      decodeJpegToRgba({
+        imageHex: 'aa'.repeat(64 * 1024 + 17),
+        expectedWidth: 2,
+        expectedHeight: 1,
+        label: 'wallpaper',
+      }),
+    ).toThrow('image is too large');
+    expect(mockDecode).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid RGBA buffer length', () => {

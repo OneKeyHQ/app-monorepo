@@ -10,6 +10,19 @@ jest.mock('../hardware/instance', () => ({
   CoreSDKLoader: jest.fn(async () => ({
     getDeviceBootloaderVersion: jest.fn(() => []),
     getDeviceFirmwareVersion: jest.fn(() => []),
+    getDeviceBLEFirmwareVersion: jest.fn(
+      (features: {
+        bleVersion?: string;
+        ble_ver?: string;
+        onekey_ble_version?: string;
+      }) => {
+        const version =
+          features.bleVersion ||
+          features.onekey_ble_version ||
+          features.ble_ver;
+        return version?.split('.').map(Number) ?? [];
+      },
+    ),
     getDeviceLabel: jest.fn(
       (features: { bleName?: string; deviceType?: string; label?: string }) =>
         features.label || features.bleName || `OneKey ${features.deviceType}`,
@@ -76,6 +89,18 @@ describe('deviceUtils', () => {
       bleVersion: '3.4.5',
     });
   });
+
+  it.each(['ble_ver', 'onekey_ble_version'] as const)(
+    'reads the BLE version from a legacy %s DB record',
+    async (field) => {
+      await expect(
+        deviceUtils.getDeviceVersion({
+          device: undefined,
+          features: { [field]: '2.1.0' } as never,
+        }),
+      ).resolves.toMatchObject({ bleVersion: '2.1.0' });
+    },
+  );
 
   it('uses the user label as display name before the BLE connection name', async () => {
     await expect(

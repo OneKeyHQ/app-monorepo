@@ -148,8 +148,11 @@ async function getDeviceVersion(params: IGetDeviceVersionParams): Promise<{
   firmwareVersion: string;
   bootloaderVersion: string;
 }> {
-  const { getDeviceBootloaderVersion, getDeviceFirmwareVersion } =
-    await CoreSDKLoader();
+  const {
+    getDeviceBLEFirmwareVersion,
+    getDeviceBootloaderVersion,
+    getDeviceFirmwareVersion,
+  } = await CoreSDKLoader();
   const { device, features } = params;
   const knownDevice = device as KnownDevice | undefined;
   const dbDevice = device as IDBDevice | undefined;
@@ -168,9 +171,13 @@ async function getDeviceVersion(params: IGetDeviceVersionParams): Promise<{
       ''
     : '';
 
+  const compatibleBleVersion = usedFeatures
+    ? (getDeviceBLEFirmwareVersion(usedFeatures) || []).join('.')
+    : '';
   const bleVersion =
     (knownDevice?.bleFirmwareVersion || []).join('.') ||
     usedFeatures?.bleVersion ||
+    (compatibleBleVersion === '0.0.0' ? '' : compatibleBleVersion) ||
     '';
 
   const firmwareVersion = usedFeatures
