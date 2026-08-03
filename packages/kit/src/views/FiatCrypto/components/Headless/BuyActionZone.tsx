@@ -7,7 +7,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EBuyActionState } from './types';
 
@@ -106,22 +105,7 @@ export function BuyActionZone({
     // render our own button (the mock returns button: null); on device this
     // is the SDK native button.
     content = (
-      <Stack
-        // TEMPORARY(onramper-debug): measure the real native block (button +
-        // provider consent copy) so ZONE_MIN_HEIGHT can be set to the actual
-        // value instead of an estimate. Remove before merge.
-        onLayout={
-          platformEnv.isDev
-            ? ({ nativeEvent }) =>
-                console.log(
-                  '[onramper-debug] zone content height',
-                  Math.ceil(nativeEvent.layout.height),
-                  'state',
-                  state,
-                )
-            : undefined
-        }
-      >
+      <Stack>
         {isMock ? (
           <YStack gap="$2">
             <Button

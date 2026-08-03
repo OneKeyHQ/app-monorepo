@@ -65,12 +65,6 @@ const HEADLESS_BUY_BUTTON_STYLE = {
   borderRadius: 28,
 } as const;
 
-// Dev-preview destination for the Gallery entry, which carries no accountId
-// (production entries always resolve the real account address). Franco's own
-// wallet — real-money staging checkouts land here, so NEVER swap in a
-// placeholder address (EIP-55 checksum verified 2026-07-16).
-const DEV_PREVIEW_ETH_ADDRESS = '0x6289201F7AabF9b9aAEf2B3C25018aA26e0102f0';
-
 // Two-state screen: the amount block (big fiat figure + ≈crypto estimate)
 // persists across both states, centered in the space the lower half leaves;
 // 'input' shows a presets/preview-CTA slot + keypad (the slot morphs into the
@@ -248,9 +242,7 @@ function HeadlessBuyPage() {
 
   // The address actually used for quoting; also shown on the review card so
   // the user can confirm the destination before paying.
-  const effectiveAddress =
-    address ??
-    (platformEnv.isDev && !accountId ? DEV_PREVIEW_ETH_ADDRESS : undefined);
+  const effectiveAddress = address;
 
   // Reference-stable: this is a dependency of the hook's debounce effect.
   const onlyOnramps = useMemo(
@@ -398,19 +390,6 @@ function HeadlessBuyPage() {
   const heroLayout = layoutAnimReady
     ? LinearTransition.duration(MOTION_ENTER_MS).easing(MOTION_EASE_IN_OUT)
     : undefined;
-
-  // TEMPORARY(onramper-debug): trace the review→input bottom-button jolt —
-  // timestamps of state flips + block geometry. Remove before merge.
-  useEffect(() => {
-    if (platformEnv.isDev) {
-      console.log('[onramper-debug] mode ->', mode);
-    }
-  }, [mode]);
-  useEffect(() => {
-    if (platformEnv.isDev) {
-      console.log('[onramper-debug] actionState ->', actionState);
-    }
-  }, [actionState]);
 
   // Always-mounted fade for the error line — the slot is fixed-height, so
   // only opacity moves; the last message is retained so the text doesn't
@@ -604,18 +583,6 @@ function HeadlessBuyPage() {
                 MOTION_EASE_OUT,
               )}
               exiting={FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_IN)}
-              // TEMPORARY(onramper-debug): remove before merge.
-              onLayout={
-                platformEnv.isDev
-                  ? ({ nativeEvent }) =>
-                      console.log(
-                        '[onramper-debug] input block y',
-                        Math.round(nativeEvent.layout.y),
-                        'h',
-                        Math.round(nativeEvent.layout.height),
-                      )
-                  : undefined
-              }
             >
               <YStack gap="$3">
                 {/* One slot, two states: presets while the amount is empty

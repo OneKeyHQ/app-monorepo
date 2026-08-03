@@ -134,72 +134,15 @@ export function createRealOnramperClient(
     logLevel: platformEnv.isDev ? 'debug' : 'off',
     onSessionExpired: params.onSessionExpired,
   });
-  if (platformEnv.isDev) {
-    // TEMPORARY(onramper-debug): dump the SDK state stream to learn where
-    // `amount_limit` requirements surface (at quote time vs at button tap) —
-    // decides whether min/max copy is possible pre-tap; remove before merge.
-    client.addStateListener((state) => {
-      console.log('[onramper-debug] state', JSON.stringify(state));
-    });
-  }
   return {
     isMock: false,
-    initialize: (session) => {
-      if (platformEnv.isDev) {
-        // TEMPORARY(onramper-debug): staging-only session dump for debugging the
-        // BFF invalid_grant rejection; remove before merge.
-        console.log(
-          '[onramper-debug] initialize session =',
-          JSON.stringify(session),
-        );
-      }
-      return client.initialize(session);
-    },
+    initialize: (session) => client.initialize(session),
     getCheckoutRequirements: async (request, buttonStyle) => {
       try {
         const res = await client.getCheckoutRequirements(request, buttonStyle);
-        if (platformEnv.isDev) {
-          // TEMPORARY(onramper-debug): log successful quotes — quoteId is what
-          // Onramper support asks for when tracing an order server-side; the
-          // error path below already logs failures. Remove before merge.
-          console.log(
-            '[onramper-debug] quote ok',
-            JSON.stringify({
-              quoteId: res.quote?.quoteId,
-              ramp: res.quote?.ramp,
-              payout: res.quote?.payout,
-              // rate verified = payout/amount (crypto-per-fiat); fees logged
-              // so each quote line carries the full spread-analysis inputs.
-              rate: res.quote?.rate,
-              networkFee: res.quote?.networkFee,
-              transactionFee: res.quote?.transactionFee,
-              // Unconfirmed semantics — suspected alternative provider slugs;
-              // our provider-switch UI feeds on it.
-              recommendations: res.quote?.recommendations,
-            }),
-          );
-        }
         return { button: res.button as ReactNode, quote: res.quote };
       } catch (error) {
-        const enriched = withRecoveredErrorCode(error);
-        if (platformEnv.isDev) {
-          // TEMPORARY(onramper-debug): surface the real SDK error code/info while
-          // tuning the retryable-vs-structural classification; remove before merge.
-          const e = enriched as {
-            code?: string;
-            message?: string;
-            info?: unknown;
-          };
-          console.log(
-            '[onramper-debug] quote error',
-            JSON.stringify({
-              code: e?.code,
-              message: e?.message,
-              info: e?.info,
-            }),
-          );
-        }
-        throw enriched;
+        throw withRecoveredErrorCode(error);
       }
     },
     addEventListener: (
@@ -207,11 +150,6 @@ export function createRealOnramperClient(
       listener: IOnramperEventListener,
     ) =>
       client.addEventListener(name, (event: unknown) => {
-        if (platformEnv.isDev) {
-          // TEMPORARY(onramper-debug): dump raw SDK events (incl. error.info)
-          // while debugging staging checkout failures; remove before merge.
-          console.log('[onramper-debug] event', name, JSON.stringify(event));
-        }
         const e = event as ISdkEventPayload;
         listener({
           checkoutId: e.checkoutId,
