@@ -266,6 +266,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
   },
+  mobileHeaderText: {
+    fontFamily: platformEnv.isNative ? 'Roobert-Regular' : undefined,
+    fontSize: 10,
+    lineHeight: 16,
+    fontWeight: '400',
+  },
   verticalHeaderText: {
     fontSize: 12,
     lineHeight: 24,
@@ -2146,11 +2152,9 @@ const OrderBookMobileHeader = memo(
             <View style={{ flex: MOBILE_PRICE_FLEX }}>
               <PerpBookText
                 style={[
-                  styles.headerText,
+                  styles.mobileHeaderText,
                   {
                     color: textColor.textSubdued,
-                    fontSize: 11,
-                    lineHeight: 14,
                   },
                 ]}
               >
@@ -2158,11 +2162,9 @@ const OrderBookMobileHeader = memo(
               </PerpBookText>
               <PerpBookText
                 style={[
-                  styles.headerText,
+                  styles.mobileHeaderText,
                   {
                     color: textColor.textSubdued,
-                    fontSize: 10,
-                    lineHeight: 12,
                   },
                 ]}
               >
@@ -2177,11 +2179,9 @@ const OrderBookMobileHeader = memo(
             >
               <PerpBookText
                 style={[
-                  styles.headerText,
+                  styles.mobileHeaderText,
                   {
                     color: textColor.textSubdued,
-                    fontSize: 11,
-                    lineHeight: 14,
                   },
                 ]}
               >
@@ -2190,11 +2190,9 @@ const OrderBookMobileHeader = memo(
               <PerpBookText
                 numberOfLines={1}
                 style={[
-                  styles.headerText,
+                  styles.mobileHeaderText,
                   {
                     color: textColor.textSubdued,
-                    fontSize: 10,
-                    lineHeight: 12,
                   },
                 ]}
               >
@@ -2344,11 +2342,11 @@ export function OrderBookMobile({
 
   const priceFontSize = useMemo(() => {
     if (!asks.length) {
-      return 11;
+      return 12;
     }
     // get max length of all asks prices
     const maxLength = Math.max(...asks.map((ask) => ask.px.length));
-    return Math.max(7, 11 - (maxLength - 6) * 0.5);
+    return Math.max(8, 12 - (maxLength - 6) * 0.5);
   }, [asks]);
 
   // Handle tick option change

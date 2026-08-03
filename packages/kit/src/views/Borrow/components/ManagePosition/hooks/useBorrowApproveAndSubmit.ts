@@ -52,18 +52,19 @@ export function useBorrowApproveAndSubmit({
     networkId: approveTarget?.networkId ?? '',
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
-    initialValue: currentAllowance ?? '0',
+    initialValue: currentAllowance,
     approveType: EApproveType.Legacy,
   });
   const isFocus = useIsFocused();
 
   const needsApproval = useMemo(() => {
     if (!useApprove) return false;
+    if (loadingAllowance) return false;
     if (!isFocus) return true;
     const amountBN = new BigNumber(amountValue || '0');
     const allowanceBN = new BigNumber(allowance || '0');
     return !amountBN.isNaN() && amountBN.gt(0) && allowanceBN.lt(amountBN);
-  }, [allowance, amountValue, isFocus, useApprove]);
+  }, [allowance, amountValue, isFocus, loadingAllowance, useApprove]);
   const approveSnapshotKey = useMemo(
     () =>
       [
