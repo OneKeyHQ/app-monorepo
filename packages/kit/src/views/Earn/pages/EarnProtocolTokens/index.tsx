@@ -299,8 +299,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                   fallbackUnit={row.item.provider.rewardUnit || 'APY'}
                   color={
                     row.item.aprInfo?.highlight
-                      ? row.item.aprInfo.highlight.color ?? '$textSuccess'
-                      : row.item.aprInfo?.normal?.color ?? '$text'
+                      ? (row.item.aprInfo.highlight.color ?? '$textSuccess')
+                      : (row.item.aprInfo?.normal?.color ?? '$text')
                   }
                 />
                 {row.item.tvl?.text ? (

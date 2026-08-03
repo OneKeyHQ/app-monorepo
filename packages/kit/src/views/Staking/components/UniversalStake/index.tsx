@@ -210,21 +210,22 @@ function ProtocolSwitchTriggerRow({
 
   if (aprDisplay) {
     // 删除线场景 (deprecated) 保留原渲染；常规场景数值+小字 APY/APR 后缀
-    aprElement = aprDisplay.textDecorationLine === 'line-through' ? (
-      <SizableText
-        size="$headingLg"
-        color={aprDisplay.color}
-        textDecorationLine={aprDisplay.textDecorationLine}
-      >
-        {aprDisplay.text}
-      </SizableText>
-    ) : (
-      <EarnAprSuffixText
-        text={aprDisplay.text}
-        size="$headingLg"
-        color={aprDisplay.color}
-      />
-    );
+    aprElement =
+      aprDisplay.textDecorationLine === 'line-through' ? (
+        <SizableText
+          size="$headingLg"
+          color={aprDisplay.color}
+          textDecorationLine={aprDisplay.textDecorationLine}
+        >
+          {aprDisplay.text}
+        </SizableText>
+      ) : (
+        <EarnAprSuffixText
+          text={aprDisplay.text}
+          size="$headingLg"
+          color={aprDisplay.color}
+        />
+      );
   } else if (isLoading) {
     aprElement = <Skeleton h="$5" w={72} borderRadius="$2" />;
   }

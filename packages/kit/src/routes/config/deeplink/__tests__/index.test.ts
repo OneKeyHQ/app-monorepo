@@ -259,7 +259,9 @@ describe('stocks / perps universal links', () => {
     const { EarnNavigation } = jest.requireMock(
       '../../../../views/Earn/earnUtils',
     );
-    handleDeepLinkUrl({ url: 'https://app.onekey.so/earn/ethereum/USDC/spark' });
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/ethereum/USDC/spark',
+    });
     await flushAsyncTasks();
 
     expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
