@@ -50,7 +50,8 @@ const TOKEN_CATEGORY_TYPES = [
 
 const TOKEN_CATEGORY_LABEL_IDS: Record<string, ETranslations> = {
   [EAvailableAssetsTypeEnum.All]: ETranslations.global_all,
-  [EAvailableAssetsTypeEnum.StableCoins]: ETranslations.earn_stable_tokens__action,
+  [EAvailableAssetsTypeEnum.StableCoins]:
+    ETranslations.earn_stable_tokens__action,
   [EAvailableAssetsTypeEnum.NativeTokens]:
     ETranslations.earn_non_stable_tokens__action,
 };
