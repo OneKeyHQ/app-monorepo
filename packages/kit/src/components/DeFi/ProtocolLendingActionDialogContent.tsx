@@ -426,12 +426,10 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
-  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
-  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -440,9 +438,6 @@ function LendingActionAlerts({
   const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
     if (!showLiquidationWarning) {
       return true;
-    }
-    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
-      return false;
     }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
@@ -1772,7 +1767,6 @@ function ProtocolLendingActionBorrowContent({
       showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
-      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
     />
   ) : null;
   const contentNode = (
