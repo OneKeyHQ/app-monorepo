@@ -122,9 +122,34 @@ export function useEModeFundingTx({
     fundingTxKey,
     /** A top-up swap for the active step is on-chain and unconfirmed. */
     funding: fundingTxKey !== null,
+    /** When the active intent was armed, for the disarm grace window. */
+    armedAt: armedIntent?.armedAt ?? null,
     armFunding,
     disarmFunding,
   };
+}
+
+/**
+ * A broadcast swap is published to the pending list in the background and
+ * bridged to this runtime, which can land after focus returns here. Disarming
+ * inside that window drops the intent for good — `matchesFundingIntent` needs
+ * it, so the arriving transaction never matches — and the shortfall card then
+ * re-offers Top up for the whole life of a deposit that is already on-chain.
+ */
+export const FUNDING_INTENT_DISARM_GRACE_MS = 3000;
+
+/** How long to wait before honouring a focus-edge disarm. */
+export function getFundingIntentDisarmDelayMs({
+  armedAt,
+  now,
+}: {
+  armedAt: number | null;
+  now: number;
+}) {
+  if (armedAt === null) {
+    return 0;
+  }
+  return Math.max(0, FUNDING_INTENT_DISARM_GRACE_MS - (now - armedAt));
 }
 
 export function shouldDisarmFundingIntentOnFocus({

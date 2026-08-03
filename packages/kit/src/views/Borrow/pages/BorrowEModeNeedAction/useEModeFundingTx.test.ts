@@ -1,6 +1,8 @@
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  FUNDING_INTENT_DISARM_GRACE_MS,
+  getFundingIntentDisarmDelayMs,
   matchesFundingIntent,
   shouldDisarmFundingIntentOnFocus,
 } from './useEModeFundingTx';
@@ -151,5 +153,26 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
         fundingTxKey: null,
       }),
     ).toBe(false);
+  });
+});
+
+describe('getFundingIntentDisarmDelayMs', () => {
+  it('holds the disarm while a just-broadcast transaction can still arrive', () => {
+    expect(getFundingIntentDisarmDelayMs({ armedAt: 1000, now: 1200 })).toBe(
+      FUNDING_INTENT_DISARM_GRACE_MS - 200,
+    );
+  });
+
+  it('disarms immediately once the grace window has closed', () => {
+    expect(
+      getFundingIntentDisarmDelayMs({
+        armedAt: 1000,
+        now: 1000 + FUNDING_INTENT_DISARM_GRACE_MS,
+      }),
+    ).toBe(0);
+  });
+
+  it('disarms immediately when no intent is armed', () => {
+    expect(getFundingIntentDisarmDelayMs({ armedAt: null, now: 1200 })).toBe(0);
   });
 });

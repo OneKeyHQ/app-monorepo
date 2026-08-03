@@ -77,6 +77,7 @@ import {
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
+  getFundingIntentDisarmDelayMs,
   shouldDisarmFundingIntentOnFocus,
   useEModeFundingTx,
 } from './useEModeFundingTx';
@@ -512,7 +513,7 @@ function BorrowEModeNeedActionView() {
   const activeUnderfundedRepay =
     activeStep?.kind === 'repay' && activeShortfall ? activeStep : null;
 
-  const { fundingTxKey, funding, armFunding, disarmFunding } =
+  const { fundingTxKey, funding, armedAt, armFunding, disarmFunding } =
     useEModeFundingTx({
       networkId,
       accountId,
@@ -521,21 +522,51 @@ function BorrowEModeNeedActionView() {
         ? balanceLookupAddress({ step: activeStep })
         : null,
     });
+  const [deferredDisarmAt, setDeferredDisarmAt] = useState<number | null>(null);
 
   // Swap is armed immediately before its modal opens. If that detour returns
   // without producing a matching pending transaction, it was cancelled; clear
   // the intent so a later same-token swap cannot pull the user back here.
+  // A just-broadcast transaction can still be in flight to this runtime though,
+  // so hold the disarm for the grace window instead of acting on the focus edge
+  // alone — that edge is evaluated once and losing it is irreversible.
   useEffect(() => {
     if (
-      shouldDisarmFundingIntentOnFocus({
+      !shouldDisarmFundingIntentOnFocus({
         isFocused,
         previousIsFocused,
         fundingTxKey,
       })
     ) {
-      disarmFunding();
+      return;
     }
-  }, [disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
+    const delay = getFundingIntentDisarmDelayMs({ armedAt, now: Date.now() });
+    if (delay === 0) {
+      disarmFunding();
+      return;
+    }
+    setDeferredDisarmAt(Date.now() + delay);
+  }, [armedAt, disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
+
+  // Resolve a held disarm: the transaction arriving cancels it, otherwise it
+  // runs once the grace window closes.
+  useEffect(() => {
+    if (deferredDisarmAt === null) {
+      return;
+    }
+    if (fundingTxKey) {
+      setDeferredDisarmAt(null);
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        setDeferredDisarmAt(null);
+        disarmFunding();
+      },
+      Math.max(0, deferredDisarmAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [deferredDisarmAt, disarmFunding, fundingTxKey]);
 
   // Once the funded step clears, the intent has finished serving its purpose.
   useEffect(() => {

@@ -297,3 +297,37 @@ describe('SimpleDbEntitySwapHistory.repairSwapHistoryNetworkInfo', () => {
     expect(result.histories[1]).toBe(concurrent);
   });
 });
+
+async function runUpdate(
+  histories: ISwapTxHistory[],
+  ...args: Parameters<SimpleDbEntitySwapHistory['updateSwapHistoryItem']>
+): Promise<ISwapTxHistory[]> {
+  const entity = new SimpleDbEntitySwapHistory();
+  jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories });
+  const setRawData = jest
+    .spyOn(entity, 'setRawData')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .mockResolvedValue(undefined as any);
+  await entity.updateSwapHistoryItem(...args);
+  const written = setRawData.mock.calls[0]?.[0] as {
+    histories: ISwapTxHistory[];
+  };
+  return written.histories;
+}
+
+describe('SimpleDbEntitySwapHistory.updateSwapHistoryItem', () => {
+  const resolved: ISwapTxHistory = {
+    ...swapPending,
+    status: ESwapTxHistoryStatus.SUCCESS,
+  };
+
+  it('replaces the stored row in place', async () => {
+    const written = await runUpdate([swapPending, swapSuccess], resolved);
+    expect(written).toEqual([resolved, swapSuccess]);
+  });
+
+  it('inserts a swap whose non-blocking pending write never landed', async () => {
+    const written = await runUpdate([swapSuccess], resolved);
+    expect(written).toEqual([resolved, swapSuccess]);
+  });
+});

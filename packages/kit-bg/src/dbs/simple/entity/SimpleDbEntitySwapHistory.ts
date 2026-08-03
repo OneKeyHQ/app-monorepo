@@ -112,7 +112,18 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     if (index !== -1) {
       histories[index] = item;
       await this.setRawData({ ...data, histories });
+      return;
     }
+    // A pending item is persisted without blocking the broadcast handoff, so
+    // that write can fail and leave this update as the first durable record the
+    // swap ever gets. Insert it rather than dropping an already-broadcast
+    // transaction: every delete path also stops the polling that leads here, so
+    // an item still receiving updates is not one the user cleared.
+    histories.unshift(item);
+    if (histories.length > historyCircularBufferMaxSize) {
+      histories.pop();
+    }
+    await this.setRawData({ ...data, histories });
   }
 
   @backgroundMethod()
