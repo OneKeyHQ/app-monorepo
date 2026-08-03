@@ -119,6 +119,42 @@ describe('ServiceMarketV2 kline by count', () => {
     });
   });
 
+  it('preserves the monthly interval for v3 and v2 fallback requests', async () => {
+    const legacyResult: IMarketTokenKLineResponse = {
+      points: [
+        { t: 900, o: 1, h: 2, l: 1, c: 2, v: 3 },
+        { t: 960, o: 2, h: 3, l: 2, c: 3, v: 4 },
+      ],
+      total: 2,
+    };
+    const get = jest
+      .fn()
+      .mockRejectedValueOnce(buildHttpError(404))
+      .mockResolvedValueOnce({
+        data: { code: 0, message: 'ok', data: legacyResult },
+      });
+    const service = createService();
+    service.getClient = jest.fn().mockResolvedValue({ get });
+
+    await service.fetchMarketTokenKlineByCount({
+      tokenAddress: '0xtoken',
+      networkId: 'evm--1',
+      interval: '1M',
+      timeTo: 1000,
+      targetCount: 2,
+      stopAfterCount: 2,
+      historyStartTime: 880,
+    });
+
+    expect(get).toHaveBeenNthCalledWith(1, '/utility/v3/market/token/kline', {
+      params: expect.objectContaining({ interval: '1M' }),
+      autoHandleError: false,
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/utility/v2/market/token/kline', {
+      params: expect.objectContaining({ interval: '1M' }),
+    });
+  });
+
   it('falls back to the legacy range endpoint for an incompatible v3 response', async () => {
     const legacyResult: IMarketTokenKLineResponse = {
       points: [{ t: 960, o: 1, h: 2, l: 1, c: 2, v: 3 }],

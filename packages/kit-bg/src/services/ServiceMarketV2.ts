@@ -170,11 +170,12 @@ function normalizeMarketKlineTargetCount(targetCount: number) {
 }
 
 function normalizeUtilityKlineInterval(interval?: string) {
-  let normalizedInterval = interval?.toUpperCase();
-  if (normalizedInterval?.includes('M') || normalizedInterval?.includes('S')) {
-    normalizedInterval = normalizedInterval.toLowerCase();
+  const normalizedInterval = interval?.trim();
+  const unit = normalizedInterval?.slice(-1);
+  if (unit === 'm' || unit === 's' || unit === 'S') {
+    return normalizedInterval?.toLowerCase();
   }
-  return normalizedInterval;
+  return normalizedInterval?.toUpperCase();
 }
 
 function isMarketTokenKLineResponse(
