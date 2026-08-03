@@ -18,17 +18,10 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  formatLocalizedNumberString,
-  numberFormat,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
-  getValidPriceDecimals,
-  getValidSpotPriceDecimals,
   isSpotInstrument,
-  isUsdcDenominatedFee,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -39,16 +32,14 @@ import {
   getFillDirectionDisplayInfo,
 } from '../utils';
 
+import {
+  getTradeFillClosePnlBN,
+  getTradeFillDisplayInfo,
+} from './tradeFillDisplay';
 import { TradesHistoryShareAction } from './TradesHistoryShareAction';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
-const formatter: INumberFormatProps = {
-  formatter: 'value',
-  formatterOptions: {
-    currency: '$',
-  },
-};
 export type ITradesHistoryRowProps = {
   fill: IFill;
   cellMinWidth: number;
@@ -137,42 +128,32 @@ const TradesHistoryRow = memo(
     }, [fill, intl]);
 
     const tradeBaseInfo = useMemo(() => {
-      const price = fill.px;
-      // Raw fill sizes can carry float tails and lack separators
-      // (18333333.3000000007); balance-format them like the TWAP list does.
-      const size = numberFormat(fill.sz, { formatter: 'balance' });
-      const fee = fill.fee;
-      // Spot prices allow up to MAX_DECIMALS_SPOT (8); the perp rule caps at 6
-      // and rounds e.g. 0.0000006 up to 0.000001. szDecimals is unknown for a
-      // bare fill, so 0 keeps the loosest valid spot precision.
-      const decimals = isSpotInstrument(fill.coin)
-        ? getValidSpotPriceDecimals(price, 0)
-        : getValidPriceDecimals(price);
-      const priceBN = new BigNumber(price);
-      const sizeBN = new BigNumber(size);
-      const priceFormatted = formatLocalizedNumberString(
-        priceBN.toFixed(decimals),
-      );
-      // Spot buys are charged in the base token; a `$` there would read a
-      // dust-value token amount as dollars.
-      const feeFormatted = isUsdcDenominatedFee(fill.feeToken)
-        ? numberFormat(fee, formatter)
-        : `${numberFormat(fee, { formatter: 'balance' })} ${getSpotTokenDisplayName(
-            fill.feeToken,
-          )}`;
-
-      const tradeValue = priceBN.times(sizeBN).toFixed();
-      const tradeValueFormatted = numberFormat(tradeValue, formatter);
-      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
-    }, [fill.fee, fill.feeToken, fill.px, fill.sz]);
+      const {
+        priceFormatted,
+        sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      } = getTradeFillDisplayInfo({
+        coin: fill.coin,
+        px: fill.px,
+        sz: fill.sz,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
+      return {
+        priceFormatted,
+        size: sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      };
+    }, [fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
 
     const closePnlInfo = useMemo(() => {
-      const closePnl = fill.closedPnl;
-      // Only a USDC fee can be netted against the USDC closedPnl; a base-token
-      // fee (spot buys) would subtract token units from dollars.
-      const closePnlBN = isUsdcDenominatedFee(fill.feeToken)
-        ? new BigNumber(closePnl).minus(new BigNumber(fill.fee))
-        : new BigNumber(closePnl);
+      const closePnlBN = getTradeFillClosePnlBN({
+        closedPnl: fill.closedPnl,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
       let closePnlPlusOrMinus = '';
       let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
