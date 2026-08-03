@@ -24,6 +24,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
@@ -473,6 +474,37 @@ class ServiceToken extends ServiceBase {
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         };
       });
+
+    // Explicit custom contracts may still be returned when the wallet-token
+    // request excludes dApp tokens. Normalize the complete groups before
+    // cache and account-worth consumers see them.
+    const tokenSelectorFilterParams = {
+      withoutDappToken: rest.withoutDappToken,
+      withoutWalletToken: rest.withoutWalletToken,
+    };
+    resp.data.data.tokens = filterTokenSelectorTokenDataByDappTokenFilterParams(
+      {
+        tokenData: resp.data.data.tokens,
+        tokenSelectorFilterParams,
+      },
+    );
+    resp.data.data.riskTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.riskTokens,
+        tokenSelectorFilterParams,
+      });
+    resp.data.data.smallBalanceTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.smallBalanceTokens,
+        tokenSelectorFilterParams,
+      });
+    if (resp.data.data.allTokens) {
+      resp.data.data.allTokens =
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData: resp.data.data.allTokens,
+          tokenSelectorFilterParams,
+        });
+    }
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;

@@ -217,7 +217,7 @@ export const TradingViewNativeContainer = memo(
     }, [onNativeSubIndicatorCountChange]);
 
     return (
-      <Stack flex={1} w="100%" h="100%" bg="$bgApp">
+      <Stack flex={1} w="100%" h="100%" bg="$transparent">
         <TradingViewNativeChartControlsContainer
           calendarAvailableTimeRange={calendarAvailableTimeRange}
           enableNativeChartSettings={enableNativeChartSettings}
@@ -254,7 +254,7 @@ export const TradingViewNativeContainer = memo(
               ai="center"
               jc="center"
               gap="$3"
-              bg="$bgApp"
+              bg="$transparent"
               testID={testID ? `${testID}-error` : undefined}
             >
               <SizableText size="$bodyMd" color="$textSubdued">
