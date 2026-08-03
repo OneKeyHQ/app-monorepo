@@ -333,11 +333,43 @@ describe('swap pending history handoff', () => {
       );
     });
 
-    it('retries off the status poll, not only off a Swap-history visit', async () => {
+    it('retries on a status poll tick, the only cadence a modal-launched swap gets', async () => {
       // The reconcile is not a cadence: at bootstrap this in-memory queue is
       // always empty, and its other call sites are the Swap history modal and
       // the Swap tab. A top-up launched as a modal from the Borrow flow reaches
-      // none of them, so without the poll hook the queued write never retries.
+      // none of them. This loop reschedules itself for as long as the swap is
+      // pending, so it is what actually drains the queue.
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      const history = createPendingHistory({ txId: '0xpoll-tick' });
+      await service.addSwapHistoryItem(history);
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      // Stops the tick right after the flush, so no status request is made and
+      // no follow-up timer is scheduled.
+      jest
+        .spyOn(
+          service as unknown as {
+            fetchSwapHistoryStatus: () => Promise<undefined>;
+          },
+          'fetchSwapHistoryStatus',
+        )
+        .mockResolvedValue(undefined);
+
+      await service.swapHistoryStatusRunFetch(history, {
+        shouldScheduleNextFetch: false,
+        shouldShowToast: false,
+      });
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txInfo: expect.objectContaining({ txId: '0xpoll-tick' }),
+        }),
+      );
+    });
+
+    it('retries when the pending list changes, covering the terminal tick', async () => {
+      // Polling stops once a swap goes terminal, so the last transition needs
+      // this second hook to get a final attempt.
       const { service, stagePendingSwapHistoryItem } = createFailingStore();
       await service.addSwapHistoryItem(
         createPendingHistory({ txId: '0xpoll-driven' }),

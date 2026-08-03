@@ -4,6 +4,7 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  FUNDING_INTENT_APPEARANCE_TIMEOUT_MS,
   matchesFundingIntent,
   resolveEModeFundingState,
   shouldDisarmFundingIntentOnFocus,
@@ -336,5 +337,44 @@ describe('useEModeFundingTx', () => {
 
     expect(result.current.funding).toBe(true);
     expect(result.current.fundingResolved).toBe(false);
+  });
+
+  it('gives up on a broadcast top-up that never reaches pending history', () => {
+    // The backstop for a swap whose durable write failed: it appears in no
+    // runtime's pending list, so neither the terminal status nor the eviction
+    // edge can ever fire and only the deadline releases the card.
+    jest.useFakeTimers();
+    try {
+      const { result } = renderFundingHook();
+
+      act(() => result.current.armFunding());
+      act(() => result.current.markFundingBroadcasted());
+      expect(result.current.fundingResolved).toBe(false);
+
+      act(() => {
+        jest.advanceTimersByTime(FUNDING_INTENT_APPEARANCE_TIMEOUT_MS);
+      });
+
+      expect(result.current.fundingResolved).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not start the deadline for an intent that was never broadcast', () => {
+    // Arming alone is not a commitment; the focus edge owns that case.
+    jest.useFakeTimers();
+    try {
+      const { result } = renderFundingHook();
+
+      act(() => result.current.armFunding());
+      act(() => {
+        jest.advanceTimersByTime(FUNDING_INTENT_APPEARANCE_TIMEOUT_MS * 2);
+      });
+
+      expect(result.current.fundingResolved).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
