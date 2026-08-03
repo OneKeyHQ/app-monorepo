@@ -77,8 +77,10 @@ import {
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
+  type IDeferredFundingDisarm,
   getFundingIntentDisarmDelayMs,
   shouldDisarmFundingIntentOnFocus,
+  shouldRunDeferredFundingDisarm,
   useEModeFundingTx,
 } from './useEModeFundingTx';
 import {
@@ -522,7 +524,8 @@ function BorrowEModeNeedActionView() {
         ? balanceLookupAddress({ step: activeStep })
         : null,
     });
-  const [deferredDisarmAt, setDeferredDisarmAt] = useState<number | null>(null);
+  const [deferredDisarm, setDeferredDisarm] =
+    useState<IDeferredFundingDisarm | null>(null);
 
   // Swap is armed immediately before its modal opens. If that detour returns
   // without producing a matching pending transaction, it was cancelled; clear
@@ -545,28 +548,34 @@ function BorrowEModeNeedActionView() {
       disarmFunding();
       return;
     }
-    setDeferredDisarmAt(Date.now() + delay);
+    setDeferredDisarm({ at: Date.now() + delay, armedAt });
   }, [armedAt, disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
 
-  // Resolve a held disarm: the transaction arriving cancels it, otherwise it
-  // runs once the grace window closes.
+  // Resolve a held disarm: the transaction arriving cancels it, re-arming makes
+  // it obsolete, otherwise it runs once the grace window closes.
   useEffect(() => {
-    if (deferredDisarmAt === null) {
+    if (!deferredDisarm) {
       return;
     }
-    if (fundingTxKey) {
-      setDeferredDisarmAt(null);
+    if (
+      !shouldRunDeferredFundingDisarm({
+        deferred: deferredDisarm,
+        armedAt,
+        fundingTxKey,
+      })
+    ) {
+      setDeferredDisarm(null);
       return;
     }
     const timer = setTimeout(
       () => {
-        setDeferredDisarmAt(null);
+        setDeferredDisarm(null);
         disarmFunding();
       },
-      Math.max(0, deferredDisarmAt - Date.now()),
+      Math.max(0, deferredDisarm.at - Date.now()),
     );
     return () => clearTimeout(timer);
-  }, [deferredDisarmAt, disarmFunding, fundingTxKey]);
+  }, [armedAt, deferredDisarm, disarmFunding, fundingTxKey]);
 
   // Once the funded step clears, the intent has finished serving its purpose.
   useEffect(() => {

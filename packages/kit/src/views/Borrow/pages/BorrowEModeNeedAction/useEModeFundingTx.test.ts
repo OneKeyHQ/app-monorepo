@@ -5,6 +5,7 @@ import {
   getFundingIntentDisarmDelayMs,
   matchesFundingIntent,
   shouldDisarmFundingIntentOnFocus,
+  shouldRunDeferredFundingDisarm,
 } from './useEModeFundingTx';
 
 const NETWORK_ID = 'evm--1';
@@ -174,5 +175,47 @@ describe('getFundingIntentDisarmDelayMs', () => {
 
   it('disarms immediately when no intent is armed', () => {
     expect(getFundingIntentDisarmDelayMs({ armedAt: null, now: 1200 })).toBe(0);
+  });
+});
+
+describe('shouldRunDeferredFundingDisarm', () => {
+  it('runs for the intent it was scheduled against', () => {
+    expect(
+      shouldRunDeferredFundingDisarm({
+        deferred: { at: 4000, armedAt: 1000 },
+        armedAt: 1000,
+        fundingTxKey: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('abandons a disarm left over from a re-armed detour', () => {
+    expect(
+      shouldRunDeferredFundingDisarm({
+        deferred: { at: 4000, armedAt: 1000 },
+        armedAt: 1200,
+        fundingTxKey: null,
+      }),
+    ).toBe(false);
+  });
+
+  it('abandons a disarm once the transaction has arrived', () => {
+    expect(
+      shouldRunDeferredFundingDisarm({
+        deferred: { at: 4000, armedAt: 1000 },
+        armedAt: 1000,
+        fundingTxKey: '0xtx',
+      }),
+    ).toBe(false);
+  });
+
+  it('abandons a disarm whose intent was cleared outright', () => {
+    expect(
+      shouldRunDeferredFundingDisarm({
+        deferred: { at: 4000, armedAt: 1000 },
+        armedAt: null,
+        fundingTxKey: null,
+      }),
+    ).toBe(false);
   });
 });

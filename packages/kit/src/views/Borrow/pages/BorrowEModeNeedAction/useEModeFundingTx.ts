@@ -163,3 +163,30 @@ export function shouldDisarmFundingIntentOnFocus({
 }) {
   return isFocused && previousIsFocused === false && !fundingTxKey;
 }
+
+/** A held disarm, tagged with the intent it was scheduled for. */
+export type IDeferredFundingDisarm = {
+  at: number;
+  armedAt: number | null;
+};
+
+/**
+ * Whether a held disarm still applies. It is scheduled for one specific intent,
+ * but the user can disarm and re-arm inside the grace window (dismiss the Swap
+ * modal, tap Top up again); firing it then would clear an intent it was never
+ * scheduled for, which is the very state the grace window exists to protect.
+ */
+export function shouldRunDeferredFundingDisarm({
+  deferred,
+  armedAt,
+  fundingTxKey,
+}: {
+  deferred: IDeferredFundingDisarm | null;
+  armedAt: number | null;
+  fundingTxKey: string | null;
+}) {
+  if (!deferred || fundingTxKey) {
+    return false;
+  }
+  return deferred.armedAt === armedAt;
+}

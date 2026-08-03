@@ -301,7 +301,7 @@ describe('SimpleDbEntitySwapHistory.repairSwapHistoryNetworkInfo', () => {
 async function runUpdate(
   histories: ISwapTxHistory[],
   ...args: Parameters<SimpleDbEntitySwapHistory['updateSwapHistoryItem']>
-): Promise<ISwapTxHistory[]> {
+): Promise<ISwapTxHistory[] | null> {
   const entity = new SimpleDbEntitySwapHistory();
   jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories });
   const setRawData = jest
@@ -309,10 +309,10 @@ async function runUpdate(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .mockResolvedValue(undefined as any);
   await entity.updateSwapHistoryItem(...args);
-  const written = setRawData.mock.calls[0]?.[0] as {
-    histories: ISwapTxHistory[];
-  };
-  return written.histories;
+  const written = setRawData.mock.calls[0]?.[0] as
+    | { histories: ISwapTxHistory[] }
+    | undefined;
+  return written ? written.histories : null;
 }
 
 describe('SimpleDbEntitySwapHistory.updateSwapHistoryItem', () => {
@@ -326,8 +326,17 @@ describe('SimpleDbEntitySwapHistory.updateSwapHistoryItem', () => {
     expect(written).toEqual([resolved, swapSuccess]);
   });
 
-  it('inserts a swap whose non-blocking pending write never landed', async () => {
-    const written = await runUpdate([swapSuccess], resolved);
+  it('backfills a swap whose non-blocking pending write never landed', async () => {
+    const written = await runUpdate([swapSuccess], resolved, undefined, {
+      allowInsert: true,
+    });
     expect(written).toEqual([resolved, swapSuccess]);
+  });
+
+  // Clearing history cannot abort a status request already awaiting its
+  // response, so the late update must not write the row back.
+  it('leaves a cleared row deleted when a late status update arrives', async () => {
+    const written = await runUpdate([swapSuccess], resolved);
+    expect(written).toBeNull();
   });
 });

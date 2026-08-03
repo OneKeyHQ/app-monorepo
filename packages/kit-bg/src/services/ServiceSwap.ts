@@ -2276,8 +2276,15 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
+    // Presence in the pending list is what separates "the non-blocking pending
+    // write failed" from "the user cleared this row": every delete path filters
+    // the atom, while a failed write leaves the item published there. Clearing
+    // cannot abort a status request already awaiting its response, so without
+    // this the late response would reinsert a deleted row.
     await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
       enrichedItem,
+      undefined,
+      { allowInsert: Boolean(oldItem) },
     );
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);

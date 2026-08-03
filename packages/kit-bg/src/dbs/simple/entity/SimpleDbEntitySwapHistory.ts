@@ -100,7 +100,18 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    options?: {
+      // A pending item is persisted without blocking the broadcast handoff, so
+      // that write can fail and leave this update as the first durable record
+      // the swap ever gets. Callers that know the item is still live opt in to
+      // backfilling it. Off by default: a deletion racing an in-flight status
+      // request would otherwise reinsert the row the user just removed.
+      allowInsert?: boolean;
+    },
+  ) {
     const data = await this.getRawData();
     const histories = data?.histories ?? [];
     let index = histories.findIndex((i) => isSameSwapHistoryItem(i, item));
@@ -114,11 +125,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       await this.setRawData({ ...data, histories });
       return;
     }
-    // A pending item is persisted without blocking the broadcast handoff, so
-    // that write can fail and leave this update as the first durable record the
-    // swap ever gets. Insert it rather than dropping an already-broadcast
-    // transaction: every delete path also stops the polling that leads here, so
-    // an item still receiving updates is not one the user cleared.
+    if (!options?.allowInsert) {
+      return;
+    }
     histories.unshift(item);
     if (histories.length > historyCircularBufferMaxSize) {
       histories.pop();
