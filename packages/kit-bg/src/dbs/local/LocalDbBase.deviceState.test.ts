@@ -128,6 +128,31 @@ describe('LocalDb DeviceState persistence', () => {
     expect(REALM_DB_VERSION).toBe(21);
   });
 
+  it('isolates malformed device state and settings records during hydration', async () => {
+    const state = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'Healthy device',
+      language: 'en-US',
+    });
+    const db = new DeviceStateTestLocalDb(state);
+    db.devices.push({
+      ...db.device,
+      id: 'device-db-broken',
+      deviceState: '{broken',
+      features: JSON.stringify({ label: 'Legacy fallback' }),
+      settingsRaw: '{broken',
+    });
+
+    const { devices } = await db.getAllDevices();
+
+    expect(devices).toHaveLength(2);
+    expect(devices[0].deviceStateInfo?.identity.label).toBe('Healthy device');
+    expect(devices[1].deviceStateInfo).toBeUndefined();
+    expect(devices[1].featuresInfo?.label).toBe('Legacy fallback');
+    expect(devices[1].settings).toEqual({});
+  });
+
   it('uses the canonical DeviceState display name for OneKey wallets', async () => {
     const state = createState({
       revision: 1,
@@ -321,6 +346,76 @@ describe('LocalDb DeviceState persistence', () => {
     const persisted = JSON.parse(db.device.deviceState || '{}');
     expect(persisted.identity.label).toBe('Newest');
     expect(persisted.settings.language).toBe('en-US');
+  });
+
+  it('orders SDK events by instance epoch and monotonic sequence', async () => {
+    const persistedFutureState = createState({
+      revision: 99,
+      updatedAt: 9_999_999,
+      label: 'Future timestamp',
+      language: 'en-US',
+    });
+    const firstCurrentInstanceState = createState({
+      revision: 0,
+      updatedAt: 10,
+      label: 'Current instance',
+      language: 'ja-JP',
+    });
+    const clockRollbackState = createState({
+      revision: 1,
+      updatedAt: 5,
+      label: 'Clock rolled back',
+      language: 'zh-CN',
+    });
+    const rebuiltSdkState = createState({
+      revision: 0,
+      updatedAt: 1,
+      label: 'Rebuilt SDK',
+      language: 'de-DE',
+    });
+    const db = new DeviceStateTestLocalDb(persistedFutureState);
+
+    await db.updateDeviceState({
+      changedKeys: ['*'],
+      connectId: 'ABC-DEF',
+      revision: firstCurrentInstanceState.revision,
+      sdkEventSequence: 1,
+      sdkInstanceEpoch: 1,
+      source: 'initialize',
+      state: firstCurrentInstanceState,
+    });
+    await db.updateDeviceState({
+      changedKeys: ['identity.label', 'settings.language'],
+      connectId: 'ABC-DEF',
+      revision: clockRollbackState.revision,
+      sdkEventSequence: 2,
+      sdkInstanceEpoch: 1,
+      source: 'device-status',
+      state: clockRollbackState,
+    });
+    await db.updateDeviceState({
+      changedKeys: ['identity.label'],
+      connectId: 'ABC-DEF',
+      revision: firstCurrentInstanceState.revision,
+      sdkEventSequence: 1,
+      sdkInstanceEpoch: 1,
+      source: 'delayed-event',
+      state: firstCurrentInstanceState,
+    });
+    await db.updateDeviceState({
+      changedKeys: ['*'],
+      connectId: 'ABC-DEF',
+      revision: rebuiltSdkState.revision,
+      sdkEventSequence: 1,
+      sdkInstanceEpoch: 2,
+      source: 'initialize',
+      state: rebuiltSdkState,
+    });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.identity.label).toBe('Rebuilt SDK');
+    expect(persisted.settings.language).toBe('de-DE');
+    expect(persisted.updatedAt).toBe(1);
   });
 
   it('uses the stable product name when a V1 device has no label or BLE name', async () => {

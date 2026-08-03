@@ -211,7 +211,7 @@ describe('executeHardwareLoginCommand passphrase mode selection', () => {
     const sdk = await hardwareSdkMocks.mockEnsureSDKReady.mock.results[0].value;
     expect(hardwareSdkMocks.mockResolvePassphraseSession).toHaveBeenCalledWith(
       'connect-1',
-      { passphraseOnDevice: true },
+      { expectedDeviceId: 'device-1', passphraseOnDevice: true },
     );
     expect(sdk.searchDevices).not.toHaveBeenCalled();
     expect(sdk.evmGetAddress).toHaveBeenCalledWith(

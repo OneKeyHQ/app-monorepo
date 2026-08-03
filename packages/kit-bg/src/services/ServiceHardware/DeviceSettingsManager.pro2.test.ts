@@ -187,7 +187,8 @@ describe('DeviceSettingsManager device adapters', () => {
         },
         serviceHardwareUI: {
           withHardwareProcessing: jest.fn(
-            async (action: () => Promise<unknown>) => action(),
+            async (action: (lease: object) => Promise<unknown>) =>
+              action({ deviceKey: 'device-db-id', owner: Symbol('test') }),
           ),
           closeHardwareUiStateDialog: jest.fn(async () => undefined),
         },
@@ -200,6 +201,9 @@ describe('DeviceSettingsManager device adapters', () => {
       expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
         connectId: device.connectId,
         params: { scope: 'settings' },
+        oneKeyOperationLease: expect.objectContaining({
+          deviceKey: 'device-db-id',
+        }),
       });
     },
   );

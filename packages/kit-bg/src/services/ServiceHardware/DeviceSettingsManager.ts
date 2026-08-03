@@ -464,7 +464,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       return device.featuresInfo?.label || device.name || 'Unknown';
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const compatibleConnectId =
           await this.serviceHardware.getCompatibleConnectId({
             connectId: device.connectId,
@@ -474,6 +474,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock({
             connectId: compatibleConnectId,
             params: { scope: 'settings' },
+            oneKeyOperationLease,
           });
         await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: compatibleConnectId,

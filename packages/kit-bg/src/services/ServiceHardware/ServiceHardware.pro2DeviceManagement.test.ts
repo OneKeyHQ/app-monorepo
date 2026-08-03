@@ -877,13 +877,17 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     });
 
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(localDb.updateDeviceState).toHaveBeenCalledWith({
-      changedKeys: ['identity.label'],
-      connectId: 'PRO2_USB',
-      revision: 2,
-      source: 'apply-settings',
-      state,
-    });
+    expect(localDb.updateDeviceState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changedKeys: ['identity.label'],
+        connectId: 'PRO2_USB',
+        revision: 2,
+        sdkEventSequence: 1,
+        sdkInstanceEpoch: 1,
+        source: 'apply-settings',
+        state,
+      }),
+    );
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.HardwareDeviceStateUpdate,

@@ -431,7 +431,14 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
       status: { initialized: true, unlocked: true },
     } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
     const service = new ServiceHardware({
-      backgroundApi: {} as unknown as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: jest.fn(
+            async (operation: (lease: object) => Promise<unknown>) =>
+              operation({ deviceKey: 'PRO2_USB', owner: Symbol('test') }),
+          ),
+        },
+      } as unknown as IBackgroundApi,
     });
 
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
@@ -463,7 +470,14 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
       status: { initialized: false, unlocked: false },
     } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
     const service = new ServiceHardware({
-      backgroundApi: {} as unknown as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: jest.fn(
+            async (operation: (lease: object) => Promise<unknown>) =>
+              operation({ deviceKey: 'PRO2_USB', owner: Symbol('test') }),
+          ),
+        },
+      } as unknown as IBackgroundApi,
     });
 
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');

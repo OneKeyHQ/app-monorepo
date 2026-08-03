@@ -97,7 +97,7 @@ describe('decodePortfolioPackageBase64', () => {
 });
 
 describe('ServiceHardwarePortfolioSync.waitForActivePortfolioSync', () => {
-  test('waits for the active upload instead of cancelling it', async () => {
+  test('waits for the active upload through a transport alias', async () => {
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -109,19 +109,25 @@ describe('ServiceHardwarePortfolioSync.waitForActivePortfolioSync', () => {
         resolveUpload = resolve;
       },
     );
-    const activeUploads = new Map([['PRO2_CONNECT_ID', uploadPromise]]);
+    const activeUploads = new Map([['db-device-1', uploadPromise]]);
     (
       service as unknown as {
-        activeUploadByConnectId: Map<
-          string,
-          Promise<{ portfolioUpdated: boolean }>
-        >;
+        activeUploadByTargetKey: Map<string, Promise<unknown>>;
+        targetKeyByConnectId: Map<string, string>;
       }
-    ).activeUploadByConnectId = activeUploads;
+    ).activeUploadByTargetKey = activeUploads;
+    (
+      service as unknown as {
+        targetKeyByConnectId: Map<string, string>;
+      }
+    ).targetKeyByConnectId = new Map([
+      ['PRO2_USB_ID', 'db-device-1'],
+      ['PRO2_BLE_ID', 'db-device-1'],
+    ]);
 
     let completed = false;
     const waiting = service
-      .waitForActivePortfolioSync({ connectId: 'PRO2_CONNECT_ID' })
+      .waitForActivePortfolioSync({ connectId: 'PRO2_BLE_ID' })
       .then((result) => {
         completed = true;
         return result;
@@ -396,19 +402,39 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       lastWalletId?: string;
     };
   }) {
-    const uploadPortfolioPackage = jest
-      .fn()
-      .mockResolvedValue({ portfolioUpdated: true });
+    let operationLeaseHeld = false;
+    const uploadPortfolioPackage = jest.fn(
+      async (_params: { connectId: string; packageBytes: ArrayBuffer }) => {
+        expect(operationLeaseHeld).toBe(true);
+        return { portfolioUpdated: true };
+      },
+    );
     const updateTargetState = jest.fn().mockResolvedValue(undefined);
     const isHardwareChannelBusy = jest.fn();
     for (const busy of busyResults) {
       isHardwareChannelBusy.mockResolvedValueOnce(busy);
     }
     isHardwareChannelBusy.mockResolvedValue(false);
+    const runExclusiveOneKeyOperation = jest.fn(
+      async (operation: (lease: object) => Promise<unknown>) => {
+        operationLeaseHeld = true;
+        try {
+          return await operation({
+            deviceKey: 'db-device-1',
+            owner: Symbol('test'),
+          });
+        } finally {
+          operationLeaseHeld = false;
+        }
+      },
+    );
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
         serviceHardware: { uploadPortfolioPackage },
-        serviceHardwareUI: { isHardwareChannelBusy },
+        serviceHardwareUI: {
+          isHardwareChannelBusy,
+          runExclusiveOneKeyOperation,
+        },
         simpleDb: {
           hardwarePortfolioSync: {
             getTargetState: jest.fn().mockResolvedValue(targetState),
@@ -447,6 +473,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
     return {
       isHardwareChannelBusy,
+      runExclusiveOneKeyOperation,
       service,
       serviceInternals,
       updateTargetState,
@@ -615,6 +642,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         },
         serviceHardwareUI: {
           isHardwareChannelBusy: jest.fn().mockResolvedValue(false),
+          runExclusiveOneKeyOperation: jest.fn(
+            async (operation: (lease: object) => Promise<unknown>) =>
+              operation({ deviceKey: 'db-device-1', owner: Symbol('test') }),
+          ),
         },
         simpleDb: {
           hardwarePortfolioSync: {

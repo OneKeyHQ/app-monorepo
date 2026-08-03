@@ -126,6 +126,7 @@ import type {
 } from '../../states/jotai/atoms';
 import type { IServiceBaseProps } from '../ServiceBase';
 import type { IUpdateFirmwareWorkflowParams } from '../ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type {
   CommonParams,
   CoreApi,
@@ -479,6 +480,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private sdkInstanceEpoch = 0;
+
   private hardwareUiEventQueue = new HardwareUiEventQueue<UiEvent>();
 
   private hardwareUiEventState = createHardwareUiEventState();
@@ -722,6 +725,9 @@ class ServiceHardware extends ServiceBase {
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
       this.registeredEvents = true;
+      this.sdkInstanceEpoch += 1;
+      const sdkInstanceEpoch = this.sdkInstanceEpoch;
+      let deviceStateEventSequence = 0;
       const {
         UI_EVENT,
         DEVICE,
@@ -878,6 +884,8 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.STATE, async (event: DeviceStateEvent) => {
+        deviceStateEventSequence += 1;
+        const sdkEventSequence = deviceStateEventSequence;
         serviceHardwareUtils.hardwareLog('device state update', {
           revision: event.revision,
           source: event.source,
@@ -898,7 +906,11 @@ class ServiceHardware extends ServiceBase {
               | Awaited<ReturnType<typeof localDb.updateDeviceState>>
               | undefined;
             try {
-              persistenceResult = await localDb.updateDeviceState(event);
+              persistenceResult = await localDb.updateDeviceState({
+                ...event,
+                sdkEventSequence,
+                sdkInstanceEpoch,
+              });
             } catch (error) {
               serviceHardwareUtils.hardwareLog(
                 'device state persistence failed',
@@ -2054,6 +2066,30 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getDeviceStateWithUnlock({
+    connectId,
+    oneKeyOperationLease,
+    params,
+  }: {
+    connectId: string;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    params?: GetDeviceStateParams;
+  }) {
+    const dbDevice = await localDb.getDeviceByQuery({ connectId });
+    return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+      () => this.getDeviceStateWithUnlockInternal({ connectId, params }),
+      {
+        deviceKey:
+          dbDevice?.id ||
+          dbDevice?.deviceId ||
+          dbDevice?.uuid ||
+          dbDevice?.connectId ||
+          connectId,
+        lease: oneKeyOperationLease,
+      },
+    );
+  }
+
+  private async getDeviceStateWithUnlockInternal({
     connectId,
     params,
   }: {

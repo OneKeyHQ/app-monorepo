@@ -153,10 +153,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     ReturnType<typeof setTimeout>
   >();
 
-  private activeUploadByConnectId = new Map<
-    string,
-    Promise<{ portfolioUpdated: boolean }>
-  >();
+  private activeUploadByTargetKey = new Map<string, Promise<unknown>>();
+
+  private targetKeyByConnectId = new Map<string, string>();
 
   private syncDebouncedByTargetKey = new Map<
     string,
@@ -221,6 +220,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         !authorizedConnectIds.includes(eventPayload.deviceConnectId))
     ) {
       return undefined;
+    }
+
+    for (const authorizedConnectId of authorizedConnectIds) {
+      this.targetKeyByConnectId.set(authorizedConnectId, device.id);
     }
 
     const accountId = eventPayload.accountId;
@@ -670,7 +673,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       contentHash: artifacts.contentHash,
       generation,
     });
-    const activeUpload = this.activeUploadByConnectId.get(deviceConnectId);
+    const activeUpload = this.activeUploadByTargetKey.get(targetKey);
     if (activeUpload) {
       await activeUpload.catch(() => undefined);
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
@@ -682,104 +685,116 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
     }
-    const hardwareBusy =
-      await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
-        connectId: deviceConnectId,
-      });
-    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
-      this.releaseInFlightReservation({
-        contentHash: artifacts.contentHash,
-        generation,
-        targetKey,
-      });
-      return;
-    }
-    if (hardwareBusy) {
-      this.releaseInFlightReservation({
-        contentHash: artifacts.contentHash,
-        generation,
-        targetKey,
-      });
-      this.setLastResult(
-        this.buildResultBase({
-          artifacts,
-          eventPayload,
-          serverSubmit,
-          status: 'hardware-busy',
-          updatedAt,
-        }),
-      );
-      debugPortfolioSyncLog('skip-hardware-busy', {
-        contentHash: artifacts.contentHash,
-      });
-      this.scheduleHardwareBusyRetry({
-        contentHash: artifacts.contentHash,
-        deviceConnectId,
-        generation,
-        retry: () =>
-          this.uploadPreparedHardwarePortfolio({
-            artifacts,
-            deviceConnectId,
-            eventPayload,
-            generation,
-            serverPackageBytes,
-            serverSubmit,
-            targetKey,
-            updatedAt: Date.now(),
-          }),
-        targetKey,
-      });
-      return;
-    }
+    const uploadPromise =
+      this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        async () => {
+          if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            return;
+          }
+          const hardwareBusy =
+            await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
+              connectId: deviceConnectId,
+            });
+          if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            return;
+          }
+          if (hardwareBusy) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            this.setLastResult(
+              this.buildResultBase({
+                artifacts,
+                eventPayload,
+                serverSubmit,
+                status: 'hardware-busy',
+                updatedAt,
+              }),
+            );
+            debugPortfolioSyncLog('skip-hardware-busy', {
+              contentHash: artifacts.contentHash,
+            });
+            this.scheduleHardwareBusyRetry({
+              contentHash: artifacts.contentHash,
+              deviceConnectId,
+              generation,
+              retry: () =>
+                this.uploadPreparedHardwarePortfolio({
+                  artifacts,
+                  deviceConnectId,
+                  eventPayload,
+                  generation,
+                  serverPackageBytes,
+                  serverSubmit,
+                  targetKey,
+                  updatedAt: Date.now(),
+                }),
+              targetKey,
+            });
+            return;
+          }
 
-    const uploadPromise = (async () => {
-      const upload: { portfolioUpdated: boolean } =
-        await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
-          connectId: deviceConnectId,
-          packageBytes: serverPackageBytes,
-        });
-      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
-        this.releaseInFlightReservation({
-          contentHash: artifacts.contentHash,
-          generation,
-          targetKey,
-        });
-        return upload;
-      }
-      this.setLastResult({
-        ...this.buildResultBase({
-          artifacts,
-          eventPayload,
-          serverSubmit,
-          status: 'uploaded',
-          updatedAt,
-        }),
-        upload,
-      });
-      debugPortfolioSyncLog('uploaded', {
-        bytesLength: serverPackageBytes.byteLength,
-        contentHash: artifacts.contentHash,
-      });
-      if (!eventPayload.walletId) {
-        throw new OneKeyLocalError(
-          'Authorized portfolio payload is missing walletId',
-        );
-      }
-      await this.commitProcessedArtifacts({
-        artifacts,
-        generation,
-        targetKey,
-        transferAt: Date.now(),
-        walletId: eventPayload.walletId,
-      });
-      return upload;
-    })();
-    this.activeUploadByConnectId.set(deviceConnectId, uploadPromise);
+          const upload: { portfolioUpdated: boolean } =
+            await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
+              connectId: deviceConnectId,
+              packageBytes: serverPackageBytes,
+            });
+          if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            return upload;
+          }
+          this.setLastResult({
+            ...this.buildResultBase({
+              artifacts,
+              eventPayload,
+              serverSubmit,
+              status: 'uploaded',
+              updatedAt,
+            }),
+            upload,
+          });
+          debugPortfolioSyncLog('uploaded', {
+            bytesLength: serverPackageBytes.byteLength,
+            contentHash: artifacts.contentHash,
+          });
+          if (!eventPayload.walletId) {
+            throw new OneKeyLocalError(
+              'Authorized portfolio payload is missing walletId',
+            );
+          }
+          await this.commitProcessedArtifacts({
+            artifacts,
+            generation,
+            targetKey,
+            transferAt: Date.now(),
+            walletId: eventPayload.walletId,
+          });
+          return upload;
+        },
+        { deviceKey: targetKey },
+      );
+    this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {
       await uploadPromise;
     } finally {
-      if (this.activeUploadByConnectId.get(deviceConnectId) === uploadPromise) {
-        this.activeUploadByConnectId.delete(deviceConnectId);
+      if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
+        this.activeUploadByTargetKey.delete(targetKey);
       }
     }
   }
@@ -998,7 +1013,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   @backgroundMethod()
   async waitForActivePortfolioSync({ connectId }: { connectId: string }) {
-    const activeUpload = this.activeUploadByConnectId.get(connectId);
+    const targetKey = this.targetKeyByConnectId.get(connectId) ?? connectId;
+    const activeUpload = this.activeUploadByTargetKey.get(targetKey);
     if (!activeUpload) {
       return false;
     }
