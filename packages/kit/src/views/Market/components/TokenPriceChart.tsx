@@ -90,7 +90,7 @@ function BasicTokenPriceChart({ coinGeckoId, token }: ITokenPriceChartProps) {
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={source}
-          enableNativeChartSettings={layoutMode === 'desktop'}
+          enableNativeChartSettings
           nativeControlsLayoutMode={layoutMode}
         />
       ) : (
