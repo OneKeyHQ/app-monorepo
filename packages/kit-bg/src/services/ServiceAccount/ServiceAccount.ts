@@ -83,7 +83,10 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotOpenedPassphrase,
+  DeviceNotSame,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -3452,6 +3455,9 @@ class ServiceAccount extends ServiceBase {
     }
 
     const wallet = await this.getWallet({ walletId });
+    if (wallet.deprecated) {
+      throw new DeviceNotSame();
+    }
     if (accountUtils.isWalletDeprecatedOrMocked(wallet)) {
       throw new OneKeyLocalError(
         'Hardware wallet is unavailable after device reset',
@@ -5834,7 +5840,7 @@ class ServiceAccount extends ServiceBase {
     const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const addresses = await vault.keyring.batchGetAddresses(prepareParams);
         if (!isEmpty(addresses)) {
           return addresses.map((address) => address.address);
@@ -5850,6 +5856,7 @@ class ServiceAccount extends ServiceBase {
               indexes: prepareParams.indexes,
               showOnOneKey: true,
               isVerifyAddressAction: prepareParams.isVerifyAddressAction,
+              oneKeyOperationLease,
             },
           );
         const results: string[] = [];

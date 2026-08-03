@@ -120,13 +120,15 @@ function DeviceSetupPage({
     if (!tabValue) {
       return;
     }
-    const forceTransportType = await getForceTransportType(tabValue);
+    const forceTransportType = await getForceTransportType(tabValue, {
+      connectProtocol,
+    });
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
       });
     }
-  }, [tabValue]);
+  }, [connectProtocol, tabValue]);
 
   const navigateToFinalize = useCallback(
     (device: SearchDevice) => {

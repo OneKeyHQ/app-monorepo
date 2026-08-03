@@ -8,6 +8,7 @@ describe('Pro 2 firmware targets', () => {
       'app_v2',
       'coprocessor',
       'resource',
+      'boot_resources',
       'se01',
       'se02',
       'se03',

@@ -16,6 +16,7 @@ const MAX_POLL_INTERVAL = 5000;
 type ISearchResponse = Unsuccessful | Success<SearchDevice[]>;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 type IDeviceScanOptions = {
+  /** @deprecated Discovery always detects the protocol from an active response. */
   connectProtocol?: HardwareConnectProtocol;
   resetSession?: boolean;
   waitForAllTransports?: boolean;
@@ -70,7 +71,6 @@ export class DeviceScannerUtils {
     this.scanMap[scanIndex] = true;
     const searchIdentity = JSON.stringify({
       vendor,
-      connectProtocol: options?.connectProtocol,
       waitForAllTransports: options?.waitForAllTransports,
       transportType: options?.transportType,
     });
@@ -96,7 +96,6 @@ export class DeviceScannerUtils {
 
       let searchParams:
         | {
-            connectProtocol?: HardwareConnectProtocol;
             resetSession?: boolean;
             transportType?: 'usb' | 'ble';
             vendor?: EHardwareVendor;
@@ -114,12 +113,7 @@ export class DeviceScannerUtils {
           resetSession: shouldResetSession,
           waitForAllTransports: options?.waitForAllTransports,
           transportType: options?.transportType,
-          ...(options?.connectProtocol
-            ? { connectProtocol: options.connectProtocol }
-            : {}),
         };
-      } else if (options?.connectProtocol) {
-        searchParams = { connectProtocol: options.connectProtocol };
       }
 
       const searchTask = this.backgroundApi.serviceHardware

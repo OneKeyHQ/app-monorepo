@@ -52,6 +52,18 @@ class ServiceBootstrap extends ServiceBase {
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     try {
+      await this.timed(
+        'serviceHardware.migrateExistingDeviceConnectProtocols',
+        () =>
+          this.backgroundApi.serviceHardware.migrateExistingDeviceConnectProtocols(),
+      );
+    } catch (_error) {
+      defaultLogger.app.bootstrap.initCriticalStep(
+        'hardwareConnectProtocolMigration (FAILED)',
+        0,
+      );
+    }
+    try {
       await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
         this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),
       );

@@ -19,7 +19,9 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toMatch(
       /isPro2DebugModuleEnabled\(\s*devSettings,\s*'portfolio',?\s*\)/,
     );
-    expect(source).toContain('!accountUtils.isHwHiddenWallet({ wallet })');
+    expect(source).toContain(
+      'accountUtils.isHwWallet({ walletId: wallet.id })',
+    );
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
     expect(buildIndex).toBeLessThan(sendToBackgroundIndex);

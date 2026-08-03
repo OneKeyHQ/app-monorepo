@@ -11,6 +11,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -34,6 +35,10 @@ import {
 } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -142,6 +147,7 @@ import type {
   OnekeyFeatures,
   SearchDevice,
   UiEvent,
+  UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
@@ -151,6 +157,41 @@ const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Pro2,
 ]);
 const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
+const MAX_PERSISTED_DEVICE_PROTOCOL_ENTRIES = 128;
+const HARDWARE_CONNECT_PROTOCOL_MIGRATION_VERSION = 1;
+const HARDWARE_SDK_DEBUG_LOG_PREFIX = '[HardwareSDK][bg]';
+const HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE =
+  'Hardware connect protocol is unavailable. Reconnect the device through onboarding.';
+
+function writeHardwareSdkDebugLog(message: string) {
+  if (!platformEnv.isDev) {
+    return;
+  }
+
+  const formattedMessage = `${HARDWARE_SDK_DEBUG_LOG_PREFIX} ${message}`;
+  if (platformEnv.isNative) {
+    NativeLogger.write(LogLevel.Info, formattedMessage);
+    return;
+  }
+
+  if (platformEnv.isDesktop) {
+    // eslint-disable-next-line no-console
+    console.log(formattedMessage);
+  }
+}
+
+type IProtocolAwareCoreApi = CoreApi & {
+  setDeviceConnectProtocol?: (
+    connectId: string,
+    connectProtocol: HardwareConnectProtocol | undefined,
+  ) => void;
+};
+
+function isHardwareConnectProtocol(
+  protocol: unknown,
+): protocol is HardwareConnectProtocol {
+  return protocol === 'V1' || protocol === 'V2';
+}
 
 /**
  * @deprecated New code should use IDeviceGetStateOptions; retained for legacy Features compatibility.
@@ -162,6 +203,7 @@ export type IDeviceGetFeaturesOptions = {
   silentMode?: boolean;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
+    forceProtocolDetection?: boolean;
   };
   hardwareCallContext?: IHardwareCallContext;
 };
@@ -300,6 +342,158 @@ class ServiceHardware extends ServiceBase {
 
   private deviceProtocolByConnectId = new Map<string, 'V1' | 'V2'>();
 
+  private connectProtocolMigrationPromise: Promise<void> | undefined;
+
+  private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
+
+  private bindDeviceProtocolToSDK({
+    connectId,
+    protocol,
+    instance = this.activeHardwareSDKInstance,
+  }: {
+    connectId?: string | null;
+    protocol?: string | null;
+    instance?: IProtocolAwareCoreApi;
+  }) {
+    if (!connectId || (protocol !== 'V1' && protocol !== 'V2')) {
+      return;
+    }
+    instance?.setDeviceConnectProtocol?.(connectId, protocol);
+  }
+
+  private bindRememberedDeviceProtocols(instance: IProtocolAwareCoreApi) {
+    for (const [connectId, protocol] of this.deviceProtocolByConnectId) {
+      this.bindDeviceProtocolToSDK({ connectId, protocol, instance });
+    }
+  }
+
+  private async persistDeviceProtocols({
+    connectIds,
+    protocol,
+  }: {
+    connectIds: string[];
+    protocol: 'V1' | 'V2';
+  }) {
+    const normalizedConnectIds = [
+      ...new Set(
+        connectIds
+          .map((connectId) => connectId.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (normalizedConnectIds.length === 0) {
+      return;
+    }
+    const updatedAt = Date.now();
+    await simpleDb.appStatus.setRawData((value): ISimpleDBAppStatus => {
+      const protocolByConnectId = {
+        ...value?.hardwareConnectProtocolByConnectId,
+      };
+      for (const connectId of normalizedConnectIds) {
+        protocolByConnectId[connectId] = { protocol, updatedAt };
+      }
+      const boundedProtocolByConnectId = Object.fromEntries(
+        Object.entries(protocolByConnectId)
+          .toSorted(([, left], [, right]) => right.updatedAt - left.updatedAt)
+          .slice(0, MAX_PERSISTED_DEVICE_PROTOCOL_ENTRIES),
+      );
+      return {
+        ...value,
+        hardwareConnectProtocolByConnectId: boundedProtocolByConnectId,
+      };
+    });
+  }
+
+  private async getPersistedDeviceProtocol(connectId: string) {
+    try {
+      const appStatus = await simpleDb.appStatus.getRawData();
+      return appStatus?.hardwareConnectProtocolByConnectId?.[
+        connectId.trim().toLowerCase()
+      ]?.protocol;
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'restore device protocol from simple db failed',
+        error,
+      );
+      return undefined;
+    }
+  }
+
+  private async runExistingDeviceConnectProtocolMigration(): Promise<void> {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (
+      (appStatus?.hardwareConnectProtocolMigrationVersion ?? 0) >=
+      HARDWARE_CONNECT_PROTOCOL_MIGRATION_VERSION
+    ) {
+      return;
+    }
+
+    const [{ devices }, { wallets }] = await Promise.all([
+      localDb.getAllDevices(),
+      localDb.getAllWallets(),
+    ]);
+    const hardwareDeviceIds = new Set(
+      wallets
+        .filter((wallet) => wallet.type === WALLET_TYPE_HW)
+        .map((wallet) => wallet.associatedDevice)
+        .filter((deviceId): deviceId is string => Boolean(deviceId)),
+    );
+    const migrations = devices.flatMap((device) => {
+      if (
+        !hardwareDeviceIds.has(device.id) ||
+        (device.vendor ?? EHardwareVendor.onekey) !== EHardwareVendor.onekey ||
+        isHardwareConnectProtocol(device.connectProtocol)
+      ) {
+        return [];
+      }
+      const observedProtocol = [
+        device.deviceStateInfo?.protocol,
+        device.featuresInfo?.protocol,
+      ].find(isHardwareConnectProtocol);
+      return [
+        {
+          dbDeviceId: device.id,
+          // All devices from the released app use V1. Keep explicit protocol
+          // evidence for internal builds without overwriting it during upgrade.
+          connectProtocol: observedProtocol ?? ('V1' as const),
+        },
+      ];
+    });
+
+    for (const migration of migrations) {
+      await localDb.updateDeviceConnectProtocol(migration);
+    }
+    await simpleDb.appStatus.setRawData(
+      (value): ISimpleDBAppStatus => ({
+        ...value,
+        hardwareConnectProtocolMigrationVersion: Math.max(
+          value?.hardwareConnectProtocolMigrationVersion ?? 0,
+          HARDWARE_CONNECT_PROTOCOL_MIGRATION_VERSION,
+        ),
+      }),
+    );
+    serviceHardwareUtils.hardwareLog(
+      'migrated existing device connect protocols',
+      { migratedCount: migrations.length },
+    );
+  }
+
+  private ensureExistingDeviceConnectProtocolMigration(): Promise<void> {
+    if (!this.connectProtocolMigrationPromise) {
+      this.connectProtocolMigrationPromise =
+        this.runExistingDeviceConnectProtocolMigration().catch((error) => {
+          this.connectProtocolMigrationPromise = undefined;
+          throw error;
+        });
+    }
+    return this.connectProtocolMigrationPromise;
+  }
+
+  @backgroundMethod()
+  async migrateExistingDeviceConnectProtocols(): Promise<void> {
+    await this.ensureExistingDeviceConnectProtocolMigration();
+  }
+
   /** Coalesce concurrent device-management reads for the same connection. */
   private deviceManagementSnapshotInFlight = new Map<
     string,
@@ -330,7 +524,7 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
-  private rememberDeviceProtocol({
+  private async rememberDeviceProtocol({
     connectIds,
     protocol,
   }: {
@@ -340,9 +534,34 @@ class ServiceHardware extends ServiceBase {
     if (protocol !== 'V1' && protocol !== 'V2') {
       return;
     }
+    const changedConnectIds: string[] = [];
     for (const connectId of connectIds) {
       if (connectId) {
+        const previousProtocol =
+          this.deviceProtocolByConnectId.get(connectId) ??
+          this.deviceProtocolByConnectId.get(connectId.trim().toLowerCase());
         this.deviceProtocolByConnectId.set(connectId, protocol);
+        const normalizedConnectId = connectId.trim().toLowerCase();
+        if (normalizedConnectId && normalizedConnectId !== connectId) {
+          this.deviceProtocolByConnectId.set(normalizedConnectId, protocol);
+        }
+        this.bindDeviceProtocolToSDK({ connectId, protocol });
+        if (previousProtocol !== protocol) {
+          changedConnectIds.push(connectId);
+        }
+      }
+    }
+    if (changedConnectIds.length > 0) {
+      try {
+        await this.persistDeviceProtocols({
+          connectIds: changedConnectIds,
+          protocol,
+        });
+      } catch (error) {
+        serviceHardwareUtils.hardwareLog(
+          'persist device protocol to simple db failed',
+          error,
+        );
       }
     }
   }
@@ -351,14 +570,27 @@ class ServiceHardware extends ServiceBase {
     if (!connectId) {
       return undefined;
     }
-    const cachedProtocol = this.deviceProtocolByConnectId.get(connectId);
+    try {
+      await this.ensureExistingDeviceConnectProtocolMigration();
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'migrate existing device connect protocols failed',
+        error,
+      );
+    }
+    const cachedProtocol =
+      this.deviceProtocolByConnectId.get(connectId) ??
+      this.deviceProtocolByConnectId.get(connectId.trim().toLowerCase());
     if (cachedProtocol) {
       return cachedProtocol;
     }
     try {
       const device = await localDb.getDeviceByQuery({ connectId });
-      const protocol =
+      let protocol =
         device?.connectProtocol ?? device?.deviceStateInfo?.protocol;
+      if (protocol !== 'V1' && protocol !== 'V2') {
+        protocol = await this.getPersistedDeviceProtocol(connectId);
+      }
       if (
         device?.id &&
         !device.connectProtocol &&
@@ -376,7 +608,7 @@ class ServiceHardware extends ServiceBase {
           );
         }
       }
-      this.rememberDeviceProtocol({
+      await this.rememberDeviceProtocol({
         connectIds: [
           connectId,
           device?.connectId,
@@ -391,6 +623,14 @@ class ServiceHardware extends ServiceBase {
         'restore device protocol from persistence failed',
         error,
       );
+      const protocol = await this.getPersistedDeviceProtocol(connectId);
+      if (protocol === 'V1' || protocol === 'V2') {
+        await this.rememberDeviceProtocol({
+          connectIds: [connectId],
+          protocol,
+        });
+        return protocol;
+      }
       return undefined;
     }
   }
@@ -480,6 +720,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private registeredSdkDebugLogging = false;
+
   private sdkInstanceEpoch = 0;
 
   private hardwareUiEventQueue = new HardwareUiEventQueue<UiEvent>();
@@ -525,12 +767,27 @@ class ServiceHardware extends ServiceBase {
 
   async getSDKInstance(options: {
     connectId: string | undefined;
+    connectProtocol?: HardwareConnectProtocol;
+    forceProtocolDetection?: boolean;
     hardwareCallContext?: EHardwareCallContext;
   }) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
     await this.assertOneKeySdkConnectId(options?.connectId);
+
+    // 只有搜索/onboarding 可以显式重新探测；普通业务调用必须恢复已确认协议。
+    const resolvedConnectProtocol = options.forceProtocolDetection
+      ? undefined
+      : (options.connectProtocol ??
+        (await this.getKnownDeviceProtocol(options.connectId)));
+    if (
+      options.connectId &&
+      !resolvedConnectProtocol &&
+      options.forceProtocolDetection !== true
+    ) {
+      throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
+    }
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
     const isPreRelease =
@@ -541,6 +798,19 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    const showSdkDebugLogs =
+      platformEnv.isDev === true &&
+      (platformEnv.isNative === true || platformEnv.isDesktop === true) &&
+      debugMode === true;
+
+    if (
+      this.registeredEvents &&
+      this.registeredSdkDebugLogging !== showSdkDebugLogs
+    ) {
+      this.resetHardwareUiEventQueue();
+      this.registeredEvents = false;
+    }
+    this.registeredSdkDebugLogging = showSdkDebugLogs;
 
     let hardwareTransportType =
       await this.connectionManager.getCurrentTransportType();
@@ -551,6 +821,7 @@ class ServiceHardware extends ServiceBase {
       // Check if we should switch transport type based on optimal connection strategy
       const result = await this.connectionManager.shouldSwitchTransportType({
         connectId: options?.connectId,
+        connectProtocol: resolvedConnectProtocol,
         hardwareCallContext,
       });
       shouldSwitch = result.shouldSwitch;
@@ -590,7 +861,16 @@ class ServiceHardware extends ServiceBase {
       await this.checkBridgeAndFallbackToWebUSB({
         hardwareSDKInstance: instance,
       });
-      await this.registerSdkEvents(instance);
+      await this.registerSdkEvents(instance, { showSdkDebugLogs });
+
+      const protocolAwareInstance = instance as IProtocolAwareCoreApi;
+      this.activeHardwareSDKInstance = protocolAwareInstance;
+      this.bindRememberedDeviceProtocols(protocolAwareInstance);
+      this.bindDeviceProtocolToSDK({
+        connectId: options.connectId,
+        protocol: resolvedConnectProtocol,
+        instance: protocolAwareInstance,
+      });
 
       return instance;
     } catch (error) {
@@ -604,6 +884,18 @@ class ServiceHardware extends ServiceBase {
       }
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async sendUiResponseToActiveSdk(response: UiResponseEvent): Promise<void> {
+    // UI 回包属于当前硬件调用的延续，不能重新执行传输探测或重建 SDK。
+    const instance = this.activeHardwareSDKInstance;
+    if (!instance) {
+      throw new OneKeyLocalError(
+        'Hardware SDK active instance is unavailable for UI response.',
+      );
+    }
+    instance.uiResponse(response);
   }
 
   private async assertOneKeySdkConnectId(connectId: string | undefined) {
@@ -679,7 +971,9 @@ class ServiceHardware extends ServiceBase {
         newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
         if (!supportInputPinOnSoftware && isCurrent()) {
-          await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
+          await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice({
+            responseCorrelation: newPayload.uiResponseCorrelation,
+          });
           newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
         }
       }
@@ -721,10 +1015,18 @@ class ServiceHardware extends ServiceBase {
     };
   }
 
-  async registerSdkEvents(instance: CoreApi) {
+  async registerSdkEvents(
+    instance: CoreApi,
+    {
+      showSdkDebugLogs = false,
+    }: {
+      showSdkDebugLogs?: boolean;
+    } = {},
+  ) {
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
       this.registeredEvents = true;
+      this.registeredSdkDebugLogging = showSdkDebugLogs;
       this.sdkInstanceEpoch += 1;
       const sdkInstanceEpoch = this.sdkInstanceEpoch;
       let deviceStateEventSequence = 0;
@@ -755,12 +1057,17 @@ class ServiceHardware extends ServiceBase {
                     };
                     type?: string;
                     passphraseState?: string;
+                    responseCorrelation?: {
+                      interactionId?: unknown;
+                      deviceId?: unknown;
+                    };
                   })
                 : undefined;
             const {
               device,
               type: eventType,
               passphraseState,
+              responseCorrelation,
             } = eventPayload || {};
             const { deviceType, connectId, deviceId, features } = device || {};
             const deviceMode = features
@@ -780,6 +1087,14 @@ class ServiceHardware extends ServiceBase {
               deviceMode,
               isBootloaderMode: Boolean(isBootloaderMode),
               passphraseState,
+              uiResponseCorrelation:
+                typeof responseCorrelation?.interactionId === 'string' &&
+                typeof responseCorrelation.deviceId === 'string'
+                  ? {
+                      interactionId: responseCorrelation.interactionId,
+                      deviceId: responseCorrelation.deviceId,
+                    }
+                  : undefined,
               rawPayload: payload,
             };
 
@@ -939,7 +1254,7 @@ class ServiceHardware extends ServiceBase {
             ) {
               return;
             }
-            this.rememberDeviceProtocol({
+            await this.rememberDeviceProtocol({
               connectIds: [event.connectId, event.state.identity.serialNo],
               protocol: event.state.protocol,
             });
@@ -1000,7 +1315,7 @@ class ServiceHardware extends ServiceBase {
           }
         )?.serialNo;
         const { features } = message.device || {};
-        this.rememberDeviceProtocol({
+        void this.rememberDeviceProtocol({
           connectIds: [activeConnectId, serialNo || message.device?.uuid],
           protocol: message.device?.state?.protocol ?? features?.protocol,
         });
@@ -1053,7 +1368,6 @@ class ServiceHardware extends ServiceBase {
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
-          this.deviceProtocolByConnectId.delete(activeConnectId);
           if (this.hardwareUiEventState.connectId === activeConnectId) {
             this.resetHardwareUiEventQueue();
           }
@@ -1102,16 +1416,22 @@ class ServiceHardware extends ServiceBase {
         (messages: { event: string; type: string; payload: string[] }) => {
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
+          const message = messages.payload.join(' ');
+
+          if (showSdkDebugLogs) {
+            try {
+              writeHardwareSdkDebugLog(message);
+            } catch {
+              // Debug logging must never interrupt hardware communication.
+            }
+          }
 
           if (
             messageType.includes('@onekey/hd-core') ||
             messageType.includes('@onekey/hd-transport') ||
             messageType.includes('@onekey/hd-ble-transport')
           ) {
-            defaultLogger.hardware.sdkLog.log(
-              messages.event,
-              messages.payload.join(' '),
-            );
+            defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
         },
       );
@@ -1264,11 +1584,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    const response = await hardwareSDK?.searchDevices(
-      params?.connectProtocol
-        ? { connectProtocol: params.connectProtocol }
-        : undefined,
-    );
+    const response = await hardwareSDK?.searchDevices();
     defaultLogger.hardware.sdkLog.log(
       'searchDevices response: ',
       JSON.stringify(response),
@@ -1280,11 +1596,7 @@ class ServiceHardware extends ServiceBase {
       // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
       // and retry once, so the user doesn't have to restart the app.
       if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
-        const retryResponse = await hardwareSDK?.searchDevices(
-          params?.connectProtocol
-            ? { connectProtocol: params.connectProtocol }
-            : undefined,
-        );
+        const retryResponse = await hardwareSDK?.searchDevices();
         defaultLogger.hardware.sdkLog.log(
           'searchDevices response after udev rules: ',
           JSON.stringify(retryResponse),
@@ -1570,6 +1882,7 @@ class ServiceHardware extends ServiceBase {
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
+      connectProtocol: 'V2',
       hardwareCallContext,
     });
     return convertDeviceResponse(() =>
@@ -1661,10 +1974,12 @@ class ServiceHardware extends ServiceBase {
     device,
     hardwareCallContext,
     connectProtocol,
+    forceProtocolDetection,
   }: {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
     connectProtocol?: HardwareConnectProtocol;
+    forceProtocolDetection?: boolean;
   }): Promise<Features | undefined> {
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
     if (vendor && vendor !== EHardwareVendor.onekey) {
@@ -1705,29 +2020,33 @@ class ServiceHardware extends ServiceBase {
       connectProtocol?: HardwareConnectProtocol;
       state?: { protocol?: HardwareConnectProtocol | null };
     };
-    const resolvedConnectProtocol =
-      connectProtocol ??
-      protocolAwareDevice.connectProtocol ??
-      protocolAwareDevice.state?.protocol ??
-      (await this.getKnownDeviceProtocol(compatibleConnectId));
-    this.rememberDeviceProtocol({
-      connectIds: [
-        connectId,
-        compatibleConnectId,
-        (device as SearchDevice & { serialNo?: string }).serialNo,
-        device.uuid,
-      ],
-      protocol: resolvedConnectProtocol,
-    });
+    const resolvedConnectProtocol = forceProtocolDetection
+      ? undefined
+      : (connectProtocol ??
+        protocolAwareDevice.connectProtocol ??
+        protocolAwareDevice.state?.protocol ??
+        (await this.getKnownDeviceProtocol(compatibleConnectId)));
 
     const knownFeatures = (device as KnownDevice).features;
     if (!platformEnv.isNative && knownFeatures) {
-      // WebUSB discovery already initialized the device. Reuse its result to
-      // avoid reconnecting and prompting for device access again.
+      // WebUSB 搜索已完成真实通讯；复用结果，并在成功后保存已确认协议。
+      await this.rememberDeviceProtocol({
+        connectIds: [
+          connectId,
+          compatibleConnectId,
+          (device as SearchDevice & { serialNo?: string }).serialNo,
+          device.uuid,
+        ],
+        protocol:
+          protocolAwareDevice.state?.protocol ??
+          protocolAwareDevice.connectProtocol ??
+          knownFeatures.protocol,
+      });
       return knownFeatures;
     }
 
     const params = {
+      ...(forceProtocolDetection ? { forceProtocolDetection: true } : {}),
       ...(resolvedConnectProtocol
         ? { connectProtocol: resolvedConnectProtocol }
         : {}),
@@ -1897,38 +2216,55 @@ class ServiceHardware extends ServiceBase {
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
     const { connectId, params, silentMode, hardwareCallContext } = options;
-    const { allowEmptyConnectId, detectBootloaderDevice, ...sdkParams } =
-      params ?? {};
+    const {
+      allowEmptyConnectId,
+      detectBootloaderDevice,
+      forceProtocolDetection,
+      ...sdkParams
+    } = params ?? {};
     serviceHardwareUtils.hardwareLog('read legacy app features', connectId);
     if (!allowEmptyConnectId && !connectId) {
       throw new OneKeyLocalError(
         'hardware getFeatures ERROR: connectId is undefined',
       );
     }
+    const knownProtocol = forceProtocolDetection
+      ? undefined
+      : (sdkParams.connectProtocol ??
+        (await this.getKnownDeviceProtocol(connectId ?? undefined)));
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      connectProtocol: knownProtocol,
+      forceProtocolDetection,
       hardwareCallContext,
     });
-    const knownProtocol =
-      sdkParams.connectProtocol ??
-      (await this.getKnownDeviceProtocol(connectId ?? undefined));
     const getFeaturesParams = {
       ...sdkParams,
       ...(knownProtocol ? { connectProtocol: knownProtocol } : {}),
+      ...(forceProtocolDetection && !knownProtocol
+        ? { forceProtocolDetection: true }
+        : {}),
       ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
     };
-    const readV1Features = async () => {
+    const readV1Features = async (confirmedProtocol?: 'V1') => {
+      const effectiveGetFeaturesParams = confirmedProtocol
+        ? {
+            ...sdkParams,
+            connectProtocol: confirmedProtocol,
+            ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
+          }
+        : getFeaturesParams;
       const features = await convertDeviceResponse(
         () =>
           hardwareSDK?.getFeatures(
             connectId as string,
-            Object.keys(getFeaturesParams).length > 0
-              ? getFeaturesParams
+            Object.keys(effectiveGetFeaturesParams).length > 0
+              ? effectiveGetFeaturesParams
               : undefined,
           ),
         { silentMode },
       );
-      this.rememberDeviceProtocol({
+      await this.rememberDeviceProtocol({
         connectIds: [connectId],
         protocol: 'V1',
       });
@@ -1937,9 +2273,13 @@ class ServiceHardware extends ServiceBase {
     if (knownProtocol === 'V1') {
       return readV1Features();
     }
-    let readParams = Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
+    let readParams:
+      | (CommonParams & { forceProtocolDetection?: boolean })
+      | undefined = Object.keys(sdkParams).length > 0 ? sdkParams : undefined;
     if (knownProtocol) {
       readParams = { ...sdkParams, connectProtocol: knownProtocol };
+    } else if (forceProtocolDetection) {
+      readParams = { ...sdkParams, forceProtocolDetection: true };
     }
     const currentState = await convertDeviceResponse(
       () => hardwareSDK?.getDeviceState(connectId as string, readParams),
@@ -1951,12 +2291,12 @@ class ServiceHardware extends ServiceBase {
       // V2 getDeviceState API, but the expected null is not a full DeviceState.
       return currentState as unknown as IOneKeyDeviceFeatures;
     }
-    this.rememberDeviceProtocol({
+    await this.rememberDeviceProtocol({
       connectIds: [connectId, currentState.identity.serialNo],
       protocol: currentState.protocol,
     });
     if (currentState.protocol === 'V1') {
-      return readV1Features();
+      return readV1Features('V1');
     }
     if (
       detectBootloaderDevice &&
@@ -2014,6 +2354,9 @@ class ServiceHardware extends ServiceBase {
     const knownProtocol =
       sdkParams.connectProtocol ??
       (await this.getKnownDeviceProtocol(connectId ?? undefined));
+    if (connectId && !knownProtocol) {
+      throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
+    }
     const normalizedSdkParams =
       params || knownProtocol
         ? {
@@ -2023,13 +2366,14 @@ class ServiceHardware extends ServiceBase {
         : undefined;
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      connectProtocol: knownProtocol,
       hardwareCallContext,
     });
     const state = await convertDeviceResponse(
       () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
       { silentMode },
     );
-    this.rememberDeviceProtocol({
+    await this.rememberDeviceProtocol({
       connectIds: [connectId, state.identity.serialNo],
       protocol: state.protocol,
     });
@@ -2243,23 +2587,14 @@ class ServiceHardware extends ServiceBase {
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
   }): Promise<string | undefined> {
+    const protocol = await this.getKnownDeviceProtocol(connectId);
+    if (!protocol) {
+      throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
+    }
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      connectProtocol: protocol,
     });
-    let protocol = await this.getKnownDeviceProtocol(connectId);
-    if (!protocol) {
-      const state = await convertDeviceResponse(() =>
-        hardwareSDK.getDeviceState(connectId),
-      );
-      protocol =
-        state.protocol === 'V1' || state.protocol === 'V2'
-          ? state.protocol
-          : undefined;
-      this.rememberDeviceProtocol({
-        connectIds: [connectId, state.identity.serialNo],
-        protocol,
-      });
-    }
     if (protocol === 'V2') {
       const openWalletSession = hardwareSDK?.openWalletSession;
       if (!openWalletSession) {
@@ -2306,6 +2641,7 @@ class ServiceHardware extends ServiceBase {
       getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
+        connectProtocol: protocol,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
@@ -3128,7 +3464,7 @@ class ServiceHardware extends ServiceBase {
       }
     }
     const device = result.device as KnownDevice | undefined;
-    this.rememberDeviceProtocol({
+    await this.rememberDeviceProtocol({
       connectIds: [
         params.deviceSerialNumberFromUI,
         device?.connectId,
@@ -3260,13 +3596,17 @@ class ServiceHardware extends ServiceBase {
   }: {
     forceTransportType: EHardwareTransportType;
   }) {
+    const nextForceTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: forceTransportType,
+      });
     const operationId = stringUtils.randomString(12);
     await hardwareForceTransportAtom.set({
-      forceTransportType,
+      forceTransportType: nextForceTransportType,
       operationId,
     });
     defaultLogger.setting.device.setForceTransportType({
-      forceTransportType,
+      forceTransportType: nextForceTransportType,
       operationId,
     });
   }
@@ -3346,8 +3686,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async detectUSBDeviceAvailability() {
-    return this.connectionManager.detectUSBDeviceAvailability();
+  async detectUSBDeviceAvailability(params?: {
+    connectId?: string;
+    connectProtocol?: HardwareConnectProtocol;
+  }) {
+    return this.connectionManager.detectUSBDeviceAvailability(
+      params?.connectId,
+      params?.connectProtocol,
+    );
   }
 
   @backgroundMethod()
@@ -3580,8 +3926,19 @@ class ServiceHardware extends ServiceBase {
     });
 
     if (!platformEnv.isSupportDesktopBle) {
+      if (platformEnv.isNative) {
+        if (device?.bleConnectId?.toLowerCase() === connectId.toLowerCase()) {
+          // Preserve the current scan result, including the UUID casing returned by iOS.
+          return connectId;
+        }
+        return device?.bleConnectId || connectId;
+      }
       return device?.connectId || connectId;
     }
+
+    const connectProtocol = await this.getKnownDeviceProtocol(
+      device?.connectId || connectId,
+    );
 
     if (
       hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
@@ -3599,6 +3956,7 @@ class ServiceHardware extends ServiceBase {
 
     const result = await this.connectionManager.shouldSwitchTransportType({
       connectId: device?.connectId || connectId,
+      connectProtocol,
       hardwareCallContext,
     });
     const targetTransportType = result.targetType;

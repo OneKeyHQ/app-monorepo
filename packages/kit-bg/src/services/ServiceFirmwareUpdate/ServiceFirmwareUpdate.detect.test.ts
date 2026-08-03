@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareVendor,
@@ -153,6 +154,80 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['se01', 'resource'],
       }),
     ).toEqual(['se01', 'resource']);
+  });
+
+  it('keeps boot resources independent from stable resources', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['resource'],
+        forceTargets: ['boot_resources'],
+      }),
+    ).toEqual(['resource', 'boot_resources']);
+  });
+});
+
+describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('keeps a debug-selected resource target on the incremental inventory path', async () => {
+    const firmwareUpdateV4 = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {},
+    });
+    const hardwareSDK = {
+      firmwareUpdateV4,
+      on: jest.fn(),
+      off: jest.fn(),
+    };
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest.fn().mockResolvedValue(hardwareSDK),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn(async (key: string) => {
+            if (key === 'forceUpdateResEvenSameVersion') {
+              return false;
+            }
+            if (key === 'pro2ForceUpdateTargets') {
+              return ['resource'];
+            }
+            if (key === 'pro2ForceUpdateOnceTargets') {
+              return [];
+            }
+            return undefined;
+          }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.updatingFirmwareV3({
+      connectId: 'PRO2_CONNECT_ID',
+      bleVersion: undefined,
+      firmwareVersion: undefined,
+      bootloaderVersion: undefined,
+      firmwareType: undefined,
+      isPro2Device: true,
+      pro2ForceTargets: ['resource'],
+      pro2TargetsToUpdate: ['resource'],
+    });
+
+    expect(firmwareUpdateV4).toHaveBeenCalledTimes(1);
+    expect(firmwareUpdateV4.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        forcedUpdateRes: false,
+        targetsToUpdate: ['resource'],
+      }),
+    );
   });
 });
 

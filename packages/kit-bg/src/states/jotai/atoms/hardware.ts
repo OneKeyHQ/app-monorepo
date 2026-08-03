@@ -19,6 +19,11 @@ import { globalAtom } from '../utils';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
+export type IHardwareUiResponseCorrelation = {
+  interactionId: string;
+  deviceId: string;
+};
+
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;
@@ -35,6 +40,7 @@ export type IHardwareUiPayload = {
   source?: 'wallet-session-coordinator';
   reason?: 'open-wallet' | 'session-recovery';
   expectedPassphraseState?: string;
+  uiResponseCorrelation?: IHardwareUiResponseCorrelation;
   // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;

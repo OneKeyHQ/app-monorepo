@@ -208,7 +208,9 @@ function useDeviceConnection({
     }
 
     // Set global transport type based on tab value before scanning
-    const forceTransportType = await getForceTransportType(tabValue);
+    const forceTransportType = await getForceTransportType(tabValue, {
+      connectProtocol,
+    });
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
@@ -319,7 +321,7 @@ function useDeviceConnection({
       undefined, // pollInterval
       undefined, // maxTryCount
       vendor,
-      { connectProtocol, transportType },
+      { transportType },
     );
   }, [connectProtocol, deviceScanner, intl, tabValue, vendor]);
 
@@ -707,7 +709,9 @@ function USBOrBLEConnectionIndicator({
     setIsChecking(true);
     try {
       // Set global transport type before device access
-      const targetTransportType = await getForceTransportType(tabValue);
+      const targetTransportType = await getForceTransportType(tabValue, {
+        connectProtocol,
+      });
       if (targetTransportType) {
         await backgroundApiProxy.serviceHardware.setForceTransportType({
           forceTransportType: targetTransportType,
@@ -722,9 +726,14 @@ function USBOrBLEConnectionIndicator({
           });
         if (connectedDevice.device) {
           navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-            deviceData: connectedDevice,
+            deviceData: {
+              ...connectedDevice,
+              device: {
+                ...connectedDevice.device,
+                connectProtocol: undefined,
+              },
+            },
             tabValue,
-            connectProtocol,
           });
         }
       }
@@ -1161,6 +1170,8 @@ function ConnectYourDevicePage({
         return;
       }
       const connectId = item.device.connectId ?? '';
+      let detectedConnectProtocol: HardwareConnectProtocol | undefined;
+      let connectedDevice = item.device;
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
@@ -1185,19 +1196,30 @@ function ConnectYourDevicePage({
           void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId,
           });
-          await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-            connectId,
-            params: {
-              connectProtocol,
-              retryCount: 0,
-              onlyConnectBleDevice: true,
-            },
-          });
+          const features =
+            await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+              connectId,
+              params: {
+                forceProtocolDetection: true,
+                retryCount: 0,
+              },
+            });
+          detectedConnectProtocol =
+            features.protocol === 'V1' || features.protocol === 'V2'
+              ? features.protocol
+              : undefined;
+          connectedDevice = {
+            ...item.device,
+            connectProtocol: detectedConnectProtocol,
+          };
         }
         navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-          deviceData: item,
+          deviceData: {
+            ...item,
+            device: connectedDevice,
+          },
           tabValue: innerTabValue,
-          connectProtocol,
+          connectProtocol: detectedConnectProtocol,
         });
       } catch (error) {
         if (error instanceof OneKeyHardwareError) {
@@ -1224,7 +1246,7 @@ function ConnectYourDevicePage({
         });
       }
     },
-    [connectProtocol, navigation],
+    [navigation],
   );
 
   let content = (

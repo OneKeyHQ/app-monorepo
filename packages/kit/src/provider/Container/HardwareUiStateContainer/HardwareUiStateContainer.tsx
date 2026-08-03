@@ -278,6 +278,7 @@ function HardwareSingletonDialogCmp(
           onConfirm={async (value) => {
             await serviceHardwareUI.sendPinToDevice({
               pin: value,
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
             });
             await serviceHardwareUI.closeHardwareUiStateDialog({
               skipDeviceCancel: true,
@@ -332,6 +333,7 @@ function HardwareSingletonDialogCmp(
             });
             await serviceHardwareUI.sendPassphraseToDevice({
               passphrase,
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
             });
             // The device will not emit a loading event
             // so we need to manually display the loading to inform the user that the device is currently processing
@@ -348,13 +350,17 @@ function HardwareSingletonDialogCmp(
             await saveCachedHiddenWalletOptions({
               hideImmediately,
             });
-            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog({
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
+            });
           }}
           switchOnDeviceAttachPin={async ({ hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
             });
-            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog();
+            await serviceHardwareUI.showEnterAttachPinOnDeviceDialog({
+              responseCorrelation: state?.payload?.uiResponseCorrelation,
+            });
           }}
         />
       );
