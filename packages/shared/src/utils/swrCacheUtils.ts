@@ -169,7 +169,15 @@ function flush() {
     getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, merged);
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
-    _cache = merged;
+    //
+    // Only when there was a store to merge with, though. Without one, `merged`
+    // holds just the keys written since the last flush, so adopting it would
+    // drop every other entry this copy still has. That is not hypothetical on
+    // the extension, where both runtimes get the no-op stub: reads always come
+    // back empty and writes go nowhere, making this copy the only one there is.
+    if (disk) {
+      _cache = merged;
+    }
     _updatedKeys.clear();
     _removedKeysAt.clear();
     _removedPrefixesAt = [];

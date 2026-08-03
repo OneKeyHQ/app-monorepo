@@ -276,6 +276,25 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]).toBe(corrupt);
   });
 
+  it('keeps entries in memory when the backend never persists anything', () => {
+    // Mirrors the extension stub (syncStorageExtBg): setObject drops the write
+    // and every read comes back empty, so the in-memory copy is the only one.
+    const swr = loadFreshRuntime();
+    swr.set('walletList', 'wallets');
+    swr.flushNow();
+    fakeDiskGlobal.__swrFakeDisk = {};
+
+    setNow(2000);
+    swr.set('tokenList', 'tokens');
+    swr.flushNow();
+    fakeDiskGlobal.__swrFakeDisk = {};
+
+    expect(swr.get('tokenList')).toBe('tokens');
+    // Adopting a merged store built from the pending keys alone would drop
+    // every entry not rewritten since the last flush.
+    expect(swr.get('walletList')).toBe('wallets');
+  });
+
   it('does not resurrect a removed key from the other runtime copy', () => {
     otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
     const swr = loadFreshRuntime();
