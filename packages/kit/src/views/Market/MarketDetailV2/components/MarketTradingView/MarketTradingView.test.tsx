@@ -241,6 +241,62 @@ describe('MarketTradingViewView readiness', () => {
     unmount();
   });
 
+  it('removes the native loading cover after current legacy history succeeds', () => {
+    render(
+      <MarketTradingViewView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+
+    act(() => {
+      (
+        mockTradingViewProps.at(-1)?.onLegacyHistoryReady as
+          | ((data: Record<string, unknown>) => void)
+          | undefined
+      )?.({
+        status: 'success',
+        period: '1m',
+        symbol: 'ABC',
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        webViewLoadGeneration: 1,
+      });
+    });
+
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
+  });
+
+  it('keeps the native loading cover for stale legacy token readiness', () => {
+    render(
+      <MarketTradingViewView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    act(() => {
+      (
+        mockTradingViewProps.at(-1)?.onLegacyHistoryReady as
+          | ((data: Record<string, unknown>) => void)
+          | undefined
+      )?.({
+        status: 'success',
+        period: '1m',
+        symbol: 'DEF',
+        tokenAddress: '0xdef',
+        networkId: 'evm--1',
+        webViewLoadGeneration: 1,
+      });
+    });
+
+    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+  });
+
   it('shows a retry state after failure and accepts a later successful paint', () => {
     render(
       <MarketTradingViewView

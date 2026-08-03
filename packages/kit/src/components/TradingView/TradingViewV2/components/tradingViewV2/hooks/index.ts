@@ -2,6 +2,7 @@ export { useAutoKLineUpdate } from './useAutoKLineUpdate';
 export { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
 export { useHyperLiquidKlineSource } from './useHyperLiquidKlineSource';
 export {
+  buildMarketTradingViewIdentityKey,
   buildMarketTradingViewUrl,
   useMarketTradingViewFrameIdentity,
   useMarketSymbolSync,

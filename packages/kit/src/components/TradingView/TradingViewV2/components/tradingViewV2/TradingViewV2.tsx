@@ -44,6 +44,7 @@ import {
 } from '../TradingViewNativeChartControls';
 
 import {
+  buildMarketTradingViewIdentityKey,
   buildMarketTradingViewUrl,
   prefetchTradingViewV2FirstScreenData,
   subscribeTradingViewV2FirstScreenPrefetch,
@@ -74,6 +75,7 @@ import type {
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
+  ITradingViewLegacyHistoryReadyData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,
@@ -109,6 +111,14 @@ const TRADINGVIEW_UNDO_MESSAGE = 'TRADINGVIEW_UNDO';
 const TRADINGVIEW_REDO_MESSAGE = 'TRADINGVIEW_REDO';
 const KLINE_BOOTSTRAP_PROTOCOL_VERSION = 1;
 const TRADINGVIEW_CAPABILITY_HANDSHAKE_TIMEOUT_MS = 5000;
+const MARKET_SYMBOL_SYNC_RECOVERY_TIMEOUT_MS = 3000;
+
+interface IPendingLegacyHistoryReady {
+  readyKey: string;
+  status: ITradingViewHistoryReadyData['status'];
+  period: string;
+  webViewLoadGeneration: number;
+}
 
 function buildKLineHistoryReadyKey({
   networkId,
@@ -181,6 +191,7 @@ interface IBaseTradingViewV2Props {
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
   onChartReady?: (data: ITradingViewChartReadyData) => void;
+  onLegacyHistoryReady?: (data: ITradingViewLegacyHistoryReadyData) => void;
   onFirstPaintReady?: (data: ITradingViewFirstPaintReadyData) => void;
 }
 
@@ -217,8 +228,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const cancelInitialHistoryBootstrapSubscriptionRef = useRef<
     (() => void) | undefined
   >(undefined);
+  const marketSymbolSyncRecoveryTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const initialHistoryBootstrapSentIdentityRef = useRef<string | undefined>(
+    undefined,
+  );
+  const successfulFirstPaintRef = useRef<
+    | {
+        identity: string;
+        webViewLoadGeneration: number;
+      }
+    | undefined
+  >(undefined);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
-  const pendingLegacyHistoryReadyKeyRef = useRef<string | null>(null);
+  const pendingLegacyHistoryReadyRef =
+    useRef<IPendingLegacyHistoryReady | null>(null);
+  const notifiedLegacyHistoryReadyKeyRef = useRef<string | null>(null);
   const firstPaintTrackingRef = useRef({
     identity: '',
     startedAt: Date.now(),
@@ -235,6 +261,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const [firstHistoryReadyKey, setFirstHistoryReadyKey] = useState<
     string | null
   >(null);
+  const [
+    forceReloadMarketSymbolIdentityKey,
+    setForceReloadMarketSymbolIdentityKey,
+  ] = useState<string | undefined>(undefined);
   const [intervalConfig, setIntervalConfig] =
     useState<ITradingViewIntervalConfigData | null>(null);
   const [nativeChartControlsConfig, setNativeChartControlsConfig] =
@@ -306,6 +336,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineLoadError,
     onKLinePeriodChange,
     onChartReady,
+    onLegacyHistoryReady,
     onFirstPaintReady,
     onLoadStart,
     onLoadEnd,
@@ -323,6 +354,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     if (capabilityHandshakeTimerRef.current !== undefined) {
       clearTimeout(capabilityHandshakeTimerRef.current);
       capabilityHandshakeTimerRef.current = undefined;
+    }
+  }, []);
+  const clearMarketSymbolSyncRecoveryTimer = useCallback(() => {
+    if (marketSymbolSyncRecoveryTimerRef.current !== undefined) {
+      clearTimeout(marketSymbolSyncRecoveryTimerRef.current);
+      marketSymbolSyncRecoveryTimerRef.current = undefined;
     }
   }, []);
   const fallbackToLegacyCapabilities = useCallback((loadGeneration: number) => {
@@ -606,16 +643,61 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     firstPaintTrackingRef.current.startedAt = Date.now();
     firstPaintTrackingRef.current.hasTracked = false;
     firstPaintTrackingRef.current.requestIds.clear();
+    successfulFirstPaintRef.current = undefined;
   }
   const isKLineHistoryReady = firstHistoryReadyKey === currentHistoryReadyKey;
   useEffect(() => {
-    if (
-      isHistoryReadyAckSupported === false &&
-      pendingLegacyHistoryReadyKeyRef.current === currentHistoryReadyKey
-    ) {
-      setFirstHistoryReadyKey(currentHistoryReadyKey);
+    if (isKLineHistoryReady) {
+      clearMarketSymbolSyncRecoveryTimer();
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
     }
-  }, [currentHistoryReadyKey, isHistoryReadyAckSupported]);
+  }, [clearMarketSymbolSyncRecoveryTimer, isKLineHistoryReady]);
+  const commitLegacyHistoryReady = useCallback(
+    (candidate: IPendingLegacyHistoryReady) => {
+      if (
+        candidate.webViewLoadGeneration !== webViewLoadGeneration.current ||
+        candidate.readyKey !== currentHistoryReadyKey
+      ) {
+        return;
+      }
+
+      setFirstHistoryReadyKey(candidate.readyKey);
+      if (candidate.status === 'failed') {
+        return;
+      }
+
+      const notificationKey = [
+        candidate.webViewLoadGeneration,
+        candidate.readyKey,
+        candidate.status,
+      ].join(':');
+      if (notifiedLegacyHistoryReadyKeyRef.current === notificationKey) {
+        return;
+      }
+      notifiedLegacyHistoryReadyKeyRef.current = notificationKey;
+      onLegacyHistoryReady?.({
+        status: candidate.status,
+        period: candidate.period,
+        symbol: displaySymbol,
+        tokenAddress,
+        networkId,
+        webViewLoadGeneration: candidate.webViewLoadGeneration,
+      });
+    },
+    [
+      currentHistoryReadyKey,
+      displaySymbol,
+      networkId,
+      onLegacyHistoryReady,
+      tokenAddress,
+    ],
+  );
+  useEffect(() => {
+    const candidate = pendingLegacyHistoryReadyRef.current;
+    if (isHistoryReadyAckSupported === false && candidate) {
+      commitLegacyHistoryReady(candidate);
+    }
+  }, [commitLegacyHistoryReady, isHistoryReadyAckSupported]);
   const handleKLineDataReady = useCallback(
     (data: ITradingViewKLineDataReadyData) => {
       if (data.requestRange?.firstDataRequest) {
@@ -625,15 +707,22 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           symbol: chartSymbol,
           resolution: data.period,
         });
-        pendingLegacyHistoryReadyKeyRef.current = readyKey;
+        const candidate: IPendingLegacyHistoryReady = {
+          readyKey,
+          status: 'success',
+          period: data.period,
+          webViewLoadGeneration: webViewLoadGeneration.current,
+        };
+        pendingLegacyHistoryReadyRef.current = candidate;
         if (isHistoryReadyAckSupportedRef.current === false) {
-          setFirstHistoryReadyKey(readyKey);
+          commitLegacyHistoryReady(candidate);
         }
       }
       onKLineDataReady?.({ ...data, storageNamespace: finalStorageNamespace });
     },
     [
       chartSymbol,
+      commitLegacyHistoryReady,
       finalStorageNamespace,
       networkId,
       onKLineDataReady,
@@ -652,15 +741,22 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           symbol: chartSymbol,
           resolution: data.period,
         });
-        pendingLegacyHistoryReadyKeyRef.current = readyKey;
+        const candidate: IPendingLegacyHistoryReady = {
+          readyKey,
+          status: data.status,
+          period: data.period,
+          webViewLoadGeneration: webViewLoadGeneration.current,
+        };
+        pendingLegacyHistoryReadyRef.current = candidate;
         if (isHistoryReadyAckSupportedRef.current === false) {
-          setFirstHistoryReadyKey(readyKey);
+          commitLegacyHistoryReady(candidate);
         }
       }
       onKLineLoadError?.({ ...data, storageNamespace: finalStorageNamespace });
     },
     [
       chartSymbol,
+      commitLegacyHistoryReady,
       finalStorageNamespace,
       networkId,
       onKLineLoadError,
@@ -680,21 +776,50 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         resolution: data.resolution,
       });
       if (readyKey === currentHistoryReadyKey) {
+        clearMarketSymbolSyncRecoveryTimer();
+        initialHistoryBootstrapSentIdentityRef.current = undefined;
         setFirstHistoryReadyKey(readyKey);
       }
     },
-    [chartSymbol, currentHistoryReadyKey, networkId, tokenAddress],
+    [
+      chartSymbol,
+      clearMarketSymbolSyncRecoveryTimer,
+      currentHistoryReadyKey,
+      networkId,
+      tokenAddress,
+    ],
   );
   const handleFirstPaintReady = useCallback(
     (data: ITradingViewFirstPaintReadyData) => {
+      const currentIdentityKey = buildMarketTradingViewIdentityKey({
+        symbol: chartSymbol.trim().toLowerCase(),
+        tokenAddress,
+        networkId,
+        decimal,
+      });
+      const firstPaintIdentityKey = buildMarketTradingViewIdentityKey({
+        symbol: (data.symbol || chartSymbol).trim().toLowerCase(),
+        tokenAddress: data.tokenAddress ?? tokenAddress,
+        networkId: data.networkId || networkId,
+        decimal,
+      });
       const tracking = firstPaintTrackingRef.current;
       if (
+        firstPaintIdentityKey !== currentIdentityKey ||
         tracking.requestIds.has(data.requestId) ||
         tracking.identity !== firstPaintMetricIdentity
       ) {
         return;
       }
 
+      if (data.status !== 'failed') {
+        successfulFirstPaintRef.current = {
+          identity: firstPaintMetricIdentity,
+          webViewLoadGeneration: webViewLoadGeneration.current,
+        };
+        clearMarketSymbolSyncRecoveryTimer();
+        initialHistoryBootstrapSentIdentityRef.current = undefined;
+      }
       tracking.requestIds.add(data.requestId);
       if (tracking.requestIds.size > 100) {
         const oldestRequestId = tracking.requestIds.values().next().value;
@@ -715,7 +840,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       }
       onFirstPaintReady?.(data);
     },
-    [firstPaintMetricIdentity, onFirstPaintReady],
+    [
+      chartSymbol,
+      clearMarketSymbolSyncRecoveryTimer,
+      decimal,
+      firstPaintMetricIdentity,
+      networkId,
+      onFirstPaintReady,
+      tokenAddress,
+    ],
   );
   const handleKLinePeriodChange = useCallback(
     (data: ITradingViewKLinePeriodChangeData) => {
@@ -847,14 +980,82 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       additionalParams: staticAdditionalParams,
       disabledFeatures,
     });
+  const marketSymbolIdentityKey =
+    buildMarketTradingViewIdentityKey(marketSymbolIdentity);
+  const shouldForceReloadMarketSymbol =
+    forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey;
   const {
     staticTradingViewUrl: iframeStaticTradingViewUrl,
     identity: iframeIdentity,
   } = useMarketTradingViewFrameIdentity({
     staticTradingViewUrl,
     identity: marketSymbolIdentity,
-    symbolSyncSupport: isMarketSymbolSyncSupported,
+    symbolSyncSupport: shouldForceReloadMarketSymbol
+      ? false
+      : isMarketSymbolSyncSupported,
   });
+  const iframeIdentityKey = buildMarketTradingViewIdentityKey(iframeIdentity);
+  useEffect(() => {
+    if (
+      forceReloadMarketSymbolIdentityKey &&
+      iframeIdentityKey === forceReloadMarketSymbolIdentityKey
+    ) {
+      setForceReloadMarketSymbolIdentityKey(undefined);
+    }
+  }, [forceReloadMarketSymbolIdentityKey, iframeIdentityKey]);
+  const scheduleMarketSymbolSyncRecovery = useCallback(() => {
+    clearMarketSymbolSyncRecoveryTimer();
+    const successfulFirstPaint = successfulFirstPaintRef.current;
+    if (
+      !isVisibilityManagedExternally ||
+      isMarketSymbolSyncSupported !== true ||
+      iframeIdentityKey === marketSymbolIdentityKey ||
+      forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey ||
+      (successfulFirstPaint?.identity === firstPaintMetricIdentity &&
+        successfulFirstPaint.webViewLoadGeneration ===
+          webViewLoadGeneration.current) ||
+      initialHistoryBootstrapSentIdentityRef.current !==
+        firstPaintMetricIdentity
+    ) {
+      return;
+    }
+
+    const scheduledDataRequestIdentity = firstPaintMetricIdentity;
+    marketSymbolSyncRecoveryTimerRef.current = setTimeout(() => {
+      marketSymbolSyncRecoveryTimerRef.current = undefined;
+      const latestSuccessfulFirstPaint = successfulFirstPaintRef.current;
+      if (
+        isDataRequestEnabledRef.current &&
+        currentDataRequestIdentityRef.current ===
+          scheduledDataRequestIdentity &&
+        !(
+          latestSuccessfulFirstPaint?.identity ===
+            scheduledDataRequestIdentity &&
+          latestSuccessfulFirstPaint.webViewLoadGeneration ===
+            webViewLoadGeneration.current
+        )
+      ) {
+        setForceReloadMarketSymbolIdentityKey(marketSymbolIdentityKey);
+      }
+    }, MARKET_SYMBOL_SYNC_RECOVERY_TIMEOUT_MS);
+  }, [
+    clearMarketSymbolSyncRecoveryTimer,
+    firstPaintMetricIdentity,
+    forceReloadMarketSymbolIdentityKey,
+    iframeIdentityKey,
+    isMarketSymbolSyncSupported,
+    isVisibilityManagedExternally,
+    marketSymbolIdentityKey,
+  ]);
+  useEffect(() => {
+    if (!isKLineHistoryReady) {
+      scheduleMarketSymbolSyncRecovery();
+    }
+  }, [
+    isKLineHistoryReady,
+    scheduleMarketSymbolSyncRecovery,
+    isMarketSymbolSyncSupported,
+  ]);
   const tradingViewUrlWithParams = useMemo(
     () =>
       buildMarketTradingViewUrl({
@@ -1050,6 +1251,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       clearCapabilityHandshakeTimer();
       cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+      clearMarketSymbolSyncRecoveryTimer();
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
+      successfulFirstPaintRef.current = undefined;
       webViewLoadGeneration.current += 1;
       capabilityHandshakeSettledGenerationRef.current = null;
       firstPaintTrackingRef.current.startedAt = Date.now();
@@ -1059,7 +1263,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       setIsMarketAppKlineTransportSupported(undefined);
       setIsIntervalAckSupported(undefined);
       setIsHistoryReadyAckSupported(undefined);
-      pendingLegacyHistoryReadyKeyRef.current = null;
+      pendingLegacyHistoryReadyRef.current = null;
+      notifiedLegacyHistoryReadyKeyRef.current = null;
       setFirstHistoryReadyKey(null);
       setIntervalConfig(null);
       setNativeChartControlsConfig(null);
@@ -1068,6 +1273,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [
       clearCapabilityHandshakeTimer,
+      clearMarketSymbolSyncRecoveryTimer,
       onLoadStart,
       resetInteractionLocks,
       webViewLoadGeneration,
@@ -1078,6 +1284,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     (ref: IWebViewRef) => {
       cancelInitialHistoryBootstrapSubscriptionRef.current?.();
       cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+      clearMarketSymbolSyncRecoveryTimer();
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
       const requestTarget = captureTradingViewRequestTarget({
         webRef,
         webViewLoadGeneration,
@@ -1145,7 +1353,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             if (delivery !== 'initial') {
               return;
             }
-            requestTarget.sendMessage({
+            const bootstrapSent = requestTarget.sendMessage({
               type: 'KLINE_BOOTSTRAP',
               payload: {
                 protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
@@ -1167,6 +1375,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
                 historyMeta: result.historyMeta,
               },
             });
+            if (bootstrapSent) {
+              initialHistoryBootstrapSentIdentityRef.current =
+                firstPaintMetricIdentity;
+              scheduleMarketSymbolSyncRecovery();
+            }
           },
           onError: () => sendUnavailable('prefetch-failed'),
         });
@@ -1185,6 +1398,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [
       bootstrapKLineResolution,
       chartSymbol,
+      clearMarketSymbolSyncRecoveryTimer,
       decimal,
       firstPaintMetricIdentity,
       forceEmptyKLineData,
@@ -1195,6 +1409,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       mockEmptyKLineEnabled,
       networkId,
       primaryKLineDataUnavailable,
+      scheduleMarketSymbolSyncRecovery,
       tokenAddress,
       webRef,
       webViewLoadGeneration,
@@ -1207,16 +1422,21 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         clearCapabilityHandshakeTimer();
         cancelInitialHistoryBootstrapSubscriptionRef.current?.();
         cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+        clearMarketSymbolSyncRecoveryTimer();
+        initialHistoryBootstrapSentIdentityRef.current = undefined;
+        successfulFirstPaintRef.current = undefined;
         resetInteractionLocks();
       }
       webRef.current = ref;
-      if (ref) {
+      if (ref && isVisible) {
         deliverInitialHistoryBootstrap(ref);
       }
     },
     [
       clearCapabilityHandshakeTimer,
+      clearMarketSymbolSyncRecoveryTimer,
       deliverInitialHistoryBootstrap,
+      isVisible,
       resetInteractionLocks,
       webRef,
     ],
@@ -1234,7 +1454,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           fallbackToLegacyCapabilities(loadGeneration);
         }, TRADINGVIEW_CAPABILITY_HANDSHAKE_TIMEOUT_MS);
       }
-      if (webRef.current) {
+      if (isVisible && webRef.current) {
         deliverInitialHistoryBootstrap(webRef.current);
       }
       onLoadEnd?.(event);
@@ -1242,6 +1462,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [
       deliverInitialHistoryBootstrap,
       fallbackToLegacyCapabilities,
+      isVisible,
       onLoadEnd,
       webRef,
       webViewLoadGeneration,
@@ -1249,10 +1470,32 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   useEffect(() => {
+    if (!isVisible) {
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+      cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+      clearMarketSymbolSyncRecoveryTimer();
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
+      return;
+    }
     if (webRef.current) {
       deliverInitialHistoryBootstrap(webRef.current);
     }
-  }, [deliverInitialHistoryBootstrap, webRef]);
+  }, [
+    clearMarketSymbolSyncRecoveryTimer,
+    deliverInitialHistoryBootstrap,
+    isVisible,
+    webRef,
+  ]);
+
+  useEffect(
+    () => () => {
+      cancelInitialHistoryBootstrapSubscriptionRef.current?.();
+      cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
+      clearMarketSymbolSyncRecoveryTimer();
+      initialHistoryBootstrapSentIdentityRef.current = undefined;
+    },
+    [clearMarketSymbolSyncRecoveryTimer],
+  );
 
   const nativeIndicatorQuickBar = useMemo(() => {
     if (

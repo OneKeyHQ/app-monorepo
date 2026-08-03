@@ -19,6 +19,7 @@ import type {
   ITradingViewFirstPaintReadyData,
   ITradingViewKLineDataReadyData,
   ITradingViewKLinePeriodChangeData,
+  ITradingViewLegacyHistoryReadyData,
   ITradingViewPriceUpdateData,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -260,6 +261,22 @@ export const MarketTradingViewView = memo(
       setReadyChartIdentity(undefined);
       setFailedChartIdentity(undefined);
     }, []);
+    const handleLegacyHistoryReady = useCallback(
+      (data: ITradingViewLegacyHistoryReadyData) => {
+        if (
+          data.networkId !== networkId ||
+          normalizeTokenAddress(data.tokenAddress, networkId) !==
+            normalizeTokenAddress(tokenAddress, networkId) ||
+          data.symbol.trim().toLowerCase() !== tokenSymbol.trim().toLowerCase()
+        ) {
+          return;
+        }
+
+        setFailedChartIdentity(undefined);
+        setReadyChartIdentity(chartIdentity);
+      },
+      [chartIdentity, networkId, tokenAddress, tokenSymbol],
+    );
     const handleChartRetry = useCallback(() => {
       setReadyChartIdentity(undefined);
       setFailedChartIdentity(undefined);
@@ -369,6 +386,7 @@ export const MarketTradingViewView = memo(
           onPriceUpdate={handlePriceUpdate}
           onKLineDataReady={handleKLineDataReady}
           onKLinePeriodChange={handleKLinePeriodChange}
+          onLegacyHistoryReady={handleLegacyHistoryReady}
           onFirstPaintReady={handleFirstPaintReady}
           onLoadStart={handleChartLoadStart}
           disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}

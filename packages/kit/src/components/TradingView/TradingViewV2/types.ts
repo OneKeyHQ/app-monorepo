@@ -18,6 +18,15 @@ export interface ITradingViewHistoryReadyData {
   networkId?: string;
 }
 
+export interface ITradingViewLegacyHistoryReadyData {
+  status: 'success' | 'empty';
+  period: string;
+  symbol: string;
+  tokenAddress: string;
+  networkId: string;
+  webViewLoadGeneration: number;
+}
+
 export interface ITradingViewFirstPaintReadyData {
   requestId: string;
   resolution: string;

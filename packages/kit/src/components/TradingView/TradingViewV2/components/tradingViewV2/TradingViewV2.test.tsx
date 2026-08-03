@@ -122,6 +122,17 @@ jest.mock('../TradingViewNativeChartControls', () => ({
 }));
 
 jest.mock('./hooks', () => ({
+  buildMarketTradingViewIdentityKey: ({
+    symbol,
+    tokenAddress,
+    networkId,
+    decimal,
+  }: {
+    symbol: string;
+    tokenAddress: string;
+    networkId: string;
+    decimal: number;
+  }) => `${networkId}:${tokenAddress}:${symbol}:${decimal}`,
   buildMarketTradingViewUrl: ({ baseUrl }: { baseUrl: string }) => baseUrl,
   getTradingViewV2FirstScreenPrefetchPromise: () => undefined,
   prefetchTradingViewV2FirstScreenData: (params: Record<string, unknown>) =>
@@ -168,13 +179,53 @@ const mockTradingViewLogger = defaultLogger.dex.tradingView as unknown as {
   dexTVFirstPaint: jest.Mock;
 };
 
+interface IMockFirstScreenPrefetchResult {
+  interval: string;
+  requestedTimeTo: number;
+  coveredTimeFrom: number;
+  coveredTimeTo: number;
+  historyExhausted: boolean;
+  points: {
+    o: number;
+    h: number;
+    l: number;
+    c: number;
+    v: number;
+    t: number;
+  }[];
+}
+
+interface IMockFirstScreenPrefetchSubscription {
+  onResult: (
+    result: IMockFirstScreenPrefetchResult,
+    delivery: 'initial' | 'upgrade',
+  ) => void;
+}
+
+function buildMockFirstScreenPrefetchResult(): IMockFirstScreenPrefetchResult {
+  return {
+    interval: '1m',
+    requestedTimeTo: 1120,
+    coveredTimeFrom: 1000,
+    coveredTimeTo: 1120,
+    historyExhausted: false,
+    points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+  };
+}
+
 describe('TradingViewV2 native source discovery', () => {
   beforeEach(() => {
     mockWebViewProps.length = 0;
     mockUseAutoKLineUpdate.mockClear();
     mockUseAutoTokenDetailUpdate.mockClear();
     mockUseMarketSymbolSync.mockClear();
-    mockUseMarketTradingViewFrameIdentity.mockClear();
+    mockUseMarketTradingViewFrameIdentity.mockReset();
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity }) => ({
+        staticTradingViewUrl,
+        identity,
+      }),
+    );
     mockUseTradingViewV2WebSocket.mockClear();
     mockUseTradingViewMessageHandler.mockClear();
     mockSubscribeTradingViewV2FirstScreenPrefetch.mockReset();
@@ -503,8 +554,538 @@ describe('TradingViewV2 native source discovery', () => {
     );
   });
 
+  it('subscribes to cached bootstrap data after an inactive persistent session becomes active', () => {
+    jest.useFakeTimers();
+    const { rerender, unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        enabled={false}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+
+    expect(
+      mockSubscribeTradingViewV2FirstScreenPrefetch,
+    ).not.toHaveBeenCalled();
+
+    rerender(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        enabled
+        isVisibilityManagedExternally
+      />,
+    );
+
+    expect(mockSubscribeTradingViewV2FirstScreenPrefetch).toHaveBeenCalledTimes(
+      1,
+    );
+    const subscription = mockSubscribeTradingViewV2FirstScreenPrefetch.mock
+      .calls[0][0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'KLINE_BOOTSTRAP',
+        payload: expect.objectContaining({
+          identity: expect.objectContaining({
+            symbol: 'SLVon',
+            tokenAddress: '0xslv',
+            networkId: 'evm--56',
+          }),
+        }),
+      }),
+    );
+    unmount();
+  });
+
+  it('keeps the current AAPL frame after a single bootstrap delivery', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="AAPLon"
+        tokenAddress="0xaapl"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) => params.symbolSyncSupport === false,
+      ),
+    ).toBe(false);
+    unmount();
+  });
+
+  it('reloads a stale persistent frame for SLV after one bootstrap delivery', () => {
+    jest.useFakeTimers();
+    const staleIdentity = {
+      symbol: 'AAPLon',
+      tokenAddress: '0xaapl',
+      networkId: 'evm--56',
+      decimal: 18,
+    };
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity, symbolSyncSupport }) => ({
+        staticTradingViewUrl,
+        identity: symbolSyncSupport === false ? identity : staleIdentity,
+      }),
+    );
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      jest.advanceTimersByTime(2999);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) => params.symbolSyncSupport === false,
+      ),
+    ).toBe(false);
+
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) =>
+          params.symbolSyncSupport === false &&
+          params.identity.symbol === 'SLVon' &&
+          params.identity.tokenAddress === '0xslv',
+      ),
+    ).toBe(true);
+    unmount();
+  });
+
+  it('cancels stale-frame recovery after matching SLV first-paint', () => {
+    jest.useFakeTimers();
+    const staleIdentity = {
+      symbol: 'AAPLon',
+      tokenAddress: '0xaapl',
+      networkId: 'evm--56',
+      decimal: 18,
+    };
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity, symbolSyncSupport }) => ({
+        staticTradingViewUrl,
+        identity: symbolSyncSupport === false ? identity : staleIdentity,
+      }),
+    );
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript: jest.fn() });
+    });
+    const initialMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          }
+        | undefined;
+    act(() => {
+      initialMessageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+    });
+
+    const currentMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onFirstPaintReady?: (data: {
+              requestId: string;
+              resolution: string;
+              firstDataRequest: boolean;
+              status: 'rendered';
+              returnedCount: number;
+              source: 'bootstrap';
+              symbol: string;
+              tokenAddress: string;
+              networkId: string;
+            }) => void;
+          }
+        | undefined;
+    act(() => {
+      currentMessageHandlerParams?.onFirstPaintReady?.({
+        requestId: 'slv-first-paint',
+        resolution: '1m',
+        firstDataRequest: true,
+        status: 'rendered',
+        returnedCount: 100,
+        source: 'bootstrap',
+        symbol: 'SLVon',
+        tokenAddress: '0xslv',
+        networkId: 'evm--56',
+      });
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) => params.symbolSyncSupport === false,
+      ),
+    ).toBe(false);
+    unmount();
+  });
+
+  it('does not restart stale-frame recovery when first-paint precedes bootstrap', () => {
+    jest.useFakeTimers();
+    const staleIdentity = {
+      symbol: 'AAPLon',
+      tokenAddress: '0xaapl',
+      networkId: 'evm--56',
+      decimal: 18,
+    };
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity, symbolSyncSupport }) => ({
+        staticTradingViewUrl,
+        identity: symbolSyncSupport === false ? identity : staleIdentity,
+      }),
+    );
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript: jest.fn() });
+    });
+    const initialMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          }
+        | undefined;
+    act(() => {
+      initialMessageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const currentMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onFirstPaintReady?: (data: {
+              requestId: string;
+              resolution: string;
+              firstDataRequest: boolean;
+              status: 'rendered';
+              returnedCount: number;
+              source: 'bridge';
+              symbol: string;
+              tokenAddress: string;
+              networkId: string;
+            }) => void;
+          }
+        | undefined;
+    act(() => {
+      currentMessageHandlerParams?.onFirstPaintReady?.({
+        requestId: 'slv-bridge-first-paint',
+        resolution: '1m',
+        firstDataRequest: true,
+        status: 'rendered',
+        returnedCount: 100,
+        source: 'bridge',
+        symbol: 'SLVon',
+        tokenAddress: '0xslv',
+        networkId: 'evm--56',
+      });
+    });
+
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) => params.symbolSyncSupport === false,
+      ),
+    ).toBe(false);
+    unmount();
+  });
+
+  it('keeps stale-frame recovery active for a previous token first-paint', () => {
+    jest.useFakeTimers();
+    const staleIdentity = {
+      symbol: 'AAPLon',
+      tokenAddress: '0xaapl',
+      networkId: 'evm--56',
+      decimal: 18,
+    };
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity, symbolSyncSupport }) => ({
+        staticTradingViewUrl,
+        identity: symbolSyncSupport === false ? identity : staleIdentity,
+      }),
+    );
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript: jest.fn() });
+    });
+    const initialMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          }
+        | undefined;
+    act(() => {
+      initialMessageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+    });
+    const currentMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onFirstPaintReady?: (data: {
+              requestId: string;
+              resolution: string;
+              firstDataRequest: boolean;
+              status: 'rendered';
+              returnedCount: number;
+              source: 'bootstrap';
+              symbol: string;
+              tokenAddress: string;
+              networkId: string;
+            }) => void;
+          }
+        | undefined;
+    act(() => {
+      currentMessageHandlerParams?.onFirstPaintReady?.({
+        requestId: 'aapl-late-first-paint',
+        resolution: '1m',
+        firstDataRequest: true,
+        status: 'rendered',
+        returnedCount: 100,
+        source: 'bootstrap',
+        symbol: 'AAPLon',
+        tokenAddress: '0xaapl',
+        networkId: 'evm--56',
+      });
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) =>
+          params.symbolSyncSupport === false &&
+          params.identity.symbol === 'SLVon',
+      ),
+    ).toBe(true);
+    unmount();
+  });
+
+  it('cancels stale-frame recovery after matching SLV history-ready', () => {
+    jest.useFakeTimers();
+    const staleIdentity = {
+      symbol: 'AAPLon',
+      tokenAddress: '0xaapl',
+      networkId: 'evm--56',
+      decimal: 18,
+    };
+    mockUseMarketTradingViewFrameIdentity.mockImplementation(
+      ({ staticTradingViewUrl, identity, symbolSyncSupport }) => ({
+        staticTradingViewUrl,
+        identity: symbolSyncSupport === false ? identity : staleIdentity,
+      }),
+    );
+    const { unmount } = render(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        isVisibilityManagedExternally
+      />,
+    );
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+    const initialMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          }
+        | undefined;
+    act(() => {
+      initialMessageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+    const subscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+    });
+
+    const currentMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onHistoryReady?: (data: {
+              requestId: string;
+              resolution: string;
+              firstDataRequest: boolean;
+              status: 'success';
+              symbol: string;
+              tokenAddress: string;
+              networkId: string;
+            }) => void;
+          }
+        | undefined;
+    act(() => {
+      currentMessageHandlerParams?.onHistoryReady?.({
+        requestId: 'slv-history',
+        resolution: '1m',
+        firstDataRequest: true,
+        status: 'success',
+        symbol: 'SLVon',
+        tokenAddress: '0xslv',
+        networkId: 'evm--56',
+      });
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.some(
+        ([params]) => params.symbolSyncSupport === false,
+      ),
+    ).toBe(false);
+    unmount();
+  });
+
   it('falls back to legacy capabilities when chart-ready handshake times out', () => {
     jest.useFakeTimers();
+    const onLegacyHistoryReady = jest.fn();
     mockHyperLiquidKlineSource = {
       isHyperLiquidSource: false,
       symbol: undefined,
@@ -517,6 +1098,7 @@ describe('TradingViewV2 native source discovery', () => {
         networkId="evm--1"
         decimal={8}
         dataSource="polling"
+        onLegacyHistoryReady={onLegacyHistoryReady}
       />,
     );
 
@@ -561,6 +1143,7 @@ describe('TradingViewV2 native source discovery', () => {
     expect(mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ isKLineHistoryReady: false }),
     );
+    expect(onLegacyHistoryReady).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(5000);
@@ -575,6 +1158,194 @@ describe('TradingViewV2 native source discovery', () => {
     expect(mockUseAutoKLineUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({ enabled: true }),
     );
+    expect(onLegacyHistoryReady).toHaveBeenCalledTimes(1);
+    expect(onLegacyHistoryReady).toHaveBeenCalledWith({
+      status: 'success',
+      period: '1m',
+      symbol: 'ABC',
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      webViewLoadGeneration: 1,
+    });
+  });
+
+  it('does not report legacy readiness from a previous WebView generation', () => {
+    jest.useFakeTimers();
+    const onLegacyHistoryReady = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onLegacyHistoryReady={onLegacyHistoryReady}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const startLoad = () => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    };
+    act(() => {
+      startLoad();
+    });
+    const firstGenerationMessageHandlerParams =
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onKLineDataReady?: (data: {
+              period: string;
+              requestRange: {
+                from: number;
+                to: number;
+                firstDataRequest: boolean;
+              };
+            }) => void;
+          }
+        | undefined;
+    act(() => {
+      firstGenerationMessageHandlerParams?.onKLineDataReady?.({
+        period: '1m',
+        requestRange: {
+          from: 0,
+          to: 60,
+          firstDataRequest: true,
+        },
+      });
+      startLoad();
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(onLegacyHistoryReady).not.toHaveBeenCalled();
+  });
+
+  it('reports an explicit empty first history result in legacy mode', () => {
+    jest.useFakeTimers();
+    const onLegacyHistoryReady = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onLegacyHistoryReady={onLegacyHistoryReady}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      jest.advanceTimersByTime(5000);
+    });
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onKLineLoadError?: (data: {
+            status: 'empty';
+            period: string;
+            requestRange: {
+              from: number;
+              to: number;
+              firstDataRequest: boolean;
+            };
+          }) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onKLineLoadError?.({
+        status: 'empty',
+        period: '1m',
+        requestRange: {
+          from: 0,
+          to: 60,
+          firstDataRequest: true,
+        },
+      });
+    });
+
+    expect(onLegacyHistoryReady).toHaveBeenCalledTimes(1);
+    expect(onLegacyHistoryReady).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'empty',
+        period: '1m',
+        webViewLoadGeneration: 1,
+      }),
+    );
+  });
+
+  it('keeps new-protocol readiness bound to first-paint acknowledgement', () => {
+    jest.useFakeTimers();
+    const onLegacyHistoryReady = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onLegacyHistoryReady={onLegacyHistoryReady}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    });
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onHistoryReadyAckSupportChange?: (supported: boolean) => void;
+          onKLineDataReady?: (data: {
+            period: string;
+            requestRange: {
+              from: number;
+              to: number;
+              firstDataRequest: boolean;
+            };
+          }) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onHistoryReadyAckSupportChange?.(true);
+      messageHandlerParams?.onKLineDataReady?.({
+        period: '1m',
+        requestRange: {
+          from: 0,
+          to: 60,
+          firstDataRequest: true,
+        },
+      });
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(onLegacyHistoryReady).not.toHaveBeenCalled();
   });
 
   it('keeps explicit chart capabilities after the handshake deadline', () => {

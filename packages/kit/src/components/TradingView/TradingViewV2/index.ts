@@ -5,6 +5,7 @@ export type {
   ITradingViewKLineDataReadyData,
   ITradingViewKLineLoadErrorData,
   ITradingViewKLinePeriodChangeData,
+  ITradingViewLegacyHistoryReadyData,
   ITradingViewFirstPaintReadyData,
   ITradingViewPriceUpdateData,
 } from './types';
