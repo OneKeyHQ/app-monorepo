@@ -30,6 +30,7 @@ export type IUniversalBorrowActionParams = {
 export type IUniversalBorrowActionState = {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
   checkAmountLoading: boolean;
@@ -110,6 +111,8 @@ export function useUniversalBorrowAction({
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IBorrowTransactionConfirmation | undefined
   >();
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
   const [checkAmountState, setCheckAmountState] =
     useState<IBorrowCheckAmountState>(() =>
       createEmptyBorrowCheckAmountState({ requestKey: '' }),
@@ -220,10 +223,12 @@ export function useUniversalBorrowAction({
         const resp = await fetchTransactionConfirmation(value);
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
           setTransactionConfirmation(resp);
+          setTransactionConfirmationLoading(false);
         }
       } catch {
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
           setTransactionConfirmation(undefined);
+          setTransactionConfirmationLoading(false);
         }
       }
     },
@@ -235,11 +240,13 @@ export function useUniversalBorrowAction({
     transactionConfirmationRequestNonceRef.current += 1;
     const requestNonce = transactionConfirmationRequestNonceRef.current;
     setTransactionConfirmation(undefined);
+    setTransactionConfirmationLoading(false);
 
     if (!isReady || isDisabled) {
       return;
     }
 
+    setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation(normalizedAmount, requestNonce);
     return () => {
       debouncedFetchTransactionConfirmation.cancel();
@@ -469,6 +476,7 @@ export function useUniversalBorrowAction({
   return {
     estimateFeeResp,
     transactionConfirmation,
+    transactionConfirmationLoading,
     checkAmountMessage: effectiveCheckAmountState.checkAmountMessage,
     checkAmountAlerts: effectiveCheckAmountState.checkAmountAlerts,
     checkAmountLoading: effectiveCheckAmountState.checkAmountLoading,
