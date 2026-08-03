@@ -26,6 +26,11 @@ export type IFiatCryptoToken = {
   // Whether the Onramper Headless SDK (native iOS Apple Pay checkout) can buy
   // this token in the current region/fiat. Server-computed on the fiat-pay list.
   headlessSupported?: boolean;
+  // Onramper asset id (e.g. 'usdt_ethereum') and network slug (e.g.
+  // 'ethereum') for the Headless checkout request — server-delivered on the
+  // fiat-pay list; the client keeps no local mapping.
+  onramperId?: string;
+  onramperNetworkCode?: string;
 };
 
 export type IGetTokensListParams = {

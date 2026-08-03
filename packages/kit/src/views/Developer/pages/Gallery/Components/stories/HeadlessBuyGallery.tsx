@@ -13,6 +13,7 @@ const PREVIEW_TOKEN: IFiatCryptoToken = {
   networkId: 'evm--1',
   icon: '',
   headlessSupported: true,
+  onramperNetworkCode: 'ethereum',
 };
 
 function HeadlessBuyGallery() {

@@ -53,8 +53,6 @@ import { PresetRow } from '../../components/Headless/PresetRow';
 import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
 import { EBuyActionState } from '../../components/Headless/types';
 import { useOnramperCheckout } from '../../components/Headless/useOnramperCheckout';
-import { toOnramperNetworkCode } from '../../utils/onramperCodes';
-
 import type { RouteProp } from '@react-navigation/core';
 
 // Pure black pill in both themes (deliberate design choice, not theme-driven);
@@ -327,10 +325,10 @@ function HeadlessBuyPage() {
     source: 'usd',
     destination: activeToken?.symbol?.toLowerCase() ?? '',
     // Onramper speaks its own network slugs (e.g. 'ethereum'), not OneKey ids.
-    // The entry gate refuses unmapped networks, so this only misses for direct
-    // navigations (e.g. Gallery) — '' fails the quote cleanly rather than
-    // sending a raw OneKey id as a slug.
-    network: toOnramperNetworkCode(networkId) ?? '',
+    // The entry gate requires the server-delivered slug (OK-58060), so this
+    // only misses for direct navigations (e.g. Gallery) — '' fails the quote
+    // cleanly rather than sending a raw OneKey id as a slug.
+    network: activeToken?.onramperNetworkCode ?? '',
     address: effectiveAddress,
     // TEMPORARY(onramper-staging): wave-1 headless providers cover US/EU only,
     // and providers enforce country == device IP == verified-phone country, so

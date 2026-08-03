@@ -1,31 +1,16 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
-
-import { toOnramperNetworkCode } from './onramperCodes';
-
-// TEMPORARY(onramper-demo): the backend `headlessSupported` flags (OK-58060)
-// haven't shipped, so production entries can't route headless yet. Dev builds
-// treat the staging-tested native coins as supported so the flow can be
-// demoed from the REAL entries (Home → Buy → pick a token) instead of the
-// Gallery. Remove when the backend flag lands. Keys are OneKey network ids;
-// values are lowercase token addresses ('' = the chain's native coin).
-const DEV_HEADLESS_ALLOWLIST: Record<string, Set<string>> = {
-  'evm--1': new Set(['']),
-  'btc--0': new Set(['']),
-  'sol--101': new Set(['']),
-};
 
 export type ITryOpenHeadlessBuyParams = {
   networkId: string;
   tokenAddress: string;
   accountId?: string;
   // Provided when navigating from the token list; direct-buy entries omit it and
-  // the flag is resolved from the cached list.
+  // the token is resolved from the cached list.
   token?: IFiatCryptoToken;
 };
 
@@ -49,29 +34,22 @@ export async function tryOpenHeadlessBuy({
     return false;
   }
 
-  // The headless page must translate the OneKey network id into an Onramper
-  // slug; a network outside that map can never quote, so refuse BEFORE any
-  // network I/O — this also keeps the web-fallback tap latency unchanged for
-  // every unmapped network.
-  if (toOnramperNetworkCode(networkId) === undefined) {
-    return false;
-  }
-
-  let headlessSupported = Boolean(token?.headlessSupported);
-  if (!headlessSupported && token === undefined) {
-    headlessSupported =
-      await backgroundApiProxy.serviceFiatCrypto.isHeadlessSupported({
+  // The server (OK-58060) is the single source of truth: `headlessSupported`
+  // is region-trimmed by request IP, and `onramperNetworkCode` is the network
+  // slug the checkout request needs — a token missing either can never quote,
+  // so the caller's web-widget flow runs unchanged for it. A caller-provided
+  // token already carries the server fields (same list endpoint), so only
+  // token-less direct-buy entries pay the list lookup.
+  let resolvedToken = token;
+  if (resolvedToken === undefined) {
+    resolvedToken =
+      await backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken({
         networkId,
         tokenAddress,
         accountId,
       });
   }
-  if (!headlessSupported && platformEnv.isDev) {
-    headlessSupported =
-      DEV_HEADLESS_ALLOWLIST[networkId]?.has(tokenAddress.toLowerCase()) ??
-      false;
-  }
-  if (!headlessSupported) {
+  if (!resolvedToken?.headlessSupported || !resolvedToken.onramperNetworkCode) {
     return false;
   }
 
@@ -79,7 +57,7 @@ export async function tryOpenHeadlessBuy({
     screen: EModalRoutes.FiatCryptoModal,
     params: {
       screen: EModalFiatCryptoRoutes.HeadlessBuy,
-      params: { networkId, accountId, tokenAddress, token },
+      params: { networkId, accountId, tokenAddress, token: resolvedToken },
     },
   });
   return true;

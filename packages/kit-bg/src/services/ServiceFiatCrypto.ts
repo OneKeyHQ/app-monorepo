@@ -148,25 +148,25 @@ class ServiceFiatCrypto extends ServiceBase {
     return resp.data.data;
   }
 
-  // Whether a token can be bought via the native Headless SDK path. Reads the
-  // (memoized) fiat-pay list and returns the token's server flag. Used by
-  // direct-buy entry points that don't already carry the list flag.
+  // Resolve a buy-list token for the native Headless SDK path. Reads the
+  // (memoized) fiat-pay list; the caller checks `headlessSupported` /
+  // `onramperNetworkCode` on the result. Used by direct-buy entry points
+  // that don't already carry the list token.
   @backgroundMethod()
-  public async isHeadlessSupported(params: {
+  public async getHeadlessBuyToken(params: {
     networkId: string;
     tokenAddress: string;
     accountId?: string;
-  }): Promise<boolean> {
+  }): Promise<IFiatCryptoToken | undefined> {
     const { networkId, tokenAddress, accountId } = params;
     const tokens = await this.getTokensList({
       networkId,
       type: 'buy',
       accountId,
     });
-    const target = tokens.find(
+    return tokens.find(
       (o) => o.address.toLowerCase() === tokenAddress.toLowerCase(),
     );
-    return Boolean(target?.headlessSupported);
   }
 }
 
