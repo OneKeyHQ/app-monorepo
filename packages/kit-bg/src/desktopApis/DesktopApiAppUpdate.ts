@@ -679,6 +679,9 @@ class DesktopApiAppUpdate {
   }
 
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
+    // Keep this native main-process confirmation as an authorization boundary:
+    // a compromised renderer must not be able to silently replace the app by
+    // invoking the install IPC. File integrity is verified again below.
     const selection = await dialog.showMessageBox({
       type: 'question',
       buttons: [
