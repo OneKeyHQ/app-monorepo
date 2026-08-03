@@ -246,11 +246,11 @@ function BasicDatePicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="date" />
+          <Calendar mode="date" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
       </YStack>
     ),
-    [config],
+    [config, minDate, maxDate],
   );
 
   return (
@@ -687,11 +687,11 @@ function MultiSelectPicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="multiple" />
+          <Calendar mode="multiple" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
       </YStack>
     ),
-    [config],
+    [config, minDate, maxDate],
   );
 
   return (
