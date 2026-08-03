@@ -1,7 +1,10 @@
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+
+const SWAP_TARGET_DERIVE_TYPE_RETRY_DELAY_MS = 500;
 
 type IShouldUseSwapCustomRecipientAddressParams = {
   type: ESwapDirectionType;
@@ -65,7 +68,13 @@ export async function resolveSwapTargetNetworkAccount<TAccount>({
   getDeriveType: () => Promise<IAccountDeriveTypes>;
   getNetworkAccount: (deriveType: IAccountDeriveTypes) => Promise<TAccount>;
 }) {
-  const deriveType = await getDeriveType();
+  let deriveType: IAccountDeriveTypes;
+  try {
+    deriveType = await getDeriveType();
+  } catch {
+    await timerUtils.wait(SWAP_TARGET_DERIVE_TYPE_RETRY_DELAY_MS);
+    deriveType = await getDeriveType();
+  }
   try {
     return {
       account: await getNetworkAccount(deriveType),

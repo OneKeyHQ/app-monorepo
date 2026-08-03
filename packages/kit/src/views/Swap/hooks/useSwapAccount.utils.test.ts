@@ -12,19 +12,53 @@ import {
 } from './useSwapAccount.utils';
 
 describe('resolveSwapTargetNetworkAccount', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('keeps derive lookup failures unresolved', async () => {
     const getDeriveType = jest.fn(async () => {
       throw new OneKeyLocalError('derive lookup failed');
     });
     const getNetworkAccount = jest.fn(async () => ({ id: 'account-1' }));
 
-    await expect(
-      resolveSwapTargetNetworkAccount({
-        getDeriveType,
-        getNetworkAccount,
-      }),
-    ).rejects.toThrow('derive lookup failed');
+    const resolvePromise = resolveSwapTargetNetworkAccount({
+      getDeriveType,
+      getNetworkAccount,
+    });
+    const resolveErrorPromise = resolvePromise.catch((error: unknown) => error);
+    await jest.runAllTimersAsync();
+
+    await expect(resolveErrorPromise).resolves.toMatchObject({
+      message: 'derive lookup failed',
+    });
+    expect(getDeriveType).toHaveBeenCalledTimes(2);
     expect(getNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('retries one transient derive lookup failure', async () => {
+    const getDeriveType = jest
+      .fn()
+      .mockRejectedValueOnce(new OneKeyLocalError('derive lookup failed'))
+      .mockResolvedValueOnce('BIP84');
+    const getNetworkAccount = jest.fn(async () => ({ id: 'account-1' }));
+
+    const resolvePromise = resolveSwapTargetNetworkAccount({
+      getDeriveType,
+      getNetworkAccount,
+    });
+    await jest.runAllTimersAsync();
+
+    await expect(resolvePromise).resolves.toEqual({
+      account: { id: 'account-1' },
+      deriveType: 'BIP84',
+    });
+    expect(getDeriveType).toHaveBeenCalledTimes(2);
+    expect(getNetworkAccount).toHaveBeenCalledWith('BIP84');
   });
 
   it('preserves the target derive type when its account is missing', async () => {
