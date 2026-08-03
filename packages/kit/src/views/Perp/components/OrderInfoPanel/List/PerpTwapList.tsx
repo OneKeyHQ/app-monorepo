@@ -973,7 +973,7 @@ function TwapFillRow({
       closePnlColor,
       closePnlPlusOrMinus,
     };
-  }, [fill.closedPnl, fill.fee, fill.feeToken, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
   const feeTooltipContent = useMemo(() => {
     const feeRatePercentage =
       builderFeeRate !== undefined
