@@ -20,6 +20,8 @@ import { getAppStaticResourcesPath } from '../resoucePath';
 
 const RESOURCE = 'ble-pair';
 const PROCESS_NAME = 'onekey-ble-pair';
+// Matches the SDK's /connect cancelled/i -> BlePairingCancelled (10310).
+const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 // The user has up to the OS pairing window to confirm; keep some headroom.
 const PAIR_TIMEOUT_MS = 60_000;
 
@@ -76,13 +78,15 @@ export function isBlePairAvailable(): boolean {
 function runHelper(
   args: string[],
   onEvent?: (event: IBlePairEvent) => void,
+  registerDecide?: (decide: (decision: IPairDecision) => void) => void,
 ): Promise<IBlePairEvent[]> {
   return new Promise((resolve, reject) => {
     const helperPath = resolveHelperPath();
     logger.info(`[BlePair] spawning ${helperPath} ${args.join(' ')}`);
 
+    // stdin carries the pair decision (confirm/cancel).
     const child = spawn(helperPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     const spawnedAt = Date.now();
@@ -97,6 +101,23 @@ function runHelper(
       lastError = `BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`;
       child.kill();
     }, PAIR_TIMEOUT_MS);
+
+    // Cancel goes through stdin, not kill(): only a live helper can decline the
+    // request, which is what makes Windows send the device an SMP Pairing Failed.
+    registerDecide?.((decision) => {
+      if (settled) return;
+      if (decision === 'cancel') {
+        lastError = PAIR_CANCELLED_REASON;
+      }
+      child.stdin?.write(`${decision}\n`, (error) => {
+        if (!error) return;
+        logger.warn(
+          `[BlePair] failed to send '${decision}' to helper: ${error.message}`,
+        );
+        // Pipe is gone; no clean decline left.
+        if (decision === 'cancel') child.kill();
+      });
+    });
 
     const settle = (fn: () => void) => {
       if (settled) return;
@@ -170,6 +191,22 @@ function runHelper(
   });
 }
 
+/** The host's half of the BLE numeric comparison. */
+export type IPairDecision = 'confirm' | 'cancel';
+
+// Only `pair` registers here.
+let decideActivePair: ((decision: IPairDecision) => void) | null = null;
+
+/**
+ * Answer the in-flight OS pairing ceremony. Returns false when none is waiting.
+ */
+export function decideActivePairing(decision: IPairDecision): boolean {
+  const decide = decideActivePair;
+  if (!decide) return false;
+  decide(decision);
+  return true;
+}
+
 /**
  * Pair `address` (a colon/dash BLE MAC) at the OS level, streaming the
  * numeric-comparison pin to `onPin` so the UI can show it. Resolves once the
@@ -190,10 +227,18 @@ export async function ensureDevicePaired(
     // of the "who is holding the device" experiment.
     args.push('--keep-link');
   }
-  const events = await runHelper(args, (event) => {
-    if (event.type === 'pairing') {
-      onPin(event.pin);
-    }
+  const events = await runHelper(
+    args,
+    (event) => {
+      if (event.type === 'pairing') {
+        onPin(event.pin);
+      }
+    },
+    (decide) => {
+      decideActivePair = decide;
+    },
+  ).finally(() => {
+    decideActivePair = null;
   });
   if (events.some((e) => e.type === 'paired')) {
     return 'paired';
