@@ -127,6 +127,7 @@ function createFixture({
   const clearAllIdentityAuthForExplicitOperation = jest
     .fn()
     .mockResolvedValue({ status: 'committed', revision: 11 });
+  const setPrimePersistAtomNotLoggedIn = jest.fn().mockResolvedValue(undefined);
   const finalizeRemovedKeylessWalletSideEffects = jest
     .fn()
     .mockResolvedValue(undefined);
@@ -406,6 +407,7 @@ function createFixture({
       logoutPrimeServerSessionBestEffort,
       deleteOneKeyIdAccountOnServer,
       clearAllIdentityAuthForExplicitOperation,
+      setPrimePersistAtomNotLoggedIn,
       recoverInterruptedKeylessOAuthSessionPersistence: jest
         .fn()
         .mockResolvedValue({ recovered: false, abandoned: false }),
@@ -425,6 +427,7 @@ function createFixture({
     logoutPrimeServerSessionBestEffort,
     deleteOneKeyIdAccountOnServer,
     clearAllIdentityAuthForExplicitOperation,
+    setPrimePersistAtomNotLoggedIn,
     setIdentityExitJournalEntry,
     ensureIdentityExitJournalEntry,
     updateRemoteOneKeyIdLogoutJournalDelivery,
@@ -441,7 +444,11 @@ function expectReadyPlan(
 ): asserts plan is Extract<IIdentityExitPlan, { status: 'ready' }> {
   expect(plan.status).toBe('ready');
   if (plan.status !== 'ready') {
-    throw new OneKeyLocalError(plan.message);
+    throw new OneKeyLocalError(
+      plan.status === 'blocked'
+        ? plan.message
+        : 'Expected identity exit plan to be ready',
+    );
   }
 }
 
@@ -695,6 +702,33 @@ describe('ServiceIdentityExit', () => {
         keylessSession: undefined,
       }),
     );
+  });
+
+  test('treats logged-out metadata as authoritative and clears a stale logged-in projection', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedOut',
+    );
+
+    await expect(
+      fixture.service.prepareIdentityExit({
+        type: 'logoutOneKeyId',
+        scene: 'profile',
+      }),
+    ).resolves.toEqual({
+      status: 'completed',
+      receipt: {
+        status: 'completed',
+        oneKeyIdLoggedOut: true,
+      },
+    });
+
+    expect(fixture.setPrimePersistAtomNotLoggedIn).toHaveBeenCalledTimes(1);
+    expect(mockReadSession).not.toHaveBeenCalled();
+    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
   });
 
   test('settles the recovery barrier when completed-journal cleanup fails after the receipt is stored', async () => {

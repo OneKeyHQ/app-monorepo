@@ -1024,6 +1024,29 @@ class ServiceIdentityExit extends ServiceBase {
     try {
       await this.recoverInterruptedIdentityExitOperations();
       return await identityLifecycleMutex.runExclusive(async () => {
+        if (intent.type === 'logoutOneKeyId') {
+          const [oneKeyIdAuthState, source, primeUser] = await Promise.all([
+            this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+            this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+            primePersistAtom.get(),
+          ]);
+          if (oneKeyIdAuthState === 'loggedOut' && !source) {
+            if (
+              primeUser.isLoggedIn ||
+              primeUser.isLoggedInOnServer ||
+              primeUser.onekeyUserId
+            ) {
+              await this.backgroundApi.servicePrime.setPrimePersistAtomNotLoggedIn();
+            }
+            return {
+              status: 'completed',
+              receipt: {
+                status: 'completed',
+                oneKeyIdLoggedOut: true,
+              },
+            };
+          }
+        }
         if (intent.type === 'recoverMalformedKeyless') {
           return this.prepareMalformedKeylessRecoveryUnderLock(intent);
         }
@@ -1069,6 +1092,11 @@ class ServiceIdentityExit extends ServiceBase {
         return publicPlan;
       });
     } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        // Keep the original object and stack available while debugging Web.
+        // eslint-disable-next-line no-console
+        console.error('[IdentityExit] prepare failed', error);
+      }
       if (isIdentityExitSnapshotError(error)) {
         return {
           status: 'blocked',

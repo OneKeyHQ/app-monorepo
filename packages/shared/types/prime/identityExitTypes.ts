@@ -52,6 +52,10 @@ export type IIdentityExitFlowResult =
 
 export type IIdentityExitPlan =
   | {
+      status: 'completed';
+      receipt: Extract<IIdentityExitReceipt, { status: 'completed' }>;
+    }
+  | {
       status: 'blocked';
       code:
         | 'STATE_UNAVAILABLE'
