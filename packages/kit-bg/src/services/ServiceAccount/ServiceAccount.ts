@@ -239,6 +239,7 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 
 export type IAddHDOrHWAccountsParams = {
@@ -254,6 +255,7 @@ export type IAddHDOrHWAccountsParams = {
   hdCredentialCacheScopeId?: string;
   // auto multi-network fill scene flag (business derived from it, not passed in)
   isAutoCreateMultiNetwork?: boolean;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -1271,6 +1273,7 @@ class ServiceAccount extends ServiceBase {
       skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
       skipWaitingAnimationAtFirst,
+      oneKeyOperationLease,
     } = params;
 
     const { prepareParams, deviceParams, networkId, walletId } =
@@ -1306,6 +1309,7 @@ class ServiceAccount extends ServiceBase {
             hideCheckingDeviceLoading,
             debugMethodName: 'keyring.prepareAccounts',
             skipWaitingAnimationAtFirst,
+            oneKeyOperationLease,
           },
         );
 

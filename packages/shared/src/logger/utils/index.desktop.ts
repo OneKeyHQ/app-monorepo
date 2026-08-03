@@ -4,7 +4,7 @@ import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
 
-logger.transports.console.level = false;
+logger.transports.console.level = platformEnv.isDev ? 'silly' : false;
 
 // Use 'app' scope so the main process format function can identify
 // renderer-originated messages and apply filtering there.

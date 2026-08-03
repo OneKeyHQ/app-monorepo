@@ -42,4 +42,26 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
 
     await expect(response.getItem(request)).resolves.toBe(item);
   });
+
+  test('keeps loop items pending until the callback response completes', async () => {
+    const response = new HardwareAllNetworkGetAddressResponse();
+    let settled = false;
+    const pendingItem = response.getItem(request).finally(() => {
+      settled = true;
+    });
+
+    response.onSdkResponse({ items: [], completed: false });
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+
+    const item: IHwAllNetworkPrepareAccountsItem = {
+      path: request.path,
+      network: request.hwSdkNetwork,
+      success: true as const,
+    };
+    response.onSdkResponse({ items: [item], completed: true });
+
+    await expect(pendingItem).resolves.toBe(item);
+  });
 });
