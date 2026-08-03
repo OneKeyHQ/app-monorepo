@@ -18,6 +18,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   getPerpsAccountDisplaySnapshotEntry,
@@ -43,8 +44,6 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
-import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
-import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -111,6 +110,8 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
+  const { showDepositWithdrawModal, isDepositDisabled } =
+    useShowDepositWithdrawModal();
   const lastAccountValueRef = useRef<
     | {
         accountKey: string;
@@ -211,12 +212,20 @@ function DepositButton() {
     displayAccountValue !== undefined;
   const isEmptyAccount =
     !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
+  const isDepositVariant = isEmptyAccount && !isDepositDisabled;
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
     badgeVariant = 'unknown';
-  } else if (isEmptyAccount) {
+  } else if (isDepositVariant) {
     badgeVariant = 'deposit';
   }
+  const handlePress = useCallback(() => {
+    if (isDepositVariant) {
+      void showDepositWithdrawModal('deposit');
+      return;
+    }
+    void showPortfolio();
+  }, [isDepositVariant, showDepositWithdrawModal, showPortfolio]);
 
   useEffect(() => {
     tracePerpsMobileLayout('header.depositBadge.state', {
@@ -277,14 +286,14 @@ function DepositButton() {
   // neutral material. Off iOS 26 (every other platform) this stays the original
   // solid Badge.
   const glassActive = isLiquidGlassAvailable();
-  const nonGlassBg = isEmptyAccount ? '$bgAccent' : '$bgStrong';
+  const nonGlassBg = isDepositVariant ? '$bgAccent' : '$bgStrong';
   const badge = (
     <Badge
       borderRadius="$full"
       size="medium"
-      variant={isEmptyAccount ? 'primary' : 'secondary'}
+      variant={isDepositVariant ? 'primary' : 'secondary'}
       testID={PerpTestIDs.PortfolioButton}
-      onPress={showPortfolio}
+      onPress={handlePress}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"
@@ -294,7 +303,15 @@ function DepositButton() {
       // In the glass capsule, drop the solid fill (the glass provides it) and
       // the press/hover feedback (the glass material handles it).
       bg={glassActive ? '$transparent' : nonGlassBg}
-      cursor="default"
+      cursor={platformEnv.isNative ? 'default' : 'pointer'}
+      borderWidth={platformEnv.isNative ? 0 : 1}
+      borderColor="$transparent"
+      hoverStyle={
+        platformEnv.isNative ? undefined : { borderColor: '$borderHover' }
+      }
+      pressStyle={
+        platformEnv.isNative ? undefined : { borderColor: '$borderActive' }
+      }
       onLayout={handleLayout}
       {...(glassActive && { hoverStyle: undefined, pressStyle: undefined })}
     >
@@ -309,7 +326,7 @@ function DepositButton() {
             </>
           );
         }
-        if (isEmptyAccount) {
+        if (isDepositVariant) {
           return (
             <>
               <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
@@ -341,7 +358,7 @@ function DepositButton() {
       isInteractive
       glassEffectStyle="regular"
       // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
-      {...(isEmptyAccount && { tintColor: theme.bgAccent?.val })}
+      {...(isDepositVariant && { tintColor: theme.bgAccent?.val })}
       style={depositGlassStyle}
     >
       {badge}
@@ -367,11 +384,11 @@ export function PerpsHeaderRight() {
         if (platformEnv.isWebDappMode) return null;
         if (gtMd) {
           return (
-            <>
-              <PerpsActivityCenterAction copyAsUrl />
-              <PerpGuidePopover />
-              <PerpSettingsButton testID={PerpTestIDs.HeaderSettingsButton} />
-            </>
+            <PerpSettingsButton
+              testID={PerpTestIDs.HeaderSettingsButton}
+              showActivityCenterEntry
+              showGuideEntry
+            />
           );
         }
         return null;

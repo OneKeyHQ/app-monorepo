@@ -10,6 +10,21 @@ import {
   BorrowRepayPosition,
   type IRepayWithCollateralConfirmParams,
 } from '@onekeyhq/kit/src/views/Borrow/components/BorrowRepayPosition';
+import {
+  buildAaveNativeGatewayReceiveToken,
+  buildBorrowTokenFromAsset,
+  filterUnsupportedAaveNativeReserveAssets,
+  getBorrowAssetByReserveAddress,
+  getBorrowBalanceAmount,
+  getBorrowRepayDebtBalance,
+  getBorrowRepayMaxInputBalance,
+  getBorrowRepayWalletBalance,
+  getValidBorrowSelectedAsset,
+  hasPositiveBorrowBalance,
+  isUnsupportedAaveNativeReserve,
+  resolveBorrowTokenApproveSpenderAddress,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { ManagePosition } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition';
 import { resolveBorrowRepayAllBalance } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import {
@@ -44,9 +59,24 @@ import {
   normalizeStakeTokenAddress,
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
+import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
+
+import {
+  type IScopedBorrowManagePageResult,
+  buildSelectedBorrowManagePageRequestKey,
+  resolveBorrowManageApproveType,
+  resolveBorrowManageTokenInfo,
+  resolveScopedBorrowManagePageResult,
+  settleScopedBorrowManagePageRequest,
+} from './WithdrawSection.utils';
 
 import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
+
+type IBorrowSelectedAssetState = {
+  asset: IBorrowAsset;
+  scopeKey: string;
+};
 
 export const WithdrawSection = ({
   accountId,
@@ -129,30 +159,208 @@ export const WithdrawSection = ({
     });
   }, [protocolInfo?.providerDetail.name, providerName]);
 
-  const approveSpenderAddress = useMemo(() => {
-    if (hasWithdrawApprove) {
-      return protocolInfo?.withdrawApprove?.approveTarget ?? '';
-    }
-    return isPendleProvider
-      ? earnUtils.resolveEarnApproveSpenderAddress({
-          providerName,
-          protocolVault: protocolInfo?.vault,
-          backendApproveTarget: protocolInfo?.approve?.approveTarget,
-        })
-      : '';
-  }, [
-    isPendleProvider,
-    hasWithdrawApprove,
-    providerName,
-    protocolInfo?.vault,
-    protocolInfo?.approve?.approveTarget,
-    protocolInfo?.withdrawApprove?.approveTarget,
-  ]);
-
   const token = useMemo(
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
     [tokenInfo],
   );
+  const borrowAssetSelectionScopeKey = useMemo(
+    () =>
+      [
+        useBorrowApi ? 'borrow' : 'earn',
+        accountId,
+        networkId,
+        providerName,
+        borrowMarketAddress,
+        borrowAction,
+        borrowReserveAddress,
+      ].join('|'),
+    [
+      accountId,
+      borrowAction,
+      borrowMarketAddress,
+      borrowReserveAddress,
+      networkId,
+      providerName,
+      useBorrowApi,
+    ],
+  );
+  const [selectedAssetState, setSelectedAssetState] =
+    useState<IBorrowSelectedAssetState | null>(null);
+  const selectedAsset = useMemo(
+    () =>
+      selectedAssetState?.scopeKey === borrowAssetSelectionScopeKey
+        ? selectedAssetState.asset
+        : null,
+    [borrowAssetSelectionScopeKey, selectedAssetState],
+  );
+  const selectedAssetReserveAddress = selectedAsset?.reserveAddress;
+  const selectedBorrowManagePageType = useMemo(() => {
+    if (
+      selectedAssetReserveAddress === undefined ||
+      !useBorrowApi ||
+      (borrowAction !== 'withdraw' && borrowAction !== 'repay')
+    ) {
+      return undefined;
+    }
+
+    return borrowAction;
+  }, [borrowAction, selectedAssetReserveAddress, useBorrowApi]);
+  const selectedBorrowManagePageRequestKey = useMemo(
+    () =>
+      buildSelectedBorrowManagePageRequestKey({
+        accountId,
+        networkId,
+        provider: providerName,
+        marketAddress: borrowMarketAddress,
+        reserveAddress: selectedAssetReserveAddress,
+        action: selectedBorrowManagePageType,
+      }),
+    [
+      accountId,
+      borrowMarketAddress,
+      networkId,
+      providerName,
+      selectedAssetReserveAddress,
+      selectedBorrowManagePageType,
+    ],
+  );
+  const {
+    result: selectedBorrowManagePageResult,
+    isLoading: selectedBorrowManagePageRequestLoading,
+  } = usePromiseResult<IScopedBorrowManagePageResult | undefined>(
+    async () => {
+      if (
+        !selectedBorrowManagePageRequestKey ||
+        !selectedBorrowManagePageType ||
+        selectedAssetReserveAddress === undefined ||
+        !accountId ||
+        !networkId ||
+        !providerName ||
+        !borrowMarketAddress ||
+        !useBorrowApi
+      ) {
+        return undefined;
+      }
+      return settleScopedBorrowManagePageRequest({
+        requestKey: selectedBorrowManagePageRequestKey,
+        request: () =>
+          backgroundApiProxy.serviceStaking.getBorrowManagePage({
+            accountId,
+            networkId,
+            provider: providerName,
+            marketAddress: borrowMarketAddress,
+            reserveAddress: selectedAssetReserveAddress,
+            type: selectedBorrowManagePageType,
+          }),
+      });
+    },
+    [
+      accountId,
+      borrowMarketAddress,
+      networkId,
+      providerName,
+      selectedAssetReserveAddress,
+      selectedBorrowManagePageType,
+      selectedBorrowManagePageRequestKey,
+      useBorrowApi,
+    ],
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+  const {
+    data: selectedBorrowManagePageData,
+    isPending: selectedBorrowManagePageLoading,
+  } = resolveScopedBorrowManagePageResult({
+    requestKey: selectedBorrowManagePageRequestKey,
+    result: selectedBorrowManagePageResult,
+    isLoading: selectedBorrowManagePageRequestLoading,
+  });
+  const selectedBorrowManagePageApproveInfo = useMemo(
+    () =>
+      selectedBorrowManagePageData
+        ? buildManagePageApproveInfo(selectedBorrowManagePageData)
+        : undefined,
+    [selectedBorrowManagePageData],
+  );
+  const effectiveBorrowTokenInfo = useMemo(
+    () =>
+      resolveBorrowManageTokenInfo({
+        action: borrowAction,
+        hasSelectedAsset: !!selectedAsset,
+        selectedManagePageData: selectedBorrowManagePageData,
+        fallbackTokenInfo: tokenInfo,
+      }),
+    [borrowAction, selectedAsset, selectedBorrowManagePageData, tokenInfo],
+  );
+  const effectiveBorrowApproveInfo = useMemo(() => {
+    if (selectedBorrowManagePageType) {
+      return selectedBorrowManagePageApproveInfo;
+    }
+    return protocolInfo?.approve;
+  }, [
+    protocolInfo?.approve,
+    selectedBorrowManagePageApproveInfo,
+    selectedBorrowManagePageType,
+  ]);
+  const borrowTokenApproveNeeded =
+    !!useBorrowApi &&
+    (borrowAction === 'repay' ||
+      (borrowAction === 'withdraw' &&
+        !!effectiveBorrowApproveInfo?.approveTarget));
+  const effectiveToken = useMemo<IToken | undefined>(
+    () =>
+      selectedAsset
+        ? buildBorrowTokenFromAsset({ asset: selectedAsset, networkId })
+        : token,
+    [networkId, selectedAsset, token],
+  );
+  const approveAssetFallbackBaseToken = effectiveToken ?? token;
+  const fallbackApproveAssetToken = useMemo<IToken | undefined>(() => {
+    if (
+      !effectiveBorrowApproveInfo?.approveAsset ||
+      !approveAssetFallbackBaseToken
+    ) {
+      return undefined;
+    }
+    return {
+      ...approveAssetFallbackBaseToken,
+      address: effectiveBorrowApproveInfo.approveAsset,
+      isNative: false,
+      networkId,
+    };
+  }, [
+    approveAssetFallbackBaseToken,
+    effectiveBorrowApproveInfo?.approveAsset,
+    networkId,
+  ]);
+  const { result: fetchedApproveAssetToken } = usePromiseResult<
+    IToken | undefined
+  >(
+    async () => {
+      if (
+        !effectiveBorrowApproveInfo?.approveAsset ||
+        !accountId ||
+        !networkId
+      ) {
+        return undefined;
+      }
+      const approveAssetToken = await backgroundApiProxy.serviceToken.getToken({
+        accountId,
+        networkId,
+        tokenIdOnNetwork: effectiveBorrowApproveInfo.approveAsset,
+        tokenInfoOnly: true,
+      });
+      return approveAssetToken ?? undefined;
+    },
+    [accountId, networkId, effectiveBorrowApproveInfo?.approveAsset],
+    {
+      undefinedResultIfReRun: true,
+    },
+  );
+  const approveAssetToken =
+    fetchedApproveAssetToken ?? fallbackApproveAssetToken;
   const withdrawApproveToken = useMemo(() => {
     if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
       return token;
@@ -163,16 +371,105 @@ export const WithdrawSection = ({
       isNative: false,
     };
   }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  const approvalToken = useMemo(() => {
+    if (borrowTokenApproveNeeded) {
+      if (effectiveBorrowApproveInfo?.approveAsset) {
+        return approveAssetToken;
+      }
+      return effectiveToken;
+    }
+    if (hasWithdrawApprove) {
+      return withdrawApproveToken;
+    }
+    return token;
+  }, [
+    approveAssetToken,
+    borrowTokenApproveNeeded,
+    effectiveBorrowApproveInfo?.approveAsset,
+    effectiveToken,
+    hasWithdrawApprove,
+    token,
+    withdrawApproveToken,
+  ]);
+  const useApproveTarget =
+    isPendleProvider || hasWithdrawApprove || borrowTokenApproveNeeded;
+
+  const approveSpenderAddress = useMemo(() => {
+    if (!useApproveTarget) {
+      return '';
+    }
+
+    if (useBorrowApi) {
+      return resolveBorrowTokenApproveSpenderAddress({
+        providerName,
+        marketAddress: borrowMarketAddress,
+        backendApproveTarget: effectiveBorrowApproveInfo?.approveTarget,
+        tokenIsNative: approvalToken?.isNative,
+      });
+    }
+
+    if (hasWithdrawApprove) {
+      return protocolInfo?.withdrawApprove?.approveTarget ?? '';
+    }
+
+    return earnUtils.resolveEarnApproveSpenderAddress({
+      providerName,
+      protocolVault: protocolInfo?.vault,
+      backendApproveTarget: effectiveBorrowApproveInfo?.approveTarget,
+    });
+  }, [
+    approvalToken?.isNative,
+    borrowMarketAddress,
+    effectiveBorrowApproveInfo?.approveTarget,
+    hasWithdrawApprove,
+    protocolInfo?.withdrawApprove?.approveTarget,
+    useApproveTarget,
+    useBorrowApi,
+    providerName,
+    protocolInfo?.vault,
+  ]);
+  const backendApproveType = hasWithdrawApprove
+    ? EApproveType.Legacy
+    : effectiveBorrowApproveInfo?.approveType;
+  const effectiveApproveType = useMemo(() => {
+    const resolvedApproveType = earnUtils.resolveEarnApproveType({
+      providerName,
+      networkId,
+      tokenIsNative: approvalToken?.isNative,
+      approveSpenderAddress,
+      backendApproveType,
+    });
+    return resolveBorrowManageApproveType({
+      isBorrowTokenApproval: !!useBorrowApi && borrowTokenApproveNeeded,
+      approveType: resolvedApproveType,
+    });
+  }, [
+    approvalToken?.isNative,
+    approveSpenderAddress,
+    backendApproveType,
+    borrowTokenApproveNeeded,
+    networkId,
+    providerName,
+    useBorrowApi,
+  ]);
 
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
-        !(isPendleProvider || hasWithdrawApprove) ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
-        withdrawApproveToken?.isNative
+        !approvalToken ||
+        approvalToken?.isNative
       ) {
+        return undefined;
+      }
+      // While a protocol switch is in flight (confirm button force-loading),
+      // networkId is already the new chain but token/spender still come from
+      // the previous protocol's stale data — skip to avoid a mismatched
+      // allowance request. Re-runs automatically once fresh data lands.
+      if (footerActionOverride?.loading) {
         return undefined;
       }
       const { allowanceParsed } =
@@ -180,48 +477,41 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            approveType: EApproveType.Legacy,
+            approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
-          tokenAddress: withdrawApproveToken?.address || '',
+          tokenAddress: approvalToken?.address || '',
         });
       return { allowanceParsed };
     },
     [
-      isPendleProvider,
-      hasWithdrawApprove,
+      effectiveApproveType,
       approveSpenderAddress,
       accountId,
       networkId,
-      withdrawApproveToken?.isNative,
-      withdrawApproveToken?.address,
+      approvalToken,
+      footerActionOverride?.loading,
     ],
-    { watchLoading: true },
+    { watchLoading: true, undefinedResultIfReRun: true },
   );
 
   const approveTarget = useMemo(() => {
-    if (
-      !(isPendleProvider || hasWithdrawApprove) ||
-      !approveSpenderAddress ||
-      !withdrawApproveToken
-    ) {
+    if (!effectiveApproveType || !approveSpenderAddress || !approvalToken) {
       return undefined;
     }
     return {
       accountId,
       networkId,
       spenderAddress: approveSpenderAddress,
-      token: withdrawApproveToken,
+      token: approvalToken,
     };
   }, [
-    isPendleProvider,
-    hasWithdrawApprove,
-    approveSpenderAddress,
     accountId,
+    approvalToken,
+    approveSpenderAddress,
+    effectiveApproveType,
     networkId,
-    withdrawApproveToken,
   ]);
-  const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
   const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
@@ -261,6 +551,47 @@ export const WithdrawSection = ({
         watchLoading: true,
       },
     );
+  const selectableBorrowAssets = useMemo(() => {
+    const assets = filterUnsupportedAaveNativeReserveAssets({
+      assets: assetsList.assets,
+      networkId,
+      providerName,
+    });
+    if (borrowAction === 'withdraw') {
+      return assets.filter((asset) => hasPositiveBorrowBalance(asset.supplied));
+    }
+    if (borrowAction === 'repay') {
+      return assets.filter((asset) => hasPositiveBorrowBalance(asset.borrowed));
+    }
+    return assets;
+  }, [assetsList.assets, borrowAction, networkId, providerName]);
+  useEffect(() => {
+    setSelectedAssetState((prev) => {
+      if (!prev) {
+        return null;
+      }
+      if (prev.scopeKey !== borrowAssetSelectionScopeKey) {
+        return null;
+      }
+      if (assetsListLoading) {
+        return prev;
+      }
+      const matchedAsset = getValidBorrowSelectedAsset({
+        assets: selectableBorrowAssets,
+        selectedAsset: prev.asset,
+      });
+      if (!matchedAsset) {
+        return null;
+      }
+      if (matchedAsset === prev.asset) {
+        return prev;
+      }
+      return {
+        ...prev,
+        asset: matchedAsset,
+      };
+    });
+  }, [assetsListLoading, borrowAssetSelectionScopeKey, selectableBorrowAssets]);
 
   const { result: unstakeAssetsList } = usePromiseResult<
     IEarnAssetsList | undefined
@@ -436,11 +767,26 @@ export const WithdrawSection = ({
     () => selectedAsset?.reserveAddress ?? borrowReserveAddress,
     [selectedAsset, borrowReserveAddress],
   );
+  const isSelectedBorrowAssetValid = useMemo(
+    () =>
+      !selectedAsset ||
+      !!getValidBorrowSelectedAsset({
+        assets: selectableBorrowAssets,
+        selectedAsset,
+      }),
+    [selectableBorrowAssets, selectedAsset],
+  );
 
   // Handle token selection from popover
-  const handleTokenSelect = useCallback((item: IBorrowAsset) => {
-    setSelectedAsset(item);
-  }, []);
+  const handleTokenSelect = useCallback(
+    (item: IBorrowAsset) => {
+      setSelectedAssetState({
+        asset: item,
+        scopeKey: borrowAssetSelectionScopeKey,
+      });
+    },
+    [borrowAssetSelectionScopeKey],
+  );
 
   const borrowApiCtx = useBorrowApiParams({
     useBorrowApi,
@@ -455,6 +801,15 @@ export const WithdrawSection = ({
     borrowApiCtx.isBorrow &&
     (borrowApiCtx.borrowApiParams.action === 'withdraw' ||
       borrowApiCtx.borrowApiParams.action === 'repay');
+  const unsupportedAaveNativeReserve = useMemo(
+    () =>
+      isUnsupportedAaveNativeReserve({
+        networkId,
+        providerName,
+        reserveAddress: effectiveReserveAddress,
+      }),
+    [effectiveReserveAddress, networkId, providerName],
+  );
 
   // Determine the effective token info (from selected asset or default)
   const effectiveTokenSymbol = useMemo(
@@ -474,38 +829,157 @@ export const WithdrawSection = ({
     [selectedAsset, protocolInfo?.protocolInputDecimals, token?.decimals],
   );
 
+  const selectedRepayManagePageData =
+    borrowAction === 'repay' ? selectedBorrowManagePageData : undefined;
+  const selectedRepayLoading =
+    borrowAction === 'repay' ? selectedBorrowManagePageLoading : false;
+
+  const currentRepayAsset = useMemo(() => {
+    if (borrowAction !== 'repay' || selectedAsset) {
+      return undefined;
+    }
+
+    return getBorrowAssetByReserveAddress({
+      assets: selectableBorrowAssets,
+      reserveAddress: borrowReserveAddress,
+    });
+  }, [
+    borrowAction,
+    borrowReserveAddress,
+    selectableBorrowAssets,
+    selectedAsset,
+  ]);
+
+  const repayDebtAsset = useMemo(
+    () => selectedAsset ?? currentRepayAsset,
+    [currentRepayAsset, selectedAsset],
+  );
+
+  const effectiveDebtBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    if (selectedAsset && selectedRepayManagePageData?.debt?.data?.balance) {
+      return selectedRepayManagePageData.debt.data.balance;
+    }
+    return getBorrowRepayDebtBalance({
+      selectedAsset: repayDebtAsset,
+      fallbackDebtBalance: protocolInfo?.debtBalance,
+    });
+  }, [
+    borrowAction,
+    protocolInfo?.debtBalance,
+    repayDebtAsset,
+    selectedAsset,
+    selectedRepayManagePageData?.debt?.data?.balance,
+  ]);
+
+  const selectedRepayWalletBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return {
+        balance: '0',
+        missingWalletBalance: false,
+      };
+    }
+    if (!selectedAsset) {
+      return {
+        balance: protocolInfo?.activeBalance ?? '0',
+        missingWalletBalance: false,
+      };
+    }
+    if (selectedRepayManagePageData?.repay?.data?.balance !== undefined) {
+      return {
+        balance: selectedRepayManagePageData.repay.data.balance,
+        missingWalletBalance: false,
+      };
+    }
+    return getBorrowRepayWalletBalance({
+      selectedAsset,
+    });
+  }, [
+    borrowAction,
+    protocolInfo?.activeBalance,
+    selectedAsset,
+    selectedRepayManagePageData?.repay?.data?.balance,
+  ]);
+
+  const isMissingSelectedRepayWalletBalance = useMemo(
+    () =>
+      borrowAction === 'repay' &&
+      !!selectedAsset &&
+      !selectedRepayLoading &&
+      selectedRepayWalletBalance.missingWalletBalance,
+    [
+      borrowAction,
+      selectedAsset,
+      selectedRepayLoading,
+      selectedRepayWalletBalance.missingWalletBalance,
+    ],
+  );
+  const isMissingSelectedBorrowTokenInfo =
+    !!selectedAsset && !effectiveBorrowTokenInfo;
+  const isBorrowRepayInputDisabled =
+    isDisabled ||
+    unsupportedAaveNativeReserve ||
+    !isSelectedBorrowAssetValid ||
+    isMissingSelectedBorrowTokenInfo ||
+    (!!selectedAsset &&
+      !!selectedBorrowManagePageType &&
+      !!selectedBorrowManagePageLoading) ||
+    isMissingSelectedRepayWalletBalance;
+
   // Determine the effective balance (from selected asset or default)
   const effectiveBalance = useMemo(() => {
-    if (selectedAsset) {
-      if (borrowAction === 'repay') {
-        // For repay, use borrowed balance
-        return (
-          selectedAsset.borrowed?.number ??
-          selectedAsset.borrowed?.title?.text ??
-          '0'
-        );
-      }
-      // For withdraw, use supplied balance
+    if (borrowAction === 'repay' && selectedAsset) {
+      return selectedRepayWalletBalance.balance;
+    }
+    if (borrowAction === 'withdraw' && selectedAsset) {
       return (
-        selectedAsset.supplied?.number ??
-        selectedAsset.supplied?.title?.text ??
-        '0'
+        selectedBorrowManagePageData?.withdraw?.data?.balance ??
+        getBorrowBalanceAmount(selectedAsset.supplied)
       );
     }
+    if (selectedAsset) {
+      return getBorrowBalanceAmount(selectedAsset.supplied);
+    }
     return protocolInfo?.activeBalance ?? '0';
-  }, [selectedAsset, borrowAction, protocolInfo?.activeBalance]);
+  }, [
+    selectedAsset,
+    borrowAction,
+    selectedBorrowManagePageData?.withdraw?.data?.balance,
+    selectedRepayWalletBalance.balance,
+    protocolInfo?.activeBalance,
+  ]);
 
-  // Determine the effective max balance for repay (wallet balance for max button)
+  // Determine the effective max input balance for repay (min of wallet and debt)
   const effectiveMaxBalance = useMemo(() => {
     if (borrowAction !== 'repay') {
       return undefined;
     }
-    // For selected asset, maxBalance is not available, use undefined
     if (selectedAsset) {
-      return undefined;
+      const selectedMaxBalance =
+        selectedRepayManagePageData?.repay?.data?.maxBalance;
+      if (selectedMaxBalance !== undefined) {
+        return selectedMaxBalance;
+      }
+      if (selectedRepayWalletBalance.missingWalletBalance) {
+        return undefined;
+      }
+      return getBorrowRepayMaxInputBalance({
+        walletBalance: selectedRepayWalletBalance.balance,
+        debtBalance: effectiveDebtBalance,
+      });
     }
     return protocolInfo?.maxRepayBalance;
-  }, [borrowAction, selectedAsset, protocolInfo?.maxRepayBalance]);
+  }, [
+    borrowAction,
+    selectedAsset,
+    selectedRepayWalletBalance.balance,
+    selectedRepayWalletBalance.missingWalletBalance,
+    effectiveDebtBalance,
+    protocolInfo?.maxRepayBalance,
+    selectedRepayManagePageData?.repay?.data?.maxBalance,
+  ]);
 
   const withdrawRequestSymbol = useMemo(
     () => protocolInfo?.symbol || token?.symbol || '',
@@ -621,123 +1095,6 @@ export const WithdrawSection = ({
     ],
   );
 
-  // Build token for staking info (use selected asset or default)
-  const effectiveToken = useMemo<IToken | undefined>(() => {
-    if (selectedAsset) {
-      const tokenAddress = selectedAsset.token.address ?? '';
-      return {
-        ...selectedAsset.token,
-        isNative: !tokenAddress,
-        networkId,
-      } as IToken;
-    }
-    return token;
-  }, [selectedAsset, token, networkId]);
-
-  const borrowActionApproveToken = useMemo<IToken | undefined>(() => {
-    if (!effectiveToken) {
-      return undefined;
-    }
-    if (protocolInfo?.approveAsset) {
-      return {
-        ...effectiveToken,
-        address: protocolInfo.approveAsset,
-        isNative: false,
-        networkId,
-      };
-    }
-    return effectiveToken;
-  }, [effectiveToken, networkId, protocolInfo?.approveAsset]);
-
-  const borrowActionApproveTarget = useMemo(() => {
-    const canApproveBorrowAction =
-      borrowAction === 'withdraw' || borrowAction === 'repay';
-    if (
-      !useBorrowApi ||
-      !canApproveBorrowAction ||
-      !protocolInfo?.approve?.approveTarget ||
-      !borrowActionApproveToken ||
-      borrowActionApproveToken.isNative
-    ) {
-      return undefined;
-    }
-    return {
-      accountId,
-      networkId,
-      spenderAddress: protocolInfo.approve.approveTarget,
-      token: borrowActionApproveToken,
-    };
-  }, [
-    accountId,
-    borrowAction,
-    borrowActionApproveToken,
-    networkId,
-    protocolInfo?.approve?.approveTarget,
-    useBorrowApi,
-  ]);
-
-  const { result: borrowActionAllowanceResult } = usePromiseResult(
-    async () => {
-      if (!borrowActionApproveTarget) {
-        return undefined;
-      }
-      const { allowanceParsed } =
-        await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-          accountId,
-          networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-            approveType: EApproveType.Legacy,
-            approveSpenderAddress: borrowActionApproveTarget.spenderAddress,
-          }),
-          tokenAddress: borrowActionApproveTarget.token.address,
-        });
-      return { allowanceParsed };
-    },
-    [accountId, borrowActionApproveTarget, networkId],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
-  const defaultBorrowActionApproveTokenAddress = useMemo(
-    () =>
-      normalizeStakeTokenAddress({
-        address: protocolInfo?.approveAsset ?? token?.address,
-        isNative: protocolInfo?.approveAsset ? false : token?.isNative,
-      }),
-    [protocolInfo?.approveAsset, token?.address, token?.isNative],
-  );
-  const borrowActionApproveTokenAddress = useMemo(
-    () =>
-      normalizeStakeTokenAddress({
-        address: borrowActionApproveTarget?.token.address,
-        isNative: borrowActionApproveTarget?.token.isNative,
-      }),
-    [
-      borrowActionApproveTarget?.token.address,
-      borrowActionApproveTarget?.token.isNative,
-    ],
-  );
-  const protocolApproveAllowance = useMemo(() => {
-    const allowance = protocolInfo?.approve?.allowance;
-    return typeof allowance === 'string' ? allowance : undefined;
-  }, [protocolInfo?.approve?.allowance]);
-  const currentBorrowActionAllowance = useMemo<string | undefined>(() => {
-    if (!borrowActionApproveTarget) {
-      return protocolApproveAllowance;
-    }
-    const shouldUseProtocolApproveAllowance =
-      borrowActionApproveTokenAddress ===
-      defaultBorrowActionApproveTokenAddress;
-    return (
-      borrowActionAllowanceResult?.allowanceParsed ??
-      (shouldUseProtocolApproveAllowance ? protocolApproveAllowance : undefined)
-    );
-  }, [
-    borrowActionAllowanceResult?.allowanceParsed,
-    borrowActionApproveTarget,
-    borrowActionApproveTokenAddress,
-    defaultBorrowActionApproveTokenAddress,
-    protocolApproveAllowance,
-  ]);
-
   const onBorrowConfirm = useCallback(
     async ({
       amount,
@@ -748,11 +1105,31 @@ export const WithdrawSection = ({
       withdrawAll?: boolean;
       repayAll?: boolean;
     }) => {
-      if (!borrowApiCtx.isBorrow) return;
+      if (
+        !borrowApiCtx.isBorrow ||
+        unsupportedAaveNativeReserve ||
+        !isSelectedBorrowAssetValid
+      ) {
+        return;
+      }
 
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
       // Use effective reserve address (from selected asset or default)
       const reserveAddress = effectiveReserveAddress ?? '';
+      const shouldUnwrapNativeAaveReserve =
+        action === 'withdraw' &&
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: provider,
+          reserveAddress,
+        });
+      const receiveToken = shouldUnwrapNativeAaveReserve
+        ? buildAaveNativeGatewayReceiveToken({
+            token: effectiveToken,
+            nativeToken: tokenInfo?.nativeToken?.info,
+            networkId,
+          })
+        : effectiveToken;
 
       // Build tags array with both new borrow tag and legacy stakeTag for backward compatibility
       const buildTags = (actionType: 'withdraw' | 'repay'): string[] => {
@@ -796,12 +1173,13 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         withdrawAll,
+        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,
               protocol: borrowProviderDisplayName,
               protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-              receive: { token: effectiveToken, amount },
+              receive: { token: receiveToken ?? effectiveToken, amount },
               tags: buildTags('withdraw'),
             }
           : undefined,
@@ -817,9 +1195,13 @@ export const WithdrawSection = ({
       effectiveToken,
       handleBorrowRepay,
       handleBorrowWithdraw,
+      isSelectedBorrowAssetValid,
+      networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
+      tokenInfo?.nativeToken?.info,
+      unsupportedAaveNativeReserve,
     ],
   );
 
@@ -859,8 +1241,7 @@ export const WithdrawSection = ({
       return undefined;
     }
     return resolveBorrowRepayAllBalance({
-      selectedDebtBalance:
-        selectedAsset?.borrowed?.number ?? selectedAsset?.borrowed?.amount,
+      selectedDebtBalance: selectedAsset ? effectiveDebtBalance : undefined,
       protocolDebtBalance: protocolInfo?.debtBalance,
       reserveAddress: effectiveReserveAddress,
       tokenAddress: token?.address,
@@ -869,12 +1250,12 @@ export const WithdrawSection = ({
     });
   }, [
     borrowAction,
+    effectiveDebtBalance,
     effectiveReserveAddress,
     effectiveTokenSymbol,
     freshBorrowReserves?.borrowed?.assets,
     protocolInfo?.debtBalance,
-    selectedAsset?.borrowed?.number,
-    selectedAsset?.borrowed?.amount,
+    selectedAsset,
     token?.address,
   ]);
 
@@ -966,7 +1347,7 @@ export const WithdrawSection = ({
     if (
       useBorrowApi &&
       borrowMarketAddress &&
-      borrowReserveAddress &&
+      borrowReserveAddress !== undefined &&
       (borrowAction === 'withdraw' || borrowAction === 'repay')
     ) {
       return (
@@ -1017,7 +1398,11 @@ export const WithdrawSection = ({
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
-          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          price={
+            effectiveBorrowTokenInfo?.price
+              ? String(effectiveBorrowTokenInfo.price)
+              : '0'
+          }
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
@@ -1025,11 +1410,12 @@ export const WithdrawSection = ({
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}
-          approveTarget={borrowActionApproveTarget}
-          currentAllowance={currentBorrowActionAllowance}
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
-          tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          tokenInfo={effectiveBorrowTokenInfo}
+          isDisabled={isBorrowRepayInputDisabled}
+          approveType={effectiveApproveType}
+          currentAllowance={initialAllowanceResult?.allowanceParsed}
+          approveTarget={approveTarget}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }
@@ -1037,7 +1423,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
-          selectableAssets={assetsList.assets}
+          selectableAssets={selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}
@@ -1051,13 +1437,7 @@ export const WithdrawSection = ({
           onRepayWithCollateralSetupReadyProgressKeyChange={
             onRepayWithCollateralSetupReadyProgressKeyChange
           }
-          debtBalance={
-            protocolInfo?.debtBalance !== undefined
-              ? (selectedAsset?.borrowed?.number ??
-                selectedAsset?.borrowed?.title?.text ??
-                protocolInfo.debtBalance)
-              : undefined
-          }
+          debtBalance={effectiveDebtBalance}
         />
       );
     } else {
@@ -1067,17 +1447,22 @@ export const WithdrawSection = ({
           networkId={networkId}
           providerName={providerName}
           action={borrowApiCtx.borrowApiParams.action as 'withdraw' | 'repay'}
-          price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
+          price={
+            effectiveBorrowTokenInfo?.price
+              ? String(effectiveBorrowTokenInfo.price)
+              : '0'
+          }
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onConfirm={onBorrowConfirm}
-          approveTarget={borrowActionApproveTarget}
-          currentAllowance={currentBorrowActionAllowance}
-          tokenInfo={tokenInfo}
-          isDisabled={isDisabled}
+          tokenInfo={effectiveBorrowTokenInfo}
+          isDisabled={isBorrowRepayInputDisabled}
+          approveType={effectiveApproveType}
+          currentAllowance={initialAllowanceResult?.allowanceParsed}
+          approveTarget={approveTarget}
           borrowMarketAddress={
             borrowApiCtx.borrowApiParams?.marketAddress ?? ''
           }
@@ -1085,7 +1470,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
-          selectableAssets={assetsList.assets}
+          selectableAssets={selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}
@@ -1139,6 +1524,7 @@ export const WithdrawSection = ({
           onQuoteReset={onQuoteReset}
           refreshKey={refreshKey}
           onQuoteRefreshingChange={onQuoteRefreshingChange}
+          approveType={effectiveApproveType}
           approveTarget={approveTarget}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
           receiptTokenRate={

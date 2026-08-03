@@ -16,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
@@ -82,6 +83,7 @@ export function BundleItem({
   gpgSkipped: boolean;
   skipGpgVerificationAllowed: boolean;
 }) {
+  const { copyText } = useClipboard();
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
     'idle' | 'downloading' | 'downloaded' | 'installing' | 'error'
@@ -253,6 +255,17 @@ export function BundleItem({
     skipGpgVerificationAllowed,
   ]);
 
+  const handleCopyBundleInfo = useCallback(() => {
+    copyText(
+      [
+        `CI Bundle Version: ${bundle.ciBundleVersion}`,
+        `Branch: ${bundle.branch ?? ''}`,
+        `PR Title: ${bundle.prTitle ?? ''}`,
+        `Build Number: ${bundle.buildNumber ?? ''}`,
+      ].join('\n'),
+    );
+  }, [bundle, copyText]);
+
   const downloadDisabled = isDownloading && status !== 'downloading';
 
   return (
@@ -281,17 +294,26 @@ export function BundleItem({
           ) : null}
         </XStack>
 
-        {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
+        <XStack alignItems="center" gap="$2" flexShrink={0}>
           <IconButton
-            testID="setting-download-disabled-icon-btn"
-            icon="DownloadOutline"
+            testID="setting-copy-bundle-info-icon-btn"
+            icon="Copy3Outline"
             size="small"
             variant="tertiary"
-            disabled={downloadDisabled}
-            onPress={handleDownload}
-            flexShrink={0}
+            title="Copy bundle info"
+            onPress={handleCopyBundleInfo}
           />
-        ) : null}
+          {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
+            <IconButton
+              testID="setting-download-disabled-icon-btn"
+              icon="DownloadOutline"
+              size="small"
+              variant="tertiary"
+              disabled={downloadDisabled}
+              onPress={handleDownload}
+            />
+          ) : null}
+        </XStack>
       </XStack>
 
       {/* Row 2: buildNumber + ciBundleVersion (encoded) + fileSize */}

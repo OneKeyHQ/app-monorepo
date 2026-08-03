@@ -118,6 +118,8 @@ function MarketDetail({
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
             onChartFullscreenChange={onChartFullscreenChange}
+            networkId={networkId}
+            tokenAddress={tokenAddress}
             showFavoriteButton={showFavoriteButton}
             disableTrade={disableTrade}
           />

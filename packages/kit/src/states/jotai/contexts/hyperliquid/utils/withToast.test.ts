@@ -33,6 +33,7 @@ import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
+import { getPerpsTradingNotEnabledMessage } from './config';
 import { EActionType } from './types';
 import { withToast } from './withToast';
 
@@ -43,6 +44,10 @@ describe('withToast', () => {
     hyperLiquidErrorResolver.updateLocales(undefined);
     toastErrorSpy.mockClear();
     jest.clearAllTimers();
+  });
+
+  it('localizes the trading-not-enabled guard message', () => {
+    expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
   });
 
   it('localizes wrapped HyperLiquid order errors from server config', async () => {

@@ -3,13 +3,27 @@ import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/S
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
+  buildBorrowRepayWithCollateralConfirmationParams,
+  getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
+  hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
+  it('uses the raw borrow balance before rounded display values', () => {
+    const balance = {
+      number: '0.0000001',
+      amount: '0',
+      title: { text: '0' },
+    };
+
+    expect(getBorrowBalanceAmount(balance)).toBe('0.0000001');
+    expect(hasPositiveBorrowBalance(balance)).toBe(true);
+  });
+
   it('treats zero debt as not eligible for collateral repay entry', () => {
     expect(hasPositiveDebtBalance('0')).toBe(false);
     expect(
@@ -44,6 +58,52 @@ describe('borrowRepayPosition utils', () => {
       }),
     ).toBe('1:collateral-reserve:0:50:ready');
   });
+
+  it('invalidates repay requests when the transaction scope changes', () => {
+    const params = {
+      amount: '1',
+      collateralReserveAddress: 'collateral-reserve',
+      repayAll: false,
+      slippageBps: 50,
+      hasDebtPosition: true,
+    };
+
+    expect(
+      buildBorrowRepayPositionKey({
+        ...params,
+        scopeKey: 'account-1:market-1:debt-1',
+      }),
+    ).not.toBe(
+      buildBorrowRepayPositionKey({
+        ...params,
+        scopeKey: 'account-2:market-1:debt-1',
+      }),
+    );
+  });
+
+  it.each([true, false])(
+    'forwards repayAll=%s to collateral-repay confirmation',
+    (repayAll) => {
+      expect(
+        buildBorrowRepayWithCollateralConfirmationParams({
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xmarket',
+          reserveAddress: '0xdebt',
+          amount: '1',
+          collateralReserveAddress: '0xcollateral',
+          repayAll,
+          slippageBps: 50,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          action: 'repayWithCollateral',
+          repayAll,
+        }),
+      );
+    },
+  );
 
   it('advances progress from setup to repay for the same input key', () => {
     const progressKey = buildBorrowRepayPositionKey({

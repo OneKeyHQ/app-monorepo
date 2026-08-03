@@ -30,6 +30,9 @@ interface ITokenListProps {
   disabledOnSwitchToTrade?: boolean;
   currentSelectToken?: ISwapToken;
   disableNativeToken?: boolean;
+  // Caller-owned selection rule (e.g. the stock stable-coin whitelist): a
+  // token it returns true for renders grayed out and cannot be selected.
+  isTokenDisabled?: (token: IToken) => boolean;
   disableInternalTokenDetailFetch?: boolean;
   tokenDetailsLoading?: boolean;
   sortTokensByValue?: boolean;
@@ -42,6 +45,7 @@ export function TokenList({
   disabledOnSwitchToTrade,
   currentSelectToken,
   disableNativeToken,
+  isTokenDisabled,
   disableInternalTokenDetailFetch,
   tokenDetailsLoading,
   sortTokensByValue = true,
@@ -103,9 +107,6 @@ export function TokenList({
             });
 
           const swapTokenDetail = details?.[0];
-          const networkConfig = Object.values(presetNetworksMap).find(
-            (n) => n.id === token.networkId,
-          );
           const priceBN = new BigNumber(swapTokenDetail?.price || 0);
           const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
           const valueProps =
@@ -119,7 +120,6 @@ export function TokenList({
             ...token,
             balance: swapTokenDetail?.balanceParsed ?? '0',
             price: swapTokenDetail?.price,
-            networkImageSrc: networkConfig?.logoURI,
             valueProps,
           };
         } catch (error) {
@@ -140,7 +140,14 @@ export function TokenList({
           detailToken.networkId === token.networkId &&
           detailToken.contractAddress === token.contractAddress,
       );
-      return { ...token, ...tokenWithDetail };
+      const networkConfig = Object.values(presetNetworksMap).find(
+        (network) => network.id === token.networkId,
+      );
+      return {
+        ...token,
+        ...tokenWithDetail,
+        networkImageSrc: token.networkImageSrc ?? networkConfig?.logoURI,
+      };
     });
     if (!sortTokensByValue) {
       return mergedTokens;
@@ -166,7 +173,8 @@ export function TokenList({
                 token1: currentSelectToken,
                 token2: token,
               })) ||
-            (disableNativeToken && token.isNative),
+            (disableNativeToken && token.isNative) ||
+            isTokenDisabled?.(token),
           );
           const onPress = () => {
             if (isDisabled) return;

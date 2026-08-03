@@ -1,15 +1,12 @@
 import { Semaphore } from 'async-mutex';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import {
   getKeylessSupabaseAuthSessionKey,
   getSupabaseAuthSessionKey,
 } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import {
-  getKeylessSupabaseClient,
-  getSupabaseClient,
-} from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -37,14 +34,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * `readAuthTokenOrNull`.
  *
  * Runtime note: the Supabase clients here are bg-runtime JS instances. The
- * underlying native session storage is shared with the main runtime, but
- * main-runtime clients keep their own in-memory session and must be signed
- * out separately by UI call sites.
+ * underlying native session storage is shared with the main runtime. Main
+ * clients are configured with persistSession:false and only project these
+ * BG-owned slots; they never sign out or write persistent credentials.
  */
 
-function getSupabaseClientBySessionSource(
+export async function getSupabaseClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
-): SupabaseClient {
+): Promise<SupabaseClient> {
+  const { getKeylessSupabaseClient, getSupabaseClient } =
+    await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
   return authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
     ? getKeylessSupabaseClient().client
     : getSupabaseClient().client;
@@ -56,6 +55,22 @@ function getSupabaseAuthSessionKeyBySessionSource(
   return authSessionSource === EPrimeAuthSessionSource.KeylessOAuth
     ? getKeylessSupabaseAuthSessionKey()
     : getSupabaseAuthSessionKey();
+}
+
+export function allowAuthSessionStorageWritesBySessionSource(
+  authSessionSource: EPrimeAuthSessionSource,
+): void {
+  supabaseStorageInstance.allowWritesForKey(
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
+  );
+}
+
+async function blockAuthSessionStorageWritesBySessionSource(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<void> {
+  await supabaseStorageInstance.blockWritesForKey(
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource),
+  );
 }
 
 async function getSupabaseSdkAuthToken(
@@ -80,7 +95,7 @@ export async function getAuthTokenBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<string> {
   return getSupabaseSdkAuthToken(
-    getSupabaseClientBySessionSource(authSessionSource),
+    await getSupabaseClientBySessionSource(authSessionSource),
   );
 }
 
@@ -133,6 +148,98 @@ export function clearSupabaseStorageCache() {
 }
 
 /**
+ * Clear ONLY this runtime's Supabase session storage read cache, without
+ * emitting the cross-runtime cache-clear event. Use before a local read that
+ * must not serve a stale (up-to-30s memoized) value — e.g. a pre-login guard
+ * that would otherwise abort on a stale empty slot.
+ */
+export function clearSupabaseStorageLocalCache() {
+  supabaseStorageInstance.clearCache({ syncRemote: false });
+}
+
+/**
+ * Persist a freshly acquired Keyless OAuth session from the bg runtime.
+ * Callers own any login-state serialization required before invoking this
+ * helper; setSession may perform network I/O and must not run while holding
+ * authStateWriteMutex.
+ */
+export async function persistKeylessAuthSession({
+  accessToken,
+  refreshToken,
+}: {
+  accessToken: string;
+  refreshToken: string;
+}): Promise<void> {
+  if (!accessToken || !refreshToken) {
+    throw new OneKeyLocalError(
+      'Failed to persist Keyless OAuth session: missing token',
+    );
+  }
+  allowAuthSessionStorageWritesBySessionSource(
+    EPrimeAuthSessionSource.KeylessOAuth,
+  );
+  const client = await getSupabaseClientBySessionSource(
+    EPrimeAuthSessionSource.KeylessOAuth,
+  );
+  const { data, error } = await client.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error || !data.session) {
+    const statusPart =
+      typeof error?.status === 'number' ? ` status=${error.status}` : '';
+    const codePart = error?.code ? ` code=${error.code}` : '';
+    throw new OneKeyLocalError({
+      message: `Failed to persist Keyless OAuth session: ${
+        error?.message || 'no session returned'
+      }${statusPart}${codePart}`,
+      httpStatusCode:
+        typeof error?.status === 'number' ? error.status : undefined,
+    });
+  }
+}
+
+export type IPersistedAccessTokenStrictReadResult =
+  | { status: 'empty' }
+  | { status: 'corrupt' }
+  | { status: 'ok'; accessToken: string };
+
+/**
+ * Strict variant of readPersistedAccessTokenBySessionSource for callers that
+ * make a DESTRUCTIVE decision on the result. Unlike the best-effort reader
+ * (which degrades EVERY failure to ''), this separates three definitive slot
+ * states from a transient failure:
+ * - `empty`   — no value persisted;
+ * - `corrupt` — a value is persisted but is not a usable session (unparseable
+ *   JSON or no access_token). DETERMINISTIC: re-reading yields the same
+ *   bytes, and the auth-js commit read would fail on it the same way;
+ * - `ok`      — a usable access token is persisted;
+ * - transient storage failures (e.g. SupabaseStorageTransientError from the
+ *   sealed codec) are RETHROWN — the slot state is unknown, and collapsing
+ *   that into "no session" would let callers destroy a still-recoverable
+ *   session.
+ */
+export async function readPersistedAccessTokenBySessionSourceStrict(
+  authSessionSource: EPrimeAuthSessionSource,
+): Promise<IPersistedAccessTokenStrictReadResult> {
+  const sessionKey =
+    getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  // getItem rethrows transient device-key/storage failures — let them
+  // propagate so the caller treats the slot as "unknown", not "empty".
+  const rawValue = await supabaseStorageInstance.getItem(sessionKey);
+  if (!rawValue) {
+    return { status: 'empty' };
+  }
+  try {
+    const parsed = JSON.parse(rawValue) as { access_token?: string } | null;
+    const accessToken = parsed?.access_token || '';
+    return accessToken ? { status: 'ok', accessToken } : { status: 'corrupt' };
+  } catch {
+    return { status: 'corrupt' };
+  }
+}
+
+/**
  * Per-realm serial queue for session-slot DELETIONS (bg-owned). Every
  * destructive session-slot mutation — unconditional clears here and the
  * generation-gated clear in ServicePrime — runs inside the realm's
@@ -165,6 +272,7 @@ export async function removeAuthSessionStorageBySessionSource(
 ): Promise<void> {
   const sessionKey =
     getSupabaseAuthSessionKeyBySessionSource(authSessionSource);
+  await blockAuthSessionStorageWritesBySessionSource(authSessionSource);
   await supabaseStorageInstance.removeItem(sessionKey);
   supabaseStorageInstance.clearCache();
 }
@@ -183,7 +291,7 @@ export async function removeAuthSessionStorageBySessionSource(
 export async function signOutAuthSessionClientBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
-  const client = getSupabaseClientBySessionSource(authSessionSource);
+  const client = await getSupabaseClientBySessionSource(authSessionSource);
   try {
     await client.auth.signOut({ scope: 'local' });
   } catch {
@@ -235,8 +343,24 @@ export async function revokeAuthSessionTokenOnServerBestEffort({
     return;
   }
   try {
-    const client = getSupabaseClientBySessionSource(authSessionSource);
-    await client.auth.admin.signOut(accessToken, 'local');
+    const client = await getSupabaseClientBySessionSource(authSessionSource);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        client.auth.admin.signOut(accessToken, 'local'),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            reject(
+              new Error('Supabase session revocation timed out after 10000ms.'),
+            );
+          }, 10_000);
+        }),
+      ]);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   } catch {
     // Best-effort: the local deletion already happened; an unreachable
     // revocation endpoint must not fail the teardown.
@@ -251,6 +375,7 @@ export async function clearAuthSessionBySessionSource(
   authSessionSource: EPrimeAuthSessionSource,
 ): Promise<void> {
   await runExclusiveOnAuthSessionSlot(authSessionSource, async () => {
+    await blockAuthSessionStorageWritesBySessionSource(authSessionSource);
     await signOutAuthSessionClientBySessionSource(authSessionSource);
     await removeAuthSessionStorageBySessionSource(authSessionSource);
   });

@@ -282,6 +282,17 @@ export const buildAllowList = (
     };
   }
 
+  if (platformEnv.isWeb) {
+    // OAuth popup callback page (OAUTH_CALLBACK_WEB_PATH): the browser URL
+    // must keep both the path and its query (?code=...&onekey_oauth_state=...)
+    // because the opener window polls popup.location.href to read the
+    // authorization code; rewriting it to '/' would drop `code` and fail login.
+    rules[pagePath`${ERootRoutes.OAuthCallbackWeb}`] = {
+      showUrl: true,
+      showParams: true,
+    };
+  }
+
   if (platformEnv.isDev) {
     Object.values(EGalleryRoutes).forEach((pageName) => {
       rules[pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${pageName}`] = {

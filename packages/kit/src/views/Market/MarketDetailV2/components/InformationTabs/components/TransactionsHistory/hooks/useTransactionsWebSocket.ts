@@ -3,14 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
+import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsTxsData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenTransaction,
+  IMarketWsDataUpdatePayload,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { mergeUniqueTransactions } from './transactionBufferUtils';
 
@@ -23,15 +26,6 @@ interface IUseTransactionsWebSocketProps {
   maxPendingTransactions?: number;
   onNewTransactions?: (transactions: IMarketTokenTransaction[]) => void;
   onSubscriptionRestored?: () => void;
-}
-
-interface IMarketWSDataUpdatePayload {
-  channel: string;
-  networkId?: string;
-  isSubscriptionAmbiguous?: boolean;
-  messageType?: string;
-  data: unknown;
-  originalData?: unknown;
 }
 
 const TRANSACTIONS_BATCH_INTERVAL_MS = 1000;
@@ -256,7 +250,7 @@ export function useTransactionsWebSocket({
   }, [flushPendingTransactionBatch]);
 
   const handleTransactionUpdate = useCallback(
-    (payload: IMarketWSDataUpdatePayload): void => {
+    (payload: IMarketWsDataUpdatePayload): void => {
       if (payload.channel !== 'tokenTxs') {
         return;
       }

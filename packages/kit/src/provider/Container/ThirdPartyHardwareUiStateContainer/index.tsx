@@ -443,34 +443,38 @@ function getTrezorActionAnimation(
 }
 
 // THP pairing input — owns its text state so typing doesn't re-render the parent dialog.
-const TrezorThpPairingInput = memo(function TrezorThpPairingInput({
-  placeholder,
-  onChange,
-}: {
-  placeholder: string;
-  onChange: (value: string) => void;
-}) {
-  const [value, setValue] = useState('');
-  const handleChangeText = useCallback(
-    (next: string) => {
-      setValue(next);
-      onChange(next);
-    },
-    [onChange],
-  );
-  return (
-    <Input
-      testID="third-party-hw-trezor-thp-pairing-input"
-      value={value}
-      onChangeText={handleChangeText}
-      placeholder={placeholder}
-      autoCapitalize="none"
-      autoCorrect={false}
-      keyboardType="number-pad"
-      autoFocus
-    />
-  );
-});
+const TrezorThpPairingInput = memo(
+  ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (value: string) => void;
+  }) => {
+    const [value, setValue] = useState('');
+    const handleChangeText = useCallback(
+      (next: string) => {
+        setValue(next);
+        onChange(next);
+      },
+      [onChange],
+    );
+    return (
+      <Input
+        testID="third-party-hw-trezor-thp-pairing-input"
+        value={value}
+        onChangeText={handleChangeText}
+        placeholder={placeholder}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="number-pad"
+        autoFocus
+      />
+    );
+  },
+);
+
+TrezorThpPairingInput.displayName = 'TrezorThpPairingInput';
 
 function DeviceActionToast({
   action,

@@ -151,7 +151,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     return this.cloneAndFixSelectedAccount(selectedAccountsMap?.[num]);
   }
 
-  cloneAndFixSelectedAccount(
+  private cloneAndFixSelectedAccount(
     selectedAccount: IAccountSelectorSelectedAccount | undefined,
   ) {
     const result = cloneDeep(selectedAccount);

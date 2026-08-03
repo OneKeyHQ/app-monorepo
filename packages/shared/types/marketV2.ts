@@ -193,6 +193,9 @@ export interface IMarketStockInfo {
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Whether trading in the underlying stock is temporarily halted (per-stock signal)
+  isPaused?: boolean;
+  pausedUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -200,6 +203,15 @@ export interface IMarketStockInfo {
   sharesOutstanding?: string;
   underlyingAssetTicker?: string;
   underlyingAssetName?: string;
+}
+
+export interface IMarketStockDetail {
+  ticker: string;
+  name: string;
+  logoUrl?: string;
+  introduction?: string;
+  underlyingUpdatedAt?: string;
+  stock: IMarketStockInfo;
 }
 
 export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields {
@@ -295,6 +307,41 @@ export interface IMarketTokenKLineResponse {
   points: IMarketTokenKLineDataPoint[];
   total: number;
 }
+
+export interface IMarketWsPriceData {
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  eventType: 'ohlcv';
+  type: string;
+  unixTime: number;
+  v: number;
+  symbol: string;
+  address: string;
+  volUsd?: number;
+  confirm?: number;
+  dataSource?: string;
+}
+
+export type IMarketWsPriceUpdate = Pick<
+  IMarketWsPriceData,
+  'address' | 'c' | 'unixTime'
+> &
+  Partial<Omit<IMarketWsPriceData, 'address' | 'c' | 'unixTime'>>;
+
+interface IMarketWsDataUpdateBasePayload {
+  tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
+export type IMarketWsDataUpdatePayload =
+  | (IMarketWsDataUpdateBasePayload & { channel: 'ohlcv' })
+  | (IMarketWsDataUpdateBasePayload & { channel: 'tokenTxs' });
 
 export interface IMarketTokenTransactionToken {
   symbol: string;

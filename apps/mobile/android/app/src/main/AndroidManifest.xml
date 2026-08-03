@@ -79,9 +79,6 @@
   android:usesCleartextTraffic="false"
   android:enableOnBackInvokedCallback="false"
    android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme" android:largeHeap="true" android:supportsRtl="true">
-    <meta-data
-        android:name="com.google.android.play.billingclient.version"
-        android:value="7.1.1"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="49.0.0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>

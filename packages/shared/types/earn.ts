@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
   Lista = 'Lista',
   Stakefish = 'Stakefish',
   Kamino = 'Kamino',
+  Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
   Bitway = 'Bitway',
@@ -55,7 +56,8 @@ export type ISupportedSymbol =
   | 'stcUSD'
   | 'kHYPE'
   | 'U'
-  | 'BTW';
+  | 'BTW'
+  | 'vbUSDC';
 
 export interface IStakingFlowConfig {
   enabled: boolean;

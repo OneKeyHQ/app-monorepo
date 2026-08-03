@@ -180,7 +180,6 @@ function OneKeyIdSettingsPageView() {
       <Page.Header title="OneKey ID" />
       <Page.Body>
         <YStack px="$4" pt="$3" gap="$6">
-          <SizableText>Hello World</SizableText>
           {/* User Profile Section */}
           {isKeylessWalletEnabled ? <OneKeyIdUserProfile /> : null}
 

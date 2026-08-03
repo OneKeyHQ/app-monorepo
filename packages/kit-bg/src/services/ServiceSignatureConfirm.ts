@@ -45,6 +45,10 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getPermit2ServerDisplayExtras,
+  shouldUseLocalPermit2Display,
+} from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
@@ -357,17 +361,25 @@ class ServiceSignatureConfirm extends ServiceBase {
       parsedTx.type === EParseTxType.Unknown &&
       !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
     );
-    // Unknown staking transactions keep the established local action display,
-    // while simulation data remains server-owned and cannot be rebuilt.
+
+    const useLocalPermit2Display = shouldUseLocalPermit2Display({
+      hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
+      parsedTx,
+    });
+
+    const shouldUseLocalDisplay =
+      shouldUseLocalTxDisplay || useLocalPermit2Display;
+    const localDisplayExtras = getPermit2ServerDisplayExtras(
+      shouldUseLocalDisplay ? parsedTx?.display : undefined,
+    );
+    // Earn fallback and locally validated Permit2 both retain server risk
+    // alerts. Simulation is retained for staking fallback and Permit2 only.
     const serverSimulationComponents =
-      shouldUseLocalTxDisplay && unsignedTx.stakingInfo
-        ? (parsedTx?.display?.components.filter(
-            (component) => component.type === EParseTxComponentType.Simulation,
-          ) ?? [])
+      useLocalPermit2Display ||
+      (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
+        ? localDisplayExtras.simulationComponents
         : [];
-    const serverAlerts = shouldUseLocalTxDisplay
-      ? (parsedTx?.display?.alerts ?? [])
-      : [];
+    const serverAlerts = localDisplayExtras.alerts;
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -394,7 +406,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx?.display && !shouldUseLocalTxDisplay) {
+    if (parsedTx?.display && !shouldUseLocalDisplay) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =

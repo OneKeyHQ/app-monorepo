@@ -42,6 +42,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
@@ -338,10 +339,26 @@ function TokenDetailsOverview(props: IProps) {
     walletId,
   ]);
 
-  const handleSwapPress = useCallback(async () => {
-    // Rows are sorted by fiat value, so the first member is the one the user
-    // most plausibly wants to trade; the swap page allows changing it.
+  // Rows are sorted by fiat value, so the first member is the one the user
+  // most plausibly wants to trade; the swap page allows changing it. The
+  // member's scaled-UI multiplier (detail level first, token level fallback)
+  // rides along so the swap gate below and `pushSwapFromTokenDetails`'s
+  // fail-closed re-check judge the same member.
+  const swapMember = useMemo(() => {
     const member = rows[0]?.token ?? tokens[0];
+    if (!member) {
+      return undefined;
+    }
+    return {
+      token: member,
+      balanceMultiplier:
+        tokenRebaseUtils.pickBalanceMultiplier(rows[0]?.tokenDetail) ??
+        member.balanceMultiplier,
+    };
+  }, [rows, tokens]);
+
+  const handleSwapPress = useCallback(async () => {
+    const member = swapMember?.token;
     if (!member?.networkId) {
       return;
     }
@@ -362,6 +379,7 @@ function TokenDetailsOverview(props: IProps) {
         decimals: member.decimals,
         name: member.name,
         logoURI: member.logoURI ?? tokenInfo.logoURI,
+        balanceMultiplier: swapMember?.balanceMultiplier,
       },
       networkId: member.networkId,
       networkLogoURI: memberNetwork?.logoURI,
@@ -370,8 +388,7 @@ function TokenDetailsOverview(props: IProps) {
       isSoftwareWalletOnlyUser,
     });
   }, [
-    rows,
-    tokens,
+    swapMember,
     tokenInfo.logoURI,
     wallet?.type,
     isSoftwareWalletOnlyUser,
@@ -379,8 +396,16 @@ function TokenDetailsOverview(props: IProps) {
   ]);
 
   const disableSwapAction = useMemo(
-    () => accountUtils.isUrlAccountFn({ accountId }),
-    [accountId],
+    () =>
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      // Scaled-UI member: same fail-closed swap gate as the single-network
+      // header — Swap would display/build on the raw basis, out of sync with
+      // the wallet display. A multiplier of exactly 1 is a no-op and must
+      // not block.
+      tokenRebaseUtils.isScalingBalanceMultiplier(
+        swapMember?.balanceMultiplier,
+      ),
+    [accountId, swapMember?.balanceMultiplier],
   );
 
   const disableBuyAction = isWatchOnly && !platformEnv.isDev;
@@ -525,10 +550,15 @@ function TokenDetailsOverview(props: IProps) {
       {/* Allocation */}
       <YStack pb="$5">
         <SizableText px="$5" pb="$1" size="$headingSm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.defi_allocation })}
+          {intl.formatMessage({ id: ETranslations.global_asset_allocation })}
         </SizableText>
         {rows.map(({ token, tokenDetail }) => {
           const percentText = renderPercent(tokenDetail);
+          const displayBalanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenDetail?.balanceParsed,
+            balanceMultiplier:
+              tokenRebaseUtils.pickBalanceMultiplier(tokenDetail),
+          });
           return (
             <ListItem
               key={token.$key}
@@ -551,7 +581,7 @@ function TokenDetailsOverview(props: IProps) {
                       size="$bodyLgMedium"
                       textAlign="right"
                     >
-                      {displayOrUnavailable(tokenDetail.balanceParsed)}
+                      {displayOrUnavailable(displayBalanceParsed)}
                     </NumberSizeableTextWrapper>
                   }
                   secondary={
@@ -565,7 +595,7 @@ function TokenDetailsOverview(props: IProps) {
                     >
                       {displayFiatValueOrUnavailable(
                         tokenDetail.fiatValue,
-                        tokenDetail.balanceParsed,
+                        displayBalanceParsed,
                       )}
                     </Currency>
                   }

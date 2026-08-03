@@ -95,7 +95,7 @@ describe('TrezorAdapter', () => {
     expect(hw.uiResponse).not.toHaveBeenCalled();
   });
 
-  it('records a probe cancel when a candidate asks to pair during a binding probe', () => {
+  it('still surfaces the THP pairing dialog when a candidate asks to pair during a binding probe', () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const hw = {
       on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
@@ -111,15 +111,14 @@ describe('TrezorAdapter', () => {
       payload: { connectId: 'BLE_X' },
     });
 
-    expect(hw.cancel).toHaveBeenCalledWith('BLE_X');
-    expect(adapter.wasBindingProbeCancelled()).toBe(true);
-    expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalledWith(
+    // A device whose THP credential was invalidated asks to pair exactly like
+    // an unknown one, so cancelling here rejected the user's OWN device and
+    // deadlocked the rebind. Identity is settled by the post-handshake
+    // device_id comparison, which needs this dialog to complete.
+    expect(hw.cancel).not.toHaveBeenCalled();
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'requestTrezorThpPairing' }),
     );
-
-    // A new probe starts clean.
-    adapter.beginBindingProbe('BLE_Y');
-    expect(adapter.wasBindingProbeCancelled()).toBe(false);
   });
 
   it('cleans up registry-owned SDK event subscription on reset', () => {
@@ -812,4 +811,89 @@ describe('TrezorAdapter', () => {
       );
     },
   );
+});
+
+describe('TrezorAdapter connectDevice zombie-link teardown', () => {
+  // A dead link left behind gets reused by the next attempt, which then talks
+  // into it and reports "Malformed protocol format" until the app restarts.
+  // Every non-success exit must release it, not just an unsuccessful Response.
+  const bleBridge = { disconnect: jest.fn() };
+
+  beforeEach(() => {
+    bleBridge.disconnect.mockReset().mockResolvedValue(undefined);
+    (
+      globalThis as {
+        window?: { desktopApi?: { thirdPartyBle?: unknown } };
+      }
+    ).window = { desktopApi: { thirdPartyBle: bleBridge } };
+  });
+
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  it('releases the link when connectDevice returns a failure', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest
+        .fn()
+        .mockResolvedValue({ success: false, payload: { code: 10_309 } }),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await adapter.connectDevice('BLE-1');
+
+    expect(bleBridge.disconnect).toHaveBeenCalledWith('BLE-1');
+  });
+
+  it('releases the link when connectDevice throws', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest.fn().mockRejectedValue(new Error('boom')),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await expect(adapter.connectDevice('BLE-2')).rejects.toThrow('boom');
+
+    expect(bleBridge.disconnect).toHaveBeenCalledWith('BLE-2');
+  });
+
+  it('releases the link when getDeviceInfo fails after the link came up', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest
+        .fn()
+        .mockResolvedValue({ success: true, payload: { sessionId: 's' } }),
+      getDeviceInfo: jest
+        .fn()
+        .mockResolvedValue({ success: false, payload: { code: 10_000 } }),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await adapter.connectDevice('BLE-3');
+
+    expect(bleBridge.disconnect).toHaveBeenCalledWith('BLE-3');
+  });
+
+  it('keeps the link on a successful connect', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest
+        .fn()
+        .mockResolvedValue({ success: true, payload: { sessionId: 's' } }),
+      getDeviceInfo: jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          connectId: 'BLE-4',
+          deviceId: 'DEVICE-4',
+          raw: { features: { device_id: 'DEVICE-4' } },
+        },
+      }),
+    };
+    const adapter = new TrezorAdapter(hw as never);
+
+    await adapter.connectDevice('BLE-4');
+
+    expect(bleBridge.disconnect).not.toHaveBeenCalled();
+  });
 });

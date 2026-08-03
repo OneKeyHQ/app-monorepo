@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
@@ -38,6 +40,7 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData: useHyperliquidContextData,
 } = createJotaiContext();
 export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 
@@ -190,6 +193,14 @@ export function useBboForOrderPrice(
   return bbo;
 }
 
+export function useGetBboForOrderPrice() {
+  const { store } = useHyperliquidContextData();
+  return useCallback(
+    (): IPerpsBboWithLocalReceivedAt | null => store?.get(bboAtom()) ?? null,
+    [store],
+  );
+}
+
 // TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
@@ -258,8 +269,8 @@ export const {
 
 export type IBBOPriceMode =
   | null
-  | { type: 'counterparty'; level: number }
-  | { type: 'queue'; level: number };
+  | { type: 'counterparty'; offsetTicks: 0 | 5 }
+  | { type: 'queue'; offsetTicks: 0 | 5 };
 
 export interface ITradingFormData {
   side: 'long' | 'short';
@@ -387,7 +398,7 @@ function isBboPriceModeEqual(
   if (!a || !b) {
     return false;
   }
-  return a.type === b.type && a.level === b.level;
+  return a.type === b.type && a.offsetTicks === b.offsetTicks;
 }
 
 function isTradingFormOrderPriceParamsEqual(

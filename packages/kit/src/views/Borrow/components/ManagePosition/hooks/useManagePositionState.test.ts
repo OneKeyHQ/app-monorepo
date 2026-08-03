@@ -94,4 +94,26 @@ describe('useManagePositionState utils', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('prefers the fresh selected debt over stale reserve snapshots', () => {
+    expect(
+      resolveBorrowRepayAllBalance({
+        selectedDebtBalance: '1.0001',
+        protocolDebtBalance: '1',
+        reserveAddress: '0xreserve',
+        borrowedAssets: [
+          {
+            reserveAddress: '0xreserve',
+            token: {
+              address: '0xtoken',
+              symbol: 'USDC',
+            },
+            borrowedAmount: {
+              amount: '1',
+            },
+          },
+        ],
+      }),
+    ).toBe('1.0001');
+  });
 });

@@ -5,7 +5,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  getListedNetworkMap,
+  getNetworkIdsMap,
+} from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import {
@@ -20,6 +23,8 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
@@ -470,6 +475,37 @@ class ServiceToken extends ServiceBase {
         };
       });
 
+    // Explicit custom contracts may still be returned when the wallet-token
+    // request excludes dApp tokens. Normalize the complete groups before
+    // cache and account-worth consumers see them.
+    const tokenSelectorFilterParams = {
+      withoutDappToken: rest.withoutDappToken,
+      withoutWalletToken: rest.withoutWalletToken,
+    };
+    resp.data.data.tokens = filterTokenSelectorTokenDataByDappTokenFilterParams(
+      {
+        tokenData: resp.data.data.tokens,
+        tokenSelectorFilterParams,
+      },
+    );
+    resp.data.data.riskTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.riskTokens,
+        tokenSelectorFilterParams,
+      });
+    resp.data.data.smallBalanceTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.smallBalanceTokens,
+        tokenSelectorFilterParams,
+      });
+    if (resp.data.data.allTokens) {
+      resp.data.data.allTokens =
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData: resp.data.data.allTokens,
+          tokenSelectorFilterParams,
+        });
+    }
+
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
       ({ allTokens } = getMergedTokenData({
@@ -736,16 +772,17 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    return result.map((item) => ({
-      ...item,
-      tokens: item.tokens.map((token) => ({
+    return result.map((item) => {
+      const tokens = item.tokens.map((token) => ({
         ...token,
         info: {
           ...token.info,
           networkId,
         },
-      })),
-    }));
+      }));
+      tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
+      return { ...item, tokens };
+    });
   }
 
   @backgroundMethod()
@@ -769,6 +806,8 @@ class ServiceToken extends ServiceBase {
     {
       promise: true,
       primitive: true,
+      normalizer: ([params]: [{ networkId: string; tokenAddress: string }]) =>
+        `${params.networkId}:${params.tokenAddress}`,
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
       max: 10,
     },
@@ -1383,9 +1422,27 @@ class ServiceToken extends ServiceBase {
   public async getAllAggregateTokenInfo() {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    // Drop tokens on networks this build no longer bundles: the cached wallet
+    // config may have been persisted by an older app version whose preset
+    // network list included networks that were delisted since.
+    const listedNetworkMap = getListedNetworkMap();
+    const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
+      {};
+    Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
+      ([key, value]) => {
+        const tokens = value.tokens.filter(
+          (token) => token.networkId && listedNetworkMap[token.networkId],
+        );
+        if (tokens.length > 0) {
+          allAggregateTokenMap[key] = { tokens };
+        }
+      },
+    );
     return {
-      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
-      allAggregateTokens: rawData?.allAggregateTokens ?? [],
+      allAggregateTokenMap,
+      allAggregateTokens: (rawData?.allAggregateTokens ?? []).filter(
+        (token) => allAggregateTokenMap[token.$key]?.tokens.length,
+      ),
     };
   }
 

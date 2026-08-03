@@ -34,7 +34,8 @@
 //      releases regardless of value.
 //
 // Failure modes (all caught, all degrade to defaults):
-//   • Dev (NODE_ENV !== 'production') — skip entirely to avoid schema drift
+//   • Dev (NODE_ENV !== 'production') — skip generic L2 to avoid schema drift;
+//     prime only SWR plus versioned, display-only Swap balance caches
 //   • Kill switch — localStorage.__cold_start_kill__ set
 //   • Private mode / quota=0 — openIDB rejects
 //   • Build hash mismatch — clear DB, fall back to defaults
@@ -46,8 +47,9 @@
 //   'success' | 'timeout' | 'error' | 'killed' | 'skipped'
 // describing the terminal state. 'success' means at least the L2 ctx
 // snapshot was primed from IDB; everything else fell back to defaults
-// ('skipped' is the deliberate dev-mode no-op).
+// ('skipped' is the deliberate dev-mode restricted-prime path).
 
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -74,6 +76,10 @@ const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
 const CTX_SNAPSHOT_KEY =
   EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
 const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
+const DEV_SAFE_L2_BALANCE_CACHE_KEYS = new Set<string>([
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
+]);
 // Hard cap on how long we wait for IDB before giving up and degrading to
 // defaults. The ready gate is awaited by GlobalJotaiReady on web/desktop,
 // so an unbounded await here would block React mount on a stalled IDB.
@@ -157,6 +163,27 @@ function parseL2CtxSnapshot(
   } catch {
     return {};
   }
+}
+
+export function filterDevSafeL2CtxSnapshot(snapshot: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(snapshot).filter(([scopedKey, value]) => {
+      const separatorIndex = scopedKey.lastIndexOf('::');
+      if (separatorIndex < 0) {
+        return false;
+      }
+      const cacheKey = scopedKey.slice(separatorIndex + 2);
+      if (!DEV_SAFE_L2_BALANCE_CACHE_KEYS.has(cacheKey)) {
+        return false;
+      }
+      return Boolean(
+        value &&
+        typeof value === 'object' &&
+        typeof (value as { version?: unknown }).version === 'number' &&
+        Array.isArray((value as { entries?: unknown }).entries),
+      );
+    }),
+  );
 }
 
 /**
@@ -247,21 +274,37 @@ export function shouldProceedAfterReset(
 
 const promise: Promise<void> = (async () => {
   // In development, keep generic L2 context-atom hydration disabled to avoid
-  // schema drift between local code changes. We still prime the SWR blob so
-  // localhost can verify web cold-start cache paths that use usePromiseResult
-  // with swrKey. SWR entries are individually versioned by their key builders.
+  // schema drift between local code changes. Prime only the SWR blob and the
+  // versioned, display-only Swap balance caches so localhost can verify the
+  // real first-frame experience without hydrating executable Swap state.
   if (process.env.NODE_ENV !== 'production') {
     defaultLogger.app.appUpdate.log(
-      '[ColdStartHydration] dev mode, priming SWR only',
+      '[ColdStartHydration] dev mode, priming SWR and safe display caches',
     );
     try {
       const result = await withTimeout(
         readAllColdStartEntriesFromIdb(),
         HYDRATION_TIMEOUT_MS,
       );
+      const entriesToPrime: [string, unknown][] = [];
       const swrCache = result?.get(SWR_CACHE_KEY);
       if (typeof swrCache === 'string') {
-        primeColdStartCacheMap([[SWR_CACHE_KEY, swrCache]]);
+        entriesToPrime.push([SWR_CACHE_KEY, swrCache]);
+      }
+      if (result) {
+        const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
+          parseL2CtxSnapshot(result),
+        );
+        if (Object.keys(safeCtxSnapshot).length) {
+          entriesToPrime.push([
+            CTX_SNAPSHOT_KEY,
+            JSON.stringify(safeCtxSnapshot),
+          ]);
+          setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', safeCtxSnapshot);
+        }
+      }
+      if (entriesToPrime.length) {
+        primeColdStartCacheMap(entriesToPrime);
       }
     } catch {
       // Dev-only best effort: keep the old skipped behavior if IDB is missing

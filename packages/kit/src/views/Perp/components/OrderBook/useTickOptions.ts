@@ -8,16 +8,19 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
-  analyzeOrderBookPrecision,
   getDisplayPriceScaleDecimals,
+  resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   type ITickParam,
+  buildReferenceTickOptions,
   buildTickOptions,
   getDefaultTickOption,
+  getTickOptionsDataDuringTransition,
+  shouldPersistOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -29,14 +32,30 @@ interface ITickOptionsResult {
   sizeDecimals: number;
 }
 
+const emptyTickOption: ITickParam = {
+  targetTick: 0,
+  nSigFigs: null,
+  apiTick: 0,
+  exact: true,
+  multiplier: 1,
+  label: '',
+  value: '',
+};
+
 export function useTickOptions({
   symbol,
   bids,
   asks,
+  referencePrice,
+  szDecimals,
+  isSpot,
 }: {
   symbol?: string;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  referencePrice?: string;
+  szDecimals?: number;
+  isSpot: boolean;
 }): ITickOptionsResult {
   // Use ref to cache tick options calculation results by symbol
   const tickOptionsCache = useRef<{
@@ -59,18 +78,54 @@ export function useTickOptions({
 
   const topBidPrice = bids[0]?.px;
   const topAskPrice = asks[0]?.px;
+  const referenceTickOptionsData = useMemo(
+    () =>
+      symbol
+        ? buildReferenceTickOptions({
+            symbol,
+            price: referencePrice,
+            szDecimals,
+            isSpot,
+          })
+        : null,
+    [isSpot, referencePrice, symbol, szDecimals],
+  );
 
   const tickOptionsData = useMemo(() => {
     if (!symbol) return null;
 
     const marketPrice = topBidPrice || topAskPrice || '0';
-    if (marketPrice === '0') return null;
-
-    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
     const cached =
       tickOptionsCache.current?.symbol === symbol
         ? tickOptionsCache.current
         : null;
+    if (marketPrice === '0') {
+      return getTickOptionsDataDuringTransition({
+        symbol,
+        hasMarketData: false,
+        cached,
+        reference: referenceTickOptionsData,
+      });
+    }
+
+    const marketTickOptionsData = buildReferenceTickOptions({
+      symbol,
+      price: marketPrice,
+      szDecimals,
+      isSpot,
+    });
+    if (marketTickOptionsData) {
+      if (
+        cached &&
+        marketTickOptionsData.priceDecimals <= cached.priceDecimals
+      ) {
+        return cached;
+      }
+      tickOptionsCache.current = marketTickOptionsData;
+      return marketTickOptionsData;
+    }
+
+    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
 
     if (cached && priceDecimals <= cached.priceDecimals) {
       return cached;
@@ -99,35 +154,35 @@ export function useTickOptions({
     tickOptionsCache.current = result;
 
     return result;
-  }, [symbol, topBidPrice, topAskPrice]);
+  }, [
+    isSpot,
+    referenceTickOptionsData,
+    symbol,
+    szDecimals,
+    topAskPrice,
+    topBidPrice,
+  ]);
 
-  // Calculate size decimals separately as it may need to update more frequently
   const sizeDecimals = useMemo(() => {
-    const { sizeDecimals: calculatedSizeDecimals } = analyzeOrderBookPrecision(
+    return resolveOrderBookSizeDecimals({
       bids,
       asks,
-    );
-    return calculatedSizeDecimals;
-  }, [bids, asks]);
+      szDecimals,
+    });
+  }, [asks, bids, szDecimals]);
 
   const baseTickOptionsData = useMemo(() => {
     // Fallback when no data available
     if (!tickOptionsData) {
-      const priceDecimals = 0;
-      const decimalsArg = 0;
-      const tickOptions = buildTickOptions(1, decimalsArg);
-      const defaultTickOption = getDefaultTickOption(tickOptions);
-
       return {
-        tickOptions,
-        defaultTickOption,
-        priceDecimals,
+        tickOptions: [],
+        defaultTickOption: emptyTickOption,
+        priceDecimals: 0,
       };
     }
 
     return tickOptionsData;
   }, [tickOptionsData]);
-
   const selectedTickOption = useMemo(() => {
     const { tickOptions, defaultTickOption } = baseTickOptionsData;
 
@@ -165,17 +220,24 @@ export function useTickOptions({
     };
 
     if (
-      !persisted ||
-      persisted.value !== currentPersist.value ||
-      persisted.nSigFigs !== currentPersist.nSigFigs ||
-      persisted.mantissa !== currentPersist.mantissa
+      shouldPersistOrderBookTickOption({
+        isReady: Boolean(tickOptionsData),
+        persisted,
+        next: currentPersist,
+      })
     ) {
       void actions.current.setOrderBookTickOption({
         symbol,
         option: currentPersist,
       });
     }
-  }, [symbol, persistedTickOptions, selectedTickOption, actions]);
+  }, [
+    symbol,
+    persistedTickOptions,
+    selectedTickOption,
+    tickOptionsData,
+    actions,
+  ]);
 
   const handleSelectTickOption = useCallback(
     (option: ITickParam) => {

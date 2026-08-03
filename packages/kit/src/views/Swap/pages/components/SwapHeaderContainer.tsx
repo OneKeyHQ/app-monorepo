@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
   getSwapAnalyticsEnterFrom,
@@ -98,6 +99,7 @@ function CustomTabItem({
             },
           })}
       {...rest}
+      testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
       onLayout={(event) => {
         handleItemLayout(itemId, event);
@@ -252,9 +254,13 @@ const SwapHeaderContainer = ({
     pageType !== 'modal' &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const swapBridgeLabel = `${intl.formatMessage({
-    id: ETranslations.swap_page_swap,
-  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  // Single source key shared with the history modal title/dropdown so the
+  // tab label never drifts from them per locale; composing
+  // `swap_page_swap & swap_page_bridge` also hardcodes the "&" connector,
+  // which is wrong for locales like bn/hi. (OK-58055)
+  const swapBridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_history_title,
+  });
   const stockLabel = intl.formatMessage({
     id: ETranslations.perps_token_selector_stocks,
   });
@@ -263,10 +269,12 @@ const SwapHeaderContainer = ({
     {
       label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.SWAP),
     },
     {
       label: stockLabel,
       value: ESwapTabSwitchType.STOCK,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.STOCK),
     },
     {
       label: intl.formatMessage({
@@ -275,6 +283,7 @@ const SwapHeaderContainer = ({
           : ETranslations.swap_page_limit,
       }),
       value: ESwapTabSwitchType.LIMIT,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.LIMIT),
     },
   ];
 
@@ -391,7 +400,7 @@ const SwapHeaderContainer = ({
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
-          compact={isCompactLayout && !useDesktopModalHeaderActions}
+          compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
         />
       ) : null}
     </XStack>

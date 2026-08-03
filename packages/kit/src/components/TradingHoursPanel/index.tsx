@@ -1,0 +1,696 @@
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
+
+import {
+  Dialog,
+  Icon,
+  IconButton,
+  Popover,
+  ScrollView,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useDialogInstance,
+  useMedia,
+} from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
+import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  EUSMarketSessionKey,
+  formatInstantAsLocalHHmm,
+  formatSegmentLocalRange,
+  getDeviceUtcOffsetLabel,
+  getUSMarketTradingHours,
+  isOndoUSMarketStock,
+  resolveUSTradingHoursActiveRow,
+} from '@onekeyhq/shared/src/utils/tradingHoursUtils';
+import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
+type ILiquidityLevel = 'high' | 'moderate' | 'low' | 'none';
+
+const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
+  high: ETranslations.trading_hours_liquidity_high,
+  moderate: ETranslations.trading_hours_liquidity_moderate,
+  low: ETranslations.trading_hours_liquidity_low,
+  none: ETranslations.trading_hours_liquidity_none,
+};
+
+const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
+  high: 4,
+  moderate: 2,
+  low: 1,
+  none: 0,
+};
+
+const ROW_META: Array<{
+  row: IUSTradingHoursRow;
+  icon: IKeyOfIcons;
+  titleId: ETranslations;
+  liquidity: ILiquidityLevel;
+}> = [
+  {
+    row: EUSMarketSessionKey.PreMarket,
+    icon: 'SunriseOutline',
+    titleId: ETranslations.trading_hours_pre_market,
+    liquidity: 'moderate',
+  },
+  {
+    row: EUSMarketSessionKey.Regular,
+    icon: 'SunOutline',
+    titleId: ETranslations.trading_hours_regular_market,
+    liquidity: 'high',
+  },
+  {
+    row: EUSMarketSessionKey.PostMarket,
+    icon: 'SunDownOutline',
+    titleId: ETranslations.trading_hours_post_market,
+    liquidity: 'moderate',
+  },
+  {
+    row: EUSMarketSessionKey.Overnight,
+    icon: 'MoonOutline',
+    titleId: ETranslations.trading_hours_overnight,
+    liquidity: 'moderate',
+  },
+  {
+    row: 'closed',
+    icon: 'ClockSnoozeOutline',
+    titleId: ETranslations.trading_hours_market_closed,
+    liquidity: 'low',
+  },
+  {
+    row: 'halts',
+    icon: 'PauseOutline',
+    titleId: ETranslations.trading_hours_trading_halts,
+    liquidity: 'none',
+  },
+];
+
+function LiquidityIndicator({
+  level,
+  isActive,
+  dense,
+}: {
+  level: ILiquidityLevel;
+  isActive: boolean;
+  dense?: boolean;
+}) {
+  const intl = useIntl();
+  const filled = LIQUIDITY_FILLED_BARS[level];
+  const filledColor = isActive ? '$iconSuccess' : '$iconSubdued';
+  return (
+    <XStack gap="$1.5" alignItems="center">
+      <SizableText size="$bodySm" color="$textDisabled">
+        {intl.formatMessage({ id: LIQUIDITY_LABELS[level] })}
+      </SizableText>
+      <XStack gap={2} alignItems="center">
+        {[0, 1, 2, 3].map((i) => (
+          <Stack
+            key={i}
+            w={3}
+            h={dense ? 8 : 10}
+            borderRadius={1}
+            bg={i < filled ? filledColor : '$neutral5'}
+          />
+        ))}
+      </XStack>
+    </XStack>
+  );
+}
+
+// Only rendered while a session is active — the closed/halted states hide the
+// whole timeline instead of dimming it.
+function TradingHoursTimeline({
+  segments,
+  nowRatio,
+  activeSessionKey,
+}: {
+  segments: Array<{ key: EUSMarketSessionKey; ratio: number }>;
+  nowRatio: number;
+  activeSessionKey: EUSMarketSessionKey;
+}) {
+  return (
+    <Stack h={12} justifyContent="center">
+      <XStack gap={2} alignItems="center">
+        {segments.map((segment) => {
+          const isActive = segment.key === activeSessionKey;
+          return (
+            <Stack
+              key={segment.key}
+              flexGrow={segment.ratio}
+              flexBasis={0}
+              h={isActive ? 6 : 4}
+              borderRadius="$full"
+              bg={isActive ? '$iconSuccess' : '$neutral5'}
+            />
+          );
+        })}
+      </XStack>
+      <Stack
+        position="absolute"
+        left={`${nowRatio * 100}%`}
+        ml={-6}
+        w={12}
+        h={12}
+        borderRadius="$full"
+        bg="$bg"
+        borderWidth={2}
+        borderColor="$iconSuccess"
+      />
+    </Stack>
+  );
+}
+
+function SessionRow({
+  icon,
+  title,
+  isActive,
+  liquidity,
+  dense,
+  children,
+}: {
+  icon: IKeyOfIcons;
+  title: string;
+  isActive: boolean;
+  liquidity: ILiquidityLevel;
+  dense?: boolean;
+  children: ReactNode;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack
+      gap={dense ? '$2' : '$2.5'}
+      px={dense ? '$2.5' : '$3'}
+      py={dense ? '$2' : '$2.5'}
+      borderRadius={dense ? 10 : '$3'}
+      bg={isActive ? '$bgSuccess' : undefined}
+      alignItems="flex-start"
+      w="100%"
+    >
+      <Stack
+        w={dense ? '$4' : '$5'}
+        h={dense ? '$5' : '$6'}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name={icon} size={dense ? '$4' : '$5'} color="$icon" />
+      </Stack>
+      <YStack gap="$0.5" flex={1}>
+        <XStack alignItems="center" justifyContent="space-between">
+          <XStack gap="$1.5" alignItems="center">
+            <SizableText size={dense ? '$bodyMdMedium' : '$bodyLgMedium'}>
+              {title}
+            </SizableText>
+            {isActive ? (
+              <Stack
+                bg="$iconSuccess"
+                borderRadius="$full"
+                px={dense ? '$1' : '$1.5'}
+                py={dense ? 1 : '$0.5'}
+              >
+                <SizableText
+                  size={dense ? '$bodyXsMedium' : '$bodySmMedium'}
+                  color="$textInverse"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.trading_hours_regular_market_now,
+                  })}
+                </SizableText>
+              </Stack>
+            ) : null}
+          </XStack>
+          <LiquidityIndicator
+            level={liquidity}
+            isActive={isActive}
+            dense={dense}
+          />
+        </XStack>
+        {children}
+      </YStack>
+    </XStack>
+  );
+}
+
+// Same title treatment on every surface (headingXl with the TZ chip right
+// next to it) — only the list density differs between desktop and mobile.
+function TradingHoursTitle() {
+  const intl = useIntl();
+  return (
+    <XStack gap="$2" alignItems="center">
+      <SizableText size="$headingXl">
+        {intl.formatMessage({ id: ETranslations.trading_hours_title })}
+      </SizableText>
+      <Stack bg="$bgStrong" borderRadius={6} px="$2" py={3}>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {getDeviceUtcOffsetLabel()}
+        </SizableText>
+      </Stack>
+    </XStack>
+  );
+}
+
+function TradingHoursContent({
+  stock,
+  showInlineHeader,
+  dense,
+}: {
+  stock: IMarketStockInfo;
+  // The desktop floating popover has no header of its own, so the panel
+  // renders one inline; the mobile dialog brings its own header instead.
+  showInlineHeader?: boolean;
+  // Desktop popover uses the design's compact density (one type size down)
+  dense?: boolean;
+}) {
+  const intl = useIntl();
+  const marketStatus = useUSMarketStatus();
+  const pagePx = dense ? '$4' : '$5';
+  const detailTextSize = dense ? '$bodySm' : '$bodyMd';
+
+  // Re-anchor all clock-derived values every minute while the panel is open.
+  const [now, setNow] = useState(() => new Date());
+  useInterval(
+    () => setNow(new Date()),
+    timerUtils.getTimeDurationMs({ minute: 1 }),
+  );
+
+  const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
+
+  const activeRow = resolveUSTradingHoursActiveRow({
+    isOpen: stock.isOpen,
+    isPaused: stock.isPaused,
+    status: marketStatus,
+    tradingHours,
+    now,
+  });
+  const dimmed = activeRow === 'closed' || activeRow === 'halts';
+  // 7×24 instrument while the market is closed: the subtitle switches to the
+  // dedicated 24/7 copy, which also makes the generic risk notice redundant.
+  const isClosedTradable = activeRow === 'closed' && stock.isOpen === true;
+
+  const weekendSpanText = useMemo(() => {
+    const formatWeekendBoundary = (instant: number) =>
+      intl.formatDate(new Date(instant), {
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    return intl.formatMessage(
+      { id: ETranslations.trading_hours_market_closed_time },
+      {
+        start: formatWeekendBoundary(tradingHours.weekendStartInstant),
+        end: formatWeekendBoundary(tradingHours.weekendEndInstant),
+      },
+    );
+  }, [intl, tradingHours]);
+
+  // The badge used to surface `stock.description` via a hover tooltip; the
+  // panel replaces that tooltip, so re-surface the note here. Only the first
+  // line is shown — it carries the localized "Opens in …" countdown, while the
+  // remaining lines repeat boilerplate the panel already covers.
+  const stockStatusNote = useMemo(
+    () => stock.description?.split('\n')[0]?.trim() || undefined,
+    [stock.description],
+  );
+
+  return (
+    <YStack pb={dense ? '$4' : '$5'} testID="trading-hours-panel">
+      {showInlineHeader ? (
+        <YStack px={pagePx} pt={dense ? '$4' : '$5'}>
+          <TradingHoursTitle />
+        </YStack>
+      ) : null}
+      <YStack px={pagePx} pt="$1">
+        <SizableText size={detailTextSize} color="$textSubdued">
+          {intl.formatMessage({
+            id: isClosedTradable
+              ? ETranslations.trading_hours_closed_tradable_description
+              : ETranslations.trading_hours_description,
+          })}
+        </SizableText>
+      </YStack>
+
+      {/* The whole timeline is meaningless while closed/halted — hide it. */}
+      {dimmed ? null : (
+        <YStack px={pagePx} pt={dense ? '$3' : '$4'} pb="$1" gap="$1.5">
+          <TradingHoursTimeline
+            segments={tradingHours.segments}
+            nowRatio={tradingHours.nowRatio}
+            // `dimmed` narrowing guarantees activeRow is a session key here
+            activeSessionKey={activeRow}
+          />
+          <Stack h={16}>
+            {tradingHours.segments.map((segment) => {
+              const leftRatio =
+                (segment.startInstant - tradingHours.cycleStartInstant) /
+                (tradingHours.cycleEndInstant - tradingHours.cycleStartInstant);
+              return (
+                <SizableText
+                  key={segment.key}
+                  position="absolute"
+                  left={`${leftRatio * 100}%`}
+                  size="$bodySm"
+                  color="$textDisabled"
+                >
+                  {formatInstantAsLocalHHmm(segment.startInstant)}
+                </SizableText>
+              );
+            })}
+            <SizableText
+              position="absolute"
+              right={0}
+              size="$bodySm"
+              color="$textDisabled"
+            >
+              {formatInstantAsLocalHHmm(tradingHours.cycleEndInstant - 60_000)}
+            </SizableText>
+          </Stack>
+        </YStack>
+      )}
+
+      <YStack px={dense ? '$1.5' : '$2'} pt="$1">
+        {ROW_META.map(({ row, icon, titleId, liquidity }) => {
+          const isActive = row === activeRow;
+          const title = intl.formatMessage({ id: titleId });
+          const activeStatusNote =
+            isActive && stockStatusNote ? (
+              <SizableText size={detailTextSize} color="$textSubdued">
+                {stockStatusNote}
+              </SizableText>
+            ) : null;
+          let detail: ReactNode;
+          if (row === 'closed') {
+            detail = (
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textDisabled">
+                  {weekendSpanText}
+                </SizableText>
+                {activeStatusNote}
+              </YStack>
+            );
+          } else if (row === 'halts') {
+            detail = (
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textDisabled">
+                  {intl.formatMessage({
+                    id: ETranslations.trading_hours_trading_halts_description,
+                  })}
+                </SizableText>
+                {activeStatusNote}
+              </YStack>
+            );
+          } else {
+            const segment = tradingHours.segments.find((s) => s.key === row);
+            detail = (
+              <YStack gap="$0.5">
+                <SizableText size={detailTextSize} color="$textSubdued">
+                  {segment ? formatSegmentLocalRange(segment) : ''}
+                </SizableText>
+                {/* Per-stock closed while the market-wide session is open —
+                    keep the backend countdown visible on the active session
+                    row. During normal open hours the description is generic
+                    boilerplate, so it stays hidden. */}
+                {stock.isOpen === false ? activeStatusNote : null}
+              </YStack>
+            );
+          }
+          return (
+            <SessionRow
+              key={row}
+              icon={icon}
+              title={title}
+              isActive={isActive}
+              liquidity={liquidity}
+              dense={dense}
+            >
+              {detail}
+            </SessionRow>
+          );
+        })}
+      </YStack>
+
+      {isClosedTradable ? null : (
+        <YStack px={pagePx} pt="$2">
+          <SizableText size="$bodySm" color="$textDisabled">
+            {intl.formatMessage({
+              id: ETranslations.trading_hours_risk_notice,
+            })}
+          </SizableText>
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
+function TradingHoursDialogHeader() {
+  const dialogInstance = useDialogInstance();
+  return (
+    <XStack
+      px="$5"
+      pt="$5"
+      pb="$1"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <TradingHoursTitle />
+      <IconButton
+        icon="CrossedSmallOutline"
+        size="small"
+        variant="tertiary"
+        onPress={() => {
+          void dialogInstance.close();
+        }}
+        testID="trading-hours-dialog-close"
+      />
+    </XStack>
+  );
+}
+
+// Sheet chrome around the scrollable body: grabber + header row + a top gap.
+const DIALOG_BODY_RESERVED_HEIGHT = 160;
+// Keep a usable body even on absurdly short windows.
+const DIALOG_BODY_MIN_HEIGHT = 240;
+
+/**
+ * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
+ * viewport (extension popup, small phones, longer English copy — OK-58516)
+ * would clip its bottom. Bound the body by the window height and let it
+ * scroll; when the content fits, the ScrollView collapses to content height.
+ */
+function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
+  const { height: windowHeight } = useWindowDimensions();
+  // Window resizes only move the ScrollView bound — keep the panel subtree
+  // from re-reconciling on every resize tick.
+  const content = useMemo(() => <TradingHoursContent stock={stock} />, [stock]);
+  return (
+    <YStack>
+      <TradingHoursDialogHeader />
+      <ScrollView
+        maxHeight={Math.max(
+          DIALOG_BODY_MIN_HEIGHT,
+          windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
+        )}
+        nestedScrollEnabled
+      >
+        {content}
+      </ScrollView>
+    </YStack>
+  );
+}
+
+function showTradingHoursDialog(stock: IMarketStockInfo) {
+  Dialog.show({
+    showHeader: false,
+    showFooter: false,
+    contentContainerProps: { px: '$0', pb: '$0' },
+    renderContent: <TradingHoursDialogBody stock={stock} />,
+  });
+}
+
+function getNodeRect(node: unknown): DOMRect | null {
+  if (
+    node &&
+    typeof (node as HTMLElement).getBoundingClientRect === 'function'
+  ) {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return rect.width > 0 ? rect : null;
+  }
+  return null;
+}
+
+/**
+ * Desktop hover-card behavior: dwelling on the badge opens the popover; it
+ * stays open while the pointer is inside the badge or the panel and closes
+ * shortly after the pointer leaves both. Closing is driven by GEOMETRY (a global
+ * mousemove hit-test against both rects) instead of enter/leave events —
+ * opening the popover remounts nodes under a stationary cursor, and the
+ * resulting synthetic leave/enter storm made event-based closing flicker.
+ * Clicking the badge still works via the Popover's own trigger press.
+ */
+function TradingHoursHoverPopover({
+  stock,
+  renderTrigger,
+}: {
+  stock: IMarketStockInfo;
+  renderTrigger: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<unknown>(null);
+  const contentRef = useRef<unknown>(null);
+
+  // Hover-intent delay (OK-58513): the badge sits inside the token-selector
+  // header, so a pointer merely passing through (typically <150 ms) must not
+  // open the card. Opening waits for a short dwell; leaving the badge before
+  // it elapses cancels the open. Clicking still opens instantly via the
+  // Popover's own trigger press.
+  const HOVER_OPEN_DELAY_MS = 300;
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingOpen = useCallback(() => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+  }, []);
+  const handleHoverIn = useCallback(() => {
+    if (openTimerRef.current) {
+      return;
+    }
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      setIsOpen(true);
+    }, HOVER_OPEN_DELAY_MS);
+  }, []);
+  useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return;
+    }
+    // Bridges the trigger→panel offset gap and forgives 1px jitters.
+    const HOVER_MARGIN = 12;
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
+    const isInside = (ref: { current: unknown }, x: number, y: number) => {
+      const rect = getNodeRect(ref.current);
+      return (
+        !!rect &&
+        x >= rect.left - HOVER_MARGIN &&
+        x <= rect.right + HOVER_MARGIN &&
+        y >= rect.top - HOVER_MARGIN &&
+        y <= rect.bottom + HOVER_MARGIN
+      );
+    };
+    // Coalesce hit-testing to one rect read per frame — mousemove can fire
+    // hundreds of times per second and getBoundingClientRect forces layout.
+    let frame: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    const hitTest = () => {
+      frame = null;
+      const inside =
+        isInside(triggerRef, lastX, lastY) ||
+        isInside(contentRef, lastX, lastY);
+      if (inside) {
+        if (closeTimer) {
+          clearTimeout(closeTimer);
+          closeTimer = null;
+        }
+      } else if (!closeTimer) {
+        closeTimer = setTimeout(() => setIsOpen(false), 200);
+      }
+    };
+    const handleMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (frame === null) {
+        frame = requestAnimationFrame(hitTest);
+      }
+    };
+    document.addEventListener('mousemove', handleMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+      }
+    };
+  }, [isOpen]);
+
+  return (
+    <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      title={<TradingHoursTitle />}
+      renderTrigger={
+        <Stack
+          {...({ ref: triggerRef } as object)}
+          onHoverIn={handleHoverIn}
+          onHoverOut={cancelPendingOpen}
+        >
+          {renderTrigger}
+        </Stack>
+      }
+      renderContent={
+        <Stack {...({ ref: contentRef } as object)}>
+          <TradingHoursContent stock={stock} showInlineHeader dense />
+        </Stack>
+      }
+      floatingPanelProps={{ w: 360 }}
+    />
+  );
+}
+
+/**
+ * Trading-hours info panel (OK-58043): a hover/click floating popover on wide
+ * screens and an edge-to-edge bottom-sheet dialog on native/small screens
+ * (the Popover's own sheet form is an inset floating card, which does not
+ * match the design). Wrap a trigger (usually the stock market-status chip)
+ * and it handles the rest — session math, timezone conversion and refresh
+ * are all internal.
+ */
+export function TradingHoursTrigger({
+  stock,
+  renderTrigger,
+}: {
+  stock: IMarketStockInfo;
+  renderTrigger: ReactNode;
+}) {
+  const media = useMedia();
+  const useSheetDialog = platformEnv.isNative || media.md;
+
+  // Trading hours only apply to Ondo's US-session model — other issuers
+  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
+  if (!isOndoUSMarketStock(stock.source)) {
+    return <>{renderTrigger}</>;
+  }
+
+  if (useSheetDialog) {
+    return (
+      <Stack
+        cursor="pointer"
+        onPress={(e) => {
+          // The chip often sits inside a pressable header row (which opens the
+          // token selector) — keep this tap to ourselves.
+          e.stopPropagation();
+          showTradingHoursDialog(stock);
+        }}
+      >
+        {renderTrigger}
+      </Stack>
+    );
+  }
+
+  return (
+    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
+  );
+}

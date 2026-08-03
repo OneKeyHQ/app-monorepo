@@ -35,31 +35,34 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IKeylessBackendShare,
   IKeylessCreateWithOneKeyIdPrepareResult,
   IKeylessJuiceboxShare,
+  IKeylessOAuthAccessTokenRefreshResult,
+  ILocalKeylessWalletOAuthInspection,
   IOneKeyIdLoginWithLocalKeylessPrepareResult,
   ISupabaseJWTPayload,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import {
   EKeylessCreateWithOneKeyIdPrepareStatus,
+  EKeylessOAuthAccessTokenRefreshStatus,
+  ELocalKeylessWalletOAuthState,
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWalletUtils';
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IKeylessRealmOperation,
+  IKeylessRealmTokenDiagnosticContext,
+} from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/keyless';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
-import { getKeylessSupabaseClient } from '@onekeyhq/shared/src/utils/supabaseClientUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -76,7 +79,9 @@ import {
   EAppCryptoSharedEncryptScene,
   encryptStringAsyncWithFormat,
 } from '../../utils/secretEncryptFormat';
+import { getMalformedKeylessWalletDataError } from '../ServiceAccount/keylessWalletRemovalCapability';
 import ServiceBase from '../ServiceBase';
+import { getSupabaseClientBySessionSource } from '../ServicePrime/primeAuthSessionAccess';
 
 import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationErrors';
 import { buildKeylessLocalEncryptionKeyWithPassword } from './utils/keylessLocalEncryptionKey';
@@ -89,11 +94,30 @@ import type {
   IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 
+function loadKeylessOAuthAccessTokenUtils() {
+  return import('./utils/keylessOAuthAccessToken');
+}
+
+const juiceboxClientDiagnosticContextCache = new Map<
+  string,
+  IKeylessRealmTokenDiagnosticContext
+>();
+
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
   ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
-  ttlAutopurge: true,
-  dispose: (client) => {
+  // Expired entries are purged by cache access while the operation mutex is
+  // held. A background timer must not dispose an in-flight SDK client.
+  ttlAutopurge: false,
+  dispose: (client, token, reason) => {
+    const diagnosticContext = juiceboxClientDiagnosticContextCache.get(token);
+    if (diagnosticContext) {
+      defaultLogger.wallet.keyless.juiceboxClientCacheDisposed({
+        ...diagnosticContext,
+        reason,
+      });
+      juiceboxClientDiagnosticContextCache.delete(token);
+    }
     // Best-effort cleanup: clear any cached realm tokens when the client is evicted.
     try {
       client.dispose();
@@ -103,21 +127,13 @@ const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   },
 });
 
+// The realm-token endpoint consumes each Supabase access token once. Keep a
+// process-local tombstone beyond the Juicebox client lifetime so clearing or
+// evicting a client can never make the same access token look reusable.
+type IRealmAccessTokenExchangeTombstone = 'confirmed' | 'presumed';
+
 const KEYLESS_BACKEND_SHARE_PASSIVE_MIGRATION_INTERVAL_MS =
   timerUtils.getTimeDurationMs({ hour: 24 });
-
-const KEYLESS_TOKEN_VALID_BUFFER_MS = timerUtils.getTimeDurationMs({
-  minute: 5,
-});
-
-// GoTrue codes that definitively mean the refresh token is invalid, revoked,
-// or already rotated elsewhere — the only verdicts that justify deleting the
-// legacy encrypted refresh-token blob.
-const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
-  'invalid_grant',
-  'refresh_token_not_found',
-  'refresh_token_already_used',
-]);
 
 type IKeylessBackendShareCanonicalFormat = 'v1' | 'v2';
 
@@ -212,6 +228,13 @@ class ServiceKeylessWallet extends ServiceBase {
 
   updatePinConfirmStatusMutex = new Semaphore(1);
 
+  // Juicebox SDK authentication is process-global: every client instance
+  // replaces globalThis.JuiceboxGetAuthToken. Keep client lookup/exchange,
+  // provider binding, and the complete SDK operation in one critical section
+  // so another identity cannot dispose the active client or replace its token
+  // provider while register/recover/rate-limit work is still in flight.
+  private juiceboxOperationMutex = new Semaphore(1);
+
   // Serializes EVERY consumer of the legacy per-owner encrypted keyless
   // OAuth refresh-token blob (pre-OneKey-ID-unification builds). The blob
   // holds a SINGLE-USE rotating GoTrue refresh token, and two concurrent
@@ -241,22 +264,109 @@ class ServiceKeylessWallet extends ServiceBase {
     | Promise<IKeylessBackendShareV2MigrationResult>
     | undefined;
 
-  private async getJuiceboxClientFromCache(
+  private async buildKeylessRealmTokenDiagnosticContext(params: {
+    operation: IKeylessRealmOperation;
+    token: string;
+  }): Promise<IKeylessRealmTokenDiagnosticContext> {
+    const { buildKeylessRealmTokenDiagnosticContext } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return buildKeylessRealmTokenDiagnosticContext(params);
+  }
+
+  private async getJuiceboxClientFromCacheInsideOperationLock(
     token: string,
+    operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
+    const diagnosticContext =
+      await this.buildKeylessRealmTokenDiagnosticContext({
+        operation,
+        token,
+      });
     let client = juiceboxClientCache.get(token);
+    defaultLogger.wallet.keyless.juiceboxClientCacheAccess({
+      ...diagnosticContext,
+      cacheEntryCount: [...juiceboxClientCache.keys()].length,
+      cacheHit: !!client,
+    });
     if (!client) {
+      const exchangeTombstone =
+        await this.getRealmAccessTokenExchangeTombstone(token);
+      if (exchangeTombstone) {
+        throw new OneKeyLocalError(
+          exchangeTombstone === 'confirmed'
+            ? 'The OAuth access token was already used for a realm-token exchange. Refresh or reauthenticate before retrying.'
+            : 'The previous realm-token exchange result is unknown. Refresh or reauthenticate before retrying.',
+        );
+      }
+      // Mark before the request: an ambiguous network failure may still
+      // have consumed the access token on the server.
+      await this.setRealmAccessTokenExchangeTombstone(token, 'presumed');
       juiceboxClientCache.clear();
       const { JuiceboxClient: JuiceboxClientRuntime } =
         await import('./utils/JuiceboxClient');
-      client = new JuiceboxClientRuntime();
-      await client.exchangeToken(token);
-      juiceboxClientCache.set(token, client);
+      const newClient = new JuiceboxClientRuntime();
+      await newClient.exchangeToken(token, diagnosticContext);
+      await this.setRealmAccessTokenExchangeTombstone(token, 'confirmed');
+      juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
+      juiceboxClientCache.set(token, newClient);
+      client = newClient;
+    } else {
+      juiceboxClientDiagnosticContextCache.set(token, diagnosticContext);
     }
-    // Juicebox SDK uses a global callback for auth token retrieval.
-    // Re-bind it to the current instance to avoid being overwritten by other instances.
-    // client.setAsGlobalAuthTokenProvider();
     return client;
+  }
+
+  private async runJuiceboxOperation<T>({
+    token,
+    operation,
+    run,
+  }: {
+    token: string;
+    operation: IKeylessRealmOperation;
+    run: (client: JuiceboxClient) => Promise<T>;
+  }): Promise<T> {
+    return this.juiceboxOperationMutex.runExclusive(async () => {
+      const client = await this.getJuiceboxClientFromCacheInsideOperationLock(
+        token,
+        operation,
+      );
+      client.setAsGlobalAuthTokenProvider();
+      return run(client);
+    });
+  }
+
+  private async runCachedJuiceboxOperation<T>({
+    token,
+    run,
+  }: {
+    token: string;
+    run: (client: JuiceboxClient) => Promise<T>;
+  }): Promise<T | null> {
+    return this.juiceboxOperationMutex.runExclusive(async () => {
+      const client = juiceboxClientCache.get(token);
+      if (!client) {
+        return null;
+      }
+      client.setAsGlobalAuthTokenProvider();
+      return run(client);
+    });
+  }
+
+  private async getRealmAccessTokenExchangeTombstone(
+    token: string,
+  ): Promise<IRealmAccessTokenExchangeTombstone | undefined> {
+    const { getRealmAccessTokenExchangeTombstone } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return getRealmAccessTokenExchangeTombstone(token);
+  }
+
+  private async setRealmAccessTokenExchangeTombstone(
+    token: string,
+    tombstone: IRealmAccessTokenExchangeTombstone,
+  ): Promise<void> {
+    const { setRealmAccessTokenExchangeTombstone } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return setRealmAccessTokenExchangeTombstone(token, tombstone);
   }
 
   /**
@@ -359,7 +469,12 @@ class ServiceKeylessWallet extends ServiceBase {
     return bufferUtils.bytesToHex(hashBytes);
   }
 
-  private getKeylessInitProviderFromAppMetadata(params: {
+  /**
+   * Reads the sticky provider used by legacy clients when generating ownerId.
+   * Do not use this as the current OAuth provider; use user_metadata.iss via
+   * buildKeylessProviderFromSocialToken instead.
+   */
+  private getLegacyStickyProviderFromAppMetadata(params: {
     token: string;
   }): EOAuthSocialLoginProvider | undefined {
     const { token } = params;
@@ -452,7 +567,7 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
       skipFixedProvider: true,
     });
-    const initProvider = this.getKeylessInitProviderFromAppMetadata({ token });
+    const initProvider = this.getLegacyStickyProviderFromAppMetadata({ token });
 
     let currentProvider = actualProvider;
 
@@ -928,6 +1043,9 @@ class ServiceKeylessWallet extends ServiceBase {
     if (!devSettings.enabled) {
       throw new OneKeyLocalError('Dev settings is not enabled');
     }
+    if (!devSettings.settings?.allowDeleteKeylessKey) {
+      throw new OneKeyLocalError('Keyless wallet reset is not allowed');
+    }
     const { token } = params;
     const client = await this.getClient(EServiceEndpointEnum.Prime);
     // /prime/v1/keyless-wallet/resetKeylessBackendShare
@@ -1125,56 +1243,50 @@ class ServiceKeylessWallet extends ServiceBase {
     }, 0);
   }
 
-  private isKeylessAccessTokenValid(token: string | null): token is string {
-    if (!token) {
-      return false;
-    }
-    try {
-      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-      if (!decodedToken?.exp || typeof decodedToken.exp !== 'number') {
-        return false;
-      }
-      return (
-        Date.now() < decodedToken.exp * 1000 - KEYLESS_TOKEN_VALID_BUFFER_MS
-      );
-    } catch {
-      return false;
-    }
+  private async doKeylessOAuthTokensRepresentSameIdentity(params: {
+    previousAccessToken: string;
+    refreshedAccessToken: string;
+  }): Promise<boolean> {
+    const { doKeylessOAuthTokensRepresentSameIdentity } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return doKeylessOAuthTokensRepresentSameIdentity(params);
   }
 
-  private async getActiveKeylessOAuthAccessToken(): Promise<string | null> {
-    const { client } = getKeylessSupabaseClient();
-    const sessionResult = await client.auth.getSession();
-    if (sessionResult.error) {
-      if (isRetryableSupabaseAuthError(sessionResult.error)) {
-        throw sessionResult.error;
-      }
-      return null;
-    }
-    const token = sessionResult.data.session?.access_token ?? null;
-    if (this.isKeylessAccessTokenValid(token)) {
-      return token;
-    }
-    if (!sessionResult.data.session) {
-      return null;
-    }
-    // getSession() only auto-refreshes tokens within supabase-js's own ~90s
-    // expiry margin, while our validity buffer is larger
-    // (KEYLESS_TOKEN_VALID_BUFFER_MS). A session failing the buffer check can
-    // still be refreshed, so try an explicit refresh before treating it as
-    // missing.
-    const refreshResult = await client.auth.refreshSession();
-    if (refreshResult.error) {
-      if (isRetryableSupabaseAuthError(refreshResult.error)) {
-        throw refreshResult.error;
-      }
-      return null;
-    }
-    const refreshedToken = refreshResult.data.session?.access_token ?? null;
-    if (!this.isKeylessAccessTokenValid(refreshedToken)) {
-      return null;
-    }
-    return refreshedToken;
+  private async isDefinitiveSupabaseRefreshTokenRejectionError(
+    error: unknown,
+  ): Promise<boolean> {
+    const { isDefinitiveSupabaseRefreshTokenRejectionError } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return isDefinitiveSupabaseRefreshTokenRejectionError(error);
+  }
+
+  private async refreshKeylessOAuthAccessTokenForRealmExchange(params: {
+    operation: Extract<
+      IKeylessRealmOperation,
+      'createOrRestore' | 'resetOrVerifyPin'
+    >;
+    previousAccessToken: string;
+    validateRefreshedAccessToken: (
+      refreshedAccessToken: string,
+    ) => Promise<boolean>;
+  }): Promise<IKeylessOAuthAccessTokenRefreshResult> {
+    const { refreshKeylessOAuthAccessTokenForRealmExchange } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return refreshKeylessOAuthAccessTokenForRealmExchange({
+      ...params,
+      buildDiagnosticContext: (diagnosticParams) =>
+        this.buildKeylessRealmTokenDiagnosticContext(diagnosticParams),
+      hasRealmAccessTokenExchangeTombstone: async (token) =>
+        Boolean(await this.getRealmAccessTokenExchangeTombstone(token)),
+    });
+  }
+
+  private async getActiveKeylessOAuthAccessToken(params?: {
+    throwOnSessionRefreshError?: boolean;
+  }): Promise<string | null> {
+    const { getActiveKeylessOAuthAccessToken } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return getActiveKeylessOAuthAccessToken(params);
   }
 
   private async getActiveKeylessOAuthAccessTokenMatchingLocalWallet(params?: {
@@ -1229,20 +1341,9 @@ class ServiceKeylessWallet extends ServiceBase {
   private async isDefinitiveGoTrueRefreshTokenRejection(
     response: Response,
   ): Promise<boolean> {
-    let body: { error?: unknown; error_code?: unknown } | undefined;
-    try {
-      body = (await response.json()) as {
-        error?: unknown;
-        error_code?: unknown;
-      };
-    } catch {
-      return false;
-    }
-    return [body?.error, body?.error_code].some(
-      (code) =>
-        typeof code === 'string' &&
-        SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
-    );
+    const { isDefinitiveGoTrueRefreshTokenRejection } =
+      await loadKeylessOAuthAccessTokenUtils();
+    return isDefinitiveGoTrueRefreshTokenRejection(response);
   }
 
   private async refreshLegacyAccessTokenForKeylessBackendShareV2MigrationPassive(params: {
@@ -2000,38 +2101,43 @@ class ServiceKeylessWallet extends ServiceBase {
       );
     }
 
-    const juiceboxClient = await this.getJuiceboxClientFromCache(token);
-    try {
-      const secret = await juiceboxClient.recover({
-        pin,
-        // userInfo: `${ownerId}::::hello-world`,
-        userInfo: ownerId,
-      });
+    return this.runJuiceboxOperation({
+      token,
+      operation: 'recover',
+      run: async (juiceboxClient) => {
+        try {
+          const secret = await juiceboxClient.recover({
+            pin,
+            // userInfo: `${ownerId}::::hello-world`,
+            userInfo: ownerId,
+          });
 
-      const parts = secret.split('--');
-      const backendShareXStr = parts.pop();
-      if (!backendShareXStr) {
-        throw new OneKeyLocalError(
-          'Failed to get keyless juicebox share: backendShareXStr is empty',
-        );
-      }
-      const backendShareX = parseInt(backendShareXStr || '0', 10);
-      const juiceboxShare = parts.join('');
-      if (!juiceboxShare) {
-        throw new OneKeyLocalError(
-          'Failed to get keyless juicebox share: juiceboxShare is empty',
-        );
-      }
-      return {
-        ownerId,
-        pin,
-        juiceboxShare,
-        backendShareX,
-      };
-    } catch (_error) {
-      console.error(_error);
-      throw _error;
-    }
+          const parts = secret.split('--');
+          const backendShareXStr = parts.pop();
+          if (!backendShareXStr) {
+            throw new OneKeyLocalError(
+              'Failed to get keyless juicebox share: backendShareXStr is empty',
+            );
+          }
+          const backendShareX = parseInt(backendShareXStr || '0', 10);
+          const juiceboxShare = parts.join('');
+          if (!juiceboxShare) {
+            throw new OneKeyLocalError(
+              'Failed to get keyless juicebox share: juiceboxShare is empty',
+            );
+          }
+          return {
+            ownerId,
+            pin,
+            juiceboxShare,
+            backendShareX,
+          };
+        } catch (_error) {
+          console.error(_error);
+          throw _error;
+        }
+      },
+    });
   }
 
   @backgroundMethod()
@@ -2071,7 +2177,7 @@ class ServiceKeylessWallet extends ServiceBase {
       dangerousRetryByFixedProvider &&
       !this.fixedKeylessProviderMap[socialUserId]
     ) {
-      const providerOnCreate = this.getKeylessInitProviderFromAppMetadata({
+      const providerOnCreate = this.getLegacyStickyProviderFromAppMetadata({
         token,
       });
       if (providerOnCreate) {
@@ -2181,18 +2287,23 @@ class ServiceKeylessWallet extends ServiceBase {
       backendShareX,
     };
 
-    const juiceboxClient = await this.getJuiceboxClientFromCache(token);
-    try {
-      const secret = `${juiceboxShare}--${backendShareX}`;
-      await juiceboxClient.register({
-        pin,
-        secret,
-        userInfo: ownerId,
-      });
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
+    await this.runJuiceboxOperation({
+      token,
+      operation: 'register',
+      run: async (juiceboxClient) => {
+        try {
+          const secret = `${juiceboxShare}--${backendShareX}`;
+          await juiceboxClient.register({
+            pin,
+            secret,
+            userInfo: ownerId,
+          });
+        } catch (e) {
+          console.error(e);
+          throw e;
+        }
+      },
+    });
 
     return juiceboxShareData;
   }
@@ -2470,11 +2581,21 @@ class ServiceKeylessWallet extends ServiceBase {
       };
     }
 
+    const refreshResult =
+      await this.getFreshKeylessOAuthAccessTokenForRealmExchange();
+    if (refreshResult.status !== EKeylessOAuthAccessTokenRefreshStatus.Ready) {
+      throw new OneKeyLocalError(
+        'Keyless OAuth reauthentication is required before the automatic PIN reset.',
+      );
+    }
+    const realmAccessToken = refreshResult.accessToken;
     await this.resetKeylessWalletPin({
-      token,
+      token: realmAccessToken,
       newPin: pin,
     });
-    await this.apiMarkKeylessSameEmailResetPinSuccess({ token });
+    await this.apiMarkKeylessSameEmailResetPinSuccess({
+      token: realmAccessToken,
+    });
 
     return {
       success: true,
@@ -2609,31 +2730,48 @@ class ServiceKeylessWallet extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async clearKeylessOnboardingCache() {
-    // Best-effort cleanup: clear per-client token caches first, then clear the LRU itself.
-    for (const client of juiceboxClientCache.values()) {
-      try {
-        client.dispose();
-      } catch {
-        // ignore
-      }
-    }
-    juiceboxClientCache.clear();
+    await this.juiceboxOperationMutex.runExclusive(async () => {
+      juiceboxClientCache.clear();
+    });
   }
 
   @backgroundMethod()
   @toastIfError()
-  async prepareKeylessCreateWithOneKeyId(): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
-    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+  async prepareKeylessCreateWithOneKeyId({
+    signInProvider,
+  }: {
+    signInProvider?: EOAuthSocialLoginProvider;
+  } = {}): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
+    const localKeylessInspection =
+      await this.inspectLocalKeylessWalletForOAuthInternal();
+    if (localKeylessInspection.status === ELocalKeylessWalletOAuthState.Ready) {
       return {
         status: EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessExists,
+      };
+    }
+    if (
+      localKeylessInspection.status ===
+      ELocalKeylessWalletOAuthState.DataUnavailable
+    ) {
+      return {
+        status:
+          EKeylessCreateWithOneKeyIdPrepareStatus.LocalKeylessDataUnavailable,
+        walletId: localKeylessInspection.walletId,
+        errorMessage: localKeylessInspection.errorMessage,
       };
     }
 
     const localUserInfo =
       await this.backgroundApi.servicePrime.getLocalUserInfo();
     const displayEmail = localUserInfo.displayEmail;
-    const isOneKeyIdLoggedIn =
-      await this.backgroundApi.servicePrime.isLoggedIn();
+    // This method runs from the initial Google/Apple button click and must be
+    // a local-only precheck. ServicePrime.isLoggedIn() reads the live
+    // Supabase session and may refresh it over the network; the explicit
+    // refresh belongs to continueKeylessCreateWithOneKeyId() after the user
+    // confirms the current OneKey ID.
+    const isOneKeyIdLoggedIn = Boolean(
+      localUserInfo.isLoggedIn && localUserInfo.isLoggedInOnServer,
+    );
     if (!isOneKeyIdLoggedIn) {
       return {
         status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin,
@@ -2659,19 +2797,98 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     if (authSessionSource !== EPrimeAuthSessionSource.KeylessOAuth) {
+      if (signInProvider) {
+        const boundProviders =
+          await this.backgroundApi.servicePrime.getBoundOAuthProvidersForCurrentOneKeyId();
+        if (boundProviders.includes(signInProvider)) {
+          return {
+            status:
+              EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthReauth,
+            displayEmail,
+          };
+        }
+        const [boundProvider] = boundProviders;
+        if (boundProvider) {
+          return {
+            status:
+              EKeylessCreateWithOneKeyIdPrepareStatus.LegacyOAuthProviderMismatch,
+            displayEmail,
+            boundProvider,
+          };
+        }
+      }
       return {
         status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedLegacyOAuthBind,
         displayEmail,
       };
     }
 
-    const accessToken = await this.getActiveKeylessOAuthAccessToken();
-    if (!accessToken) {
+    return {
+      status: EKeylessCreateWithOneKeyIdPrepareStatus.ConfirmCurrentOneKeyId,
+      displayEmail,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async continueKeylessCreateWithOneKeyId({
+    signInProvider,
+  }: {
+    signInProvider?: EOAuthSocialLoginProvider;
+  } = {}): Promise<IKeylessCreateWithOneKeyIdPrepareResult> {
+    const prepareResult = await this.prepareKeylessCreateWithOneKeyId({
+      signInProvider,
+    });
+    if (
+      prepareResult.status !==
+      EKeylessCreateWithOneKeyIdPrepareStatus.ConfirmCurrentOneKeyId
+    ) {
+      return prepareResult;
+    }
+    const { displayEmail } = prepareResult;
+    let previousAccessToken: string | null = null;
+    try {
+      previousAccessToken = await this.getActiveKeylessOAuthAccessToken({
+        throwOnSessionRefreshError: true,
+      });
+    } catch (error) {
       return {
-        status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthLogin,
+        status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
+          error,
+        ))
+          ? EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthReauth
+          : EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthRefreshRecovery,
         displayEmail,
       };
     }
+    if (!previousAccessToken) {
+      return {
+        status: EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthReauth,
+        displayEmail,
+      };
+    }
+
+    const refreshResult =
+      await this.refreshKeylessOAuthAccessTokenForRealmExchange({
+        operation: 'createOrRestore',
+        previousAccessToken,
+        validateRefreshedAccessToken: async (refreshedAccessToken) =>
+          this.doKeylessOAuthTokensRepresentSameIdentity({
+            previousAccessToken,
+            refreshedAccessToken,
+          }),
+      });
+    if (refreshResult.status !== EKeylessOAuthAccessTokenRefreshStatus.Ready) {
+      return {
+        status:
+          refreshResult.status ===
+          EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
+            ? EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthReauth
+            : EKeylessCreateWithOneKeyIdPrepareStatus.NeedOneKeyIdOAuthRefreshRecovery,
+        displayEmail,
+      };
+    }
+    const { accessToken } = refreshResult;
 
     const { isCreated } = await this.getKeylessWalletCreatedOnServerInfo({
       token: accessToken,
@@ -2861,32 +3078,91 @@ class ServiceKeylessWallet extends ServiceBase {
     return isCreated;
   }
 
+  private async inspectLocalKeylessWalletForOAuthInternal(): Promise<
+    | {
+        status: ELocalKeylessWalletOAuthState.Absent;
+      }
+    | {
+        status: ELocalKeylessWalletOAuthState.Ready;
+        walletId: string;
+        provider: EOAuthSocialLoginProvider;
+        ownerId: string;
+        keylessWallet: IDBWallet;
+      }
+    | {
+        status: ELocalKeylessWalletOAuthState.DataUnavailable;
+        walletId: string;
+        errorMessage: string;
+        keylessWallet: IDBWallet;
+      }
+  > {
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate();
+    if (!keylessWallet) {
+      return { status: ELocalKeylessWalletOAuthState.Absent };
+    }
+    const errorMessage = getMalformedKeylessWalletDataError(keylessWallet);
+    if (errorMessage) {
+      return {
+        status: ELocalKeylessWalletOAuthState.DataUnavailable,
+        walletId: keylessWallet.id,
+        errorMessage,
+        keylessWallet,
+      };
+    }
+    return {
+      status: ELocalKeylessWalletOAuthState.Ready,
+      walletId: keylessWallet.id,
+      ownerId: keylessWallet.keylessDetailsInfo?.keylessOwnerId || '',
+      provider: keylessWallet.keylessDetailsInfo
+        ?.keylessProvider as EOAuthSocialLoginProvider,
+      keylessWallet,
+    };
+  }
+
+  @backgroundMethod()
+  async inspectLocalKeylessWalletForOAuth(): Promise<ILocalKeylessWalletOAuthInspection> {
+    const inspection = await this.inspectLocalKeylessWalletForOAuthInternal();
+    if (inspection.status === ELocalKeylessWalletOAuthState.Absent) {
+      return inspection;
+    }
+    if (inspection.status === ELocalKeylessWalletOAuthState.DataUnavailable) {
+      return {
+        status: inspection.status,
+        walletId: inspection.walletId,
+        errorMessage: inspection.errorMessage,
+      };
+    }
+    return {
+      status: inspection.status,
+      walletId: inspection.walletId,
+      provider: inspection.provider,
+    };
+  }
+
   private async getLocalKeylessLoginContext(): Promise<{
     keylessWallet: IDBWallet;
     ownerId: string;
     provider: EOAuthSocialLoginProvider;
   } | null> {
-    let keylessWallet: IDBWallet | undefined;
-    try {
-      keylessWallet =
-        await this.backgroundApi.serviceAccount.getKeylessWallet();
-    } catch {
+    // Do NOT swallow a transient wallet read failure into `null`.
+    // `null` is a DEFINITIVE "no usable local Keyless wallet" verdict, and
+    // prepareOneKeyIdLoginWithLocalKeyless maps that verdict to
+    // NoLocalKeyless. Collapsing an unknown/transient storage error into that
+    // verdict would enable OAuth actions without a trustworthy wallet
+    // snapshot, so let the concrete read error propagate. A resolved
+    // `undefined` wallet is a genuine no-wallet state and still returns null.
+    const inspection = await this.inspectLocalKeylessWalletForOAuthInternal();
+    if (inspection.status === ELocalKeylessWalletOAuthState.Absent) {
       return null;
     }
-    const ownerId = keylessWallet?.keylessDetailsInfo?.keylessOwnerId;
-    const provider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
-    if (
-      !keylessWallet ||
-      !ownerId ||
-      (provider !== EOAuthSocialLoginProvider.Google &&
-        provider !== EOAuthSocialLoginProvider.Apple)
-    ) {
-      return null;
+    if (inspection.status === ELocalKeylessWalletOAuthState.DataUnavailable) {
+      throw new OneKeyLocalError(inspection.errorMessage);
     }
     return {
-      keylessWallet,
-      ownerId,
-      provider,
+      keylessWallet: inspection.keylessWallet,
+      ownerId: inspection.ownerId,
+      provider: inspection.provider,
     };
   }
 
@@ -2992,150 +3268,173 @@ class ServiceKeylessWallet extends ServiceBase {
       return null;
     }
 
-    // Prompt for the password BEFORE taking the exchange lock — holding a
-    // mutex across an interactive prompt would stall the passive migration
-    // for as long as the dialog stays open. Note the prompt itself is what
-    // arms the race this lock exists for: a successful verify caches the
-    // password, which fires tryMigrateLocalExistingKeylessBackendShareToV2
-    // and thus the passive consumer of the same single-use blob token.
+    // Verify before locking because password caching may start the competing
+    // passive migration that consumes the same single-use token.
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
 
-    // Serialize the whole decrypt → refresh-grant exchange → persist/remove
-    // sequence with every other legacy-blob consumer. Unlike the passive
-    // path (which fast-yields), the interactive path queues: the user is
-    // actively waiting, and after the passive path finishes the blob holds
-    // its rotated — still valid — token, so this attempt still succeeds.
-    return this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
-      // Re-check INSIDE the lock and re-read the blob fresh: while this call
-      // waited, the passive migration may have consumed the stored token and
-      // saved a rotated one back (re-read picks it up), or removed the blob
-      // after a definitive GoTrue rejection (return null so callers fall
-      // back to a fresh OAuth login instead of replaying a dead token).
-      if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
-        return null;
-      }
-
-      let refreshToken: string | null = null;
-      try {
-        refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
-          ownerId,
-          password,
-        });
-      } catch (error) {
-        if (this.isKeylessDataCorruptedError(error)) {
-          // The legacy blob can no longer be decrypted (e.g. it was left stale
-          // by a passcode change on an old build). It is unrecoverable and
-          // would fail again on every retry, so drop it and let callers fall
-          // back to a fresh OAuth login.
-          await this.removeLegacyKeylessOAuthTokens({ ownerId });
+    // Preserve the lifecycle → legacy-token lock order by committing the
+    // identity session only after this token exchange lock is released.
+    const refreshedSession =
+      await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+        // Re-read under the lock because a competing migration may have
+        // rotated or removed the token while this call waited.
+        if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
           return null;
         }
-        throw error;
-      }
-      if (!refreshToken) {
-        return null;
-      }
 
-      const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
-      const response = await fetch(refreshUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // oxlint-disable-next-line @cspell/spellchecker
-          apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-        }),
+        let refreshToken: string | null = null;
+        try {
+          refreshToken = await this.getLegacyKeylessOAuthRefreshToken({
+            ownerId,
+            password,
+          });
+        } catch (error) {
+          if (this.isKeylessDataCorruptedError(error)) {
+            // A legacy token that cannot be decrypted must not trap every
+            // future login attempt in the migration path.
+            await this.removeLegacyKeylessOAuthTokens({ ownerId });
+            return null;
+          }
+          throw error;
+        }
+        if (!refreshToken) {
+          return null;
+        }
+
+        const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
+        const response = await fetch(refreshUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // oxlint-disable-next-line @cspell/spellchecker
+            apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
+          },
+          body: JSON.stringify({
+            refresh_token: refreshToken,
+          }),
+        });
+        // Keep the token after transient failures so migration can retry.
+        if (
+          response.status >= 500 ||
+          response.status === 408 ||
+          response.status === 429
+        ) {
+          return null;
+        }
+        if (!response.ok) {
+          if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
+            // Drop definitively rejected tokens so the next attempt can use a
+            // fresh OAuth login instead of repeating a doomed migration.
+            await this.removeLegacyKeylessOAuthTokens({ ownerId });
+            return null;
+          }
+          // An unknown non-OK response is not proof that the token is invalid.
+          return null;
+        }
+
+        const refreshResult = (await response.json()) as {
+          access_token?: string;
+          refresh_token?: string;
+        };
+        const accessToken = refreshResult?.access_token;
+        const nextRefreshToken = refreshResult?.refresh_token;
+
+        // Persist the rotated single-use token before validation so a mismatch
+        // or later session failure cannot strand a consumed credential.
+        if (nextRefreshToken) {
+          await this.saveLegacyKeylessOAuthRefreshToken({
+            ownerId,
+            refreshToken: nextRefreshToken,
+            password,
+          });
+        }
+        if (!accessToken || !nextRefreshToken) {
+          return null;
+        }
+
+        const mismatchReason =
+          await this.validateKeylessAccessTokenMatchesLocalWallet({
+            keylessWallet,
+            token: accessToken,
+          });
+        if (mismatchReason) {
+          return null;
+        }
+
+        return { accessToken, refreshToken: nextRefreshToken };
       });
-      // Transient HTTP failures (auth server down / timeout / rate limited)
-      // keep the blob so a later attempt can retry the exchange.
-      if (
-        response.status >= 500 ||
-        response.status === 408 ||
-        response.status === 429
-      ) {
-        return null;
-      }
-      if (!response.ok) {
-        if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
-          // GoTrue definitively rejected the refresh token (revoked / expired /
-          // already rotated elsewhere). The blob is dead and would fail on
-          // every retry — drop it so prepareOneKeyIdLoginWithLocalKeyless stops
-          // steering to ContinueWithKeyless (passcode prompt + doomed exchange)
-          // and routes to a fresh OAuth login instead. Mirrors the passive
-          // migration path.
+
+    if (!refreshedSession) {
+      return null;
+    }
+
+    // The lifecycle commit rechecks wallet identity and cannot resurrect a
+    // wallet removed after the token lock was released.
+    await this.backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet(
+      {
+        accessToken: refreshedSession.accessToken,
+        refreshToken: refreshedSession.refreshToken,
+        expectedWalletId: keylessWallet.id,
+      },
+    );
+
+    // Delete only this attempt's rotated token, preserving any concurrent
+    // replacement.
+    try {
+      await this.legacyKeylessOAuthTokenExchangeMutex.runExclusive(async () => {
+        const currentRefreshToken =
+          await this.getLegacyKeylessOAuthRefreshToken({
+            ownerId,
+            password,
+          });
+        if (currentRefreshToken === refreshedSession.refreshToken) {
           await this.removeLegacyKeylessOAuthTokens({ ownerId });
-          return null;
         }
-        // Any other non-OK response (proxy / CDN challenge page, unparseable
-        // body) is not a GoTrue verdict on the token — keep the blob and treat
-        // it like the transient branch above.
-        return null;
-      }
-
-      const refreshResult = (await response.json()) as {
-        access_token?: string;
-        refresh_token?: string;
-      };
-      const accessToken = refreshResult?.access_token;
-      const nextRefreshToken = refreshResult?.refresh_token;
-
-      // Supabase rotates refresh tokens on use — the exchange above already
-      // consumed the stored single-use token, so persist the rotated one
-      // back IMMEDIATELY, before the wallet validation below (mirroring the
-      // passive refresh helper). The rotated token is an identity-equivalent
-      // replacement of what the blob already held, so this save must never
-      // be gated on a validation verdict: a mismatch result (e.g. a
-      // same-email wallet whose local provider was rewritten, or a transient
-      // hash failure classified as a mismatch) would otherwise strand the
-      // consumed token in the blob, and the next attempt's definitive GoTrue
-      // rejection would delete the credential for good. It also means that
-      // if setSession below throws, the blob still holds a usable token for
-      // the next attempt.
-      if (nextRefreshToken) {
-        await this.saveLegacyKeylessOAuthRefreshToken({
-          ownerId,
-          refreshToken: nextRefreshToken,
-          password,
-        });
-      }
-      if (!accessToken || !nextRefreshToken) {
-        return null;
-      }
-
-      const mismatchReason =
-        await this.validateKeylessAccessTokenMatchesLocalWallet({
-          keylessWallet,
-          token: accessToken,
-        });
-      if (mismatchReason) {
-        return null;
-      }
-
-      const setSessionResult =
-        await getKeylessSupabaseClient().client.auth.setSession({
-          access_token: accessToken,
-          refresh_token: nextRefreshToken,
-        });
-      if (setSessionResult.error) {
-        throw new OneKeyLocalError(setSessionResult.error.message);
-      }
-
-      await this.removeLegacyKeylessOAuthTokens({ ownerId });
-      return accessToken;
-    });
+      });
+    } catch (error) {
+      defaultLogger.wallet.keyless.prepareOneKeyIdLoginWithLocalKeylessFailed({
+        error: `post-persist legacy token cleanup failed: ${String(error)}`,
+      });
+    }
+    return refreshedSession.accessToken;
   }
 
   @backgroundMethod()
   async prepareOneKeyIdLoginWithLocalKeyless(): Promise<IOneKeyIdLoginWithLocalKeylessPrepareResult> {
-    const context = await this.getLocalKeylessLoginContext();
-    if (!context) {
+    // A transient wallet read failure still propagates: consumers must be able
+    // to distinguish "wallet existence unknown / retry" from a confirmed
+    // NoLocalKeyless. A readable wallet with malformed identity fields returns
+    // LocalKeylessDataUnavailable instead, allowing the UI to offer explicit,
+    // confirmed removal before OAuth.
+    // - checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt keys off
+    //   `status !== NoLocalKeyless` to mean "wallet confirmed exists"; it
+    //   relies on the throw to skip its 24h throttle and retry later, instead
+    //   of prompting (and throttling) on an unconfirmed wallet.
+    // - the bind dialog keeps its buttons disabled while the probe keeps
+    //   throwing.
+    // The login UI degrades a thrown read result to the same recovery entry and
+    // retries inspection on click. A resolved `undefined` wallet is a genuine
+    // no-wallet state and still maps to NoLocalKeyless below.
+    const inspection = await this.inspectLocalKeylessWalletForOAuthInternal();
+    if (inspection.status === ELocalKeylessWalletOAuthState.Absent) {
       return {
         status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
       };
     }
+    if (inspection.status === ELocalKeylessWalletOAuthState.DataUnavailable) {
+      return {
+        status:
+          EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+        walletId: inspection.walletId,
+        errorMessage: inspection.errorMessage,
+      };
+    }
+    const context = {
+      keylessWallet: inspection.keylessWallet,
+      ownerId: inspection.ownerId,
+      provider: inspection.provider,
+    };
 
     // The local Keyless wallet definitely exists past this point, so a
     // transient probe failure (retryable Supabase auth error rethrown by
@@ -3161,6 +3460,7 @@ class ServiceKeylessWallet extends ServiceBase {
           return {
             status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
             provider: context.provider,
+            walletId: context.keylessWallet.id,
           };
         }
       }
@@ -3171,12 +3471,14 @@ class ServiceKeylessWallet extends ServiceBase {
       return {
         status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NeedOAuthLogin,
         provider: context.provider,
+        walletId: context.keylessWallet.id,
       };
     }
 
     return {
       status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.ContinueWithKeyless,
       provider: context.provider,
+      walletId: context.keylessWallet.id,
     };
   }
 
@@ -3184,6 +3486,7 @@ class ServiceKeylessWallet extends ServiceBase {
   async continueOneKeyIdLoginWithLocalKeyless(): Promise<{
     accessToken: string;
     provider: EOAuthSocialLoginProvider;
+    walletId: string;
   }> {
     const context = await this.getLocalKeylessLoginContext();
     if (!context) {
@@ -3239,6 +3542,7 @@ class ServiceKeylessWallet extends ServiceBase {
     return {
       accessToken,
       provider: context.provider,
+      walletId: context.keylessWallet.id,
     };
   }
 
@@ -3252,9 +3556,73 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async getOrMigrateKeylessOAuthAccessTokenForLocalWallet(): Promise<
-    string | null
-  > {
+  async getFreshKeylessOAuthAccessTokenForRealmExchange({
+    previousAccessToken: expectedPreviousAccessToken,
+    validateLocalWallet = true,
+  }: {
+    previousAccessToken?: string;
+    validateLocalWallet?: boolean;
+  } = {}): Promise<IKeylessOAuthAccessTokenRefreshResult> {
+    let previousAccessToken: string | null = null;
+    try {
+      const activeAccessToken = expectedPreviousAccessToken
+        ? await this.getActiveKeylessOAuthAccessToken({
+            throwOnSessionRefreshError: true,
+          })
+        : await this.getOrMigrateKeylessOAuthAccessTokenForLocalWallet({
+            throwOnSessionRefreshError: true,
+          });
+      if (
+        expectedPreviousAccessToken &&
+        activeAccessToken &&
+        !(await this.doKeylessOAuthTokensRepresentSameIdentity({
+          previousAccessToken: expectedPreviousAccessToken,
+          refreshedAccessToken: activeAccessToken,
+        }))
+      ) {
+        return {
+          status: EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
+        };
+      }
+      previousAccessToken = activeAccessToken;
+    } catch (error) {
+      return {
+        status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
+          error,
+        ))
+          ? EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth
+          : EKeylessOAuthAccessTokenRefreshStatus.NeedRetryOrOAuthReauth,
+      };
+    }
+    if (!previousAccessToken) {
+      return {
+        status: EKeylessOAuthAccessTokenRefreshStatus.NeedOAuthReauth,
+      };
+    }
+
+    return this.refreshKeylessOAuthAccessTokenForRealmExchange({
+      operation: validateLocalWallet ? 'resetOrVerifyPin' : 'createOrRestore',
+      previousAccessToken,
+      validateRefreshedAccessToken: async (refreshedAccessToken) => {
+        if (!validateLocalWallet) {
+          return this.doKeylessOAuthTokensRepresentSameIdentity({
+            previousAccessToken,
+            refreshedAccessToken,
+          });
+        }
+        const { isValid } = await this.validateTokenMatchesKeylessWallet({
+          token: refreshedAccessToken,
+        });
+        return isValid;
+      },
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async getOrMigrateKeylessOAuthAccessTokenForLocalWallet(params?: {
+    throwOnSessionRefreshError?: boolean;
+  }): Promise<string | null> {
     const context = await this.getLocalKeylessLoginContext();
     if (!context) {
       return null;
@@ -3263,7 +3631,9 @@ class ServiceKeylessWallet extends ServiceBase {
     // helper, which returns null both for "slot empty" and "slot holds
     // another account's session") so a non-matching session can be detected
     // BEFORE the legacy migration below overwrites the shared session slot.
-    const activeAccessToken = await this.getActiveKeylessOAuthAccessToken();
+    const activeAccessToken = await this.getActiveKeylessOAuthAccessToken({
+      throwOnSessionRefreshError: params?.throwOnSessionRefreshError,
+    });
     if (activeAccessToken) {
       const mismatchReason =
         await this.validateKeylessAccessTokenMatchesLocalWallet({
@@ -3328,7 +3698,9 @@ class ServiceKeylessWallet extends ServiceBase {
     // session directly (bg runtime owns token refreshes) instead of the
     // validity-buffered getActiveKeylessOAuthAccessToken(): a slot session
     // that merely needs a refresh still identifies its user.
-    const { client } = getKeylessSupabaseClient();
+    const client = await getSupabaseClientBySessionSource(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
     const sessionResult = await client.auth.getSession();
     const slotUserId = sessionResult.data?.session?.user?.id || '';
     const decodedIncomingToken = stringUtils.decodeJWT(
@@ -3600,8 +3972,11 @@ class ServiceKeylessWallet extends ServiceBase {
     return { success: true };
   }
 
-  @backgroundMethod()
-  async cleanupKeylessWalletStorage(params: {
+  /**
+   * This method intentionally has no @backgroundMethod decorator. The BG
+   * identity-exit coordinator owns any related session or OneKey ID cleanup.
+   */
+  async cleanupKeylessWalletCredentialStorage(params: {
     ownerId: string;
   }): Promise<void> {
     const { ownerId } = params;
@@ -3620,72 +3995,6 @@ class ServiceKeylessWallet extends ServiceBase {
 
       await this.removeLegacyKeylessOAuthTokens({ ownerId });
     });
-    // Session clear stays outside the lock: it touches a different resource
-    // (the shared Supabase session slot) and can perform network I/O.
-    await this.clearKeylessAuthSessionAndLoginState();
-  }
-
-  /**
-   * Completely clear the shared Keyless OAuth session (bg runtime client +
-   * shared session storage). When the OneKey ID login is backed by that
-   * session (authSessionSource === KeylessOAuth), also clear the persisted
-   * auth tokens and mark the Prime atom as not logged in, so clearing the
-   * session can never leave a zombie logged-in state behind.
-   */
-  @backgroundMethod()
-  async clearKeylessAuthSessionAndLoginState(): Promise<void> {
-    // Snapshot the auth-state commit generation BEFORE the session
-    // deletion: a source-only re-read cannot distinguish the KeylessOAuth
-    // login this teardown targets from a FRESH KeylessOAuth login that
-    // commits mid-teardown — both read as KeylessOAuth. A fresh commit
-    // bumps the generation.
-    const expectedAuthStateGeneration =
-      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-    // Generation-gated slot-queue deletion: the validation and the storage
-    // removal execute as one serial operation, atomic w.r.t. login commits
-    // (see ServicePrime.clearAuthSessionIfGenerationStillMatches). A login
-    // that fully committed before this call keeps its session — the
-    // deletion is skipped instead of destroying credentials that the later
-    // guards could never restore.
-    const sessionClearOutcome =
-      await this.backgroundApi.servicePrime.clearAuthSessionIfGenerationStillMatches(
-        {
-          authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-          expectedAuthStateGeneration,
-          callerName: 'clearKeylessAuthSessionAndLoginState',
-        },
-      );
-    if (sessionClearOutcome.generationChanged) {
-      // A fresh KeylessOAuth login committed after the snapshot: it owns
-      // the keyless slot now. Skip the auth-state wipe AND the
-      // KeylessAuthSessionCleared broadcast — main-runtime handlers respond
-      // to it by dropping their keyless session projection, which would
-      // present the fresh login as logged out.
-      return;
-    }
-    // Guarded clear (authStateWriteMutex + in-lock generation/source
-    // re-read): deciding on a pre-clear snapshot alone could race a login
-    // commit that lands in between and wipe the freshly committed login.
-    const { generationChanged } =
-      await this.backgroundApi.servicePrime.clearOneKeyIdAuthStateIfSourceStillKeylessOAuth(
-        {
-          callerName: 'clearKeylessAuthSessionAndLoginState',
-          expectedAuthStateGeneration,
-        },
-      );
-    if (generationChanged) {
-      // Same rationale as above, for a commit landing between the session
-      // deletion and this auth-state clear.
-      return;
-    }
-    // Runtime note (bg -> main): the clear above only affects the shared
-    // native session storage plus THIS (bg) runtime's JS client copy. The
-    // main runtime's keyless Supabase client keeps its own isolated
-    // in-memory session, so notify main-side holders (SupabaseAuthProvider)
-    // to sign out their copy; otherwise they keep acting logged-in until
-    // reload. On desktop/web (standalone, single runtime) the event is a
-    // harmless self-delivery no-op.
-    appEventBus.emit(EAppEventBusNames.KeylessAuthSessionCleared, undefined);
   }
 
   @backgroundMethod()
@@ -3786,16 +4095,30 @@ class ServiceKeylessWallet extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async apiGetCachedKeylessRateLimitStatus(params: { token: string }): Promise<{
+    isRateLimited: boolean;
+    retryAfterSeconds: number;
+    guessesRemaining: number;
+  } | null> {
+    return this.runCachedJuiceboxOperation({
+      token: params.token,
+      run: (client) => client.checkRateLimitStatus(),
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async apiCheckRateLimitStatus(params: { token: string }): Promise<{
     isRateLimited: boolean;
     retryAfterSeconds: number;
     guessesRemaining: number;
   }> {
     const { token } = params;
-    // getJuiceboxClientFromCache already calls exchangeToken internally when creating a new client
-    // Do not call exchangeToken again as each token can only be exchanged once
-    const client = await this.getJuiceboxClientFromCache(token);
-    return client.checkRateLimitStatus();
+    return this.runJuiceboxOperation({
+      token,
+      operation: 'rateLimitCheck',
+      run: (client) => client.checkRateLimitStatus(),
+    });
   }
 
   private async getAllKeylessWallets(): Promise<IDBWallet[]> {

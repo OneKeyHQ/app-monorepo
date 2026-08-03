@@ -200,6 +200,11 @@ const baseResolve = ({
         }
       : {}),
     'bn.js$': require.resolve('bn.js'),
+    // algosdk's browser field value ('.': 'dist/browser/algosdk.min.js') lacks
+    // the './' prefix; rspack's strict resolver fails on it, so bare 'algosdk'
+    // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
+    // directly), keeping a single algosdk module graph in the bundle.
+    'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
   },
   fallback: {
     crypto:
@@ -219,7 +224,6 @@ const baseResolve = ({
     os: false,
     wbg: false,
     buffer: require.resolve('buffer/'),
-    algosdk: false,
   },
   fullySpecified: false,
 });
@@ -342,8 +346,8 @@ const buildBaseCache: (
     .map((file) => path.join(__dirname, file)),
   storage: {
     type: 'filesystem',
-    // Use separate cache directories for each config to avoid conflicts
-    // in multi-config builds (ext has 5 parallel configs)
+    // Use separate cache directories for each compiler domain to avoid
+    // persistent cache conflicts in multi-config builds.
     directory: path.join(
       basePath,
       'node_modules/.cache/rspack',
@@ -366,6 +370,7 @@ interface IBaseConfigOptions {
   enableImportMetaCompat?: boolean;
   enableSentryMinimalCompat?: boolean;
   transpileDependencies?: RegExp[];
+  removeFirstPartyConsole?: boolean;
 }
 
 export function createBaseConfig({
@@ -377,6 +382,7 @@ export function createBaseConfig({
   enableImportMetaCompat = false,
   enableSentryMinimalCompat = false,
   transpileDependencies = [],
+  removeFirstPartyConsole = false,
 }: IBaseConfigOptions): RspackOptions {
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
@@ -404,11 +410,35 @@ export function createBaseConfig({
         '**/.#*',
       ],
     },
-    // Build logs stay quiet ('errors-warnings'), but `--json` reuses this same
-    // stats config, and 'errors-warnings' (all:false) omits assets/chunks — so
-    // the bundle-size diff CI job would see an empty stats.json. The `stats:web`
-    // script sets RSPACK_FULL_STATS=1 to emit a full preset for the JSON path.
-    stats: process.env.RSPACK_FULL_STATS === '1' ? 'normal' : 'errors-warnings',
+    // Build logs stay quiet, while JSON stats retain the module-to-chunk graph
+    // needed for bundle-size audits. Rspack's `normal` preset is string-output
+    // oriented and omits assets, chunks, and modules from `toJson()`.
+    stats:
+      process.env.RSPACK_FULL_STATS === '1'
+        ? {
+            all: false,
+            assets: true,
+            builtAt: true,
+            cachedModules: true,
+            chunkGroups: true,
+            chunkRelations: true,
+            chunks: true,
+            children: true,
+            entrypoints: true,
+            errors: true,
+            errorsCount: true,
+            hash: true,
+            ids: true,
+            modules: true,
+            outputPath: true,
+            publicPath: true,
+            source: false,
+            timings: true,
+            version: true,
+            warnings: true,
+            warningsCount: true,
+          }
+        : 'errors-warnings',
     infrastructureLogging: { debug: false, level: 'none' },
     output: {
       publicPath: publicUrl || '/',
@@ -504,7 +534,7 @@ export function createBaseConfig({
           },
         },
         {
-          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/],
+          test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
@@ -638,6 +668,11 @@ export function createBaseConfig({
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',
+                  // Keep console stripping in the first-party-only rule so
+                  // dependency runtime fallbacks remain intact.
+                  ...(!isDev && removeFirstPartyConsole
+                    ? ['babel-plugin-transform-remove-console']
+                    : []),
                   // Fold platformEnv.* to literals so platform branches are
                   // dead-code-eliminated (parity with webpack babelTools). Must
                   // be a babel plugin: rspack.DefinePlugin cannot fold member
