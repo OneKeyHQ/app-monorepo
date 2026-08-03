@@ -168,7 +168,13 @@ function normalizeTradingViewSubIndicatorCount(count: number) {
   return Math.max(0, Math.floor(count));
 }
 
-function MobileIndicatorQuickBar({ children }: { children: ReactNode }) {
+function MobileIndicatorQuickBar({
+  children,
+  disabled,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+}) {
   const handleTouchScroll = useMobileTabTouchScrollBridge();
   const handleIndicatorQuickBarTouchScroll = useCallback(
     (deltaY: number) => {
@@ -181,7 +187,7 @@ function MobileIndicatorQuickBar({ children }: { children: ReactNode }) {
 
   if (isValidElement<{ onTouchScroll?: (deltaY: number) => void }>(children)) {
     return cloneElement(children, {
-      onTouchScroll: handleIndicatorQuickBarTouchScroll,
+      onTouchScroll: disabled ? undefined : handleIndicatorQuickBarTouchScroll,
     });
   }
 
@@ -580,7 +586,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
             </Stack>
           </HeaderScrollGestureWrapper>
           {nativeIndicatorQuickBar && platformEnv.isNative ? (
-            <MobileIndicatorQuickBar>
+            <MobileIndicatorQuickBar disabled={isTradingViewScrollLocked}>
               {nativeIndicatorQuickBar}
             </MobileIndicatorQuickBar>
           ) : (
