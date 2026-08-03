@@ -128,8 +128,6 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
 }) {
   const currentMode = (await tradingModeAtom.get()) ?? 'perp';
   if (currentMode === 'spot') {
-    // The perp asset is read here too so the builder can fall back to it when
-    // the restored spot mode has no usable coin.
     const [spotAsset, perpAsset] = await Promise.all([
       spotActiveAssetAtom.get(),
       perpsActiveAssetAtom.get(),
@@ -1047,9 +1045,10 @@ function useHyperliquidSymbolSelect() {
       markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
       const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
         force: true,
-        // This is the one caller behind the process-wide initial-symbol latch,
-        // so bailing out here would leave the page uninitialized for good.
-        allowPerpFallback: true,
+        // Only the claiming run is a real cold start, where bailing out
+        // strands the page for good. The diverged resync falls through here
+        // too, and there the fallback would abort an in-flight spot switch.
+        allowPerpFallback: claimed,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,

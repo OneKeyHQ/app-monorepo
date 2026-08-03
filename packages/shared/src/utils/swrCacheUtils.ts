@@ -75,10 +75,8 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
-// getObject() collapses "no store yet" and "stored JSON failed to parse" into
-// the same undefined, so flush() cannot tell them apart. Reading the raw string
-// keeps them distinct: an unparseable store must not be treated as empty, or
-// the merge below would persist only the pending keys and drop everything else.
+// getObject() reports an unparseable store and an absent one identically, and
+// treating corruption as absent would let flush() drop everything else.
 function readStoreFromDisk(): {
   store: ISWRStore | undefined;
   unreadable: boolean;
@@ -103,14 +101,8 @@ function reloadFromStorage(): void {
   flush();
   const { store, unreadable } = readStoreFromDisk();
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
-    // The file is corrupt but this runtime still holds an intact copy. Swapping
-    // it for an empty store would strand every namespace for the rest of the
-    // session and leave the next flush nothing to repair the file with, since
-    // flush() rebuilds from exactly this copy.
-    //
-    // The emptiness check is what makes that repair safe to schedule: a runtime
-    // that first hydrated after the corruption also holds {}, and flushing that
-    // would turn the file into a parseable empty store — which then costs the
+    // This copy is the only intact one left. Repairing from an empty copy
+    // instead would turn the file into a parseable empty store, costing the
     // runtime that does hold a full copy its only chance to restore it.
     _dirty = true;
     scheduleFlush();
@@ -141,11 +133,8 @@ function flush() {
     const { store: disk, unreadable } = readStoreFromDisk();
     const merged: ISWRStore = {};
     if (unreadable) {
-      // Nothing on disk is recoverable, so the other runtime's writes are
-      // already lost and cannot be merged. Rebuilding from this runtime's copy
-      // repairs the store; keeping only the pending keys would compound the
-      // corruption by dropping every entry this copy still holds. Local
-      // deletions are already absent from _cache, so none get revived.
+      // Nothing on disk survives, so rebuild from this copy — a pending-keys
+      // only write would drop every entry it still holds.
       Object.assign(merged, _cache);
     } else if (disk) {
       for (const [key, entry] of Object.entries(disk)) {
@@ -169,12 +158,9 @@ function flush() {
     getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, merged);
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
-    //
-    // Only when there was a store to merge with, though. Without one, `merged`
-    // holds just the keys written since the last flush, so adopting it would
-    // drop every other entry this copy still has. That is not hypothetical on
-    // the extension, where both runtimes get the no-op stub: reads always come
-    // back empty and writes go nowhere, making this copy the only one there is.
+    // Skipped without a store to merge against: `merged` is then only the
+    // pending keys, and the extension stub never persists, so this copy is
+    // the only one there is.
     if (disk) {
       _cache = merged;
     }

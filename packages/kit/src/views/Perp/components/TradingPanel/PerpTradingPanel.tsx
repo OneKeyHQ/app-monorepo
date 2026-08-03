@@ -316,10 +316,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     perpsAccountStatus,
   ]);
 
-  // Diagnostic only. Records the gate inputs once while the buttons are still
-  // hidden and once when they appear, so a cold-start log can separate a
-  // snapshot key mismatch (entries present but no hit) from the cached-path
-  // exclusion (a hit that !statusReady rejects). Booleans and counts only.
+  // Diagnostic only: separates a snapshot key mismatch (entries present but no
+  // hit) from the cached-path exclusion (a hit that !statusReady rejects).
   useEffect(() => {
     markPerpsColdStartPerfOnce(
       canShowTradingButtons

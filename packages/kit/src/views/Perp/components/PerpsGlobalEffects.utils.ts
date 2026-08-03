@@ -40,16 +40,9 @@ export function buildInitialTradeInstrumentSwitchParams({
       };
     }
 
-    // A restored spot mode can outlive its asset: changeActiveSpotAsset
-    // persists the mode before the asset and can return early in between,
-    // leaving the spot atom at its empty default.
-    //
-    // Only the cold-start caller opts into the perp fallback, because its
-    // initial-symbol latch is process-wide and already consumed by the time
-    // this returns — bailing out there strands the page for the rest of the
-    // session. Resync and recovery callers keep the no-op instead: they can
-    // fire inside that same write window while the user is switching to spot,
-    // where switching to perp would abort the switch in progress.
+    // changeActiveSpotAsset persists the mode before the asset, so a restart
+    // can restore spot with no coin. Only the cold-start caller opts in —
+    // for resync callers the fallback would abort an in-flight spot switch.
     if (!allowPerpFallback) {
       return undefined;
     }

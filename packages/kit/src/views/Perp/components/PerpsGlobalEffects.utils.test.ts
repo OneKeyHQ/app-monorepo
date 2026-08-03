@@ -34,10 +34,8 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
     });
   });
 
-  // changeActiveSpotAsset persists the mode before the asset and can return
-  // early in between, so a restart can restore spot with the atom still at its
-  // empty default. Returning undefined there strands the page: the initial
-  // symbol latch is process-wide and already consumed by then.
+  // The initial symbol latch is process-wide and already consumed by then, so
+  // bailing out here strands the page for the rest of the session.
   it('falls back to the perp asset when the restored spot mode has no coin', () => {
     expect(
       buildInitialTradeInstrumentSwitchParams({
@@ -67,10 +65,8 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
     });
   });
 
-  // Resync and recovery callers can fire inside the window where the mode is
-  // already 'spot' but the asset is not written yet. Switching to perp there
-  // would abort the spot switch the user is in the middle of, so without the
-  // opt-in the builder must stay a no-op.
+  // A resync firing inside that same window would abort the user's in-flight
+  // spot switch.
   it('stays a no-op for the spot write window unless the fallback is opted in', () => {
     expect(
       buildInitialTradeInstrumentSwitchParams({

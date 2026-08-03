@@ -13,8 +13,7 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
   const readDisk = () =>
     (globalThis as { __swrFakeDisk?: Record<string, string> }).__swrFakeDisk ??
     {};
-  // Counts every disk read regardless of which accessor performed it, so the
-  // reload-throttle assertions keep measuring reads rather than one accessor.
+  // Counts reads from either accessor so the throttle assertions stay honest.
   const countRead = () => {
     const globalState = globalThis as { __swrFakeDiskReadCount?: number };
     globalState.__swrFakeDiskReadCount =
@@ -222,9 +221,7 @@ describe('SWR cache cross-runtime flush merge', () => {
     });
     const swr = loadFreshRuntime();
     expect(swr.get('kept')).toBe('disk');
-    // The shared file turns unreadable after this copy hydrated: a write cut
-    // short by an app kill leaves exactly this half-written state. getObject()
-    // reports it as undefined, indistinguishable from an empty store.
+    // A write cut short by an app kill leaves exactly this half-written state.
     fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
     setNow(3000);
     swr.set('fresh', 'local');
@@ -232,8 +229,7 @@ describe('SWR cache cross-runtime flush merge', () => {
 
     const disk = readDiskStore();
     expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
-    // Writing only the pending key would be the wholesale overwrite this
-    // merge exists to prevent, with every other entry silently dropped.
+    // Writing only the pending key is the wholesale overwrite this prevents.
     expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
     expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
   });
@@ -242,13 +238,11 @@ describe('SWR cache cross-runtime flush merge', () => {
     otherRuntimeFlush({ kept: { d: 'disk', t: 500 } });
     const swr = loadFreshRuntime();
     expect(swr.get('kept')).toBe('disk');
-    // Not dirty here, which is the normal state right after a flush, so the
-    // reload below has nothing to write back before it rebuilds the copy.
+    // Not dirty, so the reload has nothing to write back before rebuilding.
     fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
     swr.reloadFromStorage();
 
-    // Dropping the entry here would strand every namespace for the rest of the
-    // session and leave the next flush nothing to repair the file with.
+    // Dropping it leaves the next flush nothing to repair the file with.
     expect(swr.get('kept')).toBe('disk');
 
     setNow(3000);
@@ -262,23 +256,20 @@ describe('SWR cache cross-runtime flush merge', () => {
   it('leaves an unparseable file alone when this copy has nothing to restore', () => {
     const corrupt = '{"kept":{"d":"disk"';
     fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: corrupt };
-    // This runtime hydrates after the corruption, so its copy is empty and it
-    // has nothing to rebuild the file with.
+    // Hydrated after the corruption, so this copy cannot rebuild the file.
     const swr = loadFreshRuntime();
     expect(swr.get('kept')).toBeUndefined();
 
     swr.reloadFromStorage();
     swr.flushNow();
 
-    // Writing an empty store here would make the file parseable-and-empty and
-    // strand the runtime that still holds a full copy: it would then merge
-    // against {} and truncate itself instead of repairing the file.
+    // A parseable empty file makes the runtime holding a full copy truncate
+    // itself instead of repairing.
     expect(fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]).toBe(corrupt);
   });
 
   it('keeps entries in memory when the backend never persists anything', () => {
-    // Mirrors the extension stub (syncStorageExtBg): setObject drops the write
-    // and every read comes back empty, so the in-memory copy is the only one.
+    // Mirrors the extension stub: writes go nowhere, so this copy is the only one.
     const swr = loadFreshRuntime();
     swr.set('walletList', 'wallets');
     swr.flushNow();
@@ -290,8 +281,7 @@ describe('SWR cache cross-runtime flush merge', () => {
     fakeDiskGlobal.__swrFakeDisk = {};
 
     expect(swr.get('tokenList')).toBe('tokens');
-    // Adopting a merged store built from the pending keys alone would drop
-    // every entry not rewritten since the last flush.
+    // A pending-keys-only merge would drop everything not rewritten since.
     expect(swr.get('walletList')).toBe('wallets');
   });
 
