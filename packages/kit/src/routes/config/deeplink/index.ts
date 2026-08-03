@@ -45,8 +45,8 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
-import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
+import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
