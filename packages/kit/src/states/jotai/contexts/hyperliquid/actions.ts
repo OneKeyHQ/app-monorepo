@@ -528,13 +528,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     requestId: number;
     viewState: ITradeRouteViewState;
   }): Promise<void> {
-    if (
-      !this.isLatestActiveInstrumentChange(params.requestId) ||
-      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
-    ) {
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
     }
 
+    // Unconditional: the BG reconcile aborts every channel while this atom
+    // still names the previous coin, so gating the publish on route focus
+    // stranded context-less switches (notification / banner / tray).
     const stored = getPerpsOrderBookTickOptionsWithCache(
       params.orderBookTickOptions,
     )[params.instrument.coin];
@@ -551,6 +551,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
     });
     if (!isLatest) {
+      return;
+    }
+
+    // Best-effort saving only: extension and native reconcile off the atom
+    // watcher regardless. Desktop and web have no watcher, so this is their
+    // only gate.
+    if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
       return;
     }
 

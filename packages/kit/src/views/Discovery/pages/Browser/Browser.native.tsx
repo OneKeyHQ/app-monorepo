@@ -259,7 +259,7 @@ function MobileBrowser() {
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle } =
+  const { handleScroll, toolbarAnimatedStyle, webPageAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -602,11 +602,10 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* Keep native WebViews full-height while the toolbar reveals or
-                covers their bottom edge. Resizing a WebView during scroll
-                changes its viewport and causes a visible jump. */}
+            {/* Resize the iOS WebView with the toolbar so fixed page content
+                stays visible above it. */}
             {platformEnv.isNativeIOS ? (
-              <View
+              <Animated.View
                 collapsable={false}
                 pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
                 accessibilityElementsHidden={!shouldShowRootWebPageLayer}
@@ -615,13 +614,14 @@ function MobileBrowser() {
                 }
                 style={[
                   styles.webPageRootLayer,
+                  webPageAnimatedStyle,
                   shouldShowRootWebPageLayer
                     ? styles.iosWebPageRootLayerVisible
                     : styles.iosWebPageRootLayerHidden,
                 ]}
               >
                 {content}
-              </View>
+              </Animated.View>
             ) : null}
             <Freeze freeze={!displayBottomBar}>
               <Animated.View

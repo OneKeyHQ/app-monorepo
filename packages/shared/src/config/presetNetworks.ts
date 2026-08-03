@@ -2631,22 +2631,25 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   return networks;
 });
 
-export const getNetworksSupportFilterScamHistory = memoFn(
-  (): IServerNetwork[] => [
-    eth,
-    sol,
-    sepolia,
-    hoodi,
-    base,
-    optimism,
-    avalanche,
-    arbitrum,
-    bsc,
-    polygon,
-    etc,
-    tron,
-  ],
-);
+// Robinhood Chain is delivered via the server network list instead of
+// presetNetworks, so feature switches below reference it by network id.
+const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
+  eth.id,
+  sol.id,
+  sepolia.id,
+  hoodi.id,
+  base.id,
+  optimism.id,
+  avalanche.id,
+  arbitrum.id,
+  bsc.id,
+  polygon.id,
+  etc.id,
+  tron.id,
+  ROBINHOOD_NETWORK_ID,
+]);
 
 export const getNetworksSupportMevProtection = memoFn(
   (): Record<
@@ -2691,5 +2694,6 @@ export const getNetworksSupportBulkRevokeApproval = memoFn(
     [avalanche.id]: true,
     [optimism.id]: true,
     [base.id]: true,
+    [ROBINHOOD_NETWORK_ID]: true,
   }),
 );
