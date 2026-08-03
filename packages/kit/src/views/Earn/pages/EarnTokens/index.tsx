@@ -3,10 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListView,
   SearchBar,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
@@ -23,6 +23,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
@@ -47,11 +48,11 @@ const TOKEN_CATEGORY_TYPES = [
   EAvailableAssetsTypeEnum.NativeTokens,
 ] as const;
 
-// FIXME: Replace with product-approved i18n keys once available.
-const TOKEN_CATEGORY_LABELS: Record<string, string> = {
-  [EAvailableAssetsTypeEnum.All]: 'All',
-  [EAvailableAssetsTypeEnum.StableCoins]: 'Stable Tokens',
-  [EAvailableAssetsTypeEnum.NativeTokens]: 'Non-Stable Tokens',
+const TOKEN_CATEGORY_LABEL_IDS: Record<string, ETranslations> = {
+  [EAvailableAssetsTypeEnum.All]: ETranslations.global_all,
+  [EAvailableAssetsTypeEnum.StableCoins]: ETranslations.earn_stable_tokens__action,
+  [EAvailableAssetsTypeEnum.NativeTokens]:
+    ETranslations.earn_non_stable_tokens__action,
 };
 
 function parseRate(value?: string): number {
@@ -257,17 +258,28 @@ function EarnTokensContent() {
     [navigateToAsset],
   );
 
-  return (
-    <EarnPageContainer
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      // FIXME: Replace with product-approved i18n key once available (keep
-      // consistent with the "Tokens" label in EarnHomeShortcuts).
-      pageTitle={<SizableText size="$headingLg">Tokens</SizableText>}
-      showBackButton
-      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
-      contentContainerStyle={{ pb: tabBarHeight }}
-    >
+  const renderItem = useCallback(
+    ({ item }: { item: IEarnAvailableAsset }) => (
+      <AvailableAssetItem
+        asset={item}
+        categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
+        totalLiquidityLabel={totalLiquidityLabel}
+        testID={EarnTestIDs.tokensPageItem(item.symbol)}
+        onPress={() => handleAssetPress(item)}
+      />
+    ),
+    [handleAssetPress, totalLiquidityLabel],
+  );
+
+  const keyExtractor = useCallback(
+    (item: IEarnAvailableAsset) => item.symbol,
+    [],
+  );
+
+  // Passed as an element (stable component type), so re-renders reconcile
+  // in place and the SearchBar keeps focus while typing
+  const listHeader = (
+    <>
       <YStack px="$pagePadding" pb="$2">
         <SearchBar
           testID={EarnTestIDs.tokensSearchInput}
@@ -317,28 +329,42 @@ function EarnTokensContent() {
                 size="$bodyMdMedium"
                 color={isActive ? '$text' : '$textSubdued'}
               >
-                {TOKEN_CATEGORY_LABELS[type]}
+                {intl.formatMessage({ id: TOKEN_CATEGORY_LABEL_IDS[type] })}
               </SizableText>
             </XStack>
           );
         })}
       </XStack>
-      {isLoading && sortedAssets.length === 0 ? (
-        <EarnTokensSkeleton />
-      ) : (
-        <Stack>
-          {sortedAssets.map((asset) => (
-            <AvailableAssetItem
-              key={asset.symbol}
-              asset={asset}
-              categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
-              totalLiquidityLabel={totalLiquidityLabel}
-              testID={EarnTestIDs.tokensPageItem(asset.symbol)}
-              onPress={() => handleAssetPress(asset)}
-            />
-          ))}
-        </Stack>
-      )}
+    </>
+  );
+
+  return (
+    <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
+      pageTitle={
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_tokens__title })}
+        </SizableText>
+      }
+      showBackButton
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
+      bodyListMode
+    >
+      {/* Virtualized full list (review feedback): the ListView owns the
+          scrolling; filter/sort/search controls scroll with the content as
+          the list header, same as the previous ScrollView layout */}
+      <ListView
+        flex={1}
+        {...earnListScrollBehaviorProps}
+        data={sortedAssets}
+        estimatedItemSize={60}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={isLoading ? <EarnTokensSkeleton /> : null}
+        contentContainerStyle={{ pb: tabBarHeight }}
+      />
     </EarnPageContainer>
   );
 }

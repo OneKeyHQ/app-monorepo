@@ -3,10 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListView,
   SearchBar,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
@@ -23,6 +23,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
@@ -203,19 +204,28 @@ function EarnFixedRateTokensContent() {
     [navigateToAsset],
   );
 
-  return (
-    <EarnPageContainer
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      pageTitle={
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_fixed_income })}
-        </SizableText>
-      }
-      showBackButton
-      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
-      contentContainerStyle={{ pb: tabBarHeight }}
-    >
+  const renderItem = useCallback(
+    ({ item }: { item: IEarnAvailableAsset }) => (
+      <AvailableAssetItem
+        asset={item}
+        categoryType={EAvailableAssetsTypeEnum.FixedRate}
+        totalLiquidityLabel={totalLiquidityLabel}
+        testID={EarnTestIDs.fixedRateItem(item.symbol)}
+        onPress={() => handleAssetPress(item)}
+      />
+    ),
+    [handleAssetPress, totalLiquidityLabel],
+  );
+
+  const keyExtractor = useCallback(
+    (item: IEarnAvailableAsset) => item.symbol,
+    [],
+  );
+
+  // Passed as an element (stable component type), so re-renders reconcile
+  // in place and the SearchBar keeps focus while typing
+  const listHeader = (
+    <>
       <YStack px="$pagePadding" pb="$2">
         <SearchBar
           testID={EarnTestIDs.fixedRateSearchInput}
@@ -244,22 +254,35 @@ function EarnFixedRateTokensContent() {
           testID={EarnTestIDs.fixedRateSortControl}
         />
       </XStack>
-      {isLoading && sortedAssets.length === 0 ? (
-        <EarnFixedRateTokensSkeleton />
-      ) : (
-        <Stack>
-          {sortedAssets.map((asset) => (
-            <AvailableAssetItem
-              key={asset.symbol}
-              asset={asset}
-              categoryType={EAvailableAssetsTypeEnum.FixedRate}
-              totalLiquidityLabel={totalLiquidityLabel}
-              testID={EarnTestIDs.fixedRateItem(asset.symbol)}
-              onPress={() => handleAssetPress(asset)}
-            />
-          ))}
-        </Stack>
-      )}
+    </>
+  );
+
+  return (
+    <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
+      pageTitle={
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_fixed_income })}
+        </SizableText>
+      }
+      showBackButton
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
+      bodyListMode
+    >
+      {/* Virtualized full list (review feedback): the ListView owns the
+          scrolling; controls scroll with the content as the list header */}
+      <ListView
+        flex={1}
+        {...earnListScrollBehaviorProps}
+        data={sortedAssets}
+        estimatedItemSize={60}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={isLoading ? <EarnFixedRateTokensSkeleton /> : null}
+        contentContainerStyle={{ pb: tabBarHeight }}
+      />
     </EarnPageContainer>
   );
 }

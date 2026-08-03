@@ -3,11 +3,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListView,
   NumberSizeableText,
   SearchBar,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
@@ -22,6 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
@@ -191,17 +193,68 @@ function EarnAllProtocolsContent() {
     [navigation],
   );
 
-  return (
-    <EarnPageContainer
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      // FIXME: Replace with product-approved i18n key once available (keep
-      // consistent with the "Protocols" label in EarnHomeShortcuts).
-      pageTitle={<SizableText size="$headingLg">Protocols</SizableText>}
-      showBackButton
-      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
-      contentContainerStyle={{ pb: tabBarHeight }}
-    >
+  const renderItem = useCallback(
+    ({ item: provider }: { item: IFilteredProvider }) => (
+      <ListItem
+        testID={EarnTestIDs.allProtocolsItem(provider.provider)}
+        userSelect="none"
+        onPress={() => handleProviderPress(provider)}
+        renderAvatar={
+          <Token
+            size="md"
+            tokenImageUri={provider.logoURI}
+            borderRadius="$full"
+          />
+        }
+      >
+        <ListItem.Text
+          flex={1}
+          primary={
+            <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              {provider.providerName}
+            </SizableText>
+          }
+        />
+        <YStack ai="flex-end" jc="center">
+          {provider.maxApy > 0 ? (
+            // Value + smaller APY suffix via the shared renderer instead
+            // of hard-coding the unit into the copy (review feedback)
+            <EarnAprSuffixText
+              text={`${provider.maxApy.toFixed(2)}%`}
+              fallbackUnit="APY"
+              size="$bodyMdMedium"
+              suffixSize="$bodySmMedium"
+              color="$textSuccess"
+            />
+          ) : null}
+          <XStack ai="center" gap="$1">
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$' }}
+            >
+              {provider.filteredTvlValue}
+            </NumberSizeableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.earn_tvl })}
+            </SizableText>
+          </XStack>
+        </YStack>
+      </ListItem>
+    ),
+    [handleProviderPress, intl],
+  );
+
+  const keyExtractor = useCallback(
+    (item: IFilteredProvider) => item.provider,
+    [],
+  );
+
+  // Passed as an element (stable component type), so re-renders reconcile
+  // in place and the SearchBar keeps focus while typing
+  const listHeader = (
+    <>
       <YStack px="$pagePadding" pb="$2">
         <SearchBar
           testID={EarnTestIDs.allProtocolsSearchInput}
@@ -230,56 +283,35 @@ function EarnAllProtocolsContent() {
           testID={EarnTestIDs.allProtocolsSortControl}
         />
       </XStack>
-      {isLoading && sortedProviders.length === 0 ? (
-        <EarnAllProtocolsSkeleton />
-      ) : (
-        <Stack>
-          {sortedProviders.map((provider) => (
-            <ListItem
-              key={provider.provider}
-              testID={EarnTestIDs.allProtocolsItem(provider.provider)}
-              userSelect="none"
-              onPress={() => handleProviderPress(provider)}
-              renderAvatar={
-                <Token
-                  size="md"
-                  tokenImageUri={provider.logoURI}
-                  borderRadius="$full"
-                />
-              }
-            >
-              <ListItem.Text
-                flex={1}
-                primary={
-                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                    {provider.providerName}
-                  </SizableText>
-                }
-              />
-              <YStack ai="flex-end" jc="center">
-                {provider.maxApy > 0 ? (
-                  <SizableText size="$bodyMdMedium" color="$textSuccess">
-                    {`${provider.maxApy.toFixed(2)}% APY`}
-                  </SizableText>
-                ) : null}
-                <XStack ai="center" gap="$1">
-                  <NumberSizeableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    formatter="marketCap"
-                    formatterOptions={{ currency: '$' }}
-                  >
-                    {provider.filteredTvlValue}
-                  </NumberSizeableText>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.earn_tvl })}
-                  </SizableText>
-                </XStack>
-              </YStack>
-            </ListItem>
-          ))}
-        </Stack>
-      )}
+    </>
+  );
+
+  return (
+    <EarnPageContainer
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Earn}
+      pageTitle={
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_protocols__title })}
+        </SizableText>
+      }
+      showBackButton
+      customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
+      bodyListMode
+    >
+      {/* Virtualized full list (review feedback): the ListView owns the
+          scrolling; controls scroll with the content as the list header */}
+      <ListView
+        flex={1}
+        {...earnListScrollBehaviorProps}
+        data={sortedProviders}
+        estimatedItemSize={60}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={isLoading ? <EarnAllProtocolsSkeleton /> : null}
+        contentContainerStyle={{ pb: tabBarHeight }}
+      />
     </EarnPageContainer>
   );
 }

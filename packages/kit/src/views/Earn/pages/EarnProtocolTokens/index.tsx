@@ -3,9 +3,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListView,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
@@ -29,6 +29,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { capitalizeString } from '../../../Staking/utils/utils';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
@@ -212,6 +213,92 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
     [navigation],
   );
 
+  const renderItem = useCallback(
+    ({ item: row }: { item: IEarnProtocolTokenRow }) => (
+      <ListItem
+        testID={EarnTestIDs.protocolTokensItem(getRowKey(row))}
+        userSelect="none"
+        onPress={() => handleRowPress(row)}
+        renderAvatar={
+          // Asset logo (OK-58881). Do not fall back to the network
+          // logo: before the map is ready it would flash a few frames of
+          // the network image before swapping to the asset image; when
+          // the map has no entry, prefer showing the placeholder
+          <Token
+            size="md"
+            tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
+            borderRadius="$full"
+          />
+        }
+      >
+        <ListItem.Text
+          flex={1}
+          primary={
+            <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              {row.symbol}
+            </SizableText>
+          }
+          secondary={
+            // Always show the network, even when all rows share one (OK-58881)
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {row.item.network.name}
+            </SizableText>
+          }
+        />
+        <YStack ai="flex-end" jc="center" gap="$0.5">
+          <EarnAprSuffixText
+            text={
+              row.item.aprInfo?.highlight?.text ??
+              row.item.aprInfo?.normal?.text ??
+              ''
+            }
+            // Append rewardUnit when the server copy has no suffix so
+            // the APY/APR label always renders (OK-58881)
+            fallbackUnit={row.item.provider.rewardUnit || 'APY'}
+            color={
+              row.item.aprInfo?.highlight
+                ? (row.item.aprInfo.highlight.color ?? '$textSuccess')
+                : (row.item.aprInfo?.normal?.color ?? '$text')
+            }
+          />
+          {row.item.tvl?.text ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`${row.item.tvl.text} ${intl.formatMessage({
+                id: ETranslations.earn_tvl,
+              })}`}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </ListItem>
+    ),
+    [assetLogoMap, handleRowPress, intl],
+  );
+
+  const listHeader = (
+    <XStack px="$pagePadding" py="$2" ai="center" jc="space-between">
+      <NetworkFilterControl
+        testID={EarnTestIDs.protocolTokensNetworkFilter}
+        variant="compact"
+        availableNetworkIds={availableNetworkIds}
+        selectedNetworkIds={selectedNetworkIds}
+        networkAssetCounts={networkAssetCounts}
+        onSelectionChange={setSelectedNetworkIds}
+      />
+      <EarnMobileSortControl
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        options={sortOptions}
+        onSortChange={handleSortChange}
+        compact
+        testID={EarnTestIDs.protocolTokensSortControl}
+      />
+    </XStack>
+  );
+
+  const showSkeleton =
+    (isLoading && sortedTokens.length === 0) ||
+    (isLogoMapLoading === true && !allAssets);
+
   return (
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
@@ -230,95 +317,25 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
       showBackButton
       centerPageTitle
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}
-      contentContainerStyle={{ pb: tabBarHeight }}
+      bodyListMode
     >
-      <XStack px="$pagePadding" py="$2" ai="center" jc="space-between">
-        <NetworkFilterControl
-          testID={EarnTestIDs.protocolTokensNetworkFilter}
-          variant="compact"
-          availableNetworkIds={availableNetworkIds}
-          selectedNetworkIds={selectedNetworkIds}
-          networkAssetCounts={networkAssetCounts}
-          onSelectionChange={setSelectedNetworkIds}
-        />
-        <EarnMobileSortControl
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          options={sortOptions}
-          onSortChange={handleSortChange}
-          compact
-          testID={EarnTestIDs.protocolTokensSortControl}
-        />
-      </XStack>
-      {(isLoading && sortedTokens.length === 0) ||
-      (isLogoMapLoading === true && !allAssets) ? (
-        <EarnProtocolTokensSkeleton />
-      ) : (
-        <Stack>
-          {sortedTokens.map((row) => (
-            <ListItem
-              key={getRowKey(row)}
-              testID={EarnTestIDs.protocolTokensItem(getRowKey(row))}
-              userSelect="none"
-              onPress={() => handleRowPress(row)}
-              renderAvatar={
-                // Asset logo (OK-58881). Do not fall back to the network
-                // logo: before the map is ready it would flash a few frames of
-                // the network image before swapping to the asset image; when
-                // the map has no entry, prefer showing the placeholder
-                <Token
-                  size="md"
-                  tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
-                  borderRadius="$full"
-                />
-              }
-            >
-              <ListItem.Text
-                flex={1}
-                primary={
-                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                    {row.symbol}
-                  </SizableText>
-                }
-                secondary={
-                  // Always show the network, even when all rows share one (OK-58881)
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                  >
-                    {row.item.network.name}
-                  </SizableText>
-                }
-              />
-              <YStack ai="flex-end" jc="center" gap="$0.5">
-                <EarnAprSuffixText
-                  text={
-                    row.item.aprInfo?.highlight?.text ??
-                    row.item.aprInfo?.normal?.text ??
-                    ''
-                  }
-                  // Append rewardUnit when the server copy has no suffix so
-                  // the APY/APR label always renders (OK-58881)
-                  fallbackUnit={row.item.provider.rewardUnit || 'APY'}
-                  color={
-                    row.item.aprInfo?.highlight
-                      ? (row.item.aprInfo.highlight.color ?? '$textSuccess')
-                      : (row.item.aprInfo?.normal?.color ?? '$text')
-                  }
-                />
-                {row.item.tvl?.text ? (
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {`${row.item.tvl.text} ${intl.formatMessage({
-                      id: ETranslations.earn_tvl,
-                    })}`}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </ListItem>
-          ))}
-        </Stack>
-      )}
+      {/* Virtualized full list (review feedback): the ListView owns the
+          scrolling; controls scroll with the content as the list header.
+          While the skeleton shows, hide the data rows by feeding an empty
+          array so skeleton and rows never render together */}
+      <ListView
+        flex={1}
+        {...earnListScrollBehaviorProps}
+        data={showSkeleton ? [] : sortedTokens}
+        estimatedItemSize={60}
+        keyExtractor={getRowKey}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          showSkeleton ? <EarnProtocolTokensSkeleton /> : null
+        }
+        contentContainerStyle={{ pb: tabBarHeight }}
+      />
     </EarnPageContainer>
   );
 }

@@ -44,6 +44,12 @@ interface IEarnPageContainerProps {
   // back button (OK-58881; the iOS 26 native nav bar centers by itself and is
   // unaffected)
   centerPageTitle?: boolean;
+  // Review feedback: full-list pages render a virtualized ListView that owns
+  // its own scrolling. In list mode the body renders children directly
+  // (no wrapping ScrollView) — nesting a virtualized list inside a ScrollView
+  // would mount every row and defeat virtualization. Callers must move
+  // refreshControl / bottom padding onto their ListView.
+  bodyListMode?: boolean;
 }
 
 export function EarnPageContainer({
@@ -62,6 +68,7 @@ export function EarnPageContainer({
   showTabPageHeader = true,
   showBodyTitle = false,
   centerPageTitle = false,
+  bodyListMode = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -150,7 +157,23 @@ export function EarnPageContainer({
     [hasNativeHeaderRight, customHeaderRightItems],
   );
 
-  const body = (
+  // List mode: children (a virtualized list) own the scrolling. The iOS 26
+  // translucent native header inset becomes top padding here — the list is
+  // clipped at the bar's bottom edge instead of scrolling under the glass,
+  // which is visually equivalent since nothing scrolls behind it.
+  const body = bodyListMode ? (
+    <Page.Body>
+      <Page.Container
+        testID={EarnTestIDs.earnPage}
+        padded={false}
+        layout={disableMaxWidth ? 'full' : 'regular'}
+        flex={1}
+        {...(useNativeHeader ? { pt: nativeHeaderHeight } : {})}
+      >
+        {children}
+      </Page.Container>
+    </Page.Body>
+  ) : (
     <Page.Body>
       <ScrollView
         testID={EarnTestIDs.earnPage}

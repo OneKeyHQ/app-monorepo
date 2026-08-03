@@ -276,22 +276,31 @@ export function ProtocolListContent({
 
   // Quick-switcher grouping (OK-58854): native hidden; bitway etc. folded
   // into More. If the currently selected provider is in the More group, expand
-  // it by default so the selection stays visible
+  // it by default so the selection stays visible.
+  // The currently selected item is exempt from the hidden/More rules and is
+  // always kept in the main group — otherwise a user sitting on a hidden
+  // provider (e.g. native staking entered from the protocol list) would lose
+  // their selection and could never switch back. If filtering empties both
+  // groups, fall back to the full list.
   const { switcherMainProtocols, switcherMoreProtocols } = useMemo(() => {
     const main: IStakeProtocolListItem[] = [];
     const more: IStakeProtocolListItem[] = [];
     for (const item of flatProtocolData) {
       const providerKey = item.provider.name.toLowerCase();
-      if (SWITCHER_HIDDEN_PROVIDERS.has(providerKey)) {
-        // skip
-      } else if (SWITCHER_MORE_PROVIDERS.has(providerKey)) {
-        more.push(item);
-      } else {
-        main.push(item);
+      const isSelected = getProtocolItemKey(item) === selectedProtocolKey;
+      if (!SWITCHER_HIDDEN_PROVIDERS.has(providerKey) || isSelected) {
+        if (SWITCHER_MORE_PROVIDERS.has(providerKey) && !isSelected) {
+          more.push(item);
+        } else {
+          main.push(item);
+        }
       }
     }
+    if (main.length === 0 && more.length === 0) {
+      main.push(...flatProtocolData);
+    }
     return { switcherMainProtocols: main, switcherMoreProtocols: more };
-  }, [flatProtocolData]);
+  }, [flatProtocolData, selectedProtocolKey]);
   const [isMoreExpandedManually, setIsMoreExpanded] = useState(false);
   const isMoreExpanded =
     isMoreExpandedManually ||

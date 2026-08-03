@@ -1,5 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../testIDs';
 
@@ -52,24 +55,24 @@ export function EarnHomeShortcuts({
   onOpenTokens: () => void;
   onOpenProtocols: () => void;
 }) {
-  // FIXME: Replace these labels with product-approved i18n keys once available.
+  const intl = useIntl();
   return (
     <XStack px="$pagePadding" pb="$5" jc="space-between">
       <EarnHomeShortcut
         icon="DollarOutline"
-        label="Tokens"
+        label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
         testID={EarnTestIDs.homeShortcut('tokens')}
         onPress={onOpenTokens}
       />
       <EarnHomeShortcut
         icon="HandCoinsOutline"
-        label="Loans"
+        label={intl.formatMessage({ id: ETranslations.earn_loans__action })}
         testID={EarnTestIDs.borrowEntryButton}
         onPress={onOpenLoans}
       />
       <EarnHomeShortcut
         icon="FileTextOutline"
-        label="Protocols"
+        label={intl.formatMessage({ id: ETranslations.earn_protocols__title })}
         testID={EarnTestIDs.homeShortcut('protocols')}
         onPress={onOpenProtocols}
       />
