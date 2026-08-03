@@ -8,10 +8,10 @@ import { buildBorrowMarketKey } from '../borrowMarketKey';
  * Restoring is deliberately one-shot per session. The persisted value is only
  * a hint about where the user left off: once they have picked a market here, or
  * once a restore has been honoured, later reads must not move the selection
- * again. That matters beyond tidiness — on runtimes where UI atom writes are
- * proxied to the background, the local mirror echoes back the previous value
- * for a while after a write, so a restore that kept running would fight the
- * user's own choice (the failure recorded in `marketTabSelectionGuards.ts`).
+ * again. On runtimes where UI atom writes are proxied to the background, the
+ * local mirror echoes back the previous value for a while after a write, so a
+ * restore that kept running would fight the user's own choice (the failure
+ * recorded in `marketTabSelectionGuards.ts`).
  */
 export function resolveRememberedBorrowMarket({
   markets,

@@ -551,8 +551,6 @@ function BorrowEModeNeedActionView() {
     setDeferredDisarm({ at: Date.now() + delay, armedAt });
   }, [armedAt, disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
 
-  // Resolve a held disarm: the transaction arriving cancels it, re-arming makes
-  // it obsolete, otherwise it runs once the grace window closes.
   useEffect(() => {
     if (!deferredDisarm) {
       return;

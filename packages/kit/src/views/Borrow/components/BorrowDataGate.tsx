@@ -66,6 +66,7 @@ export const BorrowDataGate = ({
 
   const {
     market,
+    rememberedMarketKey,
     setMarkets,
     setMarket,
     setReserves,
@@ -87,10 +88,26 @@ export const BorrowDataGate = ({
       const refreshedCurrentMarket = availableMarkets.find(
         (item) => buildBorrowMarketKey(item) === currentMarketKey,
       );
+      if (refreshedCurrentMarket) {
+        return refreshedCurrentMarket;
+      }
+      // Land on the remembered market directly rather than let the restore
+      // correct it afterwards: that correction costs a discarded reserves
+      // request and a frame showing the wrong market. Only when nothing is
+      // selected yet — a refresh that drops the current market still falls
+      // back, and the user's own pick is never overridden.
+      if (!currentMarket && rememberedMarketKey) {
+        const rememberedMarket = availableMarkets.find(
+          (item) => buildBorrowMarketKey(item) === rememberedMarketKey,
+        );
+        if (rememberedMarket) {
+          return rememberedMarket;
+        }
+      }
 
-      return refreshedCurrentMarket ?? availableMarkets[0];
+      return availableMarkets[0];
     });
-  }, [availableMarkets, setMarket]);
+  }, [availableMarkets, rememberedMarketKey, setMarket]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {

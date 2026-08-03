@@ -205,3 +205,115 @@ describe('swap pending history handoff', () => {
     expect(loggerErrorSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('swap history backfill permission', () => {
+  const previousBackgroundScope = globalThis.$onekeyIsInBackground;
+  let initialNotificationState: Awaited<
+    ReturnType<typeof inAppNotificationAtom.get>
+  >;
+
+  beforeAll(async () => {
+    globalThis.$onekeyIsInBackground = true;
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    initialNotificationState = await inAppNotificationAtom.get();
+  });
+
+  beforeEach(async () => {
+    jest.spyOn(defaultLogger.app.error, 'log').mockImplementation();
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [],
+    }));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(async () => {
+    await inAppNotificationAtom.set(initialNotificationState);
+    globalThis.$onekeyIsInBackground = previousBackgroundScope;
+  });
+
+  function createService(updateSwapHistoryItem: jest.Mock) {
+    return new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            addSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('durable history unavailable')),
+            updateSwapHistoryItem,
+            deleteOneSwapHistory: jest.fn(),
+          },
+        },
+      },
+    });
+  }
+
+  it('backfills a failed pending write even after the pending list is rebuilt', async () => {
+    // refreshSwapHistoryPendingStatusOnce rebuilds the list from the store that
+    // failed, so the item's absence there says nothing about whether the user
+    // deleted it. Only the recorded failure does.
+    const updateSwapHistoryItem = jest.fn();
+    const service = createService(updateSwapHistoryItem);
+    const history = createPendingHistory({ txId: '0xlostwrite' });
+
+    await service.addSwapHistoryItem(history);
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [],
+    }));
+
+    await service.updateSwapHistoryItem(
+      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      { shouldShowToast: false },
+    );
+
+    expect(updateSwapHistoryItem).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      { allowInsert: true },
+    );
+  });
+
+  it('refuses to insert a swap that never lost a write', async () => {
+    const updateSwapHistoryItem = jest.fn();
+    const service = createService(updateSwapHistoryItem);
+    const history = createPendingHistory({ txId: '0xneverfailed' });
+
+    await service.updateSwapHistoryItem(
+      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      { shouldShowToast: false },
+    );
+
+    expect(updateSwapHistoryItem).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      { allowInsert: false },
+    );
+  });
+
+  it('revokes the permission when the user clears that history', async () => {
+    const updateSwapHistoryItem = jest.fn();
+    const service = createService(updateSwapHistoryItem);
+    const history = createPendingHistory({ txId: '0xcleared' });
+
+    await service.addSwapHistoryItem(history);
+    await service.cleanOneSwapHistory({ txId: '0xcleared' });
+
+    await service.updateSwapHistoryItem(
+      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      { shouldShowToast: false },
+    );
+
+    expect(updateSwapHistoryItem).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      { allowInsert: false },
+    );
+  });
+});

@@ -209,13 +209,17 @@ describe('shouldRunDeferredFundingDisarm', () => {
     ).toBe(false);
   });
 
-  it('abandons a disarm whose intent was cleared outright', () => {
+  // `armedAt` derives from the step-scoped intent, so null covers both "already
+  // cleared" and "armed for a step that is no longer active". Neither may
+  // abandon the disarm: the second leaves a stale intent behind, and
+  // reconcileStepState can reopen that step for an unrelated swap to match.
+  it('still runs when the intent is no longer armed for the active step', () => {
     expect(
       shouldRunDeferredFundingDisarm({
         deferred: { at: 4000, armedAt: 1000 },
         armedAt: null,
         fundingTxKey: null,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

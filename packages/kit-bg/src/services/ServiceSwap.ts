@@ -522,6 +522,14 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervalCountMap: Record<string, number> = {};
 
+  // Swaps whose pending write lost its race with a storage failure. The pending
+  // list cannot stand in for this: it is rebuilt from the very store that
+  // failed (`refreshSwapHistoryPendingStatusOnce`), so an item missing there
+  // proves nothing. Only a recorded failure licenses a later status update to
+  // insert the row, which keeps a deletion racing an in-flight status request
+  // from resurrecting what the user removed.
+  private swapHistoryPersistFailureIds = new Set<string>();
+
   private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
     {};
 
@@ -2125,9 +2133,17 @@ export default class ServiceSwap extends ServiceBase {
     if (isPending) {
       try {
         await persistHistoryItem();
+        this.swapHistoryPersistFailureIds.delete(
+          this.getSwapHistoryIntervalKey(enrichedItem),
+        );
       } catch (error) {
         // The in-memory pending identity is authoritative for the current
         // runtime when durable history storage is temporarily unavailable.
+        // Remember the miss so a later status update can still lay the row
+        // down; nothing else records that this swap has no durable copy.
+        this.swapHistoryPersistFailureIds.add(
+          this.getSwapHistoryIntervalKey(enrichedItem),
+        );
         defaultLogger.app.error.log(
           `Persist swap history error: ${
             error instanceof Error ? error.message : String(error)
@@ -2137,6 +2153,33 @@ export default class ServiceSwap extends ServiceBase {
     }
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    }
+  }
+
+  /**
+   * Write a status update through, backfilling the row only for a swap we
+   * recorded as having lost its pending write. Every other update stays
+   * update-only, so a row deleted while its status request was in flight is
+   * not written back.
+   */
+  private async persistSwapHistoryUpdate(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+  ) {
+    const persistFailureKey = this.getSwapHistoryIntervalKey(item);
+    const allowInsert =
+      this.swapHistoryPersistFailureIds.has(persistFailureKey) ||
+      (oldTxId ? this.swapHistoryPersistFailureIds.has(oldTxId) : false);
+    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+      item,
+      oldTxId,
+      { allowInsert },
+    );
+    if (allowInsert) {
+      this.swapHistoryPersistFailureIds.delete(persistFailureKey);
+      if (oldTxId) {
+        this.swapHistoryPersistFailureIds.delete(oldTxId);
+      }
     }
   }
 
@@ -2162,10 +2205,7 @@ export default class ServiceSwap extends ServiceBase {
         txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
         status,
       });
-      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-        newHistoryItem,
-        oldTxId,
-      );
+      await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
@@ -2276,16 +2316,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
-    // Presence in the pending list is what separates "the non-blocking pending
-    // write failed" from "the user cleared this row": every delete path filters
-    // the atom, while a failed write leaves the item published there. Clearing
-    // cannot abort a status request already awaiting its response, so without
-    // this the late response would reinsert a deleted row.
-    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-      enrichedItem,
-      undefined,
-      { allowInsert: Boolean(oldItem) },
-    );
+    await this.persistSwapHistoryUpdate(enrichedItem);
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -2357,6 +2388,14 @@ export default class ServiceSwap extends ServiceBase {
     await Promise.all(
       deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
     );
+    // Drop the backfill permission too: clearing cannot abort a status request
+    // already awaiting its response, and that response must not lay the row
+    // back down.
+    deleteHistoryIds.forEach((id) => {
+      if (id) {
+        this.swapHistoryPersistFailureIds.delete(id);
+      }
+    });
     // The history list refreshes off the pending-status key, which does not
     // change when only finished orders are removed. Signal list views to
     // re-fetch so a clear is reflected immediately instead of leaving stale rows.
@@ -2384,6 +2423,7 @@ export default class ServiceSwap extends ServiceBase {
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
+    this.swapHistoryPersistFailureIds.delete(deleteHistoryId);
     // Deleting a finished order does not change the pending-status key the list
     // refreshes off, so signal list views to re-fetch (same reason as the
     // batch clean above) — otherwise the deleted row lingers until a pending

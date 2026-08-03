@@ -171,10 +171,17 @@ export type IDeferredFundingDisarm = {
 };
 
 /**
- * Whether a held disarm still applies. It is scheduled for one specific intent,
- * but the user can disarm and re-arm inside the grace window (dismiss the Swap
- * modal, tap Top up again); firing it then would clear an intent it was never
- * scheduled for, which is the very state the grace window exists to protect.
+ * Whether a held disarm still applies.
+ *
+ * Only a *different* armed intent calls it off: the user can dismiss the Swap
+ * modal and tap Top up again inside the grace window, and firing then would
+ * clear an intent this disarm was never scheduled for.
+ *
+ * A null `armedAt` is not that case. It means the intent is not currently armed
+ * for the active step — either already cleared, where disarming is a harmless
+ * no-op, or belonging to a step that is no longer active, where the intent is
+ * stale and clearing it is exactly the point: `reconcileStepState` can reopen
+ * that step later, and a stale intent would then match an unrelated swap.
  */
 export function shouldRunDeferredFundingDisarm({
   deferred,
@@ -188,5 +195,5 @@ export function shouldRunDeferredFundingDisarm({
   if (!deferred || fundingTxKey) {
     return false;
   }
-  return deferred.armedAt === armedAt;
+  return armedAt === null || armedAt === deferred.armedAt;
 }

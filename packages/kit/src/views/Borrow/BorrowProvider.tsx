@@ -56,6 +56,8 @@ type IBorrowContextValue = {
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
   /** Persist an explicit market pick, so it is restored on the next visit. */
   rememberMarket: (market: IBorrowMarketItem) => void;
+  /** Empty until storage hydrates, which off native happens after mount. */
+  rememberedMarketKey: string;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -120,9 +122,7 @@ export const BorrowProvider = ({
     setPendingTxsState(txs);
   }, []);
 
-  // Owned here, alongside the state it restores into: the hook keeps per-session
-  // flags and must exist exactly once.
-  const { rememberMarket } = useBorrowMarketMemory({
+  const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
     markets,
     market,
     setMarket,
@@ -150,6 +150,7 @@ export const BorrowProvider = ({
       market,
       setMarket,
       rememberMarket,
+      rememberedMarketKey,
       earnAccount,
       setEarnAccount,
       reserves,
@@ -166,6 +167,7 @@ export const BorrowProvider = ({
       markets,
       market,
       rememberMarket,
+      rememberedMarketKey,
       earnAccount,
       reserves,
       borrowDataStatus,

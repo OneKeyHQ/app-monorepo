@@ -333,8 +333,6 @@ describe('SimpleDbEntitySwapHistory.updateSwapHistoryItem', () => {
     expect(written).toEqual([resolved, swapSuccess]);
   });
 
-  // Clearing history cannot abort a status request already awaiting its
-  // response, so the late update must not write the row back.
   it('leaves a cleared row deleted when a late status update arrives', async () => {
     const written = await runUpdate([swapSuccess], resolved);
     expect(written).toBeNull();

@@ -94,9 +94,8 @@ export const useBorrowEModeStatus = ({
 
   const hasResolvedCurrentScope = scopedResult?.scopeKey === scopeKey;
   const eModeStatus = hasResolvedCurrentScope ? scopedResult.eModeStatus : null;
-  // A resolved-but-empty payload leaves consumers with neither a status to render
-  // nor an error to recover from, which strands them on their loading branch.
-  // canRequestStatus keeps this inert for providers we never query.
+  // A resolved-but-empty payload leaves consumers with neither a status to
+  // render nor an error to recover from, stranding them on their loading branch.
   const isError =
     canRequestStatus &&
     hasResolvedCurrentScope &&

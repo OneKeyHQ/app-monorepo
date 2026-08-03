@@ -8,17 +8,13 @@ import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { resolveRememberedBorrowMarket } from './borrowMarketMemory.utils';
 
 /**
- * Carries the market choice across sessions.
- *
- * Belongs to whoever owns the market state, and must be used exactly once:
- * `hasUserChosen` is per-instance, and a second instance would not see the
- * first one's writes — its restore would then fight the user's pick while the
- * persisted mirror is still catching up.
+ * Carries the market choice across sessions. Must be used exactly once: the
+ * flags below are per-instance, and a second instance would not see the first
+ * one's writes.
  *
  * Only an explicit pick is written. The selection is also reconciled
- * automatically — a refresh that no longer lists the current market falls back
- * to the first one — and persisting that would quietly overwrite the user's
- * market with the fallback whenever the backend omitted it once.
+ * automatically against each refresh, and persisting that fallback would
+ * overwrite the user's market whenever the backend omitted it once.
  */
 export function useBorrowMarketMemory({
   markets,
@@ -43,9 +39,6 @@ export function useBorrowMarketMemory({
   );
 
   useEffect(() => {
-    // Storage hydrates asynchronously off native, so an empty key here means
-    // "not loaded yet" as often as it means "nothing remembered"; this effect
-    // stays armed until a real key arrives rather than resolving on first run.
     const remembered = resolveRememberedBorrowMarket({
       markets,
       rememberedKey,
@@ -60,5 +53,5 @@ export function useBorrowMarketMemory({
     setMarket(remembered);
   }, [market, markets, rememberedKey, setMarket]);
 
-  return { rememberMarket };
+  return { rememberMarket, rememberedMarketKey: rememberedKey };
 }
