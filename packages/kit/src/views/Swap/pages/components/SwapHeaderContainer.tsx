@@ -32,7 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
-  type ESwapSource,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -167,7 +167,11 @@ const SwapHeaderContainer = ({
     }
   }, [hasPendingSwapProEntry, navigation]);
   useEffect(() => {
-    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+    ) {
       return;
     }
     // Avoid switching the default toToken before it has been loaded,
