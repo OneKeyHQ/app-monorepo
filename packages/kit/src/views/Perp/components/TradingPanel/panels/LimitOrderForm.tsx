@@ -26,6 +26,7 @@ import {
   type ITradingFormData,
   useActiveTradeInstrumentAtom,
   useBboForOrderPrice,
+  useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
@@ -39,6 +40,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -79,6 +81,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { shouldShowOrderConfirm } from '../../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
@@ -174,6 +177,11 @@ export function LimitOrderForm({
   // Spot has its own asset/balance atoms; perpsActiveAssetAtom is stale-perp
   // when the active instrument is spot.
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const hyperliquidActions = useHyperliquidActions();
+  // Prevents a double press from double-submitting on the direct (skip-confirm)
+  // path; the dialog path is already serialized by the dialog itself.
+  const isDirectPlacingRef = useRef(false);
   const isSpot = activeTradeInstrument.mode === 'spot';
   const [spotActiveAsset] = useSpotActiveAssetAtom();
   const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
@@ -907,23 +915,63 @@ export function LimitOrderForm({
             price: resolvedPrice,
           });
 
-      showOrderConfirmDialog({
-        overrideSide: pressedSide,
-        formData: builtFormData,
-        price: resolvedPrice,
-        expectedCoin: symbol,
-        intl,
-        aggressiveLimitPriceWarning,
-        onConfirmSuccess: onClose,
-      });
+      // Same gate as the main panel: honour "skip order confirmation", except
+      // an aggressive limit price still forces the dialog so its warning is
+      // seen before submitting.
+      if (
+        shouldShowOrderConfirm({
+          skipOrderConfirm: perpsCustomSettings.skipOrderConfirm,
+          aggressiveLimitPriceWarning,
+        })
+      ) {
+        showOrderConfirmDialog({
+          overrideSide: pressedSide,
+          formData: builtFormData,
+          price: resolvedPrice,
+          expectedCoin: symbol,
+          intl,
+          aggressiveLimitPriceWarning,
+          onConfirmSuccess: onClose,
+        });
+        return;
+      }
+
+      // Mirrors the confirm dialog's override submit path, minus the dialog.
+      if (activeTradeInstrument.assetId === undefined) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_info_not_found__msg,
+          }),
+        });
+        return;
+      }
+      if (isDirectPlacingRef.current) {
+        return;
+      }
+      isDirectPlacingRef.current = true;
+      try {
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeTradeInstrument.assetId,
+          formData: builtFormData,
+          price: resolvedPrice,
+        });
+        onClose();
+      } catch {
+        // Errors surface via withToast inside submitOrder; keep the ticket
+        // open so the inputs can be corrected.
+      } finally {
+        isDirectPlacingRef.current = false;
+      }
     },
     [
       activeTradeInstrument?.coin,
+      activeTradeInstrument?.assetId,
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
       ensureEnableTrading,
       hasTpsl,
+      hyperliquidActions,
       intl,
       isSpot,
       getAggressiveLimitPriceWarning,
@@ -931,6 +979,7 @@ export function LimitOrderForm({
       limitTif,
       marketDataFreshness,
       onClose,
+      perpsCustomSettings.skipOrderConfirm,
       reduceOnly,
       resolvePriceForSide,
       sizeInputMode,
