@@ -25,7 +25,7 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import {
   buildTokenDetailsMarketNavigationTarget,
-  isTokenDetailsMarketMetadataForToken,
+  shouldHideTokenDetailsMarketFooter,
 } from './tokenDetailsMarketNavigation';
 
 function TokenDetailsFooter(props: {
@@ -70,14 +70,6 @@ function TokenDetailsFooter(props: {
       tokenMetadata,
     ],
   );
-  const matchedTokenMetadata = isTokenDetailsMarketMetadataForToken({
-    networkId,
-    tokenAddress,
-    tokenMetadata,
-  })
-    ? tokenMetadata
-    : undefined;
-
   const handleMarketPress = useCallback(() => {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
@@ -96,9 +88,7 @@ function TokenDetailsFooter(props: {
   }, [marketNavigationTarget, navigation]);
 
   const priceChangeColor = useMemo(() => {
-    const priceChangeBN = new BigNumber(
-      matchedTokenMetadata?.priceChange24h ?? 0,
-    );
+    const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
     if (priceChangeBN.isGreaterThan(0)) {
       return '$textSuccess';
     }
@@ -106,16 +96,16 @@ function TokenDetailsFooter(props: {
       return '$textCritical';
     }
     return '$textSubdued';
-  }, [matchedTokenMetadata?.priceChange24h]);
+  }, [tokenMetadata?.priceChange24h]);
 
   if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
     return null;
   }
 
-  if (
-    new BigNumber(matchedTokenMetadata?.priceChange24h ?? 0).isZero() &&
-    new BigNumber(matchedTokenMetadata?.price ?? 0).isZero()
-  ) {
+  // Metadata for a previously active tab is the same asset — keep rendering
+  // it while the new tab's fetch is in flight so the footer never
+  // unmounts/remounts (flashes) on tab switches.
+  if (shouldHideTokenDetailsMarketFooter({ tokenMetadata })) {
     return null;
   }
 
@@ -137,14 +127,14 @@ function TokenDetailsFooter(props: {
         <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        {matchedTokenMetadata ? (
+        {tokenMetadata ? (
           <XStack alignItems="center" gap="$2">
             <Currency
               size="$bodyMd"
               formatter="price"
-              sourceCurrency={matchedTokenMetadata.currency}
+              sourceCurrency={tokenMetadata.currency}
             >
-              {matchedTokenMetadata.price}
+              {tokenMetadata.price}
             </Currency>
             <NumberSizeableText
               size="$bodyMd"
@@ -154,7 +144,7 @@ function TokenDetailsFooter(props: {
               }}
               color={priceChangeColor}
             >
-              {matchedTokenMetadata.priceChange24h}
+              {tokenMetadata.priceChange24h}
             </NumberSizeableText>
             {marketNavigationTarget ? (
               <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
