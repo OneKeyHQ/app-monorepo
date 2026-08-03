@@ -29,11 +29,6 @@ const sniTarget = {
   path: process.env.DESKTOP_E2E_SNI_PATH || '/wallet/v1/health',
   timeout: Number(process.env.DESKTOP_E2E_SNI_TIMEOUT_MS) || 15_000,
 };
-const SNI_QUEUE_REQUEST_COUNT = 20;
-const SNI_QUEUE_ACTIVE_LIMIT = 16;
-const SNI_QUEUE_PENDING_COUNT =
-  SNI_QUEUE_REQUEST_COUNT - SNI_QUEUE_ACTIVE_LIMIT;
-
 const COPY_INJECT_TIMEOUT_MS =
   Number(process.env.DESKTOP_E2E_COPY_INJECT_TIMEOUT_MS) || 60_000;
 const BUILD_MAIN_TIMEOUT_MS =
@@ -636,183 +631,54 @@ function assertSniResponseStatus(statusCode, label) {
   );
 }
 
-function assertSniCancelled(outcome, label) {
-  assert.equal(outcome.state, 'rejected', `${label} should reject`);
-  assert(
-    outcome.code === 'SNI_CANCELLED' ||
-      /\bSNI_CANCELLED\b/u.test(outcome.message),
-    `${label} should reject with SNI_CANCELLED, got ${JSON.stringify(outcome)}`,
-  );
-}
-
 async function runSniRequestFlow(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: APP_TIMEOUT_MS });
   await page.waitForFunction(
     () =>
       Boolean(
-        globalThis.desktopApiProxy?.sniRequest?.request &&
-        globalThis.desktopApiProxy.sniRequest.cancelRequest &&
-        globalThis.desktopApiProxy.sniRequest.cancelAllRequests &&
-        globalThis.desktopApiProxy.sniRequest.getDebugSnapshot,
+        globalThis.desktopApiProxy?.sniRequest?.isSupported &&
+        globalThis.desktopApiProxy.sniRequest.request,
       ),
     undefined,
     { timeout: APP_TIMEOUT_MS },
   );
 
-  const result = await page.evaluate(
-    async ({ activeLimit, pendingCount, requestCount, target }) => {
-      const proxy = globalThis.desktopApiProxy?.sniRequest;
-      if (!proxy) {
-        throw new Error('desktopApiProxy.sniRequest unavailable');
-      }
+  const result = await page.evaluate(async (target) => {
+    const proxy = globalThis.desktopApiProxy?.sniRequest;
+    if (!proxy) {
+      throw new Error('desktopApiProxy.sniRequest unavailable');
+    }
 
-      const runId = `${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`;
-      const buildConfig = (requestId, phase) => ({
-        requestId,
-        ip: target.ip,
-        hostname: target.hostname,
-        path: `${target.path}${target.path.includes('?') ? '&' : '?'}desktopE2E=${phase}-${runId}`,
-        headers: {
-          Accept: 'application/json',
-          'X-OneKey-Desktop-E2E': phase,
-        },
-        method: 'GET',
-        body: null,
-        timeout: target.timeout,
-      });
-      const toOutcome = (promise) =>
-        promise.then(
-          (response) => ({
-            state: 'resolved',
-            statusCode: response.statusCode,
-          }),
-          (error) => ({
-            state: 'rejected',
-            code:
-              error && typeof error === 'object' && 'code' in error
-                ? String(error.code)
-                : '',
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        );
-      const waitForSnapshot = async (predicate, label) => {
-        const deadline = Date.now() + 10_000;
-        let nextSnapshot;
-        do {
-          nextSnapshot = await proxy.getDebugSnapshot({
-            hostname: target.hostname,
-            ip: target.ip,
-          });
-          if (predicate(nextSnapshot)) return nextSnapshot;
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        } while (Date.now() < deadline);
-        throw new Error(
-          `${label} snapshot was not observed: ${JSON.stringify(nextSnapshot)}`,
-        );
-      };
+    const runId = `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const config = {
+      requestId: `desktop-e2e-smoke-${runId}`,
+      ip: target.ip,
+      hostname: target.hostname,
+      path: `${target.path}${
+        target.path.includes('?') ? '&' : '?'
+      }desktopE2E=smoke-${runId}`,
+      headers: {
+        Accept: 'application/json',
+        'X-OneKey-Desktop-E2E': 'smoke',
+      },
+      method: 'GET',
+      body: null,
+      timeout: target.timeout,
+    };
 
-      const supported = await proxy.isSupported();
-      const initialResponse = await proxy.request(
-        buildConfig(`desktop-e2e-success-${runId}`, 'success'),
-      );
+    const supported = await proxy.isSupported();
+    const response = await proxy.request(config);
 
-      await proxy.clearDNSCache();
-      const targetedRequestId = `desktop-e2e-cancel-${runId}`;
-      const targetedOutcomePromise = toOutcome(
-        proxy.request(buildConfig(targetedRequestId, 'cancel')),
-      );
-      const targetedCancelResult = await proxy.cancelRequest(targetedRequestId);
-      const targetedOutcome = await targetedOutcomePromise;
-
-      await proxy.clearDNSCache();
-      const queueRequests = Array.from({ length: requestCount }, (_, index) => {
-        const requestId = `desktop-e2e-queue-${runId}-${index}`;
-        return {
-          requestId,
-          outcome: toOutcome(
-            proxy.request(buildConfig(requestId, `queue-${index}`)),
-          ),
-        };
-      });
-      const queueSnapshot = await waitForSnapshot(
-        (nextSnapshot) =>
-          nextSnapshot.activeRequestsForPair === activeLimit &&
-          nextSnapshot.pendingRequestsForPair === pendingCount,
-        'saturated queue',
-      );
-      const queuedCancelResults = await Promise.all(
-        queueRequests
-          .slice(activeLimit)
-          .map(({ requestId }) => proxy.cancelRequest(requestId)),
-      );
-      const pendingDrainedSnapshot = await waitForSnapshot(
-        (nextSnapshot) => nextSnapshot.pendingRequestsForPair === 0,
-        'queued cancellation',
-      );
-      const cancelAllResult = await proxy.cancelAllRequests();
-      const queueRequestOutcomes = await Promise.all(
-        queueRequests.map(({ outcome }) => outcome),
-      );
-      const finalSnapshot = await waitForSnapshot(
-        (nextSnapshot) =>
-          nextSnapshot.activeRequestsForPair === 0 &&
-          nextSnapshot.pendingRequestsForPair === 0,
-        'cancel-all cleanup',
-      );
-
-      const recoveryResponse = await proxy.request(
-        buildConfig(`desktop-e2e-recovery-${runId}`, 'recovery'),
-      );
-
-      return {
-        supported,
-        initialStatusCode: initialResponse.statusCode,
-        targetedCancelSuccess: targetedCancelResult.success,
-        targetedOutcome,
-        queueSnapshot,
-        queuedCancelResults,
-        pendingDrainedSnapshot,
-        cancelAllSuccess: cancelAllResult.success,
-        queueRequestOutcomes,
-        finalSnapshot,
-        recoveryStatusCode: recoveryResponse.statusCode,
-      };
-    },
-    {
-      activeLimit: SNI_QUEUE_ACTIVE_LIMIT,
-      pendingCount: SNI_QUEUE_PENDING_COUNT,
-      requestCount: SNI_QUEUE_REQUEST_COUNT,
-      target: sniTarget,
-    },
-  );
+    return {
+      supported,
+      statusCode: response.statusCode,
+    };
+  }, sniTarget);
 
   assert.equal(result.supported, true);
-  assertSniResponseStatus(result.initialStatusCode, 'initial SNI request');
-  assert.equal(result.targetedCancelSuccess, true);
-  assertSniCancelled(result.targetedOutcome, 'targeted SNI cancellation');
-  assert.equal(
-    result.queueSnapshot.activeRequestsForPair,
-    SNI_QUEUE_ACTIVE_LIMIT,
-  );
-  assert.equal(
-    result.queueSnapshot.pendingRequestsForPair,
-    SNI_QUEUE_PENDING_COUNT,
-  );
-  assert.equal(result.queuedCancelResults.length, SNI_QUEUE_PENDING_COUNT);
-  result.queuedCancelResults.forEach((cancelResult, index) => {
-    assert.equal(cancelResult.success, true, `queued cancellation ${index}`);
-  });
-  assert.equal(result.pendingDrainedSnapshot.pendingRequestsForPair, 0);
-  assert.equal(result.cancelAllSuccess, true);
-  assert.equal(result.queueRequestOutcomes.length, SNI_QUEUE_REQUEST_COUNT);
-  result.queueRequestOutcomes.forEach((outcome, index) => {
-    assertSniCancelled(outcome, `queue SNI request ${index}`);
-  });
-  assert.equal(result.finalSnapshot.activeRequestsForPair, 0);
-  assert.equal(result.finalSnapshot.pendingRequestsForPair, 0);
-  assertSniResponseStatus(result.recoveryStatusCode, 'recovery SNI request');
+  assertSniResponseStatus(result.statusCode, 'SNI bridge smoke request');
 
   await page.waitForFunction(
     () => globalThis.$$appGlobals?.$navigationRef?.current?.isReady(),
@@ -872,7 +738,6 @@ async function runSniRequestFlow(page) {
     undefined,
     { timeout: APP_TIMEOUT_MS },
   );
-  const queuePanelText = await queuePanel.textContent();
   const caseIds = [
     'https-success',
     'active-abort',
@@ -892,6 +757,22 @@ async function runSniRequestFlow(page) {
       `desktop SNI QA case ${caseIds[index]} should pass`,
     );
   });
+  for (const caseId of caseIds) {
+    const evidenceToggleTestId = `desktop-sni-case-${caseId}-evidence-toggle`;
+    const evidenceToggle = page.locator(
+      `[data-testid="${evidenceToggleTestId}"]`,
+    );
+    await evidenceToggle.evaluate((element) => element.click());
+    await page.waitForFunction(
+      (testId) =>
+        document
+          .querySelector(`[data-testid="${testId}"]`)
+          ?.textContent?.includes('Hide evidence'),
+      evidenceToggleTestId,
+      { timeout: APP_TIMEOUT_MS },
+    );
+  }
+  const queuePanelText = await queuePanel.textContent();
   assert(
     queuePanelText.includes('Queue saturation observed') &&
       queuePanelText.includes('pair active=16, pending=4'),
@@ -908,9 +789,43 @@ async function runSniRequestFlow(page) {
     'desktop SNI queue panel should display the active AbortController outcome',
   );
   assert(
+    queuePanelText.includes('Transport cancel acknowledged') &&
+      queuePanelText.includes('1/1 cancelRequest calls returned success=true'),
+    'desktop SNI queue panel should require the active transport cancellation acknowledgement',
+  );
+  assert(
+    queuePanelText.includes('Transport cancellation outcome') &&
+      queuePanelText.includes('1/1 transport promises rejected SNI_CANCELLED'),
+    'desktop SNI queue panel should require the active transport to reject as cancelled',
+  );
+  assert(
+    queuePanelText.includes('Pending transport cancels acknowledged') &&
+      queuePanelText.includes('4/4 cancelRequest calls returned success=true'),
+    'desktop SNI queue panel should require all pending transport cancellation acknowledgements',
+  );
+  assert(
+    queuePanelText.includes('Pending transport outcomes') &&
+      queuePanelText.includes('4/4 transport promises rejected SNI_CANCELLED'),
+    'desktop SNI queue panel should require all pending transports to reject as cancelled',
+  );
+  assert(
     queuePanelText.includes('Batch renderer outcomes') &&
       queuePanelText.includes('cancelled=20, responded=0, failed=0'),
     'desktop SNI queue panel should display real abort-all outcomes',
+  );
+  assert(
+    queuePanelText.includes('Batch transport cancels acknowledged') &&
+      queuePanelText.includes(
+        '20/20 cancelRequest calls returned success=true',
+      ),
+    'desktop SNI queue panel should require all abort-all transport acknowledgements',
+  );
+  assert(
+    queuePanelText.includes('Batch transport outcomes') &&
+      queuePanelText.includes(
+        '20/20 transport promises rejected SNI_CANCELLED',
+      ),
+    'desktop SNI queue panel should require all abort-all transports to reject as cancelled',
   );
   assert(
     queuePanelText.includes('Recovery response') &&
@@ -922,7 +837,7 @@ async function runSniRequestFlow(page) {
   });
 
   log(
-    `SNI Node integration and QA panel passed (${sniTarget.hostname} via ${sniTarget.ip}, statuses ${result.initialStatusCode}/${result.recoveryStatusCode}, targeted cancel + ${SNI_QUEUE_ACTIVE_LIMIT} active/${SNI_QUEUE_PENDING_COUNT} pending queue cancellation)`,
+    `SNI bridge smoke and QA panel passed (${sniTarget.hostname} via ${sniTarget.ip}, smoke HTTP ${result.statusCode}, 4 UI cases)`,
   );
 }
 

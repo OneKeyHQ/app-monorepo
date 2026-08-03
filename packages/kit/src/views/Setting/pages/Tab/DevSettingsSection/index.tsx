@@ -139,8 +139,7 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
 });
 
 const LazySniRequestQaTest = LazyLoad(async () => {
-  const { SniRequestQaTest } =
-    await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DesktopSniQueueTest');
+  const { SniRequestQaTest } = await import('./SniRequestQa');
   return { default: SniRequestQaTest };
 });
 

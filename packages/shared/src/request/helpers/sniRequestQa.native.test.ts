@@ -31,12 +31,14 @@ describe('sniRequestQaAdapter.native', () => {
     expect(mockedClearDNSCache).toHaveBeenCalledTimes(1);
   });
 
-  test('returns the count-only snapshot reported by the native limiter', async () => {
+  test('returns the counts and request IDs reported by the native limiter', async () => {
     mockedGetDebugSnapshot.mockResolvedValue({
       activeRequests: 16,
       activeRequestsForPair: 16,
+      activeRequestIdsForPair: ['active-1'],
       pendingRequests: 4,
       pendingRequestsForPair: 4,
+      pendingRequestIdsForPair: ['pending-1'],
     });
 
     await expect(
@@ -47,8 +49,10 @@ describe('sniRequestQaAdapter.native', () => {
     ).resolves.toEqual({
       activeRequests: 16,
       activeRequestsForPair: 16,
+      activeRequestIdsForPair: ['active-1'],
       pendingRequests: 4,
       pendingRequestsForPair: 4,
+      pendingRequestIdsForPair: ['pending-1'],
     });
     expect(mockedGetDebugSnapshot).toHaveBeenCalledWith({
       hostname: 'wallet.onekeytest.com',

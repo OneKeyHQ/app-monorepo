@@ -1,9 +1,15 @@
+import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 
 import { isProxyActiveForUrl, sniRequest } from './sniRequest.desktop';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestCancelSettledResult,
+  ISniRequestConfig,
+  ISniRequestTransportSettledResult,
+  ISniResponse,
+} from '../types/ipTable';
 
 jest.mock('../../platformEnv', () => ({
   __esModule: true,
@@ -180,11 +186,11 @@ describe('sniRequest.desktop compatibility', () => {
   });
 
   test('cancels an in-flight request with its generated request id', async () => {
-    let resolveRequest: ((response: ISniResponse) => void) | undefined;
+    let rejectRequest: ((reason?: unknown) => void) | undefined;
     const request = jest.fn<Promise<ISniResponse>, [ISniRequestConfig]>(
       () =>
-        new Promise((resolve) => {
-          resolveRequest = resolve;
+        new Promise((_resolve, reject) => {
+          rejectRequest = reject;
         }),
     );
     const cancelRequest = jest
@@ -192,9 +198,18 @@ describe('sniRequest.desktop compatibility', () => {
       .mockResolvedValue({ success: true });
     setDesktopApiProxy({ sniRequest: { request, cancelRequest } });
     const controller = new AbortController();
+    let resolveTransportSettled:
+      | ((value: ISniRequestTransportSettledResult) => void)
+      | undefined;
+    const transportSettled = new Promise<ISniRequestTransportSettledResult>(
+      (resolve) => {
+        resolveTransportSettled = resolve;
+      },
+    );
 
     const responsePromise = sniRequest(buildSniRequestConfig(), {
       signal: controller.signal,
+      onTransportSettled: (result) => resolveTransportSettled?.(result),
     });
     controller.abort();
 
@@ -206,7 +221,86 @@ describe('sniRequest.desktop compatibility', () => {
     );
     expect(cancelRequest).toHaveBeenCalledWith('desktop-generated-request-id');
 
-    resolveRequest?.(sniResponse);
+    rejectRequest?.(
+      Object.assign(new Error('Request cancelled'), {
+        code: 'SNI_CANCELLED',
+      }),
+    );
+    await expect(transportSettled).resolves.toEqual({
+      requestId: 'desktop-generated-request-id',
+      status: 'rejected',
+      error: expect.objectContaining({ code: 'SNI_CANCELLED' }),
+    });
+  });
+
+  test('reports success=false from the desktop cancellation call', async () => {
+    const request = jest.fn<Promise<ISniResponse>, [ISniRequestConfig]>(
+      () => new Promise(() => undefined),
+    );
+    const cancelRequest = jest
+      .fn<Promise<{ success: boolean }>, [string]>()
+      .mockResolvedValue({ success: false });
+    setDesktopApiProxy({ sniRequest: { request, cancelRequest } });
+    const controller = new AbortController();
+    let resolveCancelSettled:
+      | ((value: ISniRequestCancelSettledResult) => void)
+      | undefined;
+    const cancelSettled = new Promise<ISniRequestCancelSettledResult>(
+      (resolve) => {
+        resolveCancelSettled = resolve;
+      },
+    );
+
+    const responsePromise = sniRequest(buildSniRequestConfig(), {
+      signal: controller.signal,
+      onCancelSettled: (result) => resolveCancelSettled?.(result),
+    });
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    await expect(cancelSettled).resolves.toEqual({
+      requestId: 'desktop-generated-request-id',
+      status: 'fulfilled',
+      success: false,
+    });
+  });
+
+  test('isolates rejected diagnostic callbacks from request behavior', async () => {
+    let rejectRequest: ((reason?: unknown) => void) | undefined;
+    const request = jest.fn<Promise<ISniResponse>, [ISniRequestConfig]>(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+    const cancelRequest = jest
+      .fn<Promise<{ success: boolean }>, [string]>()
+      .mockResolvedValue({ success: true });
+    setDesktopApiProxy({ sniRequest: { request, cancelRequest } });
+    const controller = new AbortController();
+
+    const responsePromise = sniRequest(buildSniRequestConfig(), {
+      signal: controller.signal,
+      onCancelSettled: async () => {
+        throw new OneKeyLocalError('cancel diagnostic failed');
+      },
+      onTransportSettled: async () => {
+        throw new OneKeyLocalError('transport diagnostic failed');
+      },
+    });
+    controller.abort();
+    rejectRequest?.(
+      Object.assign(new Error('Request cancelled'), {
+        code: 'SNI_CANCELLED',
+      }),
+    );
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   test('does not start a request for an already aborted signal', async () => {

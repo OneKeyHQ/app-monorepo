@@ -5,7 +5,11 @@ import {
 
 import { sniRequest } from './sniRequest.native';
 
-import type { ISniRequestConfig } from '../types/ipTable';
+import type {
+  ISniRequestCancelSettledResult,
+  ISniRequestConfig,
+  ISniRequestTransportSettledResult,
+} from '../types/ipTable';
 
 jest.mock('@onekeyfe/react-native-sni-connect', () => ({
   cancelRequest: jest.fn(),
@@ -55,19 +59,26 @@ describe('sniRequest.native AbortController compatibility', () => {
   });
 
   test('cancels an in-flight native request with its generated request id', async () => {
-    let resolveRequest:
-      | ((response: Awaited<ReturnType<typeof nativeSniRequest>>) => void)
-      | undefined;
+    let rejectRequest: ((reason?: unknown) => void) | undefined;
     mockedNativeRequest.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolveRequest = resolve;
+        new Promise((_resolve, reject) => {
+          rejectRequest = reject;
         }),
     );
     const controller = new AbortController();
+    let resolveTransportSettled:
+      | ((value: ISniRequestTransportSettledResult) => void)
+      | undefined;
+    const transportSettled = new Promise<ISniRequestTransportSettledResult>(
+      (resolve) => {
+        resolveTransportSettled = resolve;
+      },
+    );
 
     const responsePromise = sniRequest(buildSniRequestConfig(), {
       signal: controller.signal,
+      onTransportSettled: (result) => resolveTransportSettled?.(result),
     });
     controller.abort();
 
@@ -81,11 +92,46 @@ describe('sniRequest.native AbortController compatibility', () => {
       'native-generated-request-id',
     );
 
-    resolveRequest?.({
-      data: '',
-      status: 204,
-      statusText: 'No Content',
-      headers: {},
+    rejectRequest?.(
+      Object.assign(new Error('Request cancelled'), {
+        code: 'SNI_CANCELLED',
+      }),
+    );
+    await expect(transportSettled).resolves.toEqual({
+      requestId: 'native-generated-request-id',
+      status: 'rejected',
+      error: expect.objectContaining({ code: 'SNI_CANCELLED' }),
+    });
+  });
+
+  test('reports a rejected native cancellation call', async () => {
+    mockedNativeRequest.mockImplementation(() => new Promise(() => undefined));
+    mockedNativeCancelRequest.mockRejectedValue(
+      new Error('bridge unavailable'),
+    );
+    const controller = new AbortController();
+    let resolveCancelSettled:
+      | ((value: ISniRequestCancelSettledResult) => void)
+      | undefined;
+    const cancelSettled = new Promise<ISniRequestCancelSettledResult>(
+      (resolve) => {
+        resolveCancelSettled = resolve;
+      },
+    );
+
+    const responsePromise = sniRequest(buildSniRequestConfig(), {
+      signal: controller.signal,
+      onCancelSettled: (result) => resolveCancelSettled?.(result),
+    });
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    await expect(cancelSettled).resolves.toEqual({
+      requestId: 'native-generated-request-id',
+      status: 'rejected',
+      error: expect.objectContaining({ message: 'bridge unavailable' }),
     });
   });
 
