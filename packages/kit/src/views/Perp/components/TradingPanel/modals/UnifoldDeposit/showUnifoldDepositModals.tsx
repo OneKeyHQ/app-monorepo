@@ -30,7 +30,7 @@ import { UnifoldTransferContent } from './UnifoldTransferContent';
 import type { IntlShape } from 'react-intl';
 
 const DESKTOP_DIALOG_MAX_HEIGHT = 'calc(100vh - 64px)';
-const DEPOSIT_MENU_DIALOG_WIDTH = 400;
+const DEPOSIT_MENU_DIALOG_WIDTH = 440;
 const DESKTOP_DIALOG_WIDTH = 440;
 const DESKTOP_DIALOG_MAX_WIDTH = 'calc(100vw - 32px)';
 // The dialog panel clamps its own height but never scrolls, so the body has to
@@ -136,9 +136,9 @@ function MenuActionRow({
     >
       <XStack flex={1} alignSelf="stretch" alignItems="center" gap="$2.5">
         <Stack width="$7" alignItems="flex-start">
-          <Icon name={icon} color="$icon" size="$5" />
+          <Icon name={icon} color="$icon" size="$6" />
         </Stack>
-        <YStack flex={1} minWidth={0} alignItems="flex-start">
+        <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$1">
           <SizableText
             width="100%"
             size="$bodyMdMedium"
@@ -153,7 +153,7 @@ function MenuActionRow({
             size="$bodySm"
             color="$textSubdued"
             textAlign="left"
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {subtitle}
           </SizableText>
@@ -182,7 +182,7 @@ function DepositNetworkHintLogos({
   if (!tokens.length) {
     return null;
   }
-  const visibleTokens = tokens.slice(0, 6);
+  const visibleTokens = tokens.slice(0, 4);
   const remainingCount = tokens.length - visibleTokens.length;
   return (
     <XStack alignItems="center">
@@ -281,10 +281,12 @@ export function showPerpsUnifoldDepositMenuDialog({
   onAction,
   showTrackerAction = true,
   intl,
+  walletName,
 }: {
   onAction: (action: IUnifoldDepositMenuAction) => void;
   showTrackerAction?: boolean;
   intl: IntlShape;
+  walletName: string;
 }) {
   // The menu must be fully closed before the next dialog opens: opening the
   // in-tab transfer/tracker dialog while the menu is still closing leaves the
@@ -307,24 +309,22 @@ export function showPerpsUnifoldDepositMenuDialog({
     contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
     renderContent: (
       <YStack
-        gap="$1"
+        gap="$2"
         pb={platformEnv.isNative ? '$1' : undefined}
         width="100%"
       >
         <MenuActionRow
           testID="perps-deposit-menu-connected-wallet"
           icon="WalletCryptoOutline"
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_wallet_deposit__title,
-          })}
-          subtitle={intl.formatMessage(
+          title={intl.formatMessage(
             {
-              id: ETranslations.perp_unifold_wallet_deposit_summary__desc,
+              id: ETranslations.perp_unifold_deposit_menu_wallet__title,
             },
-            {
-              amount: '$5',
-            },
+            { wallet: walletName },
           )}
+          subtitle={intl.formatMessage({
+            id: ETranslations.perp_unifold_deposit_menu_wallet__desc,
+          })}
           hint={<ConnectedWalletHintLogos />}
           onPress={() => {
             void closeThenRun('onekey');
@@ -334,10 +334,10 @@ export function showPerpsUnifoldDepositMenuDialog({
           testID="perps-deposit-menu-transfer-crypto"
           icon="QrCodeOutline"
           title={intl.formatMessage({
-            id: ETranslations.perp_unifold_transfer_crypto__title,
+            id: ETranslations.perp_unifold_deposit_menu_address__title,
           })}
           subtitle={intl.formatMessage({
-            id: ETranslations.perp_unifold_network_minimum_instant__desc,
+            id: ETranslations.perp_unifold_deposit_menu_address__desc,
           })}
           hint={<TransferChainHintLogos />}
           onPress={() => {

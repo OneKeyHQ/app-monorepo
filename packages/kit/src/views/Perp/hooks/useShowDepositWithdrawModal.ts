@@ -11,9 +11,11 @@ import {
   usePerpsCommonConfigPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { loadPerpsUnifoldDepositModals } from '../utils/preloadPerpsUnifoldDeposit';
@@ -173,8 +175,16 @@ export function useShowDepositWithdrawModal() {
         showUnifoldTransferDialog,
         showUnifoldTrackerDialog,
       } = await loadPerpsUnifoldDepositModals();
+      const walletName = accountUtils.isExternalAccount({
+        accountId: selectedAccount.accountId ?? '',
+      })
+        ? intl.formatMessage({
+            id: ETranslations.perp_unifold_deposit_menu_connected_wallet__title,
+          })
+        : 'OneKey Wallet';
       showPerpsUnifoldDepositMenuDialog({
         intl,
+        walletName,
         showTrackerAction: false,
         onAction: (action) => {
           if (action === 'onekey') {
