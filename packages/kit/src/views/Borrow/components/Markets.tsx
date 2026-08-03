@@ -109,7 +109,7 @@ function MarketBarTrigger({
 export const Markets = () => {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { market, markets, setMarket } = useBorrowContext();
+  const { market, markets, setMarket, rememberMarket } = useBorrowContext();
   const selectedMarket = market ?? markets[0] ?? null;
   const selectedMarketKey = selectedMarket
     ? buildBorrowMarketKey(selectedMarket)
@@ -142,9 +142,10 @@ export const Markets = () => {
       );
       if (nextMarket) {
         setMarket(nextMarket);
+        rememberMarket(nextMarket);
       }
     },
-    [markets, setMarket],
+    [markets, setMarket, rememberMarket],
   );
 
   const label = selectedMarket ? getBorrowMarketLabel(selectedMarket) : '';

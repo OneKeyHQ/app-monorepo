@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EBorrowDataStatus } from './borrowDataStatus';
+import { useBorrowMarketMemory } from './hooks/useBorrowMarketMemory';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
@@ -53,6 +54,8 @@ type IBorrowContextValue = {
   setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  /** Persist an explicit market pick, so it is restored on the next visit. */
+  rememberMarket: (market: IBorrowMarketItem) => void;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -117,6 +120,14 @@ export const BorrowProvider = ({
     setPendingTxsState(txs);
   }, []);
 
+  // Owned here, alongside the state it restores into: the hook keeps per-session
+  // flags and must exist exactly once.
+  const { rememberMarket } = useBorrowMarketMemory({
+    markets,
+    market,
+    setMarket,
+  });
+
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
     async () => {
@@ -138,6 +149,7 @@ export const BorrowProvider = ({
       setMarkets,
       market,
       setMarket,
+      rememberMarket,
       earnAccount,
       setEarnAccount,
       reserves,
@@ -153,6 +165,7 @@ export const BorrowProvider = ({
     [
       markets,
       market,
+      rememberMarket,
       earnAccount,
       reserves,
       borrowDataStatus,
