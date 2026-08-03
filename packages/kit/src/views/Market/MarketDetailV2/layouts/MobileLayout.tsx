@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { noop } from 'lodash';
@@ -25,6 +33,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
   TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewNativeChartControls';
+import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -150,12 +159,33 @@ const MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT = 1;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SUB_INDICATOR_COUNT = 4;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_SUB_INDICATOR_HEIGHT = 56;
 const MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO = 0.58;
+const MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE = 1.2;
 
 function normalizeTradingViewSubIndicatorCount(count: number) {
   if (!Number.isFinite(count)) {
     return 0;
   }
   return Math.max(0, Math.floor(count));
+}
+
+function MobileIndicatorQuickBar({ children }: { children: ReactNode }) {
+  const handleTouchScroll = useMobileTabTouchScrollBridge();
+  const handleIndicatorQuickBarTouchScroll = useCallback(
+    (deltaY: number) => {
+      handleTouchScroll(
+        deltaY * MARKET_DETAIL_INDICATOR_QUICK_BAR_VERTICAL_SCROLL_SCALE,
+      );
+    },
+    [handleTouchScroll],
+  );
+
+  if (isValidElement<{ onTouchScroll?: (deltaY: number) => void }>(children)) {
+    return cloneElement(children, {
+      onTouchScroll: handleIndicatorQuickBarTouchScroll,
+    });
+  }
+
+  return children;
 }
 
 function MobileMarketTradingView({
@@ -549,7 +579,13 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
               })()}
             </Stack>
           </HeaderScrollGestureWrapper>
-          {nativeIndicatorQuickBar}
+          {nativeIndicatorQuickBar && platformEnv.isNative ? (
+            <MobileIndicatorQuickBar>
+              {nativeIndicatorQuickBar}
+            </MobileIndicatorQuickBar>
+          ) : (
+            nativeIndicatorQuickBar
+          )}
           {platformEnv.isNativeIOS ? (
             <View
               style={{
