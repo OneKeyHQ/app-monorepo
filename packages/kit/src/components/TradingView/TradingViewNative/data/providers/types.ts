@@ -3,6 +3,7 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
+import type { IMarketKLinePointType } from '../../../utils/fetchMarketKLineData';
 import type { ITradingViewNativeKLineInterval } from '../tradingViewNativeIntervals';
 
 export interface ITradingViewNativeHistoryRequest {
@@ -32,6 +33,7 @@ export interface ITradingViewNativeHistoryPageInfo {
 
 export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResponse {
   historySource?: 'fallback';
+  pointType?: IMarketKLinePointType;
 }
 
 export interface ITradingViewNativeHistoryDataProvider {

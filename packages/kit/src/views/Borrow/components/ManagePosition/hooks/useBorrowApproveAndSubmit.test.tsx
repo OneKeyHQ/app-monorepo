@@ -89,6 +89,7 @@ jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks', () => {
         allowance?: string;
         loadingAllowance?: boolean;
         fetchAllowanceResponse?: jest.Mock;
+        initialValue?: string;
         trackAllowance?: jest.Mock;
       };
     }
@@ -98,12 +99,15 @@ jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks', () => {
 
   return {
     __esModule: true,
-    useTrackTokenAllowance: () => ({
-      allowance: mockBag.allowance ?? '0',
-      loading: mockBag.loadingAllowance ?? false,
-      trackAllowance: mockBag.trackAllowance,
-      fetchAllowanceResponse: mockBag.fetchAllowanceResponse,
-    }),
+    useTrackTokenAllowance: ({ initialValue }: { initialValue?: string }) => {
+      mockBag.initialValue = initialValue;
+      return {
+        allowance: mockBag.allowance ?? '0',
+        loading: mockBag.loadingAllowance ?? false,
+        trackAllowance: mockBag.trackAllowance,
+        fetchAllowanceResponse: mockBag.fetchAllowanceResponse,
+      };
+    },
   };
 });
 
@@ -129,6 +133,7 @@ type IBorrowApproveHookMock = {
   loadingAllowance?: boolean;
   fetchAllowanceResponse: jest.Mock;
   getAccount: jest.Mock;
+  initialValue?: string;
   navigationToTxConfirm: jest.Mock;
   trackAllowance: jest.Mock;
 };
@@ -157,6 +162,7 @@ describe('useBorrowApproveAndSubmit', () => {
   beforeEach(() => {
     mockBag.allowance = '0';
     mockBag.loadingAllowance = false;
+    mockBag.initialValue = undefined;
     mockBag.fetchAllowanceResponse.mockReset();
     mockBag.getAccount.mockReset();
     mockBag.navigationToTxConfirm.mockReset();
@@ -243,5 +249,20 @@ describe('useBorrowApproveAndSubmit', () => {
     expect(onBeforeNavigateConfirm).not.toHaveBeenCalled();
     expect(mockBag.navigationToTxConfirm).not.toHaveBeenCalled();
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an omitted allowance for the allowance tracker', () => {
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+    renderHook(() =>
+      useBorrowApproveAndSubmit({
+        approveTarget,
+        currentAllowance: undefined,
+        amountValue: '10',
+        onSubmit,
+      }),
+    );
+
+    expect(mockBag.initialValue).toBeUndefined();
   });
 });

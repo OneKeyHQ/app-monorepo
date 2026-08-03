@@ -1,3 +1,4 @@
+import type { ILazyServiceProxy } from '../../apis/lazyServiceProxy';
 import type {
   IIdentityExitJournalEntry,
   SimpleDbEntityPrime,
@@ -10,7 +11,7 @@ export async function completeRemoteOneKeyIdLogoutPresentation({
   claimId,
   tombstoneTtlMs,
 }: {
-  primeDb: SimpleDbEntityPrime;
+  primeDb: ILazyServiceProxy<SimpleDbEntityPrime>;
   operationId: string;
   messageId: string;
   claimId: string;

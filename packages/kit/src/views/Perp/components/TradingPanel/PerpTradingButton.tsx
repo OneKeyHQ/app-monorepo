@@ -54,6 +54,7 @@ const PerpTradingButtonMidPriceRef = memo(
 PerpTradingButtonMidPriceRef.displayName = 'PerpTradingButtonMidPriceRef';
 
 export function PerpTradingButton({
+  isMobile = false,
   disabledForAccountLoading,
   handleShowConfirm,
   formData,
@@ -62,6 +63,7 @@ export function PerpTradingButton({
   isSubmitting,
   isNoEnoughMargin,
 }: {
+  isMobile?: boolean;
   disabledForAccountLoading: boolean;
   handleShowConfirm: () => void;
   formData: ITradingFormData;
@@ -310,7 +312,10 @@ export function PerpTradingButton({
         childrenAsText={false}
         testID="perp-order-confirm-btn"
       >
-        <SizableText color="$textDisabled" size="$bodyMdMedium">
+        <SizableText
+          color="$textDisabled"
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        >
           {buttonText}
         </SizableText>
       </Button>
@@ -372,7 +377,10 @@ export function PerpTradingButton({
         disabled={buttonDisabled}
         childrenAsText={false}
       >
-        <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
+        <SizableText
+          color={buttonStyles.textColor}
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        >
           {buttonText}
         </SizableText>
       </Button>

@@ -134,7 +134,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
                 justifyContent="space-between"
                 cursor="default"
               >
-                <SizableText size="$bodyMd" color="$text">
+                <SizableText size="$bodyMdMedium" color="$text">
                   {label}
                 </SizableText>
                 <Icon

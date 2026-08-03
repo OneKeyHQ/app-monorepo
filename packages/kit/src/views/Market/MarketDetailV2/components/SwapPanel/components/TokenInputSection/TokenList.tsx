@@ -107,9 +107,6 @@ export function TokenList({
             });
 
           const swapTokenDetail = details?.[0];
-          const networkConfig = Object.values(presetNetworksMap).find(
-            (n) => n.id === token.networkId,
-          );
           const priceBN = new BigNumber(swapTokenDetail?.price || 0);
           const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
           const valueProps =
@@ -123,7 +120,6 @@ export function TokenList({
             ...token,
             balance: swapTokenDetail?.balanceParsed ?? '0',
             price: swapTokenDetail?.price,
-            networkImageSrc: networkConfig?.logoURI,
             valueProps,
           };
         } catch (error) {
@@ -144,7 +140,14 @@ export function TokenList({
           detailToken.networkId === token.networkId &&
           detailToken.contractAddress === token.contractAddress,
       );
-      return { ...token, ...tokenWithDetail };
+      const networkConfig = Object.values(presetNetworksMap).find(
+        (network) => network.id === token.networkId,
+      );
+      return {
+        ...token,
+        ...tokenWithDetail,
+        networkImageSrc: token.networkImageSrc ?? networkConfig?.logoURI,
+      };
     });
     if (!sortTokensByValue) {
       return mergedTokens;
