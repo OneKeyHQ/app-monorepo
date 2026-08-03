@@ -515,22 +515,22 @@ export const EarnNavigation = {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
   },
 
-  // Tokens 首页 (OK-58505/OK-58562/OK-58508)
+  // Tokens home (OK-58505/OK-58562/OK-58508)
   pushToEarnTokens(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnTokens);
   },
 
-  // 固定收益列表 (OK-58879)
+  // Fixed-rate list (OK-58879)
   pushToEarnFixedRateTokens(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnFixedRateTokens);
   },
 
-  // Protocols 首页 (OK-58505/OK-58562)
+  // Protocols home (OK-58505/OK-58562)
   pushToEarnAllProtocols(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnAllProtocols);
   },
 
-  // 某个 Protocol 的 Tokens 列表 (OK-58505)
+  // Tokens list of a single protocol (OK-58505)
   pushToEarnProtocolTokens(
     navigation: IAppNavigation,
     params: { provider: string; providerName?: string; logoURI?: string },

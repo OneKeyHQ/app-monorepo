@@ -22,13 +22,13 @@ export type ITabEarnParamList = {
       };
   [ETabEarnRoutes.BorrowHome]: undefined;
   [ETabEarnRoutes.EarnPositions]: undefined;
-  // Tokens 首页 (OK-58505)：全量代币列表 (页面内自带 All/Stable/Non-Stable 分类)
+  // Tokens home (OK-58505): full token list (with in-page All/Stable/Non-Stable categories)
   [ETabEarnRoutes.EarnTokens]: undefined;
-  // 固定收益独立列表 (OK-58879)
+  // Standalone fixed-rate list (OK-58879)
   [ETabEarnRoutes.EarnFixedRateTokens]: undefined;
-  // Protocols 首页 (OK-58505)：全协议聚合列表
+  // Protocols home (OK-58505): aggregated list of all protocols
   [ETabEarnRoutes.EarnAllProtocols]: undefined;
-  // 某个 Protocol 的 Tokens 列表 (OK-58505)
+  // Tokens list of a single protocol (OK-58505)
   [ETabEarnRoutes.EarnProtocolTokens]: {
     provider: string;
     providerName?: string;

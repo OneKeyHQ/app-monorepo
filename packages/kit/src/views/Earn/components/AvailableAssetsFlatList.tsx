@@ -45,7 +45,7 @@ function AvailableAssetsSectionSkeleton() {
   );
 }
 
-// 导出供 Tokens 首页 (EarnTokens, OK-58505) 复用同款行渲染
+// Exported so the Tokens home (EarnTokens, OK-58505) reuses the same row rendering
 export function AvailableAssetItem({
   asset,
   categoryType,
@@ -92,7 +92,7 @@ export function AvailableAssetItem({
           </XStack>
         }
       />
-      {/* 固定收益: 右侧 APY/APR 作 title、Liquidity 作 subtitle (OK-58879) */}
+      {/* Fixed rate: right side uses APY/APR as title and Liquidity as subtitle (OK-58879) */}
       <YStack flex={1} ai="flex-end" jc="center" gap="$0.5">
         <AprText asset={asset} />
         {showLiquidity ? (
@@ -112,8 +112,9 @@ function AvailableAssetsFlatListComponent() {
   const navigateToAsset = useNavigateToEarnAsset();
   const navigation = useAppNavigation();
   const sections = useMemo(() => buildEarnHomeFlatSections(intl), [intl]);
-  // Staked 资产并入 Trending tokens 分区展示，不再单独成区 (OK-58506)。
-  // 按 symbol 去重：同一 symbol 以 SimpleEarn 列表为准。
+  // Staked assets are merged into the Trending tokens section instead of
+  // having their own section (OK-58506). De-dup by symbol: for a duplicated
+  // symbol the SimpleEarn list wins.
   const sectionAssetsByType = useMemo(() => {
     const simpleEarnAssets =
       availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ?? [];
@@ -122,8 +123,9 @@ function AvailableAssetsFlatListComponent() {
     const simpleEarnSymbols = new Set(
       simpleEarnAssets.map((asset) => asset.symbol),
     );
-    // 热门代币不含固定收益 (OK-58879)：固定收益资产 (PT 类，symbol 独立)
-    // 单独成区/成页，从 Trending 合并结果中剔除
+    // Trending tokens exclude fixed rate (OK-58879): fixed-rate assets
+    // (PT-like, separate symbols) get their own section/page, so drop them
+    // from the merged Trending result
     const fixedRateSymbols = new Set(
       (availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? []).map(
         (asset) => asset.symbol,
@@ -157,8 +159,8 @@ function AvailableAssetsFlatListComponent() {
 
   const handleOpenSection = useCallback(
     (categoryType: EAvailableAssetsTypeEnum) => {
-      // 分区点击进入独立页面，不再用 Dialog (OK-58508)；
-      // 固定收益有单独列表页 (OK-58879)
+      // Section taps open standalone pages instead of a Dialog (OK-58508);
+      // fixed rate has its own list page (OK-58879)
       if (categoryType === EAvailableAssetsTypeEnum.FixedRate) {
         EarnNavigation.pushToEarnFixedRateTokens(navigation);
         return;
@@ -196,7 +198,7 @@ function AvailableAssetsFlatListComponent() {
               px="$pagePadding"
               py="$1"
               ai="center"
-              // chevron 紧跟标题文字，不右对齐 (OK-58507)
+              // Chevron hugs the title text instead of right-aligning (OK-58507)
               gap="$1"
               cursor="pointer"
               userSelect="none"

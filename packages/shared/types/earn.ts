@@ -199,7 +199,8 @@ export interface IEarnPageBannerListItem {
   // (OK-58503). Optional/empty = no image overlay text.
   imageTitle?: string;
   imageSubtitle?: string;
-  // 各文字可选颜色 (rgb/rgba/hex)；缺省时客户端回退 Figma 默认色（双兜底）
+  // Optional per-text colors (rgb/rgba/hex); when absent the client falls
+  // back to Figma defaults (double fallback)
   titleColor?: string;
   subtitleColor?: string;
   imageTitleColor?: string;

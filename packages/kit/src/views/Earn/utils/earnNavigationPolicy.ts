@@ -6,17 +6,17 @@ const preservedChildRoutes: Partial<
   [ETabEarnRoutes.EarnProtocols]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
   [ETabEarnRoutes.EarnPositions]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
-  // Tokens 首页 → Token 的协议列表 / 协议详情 (OK-58505)
+  // Tokens home → token's protocol list / protocol detail (OK-58505)
   [ETabEarnRoutes.EarnTokens]: new Set([
     ETabEarnRoutes.EarnProtocols,
     ETabEarnRoutes.EarnProtocolDetails,
   ]),
-  // 固定收益列表 → 协议列表 / 协议详情 (OK-58879)
+  // Fixed-rate list → protocol list / protocol detail (OK-58879)
   [ETabEarnRoutes.EarnFixedRateTokens]: new Set([
     ETabEarnRoutes.EarnProtocols,
     ETabEarnRoutes.EarnProtocolDetails,
   ]),
-  // Protocols 首页 → 协议的代币列表 / 协议详情 (OK-58505)
+  // Protocols home → protocol's token list / protocol detail (OK-58505)
   [ETabEarnRoutes.EarnAllProtocols]: new Set([
     ETabEarnRoutes.EarnProtocolTokens,
     ETabEarnRoutes.EarnProtocolDetails,

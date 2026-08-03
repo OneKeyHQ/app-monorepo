@@ -79,7 +79,7 @@ function EarnFixedRateTokensContent() {
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<IFixedRateSortKey>('liquidity');
-  // 默认 Liquidity High to Low (OK-58879)
+  // Default: Liquidity High to Low (OK-58879)
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
@@ -153,7 +153,7 @@ function EarnFixedRateTokensContent() {
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const liquidityLabel = totalLiquidityLabel;
     const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
-    // 方向文案统一用 high-to-low / low-to-high i18n (OK-58880)
+    // Direction labels use the shared high-to-low / low-to-high i18n (OK-58880)
     const highToLow = intl.formatMessage({
       id: ETranslations.high_to_low__action,
     });

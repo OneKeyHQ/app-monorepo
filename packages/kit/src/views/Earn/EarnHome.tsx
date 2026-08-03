@@ -510,7 +510,7 @@ function BasicEarnHome({
     EarnNavigation.pushToEarnPositions(navigation);
   }, [navigation]);
 
-  // 首页顶部快捷入口 (OK-58562)
+  // Home-top shortcut entries (OK-58562)
   const handleOpenTokens = useCallback(() => {
     EarnNavigation.pushToEarnTokens(navigation);
   }, [navigation]);

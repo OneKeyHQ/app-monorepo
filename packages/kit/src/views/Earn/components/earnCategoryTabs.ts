@@ -45,11 +45,11 @@ export function buildEarnAvailableAssetCategoryTabs(
 }
 
 /**
- * 移动端首页平铺分区 (OK-58506)：
- *  - Trending tokens (SimpleEarn，Staking 资产并入本分区展示)
+ * Flat home sections on mobile (OK-58506):
+ *  - Trending tokens (SimpleEarn; Staking assets are merged into this section)
  *  - Fixed income
- * 不含独立 Staked 分区。桌面端 TabView / 搜索弹窗仍用
- * buildEarnAvailableAssetCategoryTabs，不受影响。
+ * No standalone Staked section. The desktop TabView / search dialog still
+ * use buildEarnAvailableAssetCategoryTabs and are unaffected.
  */
 export function buildEarnHomeFlatSections(
   intl: Pick<IntlShape, 'formatMessage'>,

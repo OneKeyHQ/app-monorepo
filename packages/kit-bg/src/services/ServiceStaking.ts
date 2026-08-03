@@ -946,8 +946,9 @@ class ServiceStaking extends ServiceBase {
     },
   );
 
-  // 全量协议列表 (Protocols 聚合页, 6.6.0+):同一接口不传 symbol,
-  // 服务端一次返回所有协议行。纯展示数据(TVL/APY),缓存 5 分钟。
+  // Full protocol list (Protocols aggregation page, 6.6.0+): the same
+  // endpoint without a symbol returns every protocol row in one response.
+  // Display-only data (TVL/APY), cached for 5 minutes.
   _getAllProtocolList = memoizee(
     async () => {
       const client = await this.getClient(EServiceEndpointEnum.Earn);

@@ -87,9 +87,10 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
-    // Earn 详情分享路由 (universal link /earn/:network/:symbol/:provider 落点)。
-    // 原生端 earn 页面挂在 Discovery 栈下，这里不注册的话
-    // safePushToEarnRoute 的 push 会被 React Navigation 丢弃 (点击无反应)
+    // Earn detail share route (landing for the universal link
+    // /earn/:network/:symbol/:provider). On native, earn pages live in the
+    // Discovery stack; without registering it here, safePushToEarnRoute's push
+    // is silently dropped by React Navigation (tap does nothing)
     name: ETabEarnRoutes.EarnProtocolDetailsShare,
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,

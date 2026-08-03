@@ -2,9 +2,10 @@ import type { ComponentProps } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 
-// 设计规范 (OK-58881/OK-58854/OK-58879，figma 27419-39147)：
-// APY/APR 展示为「数值 + 略小字号的单位后缀」。
-// 匹配尾部的 APY/APR 单位（大小写不敏感），拆开分别渲染。
+// Design spec (OK-58881/OK-58854/OK-58879, figma 27419-39147):
+// APY/APR renders as "value + slightly smaller unit suffix".
+// Match the trailing APY/APR unit (case-insensitive) and render the parts
+// separately.
 const APR_SUFFIX_PATTERN = /^(.*?)\s*(APY|APR)\s*$/i;
 
 type ISizableTextSize = ComponentProps<typeof SizableText>['size'];
@@ -21,7 +22,7 @@ export function EarnAprSuffixText({
   size?: ISizableTextSize;
   suffixSize?: ISizableTextSize;
   color?: ISizableTextColor;
-  /** 服务端文案不带 APY/APR 后缀时的兜底单位 (如 provider.rewardUnit) */
+  /** Fallback unit when the server copy has no APY/APR suffix (e.g. provider.rewardUnit) */
   fallbackUnit?: string;
 }) {
   const match = text.match(APR_SUFFIX_PATTERN);

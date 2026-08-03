@@ -39,8 +39,10 @@ interface IEarnPageContainerProps {
   disableMaxWidth?: boolean;
   showTabPageHeader?: boolean;
   showBodyTitle?: boolean;
-  // 原生端 TabPageHeader 无居中槽位；开启后标题以覆盖层水平居中，
-  // 左侧只保留返回键 (OK-58881，iOS26 原生导航栏本身居中，不受影响)
+  // Native TabPageHeader has no centered slot; when enabled, the title is
+  // horizontally centered via an overlay and the left side keeps only the
+  // back button (OK-58881; the iOS 26 native nav bar centers by itself and is
+  // unaffected)
   centerPageTitle?: boolean;
 }
 
@@ -210,8 +212,10 @@ export function EarnPageContainer({
             customHeaderRightItems={customHeaderRightItems}
           />
           {shouldCenterTitle ? (
-            // 对齐 MDHeader 内容行：安全区 margin (top || 8) 之下的 44 高行，
-            // 覆盖层只盖这一行，标题与返回键同轴居中 (OK-58881)
+            // Align with the MDHeader content row: the 44pt-high row below
+            // the safe-area margin (top || 8). The overlay covers only this
+            // row so the title centers on the same axis as the back button
+            // (OK-58881)
             <XStack
               position="absolute"
               top={safeAreaTop || 8}

@@ -21,13 +21,15 @@ import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
 const BANNER_INFO_HEIGHT = 48;
-// 与管理后台 BannerPreview 的 text-shadow 对齐，保证深浅底图都可读
+// Matches the admin dashboard BannerPreview text-shadow so copy stays
+// readable on both light and dark background images
 const BANNER_IMAGE_COPY_SHADOW = {
   textShadowColor: 'rgba(0,0,0,0.45)',
   textShadowRadius: 4,
   textShadowOffset: { width: 0, height: 1 },
 } as const;
-// Figma 默认文字色（双兜底：优先服务端下发的配置色，缺省回退这里）
+// Figma default text colors (double fallback: prefer server-configured
+// colors, fall back to these when absent)
 const BANNER_DEFAULT_COLORS = {
   imageTitle: 'rgba(0,0,0,0.88)',
   imageSubtitle: 'rgba(0,0,0,0.61)',
@@ -40,8 +42,9 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     if (!item.href) {
       return;
     }
-    // 官方 universal link (如 earn 详情页 URL) 优先原生内跳，即使运营把
-    // hrefType 配成了 external 也不该弹网页 (产品反馈)
+    // Official universal links (e.g. earn detail page URLs) should navigate
+    // natively first — even if ops configured hrefType as external, they must
+    // not open a webpage (product feedback)
     if (await tryHandleOneKeyUniversalLink(item.href)) {
       return;
     }
@@ -55,8 +58,9 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 
   return (
-    // 外层承载向下投影 (产品反馈)：iOS 上 overflow:hidden 会裁掉自身阴影，
-    // 所以阴影放 wrapper、内层负责圆角裁切
+    // Outer layer carries the drop shadow (product feedback): on iOS,
+    // overflow:hidden clips the element's own shadow, so the shadow lives on
+    // the wrapper while the inner layer handles corner clipping
     <YStack
       h={BANNER_HEIGHT}
       borderRadius="$3"
@@ -73,7 +77,8 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
         overflow="hidden"
         bg="$bgApp"
       >
-        {/* 背景图全幅铺满 (OK-58503：底条悬浮在图片上，不再上下切分) */}
+        {/* Background image fills the card (OK-58503: the bottom bar floats
+            over the image instead of splitting the card vertically) */}
         <YStack position="absolute" top={0} right={0} left={0} bottom={0}>
           <Image
             w="100%"
@@ -84,9 +89,10 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           />
         </YStack>
         <Stack flex={1} />
-        {/* 图片左下 campaign 文案。多语言长文案：限行 + 换行，不溢出卡片。
-          颜色双兜底：优先管理后台配置色，缺省回退 Figma 默认深色；
-          轻阴影提升深浅底图的可读性 (OK-58503)。 */}
+        {/* Campaign copy at the image's bottom-left. Long i18n copy: line
+            clamp + wrapping so it never overflows the card. Color double
+            fallback: prefer admin-configured colors, else Figma default dark;
+            a light shadow keeps it readable on light/dark images (OK-58503). */}
         {hasImageCopy ? (
           <YStack px="$3" pb="$2" gap="$1" pr="$8">
             {item.imageTitle ? (
@@ -113,11 +119,14 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             ) : null}
           </YStack>
         ) : null}
-        {/* 底部横幅：贴底 + 毛玻璃 (BlurView 双端封装；半透明白作降级底色)。
-          内容 py $2→$2.5：icon/文本与底条上下边留出间距并垂直居中 (产品反馈) */}
-        {/* 上方直角、下方跟随卡片圆角。显式设置下圆角而不是依赖父级裁切：
-          iOS 上 BlurView (原生 UIVisualEffectView) 可能不受 RN 父级
-          overflow hidden 约束，会露出直角底色 (产品反馈) */}
+        {/* Bottom bar: flush to the bottom + frosted glass (BlurView wraps
+            both platforms; translucent white as the degraded base color).
+            Content py $2→$2.5: icon/text keep spacing from the bar's top and
+            bottom edges and stay vertically centered (product feedback) */}
+        {/* Square top corners, bottom corners follow the card radius. Set the
+            bottom radii explicitly instead of relying on parent clipping: on
+            iOS the BlurView (native UIVisualEffectView) may ignore the RN
+            parent's overflow hidden and leak square corners (product feedback) */}
         <BlurView
           intensity={50}
           minHeight={BANNER_INFO_HEIGHT}
@@ -232,8 +241,9 @@ export function EarnHomeBanner({
         autoPlayInterval={5000}
         loop={validBanners.length > 1}
         showPagination={validBanners.length > 1}
-        // 高度多留 16px：给卡片向下投影渲染空间，否则阴影被
-        // Carousel 视口裁切、立体感失效 (产品反馈)
+        // Extra 16px of height: render room for the card's drop shadow;
+        // otherwise the Carousel viewport clips it and the depth effect is
+        // lost (product feedback)
         containerStyle={{ height: BANNER_HEIGHT + 16 }}
         paginationContainerStyle={{ mt: '$2.5', h: '$1.5' }}
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (

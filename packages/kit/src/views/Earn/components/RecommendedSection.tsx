@@ -224,8 +224,9 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
-// 从服务端 available.text ("可用 220.09" / "Active 220.09") 中提取数值，
-// 客户端自行拼 "Balance {number}"，不依赖服务端文案格式 (OK-58877)
+// Extract the number from the server-side available.text (a localized label
+// followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
+// on the client, so we do not depend on the server copy format (OK-58877)
 const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
 function extractAvailableNumber(text?: string) {
   return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
@@ -261,8 +262,8 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
           </XStack>
         }
         secondary={
-          // "Balance {number}" subtitle (OK-58877)：文案客户端拼，
-          // 数值取自 available.text
+          // "Balance {number}" subtitle (OK-58877): copy assembled on the
+          // client, number taken from available.text
           availableNumber ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {`${intl.formatMessage({
@@ -560,7 +561,7 @@ function RecommendedSectionContainer({
     <YStack gap="$3">
       <YStack gap="$1" pointerEvents="box-none" px="$pagePadding">
         <SizableText size="$headingLg" pointerEvents="box-none">
-          {/* 持币推荐 "Earns on your holding" (OK-58506) */}
+          {/* Holdings-based recommendations, "Earns on your holding" (OK-58506) */}
           {intl.formatMessage({
             id: ETranslations.earns_on_your_holding__title,
           })}

@@ -140,7 +140,7 @@ type IOneKeyAppLinkTarget =
   | { type: 'swapHome' }
   | { type: 'market' }
   | {
-      // Earn 协议详情 universal link，对应 web 路由
+      // Earn protocol detail universal link, mirroring the web route
       // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
       type: 'earnProtocolDetail';
       network: string;
@@ -204,9 +204,9 @@ function parseOneKeyAppLinkTarget({
   if (normalizedPath === 'market') {
     return { type: 'market' };
   }
-  // Earn 详情页 universal link：/earn/:network/:symbol/:provider?vault=。
-  // 不能用 normalizeAppLinkPath（它会 lowercase）：symbol/provider/vault
-  // 服务端匹配大小写敏感，需保留原始大小写。
+  // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
+  // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
+  // symbol/provider/vault is case-sensitive, so preserve the original casing.
   const rawSegments = (path ?? '')
     .replace(/^\/+|\/+$/gu, '')
     .split('/')
@@ -319,8 +319,9 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'earnProtocolDetail') {
-    // 复用 Earn 安全导航：内部处理原生端 Discovery 子 tab 切换、earn 模式
-    // 切换与栈推入；协议不存在时详情页自身有错误态兜底
+    // Reuse the safe Earn navigation: it handles the native Discovery
+    // sub-tab switch, earn-mode switch, and stack push; if the protocol does
+    // not exist, the detail page has its own error-state fallback
     EarnNavigation.pushToEarnProtocolDetailsShare(navigation, {
       network: target.network,
       symbol: target.symbol,
@@ -602,9 +603,10 @@ const processDeepLinkUrl = memoizee(
   },
 );
 
-// 供业务侧（如 banner）在打开网页前先尝试：若 URL 是官方 universal link
-// (earn 详情 / market / perps 等) 则原生跳转并返回 true；否则返回 false，
-// 调用方按原逻辑打开网页。
+// For feature code (e.g. the banner) to try before opening a webpage: if the
+// URL is an official universal link (earn detail / market / perps, etc.),
+// navigate natively and return true; otherwise return false and the caller
+// opens the webpage as before.
 export const tryHandleOneKeyUniversalLink = async (
   url: string,
 ): Promise<boolean> => {

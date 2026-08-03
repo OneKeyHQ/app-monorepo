@@ -73,7 +73,7 @@ function EarnAllProtocolsContent() {
 
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
-  // TVL / APY-APR 双维度排序 (OK-58880 需求4)
+  // Two-dimension sorting: TVL / APY-APR (OK-58880 requirement 4)
   const [sortKey, setSortKey] = useState<'tvl' | 'apy'>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
@@ -94,7 +94,8 @@ function EarnAllProtocolsContent() {
     };
   }, [providers]);
 
-  // 网络筛选后按剩余 token 行重算 TVL；搜索按协议名过滤
+  // Recompute TVL from the remaining token rows after network filtering;
+  // search filters by protocol name
   const filteredProviders = useMemo<IFilteredProvider[]>(() => {
     const selectedSet = new Set(selectedNetworkIds);
     const keyword = searchText.trim().toLowerCase();
@@ -121,7 +122,7 @@ function EarnAllProtocolsContent() {
     });
   }, [providers, searchText, selectedNetworkIds]);
 
-  // Protocols 首页：TVL / APY-APR 排序 (OK-58880)
+  // Protocols home: TVL / APY-APR sorting (OK-58880)
   const sortedProviders = useMemo(
     () =>
       filteredProviders.toSorted((providerA, providerB) => {
@@ -194,8 +195,8 @@ function EarnAllProtocolsContent() {
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
-      // FIXME: Replace with product-approved i18n key once available (与
-      // EarnHomeShortcuts 的 "Protocols" 标签保持一致)。
+      // FIXME: Replace with product-approved i18n key once available (keep
+      // consistent with the "Protocols" label in EarnHomeShortcuts).
       pageTitle={<SizableText size="$headingLg">Protocols</SizableText>}
       showBackButton
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}

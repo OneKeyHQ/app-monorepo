@@ -162,7 +162,8 @@ const groupProtocolsByGroup = (
   return sections;
 };
 
-// 保留 APY/APR 后缀，由 EarnAprSuffixText 拆成「数值 + 小字单位」渲染 (OK-58854)
+// Keep the APY/APR suffix; EarnAprSuffixText splits it into "value + smaller
+// unit" rendering (OK-58854)
 const getProtocolAprText = (item: IStakeProtocolListItem) => {
   return (
     item.aprInfo?.highlight?.text ||
@@ -174,7 +175,8 @@ const getProtocolAprText = (item: IStakeProtocolListItem) => {
   );
 };
 
-// 快速切换器协议分组 (OK-58854)：native 不展示；bitway 收进 More 组
+// Quick-switcher provider grouping (OK-58854): native is hidden; bitway is
+// folded into the More group
 const SWITCHER_HIDDEN_PROVIDERS = new Set(['native']);
 const SWITCHER_MORE_PROVIDERS = new Set(['bitway']);
 
@@ -197,7 +199,8 @@ export function ProtocolListContent({
   onProtocolSelect: (protocol: IStakeProtocolListItem) => Promise<void>;
   protocols?: IStakeProtocolListItem[];
   isLoading?: boolean;
-  // 保留在类型上兼容既有调用方；余额列移除后 (OK-58854) 组件内不再使用
+  // Kept on the type for existing callers; unused inside the component since
+  // the balance column was removed (OK-58854)
   isOpen?: boolean;
   variant?: IProtocolListVariant;
 }) {
@@ -268,10 +271,12 @@ export function ProtocolListContent({
     () => protocolData.flatMap((section) => section.data),
     [protocolData],
   );
-  // Wallet balance 列已按设计移除 (OK-58854)，不再逐协议拉 managePage 余额
+  // The wallet balance column was removed per design (OK-58854); no more
+  // per-protocol managePage balance fetching
 
-  // 快速切换器分组 (OK-58854)：native 隐藏；bitway 等收进 More，
-  // 若当前选中协议就在 More 组则默认展开，避免选中项不可见
+  // Quick-switcher grouping (OK-58854): native hidden; bitway etc. folded
+  // into More. If the currently selected provider is in the More group, expand
+  // it by default so the selection stays visible
   const { switcherMainProtocols, switcherMoreProtocols } = useMemo(() => {
     const main: IStakeProtocolListItem[] = [];
     const more: IStakeProtocolListItem[] = [];
@@ -397,7 +402,7 @@ export function ProtocolListContent({
         selectedProtocolKey !== undefined &&
         protocolKey === selectedProtocolKey;
       const tvlText = formatTvl(item.provider.tvl);
-      // TVL 移到右下角，左下只留 vaultName (OK-58854)
+      // TVL moved to the bottom-right; bottom-left keeps only vaultName (OK-58854)
       const secondaryText = item.provider.vaultName || '';
 
       return (
@@ -526,7 +531,7 @@ export function ProtocolListContent({
   }
 
   if (variant === 'switcher') {
-    // 列头按设计移除；native 隐藏、More 组折叠 (OK-58854)
+    // Column header removed per design; native hidden, More group collapsed (OK-58854)
     return (
       <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
         <YStack gap="$0.5">

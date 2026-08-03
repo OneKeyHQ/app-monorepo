@@ -13,21 +13,22 @@ export type IEarnProtocolTokenRow = {
 };
 
 export type IEarnAggregatedProvider = {
-  /** provider 标识 (server 下发的 name，小写归一) */
+  /** Provider identifier (server-issued name, lowercased) */
   provider: string;
-  /** 展示名 (取首个协议行的 provider.name) */
+  /** Display name (taken from the first protocol row's provider.name) */
   providerName: string;
   logoURI: string;
-  /** 全部 vault/token 的 TVL 合计 (USD 数值，仅用于排序与展示) */
+  /** Total TVL across all vaults/tokens (USD number, for sorting/display only) */
   tvlValue: number;
   tokens: IEarnProtocolTokenRow[];
 };
 
 const FETCH_CONCURRENCY = 10;
-// 聚合结果缓存 5 分钟，对齐服务端 available-assets / 协议数据的缓存节奏。
-// 没有这层缓存时，Protocols 页与协议 Tokens 页每次 mount 都会把全部
-// symbol 的 getProtocolList 重拉一遍（背景层 memoize 仅 5s），导致每次
-// 进页都要 5s+ 的骨架屏。
+// Cache the aggregation result for 5 minutes, matching the server-side cache
+// cadence of available-assets / protocol data. Without this layer, every mount
+// of the Protocols page or a protocol's Tokens page would re-fetch
+// getProtocolList for every symbol (the background-layer memoize lasts only
+// 5s), causing a 5s+ skeleton on each entry.
 const AGGREGATED_CACHE_MAX_AGE = 5 * 60 * 1000;
 
 function getItemTvlValue(item: IStakeProtocolListItem): number {
@@ -37,10 +38,12 @@ function getItemTvlValue(item: IStakeProtocolListItem): number {
 }
 
 /**
- * Worker-pool 并发拉取（无分块屏障）：旧实现按 5 个一组 allSettled，
- * 每组都要等组内最慢请求返回才开始下一组（木桶效应），30 个 symbol
- * 串行 6 组轻松 3-5s。改为固定 worker 数量从队列取任务，快请求完成后
- * 立即补位，总耗时 ≈ 总量/并发 × 平均耗时。
+ * Worker-pool concurrent fetching (no chunk barrier): the old implementation
+ * ran allSettled in groups of 5, and each group had to wait for its slowest
+ * request before starting the next (bucket effect) — 30 symbols in 6 serial
+ * groups easily took 3-5s. Instead, a fixed number of workers pull tasks from
+ * a queue, so a fast request immediately frees its slot; total time is roughly
+ * total / concurrency x average latency.
  */
 async function fetchListsBySymbol(
   symbols: string[],
@@ -61,7 +64,7 @@ async function fetchListsBySymbol(
             }),
           );
         } catch {
-          // 单个 symbol 失败跳过，不阻塞整页
+          // Skip a failed symbol without blocking the whole page
         }
       }
     },
@@ -70,7 +73,7 @@ async function fetchListsBySymbol(
   return listsBySymbol;
 }
 
-/** 把 (symbol, 协议行) 归并进 providerMap，聚合 TVL 与 token 行 */
+/** Merge a (symbol, protocol row) pair into providerMap, aggregating TVL and token rows */
 function mergeItemIntoProviderMap(
   providerMap: Map<string, IEarnAggregatedProvider>,
   symbol: string,
@@ -97,9 +100,9 @@ function mergeItemIntoProviderMap(
 }
 
 /**
- * 兜底路径 (老服务端灰度期)：`earn/v2/available-assets` 给出全量支持的
- * (token, protocol) 映射，按去重后的 symbol 逐个拉 `getProtocolList`，
- * 客户端归并。~30 个请求，冷加载 1s+。
+ * Fallback path (for old servers during rollout): `earn/v2/available-assets`
+ * lists every supported (token, protocol) pair; fetch `getProtocolList` per
+ * de-duplicated symbol and merge on the client. ~30 requests, 1s+ cold load.
  */
 async function fetchAggregatedByFanOut(): Promise<IEarnAggregatedProvider[]> {
   const v2Assets =
@@ -124,11 +127,12 @@ async function fetchAggregatedByFanOut(): Promise<IEarnAggregatedProvider[]> {
 }
 
 /**
- * 全协议聚合 (OK-58505 Protocols 首页)：
- * 优先走单请求全量接口 —— `stake-protocol/list` 不传 symbol 时服务端
- * 返回所有协议行（6.6.0+ 服务端支持，每行带 `symbol` 字段），客户端只做
- * provider 归并。若服务端尚未支持（灰度期报错/返回空/行缺 symbol），
- * 回落到按 symbol 扇出的旧路径。
+ * All-protocol aggregation (OK-58505 Protocols home): prefer the single
+ * full-list request — calling `stake-protocol/list` without a symbol makes the
+ * server return every protocol row (supported since server 6.6.0, each row
+ * carries a `symbol` field), so the client only merges by provider. If the
+ * server does not support it yet (rollout-period error / empty result / rows
+ * missing symbol), fall back to the per-symbol fan-out path.
  */
 async function fetchAllProtocolsAggregated(): Promise<
   IEarnAggregatedProvider[]
@@ -143,7 +147,7 @@ async function fetchAllProtocolsAggregated(): Promise<
       return Array.from(providerMap.values());
     }
   } catch {
-    // 老服务端不支持不传 symbol (校验 422)，走兜底
+    // Old servers reject the symbol-less request (422 validation); use fallback
   }
   return fetchAggregatedByFanOut();
 }
@@ -164,7 +168,7 @@ function getAllProtocolsAggregated({
   }
   aggregatedCacheTime = now;
   aggregatedCachePromise = fetchAllProtocolsAggregated().catch((error) => {
-    // 失败不缓存，下次进页重试
+    // Do not cache failures; retry on the next page entry
     aggregatedCachePromise = undefined;
     throw error;
   });

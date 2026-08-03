@@ -88,8 +88,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const { provider, providerName, logoURI } = route.params;
   const { providers, isLoading } = useEarnAllProtocols();
 
-  // 资产 logo 映射 (OK-58881)：协议列表行数据里没有 token logo，
-  // 从 available-assets(all) 建 symbol→logoURI 映射（5 分钟缓存）
+  // Asset logo map (OK-58881): protocol list rows carry no token logo, so
+  // build a symbol→logoURI map from available-assets(all) (5-minute cache)
   const { result: allAssets, isLoading: isLogoMapLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -119,7 +119,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
     [provider, providers],
   );
 
-  // 网络选择器 (OK-58881)：按行的 networkId 过滤
+  // Network selector (OK-58881): filter rows by networkId
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const row of allTokens) {
@@ -142,7 +142,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
     );
   }, [allTokens, selectedNetworkIds]);
 
-  // 某个 Protocol 的 Tokens 列表：展示 TVL，支持 TVL/APY 升降序 (产品确认)
+  // Tokens list for a single protocol: shows TVL, supports TVL/APY asc/desc
+  // sorting (confirmed with product)
   const sortedTokens = useMemo(
     () =>
       tokens.toSorted((rowA, rowB) => {
@@ -156,7 +157,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
     const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
-    // 方向文案统一用 high-to-low / low-to-high i18n (OK-58880)
+    // Direction labels use the shared high-to-low / low-to-high i18n (OK-58880)
     const highToLow = intl.formatMessage({
       id: ETranslations.high_to_low__action,
     });
@@ -216,7 +217,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       pageTitle={
-        // 标题带协议 logo (OK-58881)
+        // Title carries the protocol logo (OK-58881)
         <XStack ai="center" gap="$2">
           {logoURI ? (
             <Token size="sm" tokenImageUri={logoURI} borderRadius="$full" />
@@ -261,8 +262,10 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
               userSelect="none"
               onPress={() => handleRowPress(row)}
               renderAvatar={
-                // 资产 logo (OK-58881)。不能拿网络 logo 兜底：映射未就绪时
-                // 会先闪几帧网络图再换成资产图；映射缺失时宁可显示占位图
+                // Asset logo (OK-58881). Do not fall back to the network
+                // logo: before the map is ready it would flash a few frames of
+                // the network image before swapping to the asset image; when
+                // the map has no entry, prefer showing the placeholder
                 <Token
                   size="md"
                   tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
@@ -278,7 +281,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                   </SizableText>
                 }
                 secondary={
-                  // 即使同一网络也恒定显示 network (OK-58881)
+                  // Always show the network, even when all rows share one (OK-58881)
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
@@ -295,7 +298,8 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                     row.item.aprInfo?.normal?.text ??
                     ''
                   }
-                  // 服务端文案无后缀时补 rewardUnit，保证 APY/APR 字样展示 (OK-58881)
+                  // Append rewardUnit when the server copy has no suffix so
+                  // the APY/APR label always renders (OK-58881)
                   fallbackUnit={row.item.provider.rewardUnit || 'APY'}
                   color={
                     row.item.aprInfo?.highlight

@@ -36,10 +36,11 @@ import type {
   IEarnSortOption,
 } from '../../components/EarnMobileSortControl';
 
-// tvl = 每个代币下 provider TVL 相加后的合计值排序 (OK-58880，默认项，不展示 subtitle)
+// tvl = sort by the summed TVL of all providers under each token (OK-58880,
+// default option, no subtitle shown)
 type IEarnTokensSortKey = 'tvl' | 'apy';
 
-// Tokens 首页三分类 (设计稿：All / Stable Tokens / Non-Stable Tokens)
+// Three Tokens-home categories (design: All / Stable Tokens / Non-Stable Tokens)
 const TOKEN_CATEGORY_TYPES = [
   EAvailableAssetsTypeEnum.All,
   EAvailableAssetsTypeEnum.StableCoins,
@@ -58,7 +59,8 @@ function parseRate(value?: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-// APY/APR 合并为一个排序维度 (OK-58880)，取展示口径的 aprWithoutFee，缺省回落 apr
+// APY/APR merged into one sort dimension (OK-58880); use the display-facing
+// aprWithoutFee, falling back to apr when absent
 function getAssetAprSortValue(asset: IEarnAvailableAsset): number {
   return parseRate(asset.aprWithoutFee || asset.apr);
 }
@@ -90,7 +92,7 @@ function EarnTokensContent() {
   );
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
-  // 默认排序 = provider TVL 相加的合计值 (OK-58880)
+  // Default sort = summed TVL across providers (OK-58880)
   const [sortKey, setSortKey] = useState<IEarnTokensSortKey>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
@@ -104,8 +106,8 @@ function EarnTokensContent() {
     { watchLoading: true, undefinedResultIfError: true },
   );
 
-  // Tokens 列表不含固定收益 (OK-58879)：固定收益 (PT 类，symbol 独立)
-  // 有单独的列表页，这里按 fixedRate symbol 集合剔除
+  // The Tokens list excludes fixed-rate assets (OK-58879): fixed-rate (PT-like,
+  // separate symbols) has its own list page, so filter by the fixedRate symbol set
   const { result: fixedRateAssets } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -119,8 +121,9 @@ function EarnTokensContent() {
     [fixedRateAssets],
   );
 
-  // 默认排序数据源 (OK-58880)：每个 symbol 下所有 provider 的 TVL 合计。
-  // 复用全协议聚合 (单请求 + 5 分钟缓存)，不在行上展示，仅用于排序
+  // Data source for the default sort (OK-58880): total TVL of all providers
+  // under each symbol. Reuses the all-protocol aggregation (single request +
+  // 5-minute cache); not shown on rows, used for sorting only
   const { providers: aggregatedProviders } = useEarnAllProtocols();
   const symbolTvlMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -192,7 +195,8 @@ function EarnTokensContent() {
     [filteredAssets, sortDirection, sortKey, symbolTvlMap],
   );
 
-  // 排序选项 (OK-58880)：APY/APR 双向 + TVL 双向，默认选中 TVL High to Low
+  // Sort options (OK-58880): APY/APR both directions + TVL both directions,
+  // defaulting to TVL High to Low
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
     const tvlLabel = intl.formatMessage({ id: ETranslations.earn_tvl });
     const yieldLabel = intl.formatMessage({ id: ETranslations.defi_apr_apy });
@@ -257,8 +261,8 @@ function EarnTokensContent() {
     <EarnPageContainer
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
-      // FIXME: Replace with product-approved i18n key once available (与
-      // EarnHomeShortcuts 的 "Tokens" 标签保持一致)。
+      // FIXME: Replace with product-approved i18n key once available (keep
+      // consistent with the "Tokens" label in EarnHomeShortcuts).
       pageTitle={<SizableText size="$headingLg">Tokens</SizableText>}
       showBackButton
       customHeaderRightItems={platformEnv.isNative ? <></> : undefined}

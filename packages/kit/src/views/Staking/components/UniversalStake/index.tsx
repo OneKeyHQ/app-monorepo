@@ -198,8 +198,8 @@ function ProtocolSwitchTriggerRow({
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
-  // 与快速切换弹层 item 同款布局 (OK-58854)：左下只留 vaultName，
-  // TVL 移到右侧 APY/APR 下方
+  // Same layout as the quick-switcher dialog item (OK-58854): bottom-left
+  // keeps only vaultName, TVL moves under APY/APR on the right
   const subtitle = currentProtocol?.provider.vaultName || '';
   const aprDisplay = getProtocolAprDisplay({
     protocol: currentProtocol,
@@ -209,7 +209,8 @@ function ProtocolSwitchTriggerRow({
   let aprElement = null;
 
   if (aprDisplay) {
-    // 删除线场景 (deprecated) 保留原渲染；常规场景数值+小字 APY/APR 后缀
+    // Strikethrough case (deprecated) keeps the original rendering; the
+    // regular case renders value + small APY/APR suffix
     aprElement =
       aprDisplay.textDecorationLine === 'line-through' ? (
         <SizableText
