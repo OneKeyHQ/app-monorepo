@@ -390,6 +390,47 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(disk['bulk:0']).toBeUndefined();
   });
 
+  it('reloads for a target the other runtime wrote after an unrelated reload', () => {
+    const makeBook = (coin: string) => ({
+      coin,
+      time: 1000,
+      levels: [[{ px: '1', sz: '1', n: 1 }], [{ px: '2', sz: '1', n: 1 }]],
+      nSigFigs: null,
+      mantissa: null,
+    });
+    const [btcKey] = getPerpsL2BookSnapshotCacheKeys({
+      coin: 'BTC',
+      nSigFigs: null,
+    });
+    const [ethKey] = getPerpsL2BookSnapshotCacheKeys({
+      coin: 'ETH',
+      nSigFigs: null,
+    });
+    const read = (swr: ReturnType<typeof loadFreshRuntime>, coin: string) =>
+      swr.getFreshPerpsL2BookSnapshot({
+        coin,
+        nSigFigs: null,
+        maxAgeMs: 7 * 24 * 60 * 60 * 1000,
+        reloadIfOlderThanMs: 30_000,
+      });
+
+    otherRuntimeFlush({ [btcKey]: { d: makeBook('BTC'), t: 1000 } });
+    const swr = loadFreshRuntime();
+    setNow(40_000);
+    expect(read(swr, 'BTC')?.data.coin).toBe('BTC');
+
+    // The other runtime persists a second target this copy has never seen.
+    otherRuntimeFlush({
+      ...readDiskStore(),
+      [ethKey]: { d: makeBook('ETH'), t: 41_000 },
+    });
+    setNow(41_000);
+
+    // One throttle shared by every target would suppress this read for another
+    // 29s, leaving a rapid switch on a blank or week-old book.
+    expect(read(swr, 'ETH')?.data.coin).toBe('ETH');
+  });
+
   it('reloads a stale perps hit from disk before returning it', () => {
     const [key] = getPerpsL2BookSnapshotCacheKeys({
       coin: 'BTC',

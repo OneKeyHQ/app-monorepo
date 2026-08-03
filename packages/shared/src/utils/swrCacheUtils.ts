@@ -23,7 +23,9 @@ let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
-let _lastReloadFromStorageAt: number | undefined;
+// Keyed by target: a reload performed for one book must not suppress the first
+// read of another, which the other runtime may have persisted in between.
+const _lastReloadForTargetAt = new Map<string, number>();
 
 // Replaying the whole hydrated store instead would revive keys the other
 // runtime removed after this JS heap took its snapshot.
@@ -108,7 +110,24 @@ function reloadFromStorage(): void {
     // 30s, so clearing here would drop every namespace for the session.
     _cache = store;
   }
-  _lastReloadFromStorageAt = Date.now();
+}
+
+function shouldReloadForTarget(targetKey: string, intervalMs: number): boolean {
+  const lastAt = _lastReloadForTargetAt.get(targetKey);
+  const now = Date.now();
+  return lastAt === undefined || now < lastAt || now - lastAt >= intervalMs;
+}
+
+function markReloadForTarget(targetKey: string, intervalMs: number): void {
+  const now = Date.now();
+  // Entries this old can no longer suppress anything, so dropping them keeps
+  // switching across many books from growing the map without bound.
+  for (const [key, at] of _lastReloadForTargetAt) {
+    if (now - at >= intervalMs) {
+      _lastReloadForTargetAt.delete(key);
+    }
+  }
+  _lastReloadForTargetAt.set(targetKey, now);
 }
 
 function evictOldestOverCap(store: ISWRStore) {
@@ -625,13 +644,13 @@ function getFreshPerpsL2BookSnapshot({
 
   let entry = findEntry();
   const entryAgeMs = entry ? Date.now() - entry.updatedAt : undefined;
-  const now = Date.now();
-  const shouldReload =
-    _lastReloadFromStorageAt === undefined ||
-    now < _lastReloadFromStorageAt ||
-    now - _lastReloadFromStorageAt >= reloadIfOlderThanMs;
-  if ((!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) && shouldReload) {
+  const [targetKey] = keys;
+  if (
+    (!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) &&
+    shouldReloadForTarget(targetKey, reloadIfOlderThanMs)
+  ) {
     reloadFromStorage();
+    markReloadForTarget(targetKey, reloadIfOlderThanMs);
     const reloadedEntry = findEntry();
     entry = reloadedEntry ?? entry;
   }
