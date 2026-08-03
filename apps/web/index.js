@@ -15,6 +15,7 @@ import '@onekeyhq/shared/src/polyfills';
 // are referenced. See packages/kit/src/components/GlobalJotaiReady which
 // awaits the cold-start gate on web/desktop.
 import '@onekeyhq/kit-bg/src/hydration/hydrate';
+void import('@onekeyhq/kit/src/views/Home/model/cache/homeDisplaySnapshotStartup');
 
 import '@onekeyhq/shared/src/security/sesHarden/installWeb';
 

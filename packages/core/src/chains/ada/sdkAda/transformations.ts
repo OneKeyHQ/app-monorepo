@@ -1,37 +1,29 @@
-import { CardanoAddressType as ECardanoAddressType } from '@onekeyfe/hd-transport';
+import { HARDWARE_CARDANO_ADDRESS_TYPE } from '@onekeyhq/shared/src/hardware/transportEnumValues';
 
 import type { IAdaUTXO } from '../types';
+import type { CardanoAddressType } from '@onekeyfe/hd-transport';
 
-export { ECardanoAddressType };
-
-/*
-declare enum CardanoAddressType {
-  BASE = 0,
-  BASE_SCRIPT_KEY = 1,
-  BASE_KEY_SCRIPT = 2,
-  BASE_SCRIPT_SCRIPT = 3,
-  POINTER = 4,
-  POINTER_SCRIPT = 5,
-  ENTERPRISE = 6,
-  ENTERPRISE_SCRIPT = 7,
-  BYRON = 8,
-  REWARD = 14,
-  REWARD_SCRIPT = 15,
-}
-*/
-// export enum ECardanoAddressType {
-//   BASE = 0,
-//   BASE_SCRIPT_KEY = 1,
-//   BASE_KEY_SCRIPT = 2,
-//   BASE_SCRIPT_SCRIPT = 3,
-//   POINTER = 4,
-//   POINTER_SCRIPT = 5,
-//   ENTERPRISE = 6,
-//   ENTERPRISE_SCRIPT = 7,
-//   BYRON = 8,
-//   REWARD = 14,
-//   REWARD_SCRIPT = 15,
-// }
+export type ECardanoAddressType = CardanoAddressType;
+export const ECardanoAddressType = {
+  BASE: HARDWARE_CARDANO_ADDRESS_TYPE.BASE as CardanoAddressType.BASE,
+  BASE_SCRIPT_KEY:
+    HARDWARE_CARDANO_ADDRESS_TYPE.BASE_SCRIPT_KEY as CardanoAddressType.BASE_SCRIPT_KEY,
+  BASE_KEY_SCRIPT:
+    HARDWARE_CARDANO_ADDRESS_TYPE.BASE_KEY_SCRIPT as CardanoAddressType.BASE_KEY_SCRIPT,
+  BASE_SCRIPT_SCRIPT:
+    HARDWARE_CARDANO_ADDRESS_TYPE.BASE_SCRIPT_SCRIPT as CardanoAddressType.BASE_SCRIPT_SCRIPT,
+  POINTER: HARDWARE_CARDANO_ADDRESS_TYPE.POINTER as CardanoAddressType.POINTER,
+  POINTER_SCRIPT:
+    HARDWARE_CARDANO_ADDRESS_TYPE.POINTER_SCRIPT as CardanoAddressType.POINTER_SCRIPT,
+  ENTERPRISE:
+    HARDWARE_CARDANO_ADDRESS_TYPE.ENTERPRISE as CardanoAddressType.ENTERPRISE,
+  ENTERPRISE_SCRIPT:
+    HARDWARE_CARDANO_ADDRESS_TYPE.ENTERPRISE_SCRIPT as CardanoAddressType.ENTERPRISE_SCRIPT,
+  BYRON: HARDWARE_CARDANO_ADDRESS_TYPE.BYRON as CardanoAddressType.BYRON,
+  REWARD: HARDWARE_CARDANO_ADDRESS_TYPE.REWARD as CardanoAddressType.REWARD,
+  REWARD_SCRIPT:
+    HARDWARE_CARDANO_ADDRESS_TYPE.REWARD_SCRIPT as CardanoAddressType.REWARD_SCRIPT,
+} as const;
 
 interface IAdaUtxo {
   address: string;

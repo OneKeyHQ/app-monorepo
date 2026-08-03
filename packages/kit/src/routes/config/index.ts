@@ -7,8 +7,8 @@ import { useIntl } from 'react-intl';
 
 import {
   type INavigationContainerProps,
-  rootNavigationRef,
-  useRouterEventsRef,
+  useCurrentNavigationRef,
+  useRouterContainerEventHandlers,
 } from '@onekeyhq/components';
 import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -264,7 +264,8 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
 };
 
 export const useRouterConfig = () => {
-  const routerRef = useRouterEventsRef();
+  const navigationRef = useCurrentNavigationRef();
+  const routerContainerEventHandlers = useRouterContainerEventHandlers();
   const linking = useBuildLinking();
   const intl = useIntl();
 
@@ -280,7 +281,7 @@ export const useRouterConfig = () => {
               return 'OneKey';
             }
 
-            const state = rootNavigationRef.current?.getRootState();
+            const state = navigationRef.current?.getRootState();
             if (!state) {
               return 'OneKey';
             }
@@ -305,6 +306,7 @@ export const useRouterConfig = () => {
             return tabTitle ? `OneKey - ${tabTitle}` : 'OneKey';
           },
         },
+        onReady: routerContainerEventHandlers.onReady,
         onStateChange: (state) => {
           if (process.env.NODE_ENV !== 'production') {
             const mainRoute = state?.routes?.[state?.index ?? 0];
@@ -344,10 +346,10 @@ export const useRouterConfig = () => {
               }
             }
           }
-          routerRef.current.forEach((cb) => cb?.(state));
+          routerContainerEventHandlers.onStateChange(state);
         },
         linking,
       } as INavigationContainerProps,
     };
-  }, [linking, routerRef, intl]);
+  }, [intl, linking, navigationRef, routerContainerEventHandlers]);
 };

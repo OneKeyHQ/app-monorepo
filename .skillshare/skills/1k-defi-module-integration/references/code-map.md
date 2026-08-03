@@ -37,6 +37,10 @@ temporary implementation snapshot.
 
 ## Package Boundaries
 
-Keep the repository hierarchy intact: `shared` imports no other OneKey
-packages; `components` imports `shared`; `kit-bg` imports `shared` and `core`;
-`kit` may import `shared`, `components`, and `kit-bg`.
+Respect the repository import hierarchy:
+
+- `shared` cannot import from other OneKey packages.
+- `components` can import only from `shared`.
+- `native-components` can import only from `shared` and owns no business state.
+- `kit-bg` can import only from `shared` and `core`.
+- `kit` can import from `shared`, `components`, `native-components`, and `kit-bg`.

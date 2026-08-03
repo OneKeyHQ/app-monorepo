@@ -19,7 +19,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAccountSelectorActiveAccountReloadMode,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -420,6 +423,8 @@ function UnifiedNetworkSelector() {
 
       try {
         await actions.current.updateSelectedAccountNetwork({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num,
           networkId: item.id,
         });
@@ -552,6 +557,8 @@ function UnifiedNetworkSelector() {
         });
 
         void actions.current.updateSelectedAccountNetwork({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num,
           networkId: getNetworkIdsMap().onekeyall,
         });

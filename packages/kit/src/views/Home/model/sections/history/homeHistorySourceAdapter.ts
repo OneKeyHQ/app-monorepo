@@ -1,0 +1,172 @@
+import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import {
+  createHomeSourceKey,
+  getHomeSourceKeyIdentity,
+} from '../../core/homeIdentity';
+import { createHomeSectionConfirmedSeed } from '../homeSectionSourceAdapter';
+
+import type {
+  IHomeSectionCoordinatorEvent,
+  IHomeSectionSourceIdentity,
+} from '../homeSectionCoordinator';
+
+const HOME_HISTORY_SOURCE_REVISION = 1;
+const HOME_HISTORY_DATA_SCHEMA_VERSION = 2;
+
+type IHomeHistorySourceParams = {
+  accountId: string;
+  accountOwnerId: string;
+  filterLowValue: boolean;
+  filterScam: boolean;
+  indexedAccountId: string | undefined;
+  mergeDerive: boolean;
+  networkId: string;
+  networkMode: 'allNetworks' | 'singleNetwork';
+  sourceCurrencyId: string;
+  walletId: string;
+};
+
+type IHomeHistoryLegacyPayload = {
+  addressMap: Record<string, IAddressBadge>;
+  data: IAccountHistoryTx[];
+};
+
+type IHomeHistoryStorePayload = IHomeHistoryLegacyPayload & {
+  cursor: string | null;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  refresh: 'idle' | 'refreshing' | 'failed';
+  tokenMap: Record<string, ITokenFiat>;
+};
+
+const HOME_HISTORY_SNAPSHOT_KEYS = [
+  'addressMap',
+  'cursor',
+  'data',
+  'hasMore',
+  'tokenMap',
+] as const satisfies readonly (keyof IHomeHistoryStorePayload)[];
+
+function createHomeHistorySnapshotDefaults(): IHomeHistoryStorePayload {
+  return {
+    addressMap: {},
+    cursor: null,
+    data: [],
+    hasMore: false,
+    isLoadingMore: false,
+    refresh: 'refreshing',
+    tokenMap: {},
+  };
+}
+
+type IHomeHistorySourceSnapshot =
+  | { kind: 'loading' }
+  | {
+      kind: 'confirmedCache';
+      data: IHomeHistoryLegacyPayload;
+      rowIds: readonly string[];
+      refresh: 'idle' | 'refreshing';
+    }
+  | {
+      kind: 'partial';
+      coverageFingerprint: string;
+    }
+  | {
+      kind: 'complete';
+      coverageFingerprint: string;
+      result:
+        | { kind: 'empty' }
+        | {
+            kind: 'success';
+            data: IHomeHistoryLegacyPayload;
+            rowIds: readonly string[];
+          };
+    }
+  | {
+      kind: 'error';
+      errorKind:
+        | 'source'
+        | 'transport'
+        | 'schemaMismatch'
+        | 'runtimeUnavailable';
+    };
+
+function getHomeHistoryRowIds(
+  data: IHomeHistoryLegacyPayload,
+): readonly string[] {
+  return data.data.map((tx) => tx.id);
+}
+
+function createHomeHistorySourceIdentity({
+  owner,
+  params,
+  producerInstanceId,
+}: {
+  owner: IHomeRuntimeOwnerToken;
+  params: IHomeHistorySourceParams;
+  producerInstanceId: string;
+}): IHomeSectionSourceIdentity {
+  const sourceKey = createHomeSourceKey({
+    dataSchemaVersion: HOME_HISTORY_DATA_SCHEMA_VERSION,
+    ownerToken: owner,
+    paramsFingerprint: stringUtils.stableStringify(params),
+    sourceId: 'history',
+  });
+  return {
+    owner,
+    sectionId: 'history',
+    sourceId: 'history',
+    sourceKeyIdentity: getHomeSourceKeyIdentity(sourceKey),
+    producerInstanceId,
+    sourceRevision: HOME_HISTORY_SOURCE_REVISION,
+  };
+}
+
+function adaptHomeHistorySourceSnapshot({
+  identity,
+  snapshot,
+}: {
+  identity: IHomeSectionSourceIdentity;
+  snapshot: IHomeHistorySourceSnapshot;
+}): IHomeSectionCoordinatorEvent<IHomeHistoryLegacyPayload> {
+  switch (snapshot.kind) {
+    case 'loading':
+      return { ...identity, kind: 'loading' };
+    case 'confirmedCache':
+      return createHomeSectionConfirmedSeed({
+        data: snapshot.data,
+        getRowIds: () => snapshot.rowIds,
+        identity,
+        refresh: snapshot.refresh,
+      });
+    case 'partial':
+      return { ...identity, kind: 'partial' };
+    case 'complete':
+      return { ...identity, kind: 'complete', result: snapshot.result };
+    case 'error':
+      return { ...identity, kind: 'error' };
+    default:
+      return { ...identity, kind: 'loading' };
+  }
+}
+
+export {
+  HOME_HISTORY_DATA_SCHEMA_VERSION,
+  HOME_HISTORY_SNAPSHOT_KEYS,
+  HOME_HISTORY_SOURCE_REVISION,
+  adaptHomeHistorySourceSnapshot,
+  createHomeHistorySnapshotDefaults,
+  createHomeHistorySourceIdentity,
+  getHomeHistoryRowIds,
+};
+export type {
+  IHomeHistoryLegacyPayload,
+  IHomeHistoryStorePayload,
+  IHomeHistorySourceParams,
+  IHomeHistorySourceSnapshot,
+};

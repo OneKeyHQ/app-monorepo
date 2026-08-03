@@ -7,11 +7,13 @@ import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/typ
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { clearHomeLatestActiveAccountCache } from '@onekeyhq/shared/src/utils/homeLatestActiveAccountCache';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { resetHomeDisplaySnapshotCache } from '../../Home/model/cache/homeDisplaySnapshotPersistQueueLoader';
 import { SettingTestIDs } from '../testIDs';
 
 export { useLanguageSelector } from './useLanguageSelector';
@@ -44,6 +46,8 @@ export function useResetApp(
       if (platformEnv.isExtensionUiPopup) {
         resetUtils.startResetting();
       }
+      clearHomeLatestActiveAccountCache();
+      await resetHomeDisplaySnapshotCache();
       await backgroundApiProxy.serviceApp.resetApp();
     } catch (e) {
       console.error('failed to reset app with error', e);

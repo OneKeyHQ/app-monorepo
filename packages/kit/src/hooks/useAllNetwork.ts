@@ -250,7 +250,7 @@ const getEmptyEnabledNetworksResult = (): IEnabledNetworksCompatResult => ({
 //   return [...priorityItems, ...normalItems];
 // };
 
-function useAllNetworkRequests<T>(params: {
+function useAllNetworkRequests<T, TRunContext = void>(params: {
   accountId: string | undefined;
   networkId: string | undefined;
   walletId: string | undefined;
@@ -306,6 +306,8 @@ function useAllNetworkRequests<T>(params: {
   isDeFiRequests?: boolean;
   disabled?: boolean;
   shouldAlwaysFetch?: boolean;
+  // Consumer source authority can change while wallet/account/network stay fixed.
+  runIdentityKey?: string;
   onStarted?: ({
     accountId,
     networkId,
@@ -314,13 +316,17 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
-  }) => Promise<void>;
+  }) => TRunContext | void | Promise<TRunContext | void>;
   onFinished?: ({
     accountId,
     networkId,
+    result,
+    runContext,
   }: {
     accountId?: string;
     networkId?: string;
+    result?: Array<T> | null;
+    runContext?: TRunContext;
   }) => Promise<void>;
   onCacheChecked?: ({
     accountId,
@@ -358,6 +364,7 @@ function useAllNetworkRequests<T>(params: {
     isDeFiRequests,
     disabled,
     shouldAlwaysFetch,
+    runIdentityKey,
     onStarted,
     onFinished,
     onCacheChecked,
@@ -516,7 +523,7 @@ function useAllNetworkRequests<T>(params: {
       alwaysSetStateRef.current = false;
       const currentRunSignature = `${currentAccountId}|${currentNetworkId}|${currentWalletId}|${
         isNFTRequests ? 1 : 0
-      }|${isDeFiRequests ? 1 : 0}`;
+      }|${isDeFiRequests ? 1 : 0}|${runIdentityKey ?? ''}`;
       const isMustRun =
         alwaysSetStateForThisRun ||
         skipAccountsCacheRef.current ||
@@ -559,7 +566,9 @@ function useAllNetworkRequests<T>(params: {
       });
 
       let onStartedError: unknown;
+      let onStartedRunContext: TRunContext | undefined;
       let onStartedTask: Promise<void> | undefined;
+      let resultForFinished: Array<T> | null | undefined;
 
       try {
         if (!allNetworkDataInit.current) {
@@ -575,13 +584,21 @@ function useAllNetworkRequests<T>(params: {
         });
 
         if (onStarted) {
-          onStartedTask = onStarted({
-            accountId: currentAccountId,
-            networkId: currentNetworkId,
-            allNetworkDataInit: allNetworkDataInit.current,
-          }).catch((err) => {
-            onStartedError = err;
-          });
+          onStartedTask = Promise.resolve(
+            onStarted({
+              accountId: currentAccountId,
+              networkId: currentNetworkId,
+              allNetworkDataInit: allNetworkDataInit.current,
+            }),
+          )
+            .then((runContext) => {
+              if (runContext !== undefined) {
+                onStartedRunContext = runContext;
+              }
+            })
+            .catch((err) => {
+              onStartedError = err;
+            });
         }
 
         perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
@@ -906,6 +923,7 @@ function useAllNetworkRequests<T>(params: {
           reason: requestKind,
         });
 
+        resultForFinished = resp;
         return resp;
       } finally {
         isFetching.current = false;
@@ -928,6 +946,8 @@ function useAllNetworkRequests<T>(params: {
           await onFinished?.({
             accountId: currentAccountId,
             networkId: currentNetworkId,
+            result: resultForFinished,
+            runContext: onStartedRunContext,
           });
         } catch (e) {
           console.error(e);
@@ -960,6 +980,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheData,
       allNetworkRequests,
       onRequestSettled,
+      runIdentityKey,
     ],
     {
       revalidateOnFocus,

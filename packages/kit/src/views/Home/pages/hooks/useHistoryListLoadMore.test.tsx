@@ -240,6 +240,59 @@ describe('useHistoryListLoadMore', () => {
     ]);
   });
 
+  it('keeps terminal pagination disarmed across first-page polling refreshes', async () => {
+    const fetchMock = getFetchMock();
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-3')],
+      hasMoreOnChainHistory: false,
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    const { result } = renderHook(() =>
+      useHistoryListLoadMore({
+        enabled: true,
+        accountId: 'account-1',
+        networkId: 'evm--1',
+      }),
+    );
+
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-1'), createMockTx('tx-2')],
+        next: 'cursor-1',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual(['tx-3']);
+
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-0'), createMockTx('tx-1')],
+        next: 'cursor-refreshed-first-page',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-2',
+      'tx-3',
+    ]);
+    expect(result.current.hasMore).toBe(false);
+
+    act(() => {
+      void result.current.loadMore();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('hard-resets to page 1 when a first-page refresh no longer overlaps the loaded range', async () => {
     const fetchMock = getFetchMock();
     fetchMock.mockResolvedValueOnce({

@@ -335,7 +335,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       return ["1", "true", "yes", "on"].contains(enabled.lowercased())
     }
 
-    return false
+    return true
   }
 
   private func backgroundDebugBundleURLString() -> String? {

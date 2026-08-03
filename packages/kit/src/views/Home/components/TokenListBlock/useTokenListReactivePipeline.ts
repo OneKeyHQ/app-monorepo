@@ -43,6 +43,12 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  HOME_DATA_PRIORITY_CACHE,
+  HOME_DATA_PRIORITY_NETWORK,
+  type IHomeDataPriority,
+} from '../../model/core/homeDataPriority';
+
+import {
   type IAllNetworkSnapshotRound,
   type IMergedAllNetworkSnapshot,
   buildMergedAllNetworkSnapshot,
@@ -55,14 +61,14 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
 /**
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
- * (for the per-paint owner guard) and an `origin` discriminator ('cache' floor
- * seed, whose derive-merge hint is read from cached token metadata; vs 'live'
- * raw result, whose derive-merge flag is resolved before building a snapshot).
+ * (for the per-paint owner guard) and its data priority. Cache is the floor;
+ * network results may need their derive-merge flag resolved before snapshot
+ * construction.
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
   ownerAccountId?: string;
   ownerNetworkId?: string;
-  origin: 'cache' | 'live';
+  priority: IHomeDataPriority;
 };
 
 /** Owner key + hideZero inputs the `ingestRound` call reads (written in render). */
@@ -111,6 +117,13 @@ export interface ITokenListReactivePipelineParams {
   cellsIngestInputsRef: MutableRefObject<ICellsIngestInputs>;
   /** = ENABLE_BG_TOKEN_VIEW_MODEL — the single unified kill-switch. */
   enabled: boolean;
+  /** Re-pull BG-owned frames into the main runtime after each ingest. */
+  pullLatestFrames?: () => Promise<void>;
+}
+
+export interface ITokenListIngestReceipt {
+  ownerKey: string;
+  valuationVersion: number;
 }
 
 export interface ITokenListReactivePipeline {
@@ -132,7 +145,9 @@ export interface ITokenListReactivePipeline {
   /** materialize ∩ enabledKeys → resolve merge flags → build the merged snapshot. */
   buildAuthoritativeSnapshot: () => Promise<IMergedAllNetworkSnapshot>;
   /** Ingest the authoritative snapshot + clear timer + bump epoch. */
-  commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
+  commitAuthoritativeIngest: (
+    snapshot: IMergedAllNetworkSnapshot,
+  ) => Promise<ITokenListIngestReceipt | undefined>;
 }
 
 type IIngestOwnerToken = {
@@ -158,6 +173,7 @@ export function useTokenListReactivePipeline(
     ownerCreateAtNetwork,
     cellsIngestInputsRef,
     enabled,
+    pullLatestFrames,
   } = params;
 
   // --- the 5 LWW refs (relocated verbatim from TokenListBlock) ---------------
@@ -202,9 +218,11 @@ export function useTokenListReactivePipeline(
         new Set(
           rounds
             .filter(
-              (r) => r.origin === 'live' && r.mergeDeriveAssets === undefined,
+              (round) =>
+                round.priority === HOME_DATA_PRIORITY_NETWORK &&
+                round.mergeDeriveAssets === undefined,
             )
-            .map((r) => r.networkId)
+            .map((round) => round.networkId)
             .filter((id): id is string => Boolean(id)),
         ),
       );
@@ -225,13 +243,14 @@ export function useTokenListReactivePipeline(
           }
         }),
       );
-      return rounds.map((r) =>
-        r.mergeDeriveAssets !== undefined || r.origin !== 'live'
-          ? r
+      return rounds.map((round) =>
+        round.mergeDeriveAssets !== undefined ||
+        round.priority !== HOME_DATA_PRIORITY_NETWORK
+          ? round
           : {
-              ...r,
-              mergeDeriveAssets: r.networkId
-                ? liveMergeFlagByNetworkId[r.networkId]
+              ...round,
+              mergeDeriveAssets: round.networkId
+                ? liveMergeFlagByNetworkId[round.networkId]
                 : false,
             },
       );
@@ -240,33 +259,37 @@ export function useTokenListReactivePipeline(
   );
 
   const ingestMergedSnapshot = useCallback(
-    (
+    async (
       snapshot: IMergedAllNetworkSnapshot,
       source: string,
       ownerToken?: IIngestOwnerToken,
-    ) => {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
-        accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
-        networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-        source,
-      });
+    ): Promise<ITokenListIngestReceipt | undefined> => {
+      const receipt =
+        await backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          ownerKey:
+            ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
+          orderedTokens: snapshot.orderedTokens,
+          smallBalanceTokens: snapshot.smallBalanceTokens,
+          tokenListMap: snapshot.mergeTokenListMap,
+          aggregateTokensMap: snapshot.aggregateTokenMap,
+          ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+          smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+          storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+          keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+          homeDefaultTokenMap:
+            cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+          customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+          riskyTokens: snapshot.riskyTokens,
+          riskyMap: snapshot.riskyTokenListMap,
+          accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
+          networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
+          rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+          source,
+        });
+      await pullLatestFrames?.();
+      return receipt;
     },
-    [cellsIngestInputsRef, ownerAccountId, ownerNetworkId],
+    [cellsIngestInputsRef, ownerAccountId, ownerNetworkId, pullLatestFrames],
   );
 
   const flushProgressiveView = useCallback(
@@ -317,7 +340,7 @@ export function useTokenListReactivePipeline(
         accountId: ownerAccountId,
         createAtNetwork: ownerCreateAtNetwork,
       });
-      ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
+      void ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
     },
     [
       ownerAccountId,
@@ -381,7 +404,7 @@ export function useTokenListReactivePipeline(
             aggregateTokenMap: item.aggregateTokenMap,
             ownerAccountId,
             ownerNetworkId,
-            origin: 'cache',
+            priority: HOME_DATA_PRIORITY_CACHE,
             mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
           },
           generation,
@@ -422,7 +445,7 @@ export function useTokenListReactivePipeline(
           accountId: result.accountId ?? '',
           networkId: result.networkId ?? '',
         }),
-        { ...result, origin: 'live' },
+        { ...result, priority: HOME_DATA_PRIORITY_NETWORK },
         generation,
       );
       if (progressiveFlushTimerRef.current === null) {
@@ -456,14 +479,15 @@ export function useTokenListReactivePipeline(
 
   const commitAuthoritativeIngest = useCallback(
     (snapshot: IMergedAllNetworkSnapshot) => {
-      if (enabled) {
-        ingestMergedSnapshot(snapshot, 'authoritative');
-      }
+      const receiptPromise = enabled
+        ? ingestMergedSnapshot(snapshot, 'authoritative')
+        : Promise.resolve(undefined);
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);
         progressiveFlushTimerRef.current = null;
       }
       progressivePaintEpochRef.current += 1;
+      return receiptPromise;
     },
     [enabled, ingestMergedSnapshot],
   );

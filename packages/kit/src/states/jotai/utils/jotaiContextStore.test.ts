@@ -9,6 +9,7 @@ import { type Atom, type WritableAtom, createStore } from 'jotai';
 import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
+  jotaiContextStoreMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
@@ -17,6 +18,11 @@ import {
   contextAtomSnapshotRegistry,
   hydrateContextColdStartCacheForProvider,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import {
+  type INativeBackgroundThreadReadySignal,
+  publishNativeBackgroundThreadReady,
+} from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -113,6 +119,25 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
 };
 
+type INativeBackgroundReadyTestState = {
+  listeners: Set<(signal: INativeBackgroundThreadReadySignal) => void>;
+  signal?: INativeBackgroundThreadReadySignal;
+};
+
+type INativeBackgroundReadyTestGlobal = typeof globalThis & {
+  __onekeyNativeBackgroundThreadReadyState?: INativeBackgroundReadyTestState;
+};
+
+const jotaiContextStoreMapAtomInstance = jotaiContextStoreMapAtom.atom();
+
+function setJotaiContextStoreMapForTest(map: Record<string, never>) {
+  void jotaiDefaultStore.set(jotaiContextStoreMapAtomInstance, map);
+}
+
+function getJotaiContextStoreMapForTest() {
+  return jotaiDefaultStore.get(jotaiContextStoreMapAtomInstance);
+}
+
 class TestErrorBoundary extends Component<
   { children?: ReactNode },
   { hasError: boolean }
@@ -162,8 +187,12 @@ describe('jotaiContextStore reset flow', () => {
     jest.clearAllMocks();
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    delete (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
     platformEnv.isNative = false;
     platformEnv.isDesktop = false;
+    platformEnv.isNativeMainThread = false;
+    platformEnv.enableNativeBackgroundThread = false;
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
@@ -175,6 +204,8 @@ describe('jotaiContextStore reset flow', () => {
     clearJotaiContextTrackerMap();
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    delete (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
     jest.restoreAllMocks();
   });
 
@@ -400,6 +431,92 @@ describe('jotaiContextStore reset flow', () => {
     }
   });
 
+  it('replays the latest native mirror map once for each bg ready sequence', async () => {
+    platformEnv.isNativeMainThread = true;
+    platformEnv.enableNativeBackgroundThread = true;
+    const { unmount } = render(
+      createElement(JotaiContextRootProvidersAutoMount),
+    );
+    const trackerMap = getJotaiContextTrackerMap();
+    const snapshots = [
+      EJotaiContextStoreNames.accountSelector,
+      EJotaiContextStoreNames.swap,
+      EJotaiContextStoreNames.discoveryBrowser,
+    ].map((storeName, index) => ({
+      [`store:${storeName}`]: {
+        storeName,
+        count: index + 1,
+      },
+    }));
+
+    for (const [index, reason] of (
+      ['initial', 'recovered', 'restarted'] as const
+    ).entries()) {
+      Object.keys(trackerMap).forEach((key) => delete trackerMap[key]);
+      Object.assign(trackerMap, snapshots[index]);
+      setJotaiContextStoreMapForTest({});
+
+      publishNativeBackgroundThreadReady({
+        bootId: `boot-${index}`,
+        reason,
+      });
+
+      await waitFor(() => {
+        expect(getJotaiContextStoreMapForTest()).toEqual(snapshots[index]);
+      });
+    }
+
+    const readyState = (globalThis as INativeBackgroundReadyTestGlobal)
+      .__onekeyNativeBackgroundThreadReadyState;
+    const lastSignal = readyState?.signal;
+    setJotaiContextStoreMapForTest({});
+    if (lastSignal) {
+      readyState?.listeners.forEach((listener) => listener(lastSignal));
+    }
+    await waitFor(() => {
+      expect(getJotaiContextStoreMapForTest()).toEqual({});
+    });
+
+    unmount();
+    expect(readyState?.listeners.size).toBe(0);
+    publishNativeBackgroundThreadReady({
+      bootId: 'boot-after-unmount',
+      reason: 'recovered',
+    });
+    expect(getJotaiContextStoreMapForTest()).toEqual({});
+  });
+
+  it('replays a bg ready signal that happened before the owner mounted', async () => {
+    platformEnv.isNativeMainThread = true;
+    platformEnv.enableNativeBackgroundThread = true;
+    const trackerMap = getJotaiContextTrackerMap();
+    const snapshot = {
+      'store:accountSelector@home': {
+        storeName: EJotaiContextStoreNames.accountSelector,
+        accountSelectorInfo: {
+          sceneName: EAccountSelectorSceneName.home,
+          enabledNum: [0],
+        },
+        count: 6,
+      },
+    };
+    Object.assign(trackerMap, snapshot);
+    setJotaiContextStoreMapForTest({});
+    publishNativeBackgroundThreadReady({
+      bootId: 'boot-already-ready',
+      reason: 'initial',
+    });
+
+    const { unmount } = render(
+      createElement(JotaiContextRootProvidersAutoMount),
+    );
+
+    await waitFor(() => {
+      expect(getJotaiContextStoreMapForTest()).toEqual(snapshot);
+    });
+    unmount();
+  });
+
   it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {
     const coldStartScopeKey = 'test:runtime-snapshot';
     const scopedKey = `${coldStartScopeKey}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom}`;
@@ -439,6 +556,76 @@ describe('jotaiContextStore reset flow', () => {
     expect(
       globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[scopedKey],
     ).toBeUndefined();
+  });
+
+  it('does not hydrate an external Home active account from the shared atom snapshot', () => {
+    const coldStartCacheKey =
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom;
+    const originalRegistryEntry =
+      contextAtomSnapshotRegistry.get(coldStartCacheKey);
+    const coldStartScopeKey = `store:accountSelector@${EAccountSelectorSceneName.home}`;
+    const scopedKey = `${coldStartScopeKey}::${coldStartCacheKey}`;
+    const initialValue = {
+      0: {
+        ready: false,
+      },
+    };
+    const staleSnapshotValue = {
+      0: {
+        ready: true,
+      },
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [scopedKey]: staleSnapshotValue,
+    };
+    jest.spyOn(coldStartCacheStorage, 'getObject').mockReturnValue(undefined);
+    const coldStartAtom = contextAtomBase<typeof initialValue>({
+      initialValue,
+      coldStartCache: true,
+      coldStartCacheKey,
+      coldStartCachePersistence: {
+        kind: 'external',
+        scopeKey: coldStartScopeKey,
+      },
+      useColdStartScopeKey: () => coldStartScopeKey,
+      useContextAtom: <Value2, Args extends unknown[], Result>(
+        _atomInstance: WritableAtom<Value2, Args, Result>,
+      ) =>
+        [
+          initialValue as Awaited<Value2>,
+          jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
+        ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
+    });
+    const store = createStore();
+    const hydrationStore = {
+      get: (atomInstance: unknown) => store.get(atomInstance as Atom<unknown>),
+      set: (atomInstance: unknown, value: unknown) => {
+        store.set(
+          atomInstance as WritableAtom<unknown, [unknown], unknown>,
+          value,
+        );
+      },
+    };
+    const atomInstance = coldStartAtom.atom();
+
+    try {
+      hydrateContextColdStartCacheForProvider({
+        store: hydrationStore,
+        coldStartScopeKey,
+      });
+
+      expect(store.get(atomInstance)).toEqual(initialValue);
+    } finally {
+      if (originalRegistryEntry) {
+        contextAtomSnapshotRegistry.set(
+          coldStartCacheKey,
+          originalRegistryEntry,
+        );
+      } else {
+        contextAtomSnapshotRegistry.delete(coldStartCacheKey);
+      }
+    }
   });
 
   it('does not hydrate discover account selector state from generic scoped snapshots', () => {

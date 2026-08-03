@@ -1,6 +1,10 @@
 export const HomeTestIDs = {
   // Page
   page: 'home-page',
+  emptyWalletPage: 'home-empty-wallet-page-not-backed-up',
+  emptyWalletScroll: 'home-empty-wallet-scroll-not-backed-up',
+  notBackedUpPrimaryBackup: 'home-not-backed-up-primary-backup',
+  notBackedUpMoreBackupOptions: 'home-not-backed-up-more-backup-options',
 
   // Header
   headerContainer: 'Wallet-Tab-Header', // preserve existing
@@ -8,6 +12,15 @@ export const HomeTestIDs = {
   headerNetworkSelector: 'home-header-network-selector',
   headerScanButton: 'home-header-scan-button',
   headerSearchButton: 'home-header-search-button',
+
+  // Launch skeleton
+  launchSkeleton: 'home-launch-skeleton',
+  launchSkeletonAccount: 'home-launch-skeleton-account',
+  launchSkeletonBalance: 'home-launch-skeleton-balance',
+  launchSkeletonActions: 'home-launch-skeleton-actions',
+  launchSkeletonBanners: 'home-launch-skeleton-banners',
+  launchSkeletonTabs: 'home-launch-skeleton-tabs',
+  launchSkeletonList: 'home-launch-skeleton-list',
 
   // Tabs
   tabPortfolio: 'home-tab-portfolio',
@@ -27,6 +40,9 @@ export const HomeTestIDs = {
   stakingButton: 'home-staking-button',
   moreButton: 'home-more-button',
   addMoneyButton: 'home-add-money-button',
+  walletActionsSkeleton: 'home-wallet-actions-skeleton',
+  walletActionsSkeletonItem: (index: number) =>
+    `home-wallet-actions-skeleton-item-${index}`,
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',

@@ -11,6 +11,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { ProviderJotaiContextHome } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -25,12 +26,15 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import { useUrlAccountHomeTokenListContextStoreInitData } from '../../components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import { HomeStoreSourceControllers } from '../../model/react/HomeStoreSourceControllers';
 import { HomePageView } from '../HomePageView';
 
 import { UrlAccountAutoReplaceHistory } from './UrlAccountAutoReplaceHistory';
 import { getPrevUrlAccount, urlAccountNavigation } from './urlAccountUtils';
 
 const sceneName = EAccountSelectorSceneName.homeUrlAccount;
+const URL_ACCOUNT_HOME_STORE_CONTEXT_CONFIG = { sceneId: sceneName } as const;
 
 function useUrlAccountOverviewContextStoreInitData() {
   const data = useMemo(
@@ -256,18 +260,26 @@ export function UrlAccountPageContainer() {
     defaultLogger.app.router.pageMounted('UrlAccountPageContainer');
   }, []);
   const data = useUrlAccountOverviewContextStoreInitData();
-  const store = useJotaiContextRootStore(data);
+  const overviewStore = useJotaiContextRootStore(data);
+  const homeStoreData = useUrlAccountHomeTokenListContextStoreInitData();
+  const homeStore = useJotaiContextRootStore(homeStoreData);
   return (
-    <ProviderJotaiContextAccountOverview store={store}>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
+    <ProviderJotaiContextAccountOverview store={overviewStore}>
+      <ProviderJotaiContextHome
+        config={URL_ACCOUNT_HOME_STORE_CONTEXT_CONFIG}
+        store={homeStore}
       >
-        <UrlAccountAutoCreate />
-      </AccountSelectorProviderMirror>
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <HomeStoreSourceControllers />
+          <UrlAccountAutoCreate />
+        </AccountSelectorProviderMirror>
+      </ProviderJotaiContextHome>
     </ProviderJotaiContextAccountOverview>
   );
 }
@@ -277,18 +289,26 @@ export function UrlAccountLanding() {
     name: 'URLAccountMount:  UrlAccountLanding',
   });
   const data = useUrlAccountOverviewContextStoreInitData();
-  const store = useJotaiContextRootStore(data);
+  const overviewStore = useJotaiContextRootStore(data);
+  const homeStoreData = useUrlAccountHomeTokenListContextStoreInitData();
+  const homeStore = useJotaiContextRootStore(homeStoreData);
   return (
-    <ProviderJotaiContextAccountOverview store={store}>
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName,
-          sceneUrl: '',
-        }}
-        enabledNum={[0]}
+    <ProviderJotaiContextAccountOverview store={overviewStore}>
+      <ProviderJotaiContextHome
+        config={URL_ACCOUNT_HOME_STORE_CONTEXT_CONFIG}
+        store={homeStore}
       >
-        <UrlAccountAutoCreate redirectMode />
-      </AccountSelectorProviderMirror>
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <HomeStoreSourceControllers />
+          <UrlAccountAutoCreate redirectMode />
+        </AccountSelectorProviderMirror>
+      </ProviderJotaiContextHome>
     </ProviderJotaiContextAccountOverview>
   );
 }

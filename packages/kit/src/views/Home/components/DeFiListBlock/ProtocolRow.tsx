@@ -13,7 +13,6 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { getProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useDeFiListSupportedActionsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import {
   buildProtocolDisplayInfo,
   getProtocolActionBadgeLabelIds,
@@ -22,6 +21,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -30,13 +30,19 @@ export type IProtocolRowProps = {
   protocolInfo?: IProtocolSummary;
   onPress?: () => void;
   isAllNetworks?: boolean;
+  supportedActions: IDeFiSupportedProtocolAction[];
 };
 
 const ProtocolRow = memo(
-  ({ protocol, protocolInfo, onPress, isAllNetworks }: IProtocolRowProps) => {
+  ({
+    protocol,
+    protocolInfo,
+    onPress,
+    isAllNetworks,
+    supportedActions,
+  }: IProtocolRowProps) => {
     const intl = useIntl();
     const [settings] = useSettingsPersistAtom();
-    const [{ supportedActions }] = useDeFiListSupportedActionsAtom();
     const currencySymbol = settings.currencyInfo.symbol;
 
     const protocolDisplayInfo = useMemo(

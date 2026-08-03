@@ -156,6 +156,19 @@ describe('ServiceTokenViewModel', () => {
     mockEmit.mockClear();
   });
 
+  it('returns the exact owner and valuation version produced by the ingest', async () => {
+    const svc = makeService();
+
+    await expect(svc.ingestRound(makeRound())).resolves.toEqual({
+      ownerKey: 'acc1__net1',
+      valuationVersion: 0,
+    });
+    await expect(svc.ingestRound(makeRound())).resolves.toEqual({
+      ownerKey: 'acc1__net1',
+      valuationVersion: 1,
+    });
+  });
+
   it('emits a structure + valuation frame on the first ingest of a multi-token + aggregate owner', () => {
     const svc = makeService();
     void svc.ingestRound(

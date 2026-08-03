@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { uniq } from 'lodash';
 
@@ -13,6 +13,7 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { onNativeBackgroundThreadReady } from '@onekeyhq/shared/src/background/nativeBackgroundThreadReady';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -195,7 +196,8 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 }
 
 function JotaiContextRootProvidersAutoMountCmp() {
-  const [map] = useJotaiContextStoreMapAtom();
+  const [map, setMap] = useJotaiContextStoreMapAtom();
+  const lastReplayedNativeBgSignalRef = useRef('');
   const mapEntries = useMemo(() => Object.entries(map), [map]);
   const shouldMountSwapColdStartRootProvider = useMemo(
     () => hasSwapColdStartSnapshot(),
@@ -205,6 +207,28 @@ function JotaiContextRootProvidersAutoMountCmp() {
     () => hasPerpsColdStartSnapshot(),
     [],
   );
+  useEffect(() => {
+    if (
+      !platformEnv.isNativeMainThread ||
+      !platformEnv.enableNativeBackgroundThread
+    ) {
+      return undefined;
+    }
+
+    // Tracker mounts and unmounts can finish before bg transport is usable.
+    // Replay the latest desired snapshot after every bg boot/recovery signal;
+    // the bg runtime then broadcasts its version back to the main runtime.
+    return onNativeBackgroundThreadReady((signal) => {
+      const signalId = `${signal.bootId}:${signal.sequence}`;
+      if (lastReplayedNativeBgSignalRef.current === signalId) {
+        return;
+      }
+      lastReplayedNativeBgSignalRef.current = signalId;
+      void Promise.resolve(setMap(getJotaiContextTrackerMap())).catch(
+        () => undefined,
+      );
+    });
+  }, [setMap]);
   // const mapEntries = [];
   if (process.env.NODE_ENV !== 'production') {
     // console.log(

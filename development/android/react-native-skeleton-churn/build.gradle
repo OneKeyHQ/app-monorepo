@@ -1,0 +1,45 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+}
+
+android {
+    namespace "so.onekey.test.skeletonchurn"
+    compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion rootProject.ext.ndkVersion
+
+    defaultConfig {
+        applicationId "so.onekey.test.skeletonchurn"
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation project(":onekeyfe_react-native-skeleton")
+    implementation project(":react-native-nitro-modules")
+    implementation "com.facebook.react:react-android"
+
+    androidTestImplementation "androidx.test:core:1.5.0"
+    androidTestImplementation "androidx.test.ext:junit:1.1.5"
+    androidTestImplementation "androidx.test:runner:1.5.2"
+    androidTestImplementation "junit:junit:4.13.2"
+}

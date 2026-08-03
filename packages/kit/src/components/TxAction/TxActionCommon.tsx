@@ -28,6 +28,7 @@ import {
   TX_RISKY_LEVEL_SCAM,
   TX_RISKY_LEVEL_SPAM,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
@@ -43,6 +44,8 @@ import {
 import { NetworkAvatar } from '../NetworkAvatar';
 import { Token } from '../Token';
 import TxHistoryAddressInfo from '../TxHistoryListView/TxHistoryAddressInfo';
+
+import { useTxActionAddressMap } from './TxActionAddressContext';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -232,12 +235,77 @@ function TxActionCommonTitle({
   );
 }
 
-function TxActionCommonDescription({
+type ITxActionCommonDescriptionProps = Pick<
+  ITxActionCommonListViewProps,
+  'description' | 'tableLayout'
+> & {
+  networkId: string;
+};
+
+function TxActionCommonDescriptionContent({
+  addressesInfo,
+  addressLocalLabel,
   networkId,
   description,
-}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'> & {
-  networkId: string;
+}: ITxActionCommonDescriptionProps & {
+  addressesInfo: Record<string, IAddressBadge>;
+  addressLocalLabel?: string | null;
 }) {
+  if (description?.originalAddress) {
+    const addressInfoKey = buildAddressMapInfoKey({
+      networkId,
+      address: description.originalAddress,
+    });
+    if (addressesInfo[addressInfoKey]) {
+      return (
+        <Stack flexShrink={1} minWidth={0}>
+          <TxHistoryAddressInfo
+            address={description.originalAddress}
+            badge={addressesInfo[addressInfoKey]}
+          />
+        </Stack>
+      );
+    }
+  }
+
+  return (
+    <XStack alignItems="center" flex={1} flexShrink={1} minWidth={0}>
+      {description?.prefix ? (
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          pr="$1.5"
+          flexShrink={0}
+        >
+          {description.prefix}
+        </SizableText>
+      ) : null}
+      {description?.icon ? (
+        <Icon
+          color="$iconSubdued"
+          mr="$0.5"
+          size="$4"
+          name={description.icon}
+        />
+      ) : null}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        flex={1}
+        flexShrink={1}
+        minWidth={0}
+        numberOfLines={1}
+      >
+        {addressLocalLabel || description?.children}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function LegacyTxActionCommonDescription(
+  props: ITxActionCommonDescriptionProps,
+) {
+  const { description, networkId } = props;
   const [addressesInfo] = useAddressesInfoAtom();
 
   const { result: addressLocalLabel, run } = usePromiseResult(async () => {
@@ -272,54 +340,24 @@ function TxActionCommonDescription({
     };
   }, [run]);
 
-  if (description?.originalAddress) {
-    const addressInfoKey = buildAddressMapInfoKey({
-      networkId,
-      address: description?.originalAddress,
-    });
-    if (addressesInfo[addressInfoKey]) {
-      return (
-        <Stack flexShrink={1} minWidth={0}>
-          <TxHistoryAddressInfo
-            address={description.originalAddress}
-            badge={addressesInfo[addressInfoKey]}
-          />
-        </Stack>
-      );
-    }
-  }
-
   return (
-    <XStack alignItems="center" flex={1} flexShrink={1} minWidth={0}>
-      {description?.prefix ? (
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          pr="$1.5"
-          flexShrink={0}
-        >
-          {description?.prefix}
-        </SizableText>
-      ) : null}
-      {description?.icon ? (
-        <Icon
-          color="$iconSubdued"
-          mr="$0.5"
-          size="$4"
-          name={description.icon}
-        />
-      ) : null}
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        flex={1}
-        flexShrink={1}
-        minWidth={0}
-        numberOfLines={1}
-      >
-        {addressLocalLabel || description?.children}
-      </SizableText>
-    </XStack>
+    <TxActionCommonDescriptionContent
+      {...props}
+      addressesInfo={addressesInfo}
+      addressLocalLabel={addressLocalLabel}
+    />
+  );
+}
+
+function TxActionCommonDescription(props: ITxActionCommonDescriptionProps) {
+  const storeAddressMap = useTxActionAddressMap();
+  return storeAddressMap ? (
+    <TxActionCommonDescriptionContent
+      {...props}
+      addressesInfo={storeAddressMap}
+    />
+  ) : (
+    <LegacyTxActionCommonDescription {...props} />
   );
 }
 

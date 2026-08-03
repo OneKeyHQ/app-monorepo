@@ -17,6 +17,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
+import { NativeNetworkSelectorPressable } from './NativeNetworkSelectorPressable';
 
 const MAX_DISPLAY_NETWORKS = 2;
 
@@ -129,50 +130,19 @@ function AllNetworksManagerTrigger({
     return <Stack h={36} />;
   }
 
-  if (enabledNetworksCompatibleWithWalletId.length === 0) {
-    // Dead-end escape hatch: none of the enabled All Networks chains is
-    // compatible with this wallet, so there are no network avatars to show.
-    // Keep the trigger pressable so the user can still open the network
-    // selector and switch to a single chain (or enable a compatible one).
-    return (
-      <XStack
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
-        }}
-        userSelect="none"
-        onPress={handleOnPress}
-        alignItems="center"
-      >
-        <NetworkAvatarBase
-          logoURI={network?.logoURI ?? ''}
-          size="$6"
-          networkName={network?.name}
-          isAllNetworks={network?.isAllNetworks}
-        />
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-      </XStack>
-    );
-  }
-
-  return (
+  const renderTriggerContent = ({
+    nestedInNativePressable,
+    pressed,
+  }: {
+    nestedInNativePressable: boolean;
+    pressed: boolean;
+  }) => (
     <XStack
+      pointerEvents={nestedInNativePressable ? 'none' : undefined}
+      bg={pressed ? '$bgActive' : undefined}
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={nestedInNativePressable ? undefined : { bg: '$bgHover' }}
+      pressStyle={nestedInNativePressable ? undefined : { bg: '$bgActive' }}
       focusable
       focusVisibleStyle={{
         outlineWidth: 2,
@@ -180,54 +150,65 @@ function AllNetworksManagerTrigger({
         outlineStyle: 'solid',
       }}
       userSelect="none"
-      onPress={handleOnPress}
+      onPress={nestedInNativePressable ? undefined : handleOnPress}
       alignItems="center"
     >
-      <XStack alignItems="center">
-        {enabledNetworksCompatibleWithWalletId
-          ?.slice(0, MAX_DISPLAY_NETWORKS)
-          .map((item, index) => (
-            <Stack
-              key={index}
+      {enabledNetworksCompatibleWithWalletId.length === 0 ? (
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          size="$6"
+          networkName={network?.name}
+          isAllNetworks={network?.isAllNetworks}
+        />
+      ) : (
+        <XStack alignItems="center">
+          {enabledNetworksCompatibleWithWalletId
+            .slice(0, MAX_DISPLAY_NETWORKS)
+            .map((item, index) => (
+              <Stack
+                key={index}
+                borderWidth={2}
+                borderColor="$bgApp"
+                borderRadius="$full"
+                zIndex={index}
+                {...(index !== 0 && {
+                  ml: '$-2',
+                })}
+              >
+                <NetworkAvatarBase
+                  logoURI={item?.logoURI}
+                  size="$6"
+                  networkName={item?.name}
+                  isCustomNetwork={item?.isCustomNetwork}
+                />
+              </Stack>
+            ))}
+          {enabledNetworksCompatibleWithWalletId.length >
+          MAX_DISPLAY_NETWORKS ? (
+            <XStack
+              px="$1"
+              bg="$gray5"
+              borderRadius="$full"
+              ml="$-2"
+              zIndex={999}
               borderWidth={2}
               borderColor="$bgApp"
-              borderRadius="$full"
-              zIndex={index}
-              {...(index !== 0 && {
-                ml: '$-2',
-              })}
+              alignItems="center"
+              justifyContent="center"
+              h={28}
             >
-              <NetworkAvatarBase
-                logoURI={item?.logoURI}
-                size="$6"
-                networkName={item?.name}
-                isCustomNetwork={item?.isCustomNetwork}
-              />
-            </Stack>
-          ))}
-        {enabledNetworksCompatibleWithWalletId.length > MAX_DISPLAY_NETWORKS ? (
-          <XStack
-            px="$1"
-            bg="$gray5"
-            borderRadius="$full"
-            ml="$-2"
-            zIndex={999}
-            borderWidth={2}
-            borderColor="$bgApp"
-            alignItems="center"
-            justifyContent="center"
-            h={28}
-          >
-            <SizableText size="$bodySm">
-              +
-              {enabledNetworksCompatibleWithWalletId.length -
-                MAX_DISPLAY_NETWORKS}
-            </SizableText>
-          </XStack>
-        ) : null}
-      </XStack>
+              <SizableText size="$bodySm">
+                +
+                {enabledNetworksCompatibleWithWalletId.length -
+                  MAX_DISPLAY_NETWORKS}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </XStack>
+      )}
       <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-      {enabledNetworksWithoutAccount.length > 0 ? (
+      {enabledNetworksCompatibleWithWalletId.length > 0 &&
+      enabledNetworksWithoutAccount.length > 0 ? (
         <Stack
           position="absolute"
           right="$0"
@@ -256,6 +237,26 @@ function AllNetworksManagerTrigger({
       ) : null}
     </XStack>
   );
+
+  if (platformEnv.isNativeIOS) {
+    return (
+      <NativeNetworkSelectorPressable
+        accessibilityLabel={network?.name}
+        accessibilityRole="button"
+        onPress={handleOnPress}
+        testID="account-network-trigger-button"
+      >
+        {({ pressed }) =>
+          renderTriggerContent({ nestedInNativePressable: true, pressed })
+        }
+      </NativeNetworkSelectorPressable>
+    );
+  }
+
+  return renderTriggerContent({
+    nestedInNativePressable: false,
+    pressed: false,
+  });
 }
 
 export { AllNetworksManagerTrigger };

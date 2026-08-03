@@ -15,7 +15,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAccountSelectorActiveAccountReloadMode,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBAccount,
@@ -75,6 +78,8 @@ export function WebAccountPanelAccountList({
     async (item: IDBAccount | IDBIndexedAccount, isOthers: boolean) => {
       if (isOthers) {
         await actions.current.confirmAccountSelect({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num: 0,
           indexedAccount: undefined,
           othersWalletAccount: item as IDBAccount,
@@ -82,6 +87,8 @@ export function WebAccountPanelAccountList({
         });
       } else {
         await actions.current.confirmAccountSelect({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num: 0,
           indexedAccount: item as IDBIndexedAccount,
           othersWalletAccount: undefined,

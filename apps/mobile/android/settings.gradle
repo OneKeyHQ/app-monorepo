@@ -50,6 +50,14 @@ expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
 
+// The Skeleton churn harness is excluded from the normal application graph.
+// It is only included by the dedicated validation command.
+if (providers.gradleProperty("includeSkeletonChurnHarness").getOrElse("false").toBoolean()) {
+  include ':skeleton-churn-harness'
+  project(':skeleton-churn-harness').projectDir =
+    new File(rootDir, '../../../development/android/react-native-skeleton-churn')
+}
+
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
 includeBuild("build-logic")
 

@@ -1,11 +1,5 @@
-import type { MutableRefObject, RefObject } from 'react';
-import {
-  createContext,
-  createRef,
-  useContext,
-  useEffect,
-  useMemo,
-} from 'react';
+import type { RefObject } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import {
   CommonActions,
@@ -14,10 +8,8 @@ import {
   NavigationContainer as RNNavigationContainer,
 } from '@react-navigation/native';
 
-import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
-import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,44 +24,16 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
+import {
+  rootNavigationRef,
+  tabletMainViewNavigationRef,
+  useCurrentNavigationRef,
+} from './NavigationContainerEvents';
+
 import type { NavigationContainerRef } from '@react-navigation/native';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
-
-export const tabletMainViewNavigationRef =
-  createRef<NavigationContainerRef<any>>();
-export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
-// for background open modal
-appGlobals.$navigationRef = rootNavigationRef as MutableRefObject<
-  NavigationContainerRef<any>
->;
-appGlobals.$tabletMainViewNavigationRef =
-  tabletMainViewNavigationRef as MutableRefObject<NavigationContainerRef<any>>;
-
-export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
-const RouterEventContext = createContext<
-  MutableRefObject<IRouterChangeEvent[]>
->({
-  current: [],
-});
-
-export const useRouterEventsRef = () => useContext(RouterEventContext);
-export const RouterEventProvider = RouterEventContext.Provider;
-
-export const useOnRouterChange = (callback: IRouterChangeEvent) => {
-  const routerRef = useContext(RouterEventContext);
-  useEffect(() => {
-    routerRef.current.push(callback);
-    if (rootNavigationRef.current) {
-      callback?.(rootNavigationRef.current?.getState());
-    }
-    return () => {
-      routerRef.current = routerRef.current.filter((i) => i !== callback);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-};
 
 const useUpdateRootViewBackgroundColor = (
   color: string,
@@ -104,7 +68,7 @@ const useNativeDevTools =
     : () => {};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
-  const isTabletMainView = useSplitMainView();
+  const navigationRef = useCurrentNavigationRef();
   const { theme: themeName, themeSetting } = useSettingConfig();
   const theme = useTheme();
 
@@ -124,17 +88,19 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   }, [theme.bgApp.val, themeName]);
 
   useNativeDevTools({
-    ref: rootNavigationRef as RefObject<NavigationContainerRef<any>>,
+    ref: navigationRef as RefObject<NavigationContainerRef<any>>,
   });
 
   return (
     <RNNavigationContainer
       {...props}
       theme={themeOptions}
-      ref={isTabletMainView ? tabletMainViewNavigationRef : rootNavigationRef}
+      ref={navigationRef}
     />
   );
 }
+
+export * from './NavigationContainerEvents';
 
 const getActiveTabFromRef = (
   ref: typeof rootNavigationRef,

@@ -226,6 +226,24 @@ describe('usePromiseResult', () => {
       expect(swrCacheUtils.get('write-test')).toBe('fresh-value');
     });
 
+    it('keeps a rejected persistence result out of SWR without hiding it', async () => {
+      swrCacheUtils.set('persist-filter-test', 'cached-value');
+      const method = jest.fn(async () => 'transient-value');
+
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [method], {
+          swrKey: 'persist-filter-test',
+          swrShouldPersist: (value) => value !== 'transient-value',
+        }),
+      );
+
+      expect(result.current.result).toBe('cached-value');
+      await waitFor(() => {
+        expect(result.current.result).toBe('transient-value');
+      });
+      expect(swrCacheUtils.get('persist-filter-test')).toBe('cached-value');
+    });
+
     it('overrides explicit initResult with cached value', async () => {
       swrCacheUtils.set('override-test', 'cached-value');
 

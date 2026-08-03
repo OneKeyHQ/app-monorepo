@@ -8,13 +8,18 @@
  *   - the cross-kind `applyOrder` for the PULL apply, and
  *   - the `cancelled` teardown.
  *
+ * Split-runtime native targets do not share the BG and main JS event buses.
+ * The returned `pullLatest` callback lets a main-side BG RPC caller re-read the
+ * native-owned frames after that RPC settles. Desktop/web still receive the
+ * same-runtime push first; the shared version gate makes the later PULL a no-op.
+ *
  * Everything domain-specific stays in the CONSUMER's callbacks (`apply`,
  * `onAfterApply`, `onSetup`) — e.g. the cells producer keeps its storeData
  * re-stamp inside `apply`, its registry register/deregister inside `onSetup`'s
  * returned teardown, and its anonymous-store abort by passing `enabled: false`.
  * The 4-hook surface deliberately does NOT try to absorb those (red-team §4A.3).
  */
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { FrameSubscriberGate } from '@onekeyhq/shared/src/frameChannel';
@@ -36,6 +41,12 @@ export interface IFrameChannelKindSubscription<TKind extends string, TPull> {
   fromPull: (pull: TPull) => unknown | undefined;
 }
 
+export interface IFrameChannelAppliedFrame<TKind extends string> {
+  kind: TKind;
+  ownerKey: string;
+  version: number;
+}
+
 export interface IUseFrameChannelSubscriberParams<TKind extends string, TPull> {
   ownerKey: string;
   /** false to no-op (deps not ready, or an anonymous mount with no identity). */
@@ -48,10 +59,14 @@ export interface IUseFrameChannelSubscriberParams<TKind extends string, TPull> {
   /** domain setup on subscribe; return a teardown (e.g. registry deregister). */
   onSetup?: () => (() => void) | void;
   /** domain post-apply hook per kind (e.g. cold-start persist). */
-  onAfterApply?: (kind: TKind) => void;
+  onAfterApply?: (frame: IFrameChannelAppliedFrame<TKind>) => void;
   /** extra effect deps that should re-run the subscription (e.g. store). */
   extraDeps?: unknown[];
 }
+
+export type IFrameChannelPullLatest = () => Promise<void>;
+
+const noopPullLatest: IFrameChannelPullLatest = async () => undefined;
 
 const busOn = appEventBus.on.bind(appEventBus) as unknown as (
   t: string,
@@ -64,12 +79,14 @@ const busOff = appEventBus.off.bind(appEventBus) as unknown as (
 
 export function useFrameChannelSubscriber<TKind extends string, TPull>(
   params: IUseFrameChannelSubscriberParams<TKind, TPull>,
-): void {
+): IFrameChannelPullLatest {
   const { ownerKey, enabled } = params;
   // Latest params via ref so the effect deps stay minimal/stable; the effect
   // re-runs only on enabled/ownerKey/extraDeps changes (matching the producer).
   const paramsRef = useRef(params);
   paramsRef.current = params;
+  const pullLatestRef = useRef<IFrameChannelPullLatest>(noopPullLatest);
+  const pullLatest = useCallback(() => pullLatestRef.current(), []);
 
   const extraDeps = params.extraDeps ?? [];
 
@@ -92,11 +109,16 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
         k: IFrameChannelKindSubscription<TKind, TPull>,
         framePayload: unknown,
       ): void => {
-        if (!gate.accept(k.kind, k.getVersion(framePayload))) {
+        const version = k.getVersion(framePayload);
+        if (!gate.accept(k.kind, version)) {
           return;
         }
         k.apply(framePayload);
-        p.onAfterApply?.(k.kind);
+        p.onAfterApply?.({
+          kind: k.kind,
+          ownerKey: k.getOwnerKey(framePayload),
+          version,
+        });
       };
 
       const handlers = p.kinds.map((k) => {
@@ -111,9 +133,9 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
       });
 
       let cancelled = false;
-      void p
-        .pull()
-        .then((pulled) => {
+      const pullCurrent = async (): Promise<void> => {
+        try {
+          const pulled = await p.pull();
           if (cancelled || p.getPullOwnerKey(pulled) !== ownerKey) {
             return;
           }
@@ -124,14 +146,19 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
               gateApply(k, framePayload);
             }
           }
-        })
-        .catch(() => {
-          // PULL failure is non-fatal: live pushes keep the list current; the
-          // next owner-change / foreground re-sync re-pulls.
-        });
+        } catch {
+          // PULL failure is non-fatal. Same-runtime pushes can still advance,
+          // while the next owner change or explicit cross-runtime sync retries.
+        }
+      };
+      pullLatestRef.current = pullCurrent;
+      void pullCurrent();
 
       return () => {
         cancelled = true;
+        if (pullLatestRef.current === pullCurrent) {
+          pullLatestRef.current = noopPullLatest;
+        }
         for (const h of handlers) {
           busOff(h.eventName, h.handler);
         }
@@ -141,4 +168,6 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [enabled, ownerKey, ...extraDeps],
   );
+
+  return pullLatest;
 }

@@ -12,16 +12,45 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import {
+  isNativeLaunchReady,
+  useOnboardingLaunchSnapshot,
+} from '../views/Onboarding/components/onboardingLaunchGate';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
+const HOME_CONFIRMED_BALANCE_SNAPSHOT_KEY =
+  'store:homeAccountOverview::ctx:lastConfirmedOverviewBalanceAtom';
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
+
+function hasIndependentHomeStartupOwner(): boolean {
+  const cache = (
+    globalThis as typeof globalThis & {
+      __ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__?: {
+        activeAccount?: { ready?: boolean };
+        owner?: {
+          accountId?: string;
+          walletId?: string;
+        };
+        ownerScopeKey?: string;
+      };
+    }
+  ).__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__;
+  return Boolean(
+    cache?.activeAccount?.ready &&
+    cache.owner?.accountId &&
+    cache.owner.walletId &&
+    cache.ownerScopeKey,
+  );
+}
 
 // EXPERIMENT: dismiss splash immediately when SplashProvider mounts — skip
 // waiting for HomePageReady / PendingInstallTaskProcessFinished.
 // Uses a synchronous state update (no setTimeout) so the main-thread-busy
 // window doesn't starve the dismissal. Trades "guaranteed balance on first
 // visible frame" for ~300-500ms perceived TTI gain.
+// Native Home launches with an independent owner cache still wait for the
+// existing launch gate to confirm that a visible Home generation committed.
 // Tests that need to exercise the original cache-aware dismissal logic can
 // set `globalThis.__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT = true` before
 // loading this module.
@@ -56,8 +85,8 @@ function logSplashProvider(message: string) {
  *
  *  For the fast path to pay off the snapshot must provide, simultaneously:
  *    (1) `lastConfirmedOverviewBalanceAtom.byOwner` is non-empty
- *    (2) `accountSelector@home::activeAccountsAtom[0]` is hydrated with
- *         a concrete `{ account.id, network.id }` pair
+ *    (2) the independent latest Home active-account cache provides a
+ *         concrete `{ account.id, network.id }` pair
  *    (3) `byOwner[`${account.id}__${network.id}`]` is a non-empty string
  *        (exact ownerKey hit — otherwise HomeOverviewContainer won't read
  *        it on the first frame)
@@ -77,35 +106,29 @@ function hasBalanceCacheInSnapshot(): boolean {
 
   // (1) byOwner must be non-empty — it is the only source of
   //     currentConfirmedBalance on the first render frame.
-  const balanceKey = Object.keys(snapshot).find((key) =>
-    key.includes('ctx:lastConfirmedOverviewBalanceAtom'),
-  );
-  const balanceValue = balanceKey
-    ? (snapshot[balanceKey] as { byOwner?: Record<string, unknown> } | null)
-    : null;
+  const balanceValue = snapshot[HOME_CONFIRMED_BALANCE_SNAPSHOT_KEY] as
+    | { byOwner?: Record<string, unknown> }
+    | null
+    | undefined;
   const byOwner =
     balanceValue?.byOwner && Object.keys(balanceValue.byOwner).length > 0
       ? balanceValue.byOwner
       : undefined;
   if (!byOwner) return false;
 
-  // (2) The Home account selector's activeAccounts must already be
-  //     hydrated at num=0, which is what `HomeOverviewContainer` reads
-  //     to compute `currentOverviewOwnerKey` on mount.
-  const activeKey = Object.keys(snapshot).find(
-    (key) =>
-      key.includes('accountSelector@home') &&
-      key.includes('ctx:activeAccountsAtom'),
-  );
-  const activeValue = activeKey
-    ? (snapshot[activeKey] as Record<
-        number,
-        { account?: { id?: string }; network?: { id?: string } } | undefined
-      > | null)
-    : null;
-  const homeActive = activeValue?.[0];
-  const accountId = homeActive?.account?.id;
-  const networkId = homeActive?.network?.id;
+  // (2) Read the independently pre-parsed Home owner seed.
+  const latestHomeActiveAccount = (
+    globalThis as typeof globalThis & {
+      __ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__?: {
+        activeAccount?: {
+          account?: { id?: string };
+          network?: { id?: string };
+        };
+      };
+    }
+  ).__ONEKEY_HOME_LATEST_ACTIVE_ACCOUNT_CACHE__?.activeAccount;
+  const accountId = latestHomeActiveAccount?.account?.id;
+  const networkId = latestHomeActiveAccount?.network?.id;
   if (!accountId || !networkId) return false;
 
   // (3) The ownerKey HomeOverviewContainer will compute must land in
@@ -177,8 +200,14 @@ export const useCanDismissSplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
         const hasCachedStates = hasBalanceCacheInSnapshot();
+        const launchSnapshot = useOnboardingLaunchSnapshot();
+        const shouldGateNativeHomeSurface =
+          platformEnv.isNative && hasIndependentHomeStartupOwner();
+        const nativeHomeSurfaceReady =
+          !shouldGateNativeHomeSurface || isNativeLaunchReady(launchSnapshot);
 
         const [canDismissSplash, setCanDismissSplash] = useState(false);
+        const [safetyDismissed, setSafetyDismissed] = useState(false);
         const hasLaunchCallbackStartedRef = useRef(false);
 
         // EXPERIMENT short-circuit: synchronous dismiss on mount. No setTimeout —
@@ -201,6 +230,7 @@ export const useCanDismissSplash =
               `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash hide`,
             );
             logSplashProvider('safety timer fired');
+            setSafetyDismissed(true);
             setCanDismissSplash(true);
           }, SPLASH_SAFETY_TIMEOUT);
           return () => clearTimeout(timer);
@@ -293,10 +323,12 @@ export const useCanDismissSplash =
         }, [hasCachedStates]);
 
         useEffect(() => {
-          logSplashProvider(`canDismissSplash=${canDismissSplash}`);
-        }, [canDismissSplash]);
+          logSplashProvider(
+            `canDismissSplash=${canDismissSplash}, nativeHomeSurfaceReady=${nativeHomeSurfaceReady}`,
+          );
+        }, [canDismissSplash, nativeHomeSurfaceReady]);
 
-        return canDismissSplash;
+        return safetyDismissed || (canDismissSplash && nativeHomeSurfaceReady);
       }
     : useCanDismissSplashForOtherPlatforms;
 

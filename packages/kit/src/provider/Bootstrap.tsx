@@ -70,6 +70,7 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import { appLaunchStateStorage } from '@onekeyhq/shared/src/storage/launchStateStorage';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -662,7 +663,7 @@ export const useCheckUpdateOnDesktop =
 export const useClearStorageOnExtension = platformEnv.isExtension
   ? () => {
       useEffect(() => {
-        appEventBus.on(EAppEventBusNames.ClearStorageOnExtension, () => {
+        const handleClearStorage = ({ requestId }: { requestId: string }) => {
           try {
             globalThis.localStorage.clear();
           } catch {
@@ -673,7 +674,21 @@ export const useClearStorageOnExtension = platformEnv.isExtension
           } catch {
             console.error('window.sessionStorage.clear() error');
           }
-        });
+          appLaunchStateStorage.markOnboardingPending();
+          appEventBus.emit(EAppEventBusNames.ClearStorageOnExtensionDone, {
+            requestId,
+          });
+        };
+        appEventBus.on(
+          EAppEventBusNames.ClearStorageOnExtension,
+          handleClearStorage,
+        );
+        return () => {
+          appEventBus.off(
+            EAppEventBusNames.ClearStorageOnExtension,
+            handleClearStorage,
+          );
+        };
       }, []);
     }
   : noop;

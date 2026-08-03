@@ -31,6 +31,8 @@ const outDir = path.resolve(mobileDirPath, 'out-dir-analysis');
 const distDir = path.resolve(mobileDirPath, 'dist');
 
 process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+process.env.ENABLE_NATIVE_BACKGROUND_THREAD =
+  process.env.ENABLE_NATIVE_BACKGROUND_THREAD ?? 'true';
 if (process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true') {
   process.env.SPLIT_BUNDLE = process.env.SPLIT_BUNDLE || '1';
   process.env.SPLIT_BUNDLE_SEGMENTS =

@@ -57,6 +57,7 @@ import {
   flushColdStartCacheNow,
   primeColdStartCacheMap,
   readAllColdStartEntriesFromIdb,
+  readColdStartEntriesForHydration,
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
@@ -283,13 +284,22 @@ const promise: Promise<void> = (async () => {
     );
     try {
       const result = await withTimeout(
-        readAllColdStartEntriesFromIdb(),
+        readColdStartEntriesForHydration(),
         HYDRATION_TIMEOUT_MS,
       );
       const entriesToPrime: [string, unknown][] = [];
       const swrCache = result?.get(SWR_CACHE_KEY);
       if (typeof swrCache === 'string') {
         entriesToPrime.push([SWR_CACHE_KEY, swrCache]);
+      }
+      const latestHomeOwner = result?.get(
+        EAppSyncStorageKeys.onekey_home_latest_active_account,
+      );
+      if (typeof latestHomeOwner === 'string') {
+        entriesToPrime.push([
+          EAppSyncStorageKeys.onekey_home_latest_active_account,
+          latestHomeOwner,
+        ]);
       }
       if (result) {
         const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
@@ -328,7 +338,7 @@ const promise: Promise<void> = (async () => {
   let entries: Map<string, unknown>;
   try {
     const result = await withTimeout(
-      readAllColdStartEntriesFromIdb(),
+      readColdStartEntriesForHydration(),
       HYDRATION_TIMEOUT_MS,
     );
     if (result === undefined) {
@@ -431,6 +441,14 @@ const promise: Promise<void> = (async () => {
   // didHydrate is driven by this — it is the only layer whose presence affects
   // first paint now that L1 is removed. L3 hits the primed map lazily and has
   // no observable mount-time signal.
+  const {
+    readHomeLatestActiveAccountCache,
+    setHomeLatestActiveAccountCacheGlobal,
+  } = await import('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache');
+  const homeLatestActiveAccount = readHomeLatestActiveAccountCache();
+  if (homeLatestActiveAccount) {
+    setHomeLatestActiveAccountCacheGlobal(homeLatestActiveAccount);
+  }
   const ctxSnapshot = normalizeSwapColdStartCacheSnapshot(
     parseL2CtxSnapshot(entries),
   );

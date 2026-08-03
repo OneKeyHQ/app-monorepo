@@ -6,7 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAccountSelectorActiveAccountReloadMode,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   EAppEventBusNames,
@@ -262,6 +265,8 @@ function AccountChainSelector({
       }
 
       void actions.current.updateSelectedAccountNetwork({
+        activeAccountReloadMode:
+          EAccountSelectorActiveAccountReloadMode.Immediate,
         num,
         networkId: item.id,
       });

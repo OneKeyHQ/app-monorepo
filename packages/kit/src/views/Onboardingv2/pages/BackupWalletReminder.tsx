@@ -26,6 +26,7 @@ import type {
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { WalletBackupTestIDs } from '../../../components/WalletBackup/testIDs';
 import { useRecoveryPhraseProtected } from '../../../hooks/useRecoveryPhraseProtected/useRecoveryPhraseProtected';
 import {
   OnboardingHeading,
@@ -270,7 +271,7 @@ export default function BackupWalletReminder() {
   );
 
   return (
-    <OnboardingPage scrollable>
+    <OnboardingPage scrollable testID={WalletBackupTestIDs.reminderPage}>
       <YStack $md={{ flex: 1 }} $gtMd={{ flexDirection: 'row' }}>
         <YStack gap="$8" $gtMd={{ flex: 1, gap: '$12' }}>
           <YStack gap="$2">{headerContent}</YStack>
@@ -335,7 +336,7 @@ export default function BackupWalletReminder() {
                     })}
                   </SizableText>
                   <Button
-                    testID="onboardingv2-btn"
+                    testID={WalletBackupTestIDs.confirmSavedPhrase}
                     variant="primary"
                     size="large"
                     onPress={handleSavedPhrase}
@@ -364,7 +365,7 @@ export default function BackupWalletReminder() {
                   </SizableText>
                 ) : null}
                 <Button
-                  testID="onboardingv2-btn"
+                  testID={WalletBackupTestIDs.showRecoveryPhrase}
                   size="large"
                   variant="primary"
                   onPress={handleShowPhrase}

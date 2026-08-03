@@ -183,6 +183,16 @@ target 'OneKeyWallet' do
     end
     installer.pods_project.targets.each do |target|
 
+      # The app's minimum is newer than several transitive podspec defaults.
+      # Swift modules that import ExpoModulesCore must compile with at least
+      # the same 15.1 target, otherwise module validation rejects the import.
+      target.build_configurations.each do |config|
+        configured_target = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if configured_target.nil? || Gem::Version.new(configured_target) < Gem::Version.new('15.1')
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        end
+      end
+
       # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
       if target.name == 'RNJuiceboxSdk'
         target.build_configurations.each do |config|

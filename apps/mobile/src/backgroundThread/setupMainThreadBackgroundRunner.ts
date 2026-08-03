@@ -55,7 +55,10 @@ import {
   BACKGROUND_THREAD_READY_KEY,
   parseBackgroundThreadRuntimePayload,
 } from './runtimeReady';
-import { setBackgroundThreadReadyPayload } from './runtimeState';
+import {
+  classifyBackgroundThreadReadyReason,
+  setBackgroundThreadReadyPayload,
+} from './runtimeState';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
@@ -124,7 +127,9 @@ function getAsyncStorageWriteArgSummary(
 
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
-const READY_TIMEOUT_MS = 10_000;
+// Metro may spend several minutes compiling the background bundle on the first
+// debug launch. Release bundles are embedded and retain the strict timeout.
+const READY_TIMEOUT_MS = platformEnv.isDev ? 5 * 60_000 : 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
 // Main AsyncStorage writes are serialized. Allow one same-boot retry after the
@@ -836,20 +841,23 @@ function dispatchQueuedCallsToRemote() {
     return;
   }
 
-  queuedFlushPromise = queuedCallsSnapshot
-    .reduce<Promise<void>>((promise, queuedCall) => {
-      return promise.finally(async () => {
-        try {
-          const result = await dispatchRemoteRequest(
-            queuedCall.request,
-            queuedCall.localFallback,
-          );
-          queuedCall.resolve(result);
-        } catch (error) {
-          queuedCall.reject(error);
-        }
-      });
-    }, Promise.resolve())
+  // Dispatch in queue order without serializing on each response. SharedRPC
+  // writes remain ordered, while independent startup reads can execute in the
+  // background runtime concurrently once it is ready.
+  queuedFlushPromise = Promise.all(
+    queuedCallsSnapshot.map(async (queuedCall) => {
+      try {
+        const result = await dispatchRemoteRequest(
+          queuedCall.request,
+          queuedCall.localFallback,
+        );
+        queuedCall.resolve(result);
+      } catch (error) {
+        queuedCall.reject(error);
+      }
+    }),
+  )
+    .then(() => undefined)
     .finally(() => {
       queuedFlushPromise = undefined;
     });
@@ -877,18 +885,19 @@ function handleRuntimeSignal() {
   }
 
   const previousBootId = currentBackgroundRuntimeBootId;
-  const bootIdChanged = Boolean(
-    previousBootId && previousBootId !== runtimePayload.bootId,
-  );
+  const readyReason = classifyBackgroundThreadReadyReason({
+    nextBootId: runtimePayload.bootId,
+    previousBootId,
+    transportState,
+  });
   currentBackgroundRuntimeBootId = runtimePayload.bootId;
 
   if (transportState === 'ready') {
-    if (bootIdChanged) {
+    if (readyReason === 'restarted') {
       const reason = `Background runtime restarted while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`;
       transportLog(
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
-      setBackgroundThreadReadyPayload(runtimePayload);
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -896,6 +905,7 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      setBackgroundThreadReadyPayload(runtimePayload, 'restarted');
     }
     return;
   }
@@ -914,7 +924,7 @@ function handleRuntimeSignal() {
     `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
   );
   clearReadyTimeoutTimer();
-  setBackgroundThreadReadyPayload(runtimePayload);
+  setBackgroundThreadReadyPayload(runtimePayload, readyReason);
   dispatchQueuedCallsToRemote();
 }
 

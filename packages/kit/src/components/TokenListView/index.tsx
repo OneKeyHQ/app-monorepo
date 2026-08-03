@@ -70,6 +70,10 @@ import { ListLoading } from '../Loading';
 
 import { computeShowTokenListSkeleton } from './computeShowTokenListSkeleton';
 import { computeTokenListOwnerMismatch } from './computeTokenListOwnerMismatch';
+import {
+  resolveHomeTokenProjectionBase,
+  selectHomeTokensByStoreIds,
+} from './homeStoreDisplayAuthority';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -128,6 +132,9 @@ type IProps = {
   scopedActiveAccountTokenList?: IScopedActiveTokenList;
   scopedActiveAccountTokenListState?: IScopedActiveTokenListState;
   scopedActiveAccountTokenListMap?: Record<string, ITokenFiat>;
+  // Home controllers own network metadata together with the portfolio source.
+  // Supplying this map keeps the Home renderer from starting its own BG fetch.
+  hostNetworksMap?: Record<string, IServerNetwork>;
   // TokenSelector self-fetched data threaded as props (tokenList cells
   // full-delete plan, PR-3). Consumed ONLY on the `isTokenSelector` branch so
   // the selector no longer reads `tokenListAtom`/`tokenListMapAtom`/
@@ -225,6 +232,11 @@ type IProps = {
   // callers (AssetList, TokenSelector) leave it unset so leaves keep reading
   // the whole `tokenListMap` (cells are empty without a producer).
   enableCellSeam?: boolean;
+  /**
+   * Home Store row authority. `undefined` permits the owner-scoped cold-start
+   * fallback; a defined array, including `[]`, forbids local row fallback.
+   */
+  homeStoreDisplayIds?: readonly string[];
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -281,6 +293,7 @@ function TokenListViewCmp(props: IProps) {
     hostAggregateTokenFiatMap,
     scopedActiveAccountTokenList,
     scopedActiveAccountTokenListState,
+    homeStoreDisplayIds,
   } = props;
 
   const intl = useIntl();
@@ -459,6 +472,11 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = tokenList.tokens;
     }
 
+    resultTokens = selectHomeTokensByStoreIds({
+      homeStoreDisplayIds,
+      tokens: resultTokens,
+    });
+
     if (hideZeroBalanceTokens) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
@@ -545,6 +563,7 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     customTokens,
     exchangeFilter,
+    homeStoreDisplayIds,
   ]);
 
   // PR-7: the legacy per-owner `renderedTokenListCache` PERSIST write was
@@ -696,12 +715,18 @@ function TokenListViewCmp(props: IProps) {
     // not emitted any ids, fall back to the legacy path so cached tokens still
     // render instead of an empty flash.
     if (
-      listStructure.generation < 0 ||
-      (listStructure.orderedIds.length === 0 &&
+      (homeStoreDisplayIds === undefined && listStructure.generation < 0) ||
+      (homeStoreDisplayIds === undefined &&
+        listStructure.orderedIds.length === 0 &&
         listStructure.smallBalanceIds.length === 0)
     ) {
       return undefined;
     }
+    const projectionBase = resolveHomeTokenProjectionBase({
+      homeStoreDisplayIds,
+      localOrderedIds: listStructure.orderedIds,
+      localSmallBalanceIds: listStructure.smallBalanceIds,
+    });
     const s = tokenListStore;
     const getMeta = (key: string) => s.get(metaCell(s, key));
     const getFiat = (key: string) => {
@@ -711,8 +736,8 @@ function TokenListViewCmp(props: IProps) {
         : s.get(cell(s, key));
     };
     const projected = projectHomeDisplayIds({
-      orderedIds: listStructure.orderedIds,
-      smallBalanceIds: listStructure.smallBalanceIds,
+      orderedIds: projectionBase.orderedIds,
+      smallBalanceIds: projectionBase.smallBalanceIds,
       nonZeroIds: listStructure.nonZeroIds,
       searchKey,
       searchKeyLengthThreshold,
@@ -740,6 +765,7 @@ function TokenListViewCmp(props: IProps) {
     // recreate the store, masking it.
     listStructure.ownerKey,
     listStructure.generation,
+    homeStoreDisplayIds,
     searchKey,
     searchKeyLengthThreshold,
     sortType,
@@ -839,6 +865,12 @@ function TokenListViewCmp(props: IProps) {
     isHomeProjectionPath && homeProjectedIds
       ? homeProjectedIds.length
       : filteredTokens.length;
+  const homeStoreEntitiesPending = Boolean(
+    homeStoreDisplayIds !== undefined &&
+    isHomeProjectionPath &&
+    homeDisplayIdsLimited &&
+    homeDisplayIdsLimited.length > listData.length,
+  );
 
   const [, setIsInRequest] = useState(false);
   useEffect(() => {
@@ -877,7 +909,7 @@ function TokenListViewCmp(props: IProps) {
         tokenSelectorSearchTokenList.searchKey ?? '',
       tokenSelectorSearchKey,
       filteredTokensLength: filteredTokens.length,
-      ownerMismatch,
+      ownerMismatch: homeStoreDisplayIds === undefined ? ownerMismatch : false,
       tokenSelectorInitialized: !!tokenSelectorInitialized,
       tokenSelectorSearchTokenStateIsSearching:
         tokenSelectorSearchTokenState.isSearching,
@@ -886,9 +918,11 @@ function TokenListViewCmp(props: IProps) {
       tokenListIsRefreshing: tokenListState.isRefreshing,
       displayCount,
     });
-    return decision;
+    return homeStoreEntitiesPending || decision;
   }, [
     ownerMismatch,
+    homeStoreDisplayIds,
+    homeStoreEntitiesPending,
     isTokenSelector,
     tokenSelectorInitialized,
     searchAll,
@@ -1306,16 +1340,18 @@ const TokenListView = memo((props: IProps) => {
 
   const needNetworksMap =
     !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
+  const shouldFetchNetworksMap =
+    needNetworksMap && !props.enableCellSeam && !props.hostNetworksMap;
   const { result: allNetworksResp } = usePromiseResult<{
     networks: IServerNetwork[];
   }>(
     async () => {
-      if (!needNetworksMap) {
+      if (!shouldFetchNetworksMap) {
         return { networks: [] };
       }
       return backgroundApiProxy.serviceNetwork.getAllNetworks();
     },
-    [needNetworksMap],
+    [shouldFetchNetworksMap],
     {
       initResult: { networks: [] },
     },
@@ -1324,13 +1360,16 @@ const TokenListView = memo((props: IProps) => {
     if (!needNetworksMap) {
       return undefined;
     }
+    if (props.hostNetworksMap) {
+      return props.hostNetworksMap;
+    }
     const networks = allNetworksResp?.networks ?? [];
     const map: Record<string, IServerNetwork> = {};
     for (const n of networks) {
       map[n.id] = n;
     }
     return map;
-  }, [needNetworksMap, allNetworksResp]);
+  }, [needNetworksMap, props.hostNetworksMap, allNetworksResp]);
 
   const contextValue = useMemo(() => {
     return {

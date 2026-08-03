@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { AddressTypeScene } from './scenes/addressType';
 import { WalletBalanceScene } from './scenes/balance';
+import { HomeUiScene } from './scenes/homeUi';
 import { KeylessScene } from './scenes/keyless';
 import { WalletActionsScene } from './scenes/walletActions';
 import { WalletBannerScene } from './scenes/walletBanner';
@@ -19,4 +20,6 @@ export class WalletScope extends BaseScope {
   addressType = this.createScene('addressType', AddressTypeScene);
 
   keyless = this.createScene('keyless', KeylessScene);
+
+  homeUi = this.createScene('homeUi', HomeUiScene);
 }

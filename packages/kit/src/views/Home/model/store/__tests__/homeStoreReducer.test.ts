@@ -1,0 +1,1768 @@
+import { getHomeSourceKeyIdentity } from '../../core/homeIdentity';
+import { adaptCurrentHomeBalanceFacts } from '../../facts/currentHomeBalanceFactsAdapter';
+import { createIdleHomeSourceFacts } from '../../facts/homeFacts';
+import {
+  HOME_SECTION_ACTION_IDS,
+  HOME_SHELL_ACTION_IDS,
+} from '../homeStoreCommandIds';
+import { createInitialHomeStoreState } from '../homeStoreInitialState';
+import {
+  applyHomeStorePatchToState,
+  reduceHomeStore,
+} from '../homeStoreReducer';
+
+import type { IHomeFacts } from '../../facts/homeFacts';
+import type { IHomeSectionId } from '../../semantic/homeSemanticTypes';
+import type {
+  IHomeStoreEvent,
+  IHomeStoreRequestToken,
+  IHomeStoreSectionSourceResult,
+  IHomeStoreState,
+} from '../homeStoreTypes';
+
+const owner = {
+  walletId: 'wallet-a',
+  accountId: 'account-a',
+  network: { kind: 'allNetworks' as const },
+};
+const ownerToken = { scopeKey: 'owner-a', sessionId: 'session-a' };
+
+function dispatch(
+  state: IHomeStoreState,
+  event: IHomeStoreEvent,
+): IHomeStoreState {
+  return applyHomeStorePatchToState(
+    state,
+    reduceHomeStore(state, event).patch.mutations,
+  );
+}
+
+function createOwnedState(): IHomeStoreState {
+  return dispatch(createInitialHomeStoreState(), {
+    type: 'ownerChanged',
+    owner,
+    ownerToken,
+    topology: 'split',
+  });
+}
+
+function createBaseFacts(): IHomeFacts {
+  return {
+    owner,
+    ownerToken,
+    wallet: {
+      ready: true,
+      hasNetworkAccount: true,
+      backupStatus: 'complete',
+      accountType: 'hd',
+    },
+    environment: { theme: 'light' },
+    runtime: {
+      topology: 'split',
+      connection: 'ready',
+    },
+    capabilityInputs: createInitialHomeStoreState().capabilityInputs,
+    sources: createIdleHomeSourceFacts(),
+    confirmed: {},
+  };
+}
+
+function withCapability(
+  state: IHomeStoreState,
+  perpsDestination: 'inline' | 'web',
+): IHomeStoreState {
+  const available = {
+    defi: 'available' as const,
+    history: 'available' as const,
+    market: 'available' as const,
+    nft: 'unavailable' as const,
+    perps: 'available' as const,
+  };
+  return dispatch(state, {
+    type: 'capabilityChanged',
+    facts: {
+      ownerToken,
+      sourceKeyIdentity: `capability-${perpsDestination}`,
+      resource: {
+        kind: 'complete',
+        coverageFingerprint: `coverage-${perpsDestination}`,
+        context: {
+          accountType: 'hd',
+          allNetworks: true,
+          networkFamily: 'allNetworks',
+          perpsDestination,
+          productAvailability: available,
+          serverConfig: available,
+        },
+      },
+    },
+  });
+}
+
+function createToken(): IHomeStoreRequestToken<'defi'> {
+  return {
+    clientInstanceId: 'client-a',
+    producerInstanceId: 'producer-a',
+    sessionId: ownerToken.sessionId,
+    sourceKey: {
+      scopeKey: ownerToken.scopeKey,
+      sourceId: 'defi',
+      paramsFingerprint: 'defi-a',
+      dataSchemaVersion: 1,
+    },
+  };
+}
+
+function dispatchSectionResult(
+  state: IHomeStoreState,
+  sectionId: IHomeSectionId,
+  result: IHomeStoreSectionSourceResult,
+): IHomeStoreState {
+  const token: IHomeStoreRequestToken<IHomeSectionId> = {
+    ...createToken(),
+    sourceKey: {
+      ...createToken().sourceKey,
+      sourceId: sectionId,
+      paramsFingerprint: `${sectionId}-a`,
+    },
+  };
+  const requested = dispatch(state, { type: 'sourceRequested', token });
+  if (result.kind === 'loading') {
+    return requested;
+  }
+  if (result.kind === 'hidden') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'hidden', reason: result.reason },
+      },
+    });
+  }
+  if (result.kind === 'empty') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'empty', coverageFingerprint: `${sectionId}:empty` },
+      },
+    });
+  }
+  if (result.kind === 'error') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'error', errorKind: 'source' },
+      },
+    });
+  }
+  if (result.kind === 'partial') {
+    return dispatch(requested, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: {
+          kind: 'partial',
+          data: {
+            payload: result.data,
+            section: { kind: 'loading' },
+          },
+          coverageFingerprint: result.coverageFingerprint,
+        },
+      },
+    });
+  }
+  return dispatch(requested, {
+    type: 'sourceResponded',
+    envelope: {
+      token,
+      result: {
+        kind: 'success',
+        data: {
+          payload: result.data ?? null,
+          section: {
+            kind: 'ready',
+            rowIds: result.rowIds,
+            priority: result.priority,
+            refresh: result.refresh,
+          },
+        },
+        coverageFingerprint: JSON.stringify(result.rowIds),
+      },
+    },
+  });
+}
+
+describe('Home Store reducer', () => {
+  it('is idempotent for an identical owner event', () => {
+    const state = createOwnedState();
+    const transition = reduceHomeStore(state, {
+      type: 'ownerChanged',
+      owner,
+      ownerToken,
+      topology: 'split',
+    });
+    expect(transition.patch.mutations).toHaveLength(0);
+    expect(applyHomeStorePatchToState(state, transition.patch.mutations)).toBe(
+      state,
+    );
+  });
+
+  it('keeps Navigation and Sections stable for a wallet-input Shell change', () => {
+    const state = createOwnedState();
+    const next = dispatch(state, {
+      type: 'factsChanged',
+      facts: {
+        owner,
+        ownerToken,
+        wallet: {
+          ready: true,
+          hasNetworkAccount: false,
+          backupStatus: 'complete',
+          accountType: 'hd',
+        },
+        environment: { theme: 'light' },
+        runtime: {
+          topology: 'split',
+          connection: 'ready',
+        },
+        capabilityInputs: state.capabilityInputs,
+        sources: createIdleHomeSourceFacts(),
+        confirmed: {},
+      },
+    });
+    expect(next.shell).not.toBe(state.shell);
+    expect(next.navigation).toBe(state.navigation);
+    expect(next.sections).toBe(state.sections);
+    expect(next.resources).toBe(state.resources);
+  });
+
+  it('keeps the confirmed presentation during an incomplete round', () => {
+    let state = createOwnedState();
+    const publishBalance = (
+      amount: string,
+      observedAt: number,
+      status: 'partial' | 'success',
+    ) => {
+      const base = createBaseFacts();
+      const balance = adaptCurrentHomeBalanceFacts({
+        bannerAvailable: false,
+        contributors: [
+          {
+            amount,
+            coverageFingerprint:
+              status === 'success'
+                ? 'portfolio-confirmed'
+                : 'portfolio-refreshing',
+            expectedSourceScopeKey: ownerToken.scopeKey,
+            id: 'portfolio',
+            included: true,
+            positiveEvidence: true,
+            sourceIdentity: 'portfolio-source',
+            sourceScopeKey: ownerToken.scopeKey,
+            status,
+          },
+        ],
+        ownerToken,
+        quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+        requiredSetRevision: 'portfolio',
+      });
+      state = dispatch(state, {
+        type: 'balanceChanged',
+        facts: { ...base, balance },
+        observedAt,
+      });
+    };
+
+    publishBalance('11.61', 1, 'success');
+    const stableShell = state.shell;
+    publishBalance('11.62', 2, 'partial');
+
+    expect(state.confirmedBalance?.amount).toBe('11.61');
+    expect(state.shell).not.toBe(stableShell);
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        header: {
+          balance: { amount: '11.61' },
+        },
+        refresh: 'refreshing',
+      },
+    });
+    expect(state.shell.actionsPresentationRevision).toBe(
+      stableShell.actionsPresentationRevision,
+    );
+    expect(state.shell.bannerPresentationRevision).toBe(
+      stableShell.bannerPresentationRevision,
+    );
+  });
+
+  it('keeps a live zero verdict stable during same-owner refresh', () => {
+    const createBalance = ({
+      amount,
+      positiveEvidence,
+      status,
+    }: {
+      amount?: string;
+      positiveEvidence: boolean;
+      status: 'loading' | 'partial' | 'success';
+    }) =>
+      adaptCurrentHomeBalanceFacts({
+        bannerAvailable: false,
+        contributors: [
+          {
+            amount,
+            coverageFingerprint:
+              status === 'success' ? 'portfolio-live' : undefined,
+            expectedSourceScopeKey: ownerToken.scopeKey,
+            id: 'portfolio',
+            included: true,
+            positiveEvidence,
+            sourceIdentity: 'portfolio-source',
+            sourceScopeKey: ownerToken.scopeKey,
+            status,
+          },
+        ],
+        ownerToken,
+        quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+        requiredSetRevision: 'portfolio',
+      });
+
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          amount: '0',
+          positiveEvidence: false,
+          status: 'success',
+        }),
+      },
+      observedAt: 1,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'zero' },
+    });
+    const zeroActionsRevision = state.shell.actionsPresentationRevision;
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          positiveEvidence: false,
+          status: 'loading',
+        }),
+      },
+      observedAt: 2,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'zero' },
+    });
+    expect(state.shell.actionsPresentationRevision).toBe(zeroActionsRevision);
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: {
+        ...createBaseFacts(),
+        balance: createBalance({
+          amount: '2',
+          positiveEvidence: true,
+          status: 'partial',
+        }),
+      },
+      observedAt: 3,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'zero', refresh: 'refreshing' },
+    });
+    expect(state.shell.actionsPresentationRevision).toBe(zeroActionsRevision);
+  });
+
+  it('hydrates a cached Header during loading and lets network data replace it', () => {
+    const createBalance = (
+      status: 'error' | 'loading' | 'success',
+      amount?: string,
+    ) =>
+      adaptCurrentHomeBalanceFacts({
+        bannerAvailable: false,
+        contributors: [
+          {
+            amount,
+            coverageFingerprint:
+              status === 'success' ? 'portfolio-live' : undefined,
+            expectedSourceScopeKey: ownerToken.scopeKey,
+            id: 'portfolio',
+            included: true,
+            positiveEvidence: status === 'success',
+            sourceIdentity: 'portfolio-source',
+            sourceScopeKey: ownerToken.scopeKey,
+            status,
+          },
+        ],
+        ownerToken,
+        quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+        requiredSetRevision: 'portfolio',
+      });
+
+    const loadingBalance = createBalance('loading');
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: loadingBalance },
+      observedAt: 1,
+    });
+    state = dispatchSectionResult(state, 'portfolio', {
+      kind: 'ready',
+      rowIds: ['cached-asset'],
+      priority: 1,
+      refresh: 'idle',
+    });
+    expect(state.balanceRound).toBe(loadingBalance);
+    expect(state.resources.portfolio).toMatchObject({
+      kind: 'ready',
+      priority: 1,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'loading' },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'none' },
+          priority: 0,
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.balanceRound).toBe(loadingBalance);
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        header: {
+          authority: 'confirmedCache',
+          balance: { amount: '42.50', currency: 'usd' },
+        },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: loadingBalance },
+      observedAt: 2,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: createBaseFacts(),
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const failedBalance = createBalance('error');
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: failedBalance },
+      observedAt: 3,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        refresh: 'failed',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const liveBalance = createBalance('success', '84.25');
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: liveBalance },
+      observedAt: 4,
+    });
+    expect(state.balanceRound).toBe(liveBalance);
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 1,
+        header: {
+          authority: 'live',
+          balance: { amount: '84.25', currency: 'usd' },
+        },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'zero',
+          header: {
+            kind: 'zero',
+            balance: { amount: '0', currency: 'usd' },
+          },
+          actions: { kind: 'zero', items: ['receive'] },
+          banner: { kind: 'none' },
+          priority: 0,
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 1,
+        header: { balance: { amount: '84.25' } },
+      },
+    });
+  });
+
+  it('keeps a hydrated Header when the first owner facts are still loading', () => {
+    let state = createOwnedState();
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'positive' },
+          priority: 0,
+          refresh: 'refreshing',
+        },
+      },
+    });
+    expect(state.facts).toBeUndefined();
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: createBaseFacts(),
+    });
+
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    const partialBalance = adaptCurrentHomeBalanceFacts({
+      bannerAvailable: true,
+      contributors: [
+        {
+          amount: '7.50',
+          coverageFingerprint: 'portfolio-partial',
+          expectedSourceScopeKey: ownerToken.scopeKey,
+          id: 'portfolio',
+          included: true,
+          positiveEvidence: true,
+          sourceIdentity: 'portfolio-source',
+          sourceScopeKey: ownerToken.scopeKey,
+          status: 'partial',
+        },
+      ],
+      ownerToken,
+      quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+      requiredSetRevision: 'portfolio',
+    });
+    state = dispatch(state, {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: partialBalance },
+      observedAt: 1,
+    });
+
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+  });
+
+  it('hydrates a failed cached Header unless a hard owner state wins', () => {
+    const failedBalance = adaptCurrentHomeBalanceFacts({
+      bannerAvailable: false,
+      contributors: [
+        {
+          expectedSourceScopeKey: ownerToken.scopeKey,
+          id: 'portfolio',
+          included: true,
+          positiveEvidence: false,
+          sourceIdentity: 'portfolio-source',
+          sourceScopeKey: ownerToken.scopeKey,
+          status: 'error',
+        },
+      ],
+      ownerToken,
+      quoteBasis: { currency: 'usd', pricingRevision: 'rates-1' },
+      requiredSetRevision: 'portfolio',
+    });
+    const cachedShell = {
+      kind: 'portfolio' as const,
+      presentation: {
+        kind: 'funded' as const,
+        header: {
+          kind: 'funded' as const,
+          authority: 'confirmedCache' as const,
+          balance: { amount: '42.50', currency: 'usd' },
+        },
+        actions: {
+          kind: 'funded' as const,
+          items: ['send', 'receive', 'buySell', 'swap'] as const,
+        },
+        banner: { kind: 'none' as const },
+        priority: 0 as const,
+        refresh: 'refreshing' as const,
+      },
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'balanceChanged',
+      facts: { ...createBaseFacts(), balance: failedBalance },
+      observedAt: 1,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: { kind: 'loading', refresh: 'failed' },
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: cachedShell,
+    });
+    expect(state.shell.value).toMatchObject({
+      kind: 'portfolio',
+      presentation: {
+        kind: 'funded',
+        priority: 0,
+        refresh: 'failed',
+        header: { balance: { amount: '42.50' } },
+      },
+    });
+
+    state = dispatch(state, {
+      type: 'factsChanged',
+      facts: {
+        ...createBaseFacts(),
+        wallet: {
+          ...createBaseFacts().wallet,
+          backupStatus: 'required',
+        },
+      },
+    });
+    expect(state.shell.value).toEqual({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+    });
+
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: cachedShell,
+    });
+    expect(state.shell.value).toEqual({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+    });
+  });
+
+  it('does not expire command authority for display-only Section changes', () => {
+    let state = createOwnedState();
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a'],
+      priority: 1,
+      refresh: 'idle',
+    });
+    const authorityRevision = state.sections.defi.sectionCommandRevision;
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a'],
+      priority: 1,
+      refresh: 'refreshing',
+    });
+    expect(state.sections.defi.presentationRevision).toBe(2);
+    expect(state.sections.defi.sectionCommandRevision).toBe(authorityRevision);
+  });
+
+  it('updates one Section control without touching resources or Section projections', () => {
+    const state = createOwnedState();
+    const transition = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionControlChanged',
+        intentId: 'market-category-trending',
+        owner,
+        sessionId: ownerToken.sessionId,
+        sectionId: 'market',
+        controlId: 'home.market.selectedCategory',
+        value: 'trending',
+        authority: {
+          kind: 'sectionCommands',
+          sectionId: 'market',
+          revision: state.sections.market.sectionCommandRevision,
+        },
+      },
+    });
+    const next = applyHomeStorePatchToState(state, transition.patch.mutations);
+
+    expect(
+      transition.patch.mutations.map((mutation) => mutation.slice),
+    ).toEqual(['interaction', 'diagnostics']);
+    expect(next.interaction.sectionControls.market).toEqual({
+      'home.market.selectedCategory': 'trending',
+    });
+    expect(next.resources).toBe(state.resources);
+    expect(next.sections).toBe(state.sections);
+    expect(next.shell).toBe(state.shell);
+    expect(next.navigation).toBe(state.navigation);
+    expect(transition.effects).toEqual([]);
+  });
+
+  it('accepts valid Header commands from a cached Shell', () => {
+    const state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      shell: {
+        kind: 'portfolio',
+        presentation: {
+          kind: 'funded',
+          header: {
+            kind: 'funded',
+            authority: 'confirmedCache',
+            balance: { amount: '42.50', currency: 'usd' },
+          },
+          actions: {
+            kind: 'funded',
+            items: ['send', 'receive', 'buySell', 'swap'],
+          },
+          banner: { kind: 'none' },
+          priority: 0,
+          refresh: 'refreshing',
+        },
+      },
+    });
+
+    const transition = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'headerActionInvoked',
+        actionId: HOME_SHELL_ACTION_IDS.balance,
+        authority: {
+          kind: 'shellCommands',
+          revision: state.shell.shellCommandRevision,
+        },
+        execution: 'caller',
+        intentId: 'cached-balance',
+        owner,
+        sessionId: ownerToken.sessionId,
+      },
+    });
+
+    expect(transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'cached-balance' }),
+      },
+    ]);
+
+    const invalid = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'headerActionInvoked',
+        actionId: 'home.header.unknown',
+        authority: {
+          kind: 'shellCommands',
+          revision: state.shell.shellCommandRevision,
+        },
+        execution: 'caller',
+        intentId: 'cached-header-unknown',
+        owner,
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(invalid.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
+    ]);
+  });
+
+  it('accepts valid actions, refreshes, and controls from a cached Section', () => {
+    const token = createToken();
+    let state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(token.sourceKey),
+          dataSchemaVersion: token.sourceKey.dataSchemaVersion,
+          coverageFingerprint: 'cached-defi',
+          quoteBasis: token.sourceKey.quoteBasis ?? null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-row'],
+            },
+          },
+        },
+      ],
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      priority: 0,
+    });
+
+    const action = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionActionInvoked',
+        actionId: HOME_SECTION_ACTION_IDS.openDeFiProtocol,
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'caller',
+        intentId: 'cached-defi-open',
+        itemId: 'defi-row',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(action.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'cached-defi-open' }),
+      },
+    ]);
+    state = applyHomeStorePatchToState(state, action.patch.mutations);
+
+    const refresh = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionRefreshRequested',
+        actionId: 'home.defi.refresh',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'controller',
+        intentId: 'cached-defi-refresh',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    state = applyHomeStorePatchToState(state, refresh.patch.mutations);
+    expect(state.interaction.pendingSectionCommands).toEqual([
+      expect.objectContaining({ intentId: 'cached-defi-refresh' }),
+    ]);
+
+    const control = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionControlChanged',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        controlId: 'home.defi.filter',
+        intentId: 'cached-defi-control',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+        value: 'all',
+      },
+    });
+    state = applyHomeStorePatchToState(state, control.patch.mutations);
+    expect(state.interaction.sectionControls.defi).toEqual({
+      'home.defi.filter': 'all',
+    });
+
+    const missingTarget = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionActionInvoked',
+        actionId: HOME_SECTION_ACTION_IDS.openDeFiProtocol,
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision,
+          sectionId: 'defi',
+        },
+        execution: 'caller',
+        intentId: 'cached-defi-missing',
+        itemId: 'missing-row',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+      },
+    });
+    expect(missingTarget.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentTargetUnavailable',
+      }),
+    ]);
+
+    const expiredAuthority = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'sectionControlChanged',
+        authority: {
+          kind: 'sectionCommands',
+          revision: state.sections.defi.sectionCommandRevision - 1,
+          sectionId: 'defi',
+        },
+        controlId: 'home.defi.filter',
+        intentId: 'cached-defi-stale-control',
+        owner,
+        sectionId: 'defi',
+        sessionId: ownerToken.sessionId,
+        value: 'protocol',
+      },
+    });
+    expect(expiredAuthority.effects).toEqual([
+      expect.objectContaining({
+        kind: 'traceReject',
+        reason: 'intentAuthorityExpired',
+      }),
+    ]);
+  });
+
+  it('accepts rapid tab intents against one applicability revision', () => {
+    let state = withCapability(createOwnedState(), 'inline');
+    const authorityRevision = state.navigation.tabApplicabilityRevision;
+    for (const [intentId, tabId] of [
+      ['intent-perps', 'perps'],
+      ['intent-defi', 'defi'],
+    ] as const) {
+      state = dispatch(state, {
+        type: 'intentReceived',
+        intent: {
+          type: 'tabSelected',
+          intentId,
+          owner,
+          sessionId: ownerToken.sessionId,
+          tabId,
+          authority: {
+            kind: 'tabApplicability',
+            revision: authorityRevision,
+          },
+        },
+      });
+    }
+    expect(state.navigation.value).toMatchObject({ selectedTabId: 'defi' });
+    expect(state.navigation.tabApplicabilityRevision).toBe(authorityRevision);
+    expect(state.diagnostics.rejectedEventCount).toBe(0);
+  });
+
+  it('executes only the currently applicable Perps handoff command', () => {
+    const state = withCapability(createOwnedState(), 'web');
+    const authority = {
+      kind: 'tabApplicability' as const,
+      revision: state.navigation.tabApplicabilityRevision,
+    };
+    const accepted = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'tabHandoffInvoked',
+        intentId: 'handoff-current',
+        owner,
+        sessionId: ownerToken.sessionId,
+        tabId: 'perps',
+        actionId: 'home.perps.openWeb',
+        authority,
+      },
+    });
+
+    expect(accepted.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({ intentId: 'handoff-current' }),
+      },
+    ]);
+    const rejected = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'tabHandoffInvoked',
+        intentId: 'handoff-wrong-command',
+        owner,
+        sessionId: ownerToken.sessionId,
+        tabId: 'perps',
+        actionId: 'home.perps.openOther',
+        authority,
+      },
+    });
+    expect(rejected.effects).toEqual([
+      expect.objectContaining({ reason: 'intentTargetUnavailable' }),
+    ]);
+  });
+
+  it('executes an applicable handoff command from cached Navigation', () => {
+    const state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [],
+      navigation: {
+        kind: 'ready',
+        tabs: ['portfolio', 'perps'],
+        selectedTabId: 'portfolio',
+        destinations: {
+          portfolio: 'inline',
+          perps: 'web',
+        },
+        priority: 0,
+        perpsDestination: 'web',
+        refresh: 'refreshing',
+        sections: {
+          portfolio: true,
+          perps: true,
+          defi: false,
+          nft: false,
+          history: false,
+          market: false,
+        },
+      },
+    });
+    expect(state.navigation.value).toMatchObject({
+      kind: 'ready',
+      priority: 0,
+    });
+
+    const transition = reduceHomeStore(state, {
+      type: 'intentReceived',
+      intent: {
+        type: 'tabHandoffInvoked',
+        intentId: 'cached-navigation-handoff',
+        owner,
+        sessionId: ownerToken.sessionId,
+        tabId: 'perps',
+        actionId: 'home.perps.openWeb',
+        authority: {
+          kind: 'tabApplicability',
+          revision: state.navigation.tabApplicabilityRevision,
+        },
+      },
+    });
+
+    expect(transition.effects).toEqual([
+      {
+        kind: 'executeCommand',
+        intent: expect.objectContaining({
+          intentId: 'cached-navigation-handoff',
+        }),
+      },
+    ]);
+  });
+
+  it('keeps ready DeFi visible during same-owner refresh', () => {
+    let state = createOwnedState();
+    const firstToken = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token: firstToken });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: firstToken,
+        result: {
+          kind: 'success',
+          data: {
+            payload: { rows: [{ id: 'defi-a' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-a'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'defi-complete-a',
+        },
+      },
+    });
+    const beforeRefresh = state;
+    const transition = reduceHomeStore(state, {
+      type: 'sourceRequested',
+      token: createToken(),
+    });
+    state = applyHomeStorePatchToState(state, transition.patch.mutations);
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      refresh: 'refreshing',
+      data: { payload: { rows: [{ id: 'defi-a' }] } },
+    });
+    expect(state.sections.defi.value).toEqual({
+      kind: 'ready',
+      rowIds: ['defi-a'],
+      priority: 1,
+      refresh: 'refreshing',
+    });
+    expect(
+      transition.patch.mutations.map((mutation) => mutation.slice),
+    ).toEqual(expect.arrayContaining(['resource', 'section']));
+    expect(state.commitIdentity.storeCommitId).toBe(
+      beforeRefresh.commitIdentity.storeCommitId + 1,
+    );
+  });
+
+  it('commits a failed response with its Section state and preserves ready rows', () => {
+    let state = createOwnedState();
+    const request1 = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token: request1 });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request1,
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'defi-a' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-a'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'defi-complete-a',
+        },
+      },
+    });
+    const request2 = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token: request2 });
+    const beforeFailure = state;
+    const transition = reduceHomeStore(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request2,
+        result: { kind: 'error', errorKind: 'transport' },
+      },
+    });
+    state = applyHomeStorePatchToState(state, transition.patch.mutations);
+
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      refresh: 'failed',
+    });
+    expect(state.sections.defi.value).toEqual({
+      kind: 'ready',
+      rowIds: ['defi-a'],
+      priority: 1,
+      refresh: 'failed',
+    });
+    expect(
+      transition.patch.mutations.map((mutation) => mutation.slice),
+    ).toEqual(expect.arrayContaining(['resource', 'section']));
+    expect(state.commitIdentity.storeCommitId).toBe(
+      beforeFailure.commitIdentity.storeCommitId + 1,
+    );
+  });
+
+  it('projects a first failed response to resource and Section errors atomically', () => {
+    let state = createOwnedState();
+    const token = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token });
+    const transition = reduceHomeStore(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: { kind: 'error', errorKind: 'source' },
+      },
+    });
+    state = applyHomeStorePatchToState(state, transition.patch.mutations);
+
+    expect(state.resources.defi).toMatchObject({
+      kind: 'error',
+      errorKind: 'source',
+    });
+    expect(state.sections.defi.value).toEqual({
+      kind: 'error',
+      errorState: 'defi',
+    });
+  });
+
+  it('commits a source payload and its Section projection atomically', () => {
+    let state = createOwnedState();
+    const token = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token });
+    const transition = reduceHomeStore(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token,
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'defi-a' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['defi-a'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'defi-complete-a',
+        },
+      },
+    });
+    const next = applyHomeStorePatchToState(state, transition.patch.mutations);
+    expect(next.resources.defi).toMatchObject({
+      kind: 'ready',
+      data: { payload: { protocols: [{ id: 'defi-a' }] } },
+    });
+    expect(next.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['defi-a'],
+    });
+    expect(next.sections.portfolio).toBe(state.sections.portfolio);
+    expect(next.sections.perps).toBe(state.sections.perps);
+    expect(next.navigation).toBe(state.navigation);
+    expect(next.shell).toBe(state.shell);
+    expect(next.commitIdentity.storeCommitId).toBe(
+      state.commitIdentity.storeCommitId + 1,
+    );
+  });
+
+  it('persists and hydrates section readiness through the scoped resource', () => {
+    let state = createOwnedState();
+    state = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['row-a', 'row-b'],
+      priority: 1,
+      refresh: 'idle',
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      data: {
+        section: { kind: 'ready', rowIds: ['row-a', 'row-b'] },
+      },
+    });
+
+    const cachedPayload =
+      state.resources.defi.kind === 'ready'
+        ? state.resources.defi.data
+        : undefined;
+    let hydrated = createOwnedState();
+    const hydrationToken = createToken();
+    hydrated = dispatch(hydrated, {
+      type: 'sourceRequested',
+      token: hydrationToken,
+    });
+    hydrated = dispatch(hydrated, {
+      type: 'confirmedSnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(hydrationToken.sourceKey),
+          dataSchemaVersion: 1,
+          coverageFingerprint: '["row-a","row-b"]',
+          quoteBasis: null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: cachedPayload ?? null,
+        },
+      ],
+    });
+    expect(hydrated.sections.defi.value).toEqual({
+      kind: 'ready',
+      rowIds: ['row-a', 'row-b'],
+      priority: 0,
+      refresh: 'refreshing',
+    });
+    hydrated = dispatch(hydrated, {
+      type: 'sourceResponded',
+      envelope: {
+        token: hydrationToken,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["row-live"]',
+          data: {
+            payload: null,
+            section: {
+              kind: 'ready',
+              rowIds: ['row-live'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+        },
+      },
+    });
+    expect(hydrated.resources.defi).toMatchObject({
+      kind: 'ready',
+      coverageFingerprint: '["row-live"]',
+      priority: 1,
+      refresh: 'idle',
+      token: hydrationToken,
+    });
+    expect(hydrated.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['row-live'],
+      priority: 1,
+    });
+  });
+
+  it('drops cached data when a different source request starts', () => {
+    const exactToken = createToken();
+    const cachedRecord = {
+      sourceId: 'defi' as const,
+      sourceKeyIdentity: getHomeSourceKeyIdentity(exactToken.sourceKey),
+      dataSchemaVersion: exactToken.sourceKey.dataSchemaVersion,
+      coverageFingerprint: '["cached"]',
+      quoteBasis: exactToken.sourceKey.quoteBasis ?? null,
+      confirmedAt: 1,
+      expiresAt: 2,
+      payload: {
+        section: {
+          kind: 'ready' as const,
+          rowIds: ['cached'],
+        },
+      },
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [cachedRecord],
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: undefined,
+      priority: 0,
+      confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
+    });
+
+    state = dispatch(state, {
+      type: 'sectionReset',
+      ownerToken,
+      sectionId: 'defi',
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: undefined,
+      priority: 0,
+      confirmedCacheSourceKeyIdentity: cachedRecord.sourceKeyIdentity,
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['cached'],
+      priority: 0,
+    });
+
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: exactToken,
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: exactToken,
+      priority: 0,
+      refresh: 'refreshing',
+    });
+
+    const mismatchedToken = {
+      ...createToken(),
+      sourceKey: {
+        ...createToken().sourceKey,
+        paramsFingerprint: 'defi-b',
+      },
+    };
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: mismatchedToken,
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'loading',
+      token: mismatchedToken,
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'loading',
+    });
+
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: mismatchedToken,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["live-b"]',
+          data: {
+            section: {
+              kind: 'ready',
+              rowIds: ['live-b'],
+            },
+          },
+        },
+      },
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      priority: 1,
+      coverageFingerprint: '["live-b"]',
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['live-b'],
+      priority: 1,
+    });
+  });
+
+  it('never lets a late cache snapshot replace network data', () => {
+    const request = createToken();
+    let state = dispatch(createOwnedState(), {
+      type: 'sourceRequested',
+      token: request,
+    });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["live"]',
+          data: {
+            section: {
+              kind: 'ready',
+              rowIds: ['live'],
+            },
+          },
+        },
+      },
+    });
+    state = dispatch(state, {
+      type: 'displaySnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(request.sourceKey),
+          dataSchemaVersion: request.sourceKey.dataSchemaVersion,
+          coverageFingerprint: '["cached"]',
+          quoteBasis: null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            section: {
+              kind: 'ready',
+              rowIds: ['cached'],
+            },
+          },
+        },
+      ],
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      priority: 1,
+      coverageFingerprint: '["live"]',
+    });
+    expect(state.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['live'],
+      priority: 1,
+    });
+  });
+
+  it('marks an exact cached fallback failed after a live error and still lets the same request replace it', () => {
+    let state = createOwnedState();
+    const request = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token: request });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request,
+        result: { kind: 'error', errorKind: 'source' },
+      },
+    });
+    state = dispatch(state, {
+      type: 'confirmedSnapshotHydrated',
+      ownerScopeKey: ownerToken.scopeKey,
+      sessionId: ownerToken.sessionId,
+      records: [
+        {
+          sourceId: 'defi',
+          sourceKeyIdentity: getHomeSourceKeyIdentity(request.sourceKey),
+          dataSchemaVersion: request.sourceKey.dataSchemaVersion,
+          coverageFingerprint: '["cached"]',
+          quoteBasis: request.sourceKey.quoteBasis ?? null,
+          confirmedAt: 1,
+          expiresAt: 2,
+          payload: {
+            payload: { protocols: [{ id: 'cached' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['cached'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+        },
+      ],
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      priority: 0,
+      refresh: 'failed',
+      token: request,
+    });
+
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request,
+        result: {
+          kind: 'success',
+          coverageFingerprint: '["live"]',
+          data: {
+            payload: { protocols: [{ id: 'live' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['live'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+        },
+      },
+    });
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      priority: 1,
+      refresh: 'idle',
+      coverageFingerprint: '["live"]',
+    });
+  });
+
+  it('commits a normalized Section payload with its semantic slice', () => {
+    const state = createOwnedState();
+    const next = dispatchSectionResult(state, 'defi', {
+      kind: 'ready',
+      rowIds: ['protocol-a'],
+      priority: 1,
+      refresh: 'idle',
+      data: { protocols: [{ id: 'protocol-a' }] },
+    });
+    expect(next.sections.defi.value).toMatchObject({
+      kind: 'ready',
+      rowIds: ['protocol-a'],
+    });
+    expect(next.resources.defi).toMatchObject({
+      kind: 'ready',
+      data: {
+        payload: { protocols: [{ id: 'protocol-a' }] },
+      },
+    });
+    expect(next.commitIdentity.storeCommitId).toBe(
+      state.commitIdentity.storeCommitId + 2,
+    );
+  });
+
+  it('lets the last same-owner network response win', () => {
+    let state = createOwnedState();
+    const request1 = createToken();
+    const request2 = createToken();
+    state = dispatch(state, { type: 'sourceRequested', token: request1 });
+    state = dispatch(state, { type: 'sourceRequested', token: request2 });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request2,
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'first' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['first'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'first',
+        },
+      },
+    });
+    state = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: request1,
+        result: {
+          kind: 'success',
+          data: {
+            payload: { protocols: [{ id: 'last' }] },
+            section: {
+              kind: 'ready',
+              rowIds: ['last'],
+              priority: 1,
+              refresh: 'idle',
+            },
+          },
+          coverageFingerprint: 'last',
+        },
+      },
+    });
+
+    expect(state.resources.defi).toMatchObject({
+      kind: 'ready',
+      token: request1,
+      data: { payload: { protocols: [{ id: 'last' }] } },
+    });
+  });
+
+  it('rejects a response from a replaced source client', () => {
+    const previousClient = createToken();
+    const currentClient = {
+      ...createToken(),
+      clientInstanceId: 'client-b',
+    };
+    let state = dispatch(createOwnedState(), {
+      type: 'sourceRequested',
+      token: previousClient,
+    });
+    state = dispatch(state, {
+      type: 'sourceRequested',
+      token: currentClient,
+    });
+    const next = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: previousClient,
+        result: { kind: 'hidden', reason: 'notApplicable' },
+      },
+    });
+    expect(next.resources).toBe(state.resources);
+    expect(next.diagnostics.lastRejectReason).toBe('sourceMismatch');
+    expect(next.resources.defi).toEqual({
+      kind: 'loading',
+      token: currentClient,
+    });
+  });
+
+  it('does not let later cache data overwrite network data', () => {
+    const state = dispatchSectionResult(createOwnedState(), 'defi', {
+      kind: 'ready',
+      rowIds: ['network'],
+      priority: 1,
+      refresh: 'idle',
+    });
+    const resource = state.resources.defi;
+    expect(resource.kind).toBe('ready');
+    if (resource.kind !== 'ready' || !resource.token) {
+      return;
+    }
+    const next = dispatch(state, {
+      type: 'sourceResponded',
+      envelope: {
+        token: resource.token,
+        result: {
+          kind: 'success',
+          data: {
+            payload: null,
+            section: {
+              kind: 'ready',
+              rowIds: ['cache'],
+              priority: 0,
+              refresh: 'refreshing',
+            },
+          },
+          coverageFingerprint: 'cache',
+        },
+      },
+    });
+    expect(next).toBe(state);
+  });
+
+  it('atomically retires all owner-scoped data on replacement', () => {
+    let state = createOwnedState();
+    state = dispatchSectionResult(state, 'nft', { kind: 'empty' });
+    const next = dispatch(state, {
+      type: 'ownerChanged',
+      owner: { ...owner, accountId: 'account-b' },
+      ownerToken: { scopeKey: 'owner-b', sessionId: 'session-b' },
+      topology: 'split',
+    });
+    expect(next.sections.nft.value).toEqual({
+      kind: 'loading',
+      placeholder: 'nft',
+    });
+    expect(next.resources.defi.kind).toBe('idle');
+    expect(next.interaction.preferredTabId).toBeUndefined();
+    expect(next.diagnostics).toMatchObject({
+      acceptedEventCount: 1,
+      rejectedEventCount: 0,
+    });
+  });
+});

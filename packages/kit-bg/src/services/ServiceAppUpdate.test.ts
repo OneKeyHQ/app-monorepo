@@ -2520,6 +2520,101 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(newBudget.attemptCount).toBe(0);
     });
 
+    test('iOS 6.5.0 log regression: an exhausted bundle target can fetch and switch to a newer bundle target', async () => {
+      const previousVersion = platformEnv.version;
+      const previousBundleVersion = platformEnv.bundleVersion;
+      const appVersion = '6.5.0';
+      const builtinBundleVersion = '16698402';
+      const exhaustedBundleVersion = '16886040';
+      const nextBundleVersion = '16886041';
+      const exhaustedTargetKey = `${appVersion}:${exhaustedBundleVersion}`;
+      const nextTargetKey = `${appVersion}:${nextBundleVersion}`;
+
+      platformEnv.version = appVersion;
+      platformEnv.bundleVersion = builtinBundleVersion;
+
+      try {
+        for (let i = 1; i <= 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await service.recordDownloadAttempt({
+            targetKey: exhaustedTargetKey,
+          });
+        }
+        expect(
+          (
+            await service.getDownloadAttemptBudget({
+              targetKey: exhaustedTargetKey,
+            })
+          ).givenUp,
+        ).toBe(true);
+
+        resetAtom({
+          status: EAppUpdateStatus.downloadPackageFailed,
+          latestVersion: appVersion,
+          jsBundleVersion: exhaustedBundleVersion,
+          jsBundle: {
+            downloadUrl:
+              'https://uni.onekey-asset.com/dashboard/version-update/16886040/ios-bundle.zip',
+            fileSize: 68_781_941,
+            sha256: 'exhausted-target-sha256',
+          },
+          errorText: ETranslations.update_network_exception_check_connection,
+          updateAt: 0,
+        });
+
+        const getAppLatestInfoSpy = jest
+          .spyOn(service, 'getAppLatestInfo')
+          .mockResolvedValue({
+            version: appVersion,
+            jsBundleVersion: nextBundleVersion,
+            jsBundleCount: 1,
+            jsBundle: {
+              downloadUrl:
+                'https://uni.onekey-asset.com/dashboard/version-update/16886041/ios-bundle.zip',
+              fileSize: 68_781_941,
+              sha256: 'next-target-sha256',
+            },
+            updateStrategy: EUpdateStrategy.manual,
+          });
+        jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+
+        await service.fetchAppUpdateInfo(true);
+
+        expect(getAppLatestInfoSpy).toHaveBeenCalledWith(true);
+        expect(atomValue).toMatchObject({
+          status: EAppUpdateStatus.notify,
+          latestVersion: appVersion,
+          jsBundleVersion: nextBundleVersion,
+          errorText: undefined,
+        });
+        expect(atomValue.jsBundle?.downloadUrl).toContain(nextBundleVersion);
+
+        await service.downloadPackage();
+        expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+
+        const nextBudget = await service.getDownloadAttemptBudget({
+          targetKey: nextTargetKey,
+        });
+        expect(nextBudget).toMatchObject({
+          targetKey: nextTargetKey,
+          attemptCount: 0,
+          givenUp: false,
+        });
+
+        const firstNextAttempt = await service.recordDownloadAttempt({
+          targetKey: nextTargetKey,
+        });
+        expect(firstNextAttempt).toMatchObject({
+          targetKey: nextTargetKey,
+          attemptCount: 1,
+          givenUp: false,
+        });
+      } finally {
+        platformEnv.version = previousVersion;
+        platformEnv.bundleVersion = previousBundleVersion;
+      }
+    });
+
     test('resets failed status to notify when server has newer jsBundle version', async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,

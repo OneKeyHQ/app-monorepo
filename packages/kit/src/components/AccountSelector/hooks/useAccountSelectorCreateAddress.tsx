@@ -33,6 +33,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { EAccountSelectorActiveAccountReloadMode } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import { TutorialsList } from '../../TutorialsList';
 
@@ -118,6 +119,8 @@ export function useAccountSelectorCreateAddress() {
           await callAccountSelectorAction(
             'updateSelectedAccountForHdOrHwAccount',
             {
+              activeAccountReloadMode:
+                EAccountSelectorActiveAccountReloadMode.Immediate,
               num,
               walletId: result?.walletId,
               indexedAccountId: result?.indexedAccountId,

@@ -1,0 +1,150 @@
+import type { IHomeRuntimeOwnerToken } from '@onekeyhq/shared/src/types/homeRuntime';
+import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+import {
+  createHomeSourceKey,
+  getHomeSourceKeyIdentity,
+} from '../../core/homeIdentity';
+import { createHomeSectionConfirmedSeed } from '../homeSectionSourceAdapter';
+
+import type {
+  IHomeSectionCoordinatorEvent,
+  IHomeSectionSourceIdentity,
+} from '../homeSectionCoordinator';
+
+const HOME_PERPS_SOURCE_REVISION = 1;
+const HOME_PERPS_DATA_SCHEMA_VERSION = 1;
+
+type IHomePerpsSourceParams = {
+  accountScopeKey: string;
+  accountId: string;
+  deriveType: string;
+  indexedAccountId: string;
+  networkId: string;
+};
+
+type IHomePerpsLegacyPayload = {
+  address: string;
+  scopeKey: string | undefined;
+  view: IPerpsHomeView;
+};
+
+const HOME_PERPS_SNAPSHOT_KEYS = [
+  'address',
+  'scopeKey',
+  'view',
+] as const satisfies readonly (keyof IHomePerpsLegacyPayload)[];
+
+function createHomePerpsSnapshotDefaults(): IHomePerpsLegacyPayload {
+  return {
+    address: '',
+    scopeKey: '',
+    view: {
+      accountValueUsd: 0,
+      holdings: [],
+      isDegraded: false,
+      isEmpty: true,
+      positions: [],
+    },
+  };
+}
+
+type IHomePerpsSourceSnapshot =
+  | { kind: 'loading' }
+  | {
+      kind: 'confirmedCache';
+      data: IHomePerpsLegacyPayload;
+      rowIds: readonly string[];
+      refresh: 'idle' | 'refreshing';
+    }
+  | {
+      kind: 'partial';
+      coverageFingerprint: string;
+    }
+  | {
+      kind: 'complete';
+      coverageFingerprint: string;
+      result:
+        | { kind: 'empty' }
+        | {
+            kind: 'success';
+            data: IHomePerpsLegacyPayload;
+            rowIds: readonly string[];
+          };
+    }
+  | {
+      kind: 'error';
+      errorKind:
+        | 'source'
+        | 'transport'
+        | 'schemaMismatch'
+        | 'runtimeUnavailable';
+    };
+
+function createHomePerpsSourceIdentity({
+  owner,
+  params,
+  producerInstanceId,
+}: {
+  owner: IHomeRuntimeOwnerToken;
+  params: IHomePerpsSourceParams;
+  producerInstanceId: string;
+}): IHomeSectionSourceIdentity {
+  const sourceKey = createHomeSourceKey({
+    dataSchemaVersion: HOME_PERPS_DATA_SCHEMA_VERSION,
+    ownerToken: owner,
+    paramsFingerprint: stringUtils.stableStringify(params),
+    sourceId: 'perps',
+  });
+  return {
+    owner,
+    sectionId: 'perps',
+    sourceId: 'perps',
+    sourceKeyIdentity: getHomeSourceKeyIdentity(sourceKey),
+    producerInstanceId,
+    sourceRevision: HOME_PERPS_SOURCE_REVISION,
+  };
+}
+
+function adaptHomePerpsSourceSnapshot({
+  identity,
+  snapshot,
+}: {
+  identity: IHomeSectionSourceIdentity;
+  snapshot: IHomePerpsSourceSnapshot;
+}): IHomeSectionCoordinatorEvent<IHomePerpsLegacyPayload> {
+  switch (snapshot.kind) {
+    case 'loading':
+      return { ...identity, kind: 'loading' };
+    case 'confirmedCache':
+      return createHomeSectionConfirmedSeed({
+        data: snapshot.data,
+        getRowIds: () => snapshot.rowIds,
+        identity,
+        refresh: snapshot.refresh,
+      });
+    case 'partial':
+      return { ...identity, kind: 'partial' };
+    case 'complete':
+      return { ...identity, kind: 'complete', result: snapshot.result };
+    case 'error':
+      return { ...identity, kind: 'error' };
+    default:
+      return { ...identity, kind: 'loading' };
+  }
+}
+
+export {
+  HOME_PERPS_DATA_SCHEMA_VERSION,
+  HOME_PERPS_SNAPSHOT_KEYS,
+  HOME_PERPS_SOURCE_REVISION,
+  adaptHomePerpsSourceSnapshot,
+  createHomePerpsSnapshotDefaults,
+  createHomePerpsSourceIdentity,
+};
+export type {
+  IHomePerpsLegacyPayload,
+  IHomePerpsSourceParams,
+  IHomePerpsSourceSnapshot,
+};

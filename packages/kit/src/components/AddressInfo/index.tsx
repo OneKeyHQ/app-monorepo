@@ -11,6 +11,7 @@ import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { EAccountSelectorActiveAccountReloadMode } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { AddressBadge } from '../AddressBadge';
@@ -94,6 +95,8 @@ function SwitchHomeAccountButton({
 
             setTimeout(async () => {
               await actions.current.confirmAccountSelect({
+                activeAccountReloadMode:
+                  EAccountSelectorActiveAccountReloadMode.Immediate,
                 num: 0,
                 othersWalletAccount: indexedAccount ? undefined : account,
                 indexedAccount,

@@ -23,6 +23,76 @@ function getTokenKey(token: {
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
 
+function getMarketCategoryTokensRequestKey({
+  minLiquidity,
+  selectedMarketCategoryId,
+}: {
+  minLiquidity: number;
+  selectedMarketCategoryId?: string;
+}) {
+  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
+}
+
+function createHomeMarketCategoryTokensCache<T>() {
+  let tokensByRequestKey: Record<string, T[]> = {};
+
+  return {
+    commitCategory({
+      categoryId,
+      minLiquidity,
+      tokens,
+    }: {
+      categoryId: string;
+      minLiquidity: number;
+      tokens: T[];
+    }) {
+      const requestKey = getMarketCategoryTokensRequestKey({
+        minLiquidity,
+        selectedMarketCategoryId: categoryId,
+      });
+
+      tokensByRequestKey = {
+        ...tokensByRequestKey,
+        [requestKey]: tokens,
+      };
+      return true;
+    },
+    getSnapshot() {
+      return tokensByRequestKey;
+    },
+    getTokens({
+      minLiquidity,
+      selectedMarketCategoryId,
+    }: {
+      minLiquidity: number;
+      selectedMarketCategoryId?: string;
+    }) {
+      return tokensByRequestKey[
+        getMarketCategoryTokensRequestKey({
+          minLiquidity,
+          selectedMarketCategoryId,
+        })
+      ];
+    },
+  };
+}
+
+function getMarketCategoryIds({
+  prefetchMarketCategoryIds,
+  selectedMarketCategoryId,
+}: {
+  prefetchMarketCategoryIds?: string[];
+  selectedMarketCategoryId?: string;
+}) {
+  return Array.from(
+    new Set(
+      [...(prefetchMarketCategoryIds ?? []), selectedMarketCategoryId].filter(
+        (categoryId): categoryId is string => Boolean(categoryId),
+      ),
+    ),
+  ).toSorted();
+}
+
 function parseMarketValue(value?: string | number | null) {
   const normalizedValue = normalizeStockMetadataValue(value);
   if (!normalizedValue) {
@@ -115,6 +185,9 @@ function mapMarketPerpsTokenToDisplay({
 
 export {
   EMPTY_DISPLAY_TOKENS,
+  createHomeMarketCategoryTokensCache,
+  getMarketCategoryIds,
+  getMarketCategoryTokensRequestKey,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,

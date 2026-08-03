@@ -6,4 +6,8 @@ updateInterceptorRequestHelper();
 // the real simpleDb-backed implementation. That file is kept separate so
 // import('simpleDb') never enters the native main graph.
 export { KitProvider } from './provider';
+export {
+  NativeHomeRendererProvider,
+  type INativeHomeRenderer,
+} from './views/Home/NativeHomeRendererProvider';
 // export { DemoPushKitProvider as KitProvider } from './provider/demo/push/DemoPushKitProvider';

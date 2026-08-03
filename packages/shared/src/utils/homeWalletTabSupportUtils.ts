@@ -28,6 +28,32 @@ export const HOME_WALLET_TAB_SUPPORT_INIT: IHomeWalletTabSupportState = {
   isPerpsSupported: false,
 };
 
+export function buildHomeWalletTabSupportScopeKey({
+  accountScopeId,
+  networkId,
+  isAllNetworks,
+}: {
+  accountScopeId: string;
+  networkId: string;
+  isAllNetworks: boolean;
+}) {
+  return [accountScopeId, networkId, isAllNetworks ? 'all' : 'single']
+    .map((part) => `${part.length}:${part}`)
+    .join('|');
+}
+
+export function resolveHomeWalletTabSupportAccountScopeId({
+  indexedAccountId,
+  accountId,
+  walletId,
+}: {
+  indexedAccountId?: string;
+  accountId?: string;
+  walletId?: string;
+}) {
+  return indexedAccountId || accountId || walletId || '';
+}
+
 export function resolveHomeWalletTabSupport({
   result,
   scopeKey,
@@ -71,24 +97,33 @@ export function buildHomeWalletTabSupport({
   allNetworksState,
   deFiEnabledNetworksMap,
   perpDisabled,
+  isReady = true,
 }: {
   network?: IHomeWalletTabSupportNetwork | null;
   allNetworks?: IHomeWalletTabSupportNetwork[];
   allNetworksState?: IAllNetworksState;
   deFiEnabledNetworksMap: Record<string, boolean>;
   perpDisabled: boolean;
+  isReady?: boolean;
 }): IHomeWalletTabSupportState {
+  if (!isReady) {
+    return HOME_WALLET_TAB_SUPPORT_INIT;
+  }
+
   let isDeFiSupported = false;
 
   if (network?.id) {
     if (networkUtils.isAllNetwork({ networkId: network.id })) {
-      isDeFiSupported =
-        !!allNetworksState &&
-        hasDeFiSupportedEnabledNetwork({
-          allNetworks: allNetworks ?? [],
-          allNetworksState,
-          deFiEnabledNetworksMap,
-        });
+      // Home treats All Networks as an aggregate product surface while its
+      // capability map is unavailable. Background callers that provide the
+      // enabled-network state still receive the stricter per-network verdict.
+      isDeFiSupported = allNetworksState
+        ? hasDeFiSupportedEnabledNetwork({
+            allNetworks: allNetworks ?? [],
+            allNetworksState,
+            deFiEnabledNetworksMap,
+          })
+        : true;
     } else {
       isDeFiSupported = !!deFiEnabledNetworksMap[network.id];
     }

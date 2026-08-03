@@ -135,6 +135,11 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
   // Mirror of appendedTxs ids so loadMore can detect "no progress" responses
   // (duplicate-emit / chain reorg) without taking a stale state closure.
   const appendedIdsRef = useRef<Set<string>>(new Set());
+  // Once the deep cursor reaches a terminal page, a polling refresh of page 1
+  // must not re-arm pagination from page 1's `hasMore` flag while we preserve
+  // the already-loaded range. The visible last row may remain mounted at the
+  // maximum offset, so no later onEndReached/willDisplay event is guaranteed.
+  const reachedTerminalPageRef = useRef(false);
 
   // Begin a hard pagination generation: clear cursor-independent progress and
   // release loading flags. Identity/filter resets always use this path; a
@@ -146,6 +151,7 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
     inFlightRef.current = false;
     appendedTxsRef.current = [];
     appendedIdsRef.current = new Set();
+    reachedTerminalPageRef.current = false;
     setAppendedTxs([]);
     setIsLoadingMore(false);
   }, []);
@@ -222,7 +228,15 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       if (!meta.hasMore) {
         pendingLoadMoreRef.current = false;
       }
-      setHasMore(!!meta.hasMore);
+      if (shouldPreserveLoadedRange) {
+        if (!meta.hasMore) {
+          reachedTerminalPageRef.current = true;
+        }
+        setHasMore(!!meta.hasMore && !reachedTerminalPageRef.current);
+      } else {
+        reachedTerminalPageRef.current = !meta.hasMore;
+        setHasMore(!!meta.hasMore);
+      }
     },
     [enabled, startNewPaginationGeneration],
   );
@@ -339,9 +353,10 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       );
       const gotItems = incomingTxs.length > 0;
       const addedNewRows = newRows.length > 0;
-      setHasMore(
-        !!r.hasMoreOnChainHistory && gotItems && addedNewRows && cursorAdvanced,
-      );
+      const nextHasMore =
+        !!r.hasMoreOnChainHistory && gotItems && addedNewRows && cursorAdvanced;
+      reachedTerminalPageRef.current = !nextHasMore;
+      setHasMore(nextHasMore);
       if (addedNewRows) {
         const nextAppendedTxs = unionBy(
           [...appendedTxsRef.current, ...newRows],

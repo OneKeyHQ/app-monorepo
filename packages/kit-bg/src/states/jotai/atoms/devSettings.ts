@@ -127,6 +127,8 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Fall back to the React Home renderer without changing the production default.
+  disableNativeHome?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
 }
@@ -180,6 +182,7 @@ export const {
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
       networkThrottleEnabled: !!platformEnv.isDesktop || !!platformEnv.isNative,
+      disableNativeHome: false,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop uses WebUSB; host udev rules are requested when needed.
       usbCommunicationMode: 'webusb',

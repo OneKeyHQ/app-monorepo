@@ -1,5 +1,3 @@
-import PurchasesReactNative from 'react-native-purchases';
-
 let logoutPurchasesSdkPromise: Promise<boolean> | undefined;
 
 // Reset the RevenueCat SDK to a fresh anonymous user so the next OneKey ID
@@ -8,6 +6,8 @@ let logoutPurchasesSdkPromise: Promise<boolean> | undefined;
 // hot paths like Dashboard re-renders (would churn anonymous customers).
 async function logoutPurchasesSdkInternal(): Promise<boolean> {
   try {
+    const { default: PurchasesReactNative } =
+      await import('react-native-purchases');
     await PurchasesReactNative.logOut();
     return true;
   } catch (e) {

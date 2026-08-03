@@ -43,8 +43,12 @@ Never violate this dependency order:
 
 - `@onekeyhq/shared`: no other OneKey packages.
 - `@onekeyhq/components`: `shared` only.
+- `@onekeyhq/native-components`: `shared` only; never `components`, `kit-bg`, or
+  `kit`. Keep it a renderer/protocol bridge without business services or state.
 - `@onekeyhq/kit-bg`: `shared` and `core` only; never `components` or `kit`.
-- `@onekeyhq/kit`: `shared`, `components`, and `kit-bg`.
+- `@onekeyhq/kit`: `shared`, `components`, `native-components`, and `kit-bg`.
+  Imports from `native-components` must remain renderer/protocol-facing and must
+  not move app-specific Native setup into `kit`.
 - Apps may import all packages.
 
 ## Security

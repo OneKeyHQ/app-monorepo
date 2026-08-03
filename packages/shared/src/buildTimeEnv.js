@@ -20,7 +20,8 @@ const isE2E = process.env.E2E_MODE === 'true';
 
 const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
 const enableNativeBackgroundThread =
-  process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
+  (process.env.ENABLE_NATIVE_BACKGROUND_THREAD ?? 'true').toLowerCase() ===
+  'true';
 
 module.exports = {
   isJest,

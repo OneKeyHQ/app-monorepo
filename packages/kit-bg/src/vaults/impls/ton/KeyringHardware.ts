@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
 
 import {
@@ -23,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { HARDWARE_TON_WALLET_VERSION } from '@onekeyhq/shared/src/hardware/transportEnumValues';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -55,6 +55,10 @@ import type {
   TonSignDataType,
   TonSignMessageParams,
 } from '@onekeyfe/hd-core';
+import type { TonWalletVersion } from '@onekeyfe/hd-transport';
+
+const TON_WALLET_VERSION_V4R2: TonWalletVersion =
+  HARDWARE_TON_WALLET_VERSION.V4R2;
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
@@ -185,7 +189,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const msg = encodedTx.messages[0];
     const versionMap = {
-      v4R2: TonWalletVersion.V4R2,
+      v4R2: TON_WALLET_VERSION_V4R2,
     };
     const hwParams: CommonParams & TonSignMessageParams = {
       path: account.path,

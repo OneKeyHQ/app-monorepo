@@ -4,6 +4,7 @@ import { memo, useMemo, useRef } from 'react';
 import {
   NavigationContainer as NavigationContainerComponent,
   RouterEventProvider,
+  createRouterEventStore,
 } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
@@ -35,9 +36,9 @@ function BasicNavigation({ children }: PropsWithChildren) {
 const MemoizedBasicNavigation = memo(BasicNavigation);
 
 function NavigationWithEventProvider({ children }: PropsWithChildren) {
-  const routerEventRef = useRef([]);
+  const routerEventStore = useRef(createRouterEventStore()).current;
   return (
-    <RouterEventProvider value={routerEventRef}>
+    <RouterEventProvider value={routerEventStore}>
       <MemoizedBasicNavigation>{children}</MemoizedBasicNavigation>
     </RouterEventProvider>
   );

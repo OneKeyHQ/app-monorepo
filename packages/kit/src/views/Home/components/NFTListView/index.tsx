@@ -35,6 +35,7 @@ type IProps = {
   inTabList?: boolean;
   initialized?: boolean;
   onRefresh?: () => void;
+  refreshing?: boolean;
   isAllNetworks?: boolean;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
@@ -93,6 +94,7 @@ function NFTListView(props: IProps) {
     isAllNetworks,
     listViewStyleProps,
     onRefresh,
+    refreshing = false,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -207,7 +209,7 @@ function NFTListView(props: IProps) {
       nestedScrollEnabled={platformEnv.isNativeAndroid}
       refreshControl={
         !platformEnv.isNativeAndroid && onRefresh ? (
-          <PullToRefresh onRefresh={onRefresh} />
+          <PullToRefresh onRefresh={onRefresh} refreshing={refreshing} />
         ) : undefined
       }
       key={platformEnv.isNative ? numColumns : undefined}

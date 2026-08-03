@@ -7,7 +7,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAccountSelectorActiveAccountReloadMode,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
   IDBDevice,
@@ -119,6 +122,8 @@ export function useAddAccount({
           walletId: focusedWalletId || '',
         });
         await actions.current.updateSelectedAccountForHdOrHwAccount({
+          activeAccountReloadMode:
+            EAccountSelectorActiveAccountReloadMode.Immediate,
           num,
           walletId: focusedWalletId,
           indexedAccountId: c.indexedAccountId,

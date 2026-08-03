@@ -23,7 +23,7 @@ const ciFailureConfigs = {
     diagnostics: [
       'Download the ci-ai-lint-diagnostics artifact and inspect lint-output.log before forming a hypothesis.',
       'Identify the failing subcheck: TypeScript, ESLint/oxlint, Electron rules, i18n/lang, package versions, or font checks.',
-      'For TypeScript/import errors, verify package hierarchy: shared cannot import OneKey packages, components only imports shared, kit-bg only imports shared/core, and kit may import shared/components/kit-bg.',
+      'For TypeScript/import errors, verify package hierarchy: shared cannot import OneKey packages; components and native-components only import shared; kit-bg only imports shared/core; and kit may import shared/components/native-components/kit-bg.',
       'For i18n failures, do not edit generated translation files; fix source keys or follow the i18n workflow.',
     ],
     commands: [

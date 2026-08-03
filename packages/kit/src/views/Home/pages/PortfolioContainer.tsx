@@ -30,11 +30,12 @@ import { EarnListView } from '../components/EarnListView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
-import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
 import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
+import { useHomeRefreshIntents } from '../model/react/useHomeRefreshIntents';
 import {
   PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
   STICKY_TOP_OFFSET,
@@ -275,6 +276,7 @@ function PortfolioContainerWithProvider() {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const tabBarHeight = useScrollContentTabBarOffset();
+  const { refreshSection, refreshingBySection } = useHomeRefreshIntents();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
@@ -286,7 +288,10 @@ function PortfolioContainerWithProvider() {
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               refreshControl={
                 !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
+                  <PullToRefresh
+                    onRefresh={() => refreshSection('portfolio')}
+                    refreshing={refreshingBySection.portfolio}
+                  />
                 ) : undefined
               }
             >

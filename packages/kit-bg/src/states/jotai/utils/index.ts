@@ -374,7 +374,10 @@ export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
  */
 export const contextAtomSnapshotRegistry = new Map<
   string,
-  { atom: () => any }
+  {
+    atom: () => any;
+    persistence: 'snapshot' | { kind: 'external'; scopeKey: string };
+  }
 >();
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -537,6 +540,31 @@ function getRecentAccountSelectorColdStartValue({
   }
 
   return undefined;
+}
+
+function getExternalContextAtomColdStartValue({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
+}) {
+  if (
+    coldStartScopeKey !==
+      `store:accountSelector@${EAccountSelectorSceneName.home}` ||
+    coldStartCacheKey !== CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom
+  ) {
+    return undefined;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { readHomeLatestActiveAccountCache } =
+      require('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache') as typeof import('@onekeyhq/shared/src/utils/homeLatestActiveAccountCache');
+    const cache = readHomeLatestActiveAccountCache();
+    return cache ? { 0: cache.activeAccount } : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function flushColdStartCache() {
@@ -874,9 +902,17 @@ export function hydrateContextColdStartCacheForProvider({
         | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
-      { atom: atomBuilder },
+      { atom: atomBuilder, persistence },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
+      const usesExternalPersistence =
+        typeof persistence === 'object' && persistence.scopeKey === scope;
+      const externalCached = usesExternalPersistence
+        ? getExternalContextAtomColdStartValue({
+            coldStartScopeKey: scope,
+            coldStartCacheKey: typedCacheKey,
+          })
+        : undefined;
       const recentAccountSelectorCached =
         getRecentAccountSelectorColdStartValue({
           coldStartScopeKey: scope,
@@ -884,15 +920,16 @@ export function hydrateContextColdStartCacheForProvider({
         });
       const shouldSkipScopedSnapshot =
         isDappConnectionBackedAccountSelectorColdStartScope(scope);
-      const cached =
-        recentAccountSelectorCached ??
-        (!shouldSkipScopedSnapshot && snapshot
-          ? getScopedColdStartSnapshotValue({
-              snapshot,
-              coldStartScopeKey: scope,
-              coldStartCacheKey: typedCacheKey,
-            })
-          : undefined);
+      const cached = usesExternalPersistence
+        ? externalCached
+        : (recentAccountSelectorCached ??
+          (!shouldSkipScopedSnapshot && snapshot
+            ? getScopedColdStartSnapshotValue({
+                snapshot,
+                coldStartScopeKey: scope,
+                coldStartCacheKey: typedCacheKey,
+              })
+            : undefined));
       if (cached !== undefined && cached !== null) {
         const scopedCacheKey = buildColdStartScopedKey({
           coldStartScopeKey: scope,
@@ -909,7 +946,9 @@ export function hydrateContextColdStartCacheForProvider({
             : cached;
 
         store.set(atomInstance, nextValue);
-        coldStartValuesMap.set(scopedCacheKey, nextValue);
+        if (!usesExternalPersistence) {
+          coldStartValuesMap.set(scopedCacheKey, nextValue);
+        }
         coldStartLog(`hydrate: ${scopedCacheKey}`);
         if (
           typedCacheKey ===
@@ -952,10 +991,14 @@ export function contextAtomBase<Value>({
   useColdStartScopeKey,
   coldStartCache,
   coldStartCacheKey,
+  coldStartCachePersistence = 'snapshot',
 }: {
   initialValue: Value;
   coldStartCache?: boolean;
   coldStartCacheKey?: IContextAtomColdStartCacheKey;
+  coldStartCachePersistence?:
+    | 'snapshot'
+    | { kind: 'external'; scopeKey: string };
   useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
@@ -991,6 +1034,12 @@ export function contextAtomBase<Value>({
           coldStartLog(`no-scope-key: ${cacheKey}`);
           return result;
         }
+        if (
+          typeof coldStartCachePersistence === 'object' &&
+          coldStartCachePersistence.scopeKey === coldStartScopeKey
+        ) {
+          return result;
+        }
         const scopedCacheKey = buildColdStartScopedKey({
           coldStartScopeKey,
           coldStartCacheKey: cacheKey,
@@ -1017,6 +1066,7 @@ export function contextAtomBase<Value>({
   if (activeColdStartCacheKey) {
     contextAtomSnapshotRegistry.set(activeColdStartCacheKey, {
       atom: atomBuilder,
+      persistence: coldStartCachePersistence,
     });
   }
 

@@ -50,6 +50,11 @@ const STORE_NAME = 'kv';
 const FLUSH_DEBOUNCE_MS = 2000;
 
 const GLOBAL_MAP_KEY = '__ONEKEY_COLD_START_CACHE_MAP__';
+const HTML_PRELOAD_PROMISE_KEY = '__ONEKEY_COLD_START_IDB_PRELOAD__';
+
+type IWebColdStartHtmlPreloadGlobal = typeof globalThis & {
+  __ONEKEY_COLD_START_IDB_PRELOAD__?: Promise<Map<string, unknown>>;
+};
 
 // ---- In-memory state ----
 
@@ -418,12 +423,25 @@ export async function readAllColdStartEntriesFromIdb(): Promise<
   return db.getAllEntries(STORE_NAME) as Promise<Map<string, unknown>>;
 }
 
+/**
+ * Uses the IndexedDB read started by the HTML head when available. The caller
+ * still owns build-hash validation and publishing entries to the runtime map.
+ */
+export function readColdStartEntriesForHydration(): Promise<
+  Map<string, unknown>
+> {
+  const preloadedEntries = (globalThis as IWebColdStartHtmlPreloadGlobal)
+    .__ONEKEY_COLD_START_IDB_PRELOAD__;
+  return preloadedEntries ?? readAllColdStartEntriesFromIdb();
+}
+
 // ---- Test-only helpers ----
 // Reset all module-level state. Intended for unit tests so each test starts
 // from a clean slate without `jest.resetModules()` (which would also re-
 // instantiate the lodash import etc.). Not exported from the public surface.
 export function __resetForTests(): void {
   (globalThis as Record<string, unknown>)[GLOBAL_MAP_KEY] = undefined;
+  (globalThis as Record<string, unknown>)[HTML_PRELOAD_PROMISE_KEY] = undefined;
   // Close any open IDB connection before dropping the reference. Leaving it
   // open keeps fake-indexeddb (and real IDB) holding the database, which then
   // blocks the next test's deleteDatabase (fires onblocked) and leaves a

@@ -41,7 +41,7 @@ function RecentNetworkItem({
   }, [onPressItem, network]);
   return (
     <Button
-      testID="chain-selector-handle-press-btn"
+      testID={`chain-selector-recent-${network.id}`}
       onPress={handlePress}
       size="small"
       variant="secondary"

@@ -1,0 +1,14 @@
+{
+  "uiViewClassName": "HomeContainer",
+  "supportsRawText": false,
+  "bubblingEventTypes": {},
+  "directEventTypes": {},
+  "validAttributes": {
+    "initialStateJson": true,
+    "backgroundColor": true,
+    "debugOverlayEnabled": true,
+    "onRenderError": true,
+    "onIntent": true,
+    "hybridRef": true
+  }
+}

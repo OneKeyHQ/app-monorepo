@@ -11,6 +11,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useBackUpWallet } from '../../hooks/useBackUpWallet';
 
+import { WalletBackupTestIDs } from './testIDs';
+
 export function WalletBackupActions({
   wallet,
   children,
@@ -63,6 +65,7 @@ export function WalletBackupActions({
             }
           : undefined,
         !hidePhrase && {
+          testID: WalletBackupTestIDs.manual,
           label: intl.formatMessage({
             id: ETranslations.manual_backup,
           }),
@@ -75,6 +78,7 @@ export function WalletBackupActions({
         },
         !hideLiteCard &&
           platformEnv.isNative && {
+            testID: WalletBackupTestIDs.oneKeyLite,
             label: intl.formatMessage({
               id: ETranslations.global_onekey_lite,
             }),
@@ -86,6 +90,7 @@ export function WalletBackupActions({
             onClose,
           },
         !hideKeyTag && {
+          testID: WalletBackupTestIDs.oneKeyKeyTag,
           label: intl.formatMessage({
             id: ETranslations.global_onekey_keytag,
           }),

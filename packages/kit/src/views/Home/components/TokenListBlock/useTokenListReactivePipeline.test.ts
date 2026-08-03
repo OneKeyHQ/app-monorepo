@@ -20,7 +20,10 @@ import { act, renderHook } from '@testing-library/react';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-const mockIngestRound = jest.fn();
+const mockIngestRound = jest.fn(async (params: unknown) => ({
+  ownerKey: (params as { ownerKey: string }).ownerKey,
+  valuationVersion: 7,
+}));
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
 }));
@@ -29,9 +32,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceTokenViewModel: {
-      ingestRound: (...args: unknown[]) => {
-        mockIngestRound(...args);
-      },
+      ingestRound: (...args: [unknown]) => mockIngestRound(...args),
     },
     serviceNetwork: {
       getVaultSettings: () => mockGetVaultSettings(),
@@ -85,7 +86,7 @@ function makeCacheItem(over: Partial<ICacheSeedItem> = {}): ICacheSeedItem {
   };
 }
 
-function render(enabled = true) {
+function render(enabled = true, pullLatestFrames?: () => Promise<void>) {
   const cellsIngestInputsRef = makeInputsRef();
   return {
     cellsIngestInputsRef,
@@ -105,6 +106,7 @@ function render(enabled = true) {
           ownerCreateAtNetwork: undefined,
           cellsIngestInputsRef,
           enabled: isEnabled,
+          pullLatestFrames,
         }),
       {
         initialProps: {
@@ -329,7 +331,8 @@ describe('useTokenListReactivePipeline', () => {
   });
 
   it('buildAuthoritativeSnapshot + commit → authoritative ingest', async () => {
-    const { result } = render(true);
+    const pullLatestFrames = jest.fn(async () => undefined);
+    const { result } = render(true, pullLatestFrames);
     act(() => {
       result.current.setEnabledKeys([OWNER]);
     });
@@ -346,12 +349,17 @@ describe('useTokenListReactivePipeline', () => {
 
     await act(async () => {
       const snap = await result.current.buildAuthoritativeSnapshot();
-      result.current.commitAuthoritativeIngest(snap);
+      const receipt = await result.current.commitAuthoritativeIngest(snap);
+      expect(receipt).toEqual({
+        ownerKey: 'acc1__evm--1',
+        valuationVersion: 7,
+      });
     });
     expect(mockIngestRound).toHaveBeenCalledTimes(1);
     expect(
       (mockIngestRound.mock.calls[0][0] as { source: string }).source,
     ).toBe('authoritative');
+    expect(pullLatestFrames).toHaveBeenCalledTimes(2);
   });
 
   it('cache seed: explicit tokenListValue keeps risk-only map keys out of the worth', async () => {
@@ -437,7 +445,7 @@ describe('useTokenListReactivePipeline', () => {
       // authoritative commit lands first (bumps the epoch)
       await act(async () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        await result.current.commitAuthoritativeIngest(snap);
       });
       mockIngestRound.mockClear();
       // now let the throttled flush fire — it must abort (epoch superseded)
@@ -510,7 +518,7 @@ describe('useTokenListReactivePipeline', () => {
           generation: 1,
         });
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        await result.current.commitAuthoritativeIngest(snap);
       });
       mockIngestRound.mockClear();
 

@@ -74,7 +74,13 @@ import {
 
 import type { IApplyDeps } from './apply';
 
-type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
+export type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
+
+export interface ITokenFrameAppliedReceipt {
+  kind: ITokenFrameKind;
+  ownerKey: string;
+  version: number;
+}
 
 interface IStructurePush {
   ownerKey: string;
@@ -117,7 +123,8 @@ export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
   storeName?: string,
-): void {
+  onFrameApplied?: (receipt: ITokenFrameAppliedReceipt) => void,
+): () => Promise<void> {
   const { store } = useTokenListContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
@@ -185,7 +192,7 @@ export function useTokenListCellsProducer(
     );
   }, [deps, enabled, identity, ownerKey, store]);
 
-  useFrameChannelSubscriber<ITokenFrameKind, IFramesPull>({
+  return useFrameChannelSubscriber<ITokenFrameKind, IFramesPull>({
     ownerKey,
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],
@@ -204,12 +211,12 @@ export function useTokenListCellsProducer(
         deregisterMountedStore(identity.resolvedStoreName, store);
       };
     },
-    onAfterApply: (kind) => {
+    onAfterApply: (receipt) => {
       // Persist the slim cold-start bundle on structure AND valuation applies
       // (debounced + single-writer): structure registers meta cells but the fiat
       // cells are filled by valuation, so a valuation-time persist captures a
       // NON-EMPTY compactFiat. Not on risky.
-      if (kind === 'risky' || !store || !identity) {
+      if (receipt.kind === 'risky' || !store || !identity) {
         return;
       }
       if (isPrimaryColdStartWriter(identity.resolvedStoreName, store)) {
@@ -219,6 +226,7 @@ export function useTokenListCellsProducer(
           getCurrency: () => currencyIdRef.current,
         });
       }
+      onFrameApplied?.(receipt);
     },
     kinds: [
       {
@@ -308,6 +316,6 @@ export function useTokenListCellsProducer(
           }) satisfies IRiskyPush,
       },
     ],
-    extraDeps: [store, deps, storeName],
+    extraDeps: [store, deps, storeName, onFrameApplied],
   });
 }

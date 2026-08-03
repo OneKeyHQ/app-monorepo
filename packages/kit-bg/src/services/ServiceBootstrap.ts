@@ -1,7 +1,11 @@
-import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import '@onekeyhq/shared/src/storage/appStorage';
+import type { IHomeRuntimeHandshake } from '@onekeyhq/shared/src/types/homeRuntime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
@@ -12,6 +16,14 @@ import {
   markIdentityRecoveryReady,
 } from './ServiceIdentityExit/identityLifecycleMutex';
 import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
+
+export function createHomeRuntimeProducerInstanceId(): string {
+  return `home-bg-${stringUtils.generateUUID({ removeDashes: true })}`;
+}
+
+// One producer identity is shared by every ServiceBootstrap facade created in
+// this background JS heap and changes only when that producer runtime restarts.
+const HOME_RUNTIME_PRODUCER_INSTANCE_ID = createHomeRuntimeProducerInstanceId();
 
 @backgroundClass()
 class ServiceBootstrap extends ServiceBase {
@@ -30,6 +42,13 @@ class ServiceBootstrap extends ServiceBase {
       return;
     }
     void this.initDeferred();
+  }
+
+  @backgroundMethod()
+  public async getHomeRuntimeHandshake(): Promise<IHomeRuntimeHandshake> {
+    return {
+      producerInstanceId: HOME_RUNTIME_PRODUCER_INSTANCE_ID,
+    };
   }
 
   private async timed<T>(label: string, fn: () => Promise<T>): Promise<T> {

@@ -1,4 +1,9 @@
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
+
+import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
+import type { IHomeMarketLegacyPayload } from '../../model/sections/market/homeMarketSourceAdapter';
 
 interface IFavoriteTokenDisplay {
   chainId: string;
@@ -19,4 +24,15 @@ interface IFavoriteTokenDisplay {
   stock?: IMarketStockInfo;
 }
 
-export type { IFavoriteTokenDisplay };
+type IHomePopularTradingPayload = Omit<
+  IHomeMarketLegacyPayload<IFavoriteTokenDisplay>,
+  'categories' | 'rows' | 'watchListItems'
+> & {
+  categories: IMarketCategoryItem[];
+  earnRows: IRecommendAsset[];
+  perpsHotRows: IFavoriteTokenDisplay[];
+  rows: IFavoriteTokenDisplay[];
+  watchListItems: IMarketWatchListItemV2[];
+};
+
+export type { IFavoriteTokenDisplay, IHomePopularTradingPayload };
