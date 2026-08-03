@@ -253,6 +253,24 @@ function MobilePerpMarket() {
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
+  // react-native-web styles scrollEnabled={false} ScrollViews with
+  // `touch-action: none`, which swallows vertical pans over everything inside
+  // the pager (chart header, order book) so the page cannot scroll on mobile
+  // web. The pager only ever scrolls programmatically, so let vertical pans
+  // chain up to the page scroller instead.
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const node = (
+      scrollViewRef.current as unknown as
+        | { getScrollableNode?: () => unknown }
+        | null
+    )?.getScrollableNode?.() as { style?: { touchAction?: string } } | null;
+    if (node?.style) {
+      node.style.touchAction = 'pan-y';
+    }
+  }, []);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
