@@ -157,6 +157,9 @@ const SWAP_HISTORY_PERSIST_MAX_ATTEMPTS = 3;
 const SWAP_HISTORY_PERSIST_RETRY_MIN_TIMEOUT_MS = timerUtils.getTimeDurationMs({
   seconds: 1,
 });
+// Bounded because storage can stay unavailable indefinitely, and this queue is
+// the one place a broadcast swap is held outside any store.
+const SWAP_HISTORY_DURABLE_RETRY_MAX_ENTRIES = 50;
 
 type ICheckStableCoinsListParamsItem = {
   networkId: string;
@@ -530,6 +533,22 @@ export default class ServiceSwap extends ServiceBase {
 
   // Keep durable history and its non-persisted notification projection linear.
   private swapHistoryMutationMutex = new Semaphore(1);
+
+  /**
+   * Broadcast swaps whose durable write failed outright, retried on the next
+   * history reconcile.
+   *
+   * The pending atom cannot stand in for this list. The reconcile rebuilds that
+   * atom from the very store the write failed against, so a non-durable item is
+   * evicted from it and its absence there proves nothing. Holding the item here
+   * is also why the delete paths have to clear it: a queued retry must never
+   * reinstate a history the user cleared in the meantime.
+   *
+   * In-memory on purpose. A runtime restart loses this queue and the atom
+   * together, which is the same outcome either way — there is nothing left to
+   * preserve once the only copy of the item is gone.
+   */
+  private swapHistoryDurableRetryQueue = new Map<string, ISwapTxHistory>();
 
   private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
     {};
@@ -2029,6 +2048,7 @@ export default class ServiceSwap extends ServiceBase {
   async syncSwapHistoryPendingList() {
     await this.fetchSwapHistoryListFromSimple();
     await this.swapHistoryMutationMutex.runExclusive(async () => {
+      await this.flushSwapHistoryDurableRetries();
       const histories =
         await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
       const pendingHistories = histories.filter((history: ISwapTxHistory) =>
@@ -2072,6 +2092,7 @@ export default class ServiceSwap extends ServiceBase {
     await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = await this.swapHistoryMutationMutex.runExclusive(
       async () => {
+        await this.flushSwapHistoryDurableRetries();
         const histories =
           await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
         const nextPendingHistories = histories.filter(
@@ -2140,6 +2161,70 @@ export default class ServiceSwap extends ServiceBase {
         error instanceof Error ? error.message : String(error)
       }`,
     );
+  }
+
+  private enqueueSwapHistoryDurableRetry(item: ISwapTxHistory) {
+    const key = this.getSwapHistoryIntervalKey(item);
+    if (!key) {
+      return;
+    }
+    this.swapHistoryDurableRetryQueue.delete(key);
+    if (
+      this.swapHistoryDurableRetryQueue.size >=
+      SWAP_HISTORY_DURABLE_RETRY_MAX_ENTRIES
+    ) {
+      // Map iteration is insertion-ordered, so this drops the oldest. Logged
+      // rather than dropped quietly: it is a broadcast swap losing its last
+      // chance at a durable record.
+      const [oldestKey] = this.swapHistoryDurableRetryQueue.keys();
+      this.swapHistoryDurableRetryQueue.delete(oldestKey);
+      defaultLogger.app.error.log(
+        `Swap history durable retry queue is full; dropped ${oldestKey}`,
+      );
+    }
+    this.swapHistoryDurableRetryQueue.set(key, item);
+  }
+
+  /**
+   * Re-attempts the durable write for swaps that reached no store at all.
+   *
+   * One attempt per item per pass: the reconcile that calls this is itself the
+   * retry cadence, so spacing the attempts here would only hold the mutex while
+   * a store that is still down rejects them. Must run before the reconcile
+   * reads storage, otherwise the rebuild evicts these items from the atom
+   * before they have been written back into it.
+   *
+   * Caller holds swapHistoryMutationMutex.
+   */
+  private async flushSwapHistoryDurableRetries() {
+    if (!this.swapHistoryDurableRetryQueue.size) {
+      return;
+    }
+    // Iterated live rather than over a copy: removing the current entry mid-loop
+    // is well-defined for Map, and the caller's mutex rules out a concurrent
+    // writer, so a snapshot would only risk acting on a stale payload.
+    for (const [key, item] of this.swapHistoryDurableRetryQueue) {
+      try {
+        await this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+          item,
+        );
+      } catch (error) {
+        this.logSwapHistoryPersistError(error);
+        // Every queued item targets the same store, so one rejection settles
+        // the rest of this pass too.
+        return;
+      }
+      // Staged is already durable — recoverPendingSwapHistoryItems promotes it
+      // on the next history read even if the commit below never lands.
+      this.swapHistoryDurableRetryQueue.delete(key);
+      try {
+        await this.backgroundApi.simpleDb.swapHistory.commitPendingSwapHistoryItem(
+          item,
+        );
+      } catch (error) {
+        this.logSwapHistoryPersistError(error);
+      }
+    }
   }
 
   /**
@@ -2225,6 +2310,13 @@ export default class ServiceSwap extends ServiceBase {
           durable = pendingWriteStaged;
         }
       }
+      if (durable) {
+        this.swapHistoryDurableRetryQueue.delete(
+          this.getSwapHistoryIntervalKey(enrichedItem),
+        );
+      } else {
+        this.enqueueSwapHistoryDurableRetry(enrichedItem);
+      }
     });
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
@@ -2244,6 +2336,16 @@ export default class ServiceSwap extends ServiceBase {
       item,
       oldTxId,
     );
+    // The durable write for a queued item never landed, so this update had
+    // nothing to change. Re-queue under the current identity instead, or the
+    // retry would eventually persist a status the swap has already left.
+    const key = this.getSwapHistoryIntervalKey(item);
+    const queuedKey =
+      oldTxId && this.swapHistoryDurableRetryQueue.has(oldTxId) ? oldTxId : key;
+    if (this.swapHistoryDurableRetryQueue.has(queuedKey)) {
+      this.swapHistoryDurableRetryQueue.delete(queuedKey);
+      this.enqueueSwapHistoryDurableRetry(item);
+    }
   }
 
   @backgroundMethod()
@@ -2411,6 +2513,13 @@ export default class ServiceSwap extends ServiceBase {
         statuses,
         options,
       );
+      // Cleared wholesale rather than by the id list below, which is derived
+      // from the pending atom: a queued item is precisely one the reconcile
+      // already evicted from that atom, so it would survive a filtered removal
+      // and be written back after the user cleared it. Over-clearing only costs
+      // an already-non-durable item its retry; resurrecting a deleted history
+      // is not recoverable.
+      this.swapHistoryDurableRetryQueue.clear();
       const inAppNotification = await inAppNotificationAtom.get();
       const deleteHistoryIds = filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
@@ -2480,6 +2589,9 @@ export default class ServiceSwap extends ServiceBase {
       const deleteHistoryId = txInfo.useOrderId
         ? (txInfo.orderId ?? '')
         : (txInfo.txId ?? '');
+      // Same identity the retry queue is keyed by, so a pending durable retry
+      // cannot write this history back after the user removed it.
+      this.swapHistoryDurableRetryQueue.delete(deleteHistoryId);
       await inAppNotificationAtom.set((pre) => ({
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(

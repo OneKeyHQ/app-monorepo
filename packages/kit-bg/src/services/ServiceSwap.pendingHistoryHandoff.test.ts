@@ -277,6 +277,125 @@ describe('swap pending history handoff', () => {
     });
   });
 
+  describe('durable retry queue', () => {
+    function createFailingStore() {
+      const stagePendingSwapHistoryItem = jest
+        .fn()
+        .mockRejectedValue(new Error('storage unavailable'));
+      const commitPendingSwapHistoryItem = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const service = new ServiceSwap({
+        backgroundApi: {
+          serviceNetwork: {
+            getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+          },
+          simpleDb: {
+            swapHistory: {
+              stagePendingSwapHistoryItem,
+              commitPendingSwapHistoryItem,
+              addSwapHistoryItem: jest
+                .fn()
+                .mockRejectedValue(new Error('storage unavailable')),
+              deleteSwapHistoryItem: jest.fn().mockResolvedValue(undefined),
+              deleteOneSwapHistory: jest.fn().mockResolvedValue(undefined),
+              // Update-only by design: a non-durable item has no row to change,
+              // which is exactly why the retry queue has to carry the payload.
+              updateSwapHistoryItem: jest.fn().mockResolvedValue(undefined),
+              getSwapHistoryList: jest.fn().mockResolvedValue([]),
+              recoverPendingSwapHistoryItems: jest.fn().mockResolvedValue(0),
+              repairSwapHistoryNetworkInfo: jest
+                .fn()
+                .mockResolvedValue({ changed: false, histories: [] }),
+            },
+          },
+        },
+      });
+      return { service, stagePendingSwapHistoryItem };
+    }
+
+    it('writes a non-durable swap back on the next reconcile', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      await service.addSwapHistoryItem(
+        createPendingHistory({ txId: '0xretry-me' }),
+      );
+      stagePendingSwapHistoryItem.mockClear();
+      // Storage recovers.
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txInfo: expect.objectContaining({ txId: '0xretry-me' }),
+        }),
+      );
+    });
+
+    it('stops retrying once the write lands', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      await service.addSwapHistoryItem(
+        createPendingHistory({ txId: '0xonce' }),
+      );
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+
+      await service.syncSwapHistoryPendingList();
+      stagePendingSwapHistoryItem.mockClear();
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+    });
+
+    it('never writes back a history the user cleared one by one', async () => {
+      // The queued item has already been evicted from the pending atom, so the
+      // clear cannot be filtered through that atom to find it.
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      await service.addSwapHistoryItem(
+        createPendingHistory({ txId: '0xcleared' }),
+      );
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+
+      await service.cleanOneSwapHistory({ txId: '0xcleared' });
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+    });
+
+    it('never writes back a history the user cleared in bulk', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      await service.addSwapHistoryItem(
+        createPendingHistory({ txId: '0xbulk-cleared' }),
+      );
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+
+      await service.cleanSwapHistoryItems();
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+    });
+
+    it('retries the current status rather than the one that failed', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      const history = createPendingHistory({ txId: '0xmoved-on' });
+      await service.addSwapHistoryItem(history);
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+
+      await service.updateSwapHistoryItem(
+        { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+        { shouldShowToast: false },
+      );
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({ status: ESwapTxHistoryStatus.SUCCESS }),
+      );
+    });
+  });
+
   it('retries a transient staging failure before publishing', async () => {
     const history = createPendingHistory({ txId: '0xstage-retry' });
     const stagePendingSwapHistoryItem = jest
