@@ -6,9 +6,11 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  DashText,
   Dialog,
   Divider,
   Icon,
+  NumberSizeableText,
   SizableText,
   Toast,
   XStack,
@@ -25,11 +27,13 @@ import {
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  calculateLiquidationPrice,
   formatPriceToSignificantDigits,
   parseDexCoin,
   resolveTradingSize,
@@ -88,6 +92,7 @@ const AddPositionForm = memo(
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
     const [{ isConnected }] = useConnectionStateAtom();
+    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
@@ -266,6 +271,72 @@ const AddPositionForm = memo(
         }),
       [amount, isBuy, maxSize, sizeInputMode, sizePercent, szDecimals],
     );
+
+    // Margin this add consumes, and where the position would be liquidated once
+    // it fills. Both are previews of the position AFTER the add, so the
+    // liquidation price blends the existing position with the new size.
+    const addPositionPreview = useMemo(() => {
+      const sizeBN = new BigNumber(resolvedSize || 0);
+      const priceBN = new BigNumber(effectivePrice || 0);
+      if (
+        !sizeBN.isFinite() ||
+        sizeBN.lte(0) ||
+        !priceBN.isFinite() ||
+        priceBN.lte(0)
+      ) {
+        return { marginRequired: null, liquidationPrice: null };
+      }
+
+      const totalValue = sizeBN.multipliedBy(priceBN);
+      const safeLeverage = leverage > 0 ? leverage : 1;
+      const marginRequired = totalValue.dividedBy(safeLeverage);
+
+      const marginMode = assetData?.leverage?.type;
+      const maxLeverage = targetAsset?.universe?.maxLeverage;
+      if (!marginMode || !maxLeverage) {
+        return { marginRequired, liquidationPrice: null };
+      }
+
+      const side = isBuy ? 'long' : 'short';
+      const liquidationPrice = calculateLiquidationPrice({
+        totalValue,
+        referencePrice: priceBN,
+        positionSize: sizeBN,
+        side,
+        leverage: safeLeverage,
+        mode: marginMode,
+        marginTiers: targetAsset?.margin?.marginTiers,
+        maxLeverage,
+        crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || 0),
+        crossMaintenanceMarginUsed: new BigNumber(
+          accountSummary?.crossMaintenanceMarginUsed || 0,
+        ),
+        existingPositionSize: currentPosition
+          ? new BigNumber(currentPosition.szi)
+          : undefined,
+        existingEntryPrice: currentPosition
+          ? new BigNumber(currentPosition.entryPx)
+          : undefined,
+        newOrderSide: side,
+      });
+
+      return {
+        marginRequired,
+        liquidationPrice:
+          liquidationPrice && liquidationPrice.gt(0) ? liquidationPrice : null,
+      };
+    }, [
+      accountSummary?.crossAccountValue,
+      accountSummary?.crossMaintenanceMarginUsed,
+      assetData?.leverage?.type,
+      currentPosition,
+      effectivePrice,
+      isBuy,
+      leverage,
+      resolvedSize,
+      targetAsset?.margin?.marginTiers,
+      targetAsset?.universe?.maxLeverage,
+    ]);
 
     const handleManualSizeChange = useCallback((value: string) => {
       setAmount(value);
@@ -674,6 +745,69 @@ const AddPositionForm = memo(
               </YStack>
             ) : null}
           </YStack>
+        </YStack>
+        <YStack gap="$2">
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.3}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_cost })}
+            </DashText>
+            {addPositionPreview.marginRequired ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.marginRequired.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
+
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
+            </DashText>
+            {addPositionPreview.liquidationPrice ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.liquidationPrice.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
         </YStack>
         <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
           <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
