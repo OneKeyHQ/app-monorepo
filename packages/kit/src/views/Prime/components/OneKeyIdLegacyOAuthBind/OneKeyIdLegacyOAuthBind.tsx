@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import {
   redirectKeylessOneKeyIdAuthToExtExpandTab,
   redirectOneKeyIdAuthToExtExpandTab,
@@ -185,10 +186,12 @@ function OneKeyIdLegacyOAuthBindHeader({
   bindProvider,
   inDialog,
   isRequiredForKeyless,
+  onTitleMultipleClick,
 }: {
   bindProvider?: EOAuthSocialLoginProvider;
   inDialog?: boolean;
   isRequiredForKeyless: boolean;
+  onTitleMultipleClick?: () => void | Promise<void>;
 }) {
   const intl = useIntl();
   const title = getBindOAuthTitle({ intl, provider: bindProvider });
@@ -210,9 +213,15 @@ function OneKeyIdLegacyOAuthBindHeader({
 
   return (
     <YStack gap="$1">
-      <SizableText size="$bodyMdMedium" color="$text">
-        {title}
-      </SizableText>
+      <MultipleClickStack
+        devSettingsOnly
+        testID="onekey-id-bind-oauth-reset-prompt-trigger"
+        onPress={() => void onTitleMultipleClick?.()}
+      >
+        <SizableText size="$bodyMdMedium" color="$text">
+          {title}
+        </SizableText>
+      </MultipleClickStack>
       <SizableText size="$bodySm" color="$textSubdued">
         {description}
       </SizableText>
@@ -610,6 +619,7 @@ function OneKeyIdLegacyOAuthBindContent({
   onBeforeShowNestedDialog,
   onBeforeShowAccountSwitchDialog,
   onAccountSwitchResult,
+  onTitleMultipleClick,
 }: {
   presentation: 'dialog' | 'inline';
   bindProvider?: EOAuthSocialLoginProvider;
@@ -620,6 +630,7 @@ function OneKeyIdLegacyOAuthBindContent({
   onAccountSwitchResult?: (
     result: IOneKeyIdOAuthAccountSwitchResult,
   ) => void | Promise<void>;
+  onTitleMultipleClick?: () => void | Promise<void>;
 }) {
   const isDialog = presentation === 'dialog';
   const content = (
@@ -628,6 +639,7 @@ function OneKeyIdLegacyOAuthBindContent({
         bindProvider={bindProvider}
         inDialog={isDialog}
         isRequiredForKeyless={isRequiredForKeyless}
+        onTitleMultipleClick={onTitleMultipleClick}
       />
       <OneKeyIdLegacyOAuthBindActions
         bindProvider={bindProvider}
@@ -741,15 +753,56 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     () => isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount),
     [onekeyAccount],
   );
+  const [isKeylessCredentialReady, setIsKeylessCredentialReady] =
+    useState(false);
+  const handleResetBindPrompt = useCallback(async () => {
+    if (!user?.onekeyUserId) {
+      return;
+    }
+    try {
+      await backgroundApiProxy.simpleDb.prime.resetOneKeyIdOAuthBindPromptShown(
+        {
+          onekeyUserId: user.onekeyUserId,
+        },
+      );
+      Toast.success({
+        title: 'OneKey ID bind reminder reset. Reload to test.',
+      });
+    } catch (error) {
+      console.error(
+        'OneKeyIdLegacyOAuthBindPrompt reset failed:',
+        getSanitizedAuthErrorText(error),
+      );
+      Toast.error({
+        title: 'Failed to reset OneKey ID bind reminder',
+      });
+    }
+  }, [user?.onekeyUserId]);
 
   useEffect(() => {
+    let isCancelled = false;
     const refreshProfile = async () => {
       if (!isLoggedIn || !isFocused) {
+        setIsKeylessCredentialReady(false);
         return;
       }
       try {
+        const keylessCredentialReadiness =
+          await backgroundApiProxy.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
+        if (isCancelled) {
+          return;
+        }
+        const isReady =
+          keylessCredentialReadiness.status !== 'retryableIndeterminate';
+        setIsKeylessCredentialReady(isReady);
+        if (!isReady) {
+          return;
+        }
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       } catch (error) {
+        if (!isCancelled) {
+          setIsKeylessCredentialReady(false);
+        }
         console.error(
           'OneKeyIdLegacyOAuthBindPrompt refresh failed:',
           getSanitizedAuthErrorText(error),
@@ -758,6 +811,9 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     };
 
     void refreshProfile();
+    return () => {
+      isCancelled = true;
+    };
   }, [isFocused, isLoggedIn]);
 
   if (!isLoggedIn) {
@@ -768,11 +824,16 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     return <OneKeyIdOAuthBindStatus providers={boundOAuthProviders} />;
   }
 
-  if (!shouldShowBindPrompt) {
+  if (!isKeylessCredentialReady || !shouldShowBindPrompt) {
     return null;
   }
 
-  return <OneKeyIdLegacyOAuthBindContent presentation="inline" />;
+  return (
+    <OneKeyIdLegacyOAuthBindContent
+      presentation="inline"
+      onTitleMultipleClick={handleResetBindPrompt}
+    />
+  );
 }
 
 type IOneKeyIdOAuthBindDialogIntent =
@@ -785,33 +846,84 @@ type IOneKeyIdOAuthBindDialogIntent =
       type: 'required-for-keyless';
       provider: EOAuthSocialLoginProvider;
       onBindSuccess: () => void | Promise<void>;
+    }
+  | {
+      type: 'credential-upgrade';
+      onekeyUserId: string;
+      shouldSkipBeforeShow?: () => boolean;
     };
 
-async function shouldShowOneKeyIdOAuthBindDialog(
+type IOneKeyIdOAuthBindPromptClaim = {
+  onekeyUserId: string;
+  claimId: string;
+};
+
+const ONEKEY_ID_OAUTH_BIND_DIALOG_PRESENTATION_TIMEOUT_MS = 5000;
+
+async function prepareOneKeyIdOAuthBindDialog(
   intent: IOneKeyIdOAuthBindDialogIntent,
-): Promise<boolean> {
+): Promise<{
+  shouldShow: boolean;
+  promptClaim?: IOneKeyIdOAuthBindPromptClaim;
+}> {
   if (intent.type === 'required-for-keyless') {
-    return true;
+    return { shouldShow: true };
   }
 
-  if (intent.type === 'post-email-login') {
-    const userInfo = await backgroundApiProxy.servicePrime.getLocalUserInfo();
-    if (!userInfo?.onekeyUserId) {
-      return false;
+  if (
+    intent.type === 'post-email-login' ||
+    intent.type === 'credential-upgrade'
+  ) {
+    const onekeyUserId =
+      intent.type === 'credential-upgrade'
+        ? intent.onekeyUserId
+        : (await backgroundApiProxy.servicePrime.getLocalUserInfo())
+            ?.onekeyUserId;
+    if (!onekeyUserId) {
+      return { shouldShow: false };
     }
-    return backgroundApiProxy.servicePrime.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt(
-      { onekeyUserId: userInfo.onekeyUserId },
-    );
+    const claim =
+      await backgroundApiProxy.servicePrime.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId,
+      });
+    return claim.status === 'claimed'
+      ? {
+          shouldShow: true,
+          promptClaim: { onekeyUserId, claimId: claim.claimId },
+        }
+      : { shouldShow: false };
   }
 
   try {
-    return await backgroundApiProxy.servicePrime.isLegacyOneKeyIdOAuthBindRequired();
+    return {
+      shouldShow:
+        await backgroundApiProxy.servicePrime.isLegacyOneKeyIdOAuthBindRequired(),
+    };
   } catch (error) {
     console.error(
       'showOneKeyIdLegacyOAuthBindDialog failed:',
       getSanitizedAuthErrorText(error),
     );
-    return false;
+    return { shouldShow: false };
+  }
+}
+
+async function completeOneKeyIdOAuthBindPromptClaim(
+  claim: IOneKeyIdOAuthBindPromptClaim,
+) {
+  return backgroundApiProxy.servicePrime.completeOneKeyIdOAuthBindPrompt(claim);
+}
+
+async function releaseOneKeyIdOAuthBindPromptClaim(
+  claim: IOneKeyIdOAuthBindPromptClaim,
+) {
+  try {
+    await backgroundApiProxy.servicePrime.releaseOneKeyIdOAuthBindPrompt(claim);
+  } catch (error) {
+    console.error(
+      'showOneKeyIdLegacyOAuthBindDialog release claim failed:',
+      getSanitizedAuthErrorText(error),
+    );
   }
 }
 
@@ -822,9 +934,19 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
     return false;
   }
   isLegacyOAuthBindDialogVisible = true;
+  let promptClaim: IOneKeyIdOAuthBindPromptClaim | undefined;
+  let isPromptClaimCompleted = false;
 
   try {
-    if (!(await shouldShowOneKeyIdOAuthBindDialog(intent))) {
+    const preparation = await prepareOneKeyIdOAuthBindDialog(intent);
+    if (!preparation.shouldShow) {
+      return false;
+    }
+    promptClaim = preparation.promptClaim;
+    if (
+      intent.type === 'credential-upgrade' &&
+      intent.shouldSkipBeforeShow?.()
+    ) {
       return false;
     }
 
@@ -837,7 +959,26 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       ? intent.onBindSuccess
       : undefined;
 
-    const bindDialogResult = await new Promise<IOneKeyIdOAuthBindDialogResult>(
+    let settleDialogPresentation: (presented: boolean) => void = () =>
+      undefined;
+    const dialogPresentationPromise = new Promise<boolean>((resolve) => {
+      let isSettled = false;
+      const timeout = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve(false);
+        }
+      }, ONEKEY_ID_OAUTH_BIND_DIALOG_PRESENTATION_TIMEOUT_MS);
+      settleDialogPresentation = (presented) => {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timeout);
+          resolve(presented);
+        }
+      };
+    });
+    let closePresentedDialog: (() => Promise<void>) | undefined;
+    const bindDialogResultPromise = new Promise<IOneKeyIdOAuthBindDialogResult>(
       (resolve) => {
         let isSettled = false;
         let isAccountSwitchDialogPending = false;
@@ -851,12 +992,22 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
           dismissOnOverlayPress: false,
           disableDrag: true,
           disableSystemClose: true,
+          onOpen: () => {
+            settleDialogPresentation(
+              !(
+                intent.type === 'credential-upgrade' &&
+                intent.shouldSkipBeforeShow?.()
+              ),
+            );
+          },
           onCancel: () => {
+            settleDialogPresentation(false);
             if (!isAccountSwitchDialogPending) {
               resolveOnce('cancelled');
             }
           },
           onClose: () => {
+            settleDialogPresentation(false);
             if (!isAccountSwitchDialogPending) {
               resolveOnce('cancelled');
             }
@@ -869,11 +1020,6 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
               onBindSuccess={async () => {
                 if (!isSettled) {
                   isSettled = true;
-                  // The bind has already committed when this runs, and
-                  // isSettled=true blocks onClose/onCancel from settling, so
-                  // didBind must resolve true even if closing the dialog
-                  // throws; the close error itself is logged (not toasted) by
-                  // the bind actions.
                   try {
                     await dialog.close({ flag: 'confirm' });
                   } finally {
@@ -903,8 +1049,52 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
             />
           ),
         });
+        closePresentedDialog = async () => {
+          await dialog.close();
+        };
       },
     );
+
+    if (!closePresentedDialog) {
+      settleDialogPresentation(false);
+      await bindDialogResultPromise;
+      return false;
+    }
+
+    const didPresentDialog = await dialogPresentationPromise;
+    if (!didPresentDialog) {
+      try {
+        await closePresentedDialog();
+      } catch {
+        // The claim remains unconsumed and will expire if release also fails.
+      }
+      return false;
+    }
+
+    if (promptClaim) {
+      let completed = false;
+      try {
+        completed = await completeOneKeyIdOAuthBindPromptClaim(promptClaim);
+      } catch (error) {
+        try {
+          await closePresentedDialog?.();
+        } catch {
+          // Preserve the claim-completion error; the lease will still expire.
+        }
+        throw error;
+      }
+      if (!completed) {
+        try {
+          await closePresentedDialog?.();
+        } catch {
+          // The claim remains unconsumed and will expire if release also fails.
+        }
+        return false;
+      }
+      isPromptClaimCompleted = true;
+    }
+
+    const bindDialogResult = await bindDialogResultPromise;
 
     const didCompleteRequiredFlow =
       bindDialogResult === 'bound' || bindDialogResult === 'switched';
@@ -917,6 +1107,33 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       (isRequiredForKeyless && bindDialogResult === 'switched')
     );
   } finally {
+    if (promptClaim && !isPromptClaimCompleted) {
+      await releaseOneKeyIdOAuthBindPromptClaim(promptClaim);
+    }
     isLegacyOAuthBindDialogVisible = false;
   }
+}
+
+/*
+ * Keep the credential-upgrade entry narrow: it only supplies the current
+ * user and cancellation predicate. Claiming, presentation acknowledgement,
+ * and release are centralized in showOneKeyIdLegacyOAuthBindDialog so every
+ * optional reminder uses the same cross-surface protocol.
+ */
+export async function showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+  onekeyUserId,
+  shouldSkip,
+}: {
+  onekeyUserId: string | undefined;
+  shouldSkip?: () => boolean;
+}) {
+  if (!onekeyUserId || shouldSkip?.()) {
+    return false;
+  }
+
+  return showOneKeyIdLegacyOAuthBindDialog({
+    type: 'credential-upgrade',
+    onekeyUserId,
+    shouldSkipBeforeShow: shouldSkip,
+  });
 }

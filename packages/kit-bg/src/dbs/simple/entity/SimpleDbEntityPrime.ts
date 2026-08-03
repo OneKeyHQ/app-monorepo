@@ -19,6 +19,7 @@ import {
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPayment,
@@ -98,6 +99,10 @@ export interface ISimpleDBPrime {
   // historical field name is retained for persisted-data compatibility;
   // any finite timestamp now means the reminder has been consumed forever.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
+  oneKeyIdOAuthBindPromptClaimByUserId?: Record<
+    string,
+    { claimId: string; expiresAt: number }
+  >;
   infiniPendingPaymentSessionByUserId?: Record<
     string,
     IPrimeInfiniPendingPaymentSession
@@ -363,9 +368,12 @@ export type IIdentityExitJournalEntry = {
     removeKeyless: boolean;
     clearKeylessSession?: boolean;
     clearAllIdentityAuth?: boolean;
+    explicitLocalOneKeyIdLogout?: boolean;
+    explicitLocalKeylessRemoval?: boolean;
     switchOAuthProvider?: EOAuthSocialLoginProvider;
     allowUnknownKeylessSessionIdentity?: boolean;
   };
+  explicitLocalOneKeyIdLogoutProjection?: IExplicitLocalOneKeyIdLogoutProjection;
   oneKeyId?: {
     onekeyUserId: string;
     source: EPrimeAuthSessionSource;
@@ -1036,6 +1044,16 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     clearSupabaseStorageCache();
   }
 
+  async markOneKeyIdLoggedOutPreservingSessions() {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      authToken: '',
+      authSessionSource: undefined,
+      oneKeyIdAuthState: 'loggedOut' as const,
+    }));
+    clearSupabaseStorageCache();
+  }
+
   async clearAllIdentityAuthMetadataAndBumpRevision(): Promise<number> {
     const next = await this.setRawData((rawData) => ({
       ...rawData,
@@ -1090,13 +1108,144 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     if (!onekeyUserId) {
       return;
     }
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      localKeylessUpgradeBindPromptShownAtByUserId: {
+    await this.setRawData((rawData) => {
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: {
+          ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
+          [onekeyUserId]: Date.now(),
+        },
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+  }
+
+  async tryClaimOneKeyIdOAuthBindPrompt({
+    onekeyUserId,
+    claimId,
+    expiresAt,
+    now,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+    expiresAt: number;
+    now: number;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !claimId || expiresAt <= now) {
+      return false;
+    }
+    let claimed = false;
+    await this.setRawData((rawData) => {
+      const shownAt =
+        rawData?.localKeylessUpgradeBindPromptShownAtByUserId?.[onekeyUserId];
+      if (typeof shownAt === 'number' && Number.isFinite(shownAt)) {
+        return { ...rawData };
+      }
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim && currentClaim.expiresAt > now) {
+        return { ...rawData };
+      }
+      claimed = true;
+      return {
+        ...rawData,
+        oneKeyIdOAuthBindPromptClaimByUserId: {
+          ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+          [onekeyUserId]: { claimId, expiresAt },
+        },
+      };
+    });
+    return claimed;
+  }
+
+  async completeOneKeyIdOAuthBindPromptClaim({
+    onekeyUserId,
+    claimId,
+    shownAt,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+    shownAt: number;
+  }): Promise<boolean> {
+    let completed = false;
+    await this.setRawData((rawData) => {
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim?.claimId !== claimId) {
+        return { ...rawData };
+      }
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      completed = true;
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: {
+          ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
+          [onekeyUserId]: shownAt,
+        },
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+    return completed;
+  }
+
+  async releaseOneKeyIdOAuthBindPromptClaim({
+    onekeyUserId,
+    claimId,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+  }): Promise<boolean> {
+    let released = false;
+    await this.setRawData((rawData) => {
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim?.claimId !== claimId) {
+        return { ...rawData };
+      }
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      released = true;
+      return {
+        ...rawData,
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+    return released;
+  }
+
+  @backgroundMethod()
+  async resetOneKeyIdOAuthBindPromptShown({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }) {
+    if (!onekeyUserId) {
+      return;
+    }
+    await this.setRawData((rawData) => {
+      const shownAtByUserId = {
         ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
-        [onekeyUserId]: Date.now(),
-      },
-    }));
+      };
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete shownAtByUserId[onekeyUserId];
+      delete claims[onekeyUserId];
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: shownAtByUserId,
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
   }
 
   @backgroundMethod()

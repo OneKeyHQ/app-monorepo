@@ -1,3 +1,4 @@
+import type { EPrimeAuthSessionSource } from './primeTypes';
 import type { EOAuthSocialLoginProvider } from '../../src/consts/authConsts';
 
 export type IIdentityExitPlanId = string & {
@@ -10,6 +11,14 @@ export type IIdentityExitOAuthHandoff = string & {
 
 export type IKeylessOAuthSessionRollbackHandle = string & {
   readonly __keylessOAuthSessionRollbackHandle: 'IKeylessOAuthSessionRollbackHandle';
+};
+
+export type IExplicitLocalOneKeyIdLogoutProjection = {
+  authSessionSource?: EPrimeAuthSessionSource;
+  oneKeyIdAuthState?: 'loggedIn' | 'loggedOut';
+  isLoggedIn: boolean;
+  isLoggedInOnServer: boolean;
+  onekeyUserId?: string;
 };
 
 export type IIdentityExitIntent =
@@ -96,7 +105,7 @@ export type IIdentityExitPlan =
 
 export type IExecuteIdentityExitParams = {
   planId: IIdentityExitPlanId;
-  acknowledgement?: 'keylessWalletRemoval';
+  acknowledgement?: 'oneKeyIdLogout' | 'keylessWalletRemoval';
 };
 
 export type IStartIndependentOneKeyIdOAuth = {

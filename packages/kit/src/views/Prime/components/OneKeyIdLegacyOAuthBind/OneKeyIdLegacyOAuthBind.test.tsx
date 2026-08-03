@@ -5,7 +5,10 @@ import type { ReactElement } from 'react';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { showOneKeyIdLegacyOAuthBindDialog } from './OneKeyIdLegacyOAuthBind';
+import {
+  showOneKeyIdLegacyOAuthBindDialog,
+  showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade,
+} from './OneKeyIdLegacyOAuthBind';
 
 type IAccountSwitchResult = 'switched' | 'cancelled' | 'failed';
 
@@ -28,6 +31,7 @@ type IDialogStackProps = {
 type IDialogOptions = {
   onCancel: () => void;
   onClose: () => void;
+  onOpen?: () => void;
   renderContent: ReactElement<IDialogContentProps>;
 };
 
@@ -40,11 +44,24 @@ const mockDialogShow = jest.fn<
   [IDialogOptions]
 >((options) => {
   mockCurrentDialogOptions = options;
+  options.onOpen?.();
   return { close: mockDialogClose };
 });
 const mockIsLegacyOAuthBindRequired = jest.fn<Promise<boolean>, []>(
   async () => true,
 );
+const mockClaimCredentialUpgradePrompt = jest.fn<
+  Promise<{ status: 'claimed'; claimId: string } | { status: 'skip' }>,
+  [{ onekeyUserId: string }]
+>(async () => ({ status: 'claimed', claimId: 'claim-1' }));
+const mockCompleteCredentialUpgradePrompt = jest.fn<
+  Promise<boolean>,
+  [{ onekeyUserId: string; claimId: string }]
+>(async () => true);
+const mockReleaseCredentialUpgradePrompt = jest.fn<
+  Promise<boolean>,
+  [{ onekeyUserId: string; claimId: string }]
+>(async () => true);
 
 jest.mock('@onekeyhq/components', () => ({
   Button: () => null,
@@ -106,7 +123,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
+      claimOneKeyIdOAuthBindPrompt: (params: { onekeyUserId: string }) =>
+        mockClaimCredentialUpgradePrompt(params),
+      completeOneKeyIdOAuthBindPrompt: (params: {
+        onekeyUserId: string;
+        claimId: string;
+      }) => mockCompleteCredentialUpgradePrompt(params),
       isLegacyOneKeyIdOAuthBindRequired: () => mockIsLegacyOAuthBindRequired(),
+      releaseOneKeyIdOAuthBindPrompt: (params: {
+        onekeyUserId: string;
+        claimId: string;
+      }) => mockReleaseCredentialUpgradePrompt(params),
     },
   },
 }));
@@ -117,6 +144,12 @@ function getDialogContentProps(): IDialogContentProps {
     throw new OneKeyLocalError('Expected the OAuth bind dialog to be shown');
   }
   return options.renderContent.props;
+}
+
+async function flushMicrotasks(times = 5) {
+  for (let index = 0; index < times; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 async function startRequiredKeylessBind(onBindSuccess: () => Promise<void>) {
@@ -210,5 +243,110 @@ describe('showOneKeyIdLegacyOAuthBindDialog account switch handoff', () => {
     await contentProps.onAccountSwitchResult('switched');
 
     await expect(resultPromise).resolves.toBe(false);
+  });
+});
+
+describe('showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCurrentDialogOptions = undefined;
+  });
+
+  it('shows for a legacy OneKey ID without requiring a local Keyless credential', async () => {
+    mockClaimCredentialUpgradePrompt.mockResolvedValueOnce({ status: 'skip' });
+
+    await expect(
+      showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(false);
+    expect(mockDialogShow).not.toHaveBeenCalled();
+
+    mockClaimCredentialUpgradePrompt.mockResolvedValueOnce({
+      status: 'claimed',
+      claimId: 'claim-2',
+    });
+    const resultPromise =
+      showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+        onekeyUserId: 'user-1',
+      });
+    await flushMicrotasks();
+
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    expect(mockCompleteCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      claimId: 'claim-2',
+    });
+    mockCurrentDialogOptions?.onCancel();
+    await expect(resultPromise).resolves.toBe(false);
+  });
+
+  it('releases the reminder claim when the app locks before presentation', async () => {
+    let skipCheckCount = 0;
+    const shouldSkip = jest.fn(() => {
+      skipCheckCount += 1;
+      return skipCheckCount >= 2;
+    });
+
+    await expect(
+      showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+        onekeyUserId: 'user-1',
+        shouldSkip,
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockClaimCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+    });
+    expect(mockReleaseCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      claimId: 'claim-1',
+    });
+    expect(mockCompleteCredentialUpgradePrompt).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('does not consume the claim when the account changes before onOpen', async () => {
+    let didAccountChange = false;
+    mockDialogShow.mockImplementationOnce((options) => {
+      mockCurrentDialogOptions = options;
+      return { close: mockDialogClose };
+    });
+    const resultPromise =
+      showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+        onekeyUserId: 'user-1',
+        shouldSkip: () => didAccountChange,
+      });
+    await flushMicrotasks();
+    didAccountChange = true;
+    mockCurrentDialogOptions?.onOpen?.();
+
+    await expect(resultPromise).resolves.toBe(false);
+    expect(mockCompleteCredentialUpgradePrompt).not.toHaveBeenCalled();
+    expect(mockReleaseCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      claimId: 'claim-1',
+    });
+  });
+
+  it('releases the reminder claim when dialog presentation fails', async () => {
+    const presentationError = new OneKeyLocalError(
+      'dialog presentation failed',
+    );
+    mockDialogShow.mockImplementationOnce(() => {
+      throw presentationError;
+    });
+
+    await expect(
+      showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+        onekeyUserId: 'user-1',
+      }),
+    ).rejects.toBe(presentationError);
+
+    expect(mockCompleteCredentialUpgradePrompt).not.toHaveBeenCalled();
+    expect(mockReleaseCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      claimId: 'claim-1',
+    });
   });
 });

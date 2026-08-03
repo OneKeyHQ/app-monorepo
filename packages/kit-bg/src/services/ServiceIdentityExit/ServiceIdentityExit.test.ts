@@ -118,6 +118,9 @@ function createFixture({
   const commitIdentityExitLocalState = jest
     .fn()
     .mockResolvedValue({ status: 'committed', revision: 11 });
+  const commitExplicitLocalOneKeyIdLogout = jest
+    .fn()
+    .mockResolvedValue({ status: 'committed', revision: 11 });
   const logoutPrimeServerSessionBestEffort = jest
     .fn()
     .mockResolvedValue(undefined);
@@ -404,6 +407,7 @@ function createFixture({
     servicePassword: { promptPasswordVerifyByWallet },
     servicePrime: {
       commitIdentityExitLocalState,
+      commitExplicitLocalOneKeyIdLogout,
       logoutPrimeServerSessionBestEffort,
       deleteOneKeyIdAccountOnServer,
       clearAllIdentityAuthForExplicitOperation,
@@ -424,6 +428,7 @@ function createFixture({
     cleanupChildBotWalletsForRemovedKeylessParent,
     cleanupKeylessWalletCredentialStorage,
     commitIdentityExitLocalState,
+    commitExplicitLocalOneKeyIdLogout,
     logoutPrimeServerSessionBestEffort,
     deleteOneKeyIdAccountOnServer,
     clearAllIdentityAuthForExplicitOperation,
@@ -680,9 +685,11 @@ describe('ServiceIdentityExit', () => {
 
     const first = await fixture.service.executeIdentityExit({
       planId: plan.planId,
+      acknowledgement: 'oneKeyIdLogout',
     });
     const second = await fixture.service.executeIdentityExit({
       planId: plan.planId,
+      acknowledgement: 'oneKeyIdLogout',
     });
 
     expect(first).toEqual(second);
@@ -702,6 +709,22 @@ describe('ServiceIdentityExit', () => {
         keylessSession: undefined,
       }),
     );
+  });
+
+  test('requires explicit user acknowledgement before OneKey ID logout', async () => {
+    const fixture = createFixture();
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
+    });
+    expectReadyPlan(plan);
+
+    await expect(
+      fixture.service.executeIdentityExit({ planId: plan.planId }),
+    ).rejects.toThrow('Explicit OneKey ID logout acknowledgement is required.');
+
+    expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
   });
 
   test('treats logged-out metadata as authoritative and clears a stale logged-in projection', async () => {
@@ -731,6 +754,129 @@ describe('ServiceIdentityExit', () => {
     expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
   });
 
+  test('allows explicit local logout when the OneKey ID source is unavailable', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedIn',
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
+    });
+    expectReadyPlan(plan);
+    expect(plan.presentation).toEqual({ type: 'oneKeyIdOnly' });
+    expect(plan.confirmation).toEqual({ type: 'normal' });
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+    expect(
+      fixture.cleanupKeylessWalletCredentialStorage,
+    ).not.toHaveBeenCalled();
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      expectedProjection: {
+        authSessionSource: undefined,
+        oneKeyIdAuthState: 'loggedIn',
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'onekey-user-1',
+      },
+    });
+    expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+  });
+
+  test('does not let the explicit local logout clear a newer identity state', async () => {
+    const fixture = createFixture({ lifecycleRevisions: [10, 10, 11] });
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedIn',
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
+    });
+    expectReadyPlan(plan);
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
+    ).resolves.toMatchObject({
+      status: 'blocked',
+      code: 'STATE_CHANGED',
+    });
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).not.toHaveBeenCalled();
+  });
+
+  test('recovers an interrupted explicit local OneKey ID logout', async () => {
+    const operationId = 'explicit-local-logout-operation';
+    const fixture = createFixture({
+      journalEntries: {
+        [operationId]: {
+          operationId,
+          planId: 'explicit-local-logout-plan',
+          intentType: 'logoutOneKeyId',
+          status: 'executing',
+          startedAt: 1,
+          updatedAt: 1,
+          expectedLifecycleRevision: 10,
+          target: {
+            logoutOneKeyId: true,
+            removeKeyless: false,
+            explicitLocalOneKeyIdLogout: true,
+          },
+          explicitLocalOneKeyIdLogoutProjection: {
+            authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+            oneKeyIdAuthState: 'loggedIn',
+            isLoggedIn: true,
+            isLoggedInOnServer: true,
+            onekeyUserId: 'onekey-user-1',
+          },
+        },
+      },
+    });
+
+    await expect(
+      fixture.service.recoverInterruptedIdentityExitOperations(),
+    ).resolves.toEqual({
+      recoveredOperationCount: 1,
+      abandonedOperationCount: 0,
+    });
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      expectedProjection: {
+        authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+        oneKeyIdAuthState: 'loggedIn',
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'onekey-user-1',
+      },
+    });
+  });
+
   test('settles the recovery barrier when completed-journal cleanup fails after the receipt is stored', async () => {
     const fixture = createFixture();
     const plan = await fixture.service.prepareIdentityExit({
@@ -746,7 +892,10 @@ describe('ServiceIdentityExit', () => {
     );
 
     await expect(
-      fixture.service.executeIdentityExit({ planId: plan.planId }),
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
     ).resolves.toMatchObject({
       status: 'completed',
       oneKeyIdLoggedOut: true,
@@ -778,7 +927,10 @@ describe('ServiceIdentityExit', () => {
     );
 
     await expect(
-      fixture.service.executeIdentityExit({ planId: plan.planId }),
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
     ).rejects.toBe(storageError);
 
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
@@ -873,6 +1025,52 @@ describe('ServiceIdentityExit', () => {
     );
   });
 
+  test('allows explicit local Keyless removal when OneKey ID state is inconsistent', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: keylessWallet.id,
+      scene: 'accountSelector',
+    });
+    expectReadyPlan(plan);
+    expect(plan.presentation).toEqual({
+      type: 'keylessOnly',
+      currentProvider: EOAuthSocialLoginProvider.Google,
+    });
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: false,
+      removedWalletId: keylessWallet.id,
+    });
+
+    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(1);
+    expect(fixture.logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeSupabaseSession).not.toHaveBeenCalled();
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      oneKeyId: undefined,
+      keylessSession: undefined,
+      keylessWalletSession: {
+        walletId: keylessWallet.id,
+        sessionCommitId: 'keyless-session',
+      },
+    });
+  });
+
   test('requires explicit acknowledgement before Keyless removal', async () => {
     const fixture = createFixture();
     const plan = await fixture.service.prepareIdentityExit({
@@ -886,7 +1084,10 @@ describe('ServiceIdentityExit', () => {
     });
 
     await expect(
-      fixture.service.executeIdentityExit({ planId: plan.planId }),
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
     ).rejects.toThrow('Keyless wallet removal acknowledgement is required.');
 
     expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
@@ -908,7 +1109,10 @@ describe('ServiceIdentityExit', () => {
     expect(plan.presentation).toEqual({ type: 'oneKeyIdOnly' });
 
     await expect(
-      fixture.service.executeIdentityExit({ planId: plan.planId }),
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
     ).resolves.toMatchObject({
       status: 'completed',
       oneKeyIdLoggedOut: true,
@@ -1192,6 +1396,60 @@ describe('ServiceIdentityExit', () => {
     });
   });
 
+  test('allows malformed Keyless removal when OneKey ID state is inconsistent', async () => {
+    const malformedWallet = {
+      ...keylessWallet,
+      keylessDetailsInfo: {
+        ...keylessWallet.keylessDetailsInfo,
+        keylessProvider: undefined,
+      },
+    } as unknown as IDBWallet;
+    const fixture = createFixture({ wallet: malformedWallet });
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: malformedWallet.id,
+      scene: 'accountSelector',
+    });
+    expectReadyPlan(plan);
+    expect(plan.presentation).toEqual({
+      type: 'recoverMalformedKeyless',
+      oneKeyIdWillBeLoggedOut: false,
+    });
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: false,
+      removedWalletId: malformedWallet.id,
+    });
+
+    expect(
+      fixture.removeMalformedKeylessWalletWithCapability,
+    ).toHaveBeenCalledTimes(1);
+    expect(fixture.logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeSupabaseSession).not.toHaveBeenCalled();
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      oneKeyId: undefined,
+      keylessSession: undefined,
+      keylessWalletSession: {
+        walletId: malformedWallet.id,
+        sessionCommitId: 'keyless-session',
+      },
+    });
+  });
+
   test('routes account-selector removal with a missing social fingerprint through recovery', async () => {
     const malformedWallet = {
       ...keylessWallet,
@@ -1374,22 +1632,28 @@ describe('ServiceIdentityExit', () => {
     ).not.toHaveBeenCalled();
   });
 
-  test('fails closed when a historical session has no durable commit identity', async () => {
+  test('allows explicit logout when a historical session has no durable commit identity', async () => {
     const fixture = createFixture();
     fixture.backgroundApi.simpleDb.prime.getAuthSessionCommitId.mockResolvedValue(
       undefined,
     );
 
-    await expect(
-      fixture.service.prepareIdentityExit({
-        type: 'logoutOneKeyId',
-        scene: 'profile',
-      }),
-    ).resolves.toEqual({
-      status: 'blocked',
-      code: 'STATE_INCONSISTENT',
-      message: 'OneKey ID session commit identity is unavailable.',
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
     });
+    expectReadyPlan(plan);
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).toHaveBeenCalledTimes(1);
   });
 
   test('deletes local identity only after the server confirms account deletion', async () => {
@@ -2412,6 +2676,61 @@ describe('ServiceIdentityExit', () => {
       abandonedOperationCount: 1,
     });
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+    expect(fixture.journalState[journal.operationId]).toBeUndefined();
+  });
+
+  test('recovers explicit local Keyless removal without reading inconsistent OneKey ID state', async () => {
+    const journal: IIdentityExitJournalEntry = {
+      operationId: 'recover-explicit-local-keyless-removal',
+      planId: 'recover-explicit-local-keyless-removal-plan',
+      intentType: 'removeKeyless',
+      status: 'walletRemoved',
+      startedAt: 1,
+      updatedAt: 2,
+      expectedLifecycleRevision: 10,
+      target: {
+        logoutOneKeyId: false,
+        removeKeyless: true,
+        clearKeylessSession: false,
+        explicitLocalKeylessRemoval: true,
+      },
+      keyless: {
+        walletId: keylessWallet.id,
+        ownerId: 'owner-1',
+        provider: EOAuthSocialLoginProvider.Google,
+        socialUserIdHash: 'social-hash-1',
+        walletSessionCommitId: 'keyless-session',
+      },
+    };
+    const fixture = createFixture({
+      wallet: null,
+      journalEntries: { [journal.operationId]: journal },
+    });
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockRejectedValue(
+      new OneKeyLocalError('OneKey ID source is inconsistent'),
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockRejectedValue(
+      new OneKeyLocalError('OneKey ID auth state is inconsistent'),
+    );
+
+    await expect(
+      fixture.service.recoverInterruptedIdentityExitOperations(),
+    ).resolves.toEqual({
+      recoveredOperationCount: 1,
+      abandonedOperationCount: 0,
+    });
+
+    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+    expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      oneKeyId: undefined,
+      keylessSession: undefined,
+      keylessWalletSession: {
+        walletId: keylessWallet.id,
+        sessionCommitId: 'keyless-session',
+      },
+    });
     expect(fixture.journalState[journal.operationId]).toBeUndefined();
   });
 

@@ -127,7 +127,7 @@ function OneKeyIdLogoutDialogContent({
                 planId: plan.planId,
                 acknowledgement: requiresAcknowledgement
                   ? 'keylessWalletRemoval'
-                  : undefined,
+                  : 'oneKeyIdLogout',
               });
             if (receipt.status === 'completed') {
               await onResult({ status: 'completed', receipt }, close);
