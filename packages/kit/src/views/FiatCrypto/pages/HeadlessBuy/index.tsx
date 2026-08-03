@@ -53,6 +53,7 @@ import { PresetRow } from '../../components/Headless/PresetRow';
 import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
 import { EBuyActionState } from '../../components/Headless/types';
 import { useOnramperCheckout } from '../../components/Headless/useOnramperCheckout';
+
 import type { RouteProp } from '@react-navigation/core';
 
 // Pure black pill in both themes (deliberate design choice, not theme-driven);
@@ -330,11 +331,9 @@ function HeadlessBuyPage() {
     // cleanly rather than sending a raw OneKey id as a slug.
     network: activeToken?.onramperNetworkCode ?? '',
     address: effectiveAddress,
-    // TEMPORARY(onramper-staging): wave-1 headless providers cover US/EU only,
-    // and providers enforce country == device IP == verified-phone country, so
-    // dev pins the one combination our staging test setup satisfies (US). The
-    // EU/Paybis path is untested. Production must omit country (geo-detect).
-    country: platformEnv.isDev ? 'us' : undefined,
+    // No `country`: Onramper geo-detects from the device IP, which is also
+    // what providers enforce at checkout (country == device IP ==
+    // verified-phone country) — staging tests must run behind a US/EU VPN.
     onlyOnramps,
     buttonStyle: HEADLESS_BUY_BUTTON_STYLE,
     onCompleted: handleCompleted,
