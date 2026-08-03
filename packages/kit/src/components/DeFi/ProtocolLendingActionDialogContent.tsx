@@ -1601,7 +1601,9 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    !healthFactor &&
+    isAmountPositive &&
+    actionResult.transactionConfirmationLoading;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
