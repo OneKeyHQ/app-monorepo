@@ -918,17 +918,16 @@ export function HomePageView({
     // optimization here is intentionally HD-only because Others wallets
     // typically stay pinned to a single network and the cost of the
     // occasional remount is not worth special-casing.
-    // The remount key resets the pager to the first tab while HomePageView's
-    // selected tab state still points at the previously selected tab, so seed
-    // the remounted container with that tab. But the new pagerTabConfigs and
-    // the stale pagerTabName can land in the same render (the reset effect
-    // above runs only after it), and the web Tabs.Container initializes
-    // focusedTab with whatever name it receives without falling back when
-    // the name is missing from the tab set — leaving content, highlight and
-    // active state out of sync. Validate here and fall back to the first tab.
-    const seedTabName = pagerTabConfigs.some((tab) => tab.name === pagerTabName)
-      ? pagerTabName
-      : pagerTabConfigs[0]?.name;
+    // During an owner change, pagerTabName still belongs to the previous owner
+    // until the reset layout effect runs. Seed the remounted container with
+    // Spot so the pager and TabBar selected state start in sync.
+    const shouldResetTabForNewOwner =
+      homeTabRenderState.ownerKey !== homeTabsOwnerKey;
+    const seedTabName =
+      !shouldResetTabForNewOwner &&
+      pagerTabConfigs.some((tab) => tab.name === pagerTabName)
+        ? pagerTabName
+        : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
