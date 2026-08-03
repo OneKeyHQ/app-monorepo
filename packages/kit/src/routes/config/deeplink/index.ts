@@ -46,6 +46,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
+import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
@@ -137,7 +138,16 @@ type IOneKeyAppLinkTarget =
   | { type: 'stocks' }
   | { type: 'perps' }
   | { type: 'swapHome' }
-  | { type: 'market' };
+  | { type: 'market' }
+  | {
+      // Earn 协议详情 universal link，对应 web 路由
+      // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
+      type: 'earnProtocolDetail';
+      network: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    };
 
 const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
   ONEKEY_UNIVERSAL_LINK_HOST,
@@ -193,6 +203,31 @@ function parseOneKeyAppLinkTarget({
   }
   if (normalizedPath === 'market') {
     return { type: 'market' };
+  }
+  // Earn 详情页 universal link：/earn/:network/:symbol/:provider?vault=。
+  // 不能用 normalizeAppLinkPath（它会 lowercase）：symbol/provider/vault
+  // 服务端匹配大小写敏感，需保留原始大小写。
+  const rawSegments = (path ?? '')
+    .replace(/^\/+|\/+$/gu, '')
+    .split('/')
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    });
+  if (rawSegments.length === 4 && rawSegments[0].toLowerCase() === 'earn') {
+    const [, network, symbol, provider] = rawSegments;
+    if (network && symbol && provider) {
+      return {
+        type: 'earnProtocolDetail',
+        network,
+        symbol,
+        provider,
+        vault: getStringQueryParam(queryParams?.vault),
+      };
+    }
   }
   return undefined;
 }
@@ -281,6 +316,17 @@ async function processOneKeyAppUniversalLink(
         },
       });
     }
+    return true;
+  }
+  if (target.type === 'earnProtocolDetail') {
+    // 复用 Earn 安全导航：内部处理原生端 Discovery 子 tab 切换、earn 模式
+    // 切换与栈推入；协议不存在时详情页自身有错误态兜底
+    EarnNavigation.pushToEarnProtocolDetailsShare(navigation, {
+      network: target.network,
+      symbol: target.symbol,
+      provider: target.provider,
+      vault: target.vault,
+    });
     return true;
   }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
@@ -555,6 +601,20 @@ const processDeepLinkUrl = memoizee(
     maxAge: 600,
   },
 );
+
+// 供业务侧（如 banner）在打开网页前先尝试：若 URL 是官方 universal link
+// (earn 详情 / market / perps 等) 则原生跳转并返回 true；否则返回 false，
+// 调用方按原逻辑打开网页。
+export const tryHandleOneKeyUniversalLink = async (
+  url: string,
+): Promise<boolean> => {
+  try {
+    const parsedUrl = Linking.parse(url);
+    return await processOneKeyAppUniversalLink({ url, parsedUrl });
+  } catch {
+    return false;
+  }
+};
 
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   const urls = [data.url, ...(data.argv ?? [])].filter(

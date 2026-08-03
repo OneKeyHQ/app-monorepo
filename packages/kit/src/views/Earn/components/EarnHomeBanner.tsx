@@ -13,7 +13,10 @@ import {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
-import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
+import {
+  handleDeepLinkUrl,
+  tryHandleOneKeyUniversalLink,
+} from '../../../routes/config/deeplink';
 import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
@@ -33,8 +36,13 @@ const BANNER_DEFAULT_COLORS = {
 } as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     if (!item.href) {
+      return;
+    }
+    // 官方 universal link (如 earn 详情页 URL) 优先原生内跳，即使运营把
+    // hrefType 配成了 external 也不该弹网页 (产品反馈)
+    if (await tryHandleOneKeyUniversalLink(item.href)) {
       return;
     }
     if (item.hrefType === 'external') {
@@ -47,13 +55,24 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 
   return (
+    // 外层承载向下投影 (产品反馈)：iOS 上 overflow:hidden 会裁掉自身阴影，
+    // 所以阴影放 wrapper、内层负责圆角裁切
     <YStack
-      testID={EarnTestIDs.bannerItem(item.bannerId)}
       h={BANNER_HEIGHT}
       borderRadius="$3"
-      overflow="hidden"
       bg="$bgApp"
+      shadowColor="$shadowColor"
+      shadowOffset={{ width: 0, height: 2 }}
+      shadowOpacity={0.12}
+      shadowRadius={4}
     >
+      <YStack
+        testID={EarnTestIDs.bannerItem(item.bannerId)}
+        flex={1}
+        borderRadius="$3"
+        overflow="hidden"
+        bg="$bgApp"
+      >
       {/* 背景图全幅铺满 (OK-58503：底条悬浮在图片上，不再上下切分) */}
       <YStack position="absolute" top={0} right={0} left={0} bottom={0}>
         <Image
@@ -94,19 +113,25 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           ) : null}
         </YStack>
       ) : null}
-      {/* 底部横幅：悬浮 + 毛玻璃 (BlurView 双端封装；半透明白作降级底色) */}
+      {/* 底部横幅：贴底 + 毛玻璃 (BlurView 双端封装；半透明白作降级底色)。
+          内容 py $2→$2.5：icon/文本与底条上下边留出间距并垂直居中 (产品反馈) */}
+      {/* 上方直角、下方跟随卡片圆角。显式设置下圆角而不是依赖父级裁切：
+          iOS 上 BlurView (原生 UIVisualEffectView) 可能不受 RN 父级
+          overflow hidden 约束，会露出直角底色 (产品反馈) */}
       <BlurView
         intensity={50}
         minHeight={BANNER_INFO_HEIGHT}
-        borderRadius="$3"
+        borderBottomLeftRadius="$3"
+        borderBottomRightRadius="$3"
         overflow="hidden"
         bg="rgba(255,255,255,0.75)"
         contentStyle={{ flex: 1 }}
       >
         <XStack
+          flex={1}
           minHeight={BANNER_INFO_HEIGHT}
           px="$3"
-          py="$2"
+          py="$2.5"
           gap="$3"
           ai="center"
         >
@@ -159,6 +184,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
           ) : null}
         </XStack>
       </BlurView>
+      </YStack>
     </YStack>
   );
 }
@@ -188,7 +214,7 @@ export function EarnHomeBanner({
 
   if (isLoading && validBanners.length === 0) {
     return (
-      <YStack h={232} px="$pagePadding" pb="$4">
+      <YStack h={248} px="$pagePadding" pb="$4">
         <Skeleton h={BANNER_HEIGHT} borderRadius="$3" />
       </YStack>
     );
@@ -199,14 +225,16 @@ export function EarnHomeBanner({
   }
 
   return (
-    <YStack testID={EarnTestIDs.banner} h={232} px="$pagePadding" pb="$4">
+    <YStack testID={EarnTestIDs.banner} h={248} px="$pagePadding" pb="$4">
       <Carousel
         data={validBanners}
         renderItem={renderItem}
         autoPlayInterval={5000}
         loop={validBanners.length > 1}
         showPagination={validBanners.length > 1}
-        containerStyle={{ height: BANNER_HEIGHT }}
+        // 高度多留 16px：给卡片向下投影渲染空间，否则阴影被
+        // Carousel 视口裁切、立体感失效 (产品反馈)
+        containerStyle={{ height: BANNER_HEIGHT + 16 }}
         paginationContainerStyle={{ mt: '$2.5', h: '$1.5' }}
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (
           <YStack

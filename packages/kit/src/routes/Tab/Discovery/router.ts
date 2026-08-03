@@ -87,6 +87,14 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
+    // Earn 详情分享路由 (universal link /earn/:network/:symbol/:provider 落点)。
+    // 原生端 earn 页面挂在 Discovery 栈下，这里不注册的话
+    // safePushToEarnRoute 的 push 会被 React Navigation 丢弃 (点击无反应)
+    name: ETabEarnRoutes.EarnProtocolDetailsShare,
+    component: EarnProtocolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
     name: ETabEarnRoutes.EarnProtocolDetails,
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
