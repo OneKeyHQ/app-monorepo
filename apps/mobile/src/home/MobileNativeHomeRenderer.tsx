@@ -40,7 +40,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/home';
 import { formatPortfolioTotal } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/formatPortfolioTotal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { NotBackedUpEmpty } from '@onekeyhq/kit/src/views/Home/components/NotBakcedUp';
 import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_CATEGORY_ID,
@@ -129,7 +128,6 @@ import {
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
-  resolveMobileNativeHomeBodySections,
   resolveMobileNativeHomePortfolioFilterPresentation,
   resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
@@ -767,7 +765,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
   const tabTopology = resolveMobileNativeHomeTabTopology({
     current: currentTabTopology,
     lastCommitted: lastCommittedTabTopologyRef.current,
-    portfolioOnly: displayModel.navigation.kind === 'portfolioOnly',
   });
   useLayoutEffect(() => {
     if (currentTabTopology) {
@@ -798,17 +795,12 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           title: tabTitles[tabId],
           destination,
           sections: renderedTabIds.has(tabId)
-            ? resolveMobileNativeHomeBodySections({
-                bodyPresentationKind: displayModel.body.kind,
-                sections: sectionsByTab[tabId],
-                tabId,
-              })
+            ? sectionsByTab[tabId]
             : loadingSectionsByTab[tabId],
         };
       },
     );
   }, [
-    displayModel.body.kind,
     loadingSectionsByTab,
     renderedTabIds,
     sectionsByTab,
@@ -820,7 +812,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     displayModel.balance.kind === 'ready'
       ? displayModel.balance.balance
       : undefined;
-  const isBackupRequired = displayModel.body.kind === 'backupPrompt';
   const hasBannerContent = Boolean(
     bannerPayload &&
     (bannerPayload.banners.length > 0 || bannerPayload.tronResource),
@@ -836,7 +827,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     });
     const actionRowHeight = resolveMobileNativeHomeActionRowHeight({
       actionLayout,
-      isBackupRequired,
     });
     let banners: IHomeContainerHeader['banners'] = [];
     if (bannerPresentation === 'loading') {
@@ -916,7 +906,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     bannerPayload?.tronResource,
     displayModel.actions.kind,
     intl,
-    isBackupRequired,
     tronAccountResource.result,
   ]);
   const shouldShowActionRowSkeleton = header.actionLayout === 'loading';
@@ -1052,7 +1041,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
           <HomeOverviewContainer
             nativeSlot
             balancePresentation={displayModel.balance}
-            manualRefreshEnabled={!isBackupRequired}
           />
         ),
       },
@@ -1076,15 +1064,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
               ),
             },
       contentStates: {
-        ...(displayModel.body.kind === 'backupPrompt'
-          ? {
-              portfolio: {
-                interaction: 'tap',
-                content: <NotBackedUpEmpty />,
-                height: 320,
-              },
-            }
-          : {}),
         ...(renderedTabIds.has('nft') &&
         (nftSection.value.kind === 'empty' || nftSection.value.kind === 'error')
           ? {
@@ -1319,7 +1298,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       historyPayload?.tokenMap,
       indexedAccount?.id,
       intl,
-      isBackupRequired,
       isOthersWallet,
       isHistoryEmpty,
       isHistoryLoadingMore,
@@ -1338,7 +1316,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       renderedTabIds,
       displayModel.actions.kind,
       displayModel.balance,
-      displayModel.body.kind,
       shouldPresentPortfolioChrome,
       shouldMountHistoryEndFooter,
       shouldShowActionRowSkeleton,
@@ -1407,7 +1384,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     const shouldShowBanner =
       bannerPresentation === 'content' && (bannerCount > 0 || hasTronResource);
     const showActionSlot = displayModel.actions.kind !== 'hidden';
-    const showBackupSlot = displayModel.body.kind === 'backupPrompt';
     const decisionKey = stringUtils.stableStringify({
       balanceModel,
       displayModel,
@@ -1417,7 +1393,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       bannerResourceKind: bannerResource.kind,
       headerBalance: header.balance,
       headerBalanceSecondary: header.balanceSecondary,
-      isBackupRequired,
       networkScope,
       portfolioResource,
       shouldShowBanner,
@@ -1436,7 +1411,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       showSearchHeader: true,
       showAccountSlot: true,
       showActionSlot,
-      showBackupSlot,
+      showBackupSlot: false,
     });
     defaultLogger.wallet.homeUi.homeHeaderDecision({
       networkScope,
@@ -1455,7 +1430,7 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
       shouldShowWalletActions:
         displayModel.actions.kind === 'funded' ||
         displayModel.actions.kind === 'zero',
-      isWalletNotBackedUp: displayModel.body.kind === 'backupPrompt',
+      isWalletNotBackedUp: false,
     });
     defaultLogger.wallet.homeUi.homeBalanceDecision({
       networkScope,
@@ -1494,7 +1469,6 @@ export function MobileNativeHomeRenderer(_props: INativeHomePageViewProps) {
     header.balance,
     header.balanceSecondary,
     homeNavigation.value,
-    isBackupRequired,
     portfolioResource,
   ]);
 

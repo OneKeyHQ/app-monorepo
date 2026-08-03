@@ -73,7 +73,11 @@ export type IHomePortfolioPresentation =
 
 export type IHomeShellSemanticModel =
   | { kind: 'loading' }
-  | { kind: 'backupRequired'; commandId: 'backupWallet' }
+  | {
+      kind: 'backupRequired';
+      commandId: 'backupWallet';
+      presentation?: IHomePortfolioPresentation;
+    }
   | { kind: 'missingNetworkAccount' }
   | { kind: 'portfolio'; presentation: IHomePortfolioPresentation };
 

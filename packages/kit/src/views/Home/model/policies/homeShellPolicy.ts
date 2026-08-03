@@ -13,8 +13,15 @@ function projectHomeShell({
   facts: IHomeFacts;
   portfolioPresentation: IHomePortfolioPresentation;
 }): IHomeShellSemanticModel {
+  const backupShell = projectHomeBackupShell(facts);
+  if (backupShell?.kind === 'backupRequired') {
+    return {
+      ...backupShell,
+      presentation: portfolioPresentation,
+    };
+  }
   return (
-    projectHomeBackupShell(facts) ?? {
+    backupShell ?? {
       kind: 'portfolio',
       presentation: portfolioPresentation,
     }

@@ -160,6 +160,12 @@ function shellCommandSignature(value: IHomeShellSemanticModel): unknown {
 function homeBalancePresentationSignature(
   value: IHomeShellSemanticModel,
 ): unknown {
+  if (value.kind === 'backupRequired') {
+    return {
+      kind: value.kind,
+      header: value.presentation?.header,
+    };
+  }
   if (value.kind !== 'portfolio') {
     return { kind: value.kind };
   }

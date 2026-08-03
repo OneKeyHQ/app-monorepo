@@ -49,8 +49,7 @@ export type IHomeBodyPresentation =
 
 export type IHomeNavigationPresentation =
   | { kind: 'default' }
-  | { kind: 'hidden' }
-  | { kind: 'portfolioOnly' };
+  | { kind: 'hidden' };
 
 export type IHomeDisplayModel = {
   actions: IHomeActionsPresentation;
@@ -88,7 +87,10 @@ function resolveHomeBalanceDisplay({
   ownerToken?: IHomeRuntimeOwnerToken;
   shell: IHomeShellSemanticModel;
 }): IHomeBalanceDisplayPresentation {
-  const portfolio = shell.kind === 'portfolio' ? shell.presentation : undefined;
+  const portfolio =
+    shell.kind === 'portfolio' || shell.kind === 'backupRequired'
+      ? shell.presentation
+      : undefined;
   let authority: IHomeBalanceDisplayAuthority | undefined;
   let balance: IHomeMoneyViewModel | undefined;
 
@@ -104,6 +106,9 @@ function resolveHomeBalanceDisplay({
   ) {
     authority = 'partial';
     balance = portfolio.header.balance;
+  } else if (fallbackCurrency && shell.kind === 'backupRequired') {
+    authority = 'provisional';
+    balance = { amount: '0', currency: fallbackCurrency };
   } else if (
     fallbackCurrency &&
     (shell.kind === 'loading' ||
@@ -195,7 +200,7 @@ function resolveHomeNavigation(
 ): IHomeNavigationPresentation {
   switch (body.kind) {
     case 'backupPrompt':
-      return { kind: 'portfolioOnly' };
+      return { kind: 'hidden' };
     case 'loading':
     case 'missingNetworkAccount':
       return { kind: 'hidden' };

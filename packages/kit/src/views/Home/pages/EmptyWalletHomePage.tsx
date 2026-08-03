@@ -12,7 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { NetworkAlert } from '../../../components/NetworkAlert';
+import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { HomeTestIDs } from '../testIDs';
 
@@ -50,11 +53,19 @@ export function EmptyWalletHomePage({
           ) : (
             <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
           )}
+          <Stack {...homePageContentMaxWidthSx}>
+            <RiskApprovalAlert />
+            <WatchOnlyAlert />
+            <NetworkAlert />
+          </Stack>
           <Keyboard.AwareScrollView
             testID={HomeTestIDs.emptyWalletScroll}
             style={{ flex: 1 }}
             nestedScrollEnabled={platformEnv.isNativeAndroid}
-            contentContainerStyle={{ paddingBottom: bottomInset }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingBottom: bottomInset,
+            }}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
           >
             <Stack {...homePageContentMaxWidthSx}>

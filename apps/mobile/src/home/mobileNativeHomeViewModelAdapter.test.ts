@@ -20,7 +20,6 @@ import {
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
-  resolveMobileNativeHomeBodySections,
   resolveMobileNativeHomePortfolioFilterPresentation,
   resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
@@ -78,7 +77,6 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     expect(
       resolveMobileNativeHomeTabTopology({
         lastCommitted,
-        portfolioOnly: false,
       }),
     ).toBe(lastCommitted);
   });
@@ -101,29 +99,12 @@ describe('mobileNativeHomeViewModelAdapter', () => {
       resolveMobileNativeHomeTabTopology({
         current: cached,
         lastCommitted,
-        portfolioOnly: false,
       }),
     ).toBe(cached);
   });
 
-  it('uses Spot only without committed topology or for a portfolio-only surface', () => {
-    expect(
-      resolveMobileNativeHomeTabTopology({
-        portfolioOnly: false,
-      }),
-    ).toEqual({
-      destinations: { portfolio: 'inline' },
-      tabIds: ['portfolio'],
-    });
-    expect(
-      resolveMobileNativeHomeTabTopology({
-        lastCommitted: {
-          destinations: { portfolio: 'inline', history: 'inline' },
-          tabIds: ['portfolio', 'history'],
-        },
-        portfolioOnly: true,
-      }),
-    ).toEqual({
+  it('uses Spot only without committed topology', () => {
+    expect(resolveMobileNativeHomeTabTopology({})).toEqual({
       destinations: { portfolio: 'inline' },
       tabIds: ['portfolio'],
     });
@@ -359,27 +340,18 @@ describe('mobileNativeHomeViewModelAdapter', () => {
     expect(
       resolveMobileNativeHomeActionRowHeight({
         actionLayout: 'loading',
-        isBackupRequired: false,
       }),
     ).toBe(62);
     expect(
       resolveMobileNativeHomeActionRowHeight({
         actionLayout: 'standard',
-        isBackupRequired: false,
       }),
     ).toBe(62);
     expect(
       resolveMobileNativeHomeActionRowHeight({
         actionLayout: 'zeroBalance',
-        isBackupRequired: false,
       }),
     ).toBe(98);
-    expect(
-      resolveMobileNativeHomeActionRowHeight({
-        actionLayout: 'loading',
-        isBackupRequired: true,
-      }),
-    ).toBe(0);
   });
 
   it('keeps the banner loading until its display policy settles', () => {
@@ -432,39 +404,6 @@ describe('mobileNativeHomeViewModelAdapter', () => {
         hasBannerContent: false,
       }),
     ).toBe('hidden');
-  });
-
-  it('provides an empty state row as the backup prompt slot host', () => {
-    expect(
-      resolveMobileNativeHomeBodySections({
-        bodyPresentationKind: 'backupPrompt',
-        sections: [
-          {
-            id: 'assets',
-            items: [
-              {
-                id: 'btc',
-                renderer: 'asset',
-                title: 'BTC',
-              },
-            ],
-          },
-        ],
-        tabId: 'portfolio',
-      }),
-    ).toEqual([
-      {
-        id: 'portfolio-backup-state',
-        items: [
-          {
-            id: 'portfolio-backup-state-item',
-            displayHeight: 320,
-            renderer: 'empty',
-            title: '',
-          },
-        ],
-      },
-    ]);
   });
 
   it('maps semantic loading and hidden states without renderer-owned data', () => {

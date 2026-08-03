@@ -13,7 +13,7 @@ function project(shell: IHomeShellSemanticModel) {
 }
 
 describe('homeDisplayModelPolicy', () => {
-  it('projects backup as a prompt without coupling it to balance or sections', () => {
+  it('projects backup as a prompt with a terminal provisional balance', () => {
     const display = project({
       kind: 'backupRequired',
       commandId: 'backupWallet',
@@ -21,12 +21,41 @@ describe('homeDisplayModelPolicy', () => {
 
     expect(display).toMatchObject({
       actions: { kind: 'hidden' },
-      balance: { kind: 'loading' },
+      balance: {
+        kind: 'ready',
+        authority: 'provisional',
+        balance: { amount: '0', currency: 'usd' },
+      },
       banner: { kind: 'hidden' },
       body: { kind: 'backupPrompt' },
       fundingVerdict: 'unknown',
-      navigation: { kind: 'portfolioOnly' },
+      navigation: { kind: 'hidden' },
     });
+  });
+
+  it('keeps an available backup-wallet balance instead of the provisional zero', () => {
+    const display = project({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+      presentation: {
+        kind: 'funded',
+        header: {
+          kind: 'funded',
+          authority: 'live',
+          balance: { amount: '12.34', currency: 'usd' },
+        },
+        actions: { kind: 'funded', items: ['send', 'receive'] },
+        banner: { kind: 'positive' },
+      },
+    });
+
+    expect(display.balance).toMatchObject({
+      authority: 'live',
+      balance: { amount: '12.34', currency: 'usd' },
+      kind: 'ready',
+    });
+    expect(display.actions).toEqual({ kind: 'hidden' });
+    expect(display.fundingVerdict).toBe('unknown');
   });
 
   it('keeps a provisional amount separate from an unknown funding verdict', () => {

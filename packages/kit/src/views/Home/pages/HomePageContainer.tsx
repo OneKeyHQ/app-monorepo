@@ -111,10 +111,7 @@ function HomeStoreDrivenWalletSurface({
   sceneName: EAccountSelectorSceneName;
 }) {
   const shell = useHomeShell();
-  if (
-    pageSurface.surface === 'react' &&
-    shell.value.kind === 'backupRequired'
-  ) {
+  if (shell.value.kind === 'backupRequired') {
     return (
       <EmptyWalletHomePage
         key={`empty-wallet-${pageSurface.walletId ?? ''}`}

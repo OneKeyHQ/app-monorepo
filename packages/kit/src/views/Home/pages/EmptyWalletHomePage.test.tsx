@@ -74,6 +74,31 @@ jest.mock('../../../components/TabPageHeader', () => ({
   },
 }));
 
+jest.mock('../../../components/NetworkAlert', () => ({
+  NetworkAlert: () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return React.createElement('View', {
+      testID: 'empty-wallet-network-alert',
+    });
+  },
+}));
+
+jest.mock('../../../components/RiskApprovalAlert', () => ({
+  RiskApprovalAlert: () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return React.createElement('View', { testID: 'empty-wallet-risk-alert' });
+  },
+}));
+
+jest.mock('../../../components/WatchOnlyAlert', () => ({
+  WatchOnlyAlert: () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return React.createElement('View', {
+      testID: 'empty-wallet-watch-only-alert',
+    });
+  },
+}));
+
 jest.mock('../components/NotBakcedUp', () => ({
   NotBackedUpEmpty: () => {
     const React = jest.requireActual<typeof import('react')>('react');
@@ -139,11 +164,20 @@ describe('EmptyWalletHomePage', () => {
       root.findByProps({ testID: 'empty-wallet-tab-page-header' }),
     ).toBeTruthy();
     expect(
+      root.findByProps({ testID: 'empty-wallet-risk-alert' }),
+    ).toBeTruthy();
+    expect(
+      root.findByProps({ testID: 'empty-wallet-watch-only-alert' }),
+    ).toBeTruthy();
+    expect(
+      root.findByProps({ testID: 'empty-wallet-network-alert' }),
+    ).toBeTruthy();
+    expect(
       root.findByProps({ testID: HomeTestIDs.emptyWalletScroll }).props,
     ).toEqual(
       expect.objectContaining({
         bottomOffset: 48,
-        contentContainerStyle: { paddingBottom: 96 },
+        contentContainerStyle: { flexGrow: 1, paddingBottom: 96 },
       }),
     );
     expect(

@@ -101,4 +101,29 @@ describe('Home Store presentation revisions', () => {
       current.balancePresentationRevision + 1,
     );
   });
+
+  it('advances only the balance axis when a backup-wallet amount arrives', () => {
+    const current = advanceShell(createInitialHomeStoreState().shell, {
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+    });
+    const next = advanceShell(current, {
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+      presentation: fundedShell.presentation,
+    });
+
+    expect(next.balancePresentationRevision).toBe(
+      current.balancePresentationRevision + 1,
+    );
+    expect(next.actionsPresentationRevision).toBe(
+      current.actionsPresentationRevision,
+    );
+    expect(next.bannerPresentationRevision).toBe(
+      current.bannerPresentationRevision,
+    );
+    expect(next.bodyPresentationRevision).toBe(
+      current.bodyPresentationRevision,
+    );
+  });
 });

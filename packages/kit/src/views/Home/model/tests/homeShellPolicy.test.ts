@@ -66,7 +66,11 @@ describe('homeShellPolicy', () => {
         facts: buildFacts({ backupStatus: 'required' }),
         portfolioPresentation: presentation,
       }),
-    ).toEqual({ kind: 'backupRequired', commandId: 'backupWallet' });
+    ).toEqual({
+      kind: 'backupRequired',
+      commandId: 'backupWallet',
+      presentation,
+    });
     expect(
       projectHomeShell({
         facts: buildFacts({ hasNetworkAccount: false }),

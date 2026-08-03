@@ -99,15 +99,10 @@ const DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY: IMobileNativeHomeTabTopology = {
 function resolveMobileNativeHomeTabTopology({
   current,
   lastCommitted,
-  portfolioOnly,
 }: {
   current?: IMobileNativeHomeTabTopology;
   lastCommitted?: IMobileNativeHomeTabTopology;
-  portfolioOnly: boolean;
 }): IMobileNativeHomeTabTopology {
-  if (portfolioOnly) {
-    return DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY;
-  }
   return current ?? lastCommitted ?? DEFAULT_MOBILE_NATIVE_HOME_TAB_TOPOLOGY;
 }
 
@@ -130,14 +125,9 @@ function resolveMobileNativeHomeActionLayout({
 
 function resolveMobileNativeHomeActionRowHeight({
   actionLayout,
-  isBackupRequired,
 }: {
   actionLayout: IMobileNativeHomeActionLayout;
-  isBackupRequired: boolean;
 }): number {
-  if (isBackupRequired) {
-    return 0;
-  }
   return actionLayout === 'zeroBalance'
     ? MOBILE_NATIVE_HOME_ZERO_BALANCE_ACTION_ROW_HEIGHT
     : MOBILE_NATIVE_HOME_STANDARD_ACTION_ROW_HEIGHT;
@@ -183,33 +173,6 @@ function resolveMobileNativeHomeBannerPresentation({
     return 'loading';
   }
   return 'hidden';
-}
-
-function resolveMobileNativeHomeBodySections({
-  bodyPresentationKind,
-  sections,
-  tabId,
-}: {
-  bodyPresentationKind: IHomeBodyPresentation['kind'];
-  sections: IHomeContainerSection[];
-  tabId: IHomeContainerTabId;
-}): IHomeContainerSection[] {
-  if (bodyPresentationKind !== 'backupPrompt' || tabId !== 'portfolio') {
-    return sections;
-  }
-  return [
-    {
-      id: 'portfolio-backup-state',
-      items: [
-        {
-          id: 'portfolio-backup-state-item',
-          displayHeight: 320,
-          renderer: 'empty',
-          title: '',
-        },
-      ],
-    },
-  ];
 }
 
 function buildMobileNativeHomePortfolioPresentation(
@@ -1669,7 +1632,6 @@ export {
   resolveMobileNativeHomeActionLayout,
   resolveMobileNativeHomeActionRowHeight,
   resolveMobileNativeHomeBannerPresentation,
-  resolveMobileNativeHomeBodySections,
   resolveMobileNativeHomePortfolioFilterPresentation,
   resolveMobileNativeHomePortfolioSections,
   resolveMobileNativeHomeTabTopology,
