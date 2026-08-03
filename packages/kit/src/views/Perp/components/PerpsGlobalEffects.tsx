@@ -9,7 +9,6 @@ import {
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IActiveTradeInstrument } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   perpsActiveAssetAtom,
@@ -75,6 +74,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  type IActiveTradeInstrument,
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradeRouteViewStateAtom,
