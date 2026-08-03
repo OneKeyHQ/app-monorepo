@@ -1,5 +1,49 @@
 export const FLICK_VELOCITY_THRESHOLD = 500;
 
+export interface IComputeCommitOffsetDateParams {
+  anchorMonth: Date;
+  delta: number;
+  minDate?: Date;
+}
+
+/**
+ * Absolute offsetDate to dispatch when the pager commits a swipe of `delta`
+ * months away from `anchorMonth` (any date inside the currently committed
+ * month).
+ *
+ * Uses first-of-month so the result is independent of rehookify's current
+ * offsetDate: queued commits from chained swipes each advance the anchor one
+ * month, where relative addOffset/subtractOffset getters would reuse the
+ * offsetDate captured before the first commit re-rendered and dispatch the
+ * same month twice.
+ *
+ * When the target month contains minDate, first-of-month would sit before it
+ * and rehookify's setOffset would refuse the (valid) month, so land on
+ * minDate itself. Returns null when the whole target month is before minDate;
+ * the max edge needs no handling here because first-of-month never exceeds
+ * maxDate unless the whole month is out of range, which setOffset's own
+ * disabled check refuses.
+ */
+export function computeCommitOffsetDate({
+  anchorMonth,
+  delta,
+  minDate,
+}: IComputeCommitOffsetDateParams): Date | null {
+  const monthFirst = new Date(
+    anchorMonth.getFullYear(),
+    anchorMonth.getMonth() + delta,
+    1,
+  );
+  const next = minDate && monthFirst < minDate ? minDate : monthFirst;
+  if (
+    next.getFullYear() !== monthFirst.getFullYear() ||
+    next.getMonth() !== monthFirst.getMonth()
+  ) {
+    return null;
+  }
+  return next;
+}
+
 export interface IComputeSwipeTargetParams {
   progress: number;
   velocityX: number;

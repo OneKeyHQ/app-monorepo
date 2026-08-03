@@ -18,7 +18,7 @@ import { Stack, YStack } from '../../primitives';
 import { s } from '../../utils/scale';
 
 import { DayGrid, MonthDaysGrid, WeekdayRow } from './DayGrid';
-import { computeSwipeTarget } from './swipeUtils';
+import { computeCommitOffsetDate, computeSwipeTarget } from './swipeUtils';
 import {
   CALENDAR_CURRENT,
   CALENDAR_NEXT,
@@ -122,13 +122,14 @@ function MonthPager({
   fullWidth,
   isPrevDisabled,
   isNextDisabled,
+  minDate,
 }: Pick<
   ISwipeableDayGridProps,
-  'fullWidth' | 'isPrevDisabled' | 'isNextDisabled'
+  'fullWidth' | 'isPrevDisabled' | 'isNextDisabled' | 'minDate'
 > & { pageWidth: number }) {
   const { data, propGetters } = useDatePickerContext();
   const { calendars } = data;
-  const { addOffset, subtractOffset } = propGetters;
+  const { setOffset } = propGetters;
 
   // Committed pager position. Purely positional: pages are windowed around it
   // and mapped onto the rehookify calendar slots; rehookify owns which month
@@ -176,32 +177,58 @@ function MonthPager({
     rowsRef.current = { prev: prevRows, center: centerRows, next: nextRows };
   });
 
+  // First day of the month the committed pager index currently maps to.
+  // Derived from the rendered calendar (not from rehookify's offsetDate) so
+  // it is locale-independent and always reflects what is actually on screen.
+  const committedMonthFirst = useMemo(() => {
+    const dayDate = calendars[CALENDAR_CURRENT]?.days.find(
+      (day) => day.inCurrentMonth,
+    )?.$date;
+    return dayDate
+      ? new Date(dayDate.getFullYear(), dayDate.getMonth(), 1)
+      : null;
+  }, [calendars]);
+
   // Latest-value refs keep the gesture's onEnd worklet (captured once by
-  // useMemo below) reading the current addOffset/subtractOffset instead of a
-  // stale closure from the render that created the gesture. Written in
-  // useLayoutEffect (commit-time only), matching MonthDaysGrid's
-  // calRef/dayButtonRef pattern in DayGrid.tsx: a render-time write could leak
-  // a value from an abandoned concurrent render into a commit that lands on
-  // the old committed UI.
-  const addOffsetRef = useRef(addOffset);
-  const subtractOffsetRef = useRef(subtractOffset);
+  // useMemo below) reading the current setOffset instead of a stale closure
+  // from the render that created the gesture. Written in useLayoutEffect
+  // (commit-time only), matching MonthDaysGrid's calRef/dayButtonRef pattern
+  // in DayGrid.tsx: a render-time write could leak a value from an abandoned
+  // concurrent render into a commit that lands on the old committed UI.
+  //
+  // anchorMonthRef is the month commitNavigate steps from. It is advanced
+  // synchronously on every successful commit (so queued commits from chained
+  // swipes in one JS batch each step one month further instead of reusing the
+  // pre-render month) and re-based from the rendered calendar after every
+  // commit (so external navigation via header chevrons or month/year grids
+  // moves the anchor along with the calendar).
+  const setOffsetRef = useRef(setOffset);
+  const anchorMonthRef = useRef<Date | null>(null);
   useLayoutEffect(() => {
-    addOffsetRef.current = addOffset;
-    subtractOffsetRef.current = subtractOffset;
+    setOffsetRef.current = setOffset;
+    anchorMonthRef.current = committedMonthFirst;
   });
 
   const commitNavigate = useCallback(
     (target: number) => {
       const delta = target - curIndexRef.current;
       if (delta === 0) return;
-      const getter =
-        delta > 0
-          ? addOffsetRef.current({ months: delta })
-          : subtractOffsetRef.current({ months: -delta });
-      if (!getter.onClick) {
-        // Rehookify refused the step (min/maxDate edge reached with stale
-        // bounds): snap back so the pager stays in lockstep with the calendar,
-        // and undo the row-height pre-shift from onEnd.
+      const anchorMonth = anchorMonthRef.current;
+      // setOffset dispatches the absolute date it is given, unlike
+      // addOffset/subtractOffset whose getters bake in the offsetDate captured
+      // at render time; stepping from our own anchor keeps chained swipes
+      // committed in the same JS batch from collapsing onto one month.
+      const nextDate = anchorMonth
+        ? computeCommitOffsetDate({ anchorMonth, delta, minDate })
+        : null;
+      const getter = nextDate ? setOffsetRef.current(nextDate) : null;
+      if (!nextDate || !getter?.onClick) {
+        // The step lands outside minDate/maxDate (stale bounds during a swipe
+        // race): snap back so the pager stays in lockstep with the calendar,
+        // and undo the row-height pre-shift from onEnd. setOffset's disabled
+        // check is a pure range test on the absolute target date, so unlike
+        // addOffset it can never report success while leaving the month
+        // unchanged (the getEdgedOffsetDate pull-back at the maxDate edge).
         curIndexSV.value = curIndexRef.current;
         prevRowsSV.value = rowsRef.current.prev;
         centerRowsSV.value = rowsRef.current.center;
@@ -210,12 +237,17 @@ function MonthPager({
         return;
       }
       curIndexRef.current = target;
+      anchorMonthRef.current = new Date(
+        nextDate.getFullYear(),
+        nextDate.getMonth(),
+        1,
+      );
       setCurIndex(target);
       // Sync rehookify in the same React batch: after re-render the settling
       // page renders the identical month, so the window swap is invisible.
       callOnClick(getter);
     },
-    [curIndexSV, pageIndex, prevRowsSV, centerRowsSV, nextRowsSV],
+    [curIndexSV, pageIndex, prevRowsSV, centerRowsSV, nextRowsSV, minDate],
   );
 
   const gesture = useMemo(
@@ -358,6 +390,7 @@ export function SwipeableDayGrid({
   fullWidth,
   isPrevDisabled,
   isNextDisabled,
+  minDate,
 }: ISwipeableDayGridProps) {
   const swipeEnabled = useSwipeMonthNavEnabled();
   const { data } = useDatePickerContext();
@@ -399,6 +432,7 @@ export function SwipeableDayGrid({
           fullWidth={fullWidth}
           isPrevDisabled={isPrevDisabled}
           isNextDisabled={isNextDisabled}
+          minDate={minDate}
         />
       </YStack>
     </GestureHandlerRootView>

@@ -1,4 +1,8 @@
-import { FLICK_VELOCITY_THRESHOLD, computeSwipeTarget } from './swipeUtils';
+import {
+  FLICK_VELOCITY_THRESHOLD,
+  computeCommitOffsetDate,
+  computeSwipeTarget,
+} from './swipeUtils';
 
 describe('computeSwipeTarget', () => {
   const base = { minIndex: 4, maxIndex: 6 };
@@ -88,5 +92,69 @@ describe('computeSwipeTarget', () => {
         maxIndex: 1,
       }),
     ).toBe(0);
+  });
+});
+
+describe('computeCommitOffsetDate', () => {
+  const august = new Date(2026, 7, 1);
+
+  it('steps one month forward and backward from the anchor', () => {
+    expect(computeCommitOffsetDate({ anchorMonth: august, delta: 1 })).toEqual(
+      new Date(2026, 8, 1),
+    );
+    expect(computeCommitOffsetDate({ anchorMonth: august, delta: -1 })).toEqual(
+      new Date(2026, 6, 1),
+    );
+  });
+
+  it('steps multiple months for queued chained-swipe commits', () => {
+    expect(computeCommitOffsetDate({ anchorMonth: august, delta: 2 })).toEqual(
+      new Date(2026, 9, 1),
+    );
+  });
+
+  it('wraps across year boundaries', () => {
+    expect(
+      computeCommitOffsetDate({
+        anchorMonth: new Date(2026, 11, 1),
+        delta: 1,
+      }),
+    ).toEqual(new Date(2027, 0, 1));
+    expect(
+      computeCommitOffsetDate({
+        anchorMonth: new Date(2026, 0, 1),
+        delta: -1,
+      }),
+    ).toEqual(new Date(2025, 11, 1));
+  });
+
+  it('normalizes a mid-month anchor to first-of-month steps', () => {
+    expect(
+      computeCommitOffsetDate({
+        anchorMonth: new Date(2026, 7, 31),
+        delta: 1,
+      }),
+    ).toEqual(new Date(2026, 8, 1));
+  });
+
+  it('lands on minDate when entering the month that contains it', () => {
+    const minDate = new Date(2026, 6, 15);
+    expect(
+      computeCommitOffsetDate({ anchorMonth: august, delta: -1, minDate }),
+    ).toEqual(minDate);
+  });
+
+  it('returns null when the target month is entirely before minDate', () => {
+    const minDate = new Date(2026, 6, 15);
+    expect(
+      computeCommitOffsetDate({ anchorMonth: august, delta: -2, minDate }),
+    ).toBeNull();
+  });
+
+  it('ignores minDate when the target month is fully after it', () => {
+    const minDate = new Date(2026, 6, 15);
+    expect(
+      computeCommitOffsetDate({ anchorMonth: august, delta: 1, minDate }),
+    ).toEqual(new Date(2026, 8, 1));
   });
 });

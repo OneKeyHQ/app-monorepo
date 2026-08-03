@@ -164,6 +164,7 @@ export function CalendarPanel({
           fullWidth={mode === 'range'}
           isPrevDisabled={isPrevDisabled}
           isNextDisabled={isNextDisabled}
+          minDate={minDate}
         />
       ) : null}
       {viewMode === 'month' ? (
