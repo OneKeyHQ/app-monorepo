@@ -5,8 +5,19 @@ import {
 } from './swipeUtils';
 
 describe('computeSwipeTarget', () => {
-  const base = { minIndex: 4, maxIndex: 6 };
-  const wide = { minIndex: 0, maxIndex: 10 };
+  // Settled gesture start: startProgress === committedIndex.
+  const base = {
+    startProgress: 5,
+    committedIndex: 5,
+    minIndex: 4,
+    maxIndex: 6,
+  };
+  const wide = {
+    startProgress: 5,
+    committedIndex: 5,
+    minIndex: 0,
+    maxIndex: 10,
+  };
 
   it('snaps to the nearest page on slow release', () => {
     expect(computeSwipeTarget({ progress: 5.6, velocityX: 0, ...base })).toBe(
@@ -76,6 +87,8 @@ describe('computeSwipeTarget', () => {
     expect(
       computeSwipeTarget({
         progress: 0.6,
+        startProgress: 0,
+        committedIndex: 0,
         velocityX: -800,
         minIndex: -1,
         maxIndex: 0,
@@ -87,11 +100,97 @@ describe('computeSwipeTarget', () => {
     expect(
       computeSwipeTarget({
         progress: -0.6,
+        startProgress: 0,
+        committedIndex: 0,
         velocityX: 800,
         minIndex: 0,
         maxIndex: 1,
       }),
     ).toBe(0);
+  });
+
+  describe('gesture starting mid-spring (interrupted settle)', () => {
+    // First forward flick committed index 1, spring still animating the page
+    // from 0.x towards 1 when the second gesture starts.
+    const interruptedForward = {
+      startProgress: 0.6,
+      committedIndex: 1,
+      minIndex: 0,
+      maxIndex: 2,
+    };
+
+    it('chains a second forward flick instead of swallowing it', () => {
+      // Raw floor(0.7) + 1 would be 1 === committedIndex → commit no-op.
+      expect(
+        computeSwipeTarget({
+          progress: 0.7,
+          velocityX: -800,
+          ...interruptedForward,
+        }),
+      ).toBe(2);
+    });
+
+    it('chains a second backward flick instead of swallowing it', () => {
+      // Mirror case: backward commit to 1, spring from 1.4 down towards 1.
+      expect(
+        computeSwipeTarget({
+          progress: 1.2,
+          startProgress: 1.4,
+          committedIndex: 1,
+          velocityX: 800,
+          minIndex: 0,
+          maxIndex: 2,
+        }),
+      ).toBe(0);
+    });
+
+    it('a reverse flick mid-spring cancels back onto the committed page', () => {
+      // Dragged forward from 0.6 to 0.9, then flicked backward: stay on 1,
+      // do not navigate an extra month back.
+      expect(
+        computeSwipeTarget({
+          progress: 0.9,
+          velocityX: 800,
+          ...interruptedForward,
+        }),
+      ).toBe(1);
+    });
+
+    it('a forward flick cancelling a backward drag stays on the committed page', () => {
+      expect(
+        computeSwipeTarget({
+          progress: 0.3,
+          velocityX: -800,
+          ...interruptedForward,
+        }),
+      ).toBe(1);
+    });
+
+    it('slow release mid-spring still settles on the visually nearest page', () => {
+      expect(
+        computeSwipeTarget({
+          progress: 0.2,
+          velocityX: 0,
+          ...interruptedForward,
+        }),
+      ).toBe(0);
+    });
+  });
+
+  it('a settled drag past the next page then a reverse flick returns to it, not beyond', () => {
+    // Guards against computing fast-flick targets as committedIndex ± 1
+    // unconditionally: from 1 dragged to 1.8, a backward flick must land on
+    // 1 (cancel), never 0.
+    expect(
+      computeSwipeTarget({
+        progress: 1.8,
+        startProgress: 1,
+        committedIndex: 1,
+        velocityX: 800,
+        minIndex: 0,
+        maxIndex: 2,
+      }),
+    ).toBe(1);
   });
 });
 

@@ -46,6 +46,8 @@ export function computeCommitOffsetDate({
 
 export interface IComputeSwipeTargetParams {
   progress: number;
+  startProgress: number;
+  committedIndex: number;
   velocityX: number;
   minIndex: number;
   maxIndex: number;
@@ -54,16 +56,31 @@ export interface IComputeSwipeTargetParams {
 /**
  * Decides which month page to settle on after a swipe release.
  *
- * - fast flick: move one page in the flick direction from the drag position
- * - slow release: snap to the nearest page
+ * - fast flick: move one page in the flick direction from the gesture's drag,
+ *   rebased onto `committedIndex` (see below)
+ * - slow release: snap to the page nearest the on-screen position
  * - always clamped to [minIndex, maxIndex]; a bound collapses onto the
  *   current page when the neighboring month is outside minDate/maxDate
  *
- * Intentionally mirrors packages/kit/src/views/AppUpdate/components/FeaturedCarousel/computeTargetIndex.ts;
- * cannot import it because @onekeyhq/components must not depend on @onekeyhq/kit.
+ * Fast flicks use `committedIndex + (progress - startProgress)` instead of the
+ * raw on-screen `progress`: a gesture that starts mid-spring (a chained swipe
+ * interrupting the previous settle) begins with `progress` still lagging
+ * behind the already-committed index, so floor/ceil on the raw value would
+ * resolve the flick back onto the committed page and the commit would no-op,
+ * silently swallowing the second month change. When the gesture starts from a
+ * settled page, `startProgress === committedIndex` and the rebase is an
+ * identity. Slow releases keep the raw position so the pager settles on
+ * whichever page is visually closest.
+ *
+ * Mirrors the shape of packages/kit/src/views/AppUpdate/components/FeaturedCarousel/computeTargetIndex.ts
+ * (cannot import it: @onekeyhq/components must not depend on @onekeyhq/kit),
+ * plus the committed-index rebase, which the carousel does not need because it
+ * has no external month-commit state to keep in lockstep with.
  */
 export function computeSwipeTarget({
   progress,
+  startProgress,
+  committedIndex,
   velocityX,
   minIndex,
   maxIndex,
@@ -72,11 +89,12 @@ export function computeSwipeTarget({
 
   // keep inside the worklet: a module-scope helper would not be a worklet on the UI thread
   const clamp = (n: number) => Math.max(minIndex, Math.min(maxIndex, n));
+  const effective = committedIndex + (progress - startProgress);
   if (velocityX < -FLICK_VELOCITY_THRESHOLD) {
-    return clamp(Math.floor(progress) + 1);
+    return clamp(Math.floor(effective) + 1);
   }
   if (velocityX > FLICK_VELOCITY_THRESHOLD) {
-    return clamp(Math.ceil(progress) - 1);
+    return clamp(Math.ceil(effective) - 1);
   }
   return clamp(Math.round(progress));
 }

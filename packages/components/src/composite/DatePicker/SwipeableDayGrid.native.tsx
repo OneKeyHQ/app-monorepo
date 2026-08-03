@@ -298,6 +298,8 @@ function MonthPager({
             : curIndexSV.value + 1;
           const target = computeSwipeTarget({
             progress: pageIndex.value,
+            startProgress: startIndex.value,
+            committedIndex: curIndexSV.value,
             velocityX: e.velocityX,
             minIndex,
             maxIndex,
