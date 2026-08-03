@@ -44,7 +44,7 @@ export type IOnramperCheckoutRequest = {
   wallet: { network: string; address: string };
 };
 
-// Mirrors the SDK's `QuoteResponse` (pinned against 1.1.0 source): the backend
+// Mirrors the SDK's `QuoteResponse` (pinned against 1.1.1 source): the backend
 // only returns a *successful* quote — a request that can't be priced throws
 // (e.g. `quoteUnavailable`) instead of returning a partial quote, so pricing
 // fields are always present. There is no ETA field. Fees are denominated in the

@@ -58,7 +58,7 @@ type ISdkEventPayload = {
   error?: { code?: string; message?: string; info?: Record<string, unknown> };
 };
 
-// Mirrors the SDK's `OnramperErrorCode` union (1.1.0) — used to validate codes
+// Mirrors the SDK's `OnramperErrorCode` union (1.1.1) — used to validate codes
 // recovered from degraded bridge errors below.
 const KNOWN_ERROR_CODES = new Set([
   'notInitialized',
@@ -87,6 +87,11 @@ const KNOWN_ERROR_CODES = new Set([
   'deviceBlocked',
   'securityStorageFailed',
   'securityTrustFailed',
+  'platformUnsupported',
+  'intentInvalidated',
+  'intentAlreadyConsumed',
+  'clientAlreadyConfigured',
+  'sessionExpirationHandlerFailed',
 ]);
 
 // The Nitro bridge drops the structured payload on thrown rejections: JS

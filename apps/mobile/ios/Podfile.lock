@@ -639,7 +639,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - OnramperReactNative (1.1.0):
+  - OnramperReactNative (1.1.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -5527,7 +5527,7 @@ SPEC CHECKSUMS:
   NetworkInfo: 8f477bda9569e9f5cf6ac784df616540037fb4a4
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
   NitroModules: 17f56ebb3581e74931c870a789834582ce75470c
-  OnramperReactNative: b95bf6306f881e2728a8a8539aa806c112523645
+  OnramperReactNative: f081098a6e4926d4c61dad22be6f8eefecd3eb6d
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 76a41c21cebe8b04bd539c0070a7dc6a69f50068
   PerpDepthBar: ea764fd9ca6dde336b3b6ca292e783e2b9c66c69

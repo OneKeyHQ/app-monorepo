@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // page (quote stage and checkout events). The raw SDK messages are technical
 // and must never reach the user. Hardcoded English pending the i18n pass,
 // same as the rest of the Headless UI. Codes mirror the SDK's
-// `OnramperErrorCode` union (1.1.0).
+// `OnramperErrorCode` union (1.1.1).
 const ERROR_COPY: Record<string, string> = {
   // User-fixable input errors. `quoteUnavailable` (backend 40003) also covers
   // below-minimum amounts — Onramper doesn't expose the limits at quote time,
