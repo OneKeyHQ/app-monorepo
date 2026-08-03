@@ -17,19 +17,45 @@ type IInitialSpotTradeAsset = IInitialTradeAsset & {
   universe?: ISpotUniverse;
 };
 
+type IInitialTradeInstrument =
+  | { mode: 'perp'; coin: string }
+  | { mode: 'spot'; coin: string; universe?: ISpotUniverse };
+
 export function buildInitialTradeInstrumentSwitchParams({
   mode,
   perpAsset,
   spotAsset,
   force,
   allowPerpFallback,
+  preferredInstrument,
 }: {
   mode: 'perp' | 'spot';
   perpAsset?: IInitialTradeAsset;
   spotAsset?: IInitialSpotTradeAsset;
   force?: boolean;
   allowPerpFallback?: boolean;
+  preferredInstrument?: IInitialTradeInstrument;
 }) {
+  // Written synchronously when a switch starts, while the mode and asset atoms
+  // are written near the end and can be skipped by a superseding request. It is
+  // therefore never the staler record, and it is also what the first frame
+  // already rendered — restoring anything else shows the user a pair flip.
+  if (preferredInstrument?.coin) {
+    if (preferredInstrument.mode === 'spot') {
+      return {
+        mode: 'spot' as const,
+        coin: preferredInstrument.coin,
+        spotUniverse: preferredInstrument.universe,
+        force,
+      };
+    }
+    return {
+      mode: 'perp' as const,
+      coin: preferredInstrument.coin,
+      force,
+    };
+  }
+
   if (mode === 'spot') {
     if (spotAsset?.coin) {
       return {

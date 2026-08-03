@@ -9,6 +9,7 @@ import {
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IActiveTradeInstrument } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   perpsActiveAssetAtom,
@@ -125,6 +126,7 @@ function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
   force?: boolean;
   allowPerpFallback?: boolean;
+  preferredInstrument?: IActiveTradeInstrument;
 }) {
   const currentMode = (await tradingModeAtom.get()) ?? 'perp';
   if (currentMode === 'spot') {
@@ -138,6 +140,7 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
       perpAsset,
       force: options?.force,
       allowPerpFallback: options?.allowPerpFallback,
+      preferredInstrument: options?.preferredInstrument,
     });
   }
 
@@ -146,6 +149,7 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
     mode: currentMode,
     perpAsset,
     force: options?.force,
+    preferredInstrument: options?.preferredInstrument,
   });
 }
 
@@ -1049,6 +1053,9 @@ function useHyperliquidSymbolSelect() {
         // strands the page for good. The diverged resync falls through here
         // too, and there the fallback would abort an in-flight spot switch.
         allowPerpFallback: claimed,
+        preferredInstrument: claimed
+          ? activeTradeInstrumentRef.current
+          : undefined,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,
