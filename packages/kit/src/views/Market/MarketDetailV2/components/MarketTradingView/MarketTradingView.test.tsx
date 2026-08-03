@@ -270,6 +270,36 @@ describe('MarketTradingViewView readiness', () => {
     expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
   });
 
+  it('shows a retry state after current legacy history fails', () => {
+    render(
+      <MarketTradingViewView
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        tokenSymbol="ABC"
+      />,
+    );
+
+    expect(screen.getByTestId(MarketTestIDs.detailChartLoading)).toBeTruthy();
+
+    act(() => {
+      (
+        mockTradingViewProps.at(-1)?.onLegacyHistoryReady as
+          | ((data: Record<string, unknown>) => void)
+          | undefined
+      )?.({
+        status: 'failed',
+        period: '1m',
+        symbol: 'ABC',
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        webViewLoadGeneration: 1,
+      });
+    });
+
+    expect(screen.getByTestId(MarketTestIDs.detailChartError)).toBeTruthy();
+    expect(screen.queryByTestId(MarketTestIDs.detailChartLoading)).toBeNull();
+  });
+
   it('keeps the native loading cover for stale legacy token readiness', () => {
     render(
       <MarketTradingViewView

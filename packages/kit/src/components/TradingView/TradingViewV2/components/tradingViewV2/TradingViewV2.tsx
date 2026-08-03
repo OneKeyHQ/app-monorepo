@@ -663,9 +663,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         return;
       }
 
-      setFirstHistoryReadyKey(candidate.readyKey);
       if (candidate.status === 'failed') {
-        return;
+        setFirstHistoryReadyKey((readyKey) =>
+          readyKey === candidate.readyKey ? null : readyKey,
+        );
+      } else {
+        setFirstHistoryReadyKey(candidate.readyKey);
       }
 
       const notificationKey = [

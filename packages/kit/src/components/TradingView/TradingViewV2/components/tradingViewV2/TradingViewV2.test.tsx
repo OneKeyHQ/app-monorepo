@@ -1252,7 +1252,8 @@ describe('TradingViewV2 native source discovery', () => {
     const firstGenerationMessageHandlerParams =
       mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
         | {
-            onKLineDataReady?: (data: {
+            onKLineLoadError?: (data: {
+              status: 'failed';
               period: string;
               requestRange: {
                 from: number;
@@ -1263,7 +1264,8 @@ describe('TradingViewV2 native source discovery', () => {
           }
         | undefined;
     act(() => {
-      firstGenerationMessageHandlerParams?.onKLineDataReady?.({
+      firstGenerationMessageHandlerParams?.onKLineLoadError?.({
+        status: 'failed',
         period: '1m',
         requestRange: {
           from: 0,
@@ -1339,6 +1341,77 @@ describe('TradingViewV2 native source discovery', () => {
         period: '1m',
         webViewLoadGeneration: 1,
       }),
+    );
+  });
+
+  it('reports a legacy first history failure without marking history ready', () => {
+    jest.useFakeTimers();
+    const onLegacyHistoryReady = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onLegacyHistoryReady={onLegacyHistoryReady}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      (
+        webViewProps?.onLoadEnd as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      jest.advanceTimersByTime(5000);
+    });
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onKLineLoadError?: (data: {
+            status: 'failed';
+            period: string;
+            requestRange: {
+              from: number;
+              to: number;
+              firstDataRequest: boolean;
+            };
+          }) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onKLineLoadError?.({
+        status: 'failed',
+        period: '1m',
+        requestRange: {
+          from: 0,
+          to: 60,
+          firstDataRequest: true,
+        },
+      });
+    });
+
+    expect(onLegacyHistoryReady).toHaveBeenCalledTimes(1);
+    expect(onLegacyHistoryReady).toHaveBeenCalledWith({
+      status: 'failed',
+      period: '1m',
+      symbol: 'ABC',
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      webViewLoadGeneration: 1,
+    });
+    expect(mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ isKLineHistoryReady: false }),
+    );
+    expect(mockUseAutoKLineUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
     );
   });
 

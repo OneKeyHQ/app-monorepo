@@ -19,7 +19,7 @@ export interface ITradingViewHistoryReadyData {
 }
 
 export interface ITradingViewLegacyHistoryReadyData {
-  status: 'success' | 'empty';
+  status: 'success' | 'empty' | 'failed';
   period: string;
   symbol: string;
   tokenAddress: string;

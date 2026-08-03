@@ -272,6 +272,11 @@ export const MarketTradingViewView = memo(
           return;
         }
 
+        if (data.status === 'failed') {
+          setReadyChartIdentity(undefined);
+          setFailedChartIdentity(chartIdentity);
+          return;
+        }
         setFailedChartIdentity(undefined);
         setReadyChartIdentity(chartIdentity);
       },
