@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Icon,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   XStack,
@@ -50,18 +51,25 @@ export function AvailableAssetItem({
   asset,
   categoryType,
   totalLiquidityLabel,
+  tvlValue,
+  tvlLabel,
   testID,
   onPress,
 }: {
   asset: IEarnAvailableAsset;
   categoryType: EAvailableAssetsTypeEnum;
   totalLiquidityLabel: string;
+  /** Walkthrough r3: summed provider TVL rendered under APY (Tokens home) */
+  tvlValue?: number;
+  tvlLabel?: string;
   testID: string;
   onPress: () => void;
 }) {
   const showLiquidity =
     categoryType === EAvailableAssetsTypeEnum.FixedRate &&
     Boolean(asset.liquidity);
+  const showTvl =
+    !showLiquidity && typeof tvlValue === 'number' && tvlValue > 0;
 
   return (
     <ListItem
@@ -99,6 +107,23 @@ export function AvailableAssetItem({
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
             {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
           </SizableText>
+        ) : null}
+        {showTvl ? (
+          <XStack ai="center" gap="$1">
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$' }}
+            >
+              {tvlValue}
+            </NumberSizeableText>
+            {tvlLabel ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {tvlLabel}
+              </SizableText>
+            ) : null}
+          </XStack>
         ) : null}
       </YStack>
     </ListItem>

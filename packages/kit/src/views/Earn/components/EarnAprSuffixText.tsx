@@ -11,10 +11,20 @@ const APR_SUFFIX_PATTERN = /^(.*?)\s*(APY|APR)\s*$/i;
 type ISizableTextSize = ComponentProps<typeof SizableText>['size'];
 type ISizableTextColor = ComponentProps<typeof SizableText>['color'];
 
+// Figma (27171-35810): value bodyLg-medium (16px) pairs with an APY/APR span
+// of bodyMd-medium (14px) — the suffix is exactly one type-scale step below
+// the value. Derive the default so every caller stays on spec.
+const SUFFIX_SIZE_BY_VALUE_SIZE: Partial<Record<string, ISizableTextSize>> = {
+  '$bodyLgMedium': '$bodyMdMedium',
+  '$bodyLg': '$bodyMd',
+  '$bodyMdMedium': '$bodySmMedium',
+  '$bodyMd': '$bodySm',
+};
+
 export function EarnAprSuffixText({
   text,
   size = '$bodyLgMedium',
-  suffixSize = '$bodySmMedium',
+  suffixSize,
   color = '$text',
   fallbackUnit,
 }: {
@@ -25,6 +35,8 @@ export function EarnAprSuffixText({
   /** Fallback unit when the server copy has no APY/APR suffix (e.g. provider.rewardUnit) */
   fallbackUnit?: string;
 }) {
+  const resolvedSuffixSize =
+    suffixSize ?? SUFFIX_SIZE_BY_VALUE_SIZE[String(size)] ?? '$bodyMdMedium';
   const match = text.match(APR_SUFFIX_PATTERN);
   if (!match || !match[1]) {
     if (text && fallbackUnit) {
@@ -33,7 +45,7 @@ export function EarnAprSuffixText({
           <SizableText size={size} color={color} textAlign="right">
             {text}
           </SizableText>
-          <SizableText size={suffixSize} color={color}>
+          <SizableText size={resolvedSuffixSize} color={color}>
             {fallbackUnit.toUpperCase()}
           </SizableText>
         </XStack>
@@ -51,7 +63,7 @@ export function EarnAprSuffixText({
       <SizableText size={size} color={color} textAlign="right">
         {value}
       </SizableText>
-      <SizableText size={suffixSize} color={color}>
+      <SizableText size={resolvedSuffixSize} color={color}>
         {unit.toUpperCase()}
       </SizableText>
     </XStack>

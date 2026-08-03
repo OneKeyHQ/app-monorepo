@@ -30,7 +30,10 @@ import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
-import { parseFormattedLiquidityValue } from '../../utils/availableAssetsUtils';
+import {
+  parseAprPercentValue,
+  parseFormattedLiquidityValue,
+} from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -39,18 +42,13 @@ import type {
 
 type IFixedRateSortKey = 'liquidity' | 'apy';
 
-function parseRate(value?: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function getAssetSortValue(
   asset: IEarnAvailableAsset,
   sortKey: IFixedRateSortKey,
 ): number {
   return sortKey === 'liquidity'
     ? parseFormattedLiquidityValue(asset.liquidity)
-    : parseRate(asset.aprWithoutFee || asset.apr);
+    : parseAprPercentValue(asset.aprWithoutFee || asset.apr);
 }
 
 function EarnFixedRateTokensSkeleton() {

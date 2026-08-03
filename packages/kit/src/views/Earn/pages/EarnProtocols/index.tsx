@@ -456,14 +456,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                   </SizableText>
                 ) : (
                   <>
-                    {isDesktopLayout && item?.provider?.vaultName ? (
+                    {/* Walkthrough r3: mobile subtitle keeps only the vault
+                        name; TVL moved to the right column under APY (the
+                        server-side description bundles "TVL · vault") */}
+                    {item?.provider?.vaultName ? (
                       <SizableText size="$bodySmMedium" color="$textSubdued">
                         {item.provider.vaultName}
-                      </SizableText>
-                    ) : null}
-                    {!isDesktopLayout && item?.provider?.description ? (
-                      <SizableText size="$bodySmMedium" color="$textSubdued">
-                        {item.provider.description}
                       </SizableText>
                     ) : null}
                   </>
@@ -554,6 +552,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           const mobileLiquidityLabel = intl.formatMessage({
             id: ETranslations.global_liquidity,
           });
+          // Walkthrough r3: on mobile, TVL renders under APY in the right
+          // column (fixed-rate keeps its liquidity line instead)
+          const showMobileTvl =
+            !isFixedRateCategory && !isDesktopLayout && Boolean(item.tvl?.text);
+          const mobileTvl = showMobileTvl ? (
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {`${item.tvl?.text ?? ''} ${intl.formatMessage({
+                id: ETranslations.earn_tvl,
+              })}`}
+            </SizableText>
+          ) : null;
           const mobileLiquidity = showMobileLiquidity ? (
             <XStack ai="center" jc="flex-end" gap="$0.5" w="100%" minWidth={0}>
               <SizableText
@@ -585,6 +594,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                     intl.formatMessage({ id: ETranslations.defi_redeemable })}
                 </SizableText>
                 {mobileLiquidity}
+                {mobileTvl}
               </YStack>
             );
           }
@@ -599,6 +609,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
                 }}
               />
               {mobileLiquidity}
+              {mobileTvl}
             </YStack>
           );
         },

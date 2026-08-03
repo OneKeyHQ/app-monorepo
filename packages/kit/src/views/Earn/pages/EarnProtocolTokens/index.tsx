@@ -37,6 +37,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
+import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -53,8 +54,7 @@ type IRouteProps = RouteProp<
 type IProtocolTokensSortKey = 'tvl' | 'apy';
 
 function getRowAprValue(row: IEarnProtocolTokenRow): number {
-  const parsed = Number(row.item.provider.aprWithoutFee);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseAprPercentValue(row.item.provider.aprWithoutFee);
 }
 
 function getRowKey(row: IEarnProtocolTokenRow): string {
@@ -227,6 +227,9 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
           <Token
             size="md"
             tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
+            // Walkthrough r3: chain shown as a corner badge on the token logo
+            // instead of a subtitle text line
+            networkImageUri={row.item.network.logoURI}
             borderRadius="$full"
           />
         }
@@ -236,12 +239,6 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
           primary={
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {row.symbol}
-            </SizableText>
-          }
-          secondary={
-            // Always show the network, even when all rows share one (OK-58881)
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {row.item.network.name}
             </SizableText>
           }
         />

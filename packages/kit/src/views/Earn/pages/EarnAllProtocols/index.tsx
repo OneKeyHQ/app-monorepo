@@ -31,6 +31,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
+import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -47,8 +48,7 @@ type IFilteredProvider = IEarnAggregatedProvider & {
 };
 
 function getRowApy(row: IEarnProtocolTokenRow): number {
-  const parsed = Number(row.item.provider.aprWithoutFee);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseAprPercentValue(row.item.provider.aprWithoutFee);
 }
 
 function EarnAllProtocolsSkeleton() {

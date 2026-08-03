@@ -31,6 +31,7 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
+import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -56,15 +57,11 @@ const TOKEN_CATEGORY_LABEL_IDS: Record<string, ETranslations> = {
     ETranslations.earn_non_stable_tokens__action,
 };
 
-function parseRate(value?: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 // APY/APR merged into one sort dimension (OK-58880); use the display-facing
-// aprWithoutFee, falling back to apr when absent
+// aprWithoutFee, falling back to apr when absent. parseAprPercentValue
+// handles range copy like "2.00% - 2.67% APR" (walkthrough r3 issue 3).
 function getAssetAprSortValue(asset: IEarnAvailableAsset): number {
-  return parseRate(asset.aprWithoutFee || asset.apr);
+  return parseAprPercentValue(asset.aprWithoutFee || asset.apr);
 }
 
 function EarnTokensSkeleton() {
@@ -259,17 +256,26 @@ function EarnTokensContent() {
     [navigateToAsset],
   );
 
+  const tvlLabel = useMemo(
+    () => intl.formatMessage({ id: ETranslations.earn_tvl }),
+    [intl],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: IEarnAvailableAsset }) => (
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.SimpleEarn}
         totalLiquidityLabel={totalLiquidityLabel}
+        // Walkthrough r3: show the summed provider TVL under APY so the
+        // default TVL-desc sort is visible on the row
+        tvlValue={symbolTvlMap.get(item.symbol.toLowerCase())}
+        tvlLabel={tvlLabel}
         testID={EarnTestIDs.tokensPageItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel],
+    [handleAssetPress, totalLiquidityLabel, symbolTvlMap, tvlLabel],
   );
 
   const keyExtractor = useCallback(
