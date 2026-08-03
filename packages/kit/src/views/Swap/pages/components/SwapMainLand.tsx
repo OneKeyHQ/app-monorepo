@@ -173,6 +173,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     isFocused,
     dialogRef,
     onPopStack: onPopSwapModal,
+    onBroadcast: swapInitParams?.onSwapBroadcast,
   });
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx({
     onSwapBroadcast,

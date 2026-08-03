@@ -77,10 +77,7 @@ import {
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
-  type IDeferredFundingDisarm,
-  getFundingIntentDisarmDelayMs,
   shouldDisarmFundingIntentOnFocus,
-  shouldRunDeferredFundingDisarm,
   useEModeFundingTx,
 } from './useEModeFundingTx';
 import {
@@ -515,65 +512,43 @@ function BorrowEModeNeedActionView() {
   const activeUnderfundedRepay =
     activeStep?.kind === 'repay' && activeShortfall ? activeStep : null;
 
-  const { fundingTxKey, funding, armedAt, armFunding, disarmFunding } =
-    useEModeFundingTx({
-      networkId,
-      accountId,
-      activeStepKey: activeStep?.key,
-      activeFundingAddress: activeStep
-        ? balanceLookupAddress({ step: activeStep })
-        : null,
-    });
-  const [deferredDisarm, setDeferredDisarm] =
-    useState<IDeferredFundingDisarm | null>(null);
+  const {
+    fundingTxKey,
+    fundingBroadcasted,
+    funding,
+    armFunding,
+    markFundingBroadcasted,
+    disarmFunding,
+  } = useEModeFundingTx({
+    networkId,
+    accountId,
+    activeStepKey: activeStep?.key,
+    activeFundingAddress: activeStep
+      ? balanceLookupAddress({ step: activeStep })
+      : null,
+  });
 
-  // Swap is armed immediately before its modal opens. If that detour returns
-  // without producing a matching pending transaction, it was cancelled; clear
-  // the intent so a later same-token swap cannot pull the user back here.
-  // A just-broadcast transaction can still be in flight to this runtime though,
-  // so hold the disarm for the grace window instead of acting on the focus edge
-  // alone — that edge is evaluated once and losing it is irreversible.
+  // Swap reports a successful broadcast before closing its modal. A focus
+  // return without that signal is a cancellation; a signalled broadcast keeps
+  // the intent alive while pending history crosses from bg to this runtime.
   useEffect(() => {
     if (
-      !shouldDisarmFundingIntentOnFocus({
+      shouldDisarmFundingIntentOnFocus({
         isFocused,
         previousIsFocused,
         fundingTxKey,
+        fundingBroadcasted,
       })
     ) {
-      return;
-    }
-    const delay = getFundingIntentDisarmDelayMs({ armedAt, now: Date.now() });
-    if (delay === 0) {
       disarmFunding();
-      return;
     }
-    setDeferredDisarm({ at: Date.now() + delay, armedAt });
-  }, [armedAt, disarmFunding, fundingTxKey, isFocused, previousIsFocused]);
-
-  useEffect(() => {
-    if (!deferredDisarm) {
-      return;
-    }
-    if (
-      !shouldRunDeferredFundingDisarm({
-        deferred: deferredDisarm,
-        armedAt,
-        fundingTxKey,
-      })
-    ) {
-      setDeferredDisarm(null);
-      return;
-    }
-    const timer = setTimeout(
-      () => {
-        setDeferredDisarm(null);
-        disarmFunding();
-      },
-      Math.max(0, deferredDisarm.at - Date.now()),
-    );
-    return () => clearTimeout(timer);
-  }, [armedAt, deferredDisarm, disarmFunding, fundingTxKey]);
+  }, [
+    disarmFunding,
+    fundingBroadcasted,
+    fundingTxKey,
+    isFocused,
+    previousIsFocused,
+  ]);
 
   // Once the funded step clears, the intent has finished serving its purpose.
   useEffect(() => {
@@ -631,6 +606,7 @@ function BorrowEModeNeedActionView() {
                 swapTabSwitchType: ESwapTabSwitchType.SWAP,
                 swapSource: ESwapSource.EARN,
                 closeModalAfterSwapBroadcast: true,
+                onSwapBroadcast: markFundingBroadcasted,
               },
             });
           },
@@ -655,7 +631,15 @@ function BorrowEModeNeedActionView() {
         },
       ];
     },
-    [accountId, armFunding, displayCheck, intl, navigation, networkId],
+    [
+      accountId,
+      armFunding,
+      displayCheck,
+      intl,
+      markFundingBroadcasted,
+      navigation,
+      networkId,
+    ],
   );
 
   let activeActionLabel = '';

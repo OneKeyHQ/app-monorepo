@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-syntax */
 // oxlint-disable preserve-caught-error
+import { Semaphore } from 'async-mutex';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -151,6 +152,8 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+const SWAP_HISTORY_PERSIST_MAX_ATTEMPTS = 3;
 
 type ICheckStableCoinsListParamsItem = {
   networkId: string;
@@ -522,13 +525,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervalCountMap: Record<string, number> = {};
 
-  // Swaps whose pending write lost its race with a storage failure. The pending
-  // list cannot stand in for this: it is rebuilt from the very store that
-  // failed (`refreshSwapHistoryPendingStatusOnce`), so an item missing there
-  // proves nothing. Only a recorded failure licenses a later status update to
-  // insert the row, which keeps a deletion racing an in-flight status request
-  // from resurrecting what the user removed.
-  private swapHistoryPersistFailureIds = new Set<string>();
+  // Keep durable history and its non-persisted notification projection linear.
+  private swapHistoryMutationMutex = new Semaphore(1);
 
   private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
     {};
@@ -1943,6 +1941,7 @@ export default class ServiceSwap extends ServiceBase {
     }
 
     const repairPromise = (async () => {
+      await this.backgroundApi.simpleDb.swapHistory.recoverPendingSwapHistoryItems();
       const histories =
         await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
       const networkIds = getSwapHistoryNetworkIdsToEnrich(histories);
@@ -2025,14 +2024,18 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async syncSwapHistoryPendingList() {
-    const histories = await this.fetchSwapHistoryListFromSimple();
-    const pendingHistories = histories.filter((history) =>
-      this.isSwapHistoryPendingStatus(history),
-    );
-    await inAppNotificationAtom.set((pre) => ({
-      ...pre,
-      swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
-    }));
+    await this.fetchSwapHistoryListFromSimple();
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      const histories =
+        await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+      const pendingHistories = histories.filter((history: ISwapTxHistory) =>
+        this.isSwapHistoryPendingStatus(history),
+      );
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
+      }));
+    });
   }
 
   @backgroundMethod()
@@ -2063,14 +2066,22 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
-    const histories = await this.fetchSwapHistoryListFromSimple();
-    const pendingHistories = histories.filter((history) =>
-      this.isSwapHistoryPendingStatus(history),
+    await this.fetchSwapHistoryListFromSimple();
+    const pendingHistories = await this.swapHistoryMutationMutex.runExclusive(
+      async () => {
+        const histories =
+          await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+        const nextPendingHistories = histories.filter(
+          (history: ISwapTxHistory) => this.isSwapHistoryPendingStatus(history),
+        );
+        await inAppNotificationAtom.set((pre) => ({
+          ...pre,
+          swapHistoryPendingList:
+            filterSwapHistoryPendingList(nextPendingHistories),
+        }));
+        return nextPendingHistories;
+      },
     );
-    await inAppNotificationAtom.set((pre) => ({
-      ...pre,
-      swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
-    }));
 
     if (!pendingHistories.length) {
       return;
@@ -2092,95 +2103,115 @@ export default class ServiceSwap extends ServiceBase {
     return histories.find((item) => item.txInfo.txId === txId);
   }
 
+  private async retrySwapHistoryPersistence(operation: () => Promise<void>) {
+    let lastError = new Error('Persist swap history failed');
+    for (
+      let attempt = 0;
+      attempt < SWAP_HISTORY_PERSIST_MAX_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        await operation();
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    throw lastError;
+  }
+
+  private logSwapHistoryPersistError(error: unknown) {
+    defaultLogger.app.error.log(
+      `Persist swap history error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     const isPending = this.isSwapHistoryPendingStatus(enrichedItem);
-    const persistHistoryItem = () =>
-      this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(enrichedItem);
-    if (!isPending) {
-      await persistHistoryItem();
-    }
-    await inAppNotificationAtom.set((pre) => {
-      const filteredList = filterSwapHistoryPendingList(
-        pre.swapHistoryPendingList,
-      );
-      const matchFn = (i: ISwapTxHistory) =>
-        this.isSameSwapHistoryItem(i, enrichedItem);
-      const unmatchedList = filteredList.filter((i) => !matchFn(i));
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      const persistHistoryItem = () =>
+        this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(
+          enrichedItem,
+        );
+      let pendingWriteStaged = false;
       if (isPending) {
-        return {
-          ...pre,
-          swapHistoryPendingList: [...unmatchedList, enrichedItem],
-        };
-      }
-      const matchedInPendingList = filteredList.some(matchFn);
-      if (matchedInPendingList) {
-        return {
-          ...pre,
-          swapHistoryPendingList: filteredList.map((i) =>
-            matchFn(i) ? enrichedItem : i,
-          ),
-        };
-      }
-      // Item already exists — only update state if dirty entries were removed,
-      // otherwise return the original reference to avoid unnecessary re-renders.
-      if (filteredList.length !== pre.swapHistoryPendingList.length) {
-        return { ...pre, swapHistoryPendingList: filteredList };
-      }
-      return pre;
-    });
-    if (isPending) {
-      try {
+        try {
+          await this.retrySwapHistoryPersistence(() =>
+            this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+              enrichedItem,
+            ),
+          );
+          pendingWriteStaged = true;
+        } catch (error) {
+          this.logSwapHistoryPersistError(error);
+        }
+      } else {
         await persistHistoryItem();
-        this.swapHistoryPersistFailureIds.delete(
-          this.getSwapHistoryIntervalKey(enrichedItem),
-        );
-      } catch (error) {
-        // The in-memory pending identity is authoritative for the current
-        // runtime when durable history storage is temporarily unavailable.
-        // Remember the miss so a later status update can still lay the row
-        // down; nothing else records that this swap has no durable copy.
-        this.swapHistoryPersistFailureIds.add(
-          this.getSwapHistoryIntervalKey(enrichedItem),
-        );
-        defaultLogger.app.error.log(
-          `Persist swap history error: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
       }
-    }
+      await inAppNotificationAtom.set((pre) => {
+        const filteredList = filterSwapHistoryPendingList(
+          pre.swapHistoryPendingList,
+        );
+        const matchFn = (i: ISwapTxHistory) =>
+          this.isSameSwapHistoryItem(i, enrichedItem);
+        const unmatchedList = filteredList.filter((i) => !matchFn(i));
+        if (isPending) {
+          return {
+            ...pre,
+            swapHistoryPendingList: [...unmatchedList, enrichedItem],
+          };
+        }
+        const matchedInPendingList = filteredList.some(matchFn);
+        if (matchedInPendingList) {
+          return {
+            ...pre,
+            swapHistoryPendingList: filteredList.map((i) =>
+              matchFn(i) ? enrichedItem : i,
+            ),
+          };
+        }
+        // Item already exists — only update state if dirty entries were removed,
+        // otherwise return the original reference to avoid unnecessary re-renders.
+        if (filteredList.length !== pre.swapHistoryPendingList.length) {
+          return { ...pre, swapHistoryPendingList: filteredList };
+        }
+        return pre;
+      });
+      if (isPending) {
+        try {
+          await this.retrySwapHistoryPersistence(() =>
+            pendingWriteStaged
+              ? this.backgroundApi.simpleDb.swapHistory.commitPendingSwapHistoryItem(
+                  enrichedItem,
+                )
+              : persistHistoryItem(),
+          );
+        } catch (error) {
+          this.logSwapHistoryPersistError(error);
+        }
+      }
+    });
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
   }
 
   /**
-   * Write a status update through, backfilling the row only for a swap we
-   * recorded as having lost its pending write. Every other update stays
-   * update-only, so a row deleted while its status request was in flight is
-   * not written back.
+   * Status updates can only change a committed row or promote its durable
+   * pending-write stage. A deleted item has neither, so it cannot be reinserted.
    */
   private async persistSwapHistoryUpdate(
     item: ISwapTxHistory,
     oldTxId?: string,
   ) {
-    const persistFailureKey = this.getSwapHistoryIntervalKey(item);
-    const allowInsert =
-      this.swapHistoryPersistFailureIds.has(persistFailureKey) ||
-      (oldTxId ? this.swapHistoryPersistFailureIds.has(oldTxId) : false);
     await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
       item,
       oldTxId,
-      { allowInsert },
     );
-    if (allowInsert) {
-      this.swapHistoryPersistFailureIds.delete(persistFailureKey);
-      if (oldTxId) {
-        this.swapHistoryPersistFailureIds.delete(oldTxId);
-      }
-    }
   }
 
   @backgroundMethod()
@@ -2205,15 +2236,19 @@ export default class ServiceSwap extends ServiceBase {
         txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
         status,
       });
-      await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
-      await inAppNotificationAtom.set((pre) => {
-        const newPendingList = filterSwapHistoryPendingList(
-          pre.swapHistoryPendingList,
-        ).map((item) => (item.txInfo.txId === oldTxId ? newHistoryItem : item));
-        return {
-          ...pre,
-          swapHistoryPendingList: newPendingList,
-        };
+      await this.swapHistoryMutationMutex.runExclusive(async () => {
+        await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
+        await inAppNotificationAtom.set((pre) => {
+          const newPendingList = filterSwapHistoryPendingList(
+            pre.swapHistoryPendingList,
+          ).map((item) =>
+            item.txInfo.txId === oldTxId ? newHistoryItem : item,
+          );
+          return {
+            ...pre,
+            swapHistoryPendingList: newPendingList,
+          };
+        });
       });
       return;
     }
@@ -2264,15 +2299,6 @@ export default class ServiceSwap extends ServiceBase {
           enrichedItem.txInfo.receiverTransactionId
         ] = true;
       }
-      await inAppNotificationAtom.set((pre) => {
-        const newPendingList = filterSwapHistoryPendingList(
-          pre.swapHistoryPendingList,
-        ).map((i) => (matchFn(i) ? enrichedItem : i));
-        return {
-          ...pre,
-          swapHistoryPendingList: newPendingList,
-        };
-      });
       const isPrivateSendHistory = isPrivateSendSwapHistoryItem(enrichedItem);
       const isSuccessStatus =
         enrichedItem.status === ESwapTxHistoryStatus.SUCCESS ||
@@ -2316,7 +2342,20 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
-    await this.persistSwapHistoryUpdate(enrichedItem);
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      await this.persistSwapHistoryUpdate(enrichedItem);
+      if (oldItem) {
+        await inAppNotificationAtom.set((pre) => {
+          const newPendingList = filterSwapHistoryPendingList(
+            pre.swapHistoryPendingList,
+          ).map((i) => (matchFn(i) ? enrichedItem : i));
+          return {
+            ...pre,
+            swapHistoryPendingList: newPendingList,
+          };
+        });
+      }
+    });
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -2335,66 +2374,60 @@ export default class ServiceSwap extends ServiceBase {
       onlyStock?: boolean;
     },
   ) {
-    await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
-      statuses,
-      options,
-    );
-    const inAppNotification = await inAppNotificationAtom.get();
-    const deleteHistoryIds = filterSwapHistoryPendingList(
-      inAppNotification.swapHistoryPendingList,
-    )
-      .filter((item) => {
-        if (
-          isSwapHistoryProtocolExcluded({
-            item,
-            excludeProtocols: options?.excludeProtocols,
-          })
-        ) {
-          return false;
-        }
-        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-          return false;
-        }
-        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-          return false;
-        }
-        return statuses ? statuses.includes(item.status) : true;
-      })
-      .map((item) =>
-        item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
+        statuses,
+        options,
       );
-    await inAppNotificationAtom.set((pre) => ({
-      ...pre,
-      swapHistoryPendingList: filterSwapHistoryPendingList(
-        pre.swapHistoryPendingList,
-      ).filter((item) => {
-        if (
-          isSwapHistoryProtocolExcluded({
-            item,
-            excludeProtocols: options?.excludeProtocols,
-          })
-        ) {
-          return true;
-        }
-        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-          return true;
-        }
-        if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-          return true;
-        }
-        return statuses ? !statuses.includes(item.status) : false;
-      }),
-    }));
-    await Promise.all(
-      deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
-    );
-    // Drop the backfill permission too: clearing cannot abort a status request
-    // already awaiting its response, and that response must not lay the row
-    // back down.
-    deleteHistoryIds.forEach((id) => {
-      if (id) {
-        this.swapHistoryPersistFailureIds.delete(id);
-      }
+      const inAppNotification = await inAppNotificationAtom.get();
+      const deleteHistoryIds = filterSwapHistoryPendingList(
+        inAppNotification.swapHistoryPendingList,
+      )
+        .filter((item) => {
+          if (
+            isSwapHistoryProtocolExcluded({
+              item,
+              excludeProtocols: options?.excludeProtocols,
+            })
+          ) {
+            return false;
+          }
+          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+            return false;
+          }
+          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+            return false;
+          }
+          return statuses ? statuses.includes(item.status) : true;
+        })
+        .map((item) =>
+          item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
+        );
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: filterSwapHistoryPendingList(
+          pre.swapHistoryPendingList,
+        ).filter((item) => {
+          if (
+            isSwapHistoryProtocolExcluded({
+              item,
+              excludeProtocols: options?.excludeProtocols,
+            })
+          ) {
+            return true;
+          }
+          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+            return true;
+          }
+          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+            return true;
+          }
+          return statuses ? !statuses.includes(item.status) : false;
+        }),
+      }));
+      await Promise.all(
+        deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
+      );
     });
     // The history list refreshes off the pending-status key, which does not
     // change when only finished orders are removed. Signal list views to
@@ -2408,22 +2441,26 @@ export default class ServiceSwap extends ServiceBase {
     useOrderId?: boolean;
     orderId?: string;
   }) {
-    await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(txInfo);
-    const deleteHistoryId = txInfo.useOrderId
-      ? (txInfo.orderId ?? '')
-      : (txInfo.txId ?? '');
-    await inAppNotificationAtom.set((pre) => ({
-      ...pre,
-      swapHistoryPendingList: filterSwapHistoryPendingList(
-        pre.swapHistoryPendingList,
-      ).filter(
-        (item) =>
-          (item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId) !==
-          deleteHistoryId,
-      ),
-    }));
-    await this.cleanHistoryStateIntervals(deleteHistoryId);
-    this.swapHistoryPersistFailureIds.delete(deleteHistoryId);
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(
+        txInfo,
+      );
+      const deleteHistoryId = txInfo.useOrderId
+        ? (txInfo.orderId ?? '')
+        : (txInfo.txId ?? '');
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: filterSwapHistoryPendingList(
+          pre.swapHistoryPendingList,
+        ).filter(
+          (item) =>
+            (item.txInfo.useOrderId
+              ? item.txInfo.orderId
+              : item.txInfo.txId) !== deleteHistoryId,
+        ),
+      }));
+      await this.cleanHistoryStateIntervals(deleteHistoryId);
+    });
     // Deleting a finished order does not change the pending-status key the list
     // refreshes off, so signal list views to re-fetch (same reason as the
     // batch clean above) — otherwise the deleted row lingers until a pending

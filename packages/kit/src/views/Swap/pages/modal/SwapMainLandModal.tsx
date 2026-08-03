@@ -36,6 +36,7 @@ const SwapMainLandModalPage = () => {
     swapSource,
     marketPresetToken,
     closeModalAfterSwapBroadcast,
+    onSwapBroadcast,
   } = route.params ?? {};
   const { activeAccount } = useActiveAccount({
     num: 0,
@@ -85,6 +86,7 @@ const SwapMainLandModalPage = () => {
           marketPresetToken,
           swapSource,
           closeModalAfterSwapBroadcast,
+          onSwapBroadcast,
         }}
       />
     </Page>

@@ -42,6 +42,7 @@ export type IModalSwapParamList = {
     swapSource?: ESwapSource;
     marketPresetToken?: IMarketPresetTokenContext;
     closeModalAfterSwapBroadcast?: boolean;
+    onSwapBroadcast?: () => void | Promise<void>;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;

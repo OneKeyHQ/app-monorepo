@@ -1,11 +1,8 @@
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  FUNDING_INTENT_DISARM_GRACE_MS,
-  getFundingIntentDisarmDelayMs,
   matchesFundingIntent,
   shouldDisarmFundingIntentOnFocus,
-  shouldRunDeferredFundingDisarm,
 } from './useEModeFundingTx';
 
 const NETWORK_ID = 'evm--1';
@@ -16,6 +13,7 @@ const intent = {
   stepKey: 'repay:usdt',
   tokenAddress: USDT.toLowerCase(),
   armedAt: 1000,
+  broadcasted: false,
 };
 
 function buildHistory(
@@ -122,6 +120,7 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
         isFocused: true,
         previousIsFocused: undefined,
         fundingTxKey: null,
+        fundingBroadcasted: false,
       }),
     ).toBe(false);
   });
@@ -132,6 +131,7 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
         isFocused: true,
         previousIsFocused: false,
         fundingTxKey: null,
+        fundingBroadcasted: false,
       }),
     ).toBe(true);
   });
@@ -142,6 +142,18 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
         isFocused: true,
         previousIsFocused: false,
         fundingTxKey: '0xtx',
+        fundingBroadcasted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps an explicitly broadcast swap while pending history crosses runtimes', () => {
+    expect(
+      shouldDisarmFundingIntentOnFocus({
+        isFocused: true,
+        previousIsFocused: false,
+        fundingTxKey: null,
+        fundingBroadcasted: true,
       }),
     ).toBe(false);
   });
@@ -152,74 +164,8 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
         isFocused: false,
         previousIsFocused: true,
         fundingTxKey: null,
+        fundingBroadcasted: false,
       }),
     ).toBe(false);
-  });
-});
-
-describe('getFundingIntentDisarmDelayMs', () => {
-  it('holds the disarm while a just-broadcast transaction can still arrive', () => {
-    expect(getFundingIntentDisarmDelayMs({ armedAt: 1000, now: 1200 })).toBe(
-      FUNDING_INTENT_DISARM_GRACE_MS - 200,
-    );
-  });
-
-  it('disarms immediately once the grace window has closed', () => {
-    expect(
-      getFundingIntentDisarmDelayMs({
-        armedAt: 1000,
-        now: 1000 + FUNDING_INTENT_DISARM_GRACE_MS,
-      }),
-    ).toBe(0);
-  });
-
-  it('disarms immediately when no intent is armed', () => {
-    expect(getFundingIntentDisarmDelayMs({ armedAt: null, now: 1200 })).toBe(0);
-  });
-});
-
-describe('shouldRunDeferredFundingDisarm', () => {
-  it('runs for the intent it was scheduled against', () => {
-    expect(
-      shouldRunDeferredFundingDisarm({
-        deferred: { at: 4000, armedAt: 1000 },
-        armedAt: 1000,
-        fundingTxKey: null,
-      }),
-    ).toBe(true);
-  });
-
-  it('abandons a disarm left over from a re-armed detour', () => {
-    expect(
-      shouldRunDeferredFundingDisarm({
-        deferred: { at: 4000, armedAt: 1000 },
-        armedAt: 1200,
-        fundingTxKey: null,
-      }),
-    ).toBe(false);
-  });
-
-  it('abandons a disarm once the transaction has arrived', () => {
-    expect(
-      shouldRunDeferredFundingDisarm({
-        deferred: { at: 4000, armedAt: 1000 },
-        armedAt: 1000,
-        fundingTxKey: '0xtx',
-      }),
-    ).toBe(false);
-  });
-
-  // `armedAt` derives from the step-scoped intent, so null covers both "already
-  // cleared" and "armed for a step that is no longer active". Neither may
-  // abandon the disarm: the second leaves a stale intent behind, and
-  // reconcileStepState can reopen that step for an unrelated swap to match.
-  it('still runs when the intent is no longer armed for the active step', () => {
-    expect(
-      shouldRunDeferredFundingDisarm({
-        deferred: { at: 4000, armedAt: 1000 },
-        armedAt: null,
-        fundingTxKey: null,
-      }),
-    ).toBe(true);
   });
 });

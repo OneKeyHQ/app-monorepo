@@ -15,11 +15,13 @@ function renderAutoClose({
   isFocused = true,
   close = jest.fn().mockResolvedValue(undefined),
   onPopStack = jest.fn(),
+  onBroadcast = jest.fn(),
 }: {
   enabled?: boolean;
   isFocused?: boolean;
   close?: jest.Mock<Promise<void>, []>;
   onPopStack?: jest.Mock<void, []>;
+  onBroadcast?: jest.Mock<void | Promise<void>, []>;
 } = {}) {
   const dialogRef = { current: { close } };
   const view = renderHook(
@@ -28,10 +30,11 @@ function renderAutoClose({
         ...props,
         dialogRef,
         onPopStack,
+        onBroadcast,
       }),
     { initialProps: { enabled, isFocused } },
   );
-  return { ...view, close, onPopStack };
+  return { ...view, close, onPopStack, onBroadcast };
 }
 
 describe('useSwapModalAutoCloseOnBroadcast', () => {
@@ -47,6 +50,33 @@ describe('useSwapModalAutoCloseOnBroadcast', () => {
     expect(close.mock.invocationCallOrder[0]).toBeLessThan(
       onPopStack.mock.invocationCallOrder[0],
     );
+  });
+
+  it('acknowledges the broadcast before closing the Swap UI', async () => {
+    const { result, onBroadcast, close } = renderAutoClose();
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(onBroadcast.mock.invocationCallOrder[0]).toBeLessThan(
+      close.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still closes after an acknowledgment error', async () => {
+    const onBroadcast = jest
+      .fn<Promise<void>, []>()
+      .mockRejectedValue(new Error('acknowledgment failed'));
+    const { result, close, onPopStack } = renderAutoClose({ onBroadcast });
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(onPopStack).toHaveBeenCalledTimes(1);
   });
 
   it('waits for an overlaid signature modal to return focus to Swap', async () => {

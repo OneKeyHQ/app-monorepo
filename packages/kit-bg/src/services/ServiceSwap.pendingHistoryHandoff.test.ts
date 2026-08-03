@@ -84,6 +84,14 @@ function findPendingHistory(identity: IHistoryIdentity) {
     );
 }
 
+function createDeferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe('swap pending history handoff', () => {
   const previousBackgroundScope = globalThis.$onekeyIsInBackground;
   let initialNotificationState: Awaited<
@@ -136,10 +144,12 @@ describe('swap pending history handoff', () => {
       const history = createPendingHistory(identity);
       const persistenceError = new Error('durable history unavailable');
       const events: string[] = [];
-      const addSwapHistoryItem = jest.fn(async () => {
+      const stagePendingSwapHistoryItem = jest.fn(async () => {
+        events.push('stage');
+      });
+      const commitPendingSwapHistoryItem = jest.fn(async () => {
         expect(await findPendingHistory(identity)).toBeDefined();
-        events.push('pending');
-        events.push('persist');
+        events.push('commit');
         throw persistenceError;
       });
       const service = new ServiceSwap({
@@ -149,7 +159,8 @@ describe('swap pending history handoff', () => {
           },
           simpleDb: {
             swapHistory: {
-              addSwapHistoryItem,
+              stagePendingSwapHistoryItem,
+              commitPendingSwapHistoryItem,
             },
           },
         },
@@ -166,14 +177,89 @@ describe('swap pending history handoff', () => {
 
       await expect(completeBroadcast()).resolves.toBeUndefined();
 
-      expect(addSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect(commitPendingSwapHistoryItem).toHaveBeenCalledTimes(3);
       expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
-      expect(events).toEqual(['pending', 'persist', 'close']);
+      expect(events).toEqual(['stage', 'commit', 'commit', 'commit', 'close']);
       expect(loggerErrorSpy).toHaveBeenCalledWith(
         'Persist swap history error: durable history unavailable',
       );
     },
   );
+
+  it('retries a transient staging failure before publishing', async () => {
+    const history = createPendingHistory({ txId: '0xstage-retry' });
+    const stagePendingSwapHistoryItem = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('temporary storage failure'))
+      .mockResolvedValue(undefined);
+    const commitPendingSwapHistoryItem = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            stagePendingSwapHistoryItem,
+            commitPendingSwapHistoryItem,
+          },
+        },
+      },
+    });
+
+    await service.addSwapHistoryItem(history);
+
+    expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(2);
+    expect(commitPendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+    expect(await findPendingHistory({ txId: '0xstage-retry' })).toBeDefined();
+    expect(loggerErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('recovers a staged pending write after the background service restarts', async () => {
+    const history = createPendingHistory({ txId: '0xrestart' });
+    let stagedHistories: ISwapTxHistory[] = [];
+    let persistedHistories: ISwapTxHistory[] = [];
+    const swapHistoryDb = {
+      stagePendingSwapHistoryItem: jest.fn(async (item: ISwapTxHistory) => {
+        stagedHistories = [item];
+      }),
+      commitPendingSwapHistoryItem: jest
+        .fn()
+        .mockRejectedValue(new Error('commit interrupted')),
+      recoverPendingSwapHistoryItems: jest.fn(async () => {
+        persistedHistories = [...stagedHistories, ...persistedHistories];
+        stagedHistories = [];
+      }),
+      getSwapHistoryList: jest.fn(async () => persistedHistories),
+      repairSwapHistoryNetworkInfo: jest.fn(async () => ({
+        histories: persistedHistories,
+        changed: false,
+      })),
+    };
+    const createService = () =>
+      new ServiceSwap({
+        backgroundApi: {
+          serviceNetwork: {
+            getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+          },
+          simpleDb: { swapHistory: swapHistoryDb },
+        },
+      });
+
+    await createService().addSwapHistoryItem(history);
+    expect(stagedHistories).toEqual([history]);
+
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [],
+    }));
+    await createService().syncSwapHistoryPendingList();
+
+    expect(await findPendingHistory({ txId: '0xrestart' })).toBeDefined();
+    expect(persistedHistories).toEqual([history]);
+    expect(stagedHistories).toEqual([]);
+  });
 
   it('keeps terminal history publication behind durable persistence', async () => {
     const history = {
@@ -206,7 +292,7 @@ describe('swap pending history handoff', () => {
   });
 });
 
-describe('swap history backfill permission', () => {
+describe('durable pending swap history promotion', () => {
   const previousBackgroundScope = globalThis.$onekeyIsInBackground;
   let initialNotificationState: Awaited<
     ReturnType<typeof inAppNotificationAtom.get>
@@ -236,30 +322,30 @@ describe('swap history backfill permission', () => {
   });
 
   function createService(updateSwapHistoryItem: jest.Mock) {
-    return new ServiceSwap({
+    const deleteOneSwapHistory = jest.fn();
+    const service = new ServiceSwap({
       backgroundApi: {
         serviceNetwork: {
           getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
         },
         simpleDb: {
           swapHistory: {
-            addSwapHistoryItem: jest
+            stagePendingSwapHistoryItem: jest.fn(),
+            commitPendingSwapHistoryItem: jest
               .fn()
-              .mockRejectedValue(new Error('durable history unavailable')),
+              .mockRejectedValue(new Error('commit interrupted')),
             updateSwapHistoryItem,
-            deleteOneSwapHistory: jest.fn(),
+            deleteOneSwapHistory,
           },
         },
       },
     });
+    return { deleteOneSwapHistory, service };
   }
 
-  it('backfills a failed pending write even after the pending list is rebuilt', async () => {
-    // refreshSwapHistoryPendingStatusOnce rebuilds the list from the store that
-    // failed, so the item's absence there says nothing about whether the user
-    // deleted it. Only the recorded failure does.
+  it('delegates a staged-row promotion to the durable entity', async () => {
     const updateSwapHistoryItem = jest.fn();
-    const service = createService(updateSwapHistoryItem);
+    const { service } = createService(updateSwapHistoryItem);
     const history = createPendingHistory({ txId: '0xlostwrite' });
 
     await service.addSwapHistoryItem(history);
@@ -267,6 +353,21 @@ describe('swap history backfill permission', () => {
       ...pre,
       swapHistoryPendingList: [],
     }));
+    await service.updateSwapHistoryItem(
+      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      { shouldShowToast: false },
+    );
+
+    expect(updateSwapHistoryItem).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it('never grants an update an in-memory insertion permission', async () => {
+    const updateSwapHistoryItem = jest.fn();
+    const { service } = createService(updateSwapHistoryItem);
+    const history = createPendingHistory({ txId: '0xneverstaged' });
 
     await service.updateSwapHistoryItem(
       { ...history, status: ESwapTxHistoryStatus.SUCCESS },
@@ -276,44 +377,115 @@ describe('swap history backfill permission', () => {
     expect(updateSwapHistoryItem).toHaveBeenCalledWith(
       expect.anything(),
       undefined,
-      { allowInsert: true },
     );
   });
 
-  it('refuses to insert a swap that never lost a write', async () => {
+  it('deletes the durable stage when the user clears that history', async () => {
     const updateSwapHistoryItem = jest.fn();
-    const service = createService(updateSwapHistoryItem);
-    const history = createPendingHistory({ txId: '0xneverfailed' });
-
-    await service.updateSwapHistoryItem(
-      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
-      { shouldShowToast: false },
+    const { deleteOneSwapHistory, service } = createService(
+      updateSwapHistoryItem,
     );
-
-    expect(updateSwapHistoryItem).toHaveBeenCalledWith(
-      expect.anything(),
-      undefined,
-      { allowInsert: false },
-    );
-  });
-
-  it('revokes the permission when the user clears that history', async () => {
-    const updateSwapHistoryItem = jest.fn();
-    const service = createService(updateSwapHistoryItem);
     const history = createPendingHistory({ txId: '0xcleared' });
 
     await service.addSwapHistoryItem(history);
     await service.cleanOneSwapHistory({ txId: '0xcleared' });
-
     await service.updateSwapHistoryItem(
       { ...history, status: ESwapTxHistoryStatus.SUCCESS },
       { shouldShowToast: false },
     );
 
+    expect(deleteOneSwapHistory).toHaveBeenCalledWith({ txId: '0xcleared' });
     expect(updateSwapHistoryItem).toHaveBeenCalledWith(
       expect.anything(),
       undefined,
-      { allowInsert: false },
     );
+  });
+
+  it('keeps the atom pending when durable status promotion fails', async () => {
+    const history = createPendingHistory({ txId: '0xpromotion-fails' });
+    const persistenceError = new Error('promotion failed');
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            updateSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(persistenceError),
+          },
+        },
+      },
+    });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [history],
+    }));
+
+    await expect(
+      service.updateSwapHistoryItem(
+        { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+        { shouldShowToast: false },
+      ),
+    ).rejects.toBe(persistenceError);
+
+    expect(
+      (await findPendingHistory({ txId: '0xpromotion-fails' }))?.status,
+    ).toBe(ESwapTxHistoryStatus.PENDING);
+  });
+
+  it('keeps storage and the pending atom deleted when clear wins the race', async () => {
+    const history = createPendingHistory({ txId: '0xclear-race' });
+    let persistedHistory: ISwapTxHistory | undefined = history;
+    const deleteStarted = createDeferred();
+    const releaseDelete = createDeferred();
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            deleteSwapHistoryItem: jest.fn(
+              async (statuses?: ESwapTxHistoryStatus[]) => {
+                const shouldDelete =
+                  !!persistedHistory &&
+                  (!statuses || statuses.includes(persistedHistory.status));
+                deleteStarted.resolve();
+                await releaseDelete.promise;
+                if (shouldDelete) {
+                  persistedHistory = undefined;
+                }
+              },
+            ),
+            updateSwapHistoryItem: jest.fn(async (item: ISwapTxHistory) => {
+              if (persistedHistory) {
+                persistedHistory = item;
+              }
+            }),
+          },
+        },
+      },
+    });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [history],
+    }));
+
+    const clearPromise = service.cleanSwapHistoryItems([
+      ESwapTxHistoryStatus.PENDING,
+    ]);
+    await deleteStarted.promise;
+    const updatePromise = service.updateSwapHistoryItem(
+      { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+      { shouldShowToast: false },
+    );
+    await Promise.resolve();
+    releaseDelete.resolve();
+    await Promise.all([clearPromise, updatePromise]);
+
+    expect(persistedHistory).toBeUndefined();
+    expect(await findPendingHistory({ txId: '0xclear-race' })).toBeUndefined();
   });
 });

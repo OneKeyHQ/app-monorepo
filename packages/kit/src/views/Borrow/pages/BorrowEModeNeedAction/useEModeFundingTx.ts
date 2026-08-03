@@ -12,6 +12,7 @@ export type IEModeFundingIntent = {
   /** Lowercased funding token address; '' for the network's native token. */
   tokenAddress: string;
   armedAt: number;
+  broadcasted: boolean;
 };
 
 /**
@@ -86,8 +87,15 @@ export function useEModeFundingTx({
       stepKey: activeStepKey,
       tokenAddress: activeFundingAddress,
       armedAt: Date.now(),
+      broadcasted: false,
     });
   }, [activeStepKey, activeFundingAddress]);
+
+  const markFundingBroadcasted = useCallback(() => {
+    setIntent((current) =>
+      current ? { ...current, broadcasted: true } : current,
+    );
+  }, []);
 
   const disarmFunding = useCallback(() => {
     setIntent(null);
@@ -114,86 +122,39 @@ export function useEModeFundingTx({
     return match ? getFundingTxKey(match) : null;
   }, [armedIntent, swapHistoryPendingList, networkId, accountId]);
 
+  const fundingBroadcasted = armedIntent?.broadcasted ?? false;
+
   return {
     /**
      * Key of the in-flight top-up swap, or null. Changes exactly once per
      * transaction, so an effect can treat it as the submit edge.
      */
     fundingTxKey,
-    /** A top-up swap for the active step is on-chain and unconfirmed. */
-    funding: fundingTxKey !== null,
-    /** When the active intent was armed, for the disarm grace window. */
-    armedAt: armedIntent?.armedAt ?? null,
+    /** The broadcast callback closes the bridge gap before history arrives. */
+    fundingBroadcasted,
+    /** A top-up swap has broadcast or is represented in Swap history. */
+    funding: fundingBroadcasted || fundingTxKey !== null,
     armFunding,
+    markFundingBroadcasted,
     disarmFunding,
   };
-}
-
-/**
- * A broadcast swap is published to the pending list in the background and
- * bridged to this runtime, which can land after focus returns here. Disarming
- * inside that window drops the intent for good — `matchesFundingIntent` needs
- * it, so the arriving transaction never matches — and the shortfall card then
- * re-offers Top up for the whole life of a deposit that is already on-chain.
- */
-export const FUNDING_INTENT_DISARM_GRACE_MS = 3000;
-
-/** How long to wait before honouring a focus-edge disarm. */
-export function getFundingIntentDisarmDelayMs({
-  armedAt,
-  now,
-}: {
-  armedAt: number | null;
-  now: number;
-}) {
-  if (armedAt === null) {
-    return 0;
-  }
-  return Math.max(0, FUNDING_INTENT_DISARM_GRACE_MS - (now - armedAt));
 }
 
 export function shouldDisarmFundingIntentOnFocus({
   isFocused,
   previousIsFocused,
   fundingTxKey,
+  fundingBroadcasted,
 }: {
   isFocused: boolean;
   previousIsFocused: boolean | undefined;
   fundingTxKey: string | null;
+  fundingBroadcasted: boolean;
 }) {
-  return isFocused && previousIsFocused === false && !fundingTxKey;
-}
-
-/** A held disarm, tagged with the intent it was scheduled for. */
-export type IDeferredFundingDisarm = {
-  at: number;
-  armedAt: number | null;
-};
-
-/**
- * Whether a held disarm still applies.
- *
- * Only a *different* armed intent calls it off: the user can dismiss the Swap
- * modal and tap Top up again inside the grace window, and firing then would
- * clear an intent this disarm was never scheduled for.
- *
- * A null `armedAt` is not that case. It means the intent is not currently armed
- * for the active step — either already cleared, where disarming is a harmless
- * no-op, or belonging to a step that is no longer active, where the intent is
- * stale and clearing it is exactly the point: `reconcileStepState` can reopen
- * that step later, and a stale intent would then match an unrelated swap.
- */
-export function shouldRunDeferredFundingDisarm({
-  deferred,
-  armedAt,
-  fundingTxKey,
-}: {
-  deferred: IDeferredFundingDisarm | null;
-  armedAt: number | null;
-  fundingTxKey: string | null;
-}) {
-  if (!deferred || fundingTxKey) {
-    return false;
-  }
-  return armedAt === null || armedAt === deferred.armedAt;
+  return (
+    isFocused &&
+    previousIsFocused === false &&
+    !fundingTxKey &&
+    !fundingBroadcasted
+  );
 }
