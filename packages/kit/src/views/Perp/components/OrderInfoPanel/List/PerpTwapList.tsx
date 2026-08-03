@@ -42,6 +42,8 @@ import {
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  getValidSpotPriceDecimals,
+  isSpotInstrument,
   isUsdcDenominatedFee,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -227,7 +229,11 @@ function getTwapBaseInfo({
       ? executedNotional.dividedBy(executedSize)
       : undefined;
   const avgPriceValue = avgPrice?.isFinite()
-    ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
+    ? avgPrice.toFixed(
+        isSpotInstrument(state.coin)
+          ? getValidSpotPriceDecimals(avgPrice.toFixed(), 0)
+          : getValidPriceDecimals(avgPrice.toFixed()),
+      )
     : undefined;
   const assetSymbol = getOrderAssetDisplayName(
     state.coin,
@@ -937,8 +943,14 @@ function TwapFillRow({
       : new BigNumber(fill.closedPnl);
     const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
     const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
+    // Spot fills keep spot precision; the perp rule rounds sub-6-decimal
+    // prices (e.g. 0.0000006 → 0.000001).
     const priceFormatted = priceBN.isFinite()
-      ? priceBN.toFixed(getValidPriceDecimals(fill.px))
+      ? priceBN.toFixed(
+          isSpotInstrument(fill.coin)
+            ? getValidSpotPriceDecimals(fill.px, 0)
+            : getValidPriceDecimals(fill.px),
+        )
       : fill.px;
     return {
       priceFormatted,

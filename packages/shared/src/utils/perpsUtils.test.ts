@@ -33,6 +33,7 @@ import {
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  getValidSpotPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
   resolveBboOrderPrice,
@@ -86,6 +87,13 @@ describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
   test('edge cases', () => {
     expect(getValidPriceDecimals('0.01234')).toBe(5); // 5 significant figures
     expect(getValidPriceDecimals('0.012345')).toBe(6); // 6 decimals (within MAX_DECIMALS)
+  });
+
+  // Spot allows MAX_DECIMALS_SPOT (8): a 7-decimal spot fill price must not be
+  // rounded through the perp rule (0.0000006 → 0.000001).
+  test('spot keeps decimals beyond the perp cap', () => {
+    expect(getValidPriceDecimals('0.0000006')).toBe(6); // perp rule rounds it
+    expect(getValidSpotPriceDecimals('0.0000006', 0)).toBe(7);
   });
 });
 

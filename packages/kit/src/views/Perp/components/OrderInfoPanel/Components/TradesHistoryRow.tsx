@@ -26,6 +26,7 @@ import {
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  getValidSpotPriceDecimals,
   isSpotInstrument,
   isUsdcDenominatedFee,
   parseDexCoin,
@@ -139,7 +140,12 @@ const TradesHistoryRow = memo(
       const price = fill.px;
       const size = fill.sz;
       const fee = fill.fee;
-      const decimals = getValidPriceDecimals(price);
+      // Spot prices allow up to MAX_DECIMALS_SPOT (8); the perp rule caps at 6
+      // and rounds e.g. 0.0000006 up to 0.000001. szDecimals is unknown for a
+      // bare fill, so 0 keeps the loosest valid spot precision.
+      const decimals = isSpotInstrument(fill.coin)
+        ? getValidSpotPriceDecimals(price, 0)
+        : getValidPriceDecimals(price);
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const priceFormatted = formatLocalizedNumberString(
