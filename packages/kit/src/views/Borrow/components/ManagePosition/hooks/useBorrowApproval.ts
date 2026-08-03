@@ -438,6 +438,12 @@ export function useBorrowApproval({
   }, [borrowDelegationApproveTarget]);
 
   const shouldApprove = useMemo(() => {
+    // An unloaded allowance reads as zero downstream, which would announce an
+    // approval the user may not need. Ported from useBorrowApproveAndSubmit,
+    // which this hook replaced (OK-58984).
+    if (loadingAllowance) {
+      return false;
+    }
     const tokenApprovalRequired = isBorrowTokenApprovalRequired({
       enabled: approvalEnabled,
       amount: amountValue,
@@ -459,6 +465,7 @@ export function useBorrowApproval({
     approvalEnabled,
     borrowDelegationApproveTarget?.allowance,
     delegationApprovalEnabled,
+    loadingAllowance,
     requiresMaxApproval,
   ]);
 

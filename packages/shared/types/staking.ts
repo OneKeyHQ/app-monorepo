@@ -1652,6 +1652,14 @@ export interface IStakeTransactionConfirmation {
     description: IEarnText;
     tooltip?: IEarnTooltip;
   };
+  // Server-driven "Available liquidity" row (e.g. Bitway withdraw: instant
+  // withdrawal is capped by the flash pool balance; amounts above it must go
+  // through the queued path). Rendered like `receive` when present.
+  availableLiquidity?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
   transactionDetails?: {
     type: string;
     text?: IEarnText;
