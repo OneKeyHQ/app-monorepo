@@ -560,9 +560,6 @@ const AddPositionForm = memo(
             })}
             value={limitPrice}
             onChange={setLimitPrice}
-            onUseMidPrice={() =>
-              setLimitPrice(formatPriceToSignificantDigits(midPrice))
-            }
             disabled={!midPrice}
             szDecimals={szDecimals ?? 0}
             ifOnDialog

@@ -817,6 +817,7 @@ function StockActionGate({
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
+  reserveCostSavingsSlot,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
   balanceActionsReady: boolean;
@@ -824,6 +825,7 @@ function StockActionGate({
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
+  reserveCostSavingsSlot?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -953,6 +955,7 @@ function StockActionGate({
         onSelectPercentageStage={
           balanceActionsReady ? onSelectPercentageStage : undefined
         }
+        reserveCostSavingsSlot={reserveCostSavingsSlot}
       />
     );
   }
@@ -1361,6 +1364,7 @@ function StockTradeTicket({
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
         onSelectPercentageStage={amountInputState.onSelectPercentageStage}
+        reserveCostSavingsSlot={!compact}
       />
       <SwapStockTradeAlert
         alerts={alerts}
