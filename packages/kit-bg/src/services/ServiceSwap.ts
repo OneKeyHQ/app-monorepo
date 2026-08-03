@@ -2186,6 +2186,26 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   /**
+   * Cadence entry point for the durable retry, for callers outside the mutex.
+   *
+   * The reconcile alone is not a cadence: it runs at bootstrap, where this
+   * in-memory queue is always empty, and otherwise only when the user visits
+   * Swap history. A swap launched as a modal from another flow would never
+   * reach either, so the retry has to ride the status poll, which reschedules
+   * itself for exactly as long as the swap is pending.
+   */
+  private async flushSwapHistoryDurableRetriesWithLock() {
+    // Checked before taking the mutex: this runs on every poll tick, and the
+    // queue is empty in every ordinary session.
+    if (!this.swapHistoryDurableRetryQueue.size) {
+      return;
+    }
+    await this.swapHistoryMutationMutex.runExclusive(() =>
+      this.flushSwapHistoryDurableRetries(),
+    );
+  }
+
+  /**
    * Re-attempts the durable write for swaps that reached no store at all.
    *
    * One attempt per item per pass: the reconcile that calls this is itself the
@@ -2739,6 +2759,10 @@ export default class ServiceSwap extends ServiceBase {
     const shouldShowToast = options?.shouldShowToast ?? true;
     const privateSendStatusSource =
       options?.privateSendStatusSource ?? 'orderDetail';
+    // This loop reschedules itself while the swap is pending, which is the only
+    // recurring signal a swap started outside the Swap tab ever gets. Awaited
+    // and released before the status update below takes the same mutex.
+    await this.flushSwapHistoryDurableRetriesWithLock();
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
     const isPrivateSendHistory =
       currentSwapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
@@ -2885,6 +2909,10 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
+    // Also here, not just on the poll tick: a queued item that reaches a
+    // terminal status stops being polled, and this fires on every pending-list
+    // change, so it covers that last transition.
+    await this.flushSwapHistoryDurableRetriesWithLock();
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = filterSwapHistoryPendingList(
       swapHistoryPendingList,

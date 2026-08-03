@@ -333,6 +333,34 @@ describe('swap pending history handoff', () => {
       );
     });
 
+    it('retries off the status poll, not only off a Swap-history visit', async () => {
+      // The reconcile is not a cadence: at bootstrap this in-memory queue is
+      // always empty, and its other call sites are the Swap history modal and
+      // the Swap tab. A top-up launched as a modal from the Borrow flow reaches
+      // none of them, so without the poll hook the queued write never retries.
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      await service.addSwapHistoryItem(
+        createPendingHistory({ txId: '0xpoll-driven' }),
+      );
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      // Emptied so the loop returns before it starts any real status polling;
+      // the retry must still have run, which is the point — the flush has to
+      // sit ahead of that early return, not behind it.
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: [],
+      }));
+
+      await service.swapHistoryStatusFetchLoop();
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txInfo: expect.objectContaining({ txId: '0xpoll-driven' }),
+        }),
+      );
+    });
+
     it('stops retrying once the write lands', async () => {
       const { service, stagePendingSwapHistoryItem } = createFailingStore();
       await service.addSwapHistoryItem(
