@@ -403,16 +403,31 @@ function TokenSelector() {
     networkId,
   });
   const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
+  // `network` loads async, but the filter support check short-circuits on
+  // `isAllNetworks` alone, so probe with a synchronous stand-in in all-networks
+  // mode: otherwise `showLpTokensOnly` flips after mount and the normal
+  // self-fetch fires a full all-network fan-out before the filtered branch
+  // takes over and fires a second one.
+  let filterProbeNetwork:
+    | Pick<IServerNetwork, 'id' | 'isAllNetworks' | 'backendIndex'>
+    | undefined;
+  if (network) {
+    filterProbeNetwork = {
+      id: network.id,
+      isAllNetworks: isSelectorAllNetworks,
+      backendIndex: network.backendIndex,
+    };
+  } else if (isSelectorAllNetworks) {
+    filterProbeNetwork = {
+      id: networkId,
+      isAllNetworks: true,
+      backendIndex: undefined,
+    };
+  }
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: network
-        ? {
-            id: network.id,
-            isAllNetworks: isSelectorAllNetworks,
-            backendIndex: network.backendIndex,
-          }
-        : undefined,
+      network: filterProbeNetwork,
       isDeFiEnabled,
     });
   const showLpTokensOnly = showTokenSelectorFilter
