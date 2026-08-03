@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   type IPerpsDepositToken,
+  usePerpsActiveAccountAtom,
   usePerpsDepositOrderAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -148,6 +149,7 @@ const usePerpDeposit = (
   const intl = useIntl();
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const quoteRequestIdRef = useRef(0);
   const [, setPerpDepositOrder] = usePerpsDepositOrderAtom();
   const getPerpsDepositTargetScope = useCallback(async () => {
@@ -183,6 +185,7 @@ const usePerpDeposit = (
       toAmount,
       fromToken,
       fromTxId,
+      orderId,
       isArbUSDCOrder,
       skipToast,
     }: {
@@ -190,6 +193,7 @@ const usePerpDeposit = (
       toAmount: string;
       fromToken: IPerpsDepositToken;
       fromTxId: string;
+      orderId?: string;
       isArbUSDCOrder: boolean;
       skipToast?: boolean;
     }) => {
@@ -219,6 +223,7 @@ const usePerpDeposit = (
             {
               isArbUSDCOrder,
               fromTxId,
+              orderId,
               amount: toAmount,
               token: fromToken,
               status: ESwapTxHistoryStatus.PENDING,
@@ -1247,6 +1252,7 @@ const usePerpDeposit = (
           });
         void handlePerpDepositTxSuccess({
           fromTxId: res.txid,
+          orderId: perpDepositQuote.orderId,
           isArbUSDCOrder,
           fromToken: token,
           toAmount: perpDepositQuote.result.toAmount,
@@ -1255,6 +1261,7 @@ const usePerpDeposit = (
         defaultLogger.perp.deposit.perpDepositInitiate({
           userAddress: result?.fromUserAddress ?? '',
           receiverAddress: result?.perpReceiverAddress ?? '',
+          walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
           toAmount: perpDepositQuote.result.toAmount,
@@ -1265,6 +1272,7 @@ const usePerpDeposit = (
         defaultLogger.perp.deposit.perpDepositInitiate({
           userAddress: result?.fromUserAddress ?? '',
           receiverAddress: result?.perpReceiverAddress ?? '',
+          walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
           toAmount: perpDepositQuote.result.toAmount,
@@ -1276,6 +1284,7 @@ const usePerpDeposit = (
       defaultLogger.perp.deposit.perpDepositInitiate({
         userAddress: result?.fromUserAddress ?? '',
         receiverAddress: result?.perpReceiverAddress ?? '',
+        walletType: activePerpsAccount.walletType ?? 'unknown',
         token,
         amount,
         toAmount: perpDepositQuote.result.toAmount,
@@ -1294,6 +1303,7 @@ const usePerpDeposit = (
     perpSendTxAction,
     isArbitrumUsdcToken,
     handlePerpDepositTxSuccess,
+    activePerpsAccount.walletType,
     amount,
     result?.fromUserAddress,
     result?.perpReceiverAddress,

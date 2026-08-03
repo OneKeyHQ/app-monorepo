@@ -12,6 +12,7 @@ import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
+import tokenRebaseUtils from './tokenRebaseUtils';
 import {
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
@@ -735,6 +736,18 @@ export function nestAggregateTokensMap({
   return result;
 }
 
+/**
+ * Sums each aggregate token's per-network member entries into one flattened
+ * entry. `balance` / `fiatValue` / `frozen*` / `total*` are BigNumber.plus
+ * summed as-is; `balanceParsed` scales EACH member by its own
+ * `balanceMultiplier` before summing (scaled-UI / rebase tokens, OK-58046 Plan
+ * A — cross-network members of one aggregate token can carry DIFFERENT
+ * multipliers, so a single scalar multiplier is ill-defined on the summed
+ * entry). The resulting `aggregated.balanceParsed` is already display-basis
+ * and deliberately does NOT carry a `balanceMultiplier`, so downstream
+ * display selectors pass it through unchanged (no double multiply). Verbatim
+ * twin of `sumAggregateEntry` (kit-bg cellsPure/pure.ts) — keep both in sync.
+ */
 export function flattenAggregateTokensMap(aggregateTokensMap: {
   [key: string]: {
     [key: string]: ITokenFiat;
@@ -766,8 +779,15 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
       aggregated.balance = new BigNumber(aggregated.balance)
         .plus(tokenFiat.balance)
         .toFixed();
+      // Scale THIS member by its own multiplier before summing — the summed
+      // entry has no single scalar multiplier of its own (see doc comment).
       aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
-        .plus(tokenFiat.balanceParsed)
+        .plus(
+          tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenFiat.balanceParsed,
+            balanceMultiplier: tokenFiat.balanceMultiplier,
+          }),
+        )
         .toFixed();
       aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
         .plus(tokenFiat.fiatValue)

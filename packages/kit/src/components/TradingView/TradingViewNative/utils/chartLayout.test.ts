@@ -1,0 +1,531 @@
+import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP,
+} from '../chartConstants';
+
+import {
+  formatTradingViewNativeCrosshairTime,
+  formatTradingViewNativePriceTick,
+  getTradingViewNativeChartLayout,
+  getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeMaxVolume,
+  getTradingViewNativePriceAtY,
+  getTradingViewNativePriceExtremumHorizontalLayout,
+  getTradingViewNativePriceY,
+  getTradingViewNativeTimeAxisLayout,
+  getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeBarHeight,
+  getTradingViewNativeWatermarkLayout,
+} from './chartLayout';
+
+const SECONDS_PER_HOUR = 60 * 60;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+
+function getLocalTimestamp(
+  year: number,
+  month: number,
+  day: number,
+  hour = 12,
+  minute = 0,
+) {
+  return new Date(year, month, day, hour, minute).getTime() / 1000;
+}
+
+function buildPoints({
+  count,
+  startTimestamp,
+  stepSeconds,
+}: {
+  count: number;
+  startTimestamp: number;
+  stepSeconds: number;
+}): IMarketTokenKLineDataPoint[] {
+  return Array.from({ length: count }, (_, index) => ({
+    c: 1,
+    h: 1,
+    l: 1,
+    o: 1,
+    t: startTimestamp + index * stepSeconds,
+    v: 0,
+  }));
+}
+
+describe('TradingViewNative chart layout', () => {
+  it('formats price ticks with six significant digits', () => {
+    expect(formatTradingViewNativePriceTick(123.456_789)).toBe('123.457');
+    expect(formatTradingViewNativePriceTick(1)).toBe('1');
+  });
+
+  it('formats crosshair time labels for intraday and daily candles', () => {
+    const timestamp = getLocalTimestamp(2025, 0, 15, 13, 5);
+    expect(
+      formatTradingViewNativeCrosshairTime(timestamp, SECONDS_PER_HOUR),
+    ).toBe('2025-01-15 13:05');
+    expect(
+      formatTradingViewNativeCrosshairTime(timestamp, SECONDS_PER_DAY),
+    ).toBe('2025-01-15');
+  });
+
+  it('places extrema labels toward the center of the chart', () => {
+    expect(
+      getTradingViewNativePriceExtremumHorizontalLayout({
+        anchorX: 0,
+        canvasWidth: 320,
+        textWidth: 40,
+      }),
+    ).toEqual({ lineEndX: 8, textX: 11 });
+    expect(
+      getTradingViewNativePriceExtremumHorizontalLayout({
+        anchorX: 320,
+        canvasWidth: 320,
+        textWidth: 40,
+      }),
+    ).toEqual({ lineEndX: 312, textX: 269 });
+  });
+
+  it('keeps the highest-price marker below the OHLC legend', () => {
+    const legendTop = Math.max(
+      TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP -
+        TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
+      0,
+    );
+    const legendBottom =
+      legendTop +
+      TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE +
+      TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING * 2;
+    const extremumTextTop =
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
+      TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE / 2;
+
+    expect(extremumTextTop).toBeGreaterThan(legendBottom);
+  });
+
+  it('maps crosshair height to a visible price', () => {
+    const range = { maxPrice: 10, minPrice: 0, priceChartHeight: 100 };
+    expect(getTradingViewNativePriceAtY({ ...range, y: 24 })).toBe(10);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 74 })).toBe(5);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 124 })).toBe(0);
+    expect(getTradingViewNativePriceAtY({ ...range, y: 125 })).toBeNull();
+  });
+
+  it('builds the shared rendering layout for native and web charts', () => {
+    const points = buildPoints({
+      count: 5,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0] = { ...points[0], h: 2, l: 0.5, v: 3 };
+    points[1] = { ...points[1], v: 10 };
+    const width = 402;
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width,
+    });
+
+    expect(layout).not.toBeNull();
+    if (!layout) {
+      return;
+    }
+    expect(getTradingViewNativeChartWidth(width)).toBe(338);
+    expect(layout).toMatchObject({
+      maxPrice: 2,
+      maxVolume: 10,
+      priceAxisX: 338,
+      timeAxisY: 276,
+      volumeBottom: 276,
+      volumeTop: 225.6,
+    });
+    expect(layout.priceTicks).toHaveLength(7);
+    expect(layout.timeTicks.length).toBeGreaterThan(0);
+    expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
+  });
+
+  it('derives max volume from the currently visible candles', () => {
+    const points = buildPoints({
+      count: 4,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0].v = 1000;
+    points[1].v = 5;
+    points[2].v = 10;
+    points[3].v = 2;
+    const visiblePointRange = { endIndex: 3, startIndex: 1 };
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      visiblePointRange,
+      width: 402,
+    });
+
+    expect(
+      getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
+    ).toBe(10);
+    expect(layout?.maxVolume).toBe(10);
+  });
+
+  it('calculates volume bar height only for positive finite values', () => {
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 5,
+        volumeHeight: 100,
+      }),
+    ).toBe(50);
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: 0,
+        volumeHeight: 100,
+      }),
+    ).toBe(0);
+    expect(
+      getTradingViewNativeVolumeBarHeight({
+        maxVolume: 10,
+        volume: Number.POSITIVE_INFINITY,
+        volumeHeight: 100,
+      }),
+    ).toBe(0);
+  });
+
+  it('centers the watermark and keeps it inside small canvases', () => {
+    const regularLayout = getTradingViewNativeWatermarkLayout({
+      height: 300,
+      width: 640,
+    });
+    expect(regularLayout).toMatchObject({ width: 150, x: 245 });
+    expect(regularLayout?.height).toBeCloseTo(45.7317);
+    expect(regularLayout?.y).toBeCloseTo(127.1341);
+
+    const smallLayout = getTradingViewNativeWatermarkLayout({
+      height: 50,
+      width: 100,
+    });
+    expect(smallLayout).toMatchObject({ width: 100, x: 0 });
+    expect(smallLayout?.height).toBeCloseTo(30.4878);
+    expect(smallLayout?.y).toBeCloseTo(9.7561);
+    expect(
+      getTradingViewNativeWatermarkLayout({ height: 0, width: 100 }),
+    ).toBeNull();
+  });
+
+  it('positions the current price line and keeps its label inside the price axis', () => {
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 7,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 44, lineY: 54 });
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 10,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 24, lineY: 24 });
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 0,
+        price: 0,
+        priceChartHeight: 100,
+      }),
+    ).toEqual({ labelTop: 104, lineY: 124 });
+  });
+
+  it('hides the current price line when its value is outside the visible range', () => {
+    expect(
+      getTradingViewNativeCurrentPriceLayout({
+        labelHeight: 20,
+        maxPrice: 10,
+        minPrice: 5,
+        price: 11,
+        priceChartHeight: 100,
+      }),
+    ).toBeNull();
+  });
+
+  it('uses minute ticks for an intraday visible range', () => {
+    const points = buildPoints({
+      count: 61,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: 60,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 60,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('minute');
+    expect(layout.ticks.length).toBeGreaterThan(1);
+    expect(layout.ticks.every(({ label }) => /^\d{2}:\d{2}$/.test(label))).toBe(
+      true,
+    );
+  });
+
+  it('keeps hourly candles on intraday labels at mobile chart width', () => {
+    const points = buildPoints({
+      count: 46,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      endIndex: points.length,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(6),
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('hour');
+    expect(layout.ticks.some(({ label }) => /^\d{2}:\d{2}$/.test(label))).toBe(
+      true,
+    );
+  });
+
+  it('keeps tick anchors stable while panning within the same time unit', () => {
+    const points = buildPoints({
+      count: 72,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(6),
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 46,
+      startIndex: 0,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 47,
+      startIndex: 1,
+    });
+
+    expect(initialLayout.unit).toBe('hour');
+    expect(pannedLayout.unit).toBe('hour');
+    expect(pannedLayout.ticks).toEqual(initialLayout.ticks);
+  });
+
+  it('limits time-axis point reads to the visible window', () => {
+    const sourcePoints = buildPoints({
+      count: 10_000,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    let pointReadCount = 0;
+    const points = sourcePoints.map((point) => ({
+      ...point,
+      get t() {
+        pointReadCount += 1;
+        return point.t;
+      },
+    }));
+
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      endIndex: 5050,
+      minimumIndexSpacing: 12,
+      points,
+      startIndex: 5000,
+    });
+
+    expect(layout.ticks.length).toBeGreaterThan(0);
+    expect(pointReadCount).toBeLessThan(200);
+    expect(
+      layout.ticks.every(({ index }) => index > 4900 && index < 5150),
+    ).toBe(true);
+  });
+
+  it('keeps visible tick anchors stable across an aligned window boundary', () => {
+    const points = buildPoints({
+      count: 240,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 271,
+      minimumIndexSpacing: 12,
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 153,
+      startIndex: 107,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 154,
+      startIndex: 108,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 108 && index < 153);
+
+    expect(pannedLayout.unit).toBe(initialLayout.unit);
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
+  });
+
+  it('uses day ticks for a multi-week visible range', () => {
+    const points = buildPoints({
+      count: 29,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_DAY,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_DAY,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('day');
+    expect(layout.ticks.length).toBeGreaterThan(1);
+  });
+
+  it('uses month ticks for a one-year visible range', () => {
+    const points = buildPoints({
+      count: 53,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: 7 * SECONDS_PER_DAY,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 7 * SECONDS_PER_DAY,
+      chartWidth: 720,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('month');
+    expect(layout.ticks.every(({ label }) => /^\d{4}-\d{2}$/.test(label))).toBe(
+      true,
+    );
+  });
+
+  it('adapts the unit to the visible subset when the chart is zoomed', () => {
+    const points = buildPoints({
+      count: 61,
+      startTimestamp: getLocalTimestamp(2020, 0, 15),
+      stepSeconds: 30 * SECONDS_PER_DAY,
+    });
+    const fullRangeLayout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 30 * SECONDS_PER_DAY,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+    const zoomedRangeLayout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 30 * SECONDS_PER_DAY,
+      chartWidth: 720,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: points.length - 6,
+    });
+
+    expect(fullRangeLayout.unit).toBe('year');
+    expect(zoomedRangeLayout.unit).toBe('month');
+  });
+
+  it('keeps ticks apart for short or sparse candle data', () => {
+    const points = buildPoints({
+      count: 10,
+      startTimestamp: getLocalTimestamp(2025, 0, 1),
+      stepSeconds: SECONDS_PER_DAY,
+    });
+    for (let index = 5; index < points.length; index += 1) {
+      points[index].t += 20 * SECONDS_PER_DAY;
+    }
+    const minimumIndexSpacing =
+      getTradingViewNativeTimeTickMinimumIndexSpacing(8);
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_DAY,
+      chartWidth: 720,
+      endIndex: points.length,
+      minimumIndexSpacing,
+      points,
+      startIndex: 0,
+    });
+
+    expect(minimumIndexSpacing).toBe(9);
+    expect(layout.ticks.length).toBeGreaterThan(1);
+    expect(
+      layout.ticks.every(
+        (tick, index) =>
+          index === 0 ||
+          tick.index - layout.ticks[index - 1].index >= minimumIndexSpacing,
+      ),
+    ).toBe(true);
+  });
+
+  it('shows the date on the first tick of each new local day', () => {
+    const points = buildPoints({
+      count: 49,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 8),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('hour');
+    expect(layout.ticks.map(({ label }) => label)).toEqual(
+      expect.arrayContaining(['01/16', '01/17']),
+    );
+  });
+
+  it('returns no ticks without a drawable visible range', () => {
+    expect(
+      getTradingViewNativeTimeAxisLayout({
+        candleIntervalSeconds: 60,
+        chartWidth: 0,
+        endIndex: 0,
+        minimumIndexSpacing: 1,
+        points: [],
+        startIndex: 0,
+      }),
+    ).toEqual({ ticks: [], unit: null });
+  });
+});

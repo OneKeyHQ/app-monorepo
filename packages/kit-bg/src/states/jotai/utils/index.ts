@@ -724,11 +724,7 @@ function getColdStartCacheStorage() {
  * the cells slim hydrate on web/desktop (native reads the already-parsed
  * `__ONEKEY_CTX_ATOM_SNAPSHOT__` directly).
  */
-export function readColdStartSnapshotKey({
-  scopedKey,
-}: {
-  scopedKey: string;
-}): unknown {
+function readColdStartSnapshotFromStorage() {
   try {
     const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -737,14 +733,18 @@ export function readColdStartSnapshotKey({
     const raw = storage.getString(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
-    const snapshot = parseColdStartSnapshotRaw(raw);
-    if (!snapshot) {
-      return undefined;
-    }
-    return snapshot[scopedKey];
+    return parseColdStartSnapshotRaw(raw);
   } catch {
     return undefined;
   }
+}
+
+export function readColdStartSnapshotKey({
+  scopedKey,
+}: {
+  scopedKey: string;
+}): unknown {
+  return readColdStartSnapshotFromStorage()?.[scopedKey];
 }
 
 // Pending slim writes (scopedKey -> value), flushed on a ~2s debounce or on the
@@ -868,10 +868,10 @@ export function hydrateContextColdStartCacheForProvider({
   scopeSet.add(scope);
 
   try {
-    const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-      | Record<string, unknown>
-      | undefined;
-
+    const snapshot =
+      ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
+        | Record<string, unknown>
+        | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
       { atom: atomBuilder },

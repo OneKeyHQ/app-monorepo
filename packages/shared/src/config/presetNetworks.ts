@@ -954,6 +954,37 @@ const bob: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
+const katana: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '747474',
+  'id': 'evm--747474',
+  'name': 'Katana',
+  'symbol': 'ETH',
+  'code': 'katana',
+  'shortcode': 'katana',
+  'shortname': 'Katana',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  // TODO(katana): replace with the official chain asset once ops uploads it
+  // (https://uni.onekey-asset.com/static/chain/katana.png); temporary URL from
+  // the earn stake-protocol list response.
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+  'defaultEnabled': true,
+  'backendIndex': true,
+};
 const aurora: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1313161554',
@@ -2529,6 +2560,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     btr,
     base,
     bob,
+    katana,
     aurora,
     neox,
     azero,

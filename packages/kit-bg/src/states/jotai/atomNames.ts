@@ -68,6 +68,7 @@ export enum EAtomNames {
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  bulkExportHistorySupportedNetworksPersistAtom = 'bulkExportHistorySupportedNetworksPersistAtom',
   tokenSelectorFilterPersistAtom = 'tokenSelectorFilterPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
@@ -100,6 +101,8 @@ export enum EAtomNames {
   perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
   perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
+  perpsUnifoldActiveRecipientAtom = 'perpsUnifoldActiveRecipientAtom',
+  perpsUnifoldDepositTrackingAtom = 'perpsUnifoldDepositTrackingAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
   perpsPendingInfoPanelTabAtom = 'perpsPendingInfoPanelTabAtom',
@@ -174,6 +177,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsUnifoldDepositTrackingAtom]: {
     mergeInitialValue: false,
   },
 };

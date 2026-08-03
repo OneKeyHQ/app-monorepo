@@ -6,8 +6,11 @@ import {
   TradingViewChartControls,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import {
+  ChartSettingsDialogContent,
+  showTradingViewChartSettingsDialog,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 
-import { ChartSettingsDialogContent } from '../chartSettings/ChartSettingsDialogContent';
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 
 import { useNativeChartControls } from './hooks/useNativeChartControls';
@@ -49,6 +52,7 @@ export {
 export { TRADING_VIEW_CHART_CONTROLS_HEIGHT as TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 
 interface ITradingViewV2ChartControlsContainerProps {
+  enableNativeChartSettings?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
@@ -78,6 +82,7 @@ interface ITradingViewV2ChartControlsContainerProps {
 
 export const TradingViewV2ChartControlsContainer = memo(
   ({
+    enableNativeChartSettings = false,
     intervalConfig,
     nativeChartControlsConfig,
     nativeIndicatorState,
@@ -230,6 +235,15 @@ export const TradingViewV2ChartControlsContainer = memo(
       settingsEnabled,
     ]);
 
+    const showNewChartSettingsDialog = useCallback(() => {
+      if (!enableNativeChartSettings) {
+        return;
+      }
+
+      onControlInteraction?.();
+      showTradingViewChartSettingsDialog();
+    }, [enableNativeChartSettings, onControlInteraction]);
+
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
         onControlInteraction?.();
@@ -253,13 +267,23 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
+      if (enableNativeChartSettings) {
+        showNewChartSettingsDialog();
+        return;
+      }
+
       if (onOpenChartSettings) {
         onOpenChartSettings();
         return;
       }
 
       showChartSettingsDialog();
-    }, [onOpenChartSettings, showChartSettingsDialog]);
+    }, [
+      enableNativeChartSettings,
+      onOpenChartSettings,
+      showChartSettingsDialog,
+      showNewChartSettingsDialog,
+    ]);
 
     return (
       <TradingViewChartControls
@@ -270,14 +294,14 @@ export const TradingViewV2ChartControlsContainer = memo(
         chartStyleTitle={chartStyleTitle}
         chartTypeToggleIcon={chartTypeToggleIcon}
         chartTypes={chartTypes}
-        hasVisibleControls={hasVisibleControls}
+        hasVisibleControls={hasVisibleControls || enableNativeChartSettings}
         hasVisibleIndicators={hasVisibleIndicators}
         hasVisibleIntervalSelector={hasVisibleIntervalSelector}
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
         nextChartTypeLabel={nextChartTypeLabel}
         priceMarketCap={priceMarketCap}
-        settingsEnabled={settingsEnabled}
+        settingsEnabled={settingsEnabled || enableNativeChartSettings}
         showChartTypeSelect={showChartTypeSelect}
         showChartTypeToggle={showChartTypeToggle}
         showIndicatorPopover={showIndicatorPopover}

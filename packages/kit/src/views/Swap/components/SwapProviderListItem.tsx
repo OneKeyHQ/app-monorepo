@@ -126,38 +126,6 @@ const SwapProviderListItem = ({
     return null;
   }, [estTime, estimatedTime, intl]);
 
-  const protocolFeeComponent = useMemo(
-    () => (
-      <XStack gap="$1" alignItems="center">
-        <Tooltip
-          renderTrigger={
-            <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
-          }
-          renderContent={
-            <SizableText size="$bodySm" color="$text">
-              {intl.formatMessage({
-                id: ETranslations.provider_protocol_fee,
-              })}
-            </SizableText>
-          }
-          placement="bottom-start"
-        />
-
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: currencySymbol,
-          }}
-        >
-          {providerResult.fee?.protocolFees ?? 0}
-        </NumberSizeableText>
-      </XStack>
-    ),
-    [currencySymbol, intl, providerResult.fee?.protocolFees],
-  );
-
   const leftMainLabel = useMemo(() => {
     if (disabled) {
       return (
@@ -394,7 +362,6 @@ const SwapProviderListItem = ({
           <XStack gap="$3.5" alignItems="center">
             {networkFeeComponent}
             {estimatedTimeComponent}
-            {protocolFeeComponent}
             <XStack
               role="button"
               borderRadius="$2"

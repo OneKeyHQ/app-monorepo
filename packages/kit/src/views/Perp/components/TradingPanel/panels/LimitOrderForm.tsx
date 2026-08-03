@@ -67,6 +67,7 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
@@ -203,11 +204,8 @@ export function LimitOrderForm({
   const [tpValue, setTpValue] = useState('');
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
   const [slValue, setSlValue] = useState('');
-  // Bumped whenever TP/SL inputs are programmatically re-seeded (TpSlFormInput
-  // does not re-sync its internalValue on prop change).
-  const [tpslSeedKey, setTpslSeedKey] = useState(0);
 
-  const isBBOActive = Boolean(bboPriceMode);
+  const isBBOActive = !isSpot && Boolean(bboPriceMode);
 
   const szDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -263,6 +261,7 @@ export function LimitOrderForm({
   bboRef.current = bbo;
   const midPriceBNRef = useRef(midPriceBN);
   midPriceBNRef.current = midPriceBN;
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   // With a BBO mode the price comes from the live orderbook; otherwise the typed input.
   const resolvePriceForSide = useCallback(
@@ -270,13 +269,19 @@ export function LimitOrderForm({
       calculateOrderPrice(
         'limit',
         price,
-        bboPriceMode ?? undefined,
+        isSpot ? undefined : (bboPriceMode ?? undefined),
         bboRef.current,
         midPriceBNRef.current,
         forSide,
         'standard',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        szDecimals,
       ),
-    [bboPriceMode, price],
+    [bboPriceMode, isSpot, price, szDecimals],
   );
 
   const referencePriceBN = useMemo(
@@ -702,25 +707,23 @@ export function LimitOrderForm({
     return referencePriceBN.gt(0) && maxBN.isFinite();
   }, [computeSizeBN, referencePriceBN, side]);
 
-  const handleUseMidPrice = useCallback(() => {
-    if (!midPrice) {
-      return;
-    }
-    setPrice(formatPriceToSignificantDigits(midPrice, szDecimals));
-  }, [midPrice, szDecimals]);
-
   const handleBBOToggle = useCallback(() => {
     setBboPriceMode((prev) =>
-      prev ? null : { type: 'counterparty', level: 1 },
+      prev ? null : { type: 'counterparty', offsetTicks: 0 },
     );
   }, []);
+
+  useEffect(() => {
+    if (isSpot && bboPriceMode) {
+      setBboPriceMode(null);
+    }
+  }, [bboPriceMode, isSpot]);
 
   const handleTpslCheckboxChange = useCallback((checked: boolean) => {
     setHasTpsl(checked);
     if (!checked) {
       setTpValue('');
       setSlValue('');
-      setTpslSeedKey((key) => key + 1);
     }
   }, []);
 
@@ -849,6 +852,7 @@ export function LimitOrderForm({
         referencePrice: resolvedPriceBN,
         side: pressedSide,
         leverage,
+        szDecimals: isSpot ? undefined : szDecimals,
       });
 
       // Normalize to a concrete manual token size so the confirm dialog display
@@ -877,6 +881,14 @@ export function LimitOrderForm({
         slValue,
         orderMode: 'standard',
       };
+      const aggressiveLimitPriceWarning = isSpot
+        ? undefined
+        : getAggressiveLimitPriceWarning({
+            coin: symbol,
+            formData: builtFormData,
+            side: pressedSide,
+            price: resolvedPrice,
+          });
 
       showOrderConfirmDialog({
         overrideSide: pressedSide,
@@ -884,6 +896,7 @@ export function LimitOrderForm({
         price: resolvedPrice,
         expectedCoin: symbol,
         intl,
+        aggressiveLimitPriceWarning,
         onConfirmSuccess: onClose,
       });
     },
@@ -896,6 +909,7 @@ export function LimitOrderForm({
       hasTpsl,
       intl,
       isSpot,
+      getAggressiveLimitPriceWarning,
       leverage,
       limitTif,
       marketDataFreshness,
@@ -1078,28 +1092,35 @@ export function LimitOrderForm({
             <PriceInput
               value={price}
               onChange={setPrice}
-              onUseMidPrice={midPrice ? handleUseMidPrice : undefined}
               szDecimals={szDecimals}
             />
           </YStack>
         )}
-        <XStack
-          borderRadius="$2"
-          bg="$bgStrong"
-          borderWidth="$px"
-          borderColor="$transparent"
-          px="$3"
-          h={40}
-          alignItems="center"
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgStrong' }}
-          pressStyle={{ bg: '$bgStrong' }}
-          onPress={handleBBOToggle}
-        >
-          <DashText size="$bodyMdMedium" dashColor="$text" dashThickness={0.5}>
-            {intl.formatMessage({ id: ETranslations.Perps_BBO_button_title })}
-          </DashText>
-        </XStack>
+        {isSpot ? null : (
+          <XStack
+            borderRadius="$2"
+            bg="$bgStrong"
+            borderWidth="$px"
+            borderColor="$transparent"
+            px="$3"
+            h={40}
+            alignItems="center"
+            cursor="pointer"
+            hoverStyle={{ bg: '$bgStrong' }}
+            pressStyle={{ bg: '$bgStrong' }}
+            onPress={handleBBOToggle}
+          >
+            <DashText
+              size="$bodyMdMedium"
+              dashColor="$text"
+              dashThickness={0.5}
+            >
+              {intl.formatMessage({
+                id: ETranslations.Perps_BBO_button_title,
+              })}
+            </DashText>
+          </XStack>
+        )}
       </XStack>
 
       {/* Size + slider */}
@@ -1201,7 +1222,6 @@ export function LimitOrderForm({
           {hasTpsl ? (
             <YStack gap="$2">
               <TpSlFormInput
-                key={`tp-${tpslSeedKey}`}
                 type="tp"
                 label={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -1214,7 +1234,6 @@ export function LimitOrderForm({
                 onTypeChange={setTpType}
               />
               <TpSlFormInput
-                key={`sl-${tpslSeedKey}`}
                 type="sl"
                 label={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,

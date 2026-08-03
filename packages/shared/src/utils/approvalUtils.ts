@@ -1,17 +1,27 @@
-import type { IContractApproval } from '@onekeyhq/shared/types/approval';
+import type {
+  IApproval,
+  IContractApproval,
+} from '@onekeyhq/shared/types/approval';
+
+const ERC20_APPROVAL_IDENTITY = 'erc20';
+const PERMIT2_EXPIRATION_MAX_SECONDS = 281_474_976_710_655;
 
 function buildSelectedTokenKey({
   contractAddress,
   tokenAddress,
   networkId,
   accountId,
+  permit2Address,
 }: {
   contractAddress: string;
   tokenAddress: string;
   networkId: string;
   accountId: string;
+  permit2Address?: string;
 }) {
-  return `${accountId}_${networkId}_${contractAddress}_${tokenAddress}`;
+  const approvalIdentity =
+    permit2Address?.toLowerCase() || ERC20_APPROVAL_IDENTITY;
+  return `${accountId}_${networkId}_${contractAddress}_${tokenAddress}_${approvalIdentity}`;
 }
 
 function parseSelectedTokenKey({
@@ -19,15 +29,66 @@ function parseSelectedTokenKey({
 }: {
   selectedTokenKey: string;
 }) {
-  const [accountId, networkId, contractAddress, tokenAddress] =
-    selectedTokenKey.split('_');
+  const [
+    accountId,
+    networkId,
+    contractAddress,
+    tokenAddress,
+    approvalIdentity,
+  ] = selectedTokenKey.split('_');
 
   return {
     accountId,
     networkId,
     contractAddress,
     tokenAddress,
+    permit2Address:
+      approvalIdentity && approvalIdentity !== ERC20_APPROVAL_IDENTITY
+        ? approvalIdentity
+        : undefined,
   };
+}
+
+function normalizePermit2ExpirationMs(expirationMs?: number) {
+  if (
+    typeof expirationMs !== 'number' ||
+    !Number.isFinite(expirationMs) ||
+    expirationMs < 0
+  ) {
+    return undefined;
+  }
+
+  const expirationSeconds = Math.round(expirationMs / 1000);
+  if (
+    !Number.isSafeInteger(expirationSeconds) ||
+    expirationSeconds < 0 ||
+    expirationSeconds > PERMIT2_EXPIRATION_MAX_SECONDS
+  ) {
+    return undefined;
+  }
+
+  return {
+    expirationSeconds: expirationSeconds.toString(),
+    isNeverExpires: expirationSeconds === PERMIT2_EXPIRATION_MAX_SECONDS,
+  };
+}
+
+function isPermit2Approval({
+  approval,
+}: {
+  approval: Pick<IApproval, 'permit2Address'>;
+}) {
+  return Boolean(approval.permit2Address);
+}
+
+function hasPermit2ApprovalMetadata({
+  approval,
+}: {
+  approval: Pick<IApproval, 'permit2Address' | 'expirationMs'>;
+}) {
+  return (
+    approval.permit2Address !== undefined || approval.expirationMs !== undefined
+  );
 }
 
 function buildToggleSelectAllTokensMap({
@@ -46,6 +107,7 @@ function buildToggleSelectAllTokensMap({
           tokenAddress: approval.tokenAddress,
           networkId: item.networkId,
           accountId: item.accountId,
+          permit2Address: approval.permit2Address,
         })
       ] = toggle;
     });
@@ -73,6 +135,7 @@ function checkIsSelectAllTokens({
             contractAddress: approval.contractAddress,
             tokenAddress: item.tokenAddress,
             accountId: approval.accountId,
+            permit2Address: item.permit2Address,
           })
         ]
       ) {
@@ -127,6 +190,9 @@ export default {
   buildTokenMapKey,
   buildSelectedTokenKey,
   parseSelectedTokenKey,
+  normalizePermit2ExpirationMs,
+  isPermit2Approval,
+  hasPermit2ApprovalMetadata,
   buildToggleSelectAllTokensMap,
   checkIsSelectAllTokens,
   checkIsExistRiskApprovals,

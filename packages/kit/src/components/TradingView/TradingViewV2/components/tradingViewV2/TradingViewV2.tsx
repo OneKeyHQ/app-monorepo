@@ -124,6 +124,7 @@ interface IBaseTradingViewV2Props {
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
+  enableNativeChartSettings?: boolean;
   enableNativeIntervalSelector?: boolean;
   maxNativeSubIndicatorCount?: number;
   // `null` means the WebView controls configuration is not ready.
@@ -189,6 +190,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
+    enableNativeChartSettings = false,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
     maxNativeSubIndicatorCount,
     onNativeSubIndicatorCountChange,
@@ -769,6 +771,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     <Stack flex={1} {...stackStyle}>
       {enableNativeIntervalSelector ? (
         <TradingViewV2ChartControlsContainer
+          enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}

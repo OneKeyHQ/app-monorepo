@@ -67,6 +67,7 @@ export const buildDesktopApiGlobal = (): IDesktopApiGlobal => ({
   deskChannel: process.env.DESK_CHANNEL || '',
   isMas: Boolean(process.mas),
   processStartAt: getProcessStartAt(),
+  supportsShareImageFile: process.platform === 'darwin',
   isDev,
 });
 

@@ -172,13 +172,15 @@ const PrimaryTabItem = memo(
         pb="$2"
         ml="$4"
         mr="$2"
-        borderBottomWidth={isFocused ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
+        borderBottomWidth={1.5}
+        borderBottomColor={isFocused ? '$borderActive' : 'transparent'}
         onPress={handlePress}
         cursor="pointer"
       >
         <SizableText
           size="$headingXs"
+          textTransform="none"
+          letterSpacing={0}
           color={isFocused ? '$text' : '$textSubdued'}
         >
           {name}
@@ -1089,7 +1091,9 @@ function MobileTokenSelectorModal({
   ]);
 
   useEffect(() => {
-    void prewarmPerpsTokenSelectorImages(mockedListData);
+    void prewarmPerpsTokenSelectorImages(mockedListData, {
+      tokenSizes: ['lg'],
+    });
   }, [mockedListData]);
 
   const isDefaultPerpsSelectorView =

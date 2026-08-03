@@ -422,9 +422,12 @@ export type IDBDevice = IDBBaseObjectWithName & {
   updatedAt: number;
   verifiedAtVersion?: string;
 
-  // New fields for USB/BLE connection support
-  usbConnectId?: string; // USB connection ID (serial number)
-  bleConnectId?: string; // BLE connection ID (MAC address)
+  // Last-known transport handles, never identity — compare on deviceId/XFP.
+  // Format varies: usbConnectId is a USB serial, EXCEPT for a Trezor added
+  // over desktop BLE where it holds the device_id; bleConnectId is a Trezor
+  // RPA that rotates on every advertising restart.
+  usbConnectId?: string;
+  bleConnectId?: string;
 
   // Runtime field — populated by refillDeviceInfo() from settings.vendor, not a DB column
   vendor?: EHardwareVendor;

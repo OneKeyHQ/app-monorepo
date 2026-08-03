@@ -61,6 +61,9 @@ export interface ILightweightChartProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
+  // Web/desktop only. Reserve the axis before labels are measured so the plot
+  // width does not shift during the first chart paint.
+  priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
   priceFormatterTickStep?: number;
   fontSize?: number;

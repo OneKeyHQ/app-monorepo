@@ -21,6 +21,7 @@ import { useAtomValue } from 'jotai';
 import { selectAtom } from 'jotai/utils';
 
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
@@ -99,8 +100,26 @@ function useTokenFiatField<T>(
 
 // --- per-field selectors (module-level for selectAtom caching) -------------
 
+// Scaled-UI (rebase) tokens: the fiat map keeps balanceParsed RAW; the display
+// leaf shows balanceParsed × balanceMultiplier (no-op when absent). fiatValue
+// is already multiplied server-side.
 const selectBalanceParsed = (f: ITokenFiat | undefined): string | undefined =>
-  f?.balanceParsed;
+  tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  });
+
+// RAW variant (no balanceMultiplier applied) — for non-display consumers
+// (e.g. swap seeds) that need the on-chain basis, not the display basis.
+const selectBalanceParsedRaw = (
+  f: ITokenFiat | undefined,
+): string | undefined => f?.balanceParsed;
+
+// Raw `balanceMultiplier` field — for consumers that gate scaled-UI-unaware
+// flows (e.g. the swap entry), not for display math.
+const selectBalanceMultiplier = (
+  f: ITokenFiat | undefined,
+): string | undefined => f?.balanceMultiplier;
 
 const selectPrice24h = (f: ITokenFiat | undefined): number | undefined =>
   f?.price24h;
@@ -117,21 +136,48 @@ const selectPriceSlice = (f: ITokenFiat | undefined): ITokenPriceSlice => ({
 export interface ITokenValueSlice {
   has: boolean;
   fiatValue: string | undefined;
+  /** DISPLAY basis: balanceParsed × balanceMultiplier. See `selectBalanceParsed`. */
   balanceParsed: string | undefined;
   currency: string | undefined;
 }
 const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
   has: !!f,
   fiatValue: f?.fiatValue,
-  balanceParsed: f?.balanceParsed,
+  // See the contract comment above `selectBalanceParsed`: DISPLAY basis.
+  balanceParsed: tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  }),
   currency: f?.currency,
 });
 
 // --- public per-field hooks ------------------------------------------------
 
-/** `balanceParsed` only — does NOT re-render on a price tick. */
+/**
+ * `balanceParsed` only — does NOT re-render on a price tick.
+ *
+ * Returns the DISPLAY basis (balanceParsed × balanceMultiplier; a no-op for
+ * every non-rebase token). For non-display consumers that need the raw
+ * on-chain basis (e.g. swap seeds), use `useTokenBalanceParsedRaw` instead.
+ */
 export function useTokenBalanceParsed($key: string): string | undefined {
   return useTokenFiatField($key, selectBalanceParsed);
+}
+
+/**
+ * RAW `balanceParsed` (no balanceMultiplier applied). For values handed to
+ * non-display consumers (e.g. swap seeds) that expect on-chain basis.
+ */
+export function useTokenBalanceParsedRaw($key: string): string | undefined {
+  return useTokenFiatField($key, selectBalanceParsedRaw);
+}
+
+/**
+ * `balanceMultiplier` only — lets scaled-UI-unaware consumers (e.g. the swap
+ * entry) detect rebase tokens and fail closed.
+ */
+export function useTokenBalanceMultiplier($key: string): string | undefined {
+  return useTokenFiatField($key, selectBalanceMultiplier);
 }
 
 /** `price24h` only. */

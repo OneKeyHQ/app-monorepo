@@ -13,8 +13,11 @@ import {
   ONEKEY_ID_OAUTH_PROVIDER_ORDER,
   getBoundOAuthProviders,
   getOAuthSocialLoginProviderName,
+  getOneKeyIdOAuthProviderFromSocialLoginProvider,
   getOneKeyIdOAuthProviderIcon,
   getOneKeyIdOAuthProviderName,
+  isOneKeyIdOAuthIdentityBound,
+  isOneKeyIdOAuthProviderBound,
 } from './oauthProviderUtils';
 
 function buildAccount(identities: IOneKeyIdIdentity[]): IOneKeyIdAccount {
@@ -81,6 +84,73 @@ describe('getOAuthSocialLoginProviderName', () => {
     expect(
       getOAuthSocialLoginProviderName('github' as EOAuthSocialLoginProvider),
     ).toBe('github');
+  });
+});
+
+describe('OneKey ID OAuth provider and identity matching', () => {
+  const account = buildAccount([
+    {
+      identityType: EOneKeyIdIdentityType.OAuth,
+      oauthProvider: EOneKeyIdOAuthProvider.Google,
+      oauthSubject: 'google-sub',
+    },
+    {
+      identityType: EOneKeyIdIdentityType.OAuth,
+      oauthProvider: EOneKeyIdOAuthProvider.Apple,
+      oauthSubject: 'apple-sub',
+    },
+  ]);
+
+  test('maps social-login providers to OneKey ID providers', () => {
+    expect(
+      getOneKeyIdOAuthProviderFromSocialLoginProvider(
+        EOAuthSocialLoginProvider.Google,
+      ),
+    ).toBe(EOneKeyIdOAuthProvider.Google);
+    expect(
+      getOneKeyIdOAuthProviderFromSocialLoginProvider(
+        EOAuthSocialLoginProvider.Apple,
+      ),
+    ).toBe(EOneKeyIdOAuthProvider.Apple);
+  });
+
+  test('detects whether the selected provider is already bound', () => {
+    expect(
+      isOneKeyIdOAuthProviderBound({
+        account,
+        provider: EOneKeyIdOAuthProvider.Google,
+      }),
+    ).toBe(true);
+    expect(
+      isOneKeyIdOAuthProviderBound({
+        account: buildAccount([]),
+        provider: EOneKeyIdOAuthProvider.Google,
+      }),
+    ).toBe(false);
+  });
+
+  test('matches the exact provider identity and rejects a different account', () => {
+    expect(
+      isOneKeyIdOAuthIdentityBound({
+        account,
+        provider: EOneKeyIdOAuthProvider.Google,
+        subject: 'google-sub',
+      }),
+    ).toBe(true);
+    expect(
+      isOneKeyIdOAuthIdentityBound({
+        account,
+        provider: EOneKeyIdOAuthProvider.Google,
+        subject: 'different-google-sub',
+      }),
+    ).toBe(false);
+    expect(
+      isOneKeyIdOAuthIdentityBound({
+        account,
+        provider: EOneKeyIdOAuthProvider.Apple,
+        subject: 'google-sub',
+      }),
+    ).toBe(false);
   });
 });
 

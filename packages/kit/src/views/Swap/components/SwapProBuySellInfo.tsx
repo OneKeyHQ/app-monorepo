@@ -101,7 +101,9 @@ const SwapProBuySellInfo = ({
       .toNumber();
   }, [sellVolume, totalVolume]);
   return (
-    <YStack gap="$2" mt="$2" flex={1}>
+    // No own top margin: the panel column gap owns the spacing above, keeping
+    // it visually equal to the internal $2 gap below the ratio bar.
+    <YStack gap="$2" flex={1}>
       <XStack position="relative" borderRadius="$1" overflow="hidden">
         <Stack
           position="absolute"

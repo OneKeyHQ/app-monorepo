@@ -1,116 +1,49 @@
-# Validation
+# Trade / Swap Validation
 
-Run the exact relevant lane in [test-map.md](test-map.md) and use
-[runtime-boundaries.md](runtime-boundaries.md) to define the runtime pass. The
-readiness/eval scripts prove skill structure and anchor freshness only; they do
-not prove product behavior.
+## Focused Checks
 
-## Static Validation
+Discover tests beside the changed owner instead of relying on a frozen list:
 
-For documentation-only edits, run:
+```bash
+rg --files packages/kit packages/kit-bg packages/shared | \
+  rg '(Swap|Market|Stock|Bridge|Limit).*(test|spec)\.'
+yarn jest <focused-test-files> --runInBand
+```
 
-- `git diff --check`
+Add a focused test when the changed identity resolver, stale-result guard,
+quote selection, frozen review, history merge, or persistence transition is
+not covered. Before committing product code, run:
 
-For code edits, choose targeted checks around touched files:
+```bash
+yarn agent:check --profile commit
+```
 
-- type checks for affected TypeScript files
-- unit tests near touched utilities, hooks, or adapters
-- lint/staged checks before commit when staging
+## Runtime Proof By Failure Class
 
-## Runtime Payloads To Inspect
+- Quote/provider: change amount, token, network, or provider while requests are
+  in flight; prove only the current actionable quote wins.
+- Review/build: enter review, change outer page state, and prove the confirmed
+  snapshot and build payload remain frozen and consistent.
+- Handoff: start from the real source entry, record its one-shot params, then
+  prove Swap owns settled selection and execution after mount.
+- Cold start/flicker: capture first meaningful and settled frames, including
+  visible tab, internal type, selected assets, icons, readiness, and quote.
+- History/status: capture submit result, persisted identity, pending row,
+  status source, terminal state, and detail display.
+- Disconnect/restart: distinguish hidden UI from retained persisted rows; on
+  reconnect, the same identities must return and repair may resume.
+- New channel: prove happy path, one provider failure/stale response, one
+  terminal status, and restart/replay behavior.
 
-When transaction behavior changes, inspect the payloads that prove the chain:
+## Platform Proof
 
-1. quote request and quote response
-2. selected provider/quote state
-3. review snapshot inputs
-4. build response
-5. decoded transaction actions and `extraInfo` for setup or auxiliary costs
-6. approval/setup response when applicable
-7. send result
-8. pending history item
-9. status polling response
-10. history detail fallback payload
-11. replay/enrichment payload used to repair old or partial local rows
+Use the platform and host that own the bug: desktop/web route or modal,
+extension popup/sidebar, or native page/dialog/bottom sheet. For native or
+extension cross-runtime paths, inspect the relevant main state, serialized
+service payload, background result, and persisted row. For desktop/web, treat
+the App as single-runtime while preserving service ownership.
 
-Do not claim runtime validation from a visible screen alone when the bug is in quote/build/send/history state.
-
-## Surface Validation
-
-Validate on the surface that owns the regression:
-
-- Swap page for normal quote, selector, review, and history work.
-- Swap Pro for advanced order/trading UI.
-- Market detail for speed-swap, preset, token detail, and K-line issues.
-- Signature Confirm for frozen review data.
-- History/detail for pending, progress, final status, and price fallback.
-- Account history or notification entry when a channel can be opened outside the original submit flow.
-- Native mobile when host behavior differs: Limit focus paths, K-line
-  dialog/page variants, modal, bottom-sheet drag, keyboard, safe area, or
-  native list virtualization.
-- Desktop/web/extension when popup, modal, or WebView behavior differs.
-
-## New Channel Acceptance
-
-For a new provider/channel, produce a short acceptance note before or after implementation:
-
-1. Entry surface and integration style.
-2. Provider/channel contract fields.
-3. State owner for quote, review, build, and history.
-4. Listener, local writeback, replay, and repair sources.
-5. Runtime payloads needed for proof.
-6. Happy path.
-7. One stale quote or provider failure path.
-8. One history/status path.
-9. One replay/repair path when a local row is missing fields.
-10. Platform surfaces that must be checked.
-
-If the note cannot be filled, the channel contract is not ready.
-
-## Regression Recipes
-
-Use these recipes based on failure type:
-
-- Quote mismatch: change amount/network/token/provider rapidly and verify stale responses cannot become selected.
-- Review drift: enter review, mutate outer page state, and verify confirm still displays the frozen quote/build data.
-- Fee/ETA bug: compare quote payload, build payload, review display, and history detail.
-- Pending/status bug: send or simulate send success, then verify pending row identity and status polling key.
-- Replay/repair bug: open from account history or notification, verify the row
-  is enriched once, semantic fields are preserved, and unknown values are not
-  displayed as zero.
-- Setup-fee display bug: compare decoded tx actions, decoded `extraInfo`, local
-  swap-history context, order detail, and detail UI rows; verify setup costs are
-  shown separately and do not inflate the business transfer amount.
-- Stock/order build bug: inspect the quote payload, `swapShouldSignedData` or order
-  payload, user-selected slippage fallback, speed-build request, and pending
-  history row; verify order/sign flows cannot fall through to ordinary send.
-- Stock/order availability bug: compare stock channel market stage, token/detail
-  market-open data, quote error metadata, action-button gate, and alert display
-  before treating a missing quote flag as a product defect.
-- Stock/Market history bug: verify pending counts, list keys, protocol filters,
-  and history detail routing separately for Market and Stock rows.
-- Market K-line bug: verify token detail payload, chart fetch, fallback data, and WebView events separately.
-- Handoff bug: start from the real source entry, such as Wallet Home, Home
-  Token, Send, Earn, Market, or Buy. Capture handoff params first, then confirm
-  Swap owns selected tokens, quote, review, build/send, pending, and history
-  after quote starts.
-- Visible-entry merge bug: enter through route params, header tab, cold-start
-  cache, and history/detail; verify visible tab normalization and internal
-  execution/support/history semantics stay distinct.
-- Unsupported-network entry bug: start from the real source entry on an
-  unsupported single network, capture `importNetworkId` and imported tokens,
-  and verify the first frame resolves to empty/Select Token or a disabled state
-  without an endless skeleton. Also verify direct Swap still works for supported
-  networks.
-- No-wallet or disconnected-wallet bug: reload from a fresh state, record
-  account-info readiness, account-selector storage readiness, active-account
-  init, wallet-list readiness, and web dapp mode. Verify unsupported-account
-  warnings do not appear before those gates resolve, and verify any hidden
-  local history is hidden without being deleted.
-- Skeleton or layout jump bug: compare the skeleton and settled heights on the
-  affected surface plus the closest shared surfaces, especially Stock, Swap
-  Pro, mobile modal/bottom sheet, and extension/sidebar when a shared component
-  changed.
-- Gas sponsor or provider capability bug: compare quote payload, build payload,
-  estimate-fee/send params, global gas-account setting, and provider allowlist.
-  Do not validate from the final error toast alone.
+A settled screenshot, rendered element, or passing utility test is not enough
+when the bug concerns first-frame state, quote identity, build/send, pending,
+persistence, or status repair. Report checks actually run and unavailable
+runtime or provider evidence.

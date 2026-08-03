@@ -257,6 +257,63 @@ export type IFetchAccountHistoryResp = {
   next?: string; // Cursor for the next page; pass back as request `cursor`.
 };
 
+export type IAccountTransactionRange = {
+  minTimestampMs: number;
+  maxTimestampMs: number;
+};
+
+export type IExportHistoryNetworkRange = IAccountTransactionRange & {
+  networkId: string;
+  networkKey: string;
+  minBlockNumber: number;
+};
+
+export type IFetchAccountTransactionRangeResp = Record<
+  string, // networkId
+  IExportHistoryNetworkRange
+>;
+
+export type ICreateExportTransactionHistoryTaskParams = {
+  networkIdToAddressArray: Record<
+    string, // networkId
+    string[] // addresses or xpub descriptors
+  >;
+  limit: number;
+  maxTimestampMs: number;
+  minTimestampMs: number;
+  onlySafe?: boolean;
+  timeZone?: string;
+};
+
+export type IExportTransactionHistoryTaskStatus =
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  // stored export artifact is corrupted or has been cleaned up
+  | 'deprecated';
+
+export type IExportTransactionHistoryTask = {
+  id: number;
+  // null: all txs in the time range are included; a number: only txs up to
+  // `next` are included (partial export limited by `limit`)
+  next: number | null;
+  createdAt: number;
+  updatedAt: number;
+  uid: string;
+  // the create-task params; xpubs are expanded to addresses by the server
+  query: ICreateExportTransactionHistoryTaskParams;
+  status: IExportTransactionHistoryTaskStatus;
+  filename: string;
+  count: number;
+  // failure reason; 'ok' on success
+  message?: string;
+};
+
+export type IFetchExportTransactionHistoryTasksResp = {
+  list: IExportTransactionHistoryTask[];
+};
+
 export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;

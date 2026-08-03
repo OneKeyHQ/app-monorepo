@@ -260,7 +260,25 @@ jobs:
 
       - name: Finalize Desktop Bundle Production Assets
         if: always()
-        run: node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
+        run: |
+          if [ -f ./apps/desktop/scripts/finalize-production-assets.js ]; then
+            node ./apps/desktop/scripts/finalize-production-assets.js --strip-only
+          else
+            echo "::notice::Using legacy desktop bundle production asset cleanup."
+            find ./apps/desktop/web-build -type f \( \
+              -name '*.css.map' -o \
+              -name '*.js.map' -o \
+              -name '*.LICENSE.txt' \
+            \) -print -delete
+            if find ./apps/desktop/web-build -type f \( \
+              -name '*.css.map' -o \
+              -name '*.js.map' -o \
+              -name '*.LICENSE.txt' \
+            \) -print -quit | grep -q .; then
+              echo "::error::Legacy desktop bundle production asset cleanup left sourcemap or license files behind."
+              exit 1
+            fi
+          fi
 
       - name: bundle folder
         run: |

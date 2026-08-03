@@ -11,20 +11,19 @@ import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/pri
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
   type IOneKeyIdLoginWithLocalKeylessPrepareResult,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { logoutPurchasesSdk } from '../../views/Prime/hooks/purchasesSdkLogout';
 
 import {
   redirectOneKeyIdAuthToExtExpandTab,
@@ -69,9 +68,6 @@ export function useOneKeyAuthMethods() {
   const {
     signInWithSocialLogin,
     persistKeylessOAuthSession,
-    keylessSignOut,
-    legacySignOut,
-    signOut: supabaseSignOut,
     getAccessToken,
     isReady,
     isLoggedIn: isSupabaseLoggedIn,
@@ -80,91 +76,6 @@ export function useOneKeyAuthMethods() {
     verifyOtp: supabaseVerifyOtp,
     getSupabaseClient,
   } = useSupabaseAuth();
-
-  const apiLogout = useCallback(
-    async (params?: { preserveLocalKeylessAuth?: boolean }) => {
-      await backgroundApiProxy.servicePrime.apiLogout(params);
-    },
-    [],
-  );
-
-  const clearLocalSupabaseSessions = useCallback(async () => {
-    try {
-      await supabaseSignOut();
-    } catch {
-      // do nothing
-    }
-    try {
-      await supabaseStorageInstance.clear();
-    } catch {
-      // do nothing
-    }
-  }, [supabaseSignOut]);
-
-  const clearLegacySupabaseSession = useCallback(async () => {
-    try {
-      await legacySignOut();
-    } catch {
-      // do nothing
-    }
-    supabaseStorageInstance.clearCache();
-  }, [legacySignOut]);
-
-  const logout = useCallback(
-    async (params?: { preserveLocalKeylessAuth?: boolean }) => {
-      const preserveLocalKeylessAuth = params?.preserveLocalKeylessAuth;
-      let apiLogoutFailed = false;
-      try {
-        await apiLogout({ preserveLocalKeylessAuth });
-      } catch (e) {
-        apiLogoutFailed = true;
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: `useOneKeyAuth.logout: apiLogout threw, will force-clear local state: ${String(
-            e,
-          )}`,
-        });
-      }
-      // Defensive fallback: if apiLogout threw before its finally block ran
-      // (e.g., getAuthToken / getPrimeClient threw), force-clear local state here
-      // so the UI cannot keep rendering the previously-logged-in account.
-      if (apiLogoutFailed) {
-        try {
-          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthState({
-            preserveLocalKeylessAuth,
-            callerName: 'useOneKeyAuth.logout',
-          });
-          defaultLogger.prime.subscription.onekeyIdLogout({
-            reason:
-              'useOneKeyAuth.logout: force-cleared local state after apiLogout failure',
-          });
-        } catch (e) {
-          defaultLogger.prime.subscription.onekeyIdLogout({
-            reason: `useOneKeyAuth.logout: force-clear local state also failed: ${String(
-              e,
-            )}`,
-          });
-        }
-      }
-      if (preserveLocalKeylessAuth) {
-        await clearLegacySupabaseSession();
-      } else {
-        await clearLocalSupabaseSessions();
-      }
-    },
-    [apiLogout, clearLegacySupabaseSession, clearLocalSupabaseSessions],
-  );
-
-  const logoutWithPurchasesSdk = useCallback(
-    async (params?: { preserveLocalKeylessAuth?: boolean }) => {
-      await logout(params);
-      try {
-        await logoutPurchasesSdk();
-      } catch {
-        // do nothing
-      }
-    },
-    [logout],
-  );
 
   return useMemo(() => {
     return {
@@ -177,10 +88,6 @@ export function useOneKeyAuthMethods() {
       // analytics enrichment; use isPrimeSubscriptionActive for gating features.
       isPrimeActive: user?.primeSubscription?.isActive === true,
       user,
-      logout,
-      logoutWithPurchasesSdk,
-      // apiLogout,
-      // sdkLogout,
       getAccessToken,
       isReady,
       isSupabaseLoggedIn,
@@ -188,11 +95,6 @@ export function useOneKeyAuthMethods() {
       supabaseUser,
       supabaseSignInWithOtp,
       supabaseVerifyOtp,
-      supabaseSignOut,
-      legacySupabaseSignOut: legacySignOut,
-      keylessSupabaseSignOut: keylessSignOut,
-      clearLocalSupabaseSessions,
-      clearLegacySupabaseSession,
       signInWithSocialLogin,
       persistKeylessOAuthSession,
     };
@@ -200,17 +102,10 @@ export function useOneKeyAuthMethods() {
     getAccessToken,
     isReady,
     isSupabaseLoggedIn,
-    logout,
-    logoutWithPurchasesSdk,
     user,
     supabaseUser,
     supabaseSignInWithOtp,
     supabaseVerifyOtp,
-    supabaseSignOut,
-    legacySignOut,
-    keylessSignOut,
-    clearLocalSupabaseSessions,
-    clearLegacySupabaseSession,
     signInWithSocialLogin,
     persistKeylessOAuthSession,
     getSupabaseClient,
@@ -222,12 +117,7 @@ export function useOneKeyAuth() {
   const intl = useIntl();
 
   const methods = useOneKeyAuthMethods();
-  const {
-    logout,
-    clearLegacySupabaseSession,
-    supabaseSignInWithOtp,
-    supabaseVerifyOtp,
-  } = methods;
+  const { supabaseSignInWithOtp, supabaseVerifyOtp } = methods;
 
   const toOneKeyIdPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.PrimeModal, {
@@ -238,13 +128,11 @@ export function useOneKeyAuth() {
   const showOneKeyIdLoginDialog = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
-      preserveLocalKeylessAuth,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
-      preserveLocalKeylessAuth?: boolean;
       renderContent: (params: {
-        onComplete: () => void;
+        onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
         onCancel: () => void;
       }) => ReactNode;
@@ -269,28 +157,6 @@ export function useOneKeyAuth() {
           toOneKeyIdPageOnLoginSuccess,
         });
         throw new PrimeLoginDialogCancelError();
-      }
-
-      if (preserveLocalKeylessAuth) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'useLoginOneKeyId.loginOneKeyId(): clear OneKeyID local state before showing login dialog, preserving local Keyless auth',
-        });
-        await backgroundApiProxy.servicePrime.clearOneKeyIdAuthState({
-          preserveLocalKeylessAuth: true,
-          callerName: 'useOneKeyAuth.showOneKeyIdLoginDialog',
-        });
-        // The bg clear does not touch the main-runtime legacy Supabase
-        // client's in-memory session; sign it out here so the React auth
-        // context stays consistent even if the user cancels the dialog.
-        await clearLegacySupabaseSession();
-      } else {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason:
-            'useLoginOneKeyId.loginOneKeyId(): call logout() before showing login dialog',
-        });
-        // logout before login, make sure local supabase storage cache is cleared
-        await logout();
       }
 
       return new Promise<void>((resolve, reject) => {
@@ -319,10 +185,20 @@ export function useOneKeyAuth() {
         const loginDialog = Dialog.show({
           onCancel: onCancelFirstStepFn,
           onClose: onCancelFirstStepFn,
+          floatingPanelProps: platformEnv.isDesktop
+            ? { width: 440 }
+            : undefined,
           renderContent: renderContent({
-            onComplete: () => {
+            onComplete: async () => {
               isClosedByNextStep = true;
-              void loginDialog.close();
+              try {
+                await loginDialog.close();
+              } catch (error) {
+                // The close handoff owns settling the outer login promise.
+                // A failed close must not leave it pending forever.
+                onCancelFn();
+                throw error;
+              }
             },
             onLoginSuccess: onLoginSuccessFn,
             onCancel: onCancelFn,
@@ -330,7 +206,7 @@ export function useOneKeyAuth() {
         });
       });
     },
-    [clearLegacySupabaseSession, logout, toOneKeyIdPage],
+    [toOneKeyIdPage],
   );
 
   const loginOneKeyId = useCallback(
@@ -339,20 +215,42 @@ export function useOneKeyAuth() {
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
     } = {}) => {
-      const localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult =
-        await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
-      const preserveLocalKeylessAuth =
-        localKeylessLoginPrepareResult.status !==
-        EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless;
+      let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
+      let localKeylessLoginPrepareErrorMessage: string | undefined;
+      try {
+        localKeylessLoginPrepareResult =
+          await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
+      } catch (error) {
+        const plainErrorMessage =
+          typeof error === 'string' ? error : toPlainErrorObject(error).message;
+        localKeylessLoginPrepareErrorMessage =
+          typeof plainErrorMessage === 'string' && plainErrorMessage
+            ? plainErrorMessage
+            : 'Unknown Keyless wallet data read error';
+        // Keep the read failure distinct from a definitive no-wallet result.
+        // OAuth clicks retry the probe and can offer confirmed Keyless removal
+        // once the wallet row is readable again.
+        console.error(
+          'useOneKeyAuth.loginOneKeyId: prepareOneKeyIdLoginWithLocalKeyless failed, preserving local Keyless auth:',
+          localKeylessLoginPrepareErrorMessage,
+        );
+        localKeylessLoginPrepareResult = {
+          status:
+            EOneKeyIdLoginWithLocalKeylessPrepareStatus.LocalKeylessDataUnavailable,
+          errorMessage: localKeylessLoginPrepareErrorMessage,
+        };
+      }
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
-        preserveLocalKeylessAuth,
         renderContent: ({ onComplete, onLoginSuccess, onCancel }) => (
           <PrimeLoginOAuthDialog
             onComplete={onComplete}
             onLoginSuccess={onLoginSuccess}
             onCancel={onCancel}
             localKeylessLoginPrepareResult={localKeylessLoginPrepareResult}
+            localKeylessLoginPrepareErrorMessage={
+              localKeylessLoginPrepareErrorMessage
+            }
             toOneKeyIdPageOnLoginSuccess={toOneKeyIdPageOnLoginSuccess}
           />
         ),
@@ -364,14 +262,11 @@ export function useOneKeyAuth() {
   const loginOneKeyIdWithLegacyEmail = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
-      preserveLocalKeylessAuth,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
-      preserveLocalKeylessAuth?: boolean;
     } = {}) =>
       showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
-        preserveLocalKeylessAuth,
         renderContent: ({ onComplete, onLoginSuccess, onCancel }) => (
           <PrimeLoginEmailDialogV2
             onComplete={onComplete}

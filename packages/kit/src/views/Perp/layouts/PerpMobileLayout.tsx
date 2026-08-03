@@ -2,16 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import {
-  type LayoutChangeEvent,
-  RefreshControl,
-  ScrollView,
-} from 'react-native';
+import { type LayoutChangeEvent, ScrollView } from 'react-native';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
   DebugRenderTracker,
   IconButton,
+  RefreshControl,
   SizableText,
   XStack,
   YStack,
@@ -110,12 +107,17 @@ export const TabBarItem = memo(
       >
         <XStack
           py="$2"
-          borderBottomWidth={isFocused ? '$0.5' : '$0'}
-          borderBottomColor="$borderActive"
+          borderBottomWidth={1.5}
+          borderBottomColor={isFocused ? '$borderActive' : 'transparent'}
           onPress={() => onPress(name)}
-          mb={-2}
         >
-          <SizableText size="$bodyMdMedium" pr="$0.5">
+          <SizableText
+            size="$headingXs"
+            textTransform="none"
+            letterSpacing={0}
+            color={isFocused ? '$text' : '$textSubdued'}
+            pr="$0.5"
+          >
             {displayTitle}
           </SizableText>
         </XStack>
@@ -364,6 +366,7 @@ export function PerpMobileLayout() {
       style={{ flex: 1, backgroundColor: '$bgApp' }}
       contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       stickyHeaderIndices={[1]}
       onLayout={handleScrollViewportLayout}
       onContentSizeChange={handleContentSizeChange}
@@ -380,7 +383,7 @@ export function PerpMobileLayout() {
         <PerpTickerBar />
       </YStack>
       <XStack
-        gap="$3"
+        gap="$3.5"
         px="$4"
         pb="$4"
         onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
@@ -405,7 +408,7 @@ export function PerpMobileLayout() {
       </XStack>
       <XStack
         bg="$bgApp"
-        borderBottomWidth="$0.5"
+        borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
         justifyContent="space-between"
         alignItems="center"
@@ -463,7 +466,12 @@ export function PerpMobileLayout() {
           flex={1}
           onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
         >
-          <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+          <PerpOpenOrdersList
+            isMobile
+            isPanelActive={activeTab === ETabName.OpenOrders}
+            useTabsList={false}
+            disableListScroll
+          />
         </YStack>
         <YStack
           display={activeTab === ETabName.Balances ? 'flex' : 'none'}

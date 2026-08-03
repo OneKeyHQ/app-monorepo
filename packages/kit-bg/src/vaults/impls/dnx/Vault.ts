@@ -15,6 +15,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
+  TooManyTransactionInputs,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -71,6 +72,11 @@ import type {
 } from '../../types';
 
 const DEFAULT_TX_FEE = 1_000_000;
+
+// Classic-family firmware statically allocates ring-signature buffers for at
+// most 10 inputs (MAX_INPUTS_COUNT in legacy/firmware/dynex.h) and rejects
+// DnxSignTx with more inputs after PIN entry ("Invalid number of inputs").
+const MAX_TX_INPUTS_COUNT = 10;
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.dynex.hd;
@@ -240,6 +246,17 @@ export default class Vault extends VaultBase {
       outputsForCoinSelect,
       feeRate: '0',
     });
+
+    // Fail fast before the device-side check so the user gets an actionable
+    // message instead of a raw firmware error after entering the PIN.
+    if ((inputsFromCoinSelect?.length ?? 0) > MAX_TX_INPUTS_COUNT) {
+      throw new TooManyTransactionInputs({
+        info: {
+          number: inputsFromCoinSelect?.length ?? 0,
+          max: MAX_TX_INPUTS_COUNT,
+        },
+      });
+    }
 
     return {
       finalAmount: finalAmount.toFixed(),

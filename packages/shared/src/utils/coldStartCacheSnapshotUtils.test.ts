@@ -1,6 +1,7 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
 import {
+  SWAP_PRO_POSITIONS_CACHE_VERSION,
   parseColdStartSnapshotRaw,
   prepareColdStartSnapshotForWrite,
 } from './coldStartCacheSnapshotUtils';
@@ -9,6 +10,7 @@ const perpsScope = 'store:perps';
 const positionKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom}`;
 const openOrdersKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom}`;
 const activeInstrumentKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom}`;
+const swapPositionsKey = `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom}`;
 
 describe('coldStartCacheSnapshotUtils', () => {
   it('parses object snapshots and rejects oversized raw payloads before JSON parsing', () => {
@@ -118,5 +120,156 @@ describe('coldStartCacheSnapshotUtils', () => {
       result.snapshot['store:home::ctx:lastConfirmedOverviewBalanceAtom'],
     ).toEqual({ byOwner: { a: '1' } });
     expect(result.droppedKeys.toSorted()).toEqual([openOrdersKey, positionKey]);
+  });
+
+  it('bounds persisted Swap positions by recent owner, per-owner, and total token counts', () => {
+    const result = prepareColdStartSnapshotForWrite(
+      {
+        [swapPositionsKey]: {
+          version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+          byOwner: {
+            old: {
+              ownerKey: 'old',
+              updatedAt: 1,
+              tokens: [{ id: 'old-1' }, { id: 'old-2' }],
+            },
+            current: {
+              ownerKey: 'current',
+              updatedAt: 3,
+              tokens: [
+                { id: 'current-1' },
+                { id: 'current-2' },
+                { id: 'current-3' },
+              ],
+            },
+            recent: {
+              ownerKey: 'recent',
+              updatedAt: 2,
+              tokens: [{ id: 'recent-1' }, { id: 'recent-2' }],
+            },
+          },
+        },
+      },
+      {
+        maxSnapshotChars: 10_000,
+        maxSwapPositionsBytes: 10_000,
+        maxSwapPositionsOwners: 3,
+        maxSwapPositionsTokensPerOwner: 2,
+        maxSwapPositionsTotalTokens: 3,
+      },
+    );
+    const byOwner = (
+      result.snapshot[swapPositionsKey] as {
+        byOwner: Record<string, { tokens: Array<{ id: string }> }>;
+      }
+    ).byOwner;
+
+    expect(byOwner.current.tokens.map((token) => token.id)).toEqual([
+      'current-1',
+      'current-2',
+    ]);
+    expect(byOwner.recent.tokens.map((token) => token.id)).toEqual([
+      'recent-1',
+    ]);
+    expect(byOwner.old).toBeUndefined();
+  });
+
+  it('drops only the volatile Swap positions key before it can evict other cold-start data', () => {
+    const result = prepareColdStartSnapshotForWrite(
+      {
+        'store:home::ctx:lastConfirmedOverviewBalanceAtom': {
+          byOwner: { a: '1' },
+        },
+        [positionKey]: {
+          accountAddress: '0xabc',
+          activePositions: [{ coin: 'BTC' }],
+        },
+        [swapPositionsKey]: {
+          version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+          byOwner: {
+            current: {
+              ownerKey: 'current',
+              updatedAt: 3,
+              tokens: Array.from({ length: 4 }, (_, index) => ({
+                id: `token-${index}`,
+                payload: 'x'.repeat(100),
+              })),
+            },
+          },
+        },
+      },
+      {
+        maxSnapshotChars: 300,
+        maxSwapPositionsBytes: 10_000,
+      },
+    );
+
+    expect(result.snapshot[swapPositionsKey]).toBeUndefined();
+    expect(result.snapshot[positionKey]).toEqual({
+      accountAddress: '0xabc',
+      activePositions: [{ coin: 'BTC' }],
+    });
+    expect(
+      result.snapshot['store:home::ctx:lastConfirmedOverviewBalanceAtom'],
+    ).toEqual({ byOwner: { a: '1' } });
+    expect(result.droppedKeys).toEqual([swapPositionsKey]);
+    expect(result.serialized.length).toBeLessThanOrEqual(300);
+  });
+
+  it('fails closed when a persisted Swap positions schema is unsupported', () => {
+    const result = prepareColdStartSnapshotForWrite({
+      [swapPositionsKey]: {
+        version: SWAP_PRO_POSITIONS_CACHE_VERSION + 1,
+        byOwner: {
+          stale: {
+            ownerKey: 'stale',
+            updatedAt: 1,
+            tokens: [{ id: 'stale-token' }],
+          },
+        },
+      },
+    });
+
+    expect(result.snapshot[swapPositionsKey]).toEqual({
+      version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+      byOwner: {},
+    });
+  });
+
+  it('applies the Swap positions budget in UTF-8 bytes', () => {
+    const maxSwapPositionsBytes = 240;
+    const result = prepareColdStartSnapshotForWrite(
+      {
+        [swapPositionsKey]: {
+          version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+          byOwner: {
+            current: {
+              ownerKey: 'current',
+              updatedAt: 1,
+              tokens: [
+                {
+                  id: 'multibyte-token',
+                  symbol: '界'.repeat(maxSwapPositionsBytes),
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        maxSnapshotChars: 10_000,
+        maxSwapPositionsBytes,
+      },
+    );
+    const swapPositions = result.snapshot[swapPositionsKey] as {
+      byOwner: Record<string, unknown>;
+    };
+
+    expect(swapPositions.byOwner).toEqual({});
+    expect(
+      new TextEncoder().encode(
+        JSON.stringify(result.snapshot[swapPositionsKey]),
+      ).byteLength,
+    ).toBeLessThanOrEqual(maxSwapPositionsBytes);
   });
 });

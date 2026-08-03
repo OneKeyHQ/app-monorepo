@@ -41,6 +41,7 @@ import type {
   IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EAccountSelectorSceneName,
   type IServerNetwork,
@@ -204,7 +205,10 @@ const DeriveTypesAddressItem = ({
             textAlign="right"
             size="$bodyLgMedium"
           >
-            {tokenFiat?.balanceParsed ?? 0}
+            {tokenRebaseUtils.applyBalanceMultiplier({
+              amount: tokenFiat?.balanceParsed,
+              balanceMultiplier: tokenFiat?.balanceMultiplier,
+            }) ?? 0}
           </NumberSizeableText>
           <NumberSizeableText
             formatter="value"

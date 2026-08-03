@@ -4,6 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IMarketWsDataUpdatePayload } from '@onekeyhq/shared/types/marketV2';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import ServiceBase from '../ServiceBase';
@@ -184,15 +185,19 @@ class ServiceMarketWS extends ServiceBase {
     data: unknown;
     originalData: unknown;
   }) {
-    appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
-      channel,
+    const basePayload = {
       tokenAddress,
       networkId,
       isSubscriptionAmbiguous,
       messageType,
       data,
       originalData,
-    });
+    };
+    const payload: IMarketWsDataUpdatePayload =
+      channel === EChannel.ohlcv
+        ? { ...basePayload, channel: EChannel.ohlcv }
+        : { ...basePayload, channel: EChannel.tokenTxs };
+    appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, payload);
   }
 
   private autoUnsubscribeStaleSubscriptions(subscriptions: ISubscription[]) {

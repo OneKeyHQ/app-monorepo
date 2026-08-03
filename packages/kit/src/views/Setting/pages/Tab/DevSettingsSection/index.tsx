@@ -595,9 +595,6 @@ const BaseDevSettingsSection = () => {
   const handleLegacyOneKeyIdEmailLogin = useCallback(() => {
     void loginOneKeyIdWithLegacyEmail({
       toOneKeyIdPageOnLoginSuccess: true,
-      // A dev tool must never wipe the shared keyless session slot — it may
-      // hold the wallet's only local credential.
-      preserveLocalKeylessAuth: true,
     });
   }, [loginOneKeyIdWithLegacyEmail]);
 
@@ -966,11 +963,12 @@ const BaseDevSettingsSection = () => {
                             typeof __BUNDLE_START_TIME__ !== 'undefined'
                               ? __BUNDLE_START_TIME__
                               : 0;
-                          const { getDevicePerformanceTier } =
+                          const { getDevicePerformanceProfile } =
                             await import('@onekeyhq/shared/src/performance/devicePerformanceTier');
                           Dialog.debugMessage({
                             debugMessage: {
-                              devicePerformanceTier: getDevicePerformanceTier(),
+                              devicePerformanceProfile:
+                                getDevicePerformanceProfile(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -1300,6 +1298,18 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1567,6 +1577,16 @@ const BaseDevSettingsSection = () => {
                         name="showPerpsRenderStats"
                         title="显示 Perps 渲染统计"
                         subtitle="显示 Perps 渲染统计"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+
+                      <SectionFieldItem
+                        icon="QrCodeOutline"
+                        name="unifoldUseTestDestination"
+                        title="Unifold 充值改用 Arbitrum USDC 目的地（测试用）"
+                        subtitle="开启后资金回到自己的 Arbitrum 钱包而非永续账户，仅 dev 生效，用于低成本跑通充值管线"
+                        searchKeywords="Unifold deposit destination Arbitrum USDC 充值 目的地 测试"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -2291,9 +2311,9 @@ const BaseDevSettingsSection = () => {
 
                       <SectionPressItem
                         icon="EmailOutline"
-                        title="Legacy OneKeyID Email Login"
-                        subtitle="旧版本 Email/OTP 登录入口"
-                        searchKeywords="OneKeyID Legacy Email OTP Login 旧版本 登录"
+                        title="OneKey ID Email Login"
+                        subtitle="Email/OTP 注册和登录入口"
+                        searchKeywords="OneKey ID Email OTP 注册 登录"
                         onPress={handleLegacyOneKeyIdEmailLogin}
                       />
 
@@ -2414,6 +2434,25 @@ const BaseDevSettingsSection = () => {
                             );
                           }}
                           value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="BezierNodesOutline"
+                        name="mockKaspaRefTxFetchFailed"
+                        title="模拟 Kaspa refTx 获取失败"
+                        subtitle="强制获取前序交易失败，验证硬件仍能回退盲签"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'mockKaspaRefTxFetchFailed',
+                              !devSettings.settings?.mockKaspaRefTxFetchFailed,
+                            );
+                          }}
+                          value={
+                            devSettings.settings?.mockKaspaRefTxFetchFailed
+                          }
                         />
                       </SectionFieldItem>
                       <SectionFieldItem

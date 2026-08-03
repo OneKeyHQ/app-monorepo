@@ -224,6 +224,25 @@ export type IBuildSwapReviewStateInput = {
   texts: ISwapReviewStepTexts;
 };
 
+export function resolveSwapReviewTokenAmounts({
+  isSwapProMarket,
+  swapProInputAmount,
+  swapFromAmount,
+  swapToAmount,
+  quoteToAmount,
+}: {
+  isSwapProMarket: boolean;
+  swapProInputAmount?: string;
+  swapFromAmount?: string;
+  swapToAmount?: string;
+  quoteToAmount?: string;
+}) {
+  return {
+    fromTokenAmount: isSwapProMarket ? swapProInputAmount : swapFromAmount,
+    toTokenAmount: isSwapProMarket ? quoteToAmount : swapToAmount,
+  };
+}
+
 export function buildSwapReviewState({
   accountId,
   networkId,

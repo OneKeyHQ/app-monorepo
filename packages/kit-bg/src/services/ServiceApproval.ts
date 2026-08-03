@@ -41,12 +41,12 @@ class ServiceApproval extends ServiceBase {
       accountAddress: string;
       networkId: string;
       accountId: string;
+      withPermit2: boolean;
     }[] = [];
+    const networksSupportBulkRevokeApproval =
+      getNetworksSupportBulkRevokeApproval();
 
     if (networkUtils.isAllNetwork({ networkId })) {
-      const networksSupportBulkRevokeApproval =
-        getNetworksSupportBulkRevokeApproval();
-
       const { allNetworkAccounts } =
         await this.backgroundApi.serviceAllNetwork.buildAllNetworkAccountsForApiParam(
           {
@@ -58,14 +58,29 @@ class ServiceApproval extends ServiceBase {
             networksEnabledOnly,
           },
         );
-      queries = allNetworkAccounts.filter(
-        (i) =>
-          networksSupportBulkRevokeApproval[i.networkId] && i.accountAddress,
-      ) as {
-        accountId: string;
-        networkId: string;
-        accountAddress: string;
-      }[];
+      queries = allNetworkAccounts.flatMap(
+        ({
+          accountId: itemAccountId,
+          networkId: itemNetworkId,
+          accountAddress,
+        }) => {
+          if (
+            !networksSupportBulkRevokeApproval[itemNetworkId] ||
+            !itemAccountId ||
+            !accountAddress
+          ) {
+            return [];
+          }
+          return [
+            {
+              accountId: itemAccountId,
+              networkId: itemNetworkId,
+              accountAddress,
+              withPermit2: true,
+            },
+          ];
+        },
+      );
     } else {
       let accountAddress = params.accountAddress;
       if (!accountAddress) {
@@ -80,6 +95,7 @@ class ServiceApproval extends ServiceBase {
         accountAddress,
         networkId,
         accountId,
+        withPermit2: Boolean(networksSupportBulkRevokeApproval[networkId]),
       });
     }
 
