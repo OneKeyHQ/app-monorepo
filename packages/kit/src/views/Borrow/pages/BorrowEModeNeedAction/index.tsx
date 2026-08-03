@@ -516,6 +516,7 @@ function BorrowEModeNeedActionView() {
     fundingTxKey,
     fundingBroadcasted,
     funding,
+    fundingResolved,
     armFunding,
     markFundingBroadcasted,
     disarmFunding,
@@ -556,6 +557,20 @@ function BorrowEModeNeedActionView() {
       disarmFunding();
     }
   }, [isFocused, activeShortfall, disarmFunding]);
+
+  // A top-up that failed, was cancelled, or landed too small leaves the step
+  // underfunded, and the submitted state would otherwise hold forever: the
+  // footer stays disabled on the shortfall and the card hides Get funds, so the
+  // page would offer nothing at all. Releasing the intent reopens the retry.
+  // The refresh runs first because a top-up that did cover the shortfall clears
+  // the whole card, which beats flashing the warning on the way there.
+  useEffect(() => {
+    if (!fundingResolved) {
+      return;
+    }
+    refreshFundingBalances();
+    disarmFunding();
+  }, [fundingResolved, refreshFundingBalances, disarmFunding]);
 
   const handleGetFundsPress = useCallback(() => {
     // User-initiated divergence, same rule as Manage positions: never let a

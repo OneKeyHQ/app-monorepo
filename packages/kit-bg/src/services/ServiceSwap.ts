@@ -154,6 +154,9 @@ const formatter: INumberFormatProps = {
 };
 
 const SWAP_HISTORY_PERSIST_MAX_ATTEMPTS = 3;
+const SWAP_HISTORY_PERSIST_RETRY_MIN_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  seconds: 1,
+});
 
 type ICheckStableCoinsListParamsItem = {
   networkId: string;
@@ -2103,6 +2106,12 @@ export default class ServiceSwap extends ServiceBase {
     return histories.find((item) => item.txInfo.txId === txId);
   }
 
+  /**
+   * The failures worth retrying here — a quota rejection, a busy or briefly
+   * unavailable store — do not clear within a tick, so the attempts have to be
+   * spaced to be worth making at all. Same shape as the Earn order retry in
+   * ServiceStaking; p-retry is ESM-only and would not load under jest here.
+   */
   private async retrySwapHistoryPersistence(operation: () => Promise<void>) {
     let lastError = new Error('Persist swap history failed');
     for (
@@ -2115,6 +2124,11 @@ export default class ServiceSwap extends ServiceBase {
         return;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < SWAP_HISTORY_PERSIST_MAX_ATTEMPTS - 1) {
+          await timerUtils.wait(
+            SWAP_HISTORY_PERSIST_RETRY_MIN_TIMEOUT_MS * (attempt + 1),
+          );
+        }
       }
     }
     throw lastError;
@@ -2128,10 +2142,23 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
+  /**
+   * Records a swap, and reports whether the record actually reached storage.
+   *
+   * A pending item is broadcast before this runs, so aborting the caller's
+   * post-broadcast flow on a storage error would strand the user worse than a
+   * missing row does — hence the failures are caught rather than thrown. What
+   * must not follow from that is the caller reading a resolved promise as an
+   * acknowledgement: `durable: false` means nothing survives a runtime restart,
+   * because the notification atom this still publishes to is not persisted.
+   */
   @backgroundMethod()
-  async addSwapHistoryItem(item: ISwapTxHistory) {
+  async addSwapHistoryItem(
+    item: ISwapTxHistory,
+  ): Promise<{ durable: boolean }> {
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     const isPending = this.isSwapHistoryPendingStatus(enrichedItem);
+    let durable = true;
     await this.swapHistoryMutationMutex.runExclusive(async () => {
       const persistHistoryItem = () =>
         this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(
@@ -2192,12 +2219,17 @@ export default class ServiceSwap extends ServiceBase {
           );
         } catch (error) {
           this.logSwapHistoryPersistError(error);
+          // A staged write is already durable: recoverPendingSwapHistoryItems
+          // promotes it on the next history read. Only losing both leaves the
+          // item with no storage backing at all.
+          durable = pendingWriteStaged;
         }
       }
     });
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
+    return { durable };
   }
 
   /**

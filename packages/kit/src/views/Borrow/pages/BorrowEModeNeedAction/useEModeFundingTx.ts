@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   filterSwapHistoryPendingList,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { isSwapHistoryTerminalStatus } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 export type IEModeFundingIntent = {
@@ -13,7 +15,71 @@ export type IEModeFundingIntent = {
   tokenAddress: string;
   armedAt: number;
   broadcasted: boolean;
+  /** The top-up has been observed in pending history at least once. */
+  seen: boolean;
 };
+
+/**
+ * How long a broadcast top-up may stay invisible before we stop waiting for it.
+ *
+ * Only reached when the swap never enters pending history at all — normally the
+ * bg→UI hop is sub-second. A durable-write failure in Swap history produces
+ * exactly that silence, and without a deadline the shortfall card would wait on
+ * a transaction no runtime can observe.
+ */
+export const FUNDING_INTENT_APPEARANCE_TIMEOUT_MS =
+  timerUtils.getTimeDurationMs({ minute: 2 });
+
+export type IEModeFundingState =
+  /** No top-up intent armed. */
+  | 'idle'
+  /** Armed, but the swap is not observable yet. */
+  | 'waiting'
+  /** Matched in pending history and still pending. */
+  | 'inFlight'
+  /** The top-up stopped being in flight, whatever its outcome. */
+  | 'resolved';
+
+/**
+ * Where the armed top-up currently stands.
+ *
+ * `resolved` deliberately covers success, failure and cancellation alike: the
+ * caller only needs to know the wait is over, and re-checking the balance
+ * decides what to show next. Three independent signals feed it, because no
+ * single one survives every path:
+ *
+ * - a terminal status on the matched row — `updateSwapHistoryItem` writes the
+ *   new status into the pending atom in place, without filtering terminals out;
+ * - the row leaving the list — the DB-driven rebuilds keep only PENDING and
+ *   CANCELING, so a terminal swap can be evicted before we ever read its status;
+ * - the appearance deadline — for a swap that is never persisted, and so never
+ *   appears in either.
+ */
+export function resolveEModeFundingState({
+  intent,
+  match,
+  appearanceDeadlinePassed,
+}: {
+  intent: IEModeFundingIntent | null;
+  match: ISwapTxHistory | null;
+  appearanceDeadlinePassed: boolean;
+}): IEModeFundingState {
+  if (!intent) {
+    return 'idle';
+  }
+  if (match) {
+    return isSwapHistoryTerminalStatus(match.status) ? 'resolved' : 'inFlight';
+  }
+  if (intent.seen) {
+    return 'resolved';
+  }
+  // An armed-but-never-broadcast intent is the Swap-cancelled case, which the
+  // focus edge already owns. Starving it here would race that with a deadline.
+  if (!intent.broadcasted) {
+    return 'waiting';
+  }
+  return appearanceDeadlinePassed ? 'resolved' : 'waiting';
+}
 
 /**
  * Does this swap deliver the token the armed repay step is short of?
@@ -88,6 +154,7 @@ export function useEModeFundingTx({
       tokenAddress: activeFundingAddress,
       armedAt: Date.now(),
       broadcasted: false,
+      seen: false,
     });
   }, [activeStepKey, activeFundingAddress]);
 
@@ -106,22 +173,61 @@ export function useEModeFundingTx({
   const armedIntent =
     intent && intent.stepKey === activeStepKey ? intent : null;
 
-  const fundingTxKey = useMemo(() => {
+  const match = useMemo(() => {
     if (!armedIntent) {
       return null;
     }
-    const match = filterSwapHistoryPendingList(swapHistoryPendingList).find(
-      (history) =>
+    return (
+      filterSwapHistoryPendingList(swapHistoryPendingList).find((history) =>
         matchesFundingIntent({
           history,
           intent: armedIntent,
           networkId,
           accountId,
         }),
+      ) ?? null
     );
-    return match ? getFundingTxKey(match) : null;
   }, [armedIntent, swapHistoryPendingList, networkId, accountId]);
 
+  const matchKey = match ? getFundingTxKey(match) : null;
+
+  // Sticky, and scoped to the intent that saw it: once the swap has appeared,
+  // its later absence is an outcome rather than the pre-arrival silence.
+  useEffect(() => {
+    if (!matchKey) {
+      return;
+    }
+    setIntent((current) =>
+      current && current.stepKey === activeStepKey && !current.seen
+        ? { ...current, seen: true }
+        : current,
+    );
+  }, [matchKey, activeStepKey]);
+
+  const [appearanceDeadlinePassed, setAppearanceDeadlinePassed] =
+    useState(false);
+  useEffect(() => {
+    if (!armedIntent || !armedIntent.broadcasted || armedIntent.seen) {
+      setAppearanceDeadlinePassed(false);
+      return;
+    }
+    const timer = setTimeout(
+      () => setAppearanceDeadlinePassed(true),
+      Math.max(
+        0,
+        armedIntent.armedAt + FUNDING_INTENT_APPEARANCE_TIMEOUT_MS - Date.now(),
+      ),
+    );
+    return () => clearTimeout(timer);
+  }, [armedIntent]);
+
+  const fundingState = resolveEModeFundingState({
+    intent: armedIntent,
+    match,
+    appearanceDeadlinePassed,
+  });
+
+  const fundingTxKey = fundingState === 'inFlight' ? matchKey : null;
   const fundingBroadcasted = armedIntent?.broadcasted ?? false;
 
   return {
@@ -134,6 +240,11 @@ export function useEModeFundingTx({
     fundingBroadcasted,
     /** A top-up swap has broadcast or is represented in Swap history. */
     funding: fundingBroadcasted || fundingTxKey !== null,
+    /**
+     * The wait is over. Stays true until the consumer disarms, so the submitted
+     * state holds while the refreshed balance decides what to show next.
+     */
+    fundingResolved: fundingState === 'resolved',
     armFunding,
     markFundingBroadcasted,
     disarmFunding,

@@ -6,10 +6,17 @@ type IGenerateSwapHistoryItem = (params: {
   gasFeeInNative?: string;
   gasFeeFiatValue?: string;
   swapTxInfo: ISwapTxInfo;
-}) => Promise<void>;
+}) => Promise<{ durable: boolean } | void>;
 
 type IOnSwapBroadcast = () => void | Promise<void>;
 
+/**
+ * The transaction is already out on the network by the time this runs, so a
+ * history failure must not abort the rest of the post-broadcast flow. It still
+ * has to be distinguishable in logs from a clean write: a swap recorded only in
+ * the non-persisted notification atom disappears on the next runtime restart,
+ * and the user is left with a broadcast transaction and no record of it.
+ */
 async function persistSwapHistory({
   generateSwapHistoryItem,
   historyParams,
@@ -20,7 +27,12 @@ async function persistSwapHistory({
   source: 'broadcast' | 'signedNoSend';
 }) {
   try {
-    await generateSwapHistoryItem(historyParams);
+    const result = await generateSwapHistoryItem(historyParams);
+    if (result && !result.durable) {
+      defaultLogger.app.error.log(
+        `Swap history after ${source} was not persisted durably; it will be lost on restart`,
+      );
+    }
   } catch (error) {
     defaultLogger.app.error.log(
       `Failed to persist Swap history after ${source}: ${

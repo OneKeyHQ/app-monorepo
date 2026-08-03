@@ -140,4 +140,38 @@ describe('Swap broadcast success effects', () => {
     );
     expect(unhandledRejection).not.toHaveBeenCalled();
   });
+
+  it('flags a handoff that resolved without reaching storage', async () => {
+    // The service resolves rather than throws here on purpose — the tx is
+    // already broadcast. That makes the flag the only way this is visible.
+    const generateSwapHistoryItem = jest
+      .fn()
+      .mockResolvedValue({ durable: false });
+
+    await completeBroadcastedSwapSuccess({
+      txId: 'tx-id',
+      swapInfo,
+      generateSwapHistoryItem,
+      onSwapBroadcast: jest.fn().mockResolvedValue(undefined),
+    });
+
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.stringContaining('not persisted durably'),
+    );
+  });
+
+  it('stays quiet when the handoff reached storage', async () => {
+    const generateSwapHistoryItem = jest
+      .fn()
+      .mockResolvedValue({ durable: true });
+
+    await completeBroadcastedSwapSuccess({
+      txId: 'tx-id',
+      swapInfo,
+      generateSwapHistoryItem,
+      onSwapBroadcast: jest.fn().mockResolvedValue(undefined),
+    });
+
+    expect(mockLogError).not.toHaveBeenCalled();
+  });
 });

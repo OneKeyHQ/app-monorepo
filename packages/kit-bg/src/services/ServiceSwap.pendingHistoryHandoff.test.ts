@@ -1,4 +1,5 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -98,6 +99,7 @@ describe('swap pending history handoff', () => {
     ReturnType<typeof inAppNotificationAtom.get>
   >;
   let loggerErrorSpy: jest.SpyInstance;
+  let waitSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     globalThis.$onekeyIsInBackground = true;
@@ -109,6 +111,11 @@ describe('swap pending history handoff', () => {
     loggerErrorSpy = jest
       .spyOn(defaultLogger.app.error, 'log')
       .mockImplementation();
+    // Persistence retries back off by seconds. Collapse the waits so the suite
+    // does not pay for them; the backoff itself is asserted on the spy below.
+    waitSpy = jest
+      .spyOn(timerUtils, 'wait')
+      .mockImplementation(() => Promise.resolve(undefined));
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: [],
@@ -186,6 +193,89 @@ describe('swap pending history handoff', () => {
       );
     },
   );
+
+  it('spaces persistence retries instead of firing them in one tick', async () => {
+    // The failures this guards against — quota exceeded, storage unavailable —
+    // outlive a tick, so back-to-back attempts would all fail identically and
+    // the retry budget would buy nothing.
+    const history = createPendingHistory({ txId: '0xbackoff' });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            stagePendingSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('storage unavailable')),
+            commitPendingSwapHistoryItem: jest.fn(),
+            addSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('storage unavailable')),
+          },
+        },
+      },
+    });
+
+    await service.addSwapHistoryItem(history);
+
+    const delays = waitSpy.mock.calls.map(([ms]) => ms as number);
+    expect(delays).toEqual([1000, 2000, 1000, 2000]);
+  });
+
+  it('reports a handoff that reached no storage at all as not durable', async () => {
+    // Resolving without this flag reads as an acknowledgement, but the only
+    // record left is the notification atom, which is persist: false.
+    const history = createPendingHistory({ txId: '0xnon-durable' });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            stagePendingSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('storage unavailable')),
+            commitPendingSwapHistoryItem: jest.fn(),
+            addSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('storage unavailable')),
+          },
+        },
+      },
+    });
+
+    await expect(service.addSwapHistoryItem(history)).resolves.toEqual({
+      durable: false,
+    });
+  });
+
+  it('reports a staged-but-uncommitted handoff as durable', async () => {
+    // recoverPendingSwapHistoryItems promotes the staged row on the next
+    // history read, so the write survives a restart even without the commit.
+    const history = createPendingHistory({ txId: '0xstaged-only' });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            stagePendingSwapHistoryItem: jest.fn().mockResolvedValue(undefined),
+            commitPendingSwapHistoryItem: jest
+              .fn()
+              .mockRejectedValue(new Error('storage unavailable')),
+          },
+        },
+      },
+    });
+
+    await expect(service.addSwapHistoryItem(history)).resolves.toEqual({
+      durable: true,
+    });
+  });
 
   it('retries a transient staging failure before publishing', async () => {
     const history = createPendingHistory({ txId: '0xstage-retry' });
@@ -306,6 +396,10 @@ describe('durable pending swap history promotion', () => {
 
   beforeEach(async () => {
     jest.spyOn(defaultLogger.app.error, 'log').mockImplementation();
+    // Same reason as the handoff suite: skip the real retry backoff.
+    jest
+      .spyOn(timerUtils, 'wait')
+      .mockImplementation(() => Promise.resolve(undefined));
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: [],
