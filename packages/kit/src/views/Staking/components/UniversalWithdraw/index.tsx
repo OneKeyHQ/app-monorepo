@@ -1902,6 +1902,51 @@ export function UniversalWithdraw({
                   </XStack>
                 );
               })}
+              {transactionConfirmation?.availableLiquidity ? (
+                // Server-driven "Available liquidity" row (e.g. Bitway:
+                // instant withdrawal is capped by the flash pool balance, so
+                // amounts above it must go through the queued path). Kept in
+                // the always-visible summary so users can see why instant
+                // withdrawal is unavailable. (OK-58353)
+                <XStack ai="center" jc="space-between" flexWrap="wrap">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.availableLiquidity.title}
+                      color={
+                        transactionConfirmation.availableLiquidity.title
+                          .color ?? '$textSubdued'
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.title.size ??
+                        '$bodyMd'
+                      }
+                    />
+                    {transactionConfirmation.availableLiquidity.tooltip ? (
+                      <EarnTooltip
+                        title={
+                          transactionConfirmation.availableLiquidity.title.text
+                        }
+                        tooltip={
+                          transactionConfirmation.availableLiquidity.tooltip
+                        }
+                      />
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.availableLiquidity.description
+                    }
+                    size={
+                      transactionConfirmation.availableLiquidity.description
+                        .size ?? '$bodyMdMedium'
+                    }
+                    color={
+                      transactionConfirmation.availableLiquidity.description
+                        .color
+                    }
+                  />
+                </XStack>
+              ) : null}
             </YStack>
           ) : null}
           {hasSummarySection && showPendleTransactionSection ? (
