@@ -4,12 +4,15 @@ import {
   FontSlant,
   FontWeight,
   FontWidth,
+  PaintStyle,
   type SkCanvas,
   type SkFont,
   type SkPaint,
   type SkPicture,
   type SkSVG,
   Skia,
+  StrokeCap,
+  StrokeJoin,
   createPicture,
 } from '@shopify/react-native-skia';
 
@@ -61,7 +64,20 @@ export function createTradingViewNativeSkiaResources({
     paint.setAntiAlias(true);
     paint.setColor(Skia.Color(style.color));
     paint.setAlphaf(paint.getAlphaf() * style.opacity);
-    paint.setStrokeWidth(1);
+    paint.setStrokeWidth(style.strokeWidth ?? 1);
+    if (style.drawStyle === 'stroke') {
+      paint.setStyle(PaintStyle.Stroke);
+    }
+    if (style.strokeCap === 'round') {
+      paint.setStrokeCap(StrokeCap.Round);
+    } else if (style.strokeCap === 'square') {
+      paint.setStrokeCap(StrokeCap.Square);
+    }
+    if (style.strokeJoin === 'round') {
+      paint.setStrokeJoin(StrokeJoin.Round);
+    } else if (style.strokeJoin === 'bevel') {
+      paint.setStrokeJoin(StrokeJoin.Bevel);
+    }
     if (style.dash) {
       paint.setPathEffect(Skia.PathEffect.MakeDash(style.dash, 0));
     }
@@ -92,6 +108,14 @@ function drawTradingViewNativeSkiaCommands({
 
   for (const command of commands) {
     switch (command.kind) {
+      case 'circle':
+        canvas.drawCircle(
+          command.cx,
+          command.cy,
+          command.radius,
+          resources.paints[command.paint],
+        );
+        break;
       case 'clip':
         canvas.save();
         canvas.clipRect(
@@ -114,6 +138,21 @@ function drawTradingViewNativeSkiaCommands({
           resources.paints[command.paint],
         );
         break;
+      case 'polyline': {
+        const firstPoint = command.points[0];
+        if (!firstPoint) {
+          break;
+        }
+        const path = Skia.Path.Make();
+        path.moveTo(firstPoint.x, firstPoint.y);
+        for (let index = 1; index < command.points.length; index += 1) {
+          const point = command.points[index];
+          path.lineTo(point.x, point.y);
+        }
+        canvas.drawPath(path, resources.paints[command.paint]);
+        path.dispose();
+        break;
+      }
       case 'rect':
         canvas.drawRect(
           Skia.XYWHRect(command.x, command.y, command.width, command.height),

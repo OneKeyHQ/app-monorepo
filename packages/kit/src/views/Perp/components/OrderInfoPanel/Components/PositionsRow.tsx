@@ -1333,7 +1333,15 @@ const PositionRowMobileActions = memo(
           flex={1}
           childrenAsText={false}
         >
-          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
+          <SizableText
+            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+            width="100%"
+            minWidth={0}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            textAlign="center"
+          >
             {intl.formatMessage({
               id: ETranslations.add_position__action,
             })}
@@ -1347,7 +1355,15 @@ const PositionRowMobileActions = memo(
           childrenAsText={false}
           testID="perp-intl-btn"
         >
-          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
+          <SizableText
+            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+            width="100%"
+            minWidth={0}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            textAlign="center"
+          >
             {intl.formatMessage({
               id: ETranslations.perp_trade_set_tp_sl,
             })}
@@ -1361,7 +1377,15 @@ const PositionRowMobileActions = memo(
           flex={1}
           childrenAsText={false}
         >
-          <SizableText size={MOBILE_POSITION_ACTION_TEXT_SIZE}>
+          <SizableText
+            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+            width="100%"
+            minWidth={0}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            textAlign="center"
+          >
             {intl.formatMessage({
               id: ETranslations.perp_close_position_title,
             })}

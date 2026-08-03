@@ -707,13 +707,6 @@ export function LimitOrderForm({
     return referencePriceBN.gt(0) && maxBN.isFinite();
   }, [computeSizeBN, referencePriceBN, side]);
 
-  const handleUseMidPrice = useCallback(() => {
-    if (!midPrice) {
-      return;
-    }
-    setPrice(formatPriceToSignificantDigits(midPrice, szDecimals));
-  }, [midPrice, szDecimals]);
-
   const handleBBOToggle = useCallback(() => {
     setBboPriceMode((prev) =>
       prev ? null : { type: 'counterparty', offsetTicks: 0 },
@@ -1099,7 +1092,6 @@ export function LimitOrderForm({
             <PriceInput
               value={price}
               onChange={setPrice}
-              onUseMidPrice={midPrice ? handleUseMidPrice : undefined}
               szDecimals={szDecimals}
             />
           </YStack>

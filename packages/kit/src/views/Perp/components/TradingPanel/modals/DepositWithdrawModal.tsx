@@ -1289,7 +1289,7 @@ function DepositWithdrawContent({
   const leftContent = useMemo(() => {
     return selectedAction === 'deposit' ? (
       <SizableText
-        size="$bodyLgMedium"
+        size="$bodyMdMedium"
         color={getPerpsDepositMinAmountTextColor(selectedAction)}
       >
         {intl.formatMessage(
@@ -1299,7 +1299,7 @@ function DepositWithdrawContent({
       </SizableText>
     ) : (
       <SizableText
-        size="$bodyLgMedium"
+        size="$bodyMdMedium"
         color={getPerpsDepositMinAmountTextColor(selectedAction)}
       >
         {intl.formatMessage(

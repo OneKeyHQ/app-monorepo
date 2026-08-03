@@ -26,6 +26,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_STEP,
   TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
+  TRADING_VIEW_NATIVE_LINE_POINT_RADIUS,
+  TRADING_VIEW_NATIVE_LINE_WIDTH,
   TRADING_VIEW_NATIVE_VOLUME_LEGEND_TOP_PADDING as VOLUME_LEGEND_TOP_PADDING,
   TRADING_VIEW_NATIVE_VOLUME_OPACITY as VOLUME_OPACITY,
 } from '../chartConstants';
@@ -46,7 +48,7 @@ import {
 import {
   type ITradingViewNativeChartLegendRowLayout,
   getTradingViewNativeChartLegend,
-  getTradingViewNativeChartLegendRowLayout,
+  getTradingViewNativeChartLegendRowLayouts,
 } from './chartLegend';
 import { isTradingViewNativePriceUp } from './chartStyle';
 import {
@@ -63,6 +65,7 @@ import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
 } from './chartRuntime';
+import type { ITradingViewNativeChartType } from '../types';
 
 export type ITradingViewNativeChartSceneFont = 'axis' | 'legend';
 
@@ -79,6 +82,8 @@ export type ITradingViewNativeChartScenePaint =
   | 'gridLine'
   | 'gridSolidLine'
   | 'legendBackground'
+  | 'line'
+  | 'lineStroke'
   | 'up'
   | 'upCurrentPriceLine'
   | 'upVolume';
@@ -88,13 +93,18 @@ export interface ITradingViewNativeChartSceneColors {
   background: string;
   down?: string;
   grid: string;
+  line: string;
   up?: string;
 }
 
 export interface ITradingViewNativeChartScenePaintStyle {
   color: string;
   dash?: [number, number];
+  drawStyle?: 'fill' | 'stroke';
   opacity: number;
+  strokeCap?: 'butt' | 'round' | 'square';
+  strokeJoin?: 'bevel' | 'miter' | 'round';
+  strokeWidth?: number;
 }
 
 export interface ITradingViewNativeChartSceneRect {
@@ -108,6 +118,13 @@ export type ITradingViewNativeChartSceneCommand =
   | {
       kind: 'clip';
       rect: ITradingViewNativeChartSceneRect;
+    }
+  | {
+      cx: number;
+      cy: number;
+      kind: 'circle';
+      paint: ITradingViewNativeChartScenePaint;
+      radius: number;
     }
   | {
       height: number;
@@ -129,6 +146,11 @@ export type ITradingViewNativeChartSceneCommand =
       y2: number;
     }
   | {
+      kind: 'polyline';
+      paint: ITradingViewNativeChartScenePaint;
+      points: { x: number; y: number }[];
+    }
+  | {
       font: ITradingViewNativeChartSceneFont;
       kind: 'text';
       paint: ITradingViewNativeChartScenePaint;
@@ -144,6 +166,7 @@ export type ITradingViewNativeChartSceneCommand =
 
 export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
   height: number;
   measureTextWidth: (
@@ -168,6 +191,7 @@ export function getTradingViewNativeChartScenePaintStyles({
   background,
   down = CHART_DOWN_COLOR,
   grid,
+  line,
   up = CHART_UP_COLOR,
 }: ITradingViewNativeChartSceneColors): Record<
   ITradingViewNativeChartScenePaint,
@@ -212,6 +236,15 @@ export function getTradingViewNativeChartScenePaintStyles({
       color: background,
       opacity: LEGEND_BACKGROUND_OPACITY,
     },
+    line: { color: line, opacity: 1 },
+    lineStroke: {
+      color: line,
+      drawStyle: 'stroke',
+      opacity: 1,
+      strokeCap: 'round',
+      strokeJoin: 'round',
+      strokeWidth: TRADING_VIEW_NATIVE_LINE_WIDTH,
+    },
     up: { color: up, opacity: 1 },
     upCurrentPriceLine: {
       color: up,
@@ -224,12 +257,12 @@ export function getTradingViewNativeChartScenePaintStyles({
 
 function appendLegendCommands({
   commands,
-  isUp,
   layout,
+  valuePaint,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
-  isUp: boolean;
   layout: ITradingViewNativeChartLegendRowLayout | null;
+  valuePaint: ITradingViewNativeChartScenePaint;
 }) {
   'worklet';
 
@@ -258,7 +291,7 @@ function appendLegendCommands({
       {
         font: 'legend',
         kind: 'text',
-        paint: isUp ? 'up' : 'down',
+        paint: valuePaint,
         text: segment.value,
         x: segment.valueX,
         y: textBaselineY,
@@ -270,6 +303,7 @@ function appendLegendCommands({
 
 export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
+  chartType,
   crosshair,
   height,
   measureTextWidth,
@@ -326,6 +360,7 @@ export function buildTradingViewNativeChartScene({
 
   const layout = getTradingViewNativeChartLayout({
     candleIntervalSeconds,
+    chartType,
     height,
     minimumTimeTickIndexSpacing:
       getTradingViewNativeTimeTickMinimumIndexSpacing(
@@ -435,6 +470,85 @@ export function buildTradingViewNativeChartScene({
       y: 0,
     },
   });
+  if (chartType === 'line') {
+    const lineStartIndex = Math.max(visiblePointRange.startIndex - 1, 0);
+    const lineEndIndex = Math.min(
+      visiblePointRange.endIndex + 1,
+      points.length,
+    );
+    const lineSegments: { x: number; y: number }[][] = [];
+    let linePoints: { x: number; y: number }[] = [];
+    for (let index = lineStartIndex; index < lineEndIndex; index += 1) {
+      const point = points[index];
+      if (point && Number.isFinite(point.c)) {
+        linePoints.push({
+          x: getPointX(index),
+          y: getTradingViewNativePriceY(point.c, layout),
+        });
+      } else {
+        if (linePoints.length > 1) {
+          lineSegments.push(linePoints);
+        }
+        linePoints = [];
+      }
+    }
+    if (linePoints.length > 1) {
+      lineSegments.push(linePoints);
+    }
+    for (const segment of lineSegments) {
+      commands.push({
+        kind: 'polyline',
+        paint: 'lineStroke',
+        points: segment,
+      });
+    }
+
+    const latestPointIndex = points.length - 1;
+    const latestLinePoint = points[latestPointIndex];
+    if (latestLinePoint && Number.isFinite(latestLinePoint.c)) {
+      commands.push({
+        cx: getPointX(latestPointIndex),
+        cy: getTradingViewNativePriceY(latestLinePoint.c, layout),
+        kind: 'circle',
+        paint: 'line',
+        radius: TRADING_VIEW_NATIVE_LINE_POINT_RADIUS,
+      });
+    }
+  } else {
+    for (
+      let index = visiblePointRange.startIndex;
+      index < visiblePointRange.endIndex;
+      index += 1
+    ) {
+      const point = points[index];
+      if (point) {
+        const paint = isTradingViewNativePriceUp(point) ? 'up' : 'down';
+        const x = getPointX(index);
+        const openY = getTradingViewNativePriceY(point.o, layout);
+        const highY = getTradingViewNativePriceY(point.h, layout);
+        const lowY = getTradingViewNativePriceY(point.l, layout);
+        const closeY = getTradingViewNativePriceY(point.c, layout);
+        commands.push(
+          {
+            height: Math.max(lowY - highY, 1),
+            kind: 'rect',
+            paint,
+            width: TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
+            x: x - TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH / 2,
+            y: highY,
+          },
+          {
+            height: Math.max(Math.abs(closeY - openY), 1),
+            kind: 'rect',
+            paint,
+            width: candleBodyWidth,
+            x: x - candleBodyWidth / 2,
+            y: Math.min(openY, closeY),
+          },
+        );
+      }
+    }
+  }
   for (
     let index = visiblePointRange.startIndex;
     index < visiblePointRange.endIndex;
@@ -443,29 +557,6 @@ export function buildTradingViewNativeChartScene({
     const point = points[index];
     if (point) {
       const paint = isTradingViewNativePriceUp(point) ? 'up' : 'down';
-      const x = getPointX(index);
-      const openY = getTradingViewNativePriceY(point.o, layout);
-      const highY = getTradingViewNativePriceY(point.h, layout);
-      const lowY = getTradingViewNativePriceY(point.l, layout);
-      const closeY = getTradingViewNativePriceY(point.c, layout);
-      commands.push(
-        {
-          height: Math.max(lowY - highY, 1),
-          kind: 'rect',
-          paint,
-          width: TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH,
-          x: x - TRADING_VIEW_NATIVE_CANDLE_WICK_WIDTH / 2,
-          y: highY,
-        },
-        {
-          height: Math.max(Math.abs(closeY - openY), 1),
-          kind: 'rect',
-          paint,
-          width: candleBodyWidth,
-          x: x - candleBodyWidth / 2,
-          y: Math.min(openY, closeY),
-        },
-      );
       const volumeBarHeight = getTradingViewNativeVolumeBarHeight({
         maxVolume,
         volume: point.v,
@@ -478,7 +569,7 @@ export function buildTradingViewNativeChartScene({
           kind: 'rect',
           paint: paint === 'up' ? 'upVolume' : 'downVolume',
           width: candleBodyWidth,
-          x: x - candleBodyWidth / 2,
+          x: getPointX(index) - candleBodyWidth / 2,
           y: volumeBottom - renderedVolumeBarHeight,
         });
       }
@@ -486,19 +577,23 @@ export function buildTradingViewNativeChartScene({
   }
   commands.push({ kind: 'restore' });
 
-  const visiblePriceExtrema = getTradingViewNativePriceExtrema({
-    ...visiblePointRange,
-    points,
-  });
+  const visiblePriceExtrema =
+    chartType === 'candlestick'
+      ? getTradingViewNativePriceExtrema({
+          ...visiblePointRange,
+          points,
+        })
+      : null;
   if (visiblePriceExtrema) {
-    for (const extremum of [
-      visiblePriceExtrema.high,
-      visiblePriceExtrema.low,
-    ]) {
+    const extrema = visiblePriceExtrema.low
+      ? [visiblePriceExtrema.high, visiblePriceExtrema.low]
+      : [visiblePriceExtrema.high];
+    const pointRadius = candleBodyWidth / 2;
+    for (const extremum of extrema) {
       const anchorX = getPointX(extremum.index);
       const isPointVisible =
-        anchorX >= CHART_HORIZONTAL_PADDING - candleBodyWidth / 2 &&
-        anchorX <= priceAxisX + candleBodyWidth / 2;
+        anchorX >= CHART_HORIZONTAL_PADDING - pointRadius &&
+        anchorX <= priceAxisX + pointRadius;
       if (isPointVisible) {
         const text = formatTradingViewNativePriceTick(extremum.price);
         const horizontalLayout =
@@ -576,35 +671,50 @@ export function buildTradingViewNativeChartScene({
     );
   }
 
-  const latestPoint = points[points.length - 1];
-  const legendPointIndex = crosshairPointIndex ?? points.length - 1;
+  const latestPointIndex = points.length - 1;
+  const latestPoint = points[latestPointIndex];
+  const legendPointIndex = crosshairPointIndex ?? latestPointIndex;
   const legendPoint = points[legendPointIndex] ?? latestPoint;
+  const previousLegendPoint =
+    legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
-    legendPoint,
-    points[legendPointIndex - 1]?.c,
+    crosshairPoint ?? legendPoint,
+    chartType,
+    previousLegendPoint?.c,
   );
+  let legendValuePaint: ITradingViewNativeChartScenePaint = 'line';
+  if (chartType !== 'line') {
+    legendValuePaint = legend.isUp ? 'up' : 'down';
+  }
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
-  appendLegendCommands({
-    commands,
-    isUp: legend.isUp,
-    layout: getTradingViewNativeChartLegendRowLayout({
+  const appendLegendRows = (
+    layouts: ITradingViewNativeChartLegendRowLayout[],
+  ) => {
+    for (const rowLayout of layouts) {
+      appendLegendCommands({
+        commands,
+        layout: rowLayout,
+        valuePaint: legendValuePaint,
+      });
+    }
+  };
+  appendLegendRows(
+    getTradingViewNativeChartLegendRowLayouts({
       items: legend.priceItems,
       maxX: priceAxisX,
       measureTextWidth: measureLegendTextWidth,
       top: PRICE_LEGEND_TOP,
     }),
-  });
-  appendLegendCommands({
-    commands,
-    isUp: legend.isUp,
-    layout: getTradingViewNativeChartLegendRowLayout({
+  );
+  appendLegendRows(
+    getTradingViewNativeChartLegendRowLayouts({
       items: [legend.volumeItem],
       maxX: priceAxisX,
       measureTextWidth: measureLegendTextWidth,
       top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
     }),
-  });
+  );
 
   const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
     labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
