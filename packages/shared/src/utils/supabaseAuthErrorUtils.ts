@@ -1,6 +1,30 @@
 export const SUPABASE_STORAGE_TRANSIENT_ERROR_NAME =
   'SupabaseStorageTransientError';
 
+const SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES = new Set([
+  'invalid_grant',
+  'refresh_token_not_found',
+  'refresh_token_already_used',
+]);
+
+export function isDefinitiveSupabaseRefreshTokenRejectionError(
+  error: unknown,
+): boolean {
+  const authError = error as
+    | {
+        code?: unknown;
+        error?: unknown;
+        error_code?: unknown;
+      }
+    | undefined
+    | null;
+  return [authError?.code, authError?.error, authError?.error_code].some(
+    (code) =>
+      typeof code === 'string' &&
+      SUPABASE_AUTH_DEFINITIVE_REFRESH_TOKEN_REJECTION_CODES.has(code),
+  );
+}
+
 /**
  * Thrown by the Supabase session storage layer when persisted session
  * material EXISTS but cannot be read right now for a transient reason (e.g.

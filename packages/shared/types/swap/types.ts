@@ -608,6 +608,7 @@ export interface ISwapPreSwapData {
 export interface IFetchSwapQuoteParams {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  requestScopeKey?: string;
   fromTokenAmount?: string;
   receivingAddress?: string;
   incognito?: boolean;
@@ -777,6 +778,7 @@ export interface ISwapState {
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
+  shouldEnterRecipient?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {

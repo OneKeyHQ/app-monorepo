@@ -1,20 +1,14 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
-import {
-  StackActions,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Empty,
-  type IPageNavigationProp,
   Icon,
-  Page,
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -22,16 +16,38 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalPerpRoutes,
-  type IModalPerpParamList,
-  type IUnifoldSourceSelectorResult,
-} from '@onekeyhq/shared/src/routes/perp';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type {
+  IUnifoldSupportedAsset,
+  IUnifoldSupportedAssetChain,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
 import { normalizeUnifoldIconUrl } from './unifoldFormat';
 
-import type { RouteProp } from '@react-navigation/native';
+function MobileSourceSelectorSkeletonList() {
+  return (
+    <YStack testID="perps-unifold-source-selector-loading">
+      {[...Array(4)].map((_, index) => (
+        <XStack
+          // The index is stable because these placeholders never reorder.
+          key={index}
+          mx="$-2"
+          px="$2"
+          width="100%"
+          alignItems="center"
+          gap="$3"
+          py="$2.5"
+        >
+          <Skeleton radius="round" w="$10" h="$10" />
+          <YStack flex={1} gap="$1">
+            <Skeleton h="$4" w="$24" />
+            <Skeleton h="$3" w="$16" />
+          </YStack>
+          <Stack width="$5" />
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
 
 function MobileSourceSelectorRow({
   testID,
@@ -80,28 +96,32 @@ function MobileSourceSelectorRow({
   );
 }
 
-export default function MobileUnifoldSourceSelectorModal() {
+export function MobileUnifoldSourceSelectorContent({
+  mode,
+  assets,
+  loading = false,
+  selectedAssetSymbol,
+  selectedChainType,
+  selectedChainId,
+  onSelectToken,
+  onSelectChain,
+}: {
+  mode: 'token' | 'chain';
+  assets: IUnifoldSupportedAsset[] | undefined;
+  loading?: boolean;
+  selectedAssetSymbol?: string;
+  selectedChainType?: string;
+  selectedChainId?: string;
+  onSelectToken: (asset: IUnifoldSupportedAsset) => void;
+  onSelectChain: (
+    asset: IUnifoldSupportedAsset,
+    chain: IUnifoldSupportedAssetChain,
+  ) => void;
+}) {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
-  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
-  const route =
-    useRoute<
-      RouteProp<
-        IModalPerpParamList,
-        EModalPerpRoutes.MobileUnifoldSourceSelector
-      >
-    >();
-  const {
-    requestId,
-    mode,
-    assets,
-    selectedAssetSymbol,
-    selectedChainType,
-    selectedChainId,
-    continueToChain,
-  } = route.params;
   const usableAssets = useMemo(
-    () => assets.filter((asset) => asset.chains.length > 0),
+    () => (assets ?? []).filter((asset) => asset.chains.length > 0),
     [assets],
   );
   const filteredAssets = useMemo(() => {
@@ -136,29 +156,6 @@ export default function MobileUnifoldSourceSelectorModal() {
       ),
     );
   }, [chainOptions, searchValue]);
-  const returnSelection = useCallback(
-    (sourceSelectorResult: IUnifoldSourceSelectorResult) => {
-      navigation.dispatch(
-        StackActions.popTo(
-          EModalPerpRoutes.MobileUnifoldDepositTransfer,
-          { sourceSelectorResult },
-          { merge: true },
-        ),
-      );
-    },
-    [navigation],
-  );
-  const selectTokenAndContinue = useCallback(
-    (assetSymbol: string) => {
-      navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-        requestId: generateUUID(),
-        mode: 'chain',
-        assets: usableAssets,
-        selectedAssetSymbol: assetSymbol,
-      });
-    },
-    [navigation, usableAssets],
-  );
   let optionRows: ReactNode = null;
   if (mode === 'token') {
     optionRows = filteredAssets.map((asset) => (
@@ -179,15 +176,7 @@ export default function MobileUnifoldSourceSelectorModal() {
         }
         selected={asset.symbol === selectedAssetSymbol}
         onPress={() => {
-          if (continueToChain) {
-            selectTokenAndContinue(asset.symbol);
-          } else {
-            returnSelection({
-              requestId,
-              mode: 'token',
-              assetSymbol: asset.symbol,
-            });
-          }
+          onSelectToken(asset);
         }}
       />
     ));
@@ -206,16 +195,7 @@ export default function MobileUnifoldSourceSelectorModal() {
           chain.chain_id === selectedChainId
         }
         onPress={() => {
-          const result = {
-            assetSymbol: selectedAsset.symbol,
-            chainType: chain.chain_type,
-            chainId: chain.chain_id,
-          };
-          returnSelection({
-            requestId,
-            mode: 'chain',
-            ...result,
-          });
+          onSelectChain(selectedAsset, chain);
         }}
       />
     ));
@@ -232,45 +212,35 @@ export default function MobileUnifoldSourceSelectorModal() {
       />
     </YStack>
   );
-  if (hasResults) {
+  if (loading) {
+    listContent = <MobileSourceSelectorSkeletonList />;
+  } else if (hasResults) {
     listContent = optionRows;
   }
 
   return (
-    <Page>
-      <Page.Header
-        title={intl.formatMessage({
-          id:
-            mode === 'token'
-              ? ETranslations.token_selector_title
-              : ETranslations.global_select_network,
-        })}
-      />
-      <Page.Body>
-        <YStack px="$4" flex={1} minHeight={0}>
-          <YStack pb="$3">
-            <SearchBar
-              value={searchValue}
-              onChangeText={setSearchValue}
-              placeholder={intl.formatMessage({
-                id:
-                  mode === 'token'
-                    ? ETranslations.global_search_tokens
-                    : ETranslations.form_search_network_placeholder,
-              })}
-              containerProps={{
-                bg: '$bgStrong',
-                borderRadius: '$full',
-              }}
-            />
-          </YStack>
-          <Stack flex={1} minHeight={0} mx="$-2">
-            <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-              <YStack px="$2">{listContent}</YStack>
-            </ScrollView>
-          </Stack>
-        </YStack>
-      </Page.Body>
-    </Page>
+    <YStack px="$4" flex={1} minHeight={0}>
+      <YStack pb="$3">
+        <SearchBar
+          value={searchValue}
+          onChangeText={setSearchValue}
+          placeholder={intl.formatMessage({
+            id:
+              mode === 'token'
+                ? ETranslations.global_search_tokens
+                : ETranslations.form_search_network_placeholder,
+          })}
+          containerProps={{
+            bg: '$bgStrong',
+            borderRadius: '$full',
+          }}
+        />
+      </YStack>
+      <Stack flex={1} minHeight={0} mx="$-2">
+        <ScrollView flex={1} showsVerticalScrollIndicator={false}>
+          <YStack px="$2">{listContent}</YStack>
+        </ScrollView>
+      </Stack>
+    </YStack>
   );
 }

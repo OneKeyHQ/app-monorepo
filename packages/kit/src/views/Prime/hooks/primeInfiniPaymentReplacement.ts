@@ -262,6 +262,7 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   fetchPurchaseStatusSnapshot,
   archivePaymentSession,
   persistTrackedPayment,
+  onLatestPaymentUnavailable,
   shouldContinue,
 }: {
   currentSession: IPrimeInfiniPendingPaymentSession;
@@ -273,6 +274,7 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   persistTrackedPayment: (
     payment: IPrimeInfiniPayment,
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
+  onLatestPaymentUnavailable?: (error: unknown) => void;
   shouldContinue: () => boolean;
 }): Promise<IPrimeInfiniPaymentForcedReplacementResult> {
   // The invoice endpoint can stay broken for a specific paymentId, which used
@@ -284,7 +286,10 @@ export async function resolvePrimeInfiniPaymentForcedReplacement({
   const [latestPayment, purchaseStatusSnapshot] = await Promise.all([
     fetchLatestPayment(currentSession.payment.paymentId).then(
       (payment) => payment,
-      () => undefined,
+      (error) => {
+        onLatestPaymentUnavailable?.(error);
+        return undefined;
+      },
     ),
     fetchPurchaseStatusSnapshot(),
   ]);

@@ -6,6 +6,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import {
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
@@ -14,7 +16,10 @@ import {
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -49,11 +54,16 @@ import {
   swapInputAmountDraftsAtom,
   swapLastNonLimitSelectedTokensAtom,
   swapNetworks,
+  swapProDirectionAtom,
+  swapProInputAmountAtom,
   swapProPositionsCacheAtom,
   swapProPositionsCurrentOwnerKeyAtom,
   swapProPositionsDataOwnerKeyAtom,
+  swapProSelectTokenAtom,
+  swapProSellToTokenAtom,
   swapProSupportNetworksTokenListAtom,
   swapProTokenBalanceLoadingAtom,
+  swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteAutoRefreshTimerAtom,
   swapQuoteCurrentEventProviderKeysAtom,
@@ -70,6 +80,8 @@ import {
   swapSelectedFromTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
+  swapSpeedQuoteFetchingAtom,
+  swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
@@ -128,6 +140,12 @@ const mockGetSupportSwapAllAccounts: jest.MockedFunction<
 const mockFetchSwapTokens: jest.MockedFunction<
   (params: unknown) => Promise<ISwapToken[]>
 > = jest.fn();
+const mockFetchSpeedSwapQuote: jest.MockedFunction<
+  (params: unknown) => Promise<IFetchQuoteResult[]>
+> = jest.fn();
+const mockCancelFetchSpeedSwapQuote: jest.MockedFunction<
+  (requestScopeKey?: string) => Promise<void>
+> = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -142,6 +160,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
+      fetchSpeedSwapQuote: (params: unknown) => mockFetchSpeedSwapQuote(params),
+      cancelFetchSpeedSwapQuote: (requestScopeKey?: string) =>
+        mockCancelFetchSpeedSwapQuote(requestScopeKey),
     },
     simpleDb: {
       swapNetworksSort: {
@@ -166,12 +187,34 @@ const ethToken: ISwapToken = {
   decimals: 18,
   isNative: true,
 };
+const wethToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  symbol: 'WETH',
+  decimals: 18,
+  isNative: false,
+};
 const bnbToken: ISwapToken = {
   networkId: 'evm--56',
   contractAddress: '',
   symbol: 'BNB',
   decimals: 18,
   isNative: true,
+};
+const ltcToken: ISwapToken = {
+  networkId: 'ltc--0',
+  contractAddress: '',
+  symbol: 'LTC',
+  decimals: 8,
+  isNative: true,
+};
+const ethProToken: IToken = {
+  ...ethToken,
+  speedSwapDefaultAmount: [0.001, 0.01, 0.1],
+};
+const bnbProToken: IToken = {
+  ...bnbToken,
+  speedSwapDefaultAmount: [0.01, 0.1, 1],
 };
 const usdcToken: ISwapToken = {
   networkId: 'evm--56',
@@ -207,6 +250,11 @@ const evmSwapNetwork: ISwapNetwork = {
   networkId: 'evm--1',
   name: 'Ethereum',
   symbol: 'ETH',
+};
+const ltcSwapNetwork: ISwapNetwork = {
+  networkId: 'ltc--0',
+  name: 'Litecoin',
+  symbol: 'LTC',
 };
 const evmAccount: INetworkAccount = {
   id: 'hd-1--m/44/60/0/0/0',
@@ -356,6 +404,8 @@ describe('useSwapActions', () => {
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
     mockCloseApproving.mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
+    mockCancelFetchSpeedSwapQuote.mockResolvedValue(undefined);
+    mockFetchSpeedSwapQuote.mockResolvedValue([]);
     mockCheckAccountNetworkNotSupported.mockResolvedValue(false);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
     mockFetchSwapTokens.mockResolvedValue([]);
@@ -374,6 +424,241 @@ describe('useSwapActions', () => {
 
   afterEach(() => {
     platformEnv.isNative = false;
+  });
+
+  it('builds a 1:1 wrapped quote for Swap Pro without requesting a provider quote', async () => {
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapProSelectTokenAtom(), wethToken);
+      currentStore.set(swapProUseSelectBuyTokenAtom(), ethProToken);
+      currentStore.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      currentStore.set(swapProInputAmountAtom(), '0.001');
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+
+    expect(mockFetchSpeedSwapQuote).not.toHaveBeenCalled();
+    expect(store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
+    expect(store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+      quoteId: expect.any(String),
+      fromTokenInfo: ethToken,
+      toTokenInfo: wethToken,
+      fromAmount: '0.001',
+      toAmount: '0.001',
+      instantRate: '1',
+      isWrapped: true,
+      fee: {
+        percentageFee: 0,
+      },
+    });
+    const firstQuoteId = store.get(swapSpeedQuoteResultAtom())?.quoteId;
+
+    await act(async () => {
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+    expect(store.get(swapSpeedQuoteResultAtom())?.quoteId).not.toBe(
+      firstQuoteId,
+    );
+  });
+
+  it('builds a 1:1 unwrap quote for the reverse Swap Pro pair', async () => {
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapProSelectTokenAtom(), wethToken);
+      currentStore.set(swapProSellToTokenAtom(), ethProToken);
+      currentStore.set(swapProDirectionAtom(), ESwapDirection.SELL);
+      currentStore.set(swapProInputAmountAtom(), '2');
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+
+    expect(mockFetchSpeedSwapQuote).not.toHaveBeenCalled();
+    expect(store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+      fromTokenInfo: wethToken,
+      toTokenInfo: ethToken,
+      fromAmount: '2',
+      toAmount: '2',
+      isWrapped: true,
+    });
+  });
+
+  it('does not let a stale provider quote overwrite a newer wrapped quote', async () => {
+    const speedQuoteRequest = createDeferred<IFetchQuoteResult[]>();
+    mockFetchSpeedSwapQuote.mockReturnValue(speedQuoteRequest.promise);
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapProSelectTokenAtom(), usdcToken);
+      currentStore.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      currentStore.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      currentStore.set(swapProInputAmountAtom(), '1');
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+    expect(mockFetchSpeedSwapQuote).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      store.set(swapProSelectTokenAtom(), wethToken);
+      store.set(swapProUseSelectBuyTokenAtom(), ethProToken);
+      await result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+      speedQuoteRequest.resolve([
+        {
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'provider', providerName: 'Provider' },
+          fromTokenInfo: bnbToken,
+          toTokenInfo: usdcToken,
+          fromAmount: '1',
+          toAmount: '300',
+        },
+      ]);
+      await speedQuoteRequest.promise;
+    });
+
+    await waitFor(() => {
+      expect(store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+        fromTokenInfo: ethToken,
+        toTokenInfo: wethToken,
+        fromAmount: '1',
+        toAmount: '1',
+        isWrapped: true,
+      });
+    });
+  });
+
+  it('keeps speed quote requests isolated between Swap stores', async () => {
+    const firstSpeedQuoteRequest = createDeferred<IFetchQuoteResult[]>();
+    const secondSpeedQuoteRequest = createDeferred<IFetchQuoteResult[]>();
+    mockFetchSpeedSwapQuote
+      .mockReturnValueOnce(firstSpeedQuoteRequest.promise)
+      .mockReturnValueOnce(secondSpeedQuoteRequest.promise);
+    const firstContext = createWrapperWithStore((store) => {
+      store.set(swapProSelectTokenAtom(), usdcToken);
+      store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      store.set(swapProInputAmountAtom(), '1');
+    });
+    const secondContext = createWrapperWithStore((store) => {
+      store.set(swapProSelectTokenAtom(), usdcToken);
+      store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      store.set(swapProInputAmountAtom(), '2');
+    });
+    const firstInstance = renderHook(() => useSwapActions().current, {
+      wrapper: firstContext.Wrapper,
+    });
+    const secondInstance = renderHook(() => useSwapActions().current, {
+      wrapper: secondContext.Wrapper,
+    });
+
+    await act(async () => {
+      await firstInstance.result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+      await secondInstance.result.current.quoteSpeedAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        'account-1',
+        '0xabc',
+      );
+    });
+
+    const firstRequestParams = mockFetchSpeedSwapQuote.mock.calls[0][0] as {
+      requestScopeKey?: string;
+    };
+    const secondRequestParams = mockFetchSpeedSwapQuote.mock.calls[1][0] as {
+      requestScopeKey?: string;
+    };
+    expect(firstRequestParams.requestScopeKey).toEqual(expect.any(String));
+    expect(secondRequestParams.requestScopeKey).toEqual(expect.any(String));
+    expect(secondRequestParams.requestScopeKey).not.toBe(
+      firstRequestParams.requestScopeKey,
+    );
+    expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+    expect(secondContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+
+    await act(async () => {
+      secondSpeedQuoteRequest.resolve([
+        {
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'provider', providerName: 'Provider' },
+          fromTokenInfo: bnbToken,
+          toTokenInfo: usdcToken,
+          fromAmount: '2',
+          toAmount: '600',
+        },
+      ]);
+      await secondSpeedQuoteRequest.promise;
+    });
+    await waitFor(() => {
+      expect(secondContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
+      expect(secondContext.store.get(swapSpeedQuoteResultAtom())).toMatchObject(
+        {
+          fromAmount: '2',
+          toAmount: '600',
+        },
+      );
+    });
+    expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(true);
+
+    await act(async () => {
+      firstSpeedQuoteRequest.resolve([
+        {
+          protocol: EProtocolOfExchange.SWAP,
+          info: { provider: 'provider', providerName: 'Provider' },
+          fromTokenInfo: bnbToken,
+          toTokenInfo: usdcToken,
+          fromAmount: '1',
+          toAmount: '300',
+        },
+      ]);
+      await firstSpeedQuoteRequest.promise;
+    });
+    await waitFor(() => {
+      expect(firstContext.store.get(swapSpeedQuoteFetchingAtom())).toBe(false);
+      expect(firstContext.store.get(swapSpeedQuoteResultAtom())).toMatchObject({
+        fromAmount: '1',
+        toAmount: '300',
+      });
+    });
   });
 
   it('uses the complete Stock list limit for child-network balance requests', async () => {
@@ -3390,6 +3675,75 @@ describe('useSwapActions', () => {
       quoteId: '',
       states: [],
     });
+  });
+
+  it('creates a missing recipient address with the resolved target identity', async () => {
+    const hdWallet: IDBWallet = {
+      id: 'hd-1',
+      name: 'HD Wallet 1',
+      type: WALLET_TYPE_HD,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: 1,
+    };
+    const ethActiveAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      deriveType: 'default',
+      wallet: hdWallet,
+      indexedAccount: {
+        id: 'hd-1--0',
+        name: 'Account 1',
+        walletId: hdWallet.id,
+        index: 0,
+        idHash: 'indexed-account-hash',
+      },
+      network: { id: ethToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const ethAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      deriveType: ethActiveAccountInfo.deriveType,
+      accountInfo: ethActiveAccountInfo,
+      activeAccount: ethActiveAccountInfo,
+    };
+    const missingLtcAddressInfo: ISwapAddressInfo = {
+      ...ethAddressInfo,
+      address: undefined,
+      networkId: ltcToken.networkId,
+      deriveType: 'BIP84',
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapNetworks(), [evmSwapNetwork, ltcSwapNetwork]);
+      storeInstance.set(swapSelectToTokenAtom(), ltcToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          ethAddressInfo,
+          missingLtcAddressInfo,
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        action: expect.objectContaining({
+          directionType: ESwapDirectionType.TO,
+          actionData: expect.objectContaining({
+            account: expect.objectContaining({
+              networkId: ltcToken.networkId,
+              deriveType: 'BIP84',
+            }),
+          }),
+        }),
+      }),
+    ]);
   });
 
   it('keeps the unsupported-account alert after address resolution completes', async () => {

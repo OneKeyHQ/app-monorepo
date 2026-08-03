@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { BigNumber } from 'bignumber.js';
 import { selectAtom } from 'jotai/utils';
 
@@ -38,6 +40,7 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData: useHyperliquidContextData,
 } = createJotaiContext();
 export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 
@@ -188,6 +191,14 @@ export function useBboForOrderPrice(
   const { use } = getOrCreateBboForOrderPriceAtom(enabled);
   const [bbo] = use();
   return bbo;
+}
+
+export function useGetBboForOrderPrice() {
+  const { store } = useHyperliquidContextData();
+  return useCallback(
+    (): IPerpsBboWithLocalReceivedAt | null => store?.get(bboAtom()) ?? null,
+    [store],
+  );
 }
 
 // TODO remove

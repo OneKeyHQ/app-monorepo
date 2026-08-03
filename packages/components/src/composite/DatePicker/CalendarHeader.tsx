@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { IconButton } from '../../actions/IconButton';
 import { useMedia } from '../../hooks';
 import { SizableText, Stack, XStack } from '../../primitives';
@@ -8,6 +10,11 @@ import type { ICalendarHeaderProps } from './type';
 
 const mdStyle = { marginTop: '$2' } as const;
 const hoverSubduedStyle = { color: '$textSubdued' } as const;
+// Android reserves extra font padding above the ascent (large for CJK fonts),
+// which sinks the title below the visual center of the nav buttons row.
+const titleTextStyle = platformEnv.isNativeAndroid
+  ? ({ includeFontPadding: false } as const)
+  : undefined;
 
 function NavSpacer() {
   return <Stack width="$10" height="$6" />;
@@ -61,6 +68,7 @@ export const CalendarHeader = memo(
               cursor="default"
               userSelect="none"
               pointerEvents="auto"
+              style={titleTextStyle}
               onPress={onMonthClick}
               hoverStyle={onMonthClick ? hoverSubduedStyle : undefined}
             >
@@ -73,6 +81,7 @@ export const CalendarHeader = memo(
             cursor="default"
             userSelect="none"
             pointerEvents="auto"
+            style={titleTextStyle}
             onPress={yearClickable ? onYearClick : undefined}
             hoverStyle={yearClickable ? hoverSubduedStyle : undefined}
           >

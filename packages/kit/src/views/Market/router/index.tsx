@@ -18,6 +18,9 @@ const MobileTokenSelectorModal = LazyLoadPage(
   () =>
     import('../MarketDetailV2/components/TokenSelector/MobileTokenSelector'),
 );
+const MarketChartSettingsModal = LazyLoadPage(
+  () => import('../MarketDetailV2/components/MarketChartSettingsModal'),
+);
 
 export { EModalMarketRoutes };
 export type { IModalMarketParamList };
@@ -38,5 +41,10 @@ export const ModalMarketStack: IModalFlowNavigatorConfig<
   {
     name: EModalMarketRoutes.MobileTokenSelector,
     component: MobileTokenSelectorModal,
+  },
+  {
+    name: EModalMarketRoutes.MarketChartSettings,
+    component: MarketChartSettingsModal,
+    modalContentMaxHeight: 544,
   },
 ];

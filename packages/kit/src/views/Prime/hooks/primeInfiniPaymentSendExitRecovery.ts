@@ -11,7 +11,7 @@ type IPrimeInfiniPaymentSendExitRecoveryParams = {
     didBroadcastStart: boolean;
     phase: IPrimeInfiniPaymentPhase;
   }) => void;
-  onRejected: (phase: IPrimeInfiniPaymentPhase) => void;
+  onRejected: (phase: IPrimeInfiniPaymentPhase, error: unknown) => void;
 };
 
 export async function startPrimeInfiniPaymentSendExitRecovery({
@@ -33,9 +33,9 @@ export async function startPrimeInfiniPaymentSendExitRecovery({
       didBroadcastStart,
       phase: didBroadcastStart ? 'polling' : fallbackPhase,
     });
-  } catch {
+  } catch (error) {
     if (shouldApply()) {
-      onRejected('polling');
+      onRejected('polling', error);
     }
   }
 }

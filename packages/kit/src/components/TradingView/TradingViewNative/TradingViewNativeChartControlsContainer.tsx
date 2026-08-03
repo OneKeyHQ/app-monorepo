@@ -3,11 +3,16 @@ import { type ReactNode, memo, useCallback } from 'react';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Dialog } from '@onekeyhq/components';
 import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewChartControlsProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { showTradingViewChartSettingsDialog } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+
+import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 
 const ACTIVE_INDICATOR_VALUES = new Set<string>();
 
@@ -38,14 +43,33 @@ export const TradingViewNativeChartControlsContainer = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
+    const navigation = useAppNavigation();
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
-    const settingsEnabled =
-      enableNativeChartSettings && layoutMode === 'desktop';
+    const settingsEnabled = enableNativeChartSettings;
+    const openChartSettingsModal = useCallback(() => {
+      navigation.pushModal(EModalRoutes.MarketModal, {
+        screen: EModalMarketRoutes.MarketChartSettings,
+      });
+    }, [navigation]);
     const handleSettingsPress = useCallback(() => {
-      showTradingViewChartSettingsDialog();
-    }, []);
+      if (layoutMode !== 'mobile') {
+        openChartSettingsModal();
+        return;
+      }
+
+      Dialog.show({
+        title: intl.formatMessage({ id: ETranslations.global_settings }),
+        showFooter: false,
+        testID: 'trading-view-native-chart-settings-quick-dialog',
+        renderContent: (
+          <TradingViewMobileChartSettingsDialogContent
+            onOpenSettings={openChartSettingsModal}
+          />
+        ),
+      });
+    }, [intl, layoutMode, openChartSettingsModal]);
     const handleFullscreenToggle = useCallback(() => {
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);

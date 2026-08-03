@@ -56,6 +56,8 @@ import {
   createTradingViewNativeSkiaResources,
 } from './chartSkiaRenderer';
 
+import type { ITradingViewNativeChartType } from '../types';
+
 const PAN_DRAG_RATIO = 1.1;
 const PAN_DECELERATION = 0.9982;
 const MIN_FLING_VELOCITY = 100;
@@ -72,6 +74,7 @@ interface IChartSize {
 
 interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   panGesture: {
     startOffset: number;
     translationX: number;
@@ -90,6 +93,7 @@ interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeS
 
 interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
@@ -104,14 +108,17 @@ interface ITradingViewNativeChartProps {
 
 function getInitialRuntime({
   candleIntervalSeconds,
+  chartType,
   points,
 }: {
   candleIntervalSeconds: number;
+  chartType: ITradingViewNativeChartType;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativeChartRuntime {
   return {
     ...createTradingViewNativeChartRuntimeState(),
     candleIntervalSeconds,
+    chartType,
     panGesture: {
       startOffset: 0,
       translationX: 0,
@@ -132,6 +139,7 @@ function getInitialRuntime({
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartType,
     chartPictureVersion,
     isSwitchingInterval,
     onChartWidthChange,
@@ -146,7 +154,7 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const chartRuntime = useSharedValue(
-      getInitialRuntime({ candleIntervalSeconds, points }),
+      getInitialRuntime({ candleIntervalSeconds, chartType, points }),
     );
     const decayOffset = useSharedValue(0);
     const previousLatestTimestampRef = useRef<number | undefined>(
@@ -166,6 +174,7 @@ export const TradingViewNativeChart = memo(
     const background = theme.bgApp.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
+    const line = theme.text.val;
     const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
     const watermarkOpacity =
@@ -178,18 +187,20 @@ export const TradingViewNativeChart = memo(
             background,
             down: CHART_DOWN_COLOR,
             grid,
+            line,
             up: CHART_UP_COLOR,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
           watermarkSvg,
         }),
-      [axisText, background, grid, watermarkSvg],
+      [axisText, background, grid, line, watermarkSvg],
     );
 
     const picture = useDerivedValue(() => {
       const runtime = chartRuntime.value;
       return createTradingViewNativeSkiaPicture({
         candleIntervalSeconds: runtime.candleIntervalSeconds,
+        chartType: runtime.chartType,
         crosshair: runtime.crosshair,
         height: runtime.size.height,
         points: runtime.points,
@@ -309,6 +320,7 @@ export const TradingViewNativeChart = memo(
           ...runtime,
           ...nextRuntimeState,
           candleIntervalSeconds,
+          chartType,
           panGesture: {
             ...runtime.panGesture,
             startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
@@ -333,6 +345,7 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleIntervalSeconds,
+      chartType,
       chartPictureVersion,
       chartRuntime,
       chartSize,

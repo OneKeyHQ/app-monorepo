@@ -1,13 +1,11 @@
 // cspell: words unifold Unifold
 import { useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   DashText,
-  type IPageNavigationProp,
   Icon,
   IconButton,
   Popover,
@@ -24,17 +22,15 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalPerpRoutes,
-  type IModalPerpParamList,
-} from '@onekeyhq/shared/src/routes/perp';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
-import { normalizeUnifoldIconUrl } from './unifoldFormat';
+import {
+  isUnifoldNativeTokenAddress,
+  normalizeUnifoldIconUrl,
+} from './unifoldFormat';
 
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
@@ -68,7 +64,6 @@ function SelectorTrigger({
       borderRadius="$2"
       borderWidth="$px"
       borderColor="$borderSubdued"
-      opacity={disabled ? 0.6 : 1}
       disabled={disabled}
       cursor={disabled ? 'default' : 'pointer'}
       hoverStyle={
@@ -108,12 +103,7 @@ function SelectorTrigger({
           </SizableText>
         </>
       )}
-      <Icon
-        name="ChevronDownSmallOutline"
-        size="$4"
-        color="$iconSubdued"
-        opacity={0.6}
-      />
+      <Icon name="ChevronDownSmallOutline" size="$4" color="$icon" />
     </XStack>
   );
 }
@@ -191,6 +181,7 @@ function TokenContractContent({
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { chain } = selection;
+  const isNativeToken = isUnifoldNativeTokenAddress(chain.token_address);
 
   return (
     <YStack gap="$4">
@@ -231,16 +222,22 @@ function TokenContractContent({
             wordWrap="break-word"
             selectable
           >
-            {chain.token_address}
+            {isNativeToken
+              ? intl.formatMessage({
+                  id: ETranslations.perp_unifold_native_token__title,
+                })
+              : chain.token_address}
           </SizableText>
-          <IconButton
-            testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
-            icon="Copy3Outline"
-            variant="tertiary"
-            size="small"
-            flexShrink={0}
-            onPress={() => copyText(chain.token_address)}
-          />
+          {isNativeToken ? null : (
+            <IconButton
+              testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
+              icon="Copy3Outline"
+              variant="tertiary"
+              size="small"
+              flexShrink={0}
+              onPress={() => copyText(chain.token_address)}
+            />
+          )}
         </XStack>
       </YStack>
     </YStack>
@@ -263,6 +260,7 @@ function TokenContractDisclosure({
   });
   const trigger = (
     <DashText
+      testID={`perps-unifold-token-contract-${selection.chain.chain_type}-${selection.chain.chain_id}`}
       size="$bodySm"
       color="$textSubdued"
       dashColor="$textDisabled"
@@ -309,18 +307,20 @@ export function UnifoldSourceSelector({
   loading,
   onSelectToken,
   onSelectChain,
+  onOpenMobileTokenSelector,
+  onOpenMobileChainSelector,
 }: {
   assets: IUnifoldSupportedAsset[] | undefined;
   selection: IUnifoldSourceSelection | null;
   loading: boolean;
   onSelectToken: (asset: IUnifoldSupportedAsset) => void;
   onSelectChain: (chain: IUnifoldSupportedAssetChain) => void;
+  onOpenMobileTokenSelector?: () => void;
+  onOpenMobileChainSelector?: () => void;
 }) {
   const intl = useIntl();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
-  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
-
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
   const minUsd = selection?.chain.minimum_deposit_amount_usd ?? 3;
@@ -340,19 +340,12 @@ export function UnifoldSourceSelector({
         if (!canSelectToken) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setTokenOpen(true);
+        if (onOpenMobileTokenSelector) {
+          onOpenMobileTokenSelector();
           return;
         }
 
-        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-          requestId: generateUUID(),
-          mode: 'token',
-          assets: usableAssets,
-          selectedAssetSymbol: selection?.asset.symbol,
-          selectedChainType: selection?.chain.chain_type,
-          selectedChainId: selection?.chain.chain_id,
-        });
+        setTokenOpen(true);
       }}
     />
   );
@@ -368,19 +361,12 @@ export function UnifoldSourceSelector({
         if (!canSelectChain) {
           return;
         }
-        if (!platformEnv.isNative) {
-          setChainOpen(true);
+        if (onOpenMobileChainSelector) {
+          onOpenMobileChainSelector();
           return;
         }
 
-        navigation.push(EModalPerpRoutes.MobileUnifoldSourceSelector, {
-          requestId: generateUUID(),
-          mode: 'chain',
-          assets: usableAssets,
-          selectedAssetSymbol: selection?.asset.symbol,
-          selectedChainType: selection?.chain.chain_type,
-          selectedChainId: selection?.chain.chain_id,
-        });
+        setChainOpen(true);
       }}
     />
   );
@@ -408,7 +394,7 @@ export function UnifoldSourceSelector({
           </SizableText>
           <TokenContractDisclosure selection={selection} />
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileTokenSelector ? (
           tokenTrigger
         ) : (
           <Popover
@@ -490,7 +476,7 @@ export function UnifoldSourceSelector({
             )}
           </DashText>
         </XStack>
-        {platformEnv.isNative ? (
+        {onOpenMobileChainSelector ? (
           chainTrigger
         ) : (
           <Popover
