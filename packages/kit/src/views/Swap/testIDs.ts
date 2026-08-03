@@ -27,6 +27,7 @@ export const SwapTestIDs = {
   // Provider
   providerSelector: 'swap-provider-selector',
   providerItem: (name: string) => `swap-provider-${name}`,
+  tipsContainer: 'swap-tips-container',
 
   // Pro
   proContainer: 'swap-pro-container',
