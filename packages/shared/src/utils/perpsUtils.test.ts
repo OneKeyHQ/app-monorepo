@@ -610,6 +610,31 @@ describe('HyperLiquid BBO price ticks', () => {
     ).toBe(expected);
   });
 
+  test('applies spot tick rules for spot assets on low-priced pairs', () => {
+    const args = {
+      bid: '0.0014',
+      ask: '0.0015',
+      side: 'long',
+      type: 'counterparty',
+      offsetTicks: 5,
+      szDecimals: 2,
+    } as const;
+    // Perp rule: tick = 10^-(6-2) = 1e-4 — far too coarse for a spot pair.
+    expect(resolveBboOrderPrice(args)?.toFixed()).toBe('0.002');
+    // Spot rule: tick = 10^-(8-2) = 1e-6.
+    expect(
+      resolveBboOrderPrice({ ...args, assetType: 'spot' })?.toFixed(),
+    ).toBe('0.001505');
+    // Queue-side offset must not zero out low-priced spot books either.
+    expect(
+      resolveBboOrderPrice({
+        ...args,
+        type: 'queue',
+        assetType: 'spot',
+      })?.toFixed(),
+    ).toBe('0.001395');
+  });
+
   test.each([
     ['1', '0.99995'],
     ['10', '9.9995'],

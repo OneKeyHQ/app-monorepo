@@ -664,6 +664,7 @@ function resolveBboOrderPrice({
   type,
   offsetTicks,
   szDecimals,
+  assetType = 'perp',
 }: {
   bid: BigNumber.Value;
   ask: BigNumber.Value;
@@ -671,6 +672,7 @@ function resolveBboOrderPrice({
   type: 'counterparty' | 'queue';
   offsetTicks: 0 | 5;
   szDecimals: number;
+  assetType?: 'perp' | 'spot';
 }): BigNumber | null {
   const useAsk =
     (side === 'long' && type === 'counterparty') ||
@@ -686,7 +688,9 @@ function resolveBboOrderPrice({
   }
 
   for (let index = 0; index < offsetTicks; index += 1) {
-    const nextPrice = getNextHlPrice(price, direction, szDecimals, 'perp');
+    // Spot ticks resolve against MAX_DECIMALS_SPOT (8); reusing the perp rule
+    // (6) makes low-priced spot ticks 100x too coarse.
+    const nextPrice = getNextHlPrice(price, direction, szDecimals, assetType);
     if (!nextPrice) {
       return null;
     }

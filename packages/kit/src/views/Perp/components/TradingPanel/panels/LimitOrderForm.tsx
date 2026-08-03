@@ -62,6 +62,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getSpotTokenDisplayName,
   parseDexCoin,
   resolveTradingSizeBN,
@@ -289,6 +290,8 @@ export function LimitOrderForm({
         undefined,
         undefined,
         szDecimals,
+        undefined,
+        isSpot ? 'spot' : 'perp',
       ),
     [bboPriceMode, isSpot, price, szDecimals],
   );
@@ -788,10 +791,11 @@ export function LimitOrderForm({
         return;
       }
       const resolvedPriceBN = orderPrice.price;
-      const resolvedPrice = formatPriceToSignificantDigits(
-        resolvedPriceBN,
-        szDecimals,
-      );
+      // Spot prices validate against MAX_DECIMALS_SPOT; the perp significant-
+      // digits rule truncates them, mirroring the main panel (useOrderConfirm).
+      const resolvedPrice = isSpot
+        ? formatSpotPriceToValid(resolvedPriceBN.toFixed(), szDecimals)
+        : formatPriceToSignificantDigits(resolvedPriceBN, szDecimals);
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
