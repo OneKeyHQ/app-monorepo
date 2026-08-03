@@ -541,9 +541,7 @@ function MobilePerpMarket() {
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
   const { pageScrollContainerEnabled, pageNativeScrollEnabled } =
     getMobilePerpMarketPageScrollState({
-      activeTab,
       isInteractionOverlayOpen: isTradingViewInteractionOverlayOpen,
-      isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
       isNativeIOS: Boolean(platformEnv.isNativeIOS),
     });
   const pageScrollProps = useMemo(
