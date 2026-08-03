@@ -214,7 +214,7 @@ export function LimitOrderForm({
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
   const [slValue, setSlValue] = useState('');
 
-  const isBBOActive = !isSpot && Boolean(bboPriceMode);
+  const isBBOActive = Boolean(bboPriceMode);
 
   const szDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -278,7 +278,7 @@ export function LimitOrderForm({
       calculateOrderPrice(
         'limit',
         price,
-        isSpot ? undefined : (bboPriceMode ?? undefined),
+        bboPriceMode ?? undefined,
         bboRef.current,
         midPriceBNRef.current,
         forSide,
@@ -722,12 +722,6 @@ export function LimitOrderForm({
     );
   }, []);
 
-  useEffect(() => {
-    if (isSpot && bboPriceMode) {
-      setBboPriceMode(null);
-    }
-  }, [bboPriceMode, isSpot]);
-
   const handleTpslCheckboxChange = useCallback(
     (checked: boolean) => {
       setHasTpsl(checked);
@@ -1162,31 +1156,25 @@ export function LimitOrderForm({
             />
           </YStack>
         )}
-        {isSpot ? null : (
-          <XStack
-            borderRadius="$2"
-            bg="$bgStrong"
-            borderWidth="$px"
-            borderColor="$transparent"
-            px="$3"
-            h={40}
-            alignItems="center"
-            cursor="pointer"
-            hoverStyle={{ bg: '$bgStrong' }}
-            pressStyle={{ bg: '$bgStrong' }}
-            onPress={handleBBOToggle}
-          >
-            <DashText
-              size="$bodyMdMedium"
-              dashColor="$text"
-              dashThickness={0.5}
-            >
-              {intl.formatMessage({
-                id: ETranslations.Perps_BBO_button_title,
-              })}
-            </DashText>
-          </XStack>
-        )}
+        <XStack
+          borderRadius="$2"
+          bg="$bgStrong"
+          borderWidth="$px"
+          borderColor="$transparent"
+          px="$3"
+          h={40}
+          alignItems="center"
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgStrong' }}
+          pressStyle={{ bg: '$bgStrong' }}
+          onPress={handleBBOToggle}
+        >
+          <DashText size="$bodyMdMedium" dashColor="$text" dashThickness={0.5}>
+            {intl.formatMessage({
+              id: ETranslations.Perps_BBO_button_title,
+            })}
+          </DashText>
+        </XStack>
       </XStack>
 
       {/* Size + slider */}

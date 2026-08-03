@@ -177,11 +177,10 @@ export function calculateOrderPrice(
 function useOrderPriceWithMidPrice(
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
-  isPerp = true,
   szDecimals?: number,
 ): IUseOrderPriceReturn {
   const formData = useTradingFormOrderPriceParams();
-  const bboPriceMode = isPerp ? formData.bboPriceMode : undefined;
+  const bboPriceMode = formData.bboPriceMode;
   const shouldTrackBboFreshness =
     formData.type === 'limit' && Boolean(bboPriceMode) && Boolean(side);
   const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
@@ -234,9 +233,8 @@ export function useOrderPrice(
   return useOrderPriceWithMidPrice(
     midPriceBN,
     side,
-    activeTradeInstrument.mode === 'perp',
     activeTradeInstrument.mode === 'perp'
       ? activeTradeInstrument.universe?.szDecimals
-      : undefined,
+      : activeTradeInstrument.universe?.baseSzDecimals,
   );
 }

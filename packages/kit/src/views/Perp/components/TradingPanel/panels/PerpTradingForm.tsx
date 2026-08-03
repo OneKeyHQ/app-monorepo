@@ -521,7 +521,7 @@ function PerpTradingForm({
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const isBBOActive = !isSpot && !!formData.bboPriceMode;
+  const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -912,12 +912,6 @@ function PerpTradingForm({
       executionPrice: '',
     });
   }, [formData.orderMode, isSpot, updateForm]);
-
-  useEffect(() => {
-    if (isSpot && formData.bboPriceMode) {
-      updateForm({ bboPriceMode: null });
-    }
-  }, [formData.bboPriceMode, isSpot, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
@@ -2169,7 +2163,7 @@ function PerpTradingForm({
               />
             </YStack>
           )}
-          {formData.type === 'limit' && !isSpot ? (
+          {formData.type === 'limit' ? (
             <Badge
               testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
