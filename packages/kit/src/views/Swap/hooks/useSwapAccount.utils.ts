@@ -1,3 +1,4 @@
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -56,6 +57,27 @@ type IGetSwapRecipientActionStateParams = {
   isAddressInfoReady: boolean;
   providerSupportReceiveAddress?: boolean;
 };
+
+export async function resolveSwapTargetNetworkAccount<TAccount>({
+  getDeriveType,
+  getNetworkAccount,
+}: {
+  getDeriveType: () => Promise<IAccountDeriveTypes>;
+  getNetworkAccount: (deriveType: IAccountDeriveTypes) => Promise<TAccount>;
+}) {
+  const deriveType = await getDeriveType();
+  try {
+    return {
+      account: await getNetworkAccount(deriveType),
+      deriveType,
+    };
+  } catch {
+    return {
+      account: undefined,
+      deriveType,
+    };
+  }
+}
 
 export function getSwapRecipientActionState({
   isActionDisabled,

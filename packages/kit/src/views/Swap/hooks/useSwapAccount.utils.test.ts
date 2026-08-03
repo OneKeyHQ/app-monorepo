@@ -1,13 +1,50 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
   getSwapRecipientValidationAccountId,
+  resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+describe('resolveSwapTargetNetworkAccount', () => {
+  it('keeps derive lookup failures unresolved', async () => {
+    const getDeriveType = jest.fn(async () => {
+      throw new OneKeyLocalError('derive lookup failed');
+    });
+    const getNetworkAccount = jest.fn(async () => ({ id: 'account-1' }));
+
+    await expect(
+      resolveSwapTargetNetworkAccount({
+        getDeriveType,
+        getNetworkAccount,
+      }),
+    ).rejects.toThrow('derive lookup failed');
+    expect(getNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('preserves the target derive type when its account is missing', async () => {
+    const getDeriveType = jest.fn(async () => 'BIP84' as const);
+    const getNetworkAccount = jest.fn(async () => {
+      throw new OneKeyLocalError('account not found');
+    });
+
+    await expect(
+      resolveSwapTargetNetworkAccount({
+        getDeriveType,
+        getNetworkAccount,
+      }),
+    ).resolves.toEqual({
+      account: undefined,
+      deriveType: 'BIP84',
+    });
+    expect(getNetworkAccount).toHaveBeenCalledWith('BIP84');
+  });
+});
 
 describe('getSwapRecipientActionState', () => {
   const validState = {

@@ -45,6 +45,7 @@ import {
 
 import {
   getSwapAddressAccountSelectorNum,
+  resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -391,21 +392,23 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     setResolvedTargetNetworkAccountKey(undefined);
 
     void (async () => {
-      let targetDeriveType: IAccountDeriveTypes | undefined;
       try {
-        targetDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: tokenNetworkId,
-          });
-        const targetAccount =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            deriveType: targetDeriveType,
-            indexedAccountId: activeAccount.indexedAccount?.id,
-            accountId: activeAccount.indexedAccount?.id
-              ? undefined
-              : activeAccount.account?.id,
-            dbAccount: activeAccount.dbAccount,
-            networkId: tokenNetworkId,
+        const { account: targetAccount, deriveType: targetDeriveType } =
+          await resolveSwapTargetNetworkAccount({
+            getDeriveType: () =>
+              backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+                networkId: tokenNetworkId,
+              }),
+            getNetworkAccount: (deriveType) =>
+              backgroundApiProxy.serviceAccount.getNetworkAccount({
+                deriveType,
+                indexedAccountId: activeAccount.indexedAccount?.id,
+                accountId: activeAccount.indexedAccount?.id
+                  ? undefined
+                  : activeAccount.account?.id,
+                dbAccount: activeAccount.dbAccount,
+                networkId: tokenNetworkId,
+              }),
           });
         if (!cancelled) {
           setAccountForTargetNetwork(targetAccount);
@@ -415,8 +418,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       } catch (_e) {
         if (!cancelled) {
           setAccountForTargetNetwork(undefined);
-          setDeriveTypeForTargetNetwork(targetDeriveType);
-          setResolvedTargetNetworkAccountKey(targetNetworkAccountResolveKey);
+          setDeriveTypeForTargetNetwork(undefined);
         }
       }
     })();
