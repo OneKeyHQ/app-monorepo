@@ -138,7 +138,9 @@ const TradesHistoryRow = memo(
 
     const tradeBaseInfo = useMemo(() => {
       const price = fill.px;
-      const size = fill.sz;
+      // Raw fill sizes can carry float tails and lack separators
+      // (18333333.3000000007); balance-format them like the TWAP list does.
+      const size = numberFormat(fill.sz, { formatter: 'balance' });
       const fee = fill.fee;
       // Spot prices allow up to MAX_DECIMALS_SPOT (8); the perp rule caps at 6
       // and rounds e.g. 0.0000006 up to 0.000001. szDecimals is unknown for a
