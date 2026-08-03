@@ -102,8 +102,11 @@ function reloadFromStorage(): void {
     // store, costing the runtime holding a full copy its only chance.
     _dirty = true;
     scheduleFlush();
-  } else {
-    _cache = store ?? {};
+  } else if (store) {
+    // Only when a store was actually read: on a backend that persists nothing
+    // this copy is the only one, and the perps first-frame path reloads every
+    // 30s, so clearing here would drop every namespace for the session.
+    _cache = store;
   }
   _lastReloadFromStorageAt = Date.now();
 }
@@ -153,7 +156,8 @@ function flush() {
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
     // Skipped without a store to merge against: `merged` is then only the
-    // pending keys, and on the extension stub this copy is the only one.
+    // pending keys, and on a backend that persists nothing (both extension
+    // runtimes get the no-op stub) this copy is the only one.
     if (disk) {
       _cache = merged;
     }

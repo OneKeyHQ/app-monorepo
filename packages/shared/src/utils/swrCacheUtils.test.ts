@@ -282,6 +282,20 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(swr.get('walletList')).toBe('wallets');
   });
 
+  it('keeps the in-memory copy when a reload finds no store at all', () => {
+    const swr = loadFreshRuntime();
+    swr.set('walletList', 'wallets');
+    swr.flushNow();
+    // Mirrors the extension stub: writes go nowhere, so this copy is the only one.
+    fakeDiskGlobal.__swrFakeDisk = {};
+
+    swr.reloadFromStorage();
+
+    // The reload runs on the perps first-frame path every 30s, so clearing
+    // here drops every namespace for the rest of the session.
+    expect(swr.get('walletList')).toBe('wallets');
+  });
+
   it('does not resurrect a removed key from the other runtime copy', () => {
     otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
     const swr = loadFreshRuntime();
