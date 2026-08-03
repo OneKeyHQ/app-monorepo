@@ -11,6 +11,11 @@ export interface ITxConfirmSubtitleParams {
   confirmationETABlocks: number | undefined;
   broadcastTimeMs: number | undefined;
   nowMs: number;
+  // Whether the speed-up UI is actually offered for this tx (replaceTxEnabled
+  // chain + canAccelerateTx). Chains like Solana/Tron have no accelerate
+  // mechanism, and even EVM/BTC hide the action for non-earliest nonces,
+  // server-only history, or watch-only accounts.
+  canSpeedUp: boolean;
 }
 
 export interface ITxConfirmSubtitle {
@@ -27,14 +32,18 @@ export function getTxConfirmSubtitle({
   confirmationETABlocks,
   broadcastTimeMs,
   nowMs,
+  canSpeedUp,
 }: ITxConfirmSubtitleParams): ITxConfirmSubtitle {
   // Low-fee / long-tail tx stuck for a while: drop the (now-misleading) ETA
-  // and nudge the user to speed it up.
+  // and nudge the user to speed it up — but never nudge toward an action
+  // that is not offered; fall back to the neutral waiting copy instead.
   if (
     broadcastTimeMs &&
     nowMs - broadcastTimeMs > TX_CONFIRM_SLOW_THRESHOLD_MS
   ) {
-    return { id: ETranslations.tx_confirm_slow__desc };
+    return canSpeedUp
+      ? { id: ETranslations.tx_confirm_slow__desc }
+      : { id: ETranslations.tx_confirm_waiting__desc };
   }
 
   if (confirmationETASeconds && confirmationETASeconds > 0) {

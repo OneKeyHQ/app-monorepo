@@ -1043,6 +1043,9 @@ function HistoryDetails() {
           confirmationETABlocks: txDetails?.confirmationETABlocks,
           broadcastTimeMs,
           nowMs: Date.now(),
+          // Mirror the speed-up action's own visibility condition so the copy
+          // never suggests an action the page does not offer.
+          canSpeedUp: Boolean(canReplaceTx || checkSpeedUpStateEnabled),
         })
       : null;
 
@@ -1084,6 +1087,8 @@ function HistoryDetails() {
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
+    canReplaceTx,
+    checkSpeedUpStateEnabled,
   ]);
 
   const renderTxFlow = useCallback(() => {
