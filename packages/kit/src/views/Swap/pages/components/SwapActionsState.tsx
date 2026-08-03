@@ -86,7 +86,6 @@ interface ISwapActionsStateProps {
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
-  reserveCostSavingsSlot?: boolean;
 }
 
 // cspell:ignore ellipsize
@@ -96,7 +95,6 @@ const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
-  reserveCostSavingsSlot,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -905,14 +903,7 @@ const SwapActionsState = ({
             {actionButtonChildren}
           </Button>
           {/* In regular pages and non-desktop modal: show savings below button */}
-          {!isDesktopModalPage &&
-            (reserveCostSavingsSlot ? (
-              <Stack minHeight="$5" alignItems="center" justifyContent="center">
-                {costSavingsComponent}
-              </Stack>
-            ) : (
-              costSavingsComponent
-            ))}
+          {!isDesktopModalPage ? costSavingsComponent : null}
         </Stack>
       </Stack>
     ),
@@ -924,7 +915,6 @@ const SwapActionsState = ({
       recipientComponent,
       shouldShowRecipientInActionRow,
       costSavingsComponent,
-      reserveCostSavingsSlot,
     ],
   );
 

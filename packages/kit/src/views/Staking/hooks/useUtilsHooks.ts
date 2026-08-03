@@ -70,13 +70,15 @@ export function useTrackTokenAllowance({
 }: {
   networkId: string;
   accountId: string;
-  initialValue: string;
+  initialValue?: string;
   tokenAddress: string;
   spenderAddress: string;
   approveType?: EApproveType;
 }) {
   const isLegacyApprove = approveType === EApproveType.Legacy;
   const isExistApproveTarget = !!spenderAddress;
+  const shouldFetchInitialAllowance =
+    initialValue === undefined && isExistApproveTarget;
   const allowanceTargetKey = [
     accountId,
     networkId,
@@ -91,14 +93,14 @@ export function useTrackTokenAllowance({
     value: string;
   }>(() => ({
     targetKey: allowanceTargetKey,
-    value: initialValue,
+    value: initialValue ?? '0',
   }));
   const allowance =
     allowanceState.targetKey === allowanceTargetKey
       ? allowanceState.value
       : '0';
   const [trackTxId, setTrackTxId] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>();
+  const [loading, setLoading] = useState(shouldFetchInitialAllowance);
   const txDetails = useTxTrack({
     accountId,
     networkId,
@@ -106,12 +108,13 @@ export function useTrackTokenAllowance({
   });
   useEffect(() => {
     setTrackTxId('');
-    setLoading(false);
+    setLoading(shouldFetchInitialAllowance);
     setAllowanceState((prev) => ({
       targetKey: allowanceTargetKey,
-      value: prev.targetKey === allowanceTargetKey ? initialValue : '0',
+      value:
+        prev.targetKey === allowanceTargetKey ? (initialValue ?? '0') : '0',
     }));
-  }, [allowanceTargetKey, initialValue]);
+  }, [allowanceTargetKey, initialValue, shouldFetchInitialAllowance]);
   const fetchAllowanceResponse = useCallback(
     async () =>
       backgroundApiProxy.serviceStaking.fetchTokenAllowance({
@@ -126,15 +129,19 @@ export function useTrackTokenAllowance({
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
   useEffect(() => {
+    let cancelled = false;
     if (isExistApproveTarget) {
       const fetchAllowance = async () => {
-        if (!txDetails) {
-          setLoading(false);
+        if (!txDetails && !shouldFetchInitialAllowance) {
+          if (!cancelled) {
+            setLoading(false);
+          }
           return;
         }
         try {
           const allowanceInfo = await fetchAllowanceResponse();
           if (
+            !cancelled &&
             allowanceInfo &&
             allowanceTargetKeyRef.current === allowanceTargetKey
           ) {
@@ -144,11 +151,19 @@ export function useTrackTokenAllowance({
             });
           }
         } finally {
-          setLoading(false);
+          if (
+            !cancelled &&
+            allowanceTargetKeyRef.current === allowanceTargetKey
+          ) {
+            setLoading(false);
+          }
         }
       };
-      void fetchAllowance();
+      void fetchAllowance().catch(() => undefined);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [
     txDetails,
     networkId,
@@ -160,6 +175,7 @@ export function useTrackTokenAllowance({
     allowanceTargetKey,
     isLegacyApprove,
     isExistApproveTarget,
+    shouldFetchInitialAllowance,
   ]);
   const trackAllowance = useCallback((txid: string) => {
     setTrackTxId(txid);
