@@ -823,9 +823,12 @@ class ServiceHardware extends ServiceBase {
             //   usedPayload.supportInputPinOnSoftware = false;
             // }
 
-            // skip ui-close_window event, which cause infinite loop
-            //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-            if (!SKIPPED_EVENTS.has(appliedUiRequestType)) {
+            // Matching Protocol V2 closes clear the active state directly.
+            // Legacy metadata-less closes remain skipped to avoid the old
+            // close -> cancel -> close loop.
+            if (reduction.shouldClearUiState) {
+              await hardwareUiStateAtom.set(undefined);
+            } else if (!SKIPPED_EVENTS.has(appliedUiRequestType)) {
               defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
                 action: appliedUiRequestType,
                 connectId: appliedConnectId,

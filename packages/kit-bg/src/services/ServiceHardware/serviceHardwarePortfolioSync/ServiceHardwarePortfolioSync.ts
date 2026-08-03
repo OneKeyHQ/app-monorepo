@@ -185,8 +185,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     if (
       !wallet ||
       wallet.id !== walletId ||
-      !accountUtils.isHwWallet({ walletId: wallet.id }) ||
-      accountUtils.isHwHiddenWallet({ wallet })
+      !accountUtils.isHwWallet({ walletId: wallet.id })
     ) {
       return undefined;
     }

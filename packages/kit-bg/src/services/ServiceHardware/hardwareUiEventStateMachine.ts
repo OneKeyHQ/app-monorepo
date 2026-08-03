@@ -43,6 +43,7 @@ export type IHardwareUiEventReduction = {
   applied: boolean;
   action?: EHardwareUiStateAction;
   connectId?: string;
+  shouldClearUiState?: boolean;
 };
 
 const REQUEST_PHASES: Partial<
@@ -149,7 +150,10 @@ export const reduceHardwareUiEventState = (
     event.type === EHardwareUiStateAction.CLOSE_UI_WINDOW;
 
   if (
-    (isCloseEvent && !interaction && Boolean(currentState.interactionId)) ||
+    (isCloseEvent &&
+      !interaction &&
+      Boolean(currentState.interactionId) &&
+      currentState.phase !== 'closed') ||
     !isSameDevice(currentState, connectId) ||
     !isNewerEvent(currentState, interaction)
   ) {
@@ -219,6 +223,7 @@ export const reduceHardwareUiEventState = (
       applied: true,
       action: event.renderAction,
       connectId,
+      shouldClearUiState: Boolean(interaction),
     };
   }
 

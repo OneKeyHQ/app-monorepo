@@ -38,7 +38,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: {
-    isHwHiddenWallet: jest.fn(),
     isHwWallet: jest.fn(),
     shortenAddress: jest.fn(({ address }: { address: string }) => address),
   },
@@ -294,10 +293,6 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (accountUtils.isHwWallet as jest.Mock).mockImplementation(
       ({ walletId }: { walletId?: string }) => walletId?.startsWith('hw-'),
     );
-    (accountUtils.isHwHiddenWallet as jest.Mock).mockImplementation(
-      ({ wallet }: { wallet?: { passphraseState?: string } }) =>
-        Boolean(wallet?.passphraseState),
-    );
   });
 
   afterEach(() => {
@@ -527,22 +522,25 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(migrated.uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
-  test('rejects a hidden wallet before portfolio data reaches the server or device', async () => {
+  test('syncs the active hidden wallet to the device-level portfolio target', async () => {
     jest.mocked(localDb.getWalletSafe).mockResolvedValue({
       id: 'hw-1',
       name: 'Hidden Wallet',
       passphraseState: 'hidden-state',
       type: 'hw',
     } as never);
-    const { service, serviceInternals, uploadPortfolioPackage } =
+    const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false] });
 
     await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
-    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
-    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
-    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
-      expect.objectContaining({ status: 'disabled', walletId: 'hw-1' }),
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastWalletId: 'hw-1' }),
     );
   });
 

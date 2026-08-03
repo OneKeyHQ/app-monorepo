@@ -54,6 +54,7 @@ import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareW
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import {
   type IHardwareWalletCreationMode,
+  getWalletCreationDeviceState,
   resolveAutomaticWalletCreationMode,
   shouldCheckExistingStandardWallet,
 } from '../../Onboarding/pages/ConnectHardwareWallet/walletCreationMode';
@@ -888,14 +889,11 @@ export function useDeviceConnect({
       let deviceState: IOneKeyDeviceState;
 
       try {
-        deviceState =
-          await backgroundApiProxy.serviceHardware.getDeviceStateWithUnlock({
-            connectId: currentDevice.connectId ?? '',
-            params: {
-              connectProtocol,
-              scope: 'runtime',
-            },
-          });
+        deviceState = await getWalletCreationDeviceState({
+          serviceHardware: backgroundApiProxy.serviceHardware,
+          connectId: currentDevice.connectId ?? '',
+          connectProtocol,
+        });
         features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });

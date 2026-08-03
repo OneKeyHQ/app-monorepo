@@ -849,6 +849,22 @@ export class FileAlreadyExistError extends OneKeyHardwareError {
   override code = HardwareErrorCode.FileAlreadyExists;
 }
 
+// Keep this value aligned with hd-shared until the App upgrades to the SDK release that exports it.
+export const PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE = 832;
+
+export class NftStorageLimitReachedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'NFT storage limit reached. Remove an NFT from the device and try again.',
+      }),
+    );
+  }
+
+  override code = PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE;
+}
+
 export class IncompleteFileError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
