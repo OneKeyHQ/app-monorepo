@@ -3203,8 +3203,7 @@ class ServiceIdentityExit extends ServiceBase {
   ): Promise<IIdentityExitReceipt> {
     const walletId = storedPlan.snapshot.keyless.fingerprint.walletId;
     try {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: EReasonForNeedPassword.Security,
       });
     } catch (error) {
@@ -3344,8 +3343,7 @@ class ServiceIdentityExit extends ServiceBase {
   ): Promise<IIdentityExitReceipt> {
     const walletId = storedPlan.intent.expectedWalletId;
     try {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: EReasonForNeedPassword.Security,
       });
     } catch (error) {
@@ -3528,13 +3526,8 @@ class ServiceIdentityExit extends ServiceBase {
       return this.runMalformedKeylessRecovery(storedPlan);
     }
     if (storedPlan.target.removeKeyless) {
-      const walletId =
-        storedPlan.snapshot.keyless.type === 'present'
-          ? storedPlan.snapshot.keyless.walletId
-          : '';
       try {
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-          walletId,
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
         });
       } catch (error) {

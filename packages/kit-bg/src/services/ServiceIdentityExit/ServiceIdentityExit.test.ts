@@ -106,7 +106,7 @@ function createFixture({
   journalEntries?: Record<string, IIdentityExitJournalEntry>;
 } = {}) {
   let revisionReadIndex = 0;
-  const promptPasswordVerifyByWallet = jest.fn().mockResolvedValue({
+  const promptPasswordVerify = jest.fn().mockResolvedValue({
     password: 'encoded-password',
   });
   const removeKeylessWalletWithCapability = jest
@@ -404,7 +404,9 @@ function createFixture({
         .mockResolvedValue({ isValid: true }),
       cleanupKeylessWalletCredentialStorage,
     },
-    servicePassword: { promptPasswordVerifyByWallet },
+    servicePassword: {
+      promptPasswordVerify,
+    },
     servicePrime: {
       commitIdentityExitLocalState,
       commitExplicitLocalOneKeyIdLogout,
@@ -421,7 +423,7 @@ function createFixture({
   return {
     service,
     backgroundApi,
-    promptPasswordVerifyByWallet,
+    promptPasswordVerify,
     removeKeylessWalletWithCapability,
     removeMalformedKeylessWalletWithCapability,
     finalizeRemovedKeylessWalletSideEffects,
@@ -697,7 +699,7 @@ describe('ServiceIdentityExit', () => {
       status: 'completed',
       oneKeyIdLoggedOut: true,
     });
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledTimes(1);
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith(
@@ -989,7 +991,7 @@ describe('ServiceIdentityExit', () => {
       oneKeyIdLoggedOut: false,
       removedWalletId: keylessWallet.id,
     });
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(1);
     expect(fixture.cleanupKeylessWalletCredentialStorage).toHaveBeenCalledWith({
       ownerId: 'owner-1',
@@ -1056,7 +1058,7 @@ describe('ServiceIdentityExit', () => {
       removedWalletId: keylessWallet.id,
     });
 
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(1);
     expect(fixture.logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
     expect(mockRevokeSupabaseSession).not.toHaveBeenCalled();
@@ -1090,7 +1092,7 @@ describe('ServiceIdentityExit', () => {
       }),
     ).rejects.toThrow('Keyless wallet removal acknowledgement is required.');
 
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
   });
 
@@ -1119,7 +1121,7 @@ describe('ServiceIdentityExit', () => {
       removedWalletId: undefined,
     });
 
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1219,7 +1221,7 @@ describe('ServiceIdentityExit', () => {
         acknowledgement: 'keylessWalletRemoval',
       }),
     ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
     expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
@@ -1227,7 +1229,7 @@ describe('ServiceIdentityExit', () => {
 
   test('password cancellation produces zero writes', async () => {
     const fixture = createFixture();
-    fixture.promptPasswordVerifyByWallet.mockRejectedValue(
+    fixture.promptPasswordVerify.mockRejectedValue(
       new PasswordPromptDialogCancel(),
     );
     const plan = await fixture.service.prepareIdentityExit({
@@ -1249,7 +1251,7 @@ describe('ServiceIdentityExit', () => {
         acknowledgement: 'keylessWalletRemoval',
       }),
     ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
     expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
@@ -1274,7 +1276,7 @@ describe('ServiceIdentityExit', () => {
           acknowledgement: 'keylessWalletRemoval',
         }),
       ).resolves.toMatchObject({ status: 'blocked', code: 'STATE_CHANGED' });
-      expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+      expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
@@ -1285,7 +1287,7 @@ describe('ServiceIdentityExit', () => {
     try {
       const fixture = createFixture();
       let resolvePassword: ((value: { password: string }) => void) | undefined;
-      fixture.promptPasswordVerifyByWallet.mockImplementation(
+      fixture.promptPasswordVerify.mockImplementation(
         () =>
           new Promise((resolve) => {
             resolvePassword = resolve;
@@ -1376,7 +1378,7 @@ describe('ServiceIdentityExit', () => {
       removedWalletId: malformedWallet.id,
       startIndependentOneKeyIdOAuth: undefined,
     });
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(
       fixture.removeMalformedKeylessWalletWithCapability,
     ).toHaveBeenCalledTimes(1);
@@ -1513,6 +1515,38 @@ describe('ServiceIdentityExit', () => {
     });
   });
 
+  test('requires passcode before removing a malformed non-HD Keyless wallet', async () => {
+    const malformedWallet = {
+      ...keylessWallet,
+      id: 'watching',
+      type: 'watching',
+      isKeyless: false,
+    } as unknown as IDBWallet;
+    const fixture = createFixture({ wallet: malformedWallet });
+    fixture.promptPasswordVerify.mockRejectedValue(
+      new PasswordPromptDialogCancel(),
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'removeKeyless',
+      expectedWalletId: malformedWallet.id,
+      scene: 'accountSelector',
+    });
+    expectReadyPlan(plan);
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'keylessWalletRemoval',
+      }),
+    ).resolves.toEqual({ status: 'cancelled' });
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
+    expect(
+      fixture.removeMalformedKeylessWalletWithCapability,
+    ).not.toHaveBeenCalled();
+    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
+  });
+
   test('issues a OneKey ID OAuth handoff only after malformed Keyless removal completes', async () => {
     const malformedWallet = {
       ...keylessWallet,
@@ -1568,7 +1602,7 @@ describe('ServiceIdentityExit', () => {
       },
     } as unknown as IDBWallet;
     const fixture = createFixture({ wallet: malformedWallet });
-    fixture.promptPasswordVerifyByWallet.mockRejectedValue(
+    fixture.promptPasswordVerify.mockRejectedValue(
       new PasswordPromptDialogCancel(),
     );
 
@@ -2720,7 +2754,7 @@ describe('ServiceIdentityExit', () => {
       abandonedOperationCount: 0,
     });
 
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith({
       expectedIdentityLifecycleRevision: 10,
@@ -2775,7 +2809,7 @@ describe('ServiceIdentityExit', () => {
       recoveredOperationCount: 1,
       abandonedOperationCount: 0,
     });
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledTimes(1);
     expect(fixture.journalState[journal.operationId]).toBeUndefined();
@@ -2952,7 +2986,7 @@ describe('ServiceIdentityExit', () => {
       status: 'completed',
       removedWalletId: keylessWallet.id,
     });
-    expect(fixture.promptPasswordVerifyByWallet).toHaveBeenCalledTimes(1);
+    expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
     expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(1);
     expect(fixture.cleanupKeylessWalletCredentialStorage).toHaveBeenCalledTimes(
       2,
@@ -2987,7 +3021,7 @@ describe('ServiceIdentityExit', () => {
       recoveredOperationCount: 0,
       abandonedOperationCount: 1,
     });
-    expect(fixture.promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
     expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
     expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
     expect(fixture.journalState[journal.operationId]).toBeUndefined();
