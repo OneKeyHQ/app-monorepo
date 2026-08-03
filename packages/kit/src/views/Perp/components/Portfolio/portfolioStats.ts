@@ -188,8 +188,7 @@ export function buildPerpPortfolioFillsStats({
   // slightly understates fees instead of wildly overstating them.
   const feesPaid = filteredFills
     .reduce(
-      (sum, f) =>
-        isUsdcDenominatedFee(f.feeToken) ? sum.plus(f.fee) : sum,
+      (sum, f) => (isUsdcDenominatedFee(f.feeToken) ? sum.plus(f.fee) : sum),
       new BigNumber(0),
     )
     .toNumber();
