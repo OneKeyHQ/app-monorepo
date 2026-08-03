@@ -1,8 +1,7 @@
 import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
 
-// The fake disk lives on globalThis so jest.resetModules() can rebuild the
-// module (fresh in-memory copy = a fresh runtime) while the "MMKV file"
-// persists — that pairing is exactly the cross-runtime setup under test.
+// On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
+// while the "MMKV file" persists — exactly the cross-runtime setup under test.
 type IFakeDisk = Record<string, string>;
 const fakeDiskGlobal = globalThis as typeof globalThis & {
   __swrFakeDisk?: IFakeDisk;
@@ -180,8 +179,7 @@ describe('SWR cache cross-runtime flush merge', () => {
     const swr = loadFreshRuntime();
     setNow(1000);
     swr.set('mine', 'a');
-    // The other runtime persists a key this copy has never seen — the old
-    // wholesale overwrite erased it on the next local flush.
+    // The old wholesale overwrite erased this on the next local flush.
     otherRuntimeFlush({
       ...readDiskStore(),
       theirs: { d: 'b', t: 5000 },
@@ -209,8 +207,7 @@ describe('SWR cache cross-runtime flush merge', () => {
     const disk = readDiskStore();
     expect(disk.diskNewer).toMatchObject({ d: 'fresh-disk', t: 2000 });
     expect(disk.localNewer).toMatchObject({ d: 'fresh-local', t: 1500 });
-    // The merged store is adopted locally too — the read path must see the
-    // other runtime's fresher value, not this copy's aged one.
+    // Adopted locally too, so reads see the other runtime's fresher value.
     expect(swr.get('diskNewer')).toBe('fresh-disk');
   });
 

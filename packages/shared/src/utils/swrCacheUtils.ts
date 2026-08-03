@@ -25,14 +25,11 @@ let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
 let _lastReloadFromStorageAt: number | undefined;
 
-// Only these entries were authored by this runtime since the last successful
-// flush. Replaying the whole hydrated store would revive keys that the other
+// Replaying the whole hydrated store instead would revive keys the other
 // runtime removed after this JS heap took its snapshot.
 const _updatedKeys = new Set<string>();
 
-// Deletions performed since the last successful flush. flush() merges with
-// the store on disk, and without these a key deleted here would be revived
-// by the copy of it still sitting there.
+// Without these, the copy still sitting on disk would revive a key deleted here.
 const _removedKeysAt = new Map<string, number>();
 let _removedPrefixesAt: Array<{ prefix: string; at: number }> = [];
 let _clearedAllAt = 0;
@@ -101,9 +98,8 @@ function reloadFromStorage(): void {
   flush();
   const { store, unreadable } = readStoreFromDisk();
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
-    // This copy is the only intact one left. Repairing from an empty copy
-    // instead would turn the file into a parseable empty store, costing the
-    // runtime that does hold a full copy its only chance to restore it.
+    // Repairing from an empty copy instead would leave a parseable empty
+    // store, costing the runtime holding a full copy its only chance.
     _dirty = true;
     scheduleFlush();
   } else {
@@ -125,11 +121,9 @@ function evictOldestOverCap(store: ISWRStore) {
 function flush() {
   if (!_dirty || !_cache) return;
   try {
-    // Merge per key instead of overwriting the whole object: on native the
-    // main and bg runtimes each hold their own copy of this store (hydrated
-    // once at boot) over one shared MMKV file, so a wholesale write from the
-    // runtime holding the older copy erased everything the other one had
-    // persisted since — days-old perps books kept resurfacing this way.
+    // Merged per key because main and bg each hold their own copy of this
+    // store over one shared MMKV file: a wholesale write from the runtime
+    // holding the older copy erased everything the other had persisted since.
     const { store: disk, unreadable } = readStoreFromDisk();
     const merged: ISWRStore = {};
     if (unreadable) {
@@ -159,8 +153,7 @@ function flush() {
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
     // Skipped without a store to merge against: `merged` is then only the
-    // pending keys, and the extension stub never persists, so this copy is
-    // the only one there is.
+    // pending keys, and on the extension stub this copy is the only one.
     if (disk) {
       _cache = merged;
     }
