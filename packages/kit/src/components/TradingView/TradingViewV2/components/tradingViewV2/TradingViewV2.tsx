@@ -646,6 +646,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     successfulFirstPaintRef.current = undefined;
   }
   const isKLineHistoryReady = firstHistoryReadyKey === currentHistoryReadyKey;
+  const isKLineHistoryReadyRef = useRef(isKLineHistoryReady);
+  isKLineHistoryReadyRef.current = isKLineHistoryReady;
   useEffect(() => {
     if (isKLineHistoryReady) {
       clearMarketSymbolSyncRecoveryTimer();
@@ -1008,6 +1010,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     const successfulFirstPaint = successfulFirstPaintRef.current;
     if (
       !isVisibilityManagedExternally ||
+      isKLineHistoryReadyRef.current ||
       isMarketSymbolSyncSupported !== true ||
       iframeIdentityKey === marketSymbolIdentityKey ||
       forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey ||
@@ -1026,6 +1029,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       const latestSuccessfulFirstPaint = successfulFirstPaintRef.current;
       if (
         isDataRequestEnabledRef.current &&
+        !isKLineHistoryReadyRef.current &&
         currentDataRequestIdentityRef.current ===
           scheduledDataRequestIdentity &&
         !(
@@ -1265,6 +1269,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       setIsHistoryReadyAckSupported(undefined);
       pendingLegacyHistoryReadyRef.current = null;
       notifiedLegacyHistoryReadyKeyRef.current = null;
+      isKLineHistoryReadyRef.current = false;
       setFirstHistoryReadyKey(null);
       setIntervalConfig(null);
       setNativeChartControlsConfig(null);
@@ -1424,7 +1429,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
         clearMarketSymbolSyncRecoveryTimer();
         initialHistoryBootstrapSentIdentityRef.current = undefined;
-        successfulFirstPaintRef.current = undefined;
         resetInteractionLocks();
       }
       webRef.current = ref;

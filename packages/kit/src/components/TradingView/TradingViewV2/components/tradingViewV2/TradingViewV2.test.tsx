@@ -823,7 +823,7 @@ describe('TradingViewV2 native source discovery', () => {
     unmount();
   });
 
-  it('does not restart stale-frame recovery when first-paint precedes bootstrap', () => {
+  it('preserves successful first-paint through a WebView ref rebind', () => {
     jest.useFakeTimers();
     const staleIdentity = {
       symbol: 'AAPLon',
@@ -847,12 +847,12 @@ describe('TradingViewV2 native source discovery', () => {
       />,
     );
     const webViewProps = mockWebViewProps.at(-1);
+    const webViewRef = { sendMessageViaInjectedScript: jest.fn() };
+    const setWebViewRef = webViewProps?.onWebViewRef as
+      | ((ref: typeof webViewRef | null) => void)
+      | undefined;
     act(() => {
-      (
-        webViewProps?.onWebViewRef as
-          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
-          | undefined
-      )?.({ sendMessageViaInjectedScript: jest.fn() });
+      setWebViewRef?.(webViewRef);
     });
     const initialMessageHandlerParams =
       mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
@@ -891,6 +891,8 @@ describe('TradingViewV2 native source discovery', () => {
         tokenAddress: '0xslv',
         networkId: 'evm--56',
       });
+      setWebViewRef?.(null);
+      setWebViewRef?.(webViewRef);
     });
 
     const subscription =
@@ -998,7 +1000,7 @@ describe('TradingViewV2 native source discovery', () => {
     unmount();
   });
 
-  it('cancels stale-frame recovery after matching SLV history-ready', () => {
+  it('does not restart recovery when a ready persistent chart is unparked', () => {
     jest.useFakeTimers();
     const staleIdentity = {
       symbol: 'AAPLon',
@@ -1012,23 +1014,24 @@ describe('TradingViewV2 native source discovery', () => {
         identity: symbolSyncSupport === false ? identity : staleIdentity,
       }),
     );
-    const { unmount } = render(
+    const { rerender, unmount } = render(
       <TradingViewV2
         symbol="SLVon"
         tokenAddress="0xslv"
         networkId="evm--56"
         decimal={18}
+        enabled
         isVisibilityManagedExternally
       />,
     );
     const webViewProps = mockWebViewProps.at(-1);
     const sendMessageViaInjectedScript = jest.fn();
+    const webViewRef = { sendMessageViaInjectedScript };
+    const setWebViewRef = webViewProps?.onWebViewRef as
+      | ((ref: typeof webViewRef | null) => void)
+      | undefined;
     act(() => {
-      (
-        webViewProps?.onWebViewRef as
-          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
-          | undefined
-      )?.({ sendMessageViaInjectedScript });
+      setWebViewRef?.(webViewRef);
     });
     const initialMessageHandlerParams =
       mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
@@ -1071,10 +1074,58 @@ describe('TradingViewV2 native source discovery', () => {
         tokenAddress: '0xslv',
         networkId: 'evm--56',
       });
+    });
+
+    rerender(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        enabled={false}
+        isVisibilityManagedExternally
+      />,
+    );
+    const parkedWebViewProps = mockWebViewProps.at(-1);
+    const setParkedWebViewRef = parkedWebViewProps?.onWebViewRef as
+      | ((ref: typeof webViewRef | null) => void)
+      | undefined;
+    act(() => {
+      setWebViewRef?.(null);
+      setParkedWebViewRef?.(webViewRef);
+    });
+
+    rerender(
+      <TradingViewV2
+        symbol="SLVon"
+        tokenAddress="0xslv"
+        networkId="evm--56"
+        decimal={18}
+        enabled
+        isVisibilityManagedExternally
+      />,
+    );
+    const resumedWebViewProps = mockWebViewProps.at(-1);
+    const setResumedWebViewRef = resumedWebViewProps?.onWebViewRef as
+      | ((ref: typeof webViewRef | null) => void)
+      | undefined;
+    act(() => {
+      setParkedWebViewRef?.(null);
+      setResumedWebViewRef?.(webViewRef);
+    });
+    const resumedSubscription =
+      mockSubscribeTradingViewV2FirstScreenPrefetch.mock.calls.at(
+        -1,
+      )?.[0] as IMockFirstScreenPrefetchSubscription;
+    act(() => {
+      resumedSubscription.onResult(
+        buildMockFirstScreenPrefetchResult(),
+        'initial',
+      );
       jest.advanceTimersByTime(10_000);
     });
 
-    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(2);
     expect(
       mockUseMarketTradingViewFrameIdentity.mock.calls.some(
         ([params]) => params.symbolSyncSupport === false,
