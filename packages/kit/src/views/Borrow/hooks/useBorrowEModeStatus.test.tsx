@@ -214,6 +214,46 @@ describe('useBorrowEModeStatus scope loading', () => {
     });
   });
 
+  it('treats a resolved but empty payload as an error', () => {
+    promiseResultMock.current = {
+      result: {
+        scopeKey: getScopeKey(),
+        eModeStatus: null,
+        state: 'resolved',
+      },
+      isLoading: false,
+      run: jest.fn(),
+    };
+
+    const { result } = renderEModeStatus();
+
+    expect(result.current).toMatchObject({
+      eModeStatus: null,
+      isError: true,
+      isInitialLoading: false,
+    });
+  });
+
+  it('keeps an empty payload inert for unsupported providers', () => {
+    promiseResultMock.current = {
+      result: {
+        scopeKey: getScopeKey({ provider: 'kamino' }),
+        eModeStatus: null,
+        state: 'resolved',
+      },
+      isLoading: false,
+      run: jest.fn(),
+    };
+
+    const { result } = renderEModeStatus({ provider: 'kamino' });
+
+    expect(result.current).toMatchObject({
+      eModeStatus: null,
+      isError: false,
+      isInitialLoading: false,
+    });
+  });
+
   it('exposes a terminal initial error and preserves prior status on refresh errors', async () => {
     renderEModeStatus();
     serviceMock.mockRejectedValueOnce(new Error('initial request failed'));

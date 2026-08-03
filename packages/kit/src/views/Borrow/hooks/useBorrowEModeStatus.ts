@@ -94,10 +94,13 @@ export const useBorrowEModeStatus = ({
 
   const hasResolvedCurrentScope = scopedResult?.scopeKey === scopeKey;
   const eModeStatus = hasResolvedCurrentScope ? scopedResult.eModeStatus : null;
+  // A resolved-but-empty payload leaves consumers with neither a status to render
+  // nor an error to recover from, which strands them on their loading branch.
+  // canRequestStatus keeps this inert for providers we never query.
   const isError =
     canRequestStatus &&
     hasResolvedCurrentScope &&
-    scopedResult?.state === 'error';
+    (scopedResult?.state === 'error' || !eModeStatus);
   useEffect(() => {
     if (eModeStatus) {
       lastSuccessfulStatusRef.current = { scopeKey, eModeStatus };

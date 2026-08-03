@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../borrowUtils';
+import { isUnsupportedAaveNativeReserve } from '../../../components/borrowRepayPosition.utils';
 
 interface IManagePositionPartProps {
   accountId: string;
@@ -88,6 +89,15 @@ export const ManagePositionPart = ({
     logoURI,
   ]);
 
+  // Rows for these reserves stay visible in the position tables, so this page is
+  // reachable for them; the server flag alone would still offer a build that
+  // resolves the native reserve to the wrong token.
+  const isNativeActionUnsupported = isUnsupportedAaveNativeReserve({
+    networkId,
+    providerName: provider,
+    reserveAddress,
+  });
+
   const labels = {
     myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
     balance: intl.formatMessage({
@@ -138,7 +148,10 @@ export const ManagePositionPart = ({
               testID="borrow-btn"
               variant="primary"
               size="medium"
-              disabled={userInfo.walletBalance.button.disabled}
+              disabled={
+                userInfo.walletBalance.button.disabled ||
+                isNativeActionUnsupported
+              }
               onPress={handleSupply}
             >
               {userInfo.walletBalance.button.text.text}
@@ -179,7 +192,10 @@ export const ManagePositionPart = ({
               mb="$1.5"
               variant="primary"
               size="medium"
-              disabled={userInfo.availableBorrowBalance.button.disabled}
+              disabled={
+                userInfo.availableBorrowBalance.button.disabled ||
+                isNativeActionUnsupported
+              }
               onPress={handleBorrow}
             >
               {userInfo.availableBorrowBalance.button.text.text}
