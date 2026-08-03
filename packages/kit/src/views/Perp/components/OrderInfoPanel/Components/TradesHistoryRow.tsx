@@ -27,6 +27,7 @@ import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -144,16 +145,26 @@ const TradesHistoryRow = memo(
       const priceFormatted = formatLocalizedNumberString(
         priceBN.toFixed(decimals),
       );
-      const feeFormatted = numberFormat(fee, formatter);
+      // Spot buys are charged in the base token; a `$` there would read a
+      // dust-value token amount as dollars.
+      const feeFormatted = isUsdcDenominatedFee(fill.feeToken)
+        ? numberFormat(fee, formatter)
+        : `${numberFormat(fee, { formatter: 'balance' })} ${getSpotTokenDisplayName(
+            fill.feeToken,
+          )}`;
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
       const tradeValueFormatted = numberFormat(tradeValue, formatter);
       return { priceFormatted, size, feeFormatted, tradeValueFormatted };
-    }, [fill.fee, fill.px, fill.sz]);
+    }, [fill.fee, fill.feeToken, fill.px, fill.sz]);
 
     const closePnlInfo = useMemo(() => {
       const closePnl = fill.closedPnl;
-      const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
+      // Only a USDC fee can be netted against the USDC closedPnl; a base-token
+      // fee (spot buys) would subtract token units from dollars.
+      const closePnlBN = isUsdcDenominatedFee(fill.feeToken)
+        ? new BigNumber(closePnl).minus(new BigNumber(fill.fee))
+        : new BigNumber(closePnl);
       let closePnlPlusOrMinus = '';
       let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
@@ -168,7 +179,7 @@ const TradesHistoryRow = memo(
         },
       });
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
-    }, [fill.closedPnl, fill.fee]);
+    }, [fill.closedPnl, fill.fee, fill.feeToken]);
 
     const feeTooltipContent = useMemo(() => {
       const feeRatePercentage =

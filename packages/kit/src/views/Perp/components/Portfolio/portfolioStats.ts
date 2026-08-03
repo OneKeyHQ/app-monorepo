@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  isSpotInstrument,
+  isUsdcDenominatedFee,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   IPortfolio,
@@ -179,8 +182,16 @@ export function buildPerpPortfolioFillsStats({
           .toNumber()
       : null;
 
+  // Base-token fees (spot buys) are not USD amounts; adding them raw would
+  // inflate the USD total by the token unit count. Their real USD value is
+  // fee×price at fill time, which these stats do not track — dropping them
+  // slightly understates fees instead of wildly overstating them.
   const feesPaid = filteredFills
-    .reduce((sum, f) => sum.plus(f.fee), new BigNumber(0))
+    .reduce(
+      (sum, f) =>
+        isUsdcDenominatedFee(f.feeToken) ? sum.plus(f.fee) : sum,
+      new BigNumber(0),
+    )
     .toNumber();
 
   const volumeUsd = filteredFills

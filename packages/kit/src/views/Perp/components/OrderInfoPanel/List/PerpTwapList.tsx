@@ -39,7 +39,11 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  getValidPriceDecimals,
+  isUsdcDenominatedFee,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   ITwapHistoryRecord,
@@ -926,9 +930,11 @@ function TwapFillRow({
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
-    const closePnlBN = new BigNumber(fill.closedPnl).minus(
-      new BigNumber(fill.fee),
-    );
+    // Only a USDC fee can be netted against the USDC closedPnl; a base-token
+    // fee (spot buys) would subtract token units from dollars.
+    const closePnlBN = isUsdcDenominatedFee(fill.feeToken)
+      ? new BigNumber(fill.closedPnl).minus(new BigNumber(fill.fee))
+      : new BigNumber(fill.closedPnl);
     const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
     const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
     const priceFormatted = priceBN.isFinite()
@@ -941,7 +947,11 @@ function TwapFillRow({
         priceBN.multipliedBy(sizeBN).toFixed(),
         valueFormatter,
       ),
-      feeFormatted: numberFormat(fill.fee, valueFormatter),
+      feeFormatted: isUsdcDenominatedFee(fill.feeToken)
+        ? numberFormat(fill.fee, valueFormatter)
+        : `${numberFormat(fill.fee, balanceFormatter)} ${getSpotTokenDisplayName(
+            fill.feeToken,
+          )}`,
       closePnlFormatted: numberFormat(closePnlBN.abs().toFixed(), {
         formatter: 'value',
         formatterOptions: {
@@ -951,7 +961,7 @@ function TwapFillRow({
       closePnlColor,
       closePnlPlusOrMinus,
     };
-  }, [fill.closedPnl, fill.fee, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.fee, fill.feeToken, fill.px, fill.sz]);
   const feeTooltipContent = useMemo(() => {
     const feeRatePercentage =
       builderFeeRate !== undefined
