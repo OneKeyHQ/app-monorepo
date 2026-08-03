@@ -263,9 +263,9 @@ function MobilePerpMarket() {
       return;
     }
     const node = (
-      scrollViewRef.current as unknown as
-        | { getScrollableNode?: () => unknown }
-        | null
+      scrollViewRef.current as unknown as {
+        getScrollableNode?: () => unknown;
+      } | null
     )?.getScrollableNode?.() as { style?: { touchAction?: string } } | null;
     if (node?.style) {
       node.style.touchAction = 'pan-y';
