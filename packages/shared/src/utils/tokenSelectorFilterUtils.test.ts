@@ -1,9 +1,12 @@
 import {
   buildSwapAllNetworkTokenListCacheKey,
   dedupeTokenSelectorNetworkAccounts,
+  filterTokenSelectorTokenDataByDappTokenFilterParams,
   filterTokenSelectorTokensByBackendIndexedNetworks,
   isTokenSelectorDappTokenFilterSupportedNetworkBase,
 } from './tokenSelectorFilterUtils';
+
+import type { ITokenData } from '../../types/token';
 
 describe('tokenSelectorFilterUtils', () => {
   describe('isTokenSelectorDappTokenFilterSupportedNetworkBase', () => {
@@ -80,6 +83,96 @@ describe('tokenSelectorFilterUtils', () => {
           networkId: 'evm--56',
         },
       ]);
+    });
+  });
+
+  describe('filterTokenSelectorTokenDataByDappTokenFilterParams', () => {
+    const walletToken = {
+      $key: 'wallet-token',
+      address: '0xwallet',
+      decimals: 18,
+      isNative: false,
+      name: 'Wallet token',
+      symbol: 'WALLET',
+      dappType: 'walletToken',
+    };
+    const dappToken = {
+      $key: 'dapp-token',
+      address: '0xdapp',
+      decimals: 18,
+      isNative: false,
+      name: 'DeFi token',
+      symbol: 'DEFI',
+      dappName: 'DeFi protocol',
+    };
+    const tokenData: ITokenData = {
+      data: [walletToken, dappToken],
+      keys: 'server-token-list-key',
+      map: {
+        [walletToken.$key]: {
+          balance: '3',
+          balanceParsed: '3',
+          fiatValue: '3',
+          price: 1,
+        },
+        [dappToken.$key]: {
+          balance: '10',
+          balanceParsed: '10',
+          fiatValue: '10',
+          price: 1,
+        },
+      },
+      fiatValue: '13',
+      currency: 'usd',
+    };
+
+    it('removes dApp tokens from data, map, keys, and fiatValue together', () => {
+      expect(
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData,
+          tokenSelectorFilterParams: {
+            withoutDappToken: true,
+            withoutWalletToken: false,
+          },
+        }),
+      ).toEqual({
+        data: [walletToken],
+        keys: walletToken.$key,
+        map: {
+          [walletToken.$key]: tokenData.map[walletToken.$key],
+        },
+        fiatValue: '3',
+        currency: 'usd',
+      });
+    });
+
+    it('removes wallet tokens when requesting the dApp-only list', () => {
+      expect(
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData,
+          tokenSelectorFilterParams: {
+            withoutDappToken: false,
+            withoutWalletToken: true,
+          },
+        }),
+      ).toEqual({
+        data: [dappToken],
+        keys: dappToken.$key,
+        map: {
+          [dappToken.$key]: tokenData.map[dappToken.$key],
+        },
+        fiatValue: '10',
+        currency: 'usd',
+      });
+    });
+
+    it('keeps the original token data when no token is filtered out', () => {
+      expect(
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData,
+          tokenSelectorFilterParams: {},
+        }),
+      ).toBe(tokenData);
     });
   });
 

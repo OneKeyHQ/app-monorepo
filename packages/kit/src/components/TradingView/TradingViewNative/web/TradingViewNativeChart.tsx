@@ -314,7 +314,7 @@ export const TradingViewNativeChart = memo(
     );
     const theme = useTheme();
     const themeName = useThemeName();
-    const background = theme.bgApp.val;
+    const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;

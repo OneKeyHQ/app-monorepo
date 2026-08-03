@@ -135,8 +135,10 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   normalizeSwapTokenListCurrency,
+  shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
@@ -147,6 +149,8 @@ import {
 } from './utils/swapHistoryStatusUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+
+const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
 
 const formatter: INumberFormatProps = {
   formatter: 'balance',
@@ -531,6 +535,26 @@ export default class ServiceSwap extends ServiceBase {
   private swapSupportNetworksCacheTime = 0;
 
   private swapSupportNetworksTtl = 1000 * 60 * 120;
+
+  private async getSwapReferralBuildTxParams({
+    accountId,
+    protocol,
+  }: {
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+  }) {
+    if (!accountId || !shouldAttachSwapReferralBuildTxParams(protocol)) {
+      return buildSwapReferralBuildTxParams();
+    }
+    // Referral attribution is best effort and must not block building a swap.
+    const referralInfo = await this.backgroundApi.serviceReferralCode
+      .getBoundEvmReferralCodeWalletInfo({
+        accountId,
+        requestTimeoutMs: SWAP_REFERRAL_LOOKUP_TIMEOUT_MS,
+      })
+      .catch(() => undefined);
+    return buildSwapReferralBuildTxParams(referralInfo);
+  }
 
   private _limitOrderCurrentAccountId?: string;
 
@@ -1331,6 +1355,10 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
+      accountId,
+      protocol,
+    });
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1346,6 +1374,7 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
@@ -3434,19 +3463,25 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
-      fromToken,
-      toToken,
-      fromTokenAmount,
-      protocol,
-      provider,
-      userAddress,
-      receivingAddress,
-      slippagePercentage,
-      kind,
-      walletType,
-      quoteResultCtx,
-    });
+    const params: IFetchBuildTxParams = {
+      ...buildSpeedSwapTxParams({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        protocol,
+        provider,
+        userAddress,
+        receivingAddress,
+        slippagePercentage,
+        kind,
+        walletType,
+        quoteResultCtx,
+      }),
+      ...(await this.getSwapReferralBuildTxParams({
+        accountId,
+        protocol,
+      })),
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(

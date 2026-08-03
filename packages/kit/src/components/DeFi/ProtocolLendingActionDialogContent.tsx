@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Alert,
@@ -38,6 +39,7 @@ import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosit
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDeFiProtocolLendingActionSource } from '@onekeyhq/shared/src/routes/assetDetails';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -132,6 +134,8 @@ const EMPTY_BORROW_ASSETS_LIST: IBorrowAssetsList = {
 // Mirrors DEFI_ACTION_HERO_MIN_HEIGHT in ProtocolPositionActionDialog so the
 // loading skeleton reserves the same amount-hero height.
 const BORROW_HERO_SKELETON_HEIGHT = 128;
+// 32px viewport inset + 70px header + 58px footer + 20px body host padding.
+const DESKTOP_LENDING_DIALOG_CHROME_HEIGHT = 180;
 
 // Focus ring for the keyboard-focusable asset selector rows (matches Button).
 const LENDING_SELECTOR_FOCUS_STYLE = {
@@ -422,12 +426,10 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
-  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
-  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -436,9 +438,6 @@ function LendingActionAlerts({
   const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
     if (!showLiquidationWarning) {
       return true;
-    }
-    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
-      return false;
     }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
@@ -979,8 +978,14 @@ function ProtocolLendingActionBorrowContent({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { bodyMaxHeight, feedbackMaxHeight } =
+  const { height: windowHeight } = useWindowDimensions();
+  const { bodyMaxHeight: defaultBodyMaxHeight, feedbackMaxHeight } =
     resolveProtocolPositionActionDialogLayout({ gtMd });
+  const bodyMaxHeight =
+    platformEnv.isDesktop && gtMd ? 480 : defaultBodyMaxHeight;
+  const dialogBodyMaxHeight = platformEnv.isDesktop
+    ? Math.max(0, windowHeight - DESKTOP_LENDING_DIALOG_CHROME_HEIGHT)
+    : undefined;
   const [
     {
       currencyInfo: { symbol: currencySymbol },
@@ -1591,7 +1596,9 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    !healthFactor &&
+    isAmountPositive &&
+    actionResult.transactionConfirmationLoading;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
@@ -1735,7 +1742,7 @@ function ProtocolLendingActionBorrowContent({
                   id: ETranslations.defi_health_factor,
                 })}
                 valueNode={
-                  <Skeleton height="$4" width="$16" borderRadius="$1" />
+                  <Skeleton height={24} width="$16" borderRadius="$1" />
                 }
               />
               {remainingDebtChange ? (
@@ -1760,7 +1767,6 @@ function ProtocolLendingActionBorrowContent({
       showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
-      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
     />
   ) : null;
   const contentNode = (
@@ -1830,7 +1836,11 @@ function ProtocolLendingActionBorrowContent({
   }
 
   return (
-    <YStack gap="$5">
+    <YStack
+      gap="$5"
+      maxHeight={dialogBodyMaxHeight}
+      minHeight={dialogBodyMaxHeight === undefined ? undefined : 0}
+    >
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>

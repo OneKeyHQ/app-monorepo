@@ -16,7 +16,10 @@ import {
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -198,6 +201,13 @@ const bnbToken: ISwapToken = {
   decimals: 18,
   isNative: true,
 };
+const ltcToken: ISwapToken = {
+  networkId: 'ltc--0',
+  contractAddress: '',
+  symbol: 'LTC',
+  decimals: 8,
+  isNative: true,
+};
 const ethProToken: IToken = {
   ...ethToken,
   speedSwapDefaultAmount: [0.001, 0.01, 0.1],
@@ -240,6 +250,11 @@ const evmSwapNetwork: ISwapNetwork = {
   networkId: 'evm--1',
   name: 'Ethereum',
   symbol: 'ETH',
+};
+const ltcSwapNetwork: ISwapNetwork = {
+  networkId: 'ltc--0',
+  name: 'Litecoin',
+  symbol: 'LTC',
 };
 const evmAccount: INetworkAccount = {
   id: 'hd-1--m/44/60/0/0/0',
@@ -3660,6 +3675,75 @@ describe('useSwapActions', () => {
       quoteId: '',
       states: [],
     });
+  });
+
+  it('creates a missing recipient address with the resolved target identity', async () => {
+    const hdWallet: IDBWallet = {
+      id: 'hd-1',
+      name: 'HD Wallet 1',
+      type: WALLET_TYPE_HD,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: 1,
+    };
+    const ethActiveAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      deriveType: 'default',
+      wallet: hdWallet,
+      indexedAccount: {
+        id: 'hd-1--0',
+        name: 'Account 1',
+        walletId: hdWallet.id,
+        index: 0,
+        idHash: 'indexed-account-hash',
+      },
+      network: { id: ethToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const ethAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      deriveType: ethActiveAccountInfo.deriveType,
+      accountInfo: ethActiveAccountInfo,
+      activeAccount: ethActiveAccountInfo,
+    };
+    const missingLtcAddressInfo: ISwapAddressInfo = {
+      ...ethAddressInfo,
+      address: undefined,
+      networkId: ltcToken.networkId,
+      deriveType: 'BIP84',
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapNetworks(), [evmSwapNetwork, ltcSwapNetwork]);
+      storeInstance.set(swapSelectToTokenAtom(), ltcToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          ethAddressInfo,
+          missingLtcAddressInfo,
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        action: expect.objectContaining({
+          directionType: ESwapDirectionType.TO,
+          actionData: expect.objectContaining({
+            account: expect.objectContaining({
+              networkId: ltcToken.networkId,
+              deriveType: 'BIP84',
+            }),
+          }),
+        }),
+      }),
+    ]);
   });
 
   it('keeps the unsupported-account alert after address resolution completes', async () => {

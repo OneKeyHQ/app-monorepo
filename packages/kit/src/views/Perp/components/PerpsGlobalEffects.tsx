@@ -952,7 +952,22 @@ function useHyperliquidSymbolSelect() {
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
-        return;
+        // The latch is process-wide, so this skip doubles as the only
+        // remount-time resync: skipping unconditionally would strand the page
+        // on the previous coin when the event bus message was dropped.
+        const bgSwitchParams =
+          await buildActiveInstrumentSwitchParamsFromGlobal();
+        const ctxInstrument = activeTradeInstrumentRef.current;
+        const diverged =
+          !bgSwitchParams ||
+          bgSwitchParams.coin !== ctxInstrument?.coin ||
+          bgSwitchParams.mode !== ctxInstrument?.mode;
+        markPerpsColdStartPerf('initial_symbol_latch_skip', {
+          diverged,
+        });
+        if (!diverged) {
+          return;
+        }
       }
       if (claimed) {
         markPerpsColdStartPerf('initial_symbol_refresh_meta_background_start');
@@ -1098,8 +1113,15 @@ function useHyperliquidSymbolSelect() {
     }
   }, [actions, setActiveAssetCtxColdCache]);
 
+  // Without the transition dedupe, the token selector's `popStack()` — which
+  // runs before its own `switchTradeInstrument()` resolves — re-enters
+  // mid-switch and forces the previous coin back over the user's selection.
+  const isRouteFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (!resolvePerpRouteFocused(isFocus)) return;
+    const nextFocused = resolvePerpRouteFocused(isFocus);
+    const wasFocused = isRouteFocusedRef.current;
+    isRouteFocusedRef.current = nextFocused;
+    if (!nextFocused || wasFocused) return;
     void selectInitialSymbol();
   });
 
