@@ -22,26 +22,39 @@ export function buildInitialTradeInstrumentSwitchParams({
   perpAsset,
   spotAsset,
   force,
+  allowPerpFallback,
 }: {
   mode: 'perp' | 'spot';
   perpAsset?: IInitialTradeAsset;
   spotAsset?: IInitialSpotTradeAsset;
   force?: boolean;
+  allowPerpFallback?: boolean;
 }) {
-  if (mode === 'spot' && spotAsset?.coin) {
-    return {
-      mode: 'spot' as const,
-      coin: spotAsset.coin,
-      spotUniverse: spotAsset.universe,
-      force,
-    };
+  if (mode === 'spot') {
+    if (spotAsset?.coin) {
+      return {
+        mode: 'spot' as const,
+        coin: spotAsset.coin,
+        spotUniverse: spotAsset.universe,
+        force,
+      };
+    }
+
+    // A restored spot mode can outlive its asset: changeActiveSpotAsset
+    // persists the mode before the asset and can return early in between,
+    // leaving the spot atom at its empty default.
+    //
+    // Only the cold-start caller opts into the perp fallback, because its
+    // initial-symbol latch is process-wide and already consumed by the time
+    // this returns — bailing out there strands the page for the rest of the
+    // session. Resync and recovery callers keep the no-op instead: they can
+    // fire inside that same write window while the user is switching to spot,
+    // where switching to perp would abort the switch in progress.
+    if (!allowPerpFallback) {
+      return undefined;
+    }
   }
 
-  // A restored spot mode can outlive its asset: changeActiveSpotAsset persists
-  // the mode before the asset and can return early in between, leaving the spot
-  // atom at its empty default. Falling back to perp instead of bailing out
-  // matters because the caller's initial-symbol latch is process-wide and is
-  // already consumed by the time this returns — no second chance this session.
   if (!perpAsset?.coin) {
     return undefined;
   }

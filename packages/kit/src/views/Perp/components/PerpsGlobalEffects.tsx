@@ -124,6 +124,7 @@ function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
 
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
   force?: boolean;
+  allowPerpFallback?: boolean;
 }) {
   const currentMode = (await tradingModeAtom.get()) ?? 'perp';
   if (currentMode === 'spot') {
@@ -138,6 +139,7 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
       spotAsset,
       perpAsset,
       force: options?.force,
+      allowPerpFallback: options?.allowPerpFallback,
     });
   }
 
@@ -1045,6 +1047,9 @@ function useHyperliquidSymbolSelect() {
       markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
       const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
         force: true,
+        // This is the one caller behind the process-wide initial-symbol latch,
+        // so bailing out here would leave the page uninitialized for good.
+        allowPerpFallback: true,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,

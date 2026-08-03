@@ -43,6 +43,7 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
       buildInitialTradeInstrumentSwitchParams({
         mode: 'spot',
         perpAsset: { coin: 'BTC' },
+        allowPerpFallback: true,
       }),
     ).toEqual({
       mode: 'perp',
@@ -57,6 +58,7 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
         perpAsset: { coin: 'BTC' },
         spotAsset: { coin: '' },
         force: true,
+        allowPerpFallback: true,
       }),
     ).toEqual({
       mode: 'perp',
@@ -65,11 +67,26 @@ describe('buildInitialTradeInstrumentSwitchParams', () => {
     });
   });
 
+  // Resync and recovery callers can fire inside the window where the mode is
+  // already 'spot' but the asset is not written yet. Switching to perp there
+  // would abort the spot switch the user is in the middle of, so without the
+  // opt-in the builder must stay a no-op.
+  it('stays a no-op for the spot write window unless the fallback is opted in', () => {
+    expect(
+      buildInitialTradeInstrumentSwitchParams({
+        mode: 'spot',
+        perpAsset: { coin: 'BTC' },
+        spotAsset: { coin: '' },
+      }),
+    ).toBeUndefined();
+  });
+
   it('does not switch when neither mode has a usable asset', () => {
     expect(
       buildInitialTradeInstrumentSwitchParams({
         mode: 'spot',
         perpAsset: { coin: '' },
+        allowPerpFallback: true,
       }),
     ).toBeUndefined();
   });
