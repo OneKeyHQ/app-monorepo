@@ -17,12 +17,14 @@
  * Usage:
  *   node scenarios/regression.mjs list
  *   node scenarios/regression.mjs dapp-cold-start-desktop --url https://onekey.so
+ *   node scenarios/regression.mjs tabs-scroll-extent-desktop # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-desktop          # CDP 9222 (yarn app:desktop)
  *   node scenarios/regression.mjs gift-storm-web              # CDP 9223 (Chrome --remote-debugging-port=9223 on the web build)
  *   node scenarios/regression.mjs gift-storm-rn --platform ios
  *   node scenarios/regression.mjs gift-storm-rn --platform android
  *
  * Env (shared): ROUNDS, REGRESSION=1 (exit 1 if reproduced, 0 if clean).
+ * Env (Tabs): TAB_SWITCH_ROUNDS (default 8).
  * Env (cdp targets): CDP_URL_DESKTOP (falls back to CDP_URL, default 9222),
  *   CDP_URL_WEB (default 9223). Separate names so a desktop CDP_URL override
  *   can't silently redirect the web scenario.
@@ -102,19 +104,25 @@ async function connectCdpMainWindow(cdpUrl) {
     );
   }
   let page = null;
-  for (const c of browser.contexts()) {
-    for (const p of c.pages()) {
-      try {
-        if ((await p.locator('[data-testid^="tab-modal"]').count()) > 0) {
-          page = p;
-          break;
+  await waitForCondition(
+    'OneKey main window on CDP',
+    async () => {
+      for (const c of browser.contexts()) {
+        for (const p of c.pages()) {
+          try {
+            if ((await p.locator('[data-testid^="tab-modal"]').count()) > 0) {
+              page = p;
+              return true;
+            }
+          } catch {
+            /* page may be navigating */
+          }
         }
-      } catch {
-        /* page may be navigating */
       }
-    }
-    if (page) break;
-  }
+      return false;
+    },
+    30_000,
+  );
   if (!page) {
     // Detach only — never browser.close(), it would kill the user's running app
     // (see references/rules/electron-cdp.md). connectOverCDP leaks no process.
@@ -604,6 +612,431 @@ async function runDappColdStartDesktop(cdpUrl, flags) {
   return reportVerification('dapp-cold-start-desktop', checks);
 }
 
+async function runTabsScrollExtentDesktop(cdpUrl) {
+  const { page } = await connectCdpMainWindow(cdpUrl);
+  const growthProbeTestId = 'tabs-scroll-extent-late-growth-probe';
+  const headerProbeTestId = 'tabs-scroll-extent-header-probe';
+  const tabSwitchRounds = Number(process.env.TAB_SWITCH_ROUNDS || 8);
+  const visiblePasswordInput = page.locator(
+    '[data-testid="password-input"]:visible',
+  );
+  if ((await visiblePasswordInput.count()) > 0) {
+    throw new Error(
+      'Desktop app is locked. Unlock it before running the Tabs scroll extent scenario.',
+    );
+  }
+
+  const defiTab = page.locator('[data-testid="home-tab-defi"]');
+  const nftTab = page.locator('[data-testid="home-tab-nft"]');
+  await defiTab.waitFor({ state: 'visible', timeout: 15_000 });
+  await nftTab.waitFor({ state: 'visible', timeout: 15_000 });
+
+  // The dev shell starts on Portfolio, whereas QA can reopen with DeFi still
+  // selected. Enter DeFi at most once and do not leave/re-enter while its slow
+  // data resolves: a round trip would re-attach the old observer and mask the
+  // cold-start failure this first phase is meant to catch.
+  await defiTab.click({ force: true });
+
+  const defiContent = page
+    .locator('[data-testid="home-defi-tab-content"]:visible')
+    .first();
+  await defiContent.waitFor({ state: 'visible', timeout: 30_000 });
+  await waitForCondition(
+    'scrollable Tabs.ScrollView content',
+    () =>
+      defiContent.evaluate((tabContent) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+        const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+        return (
+          scrollViewRoot instanceof HTMLElement &&
+          scroller instanceof HTMLElement &&
+          scrollViewRoot.scrollHeight > window.innerHeight
+        );
+      }),
+    45_000,
+  );
+
+  // Use DeFi as a real, long Tabs.ScrollView fixture, then inject a
+  // deterministic late-growing block after the tab has settled. This models
+  // any tab child (image, list section, banner) resolving asynchronously.
+  // A correct Tabs implementation expands the shared scroll extent without
+  // requiring the business tab to report its own height.
+  await sleep(1200);
+  const getMetrics = () =>
+    defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return null;
+      const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+      const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+      if (
+        !(scrollViewRoot instanceof HTMLElement) ||
+        !(scroller instanceof HTMLElement) ||
+        !scroller.contains(tabContent)
+      ) {
+        return null;
+      }
+      // WindowScroller adds wrapper nodes between the registered ScrollView
+      // and the shared horizontal list container. The latter is the nearest
+      // ancestor with an imperative inline height; asserting that height
+      // changes prevents overflow from masking a stale Tabs measurement.
+      let listContainer = scrollViewRoot.parentElement;
+      while (
+        listContainer &&
+        listContainer !== scroller &&
+        !listContainer.style.height
+      ) {
+        listContainer = listContainer.parentElement;
+      }
+      if (listContainer === scroller) {
+        listContainer = null;
+      }
+      const scrollerRect = scroller.getBoundingClientRect();
+      const contentRect = tabContent.getBoundingClientRect();
+      const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+      return {
+        atBottom: Math.abs(scroller.scrollTop - maxScrollTop) <= 2,
+        clientHeight: scroller.clientHeight,
+        contentHeight: contentRect.height,
+        contentScrollHeight: tabContent.scrollHeight,
+        hiddenBelowScroller: Math.max(
+          0,
+          contentRect.bottom - scrollerRect.bottom,
+        ),
+        listContainerHeight:
+          listContainer instanceof HTMLElement
+            ? listContainer.getBoundingClientRect().height
+            : 0,
+        maxScrollTop,
+        scrollViewHeight: scrollViewRoot.getBoundingClientRect().height,
+        scrollViewScrollHeight: scrollViewRoot.scrollHeight,
+        unmeasuredScrollViewOverflow:
+          listContainer instanceof HTMLElement
+            ? Math.max(
+                0,
+                scrollViewRoot.scrollHeight -
+                  listContainer.getBoundingClientRect().height,
+              )
+            : 0,
+        scrollHeight: scroller.scrollHeight,
+        scrollTop: scroller.scrollTop,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+  const wheelToBottom = async () => {
+    const scrollTarget = await defiContent.evaluate((tabContent) => {
+      if (!(tabContent instanceof HTMLElement)) return null;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      if (!(scroller instanceof HTMLElement)) return null;
+      const rect = scroller.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: Math.max(rect.top + 1, rect.bottom - 100),
+      };
+    });
+    if (!scrollTarget) {
+      throw new Error('Tabs wheel target is unavailable');
+    }
+    // Keep the pointer over real tab content. Leaving it on the sticky tab
+    // button bypasses Chromium's stale hit-test extent and masks this bug.
+    await page.mouse.move(scrollTarget.x, scrollTarget.y);
+    let previousScrollTop = -1;
+    let settledRounds = 0;
+    for (let round = 0; round < 30 && settledRounds < 3; round += 1) {
+      await page.mouse.wheel(0, 1200);
+      await sleep(80);
+      const metrics = await getMetrics();
+      if (!metrics) throw new Error('Tabs scroll metrics are unavailable');
+      if (Math.abs(metrics.scrollTop - previousScrollTop) <= 0.5) {
+        settledRounds += 1;
+      } else {
+        settledRounds = 0;
+      }
+      previousScrollTop = metrics.scrollTop;
+    }
+  };
+
+  // Closing a wallet banner shrinks renderHeader without changing the focused
+  // tab's own content height. Reproduce that structural change with a
+  // deterministic header child, then verify the current tab accepts real wheel
+  // input immediately; switching tabs must not be required to recover it.
+  const cleanupHeaderProbe = () =>
+    defiContent.evaluate((tabContent, testId) => {
+      if (!(tabContent instanceof HTMLElement)) return;
+      const scroller = tabContent
+        .closest('.onekey-tabs-scroll-view')
+        ?.closest('.onekey-tabs-container');
+      if (scroller instanceof HTMLElement) {
+        scroller.querySelector(`[data-testid="${testId}"]`)?.remove();
+      }
+    }, headerProbeTestId);
+
+  await cleanupHeaderProbe();
+  let headerShrinkFailure = false;
+  try {
+    const insertedHeaderProbe = await defiContent.evaluate(
+      (tabContent, testId) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scroller = tabContent
+          .closest('.onekey-tabs-scroll-view')
+          ?.closest('.onekey-tabs-container');
+        const header = scroller?.firstElementChild;
+        if (
+          !(scroller instanceof HTMLElement) ||
+          !(header instanceof HTMLElement)
+        ) {
+          return false;
+        }
+        scroller.scrollTop = 0;
+        const probe = document.createElement('div');
+        probe.setAttribute('data-testid', testId);
+        probe.style.cssText =
+          'display:block;flex:none;width:100%;height:96px;min-height:96px;';
+        header.append(probe);
+        return true;
+      },
+      headerProbeTestId,
+    );
+    if (!insertedHeaderProbe) {
+      throw new Error('Could not insert the Tabs header probe');
+    }
+    await sleep(300);
+    await cleanupHeaderProbe();
+    await sleep(300);
+
+    await wheelToBottom();
+    await sleep(300);
+
+    const headerShrinkMetrics = await getMetrics();
+    if (!headerShrinkMetrics) {
+      throw new Error(
+        'Tabs scroll metrics are unavailable after header shrink',
+      );
+    }
+    headerShrinkFailure =
+      !headerShrinkMetrics.atBottom ||
+      headerShrinkMetrics.hiddenBelowScroller > 2 ||
+      headerShrinkMetrics.unmeasuredScrollViewOverflow > 2;
+    log(
+      `Header shrink wheel: ${
+        headerShrinkFailure ? 'stuck' : 'clean'
+      } scrollTop=${headerShrinkMetrics.scrollTop.toFixed(
+        1,
+      )}/${headerShrinkMetrics.maxScrollTop.toFixed(1)}`,
+    );
+  } finally {
+    await cleanupHeaderProbe();
+  }
+
+  if (headerShrinkFailure) {
+    const screenshotPath = path.resolve(
+      '.tmp/ui/tabs-scroll-extent-header-shrink-desktop.png',
+    );
+    fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+    await page.screenshot({ path: screenshotPath });
+    log(`evidence -> ${screenshotPath}`);
+    return report('tabs-scroll-extent-desktop', 1, 1, 0, 0, '');
+  }
+
+  // Reproduce OK-57257's recorded sequence first: a fully rendered, tall DeFi
+  // tab is scrolled away from the top, switched to the short NFT tab, restored,
+  // and then driven to the bottom with real wheel events. Repeat it because the
+  // original bug was timing-sensitive.
+  await wheelToBottom();
+  const initialDefiMetrics = await getMetrics();
+  if (!initialDefiMetrics?.atBottom) {
+    throw new Error('Could not establish the initial DeFi scroll bottom');
+  }
+  const coldStartClipped =
+    initialDefiMetrics.hiddenBelowScroller > 2 ||
+    initialDefiMetrics.unmeasuredScrollViewOverflow > 2;
+  log(
+    `DeFi initial load before tab round trip: ${
+      coldStartClipped ? 'clipped' : 'clean'
+    } scrollTop=${initialDefiMetrics.scrollTop.toFixed(
+      1,
+    )}/${initialDefiMetrics.maxScrollTop.toFixed(
+      1,
+    )} container=${initialDefiMetrics.listContainerHeight.toFixed(
+      1,
+    )} scrollView=${initialDefiMetrics.scrollViewHeight.toFixed(
+      1,
+    )}/${initialDefiMetrics.scrollViewScrollHeight}px hidden=${initialDefiMetrics.hiddenBelowScroller.toFixed(
+      1,
+    )}px unmeasured=${initialDefiMetrics.unmeasuredScrollViewOverflow.toFixed(
+      1,
+    )}px`,
+  );
+
+  let tabRoundTripFailures = 0;
+  for (let round = 1; round <= tabSwitchRounds; round += 1) {
+    // The issue video switches tabs while DeFi is part-way down the page and
+    // the sticky tab selector is visible, rather than from the page top.
+    await page.mouse.wheel(0, -2400);
+    await sleep(120);
+    await nftTab.click({ force: true });
+    await sleep(300);
+    await defiTab.click({ force: true });
+    await sleep(500);
+    await wheelToBottom();
+
+    const roundMetrics = await getMetrics();
+    if (!roundMetrics) throw new Error('Tabs scroll metrics are unavailable');
+    const clipped =
+      !roundMetrics.atBottom ||
+      roundMetrics.hiddenBelowScroller > 2 ||
+      roundMetrics.listContainerHeight <
+        initialDefiMetrics.listContainerHeight - 2;
+    if (clipped) tabRoundTripFailures += 1;
+    log(
+      `DeFi->NFT->DeFi round ${round}/${tabSwitchRounds}: ${
+        clipped ? 'clipped' : 'clean'
+      } scrollTop=${roundMetrics.scrollTop.toFixed(
+        1,
+      )}/${roundMetrics.maxScrollTop.toFixed(
+        1,
+      )} container=${roundMetrics.listContainerHeight.toFixed(
+        1,
+      )} content=${roundMetrics.contentScrollHeight}px hidden=${roundMetrics.hiddenBelowScroller.toFixed(
+        1,
+      )}px`,
+    );
+  }
+
+  // Then establish the old compositor extent at the current bottom and grow
+  // the content, matching the related failure where slow data expands a tab
+  // after the user has already reached its initially shorter bottom.
+  await wheelToBottom();
+  const beforeGrowthMetrics = await getMetrics();
+  if (!beforeGrowthMetrics?.atBottom) {
+    throw new Error('Could not establish the Tabs pre-growth scroll bottom');
+  }
+
+  const cleanupGrowthProbe = () =>
+    defiContent.evaluate((tabContent, testId) => {
+      if (!(tabContent instanceof HTMLElement)) return;
+      const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+      if (scrollViewRoot instanceof HTMLElement) {
+        const probe = scrollViewRoot.querySelector(`[data-testid="${testId}"]`);
+        probe?.remove();
+        const snapshot = JSON.parse(
+          scrollViewRoot.dataset.tabsScrollExtentOriginalStyle ?? '[]',
+        );
+        for (const [property, value, priority] of snapshot) {
+          if (value) {
+            scrollViewRoot.style.setProperty(property, value, priority);
+          } else {
+            scrollViewRoot.style.removeProperty(property);
+          }
+        }
+        delete scrollViewRoot.dataset.tabsScrollExtentOriginalStyle;
+      }
+    }, growthProbeTestId);
+
+  await cleanupGrowthProbe();
+  try {
+    const insertedGrowthProbe = await defiContent.evaluate(
+      (tabContent, testId) => {
+        if (!(tabContent instanceof HTMLElement)) return false;
+        const scrollViewRoot = tabContent.closest('.onekey-tabs-scroll-view');
+        const scroller = scrollViewRoot?.closest('.onekey-tabs-container');
+        if (
+          !(scrollViewRoot instanceof HTMLElement) ||
+          !(scroller instanceof HTMLElement)
+        ) {
+          return false;
+        }
+        const properties = ['height', 'min-height', 'max-height', 'flex'];
+        scrollViewRoot.dataset.tabsScrollExtentOriginalStyle = JSON.stringify(
+          properties.map((property) => [
+            property,
+            scrollViewRoot.style.getPropertyValue(property),
+            scrollViewRoot.style.getPropertyPriority(property),
+          ]),
+        );
+        const lockedHeight = scrollViewRoot.getBoundingClientRect().height;
+        scrollViewRoot.style.setProperty('height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('min-height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('max-height', `${lockedHeight}px`);
+        scrollViewRoot.style.setProperty('flex', 'none');
+        const probe = document.createElement('div');
+        probe.setAttribute('data-testid', testId);
+        probe.style.cssText =
+          'display:block;flex:none;width:100%;height:96px;min-height:96px;';
+        // Add a new direct content node. The previous implementation observed a
+        // one-time child snapshot, so a cold-start skeleton/data replacement left
+        // the new node unobserved while the root border box stayed pinned.
+        scrollViewRoot.append(probe);
+        return true;
+      },
+      growthProbeTestId,
+    );
+    if (!insertedGrowthProbe) {
+      throw new Error('Could not insert the Tabs.ScrollView growth probe');
+    }
+    await sleep(300);
+
+    await wheelToBottom();
+    await sleep(300);
+
+    const metrics = await getMetrics();
+    if (!metrics) throw new Error('Tabs scroll metrics are unavailable');
+    const extentGrowth =
+      metrics.maxScrollTop - beforeGrowthMetrics.maxScrollTop;
+    const listContainerGrowth =
+      metrics.listContainerHeight - beforeGrowthMetrics.listContainerHeight;
+    const reproduced =
+      headerShrinkFailure ||
+      coldStartClipped ||
+      tabRoundTripFailures > 0 ||
+      extentGrowth < 90 ||
+      listContainerGrowth < 90 ||
+      !metrics.atBottom ||
+      metrics.hiddenBelowScroller > 2 ||
+      metrics.unmeasuredScrollViewOverflow > 2;
+    log(
+      `Tabs extent headerShrinkFailure=${headerShrinkFailure} coldStartClipped=${coldStartClipped} roundTripFailures=${tabRoundTripFailures}/${tabSwitchRounds} oldMax=${beforeGrowthMetrics.maxScrollTop.toFixed(
+        1,
+      )} scrollTop=${metrics.scrollTop.toFixed(1)}/${metrics.maxScrollTop.toFixed(
+        1,
+      )} container=${beforeGrowthMetrics.listContainerHeight.toFixed(
+        1,
+      )}->${metrics.listContainerHeight.toFixed(
+        1,
+      )} scrollView=${metrics.scrollViewHeight.toFixed(
+        1,
+      )}/${metrics.scrollViewScrollHeight}px content=${metrics.contentScrollHeight}px hidden=${metrics.hiddenBelowScroller.toFixed(
+        1,
+      )}px unmeasured=${metrics.unmeasuredScrollViewOverflow.toFixed(
+        1,
+      )}px viewport=${metrics.viewportWidth}x${metrics.viewportHeight}`,
+    );
+
+    if (reproduced) {
+      const screenshotPath = path.resolve(
+        '.tmp/ui/tabs-scroll-extent-desktop.png',
+      );
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath });
+      log(`evidence -> ${screenshotPath}`);
+    }
+
+    return report(
+      'tabs-scroll-extent-desktop',
+      reproduced ? 1 : 0,
+      1,
+      0,
+      0,
+      '',
+    );
+  } finally {
+    await cleanupGrowthProbe();
+  }
+}
+
 // Ported from the former cdp-repro-gift-storm.mjs. The detection
 // signal — console "Maximum update depth", JS heap, evaluate RTT — is CDP-only,
 // which is exactly why this scenario stays on CDP.
@@ -923,6 +1356,17 @@ const scenarios = {
           process.env.CDP_URL ||
           'http://127.0.0.1:9222',
         flags,
+      ),
+  },
+  'tabs-scroll-extent-desktop': {
+    backend: 'cdp',
+    describe:
+      'Detect Tabs.ScrollView clipping after DeFi/NFT round trips or async growth. CDP 9222.',
+    run: () =>
+      runTabsScrollExtentDesktop(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
       ),
   },
   'gift-storm-desktop': {

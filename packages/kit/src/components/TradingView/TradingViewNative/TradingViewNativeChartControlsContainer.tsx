@@ -76,6 +76,7 @@ export const TradingViewNativeChartControlsContainer = memo(
 
     return (
       <TradingViewChartControls
+        backgroundColor="$transparent"
         calendarAvailableTimeRange={calendarAvailableTimeRange}
         intervalConfig={intervalConfig}
         activeChartType={undefined}
