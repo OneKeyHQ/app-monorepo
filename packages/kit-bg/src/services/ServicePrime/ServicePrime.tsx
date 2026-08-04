@@ -2350,6 +2350,7 @@ class ServicePrime extends ServiceBase {
       let promptUpgradeState: {
         hasShown: boolean;
         credentialUpgradeCompleted: boolean;
+        identityLifecycleRevision?: number;
       };
       try {
         promptUpgradeState =
@@ -2395,6 +2396,11 @@ class ServicePrime extends ServiceBase {
       }
 
       if (!promptUpgradeState.credentialUpgradeCompleted) {
+        const expectedIdentityLifecycleRevision =
+          promptUpgradeState.identityLifecycleRevision;
+        if (expectedIdentityLifecycleRevision === undefined) {
+          return { status: 'retryable' };
+        }
         try {
           const keylessCredentialReadiness =
             await this.backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
@@ -2404,7 +2410,10 @@ class ServicePrime extends ServiceBase {
           if (keylessCredentialReadiness.status !== 'requiresPasscode') {
             const marked =
               await this.backgroundApi.simpleDb.prime.markOneKeyIdKeylessCredentialUpgradeCompleted(
-                { onekeyUserId },
+                {
+                  onekeyUserId,
+                  expectedIdentityLifecycleRevision,
+                },
               );
             if (!marked) {
               return { status: 'retryable' };

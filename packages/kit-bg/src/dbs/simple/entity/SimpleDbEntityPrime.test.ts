@@ -1027,6 +1027,7 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
     ).resolves.toEqual({
       hasShown: true,
       credentialUpgradeCompleted: true,
+      identityLifecycleRevision: 7,
     });
 
     getRawDataSpy.mockResolvedValueOnce({
@@ -1046,6 +1047,7 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
     ).resolves.toEqual({
       hasShown: true,
       credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 8,
     });
   });
 
@@ -1069,6 +1071,7 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
     await expect(
       entity.markOneKeyIdKeylessCredentialUpgradeCompleted({
         onekeyUserId: 'user-1',
+        expectedIdentityLifecycleRevision: 9,
       }),
     ).resolves.toBe(true);
     expect(
@@ -1077,6 +1080,34 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
       'user-1': 9,
       'user-2': 4,
     });
+  });
+
+  test('does not mark credential completion after the lifecycle revision changes', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 10,
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-2': 4,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await expect(
+      entity.markOneKeyIdKeylessCredentialUpgradeCompleted({
+        onekeyUserId: 'user-1',
+        expectedIdentityLifecycleRevision: 9,
+      }),
+    ).resolves.toBe(false);
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({ 'user-2': 4 });
   });
 
   test('consumes only the claim that actually presents the reminder', async () => {
@@ -1156,6 +1187,10 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
         'user-1': 1,
         'user-2': 2,
       },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 3,
+        'user-2': 4,
+      },
     };
     jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
     jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
@@ -1174,6 +1209,9 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
     expect(persisted.localKeylessUpgradeBindPromptShownAtByUserId).toEqual({
       'user-2': 2,
     });
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({ 'user-2': 4 });
   });
 });
 

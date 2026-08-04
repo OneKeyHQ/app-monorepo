@@ -1123,6 +1123,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }): Promise<{
     hasShown: boolean;
     credentialUpgradeCompleted: boolean;
+    identityLifecycleRevision?: number;
   }> {
     if (!onekeyUserId) {
       return {
@@ -1138,24 +1139,30 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId?.[
         onekeyUserId
       ];
+    const identityLifecycleRevision =
+      typeof currentRevision === 'number' && Number.isFinite(currentRevision)
+        ? currentRevision
+        : undefined;
     return {
       hasShown: typeof shownAt === 'number' && Number.isFinite(shownAt),
       credentialUpgradeCompleted:
-        typeof currentRevision === 'number' &&
-        Number.isFinite(currentRevision) &&
+        identityLifecycleRevision !== undefined &&
         typeof completedRevision === 'number' &&
         Number.isFinite(completedRevision) &&
-        completedRevision === currentRevision,
+        completedRevision === identityLifecycleRevision,
+      identityLifecycleRevision,
     };
   }
 
   @backgroundMethod()
   async markOneKeyIdKeylessCredentialUpgradeCompleted({
     onekeyUserId,
+    expectedIdentityLifecycleRevision,
   }: {
     onekeyUserId: string;
+    expectedIdentityLifecycleRevision: number;
   }): Promise<boolean> {
-    if (!onekeyUserId) {
+    if (!onekeyUserId || !Number.isFinite(expectedIdentityLifecycleRevision)) {
       return false;
     }
     let marked = false;
@@ -1163,7 +1170,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const currentRevision = rawData?.identityLifecycleRevision ?? 0;
       if (
         typeof currentRevision !== 'number' ||
-        !Number.isFinite(currentRevision)
+        !Number.isFinite(currentRevision) ||
+        currentRevision !== expectedIdentityLifecycleRevision
       ) {
         return { ...rawData };
       }
@@ -1318,12 +1326,18 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const claims = {
         ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
       };
+      const credentialUpgradeCompletedRevisionByUserId = {
+        ...rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+      };
       delete shownAtByUserId[onekeyUserId];
       delete claims[onekeyUserId];
+      delete credentialUpgradeCompletedRevisionByUserId[onekeyUserId];
       return {
         ...rawData,
         localKeylessUpgradeBindPromptShownAtByUserId: shownAtByUserId,
         oneKeyIdOAuthBindPromptClaimByUserId: claims,
+        localKeylessCredentialUpgradeCompletedRevisionByUserId:
+          credentialUpgradeCompletedRevisionByUserId,
       };
     });
   }

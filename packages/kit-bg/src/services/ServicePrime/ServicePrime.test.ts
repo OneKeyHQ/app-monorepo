@@ -341,6 +341,7 @@ function createService() {
     getOneKeyIdOAuthBindPromptUpgradeState: jest.fn(async () => ({
       hasShown: false,
       credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 0,
     })),
     markOneKeyIdKeylessCredentialUpgradeCompleted: jest.fn(async () => true),
     markOneKeyIdOAuthBindPromptShown: jest.fn(async () => undefined),
@@ -3275,6 +3276,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
       hasShown: true,
       credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
     });
     const bindRequiredSpy = jest.spyOn(
       service,
@@ -3295,7 +3297,10 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     ).toHaveBeenCalledTimes(1);
     expect(
       simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
-    ).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+    ).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedIdentityLifecycleRevision: 7,
+    });
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
     ).not.toHaveBeenCalled();
@@ -3307,6 +3312,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
       hasShown: true,
       credentialUpgradeCompleted: true,
+      identityLifecycleRevision: 7,
     });
     const bindRequiredSpy = jest.spyOn(
       service,
@@ -3336,6 +3342,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
       hasShown: true,
       credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
     });
     backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
       {
@@ -3357,6 +3364,44 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     ).toHaveBeenCalledTimes(1);
     expect(
       simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('retries when the identity lifecycle changes during credential readiness', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: false,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
+    });
+    mockOneKeyIdCredentialReady(service);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'ready',
+        hasLocalKeylessWallet: true,
+      },
+    );
+    simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted.mockResolvedValue(
+      false,
+    );
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({ onekeyUserId: 'user-1' }),
+    ).resolves.toEqual({ status: 'retryable' });
+
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedIdentityLifecycleRevision: 7,
+    });
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
     ).not.toHaveBeenCalled();
   });
 
@@ -3507,6 +3552,9 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     expect(bindRequiredSpy).not.toHaveBeenCalled();
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
     ).not.toHaveBeenCalled();
   });
 
