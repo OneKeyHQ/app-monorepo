@@ -55,6 +55,17 @@ type IMarketBannerDetailRouteParams = RouteProp<
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
 
+// Spot banner lists are dominated by tokenized stocks, whose liquidity is not
+// reported by the market API, so the column is dropped instead of rendering a
+// near-empty one. Perps banners use their own columns and never had it.
+//
+// The `liquidity` dataIndex is shared: in stock metadata mode the same column
+// renders 24h volume instead. This list keeps the default `showStockSubtitle`
+// (not 'auto'), so that mode is currently unreachable here. Revisit this
+// constant before enabling stock metadata columns, or 24h volume disappears
+// with no type or test failure.
+const BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS = ['liquidity'] as const;
+
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId, type } = route.params;
@@ -211,6 +222,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
         change24hColumnTitle={change24hColumnTitle}
+        hiddenDesktopColumns={BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS}
       />
     );
     if (platformEnv.isNative) {
