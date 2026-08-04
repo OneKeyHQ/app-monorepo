@@ -70,6 +70,7 @@ import type {
   ICustomReceiveHandlerData,
   ITradingViewChartReadyData,
   ITradingViewFirstPaintReadyData,
+  ITradingViewHistoryData,
   ITradingViewHistoryReadyData,
   ITradingViewIntervalConfigData,
   ITradingViewKLineDataReadyData,
@@ -113,11 +114,17 @@ const TRADINGVIEW_REDO_MESSAGE = 'TRADINGVIEW_REDO';
 const KLINE_BOOTSTRAP_PROTOCOL_VERSION = 1;
 const TRADINGVIEW_CAPABILITY_HANDSHAKE_TIMEOUT_MS = 5000;
 const MARKET_SYMBOL_SYNC_RECOVERY_TIMEOUT_MS = 3000;
+const MAX_READINESS_ACK_TARGETS = 200;
 
 interface IPendingLegacyHistoryReady {
   readyKey: string;
   status: ITradingViewHistoryReadyData['status'];
   period: string;
+  webViewLoadGeneration: number;
+}
+
+interface IReadinessAckTarget {
+  identity: string;
   webViewLoadGeneration: number;
 }
 
@@ -252,6 +259,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     hasTracked: false,
     requestIds: new Set<string>(),
   });
+  const readinessAckTargetsRef = useRef(new Map<string, IReadinessAckTarget>());
   const bootstrapKLineResolution = normalizeTradingViewKLineInterval(
     requestedInitialResolution ?? DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
@@ -638,6 +646,50 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartSymbol,
     kLineProvider,
   ].join(':');
+  const registerReadinessAckTarget = useCallback(
+    (correlationId: string) => {
+      readinessAckTargetsRef.current.set(correlationId, {
+        identity: firstPaintMetricIdentity,
+        webViewLoadGeneration: webViewLoadGeneration.current,
+      });
+      if (readinessAckTargetsRef.current.size > MAX_READINESS_ACK_TARGETS) {
+        const oldestCorrelationId = readinessAckTargetsRef.current
+          .keys()
+          .next().value;
+        if (typeof oldestCorrelationId === 'string') {
+          readinessAckTargetsRef.current.delete(oldestCorrelationId);
+        }
+      }
+    },
+    [firstPaintMetricIdentity],
+  );
+  const handleKLineRequestStart = useCallback(
+    (data: ITradingViewHistoryData) => {
+      if (data.requestId) {
+        registerReadinessAckTarget(data.requestId);
+      }
+    },
+    [registerReadinessAckTarget],
+  );
+  const resolveReadinessAckTarget = useCallback(
+    (
+      data: ITradingViewHistoryReadyData | ITradingViewFirstPaintReadyData,
+    ): boolean | undefined => {
+      const correlationId =
+        'source' in data && data.source === 'bootstrap'
+          ? (data.bootstrapId ?? data.requestId)
+          : data.requestId;
+      const target = readinessAckTargetsRef.current.get(correlationId);
+      if (!target) {
+        return undefined;
+      }
+      return (
+        target.identity === firstPaintMetricIdentity &&
+        target.webViewLoadGeneration === webViewLoadGeneration.current
+      );
+    },
+    [firstPaintMetricIdentity],
+  );
   const currentDataRequestIdentityRef = useRef(firstPaintMetricIdentity);
   currentDataRequestIdentityRef.current = firstPaintMetricIdentity;
   if (firstPaintTrackingRef.current.identity !== firstPaintMetricIdentity) {
@@ -932,6 +984,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIntervalAckSupportChange: setIsIntervalAckSupported,
     onHistoryReadyAckSupportChange: setIsHistoryReadyAckSupported,
     onChartReady: handleChartReady,
+    onKLineRequestStart: handleKLineRequestStart,
+    resolveReadinessAckTarget,
     onHistoryReady: handleHistoryReady,
     onFirstPaintReady: handleFirstPaintReady,
     isKLineHistoryReady,
@@ -1275,6 +1329,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       firstPaintTrackingRef.current.startedAt = Date.now();
       firstPaintTrackingRef.current.hasTracked = false;
       firstPaintTrackingRef.current.requestIds.clear();
+      readinessAckTargetsRef.current.clear();
       setIsMarketSymbolSyncSupported(undefined);
       setIsMarketAppKlineTransportSupported(undefined);
       setIsIntervalAckSupported(undefined);
@@ -1325,11 +1380,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         if (requestTarget.requestWebView !== ref) {
           return;
         }
+        const bootstrapId = `${bootstrapIdPrefix}:unavailable`;
+        registerReadinessAckTarget(bootstrapId);
         requestTarget.sendMessage({
           type: 'KLINE_BOOTSTRAP_UNAVAILABLE',
           payload: {
             protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
-            bootstrapId: `${bootstrapIdPrefix}:unavailable`,
+            bootstrapId,
             identity,
             resolution: bootstrapKLineResolution,
             reason,
@@ -1370,17 +1427,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             if (delivery !== 'initial') {
               return;
             }
+            const bootstrapId = [
+              bootstrapIdPrefix,
+              result.requestedTimeTo,
+              delivery,
+              result.coveredTimeFrom,
+              result.points.length,
+            ].join(':');
+            registerReadinessAckTarget(bootstrapId);
             const bootstrapSent = requestTarget.sendMessage({
               type: 'KLINE_BOOTSTRAP',
               payload: {
                 protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
-                bootstrapId: [
-                  bootstrapIdPrefix,
-                  result.requestedTimeTo,
-                  delivery,
-                  result.coveredTimeFrom,
-                  result.points.length,
-                ].join(':'),
+                bootstrapId,
                 identity,
                 resolution: result.interval,
                 coveredRange: {
@@ -1426,6 +1485,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       mockEmptyKLineEnabled,
       networkId,
       primaryKLineDataUnavailable,
+      registerReadinessAckTarget,
       scheduleMarketSymbolSyncRecovery,
       tokenAddress,
       webRef,

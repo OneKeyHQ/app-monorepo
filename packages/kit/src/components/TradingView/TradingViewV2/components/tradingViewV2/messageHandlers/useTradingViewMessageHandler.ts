@@ -22,6 +22,7 @@ import type {
   ICustomReceiveHandlerData,
   ITradingViewChartReadyData,
   ITradingViewFirstPaintReadyData,
+  ITradingViewHistoryData,
   ITradingViewHistoryReadyData,
   ITradingViewIndicatorsDialogData,
   ITradingViewInteractionOverlayData,
@@ -95,6 +96,10 @@ interface IUseTradingViewMessageHandlerParams {
   onIntervalAckSupportChange?: (supported: boolean) => void;
   onHistoryReadyAckSupportChange?: (supported: boolean) => void;
   onChartReady?: (data: ITradingViewChartReadyData) => void;
+  onKLineRequestStart?: (data: ITradingViewHistoryData) => void;
+  resolveReadinessAckTarget?: (
+    data: ITradingViewHistoryReadyData | ITradingViewFirstPaintReadyData,
+  ) => boolean | undefined;
   onHistoryReady?: (data: ITradingViewHistoryReadyData) => void;
   onFirstPaintReady?: (data: ITradingViewFirstPaintReadyData) => void;
   isKLineHistoryReady?: boolean;
@@ -363,6 +368,18 @@ function getInteractionOverlayOpenState(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function hasCompleteReadinessIdentity(data: {
+  symbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
+}) {
+  return (
+    typeof data.symbol === 'string' &&
+    typeof data.tokenAddress === 'string' &&
+    typeof data.networkId === 'string'
+  );
 }
 
 function normalizeStringOptionDisabled(option: Record<string, unknown>) {
@@ -728,6 +745,8 @@ export function useTradingViewMessageHandler({
   onIntervalAckSupportChange,
   onHistoryReadyAckSupportChange,
   onChartReady,
+  onKLineRequestStart,
+  resolveReadinessAckTarget,
   onHistoryReady,
   onFirstPaintReady,
   isKLineHistoryReady,
@@ -824,6 +843,10 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === 'tradingview_getKLineData'
       ) {
+        const requestData = data.data as ITradingViewHistoryData;
+        if (typeof requestData.requestId === 'string') {
+          onKLineRequestStart?.(requestData);
+        }
         await handleKLineDataRequest({ data, context });
       }
 
@@ -915,6 +938,11 @@ export function useTradingViewMessageHandler({
         const historyReadyData = data.data as
           | Partial<ITradingViewHistoryReadyData>
           | undefined;
+        const readinessTargetMatch = historyReadyData
+          ? resolveReadinessAckTarget?.(
+              historyReadyData as ITradingViewHistoryReadyData,
+            )
+          : undefined;
         if (
           typeof historyReadyData?.requestId === 'string' &&
           typeof historyReadyData.resolution === 'string' &&
@@ -922,6 +950,9 @@ export function useTradingViewMessageHandler({
           (historyReadyData.status === 'success' ||
             historyReadyData.status === 'empty' ||
             historyReadyData.status === 'failed') &&
+          (readinessTargetMatch === true ||
+            (readinessTargetMatch === undefined &&
+              hasCompleteReadinessIdentity(historyReadyData))) &&
           context.isCurrentKLineRequest?.(historyReadyData)
         ) {
           onHistoryReady?.(historyReadyData as ITradingViewHistoryReadyData);
@@ -935,6 +966,11 @@ export function useTradingViewMessageHandler({
         const firstPaintReadyData = data.data as
           | Partial<ITradingViewFirstPaintReadyData>
           | undefined;
+        const readinessTargetMatch = firstPaintReadyData
+          ? resolveReadinessAckTarget?.(
+              firstPaintReadyData as ITradingViewFirstPaintReadyData,
+            )
+          : undefined;
         if (
           typeof firstPaintReadyData?.requestId === 'string' &&
           typeof firstPaintReadyData.resolution === 'string' &&
@@ -946,6 +982,9 @@ export function useTradingViewMessageHandler({
           Number.isFinite(firstPaintReadyData.returnedCount) &&
           (firstPaintReadyData.source === 'bootstrap' ||
             firstPaintReadyData.source === 'bridge') &&
+          (readinessTargetMatch === true ||
+            (readinessTargetMatch === undefined &&
+              hasCompleteReadinessIdentity(firstPaintReadyData))) &&
           context.isCurrentKLineRequest?.(firstPaintReadyData)
         ) {
           onFirstPaintReady?.(
@@ -1050,6 +1089,8 @@ export function useTradingViewMessageHandler({
       onIntervalAckSupportChange,
       onHistoryReadyAckSupportChange,
       onChartReady,
+      onKLineRequestStart,
+      resolveReadinessAckTarget,
       onHistoryReady,
       onFirstPaintReady,
       isKLineHistoryReady,

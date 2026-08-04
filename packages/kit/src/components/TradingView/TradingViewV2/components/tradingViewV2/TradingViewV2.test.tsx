@@ -352,6 +352,26 @@ describe('TradingViewV2 native source discovery', () => {
     expect(
       sendMessageViaInjectedScript.mock.calls.at(-1)?.[0]?.payload,
     ).not.toHaveProperty('continuationMode');
+    const bootstrapId = sendMessageViaInjectedScript.mock.calls.at(-1)?.[0]
+      ?.payload?.bootstrapId as string;
+    const readinessParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          resolveReadinessAckTarget?: (data: {
+            requestId: string;
+            bootstrapId: string;
+            source: 'bootstrap';
+          }) => boolean | undefined;
+        }
+      | undefined;
+    expect(
+      readinessParams?.resolveReadinessAckTarget?.({
+        requestId: 'chart-first-paint',
+        bootstrapId,
+        source: 'bootstrap',
+      }),
+    ).toBe(true);
 
     act(() => {
       subscriptionParams.onResult(
@@ -998,6 +1018,87 @@ describe('TradingViewV2 native source discovery', () => {
       ),
     ).toBe(true);
     unmount();
+  });
+
+  it('keeps identity-less readiness targets bound to their token and document', () => {
+    const { rerender } = render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+    const getReadinessParams = () =>
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            onKLineRequestStart?: (data: {
+              requestId: string;
+              method: string;
+              resolution: string;
+              from: number;
+              to: number;
+              firstDataRequest: boolean;
+            }) => void;
+            resolveReadinessAckTarget?: (data: {
+              requestId: string;
+            }) => boolean | undefined;
+          }
+        | undefined;
+    const tokenARequest = {
+      requestId: 'token-a-history',
+      method: 'getBars',
+      resolution: '1m',
+      from: 0,
+      to: 60,
+      firstDataRequest: true,
+    };
+
+    getReadinessParams()?.onKLineRequestStart?.(tokenARequest);
+    expect(
+      getReadinessParams()?.resolveReadinessAckTarget?.({
+        requestId: tokenARequest.requestId,
+      }),
+    ).toBe(true);
+
+    rerender(
+      <TradingViewV2
+        symbol="DEF"
+        tokenAddress="0xdef"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    expect(
+      getReadinessParams()?.resolveReadinessAckTarget?.({
+        requestId: tokenARequest.requestId,
+      }),
+    ).toBe(false);
+
+    const tokenBRequest = {
+      ...tokenARequest,
+      requestId: 'token-b-history',
+    };
+    getReadinessParams()?.onKLineRequestStart?.(tokenBRequest);
+    expect(
+      getReadinessParams()?.resolveReadinessAckTarget?.({
+        requestId: tokenBRequest.requestId,
+      }),
+    ).toBe(true);
+
+    act(() => {
+      (
+        mockWebViewProps.at(-1)?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+    });
+    expect(
+      getReadinessParams()?.resolveReadinessAckTarget?.({
+        requestId: tokenBRequest.requestId,
+      }),
+    ).toBeUndefined();
   });
 
   it('does not restart recovery when a ready persistent chart is unparked', () => {

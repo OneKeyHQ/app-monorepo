@@ -189,4 +189,55 @@ describe('useTradingViewMessageHandler request lifecycle', () => {
     expect(mockFetchAccountTransactionMarks).toHaveBeenCalledTimes(1);
     expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
   });
+
+  it('rejects identity-less readiness acknowledgements for a stale target', async () => {
+    const { webRef } = buildWebViewRef();
+    const onHistoryReady = jest.fn();
+    const onFirstPaintReady = jest.fn();
+    const resolveReadinessAckTarget = jest
+      .fn<boolean | undefined, [unknown]>()
+      .mockReturnValue(false);
+    const { result } = renderHook(() =>
+      useTradingViewMessageHandler({
+        tokenAddress: '0xdef',
+        networkId: 'evm--1',
+        tokenSymbol: 'DEF',
+        webRef,
+        resolveReadinessAckTarget,
+        onHistoryReady,
+        onFirstPaintReady,
+      }),
+    );
+    const historyReadyMessage = buildMessage('tradingview_historyReady', {
+      requestId: 'token-a-history',
+      resolution: '1m',
+      firstDataRequest: true,
+      status: 'success',
+    });
+    const firstPaintReadyMessage = buildMessage('tradingview_firstPaintReady', {
+      requestId: 'token-a-first-paint',
+      resolution: '1m',
+      firstDataRequest: true,
+      status: 'rendered',
+      returnedCount: 100,
+      source: 'bridge',
+    });
+
+    await act(async () => {
+      await result.current.customReceiveHandler(historyReadyMessage);
+      await result.current.customReceiveHandler(firstPaintReadyMessage);
+    });
+
+    expect(onHistoryReady).not.toHaveBeenCalled();
+    expect(onFirstPaintReady).not.toHaveBeenCalled();
+
+    resolveReadinessAckTarget.mockReturnValue(true);
+    await act(async () => {
+      await result.current.customReceiveHandler(historyReadyMessage);
+      await result.current.customReceiveHandler(firstPaintReadyMessage);
+    });
+
+    expect(onHistoryReady).toHaveBeenCalledTimes(1);
+    expect(onFirstPaintReady).toHaveBeenCalledTimes(1);
+  });
 });
