@@ -56,6 +56,9 @@ const isDev = process.env.NODE_ENV !== 'production';
 type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
   url?: string;
 };
+type IDesktopDidStartNavigationEvent = DidStartNavigationEvent & {
+  isSameDocument?: boolean;
+};
 
 let preloadJsUrl = '';
 let preloadJsUrlPromise: Promise<string> | undefined;
@@ -302,9 +305,9 @@ const DesktopWebView = forwardRef(
         };
 
         const innerHandleDidStartNavigationNavigation = (
-          event: DidStartNavigationEvent,
+          event: IDesktopDidStartNavigationEvent,
         ) => {
-          const { isMainFrame, url } = event ?? {};
+          const { isMainFrame, isSameDocument, url } = event ?? {};
           if (isMainFrame && onShouldStartLoadWithRequest && url) {
             const shouldLoad = onShouldStartLoadWithRequest({
               url,
@@ -315,7 +318,7 @@ const DesktopWebView = forwardRef(
               return;
             }
           }
-          if (isMainFrame) {
+          if (isMainFrame && !isSameDocument) {
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
