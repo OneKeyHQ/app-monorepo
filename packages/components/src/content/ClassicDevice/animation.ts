@@ -1,16 +1,17 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+
+import { makeMutable, useDerivedValue } from 'react-native-reanimated';
 
 import {
-  Easing,
-  cancelAnimation,
-  makeMutable,
-  useDerivedValue,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+  easeInFn,
+  easeOutFn,
+  screenContentTrack,
+  screenGlowTrack,
+  trackAt,
+  useSceneClock,
+} from '../deviceScene';
 
+import type { IKeyframe } from '../deviceScene';
 import type { SharedValue } from 'react-native-reanimated';
 
 export type IClassicDeviceButtonKey = 'power' | 'up' | 'down' | 'ok';
@@ -50,74 +51,19 @@ export const CLASSIC_DEVICE_SCREEN_ON: IClassicDeviceAnimation = {
   screenContent: SCREEN_ON_VALUE,
 };
 
-interface IKeyframe {
-  t: number;
-  v: number;
-  /** Easing of the segment leaving this keyframe (linear when omitted). */
-  e?: (u: number) => number;
-}
-
-const easeOutFn = Easing.bezierFn(0, 0, 0.58, 1);
-const easeInFn = Easing.bezierFn(0.42, 0, 1, 1);
-
-// Every track of a scene is evaluated against one master clock, so tracks can
-// never drift apart under infinite repeat (three independent withRepeat loops
-// would).
-function trackAt(t: number, kfs: IKeyframe[]): number {
-  'worklet';
-
-  if (t <= kfs[0].t) return kfs[0].v;
-  for (let i = 0; i < kfs.length - 1; i += 1) {
-    const a = kfs[i];
-    const b = kfs[i + 1];
-    if (t >= a.t && t < b.t) {
-      const u = (t - a.t) / (b.t - a.t);
-      return a.v + (b.v - a.v) * (a.e ? a.e(u) : u);
-    }
-  }
-  return kfs[kfs.length - 1].v;
-}
-
 /* ---------------------------------------------------------------- *
- * Shared scene vocabulary. Every scene is built from the same three
- * primitives, parameterized only by its own schedule:
- *  - screen wake: glow rises over 500ms, the panel holds lit-but-empty for a
- *    beat, then content renders in over 720-1100ms (light first, then pixels)
- *  - screen sleep: glow and content drop together over 300ms
+ * Classic scene vocabulary. The screen wake/sleep tracks and the master
+ * clock live in ../deviceScene (shared with ProDevice); this file adds the
+ * physical-key press envelope and the Classic schedules:
  *  - key press: 100ms down / 150ms hold / 100ms up (the envelope of the
  *    original Lottie files)
  * ---------------------------------------------------------------- */
 
-const WAKE_GLOW_MS = 500;
-// A deliberate beat after the glow settles before pixels appear, so power-on
-// and first paint read as two events, the way real hardware boots.
-const CONTENT_IN_START_MS = 720;
-const CONTENT_IN_END_MS = 1100;
-const SLEEP_MS = 300;
 const PRESS_DOWN_MS = 100;
 const PRESS_HOLD_MS = 150;
 const PRESS_UP_MS = 100;
 /** Fills/state changes land mid-hold, like the Lottie's slot swaps. */
 const PRESS_ACT_OFFSET_MS = PRESS_DOWN_MS + PRESS_HOLD_MS / 2;
-
-function screenGlowTrack(sleepStart: number): IKeyframe[] {
-  return [
-    { t: 0, v: 0, e: easeOutFn },
-    { t: WAKE_GLOW_MS, v: 1 },
-    { t: sleepStart, v: 1, e: easeInFn },
-    { t: sleepStart + SLEEP_MS, v: 0 },
-  ];
-}
-
-function screenContentTrack(sleepStart: number): IKeyframe[] {
-  return [
-    { t: 0, v: 0 },
-    { t: CONTENT_IN_START_MS, v: 0, e: easeOutFn },
-    { t: CONTENT_IN_END_MS, v: 1 },
-    { t: sleepStart, v: 1, e: easeInFn },
-    { t: sleepStart + SLEEP_MS, v: 0 },
-  ];
-}
 
 function pressPulsesTrack(startTimes: number[]): IKeyframe[] {
   const kfs: IKeyframe[] = [{ t: 0, v: 0 }];
@@ -154,30 +100,6 @@ function sceneTracks(
     content: screenContentTrack(sleepAtMs),
     ok: pressPulsesTrack(pressStartsMs),
   };
-}
-
-/**
- * Sawtooth master clock in milliseconds, looping over [0, loopMs). Under
- * reduced motion it holds `restMs` instead, so the device still reads awake
- * and mid-scenario rather than going dark.
- */
-function useSceneClock(loopMs: number, restMs: number): SharedValue<number> {
-  const clock = useSharedValue(0);
-  const reducedMotion = useReducedMotion();
-  useEffect(() => {
-    if (reducedMotion) {
-      clock.value = restMs;
-      return undefined;
-    }
-    clock.value = 0;
-    clock.value = withRepeat(
-      withTiming(loopMs, { duration: loopMs, easing: Easing.linear }),
-      -1,
-      false,
-    );
-    return () => cancelAnimation(clock);
-  }, [clock, loopMs, restMs, reducedMotion]);
-  return clock;
 }
 
 /** Assembles one scene's tracks into the device contract. */
