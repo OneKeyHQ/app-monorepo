@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useMemo } from 'react';
+import { type ComponentProps, type ReactNode, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,7 @@ type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
 
 export interface ITradingViewChartControlsProps {
+  backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -83,6 +84,7 @@ export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 
 export const TradingViewChartControls = memo(
   ({
+    backgroundColor = '$bgApp',
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -337,7 +339,7 @@ export const TradingViewChartControls = memo(
     if (isDesktopLayout) {
       return (
         <Stack
-          bg="$bgApp"
+          bg={backgroundColor}
           px={desktopFullscreenHeader ? '$2' : '$4'}
           py="$1"
           h={
@@ -402,7 +404,7 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg="$bgApp" px="$2" py="$2" zIndex={3}>
+      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
         <XStack
           alignItems="center"
           justifyContent="space-between"

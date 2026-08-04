@@ -1187,7 +1187,7 @@ function SwapKLineContentBody({
       flex={1}
       minHeight={chartMinHeight}
       overflow="hidden"
-      bg="$bgApp"
+      bg="$transparent"
       borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
       borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
       testID={SwapTestIDs.kLineChart}
