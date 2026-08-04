@@ -55,6 +55,7 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
@@ -77,7 +78,6 @@ import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
   DEFAULT_PERP_TOKEN_SORT_DIRECTION,
   DEFAULT_PERP_TOKEN_SORT_FIELD,
-  XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
@@ -763,11 +763,9 @@ function MobileTokenSelectorModal({
       (assets: IPerpsUniverse[], dexIndex: number) => {
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
-          const normalizedAssetId =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
+          const sortValues = computeSortValues(
+            ctxs?.[toCtxIndex(asset.assetId, dexIndex)],
+          );
           return { dexIndex, index, assetId: asset.assetId, asset, sortValues };
         });
       },
@@ -1014,9 +1012,9 @@ function MobileTokenSelectorModal({
             .map((item, index) => {
               const asset = assetsByDex?.[item.dexIndex]?.[item.index];
               const normalizedAssetId =
-                item.dexIndex === 1 && item.assetId !== undefined
-                  ? item.assetId - XYZ_ASSET_ID_OFFSET
-                  : item.assetId;
+                item.assetId === undefined
+                  ? undefined
+                  : toCtxIndex(item.assetId, item.dexIndex);
               const assetCtx =
                 normalizedAssetId !== undefined
                   ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
@@ -1243,9 +1241,9 @@ function MobileTokenSelectorModal({
         const assetId = mockedToken.assetId;
         const dexIndex = mockedToken.dexIndex;
         const ctxIndex =
-          dexIndex === 1 && typeof assetId === 'number'
-            ? assetId - XYZ_ASSET_ID_OFFSET
-            : assetId;
+          typeof assetId === 'number'
+            ? toCtxIndex(assetId, dexIndex)
+            : undefined;
         const rawAssetCtx =
           typeof ctxIndex === 'number'
             ? assetCtxsByDex?.[dexIndex]?.[ctxIndex]

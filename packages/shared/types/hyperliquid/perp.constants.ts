@@ -65,7 +65,6 @@ export const DEX_ASSET_ID_OFFSETS: readonly number[] = [
 
 export const XYZ_DEX_PREFIX = `${SUB_DEX_LIST[0].prefix}${DEX_SEPARATOR}`;
 export const XYZ_ASSET_ID_OFFSET = DEX_ASSET_ID_OFFSETS[1];
-export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
 
 // Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
 export const SPOT_ASSET_ID_OFFSET = 10_000;

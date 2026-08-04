@@ -10,6 +10,7 @@ import {
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   getSpotMarketCapValue,
@@ -19,7 +20,6 @@ import type {
   IPerpsUniverse,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
@@ -139,12 +139,8 @@ export function usePopularTickers(): IPopularTickerItem[] {
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
       if (Array.isArray(assets)) {
         for (const asset of assets) {
-          // XYZ DEX assets have offset IDs; array is indexed from 0
-          const ctxIndex =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const ctx = ctxs[ctxIndex] ?? null;
+          // Sub-DEX assets have offset IDs; each dex's ctx array is indexed from 0
+          const ctx = ctxs[toCtxIndex(asset.assetId, dexIndex)] ?? null;
           let hotScore = 0;
           if (ctx) {
             const volume = new BigNumber(ctx.dayNtlVlm ?? '0');
