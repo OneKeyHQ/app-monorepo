@@ -222,27 +222,6 @@ export function normalizeEModeLabel(raw: string): string {
   return normalized || raw;
 }
 
-// The mockup reads a rising Max LTV in $textSuccess, but the server sends a
-// plain "$text" color on maxLtv (see the switch-check response sample doc).
-// Accent locally, and only when both sides parse as percentages and the value
-// rises; falls, ties, and non-numeric values return undefined so the caller
-// keeps the server color.
-export function resolveLtvAccentColor(
-  current?: IEarnText,
-  latest?: IEarnText,
-): string | undefined {
-  const parse = (t?: IEarnText) => {
-    const n = Number.parseFloat(t?.text ?? '');
-    return Number.isFinite(n) ? n : undefined;
-  };
-  const before = parse(current);
-  const after = parse(latest);
-  if (before !== undefined && after !== undefined && after > before) {
-    return '$textSuccess';
-  }
-  return undefined;
-}
-
 export function shouldShowCurrentHealthFactorSkeleton({
   isCurrent,
   currentHealthFactorLoading,

@@ -880,7 +880,7 @@ export interface IEarnRewardClaimItem {
   title: IEarnText;
   description?: IEarnText;
   token: IEarnRewardTokenSummary;
-  button: IEarnRewardClaimButton;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardClaimGroup {
@@ -900,8 +900,9 @@ export interface IEarnBorrowUnclaimableReward {
 }
 
 export interface IEarnRewardsDetail {
-  claimable: IEarnRewardClaimGroup[];
-  unclaimable: IEarnBorrowUnclaimableReward[];
+  claimable?: IEarnRewardClaimGroup[] | null;
+  unclaimable?: IEarnBorrowUnclaimableReward[] | null;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardsDetailsData {
@@ -2846,9 +2847,9 @@ export type IBorrowEModeHfRow = NonNullable<
 export interface IBorrowEModeSwitchCheck {
   canSwitch: boolean;
   reasons: string[];
-  disableCollateralAssets: IBorrowEModeBlockerAsset[];
-  repayAssets: IBorrowEModeBlockerAsset[];
-  additionalRepayAssets: IBorrowEModeBlockerAsset[];
+  disableCollateralAssets?: IBorrowEModeBlockerAsset[];
+  repayAssets?: IBorrowEModeBlockerAsset[];
+  additionalRepayAssets?: IBorrowEModeBlockerAsset[];
   additionalRepayFiatValue?: string; // server-formatted fiat total, e.g. "< $0.01"
   collateral: IBorrowEModeConfirmRow;
   debt: IBorrowEModeConfirmRow;

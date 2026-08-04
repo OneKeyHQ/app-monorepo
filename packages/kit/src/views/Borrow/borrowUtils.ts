@@ -10,6 +10,7 @@ import {
   ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
@@ -181,6 +182,16 @@ export const BorrowNavigation = {
         providerLogoURI: params.providerLogoURI,
         type: params.type,
       },
+    });
+  },
+
+  pushToBorrowTokenSelect(
+    navigation: IAppNavigation,
+    params: IModalStakingParamList[EModalStakingRoutes.BorrowTokenSelect],
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowTokenSelect,
+      params,
     });
   },
 

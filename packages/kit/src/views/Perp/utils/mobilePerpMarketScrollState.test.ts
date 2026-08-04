@@ -1,12 +1,10 @@
 import { getMobilePerpMarketPageScrollState } from './mobilePerpMarketScrollState';
 
 describe('getMobilePerpMarketPageScrollState', () => {
-  it('keeps the Android page scroll container mounted while disabling native scroll during TradingView overlays', () => {
+  it('keeps the page scroll container mounted while disabling native scroll during TradingView overlays', () => {
     expect(
       getMobilePerpMarketPageScrollState({
-        activeTab: 'orderbook',
         isInteractionOverlayOpen: true,
-        isNativeAndroid: true,
         isNativeIOS: false,
       }),
     ).toEqual({
@@ -15,12 +13,10 @@ describe('getMobilePerpMarketPageScrollState', () => {
     });
   });
 
-  it('keeps Android page scrolling enabled when no TradingView overlay is open', () => {
+  it('keeps page scrolling enabled when no TradingView overlay is open', () => {
     expect(
       getMobilePerpMarketPageScrollState({
-        activeTab: 'orderbook',
         isInteractionOverlayOpen: false,
-        isNativeAndroid: true,
         isNativeIOS: false,
       }),
     ).toEqual({
@@ -29,29 +25,37 @@ describe('getMobilePerpMarketPageScrollState', () => {
     });
   });
 
-  it('preserves the existing iOS and info-tab container rules', () => {
+  it('keeps iOS on its Tabs-internal scrolling', () => {
     expect(
       getMobilePerpMarketPageScrollState({
-        activeTab: 'orderbook',
         isInteractionOverlayOpen: true,
-        isNativeAndroid: false,
         isNativeIOS: true,
       }),
     ).toEqual({
       pageScrollContainerEnabled: false,
       pageNativeScrollEnabled: true,
     });
+  });
 
+  it('lets mobile web scroll the chart tab and pauses it during overlays', () => {
     expect(
       getMobilePerpMarketPageScrollState({
-        activeTab: 'info',
         isInteractionOverlayOpen: false,
-        isNativeAndroid: false,
         isNativeIOS: false,
       }),
     ).toEqual({
       pageScrollContainerEnabled: true,
       pageNativeScrollEnabled: true,
+    });
+
+    expect(
+      getMobilePerpMarketPageScrollState({
+        isInteractionOverlayOpen: true,
+        isNativeIOS: false,
+      }),
+    ).toEqual({
+      pageScrollContainerEnabled: true,
+      pageNativeScrollEnabled: false,
     });
   });
 });
