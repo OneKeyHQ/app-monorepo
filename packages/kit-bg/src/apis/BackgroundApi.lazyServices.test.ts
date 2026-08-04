@@ -7,8 +7,14 @@ const mockDemoInternalGetPlatformEnv = jest.fn(async () => ({
 const mockUnifoldConstructor = jest.fn();
 const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
 const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
+const mockIdentityExitConstructor = jest.fn();
+const mockIdentityExitRecovery = jest.fn(async () => ({
+  recoveredOperationCount: 0,
+  abandonedOperationCount: 0,
+}));
 let mockDemoModuleLoadCount = 0;
 let mockUnifoldModuleLoadCount = 0;
+let mockIdentityExitModuleLoadCount = 0;
 
 jest.mock('./BackgroundApiBase', () => ({
   __esModule: true,
@@ -80,12 +86,27 @@ jest.mock('../services/ServiceUnifoldDeposit', () => {
   };
 });
 
+jest.mock('../services/ServiceIdentityExit/ServiceIdentityExit', () => {
+  mockIdentityExitModuleLoadCount += 1;
+  return {
+    __esModule: true,
+    default: function ServiceIdentityExit(params: unknown) {
+      mockIdentityExitConstructor(params);
+      return {
+        recoverInterruptedIdentityExitOperations: async () =>
+          mockIdentityExitRecovery(),
+      };
+    },
+  };
+});
+
 describe('BackgroundApi lazy services', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     mockDemoModuleLoadCount = 0;
     mockUnifoldModuleLoadCount = 0;
+    mockIdentityExitModuleLoadCount = 0;
   });
 
   test('loads and constructs each service only when a method is called', async () => {
@@ -94,18 +115,24 @@ describe('BackgroundApi lazy services', () => {
 
     expect(mockDemoModuleLoadCount).toBe(0);
     expect(mockUnifoldModuleLoadCount).toBe(0);
+    expect(mockIdentityExitModuleLoadCount).toBe(0);
     expect(mockDemoConstructor).not.toHaveBeenCalled();
     expect(mockUnifoldConstructor).not.toHaveBeenCalled();
+    expect(mockIdentityExitConstructor).not.toHaveBeenCalled();
 
     const demoService = backgroundApi.serviceDemo;
     const service = backgroundApi.serviceUnifoldDeposit;
+    const identityExitService = backgroundApi.serviceIdentityExit;
     expect(backgroundApi.serviceDemo).toBe(demoService);
     expect(backgroundApi.serviceUnifoldDeposit).toBe(service);
+    expect(backgroundApi.serviceIdentityExit).toBe(identityExitService);
     expect(mockDemoModuleLoadCount).toBe(0);
     expect(mockUnifoldModuleLoadCount).toBe(0);
+    expect(mockIdentityExitModuleLoadCount).toBe(0);
 
     await demoService.demoGetPlatformEnv();
     await service.unifoldDepositTrackingLoop();
+    await identityExitService.recoverInterruptedIdentityExitOperations();
     await (
       service as unknown as {
         INTERNAL_unifoldDepositTrackingLoop: () => Promise<void>;
@@ -114,6 +141,7 @@ describe('BackgroundApi lazy services', () => {
 
     expect(mockDemoModuleLoadCount).toBe(1);
     expect(mockUnifoldModuleLoadCount).toBe(1);
+    expect(mockIdentityExitModuleLoadCount).toBe(1);
     expect(mockDemoConstructor).toHaveBeenCalledTimes(1);
     expect(mockDemoConstructor).toHaveBeenCalledWith({
       backgroundApi,
@@ -122,9 +150,14 @@ describe('BackgroundApi lazy services', () => {
     expect(mockUnifoldConstructor).toHaveBeenCalledWith({
       backgroundApi,
     });
+    expect(mockIdentityExitConstructor).toHaveBeenCalledTimes(1);
+    expect(mockIdentityExitConstructor).toHaveBeenCalledWith({
+      backgroundApi,
+    });
     expect(mockDemoGetPlatformEnv).toHaveBeenCalledTimes(1);
     expect(mockDemoInternalGetPlatformEnv).not.toHaveBeenCalled();
     expect(mockUnifoldTrackingLoop).toHaveBeenCalledTimes(2);
+    expect(mockIdentityExitRecovery).toHaveBeenCalledTimes(1);
   });
 
   test('does not load for inspection properties or behave like a promise', async () => {
