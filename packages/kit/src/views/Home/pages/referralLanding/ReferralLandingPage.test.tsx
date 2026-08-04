@@ -12,19 +12,22 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openReferralInvitedByFriendModalWithGuard } from './referralLandingModalGuard';
 import { ReferralLandingPage } from './ReferralLandingPage';
 
+import type { IReferralWebLandingProps } from './components';
+
 const mockNavigation = {
   switchTab: jest.fn(),
   pushModal: jest.fn(),
   reset: jest.fn(),
 };
-type IReferralWebLandingMockProps = {
-  variant: 'perps' | 'defi' | 'swap';
-  onDownload: () => void;
-  onScrollToBind: () => void;
-  onCopyCode: () => void;
-  onBind: () => void;
-  onTrade: () => void;
-};
+type IReferralWebLandingMockProps = Pick<
+  IReferralWebLandingProps,
+  | 'variant'
+  | 'onDownload'
+  | 'onScrollToBind'
+  | 'onCopyCode'
+  | 'onBind'
+  | 'onTrade'
+>;
 let mockReferralWebLandingProps: IReferralWebLandingMockProps | undefined;
 let mockIsOneKeyInstalled = false;
 const mockBindViaExtension = jest.fn();
