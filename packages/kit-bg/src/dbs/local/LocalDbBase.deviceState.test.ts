@@ -545,6 +545,52 @@ describe('LocalDb DeviceState persistence', () => {
     expect(hydrated.featuresInfo?.$app_firmware_type).toBe('universal');
   });
 
+  it('migrates a legacy record matched by connectId despite a stale uuid', async () => {
+    const legacyState = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'Legacy Pro 2',
+      language: 'en-US',
+      serialNo: '',
+      deviceId: 'DEVICE-A',
+    });
+    const liveState = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'Migrated Pro 2',
+      language: 'ja-JP',
+      serialNo: 'SERIAL-A',
+      deviceId: 'DEVICE-A',
+    });
+    const db = new DeviceStateTestLocalDb(legacyState);
+    db.device.deviceState = undefined;
+    db.device.uuid = 'LEGACY-BLE-UUID';
+    db.device.deviceId = 'DEVICE-A';
+    db.device.features = JSON.stringify({
+      label: 'Legacy Pro 2',
+      $app_firmware_type: 'universal',
+    });
+
+    await expect(
+      db.updateDeviceState({
+        connectId: 'ABC-DEF',
+        state: liveState,
+        revision: liveState.revision,
+        source: 'initialize',
+        changedKeys: ['*'],
+      }),
+    ).resolves.toMatchObject({
+      kind: 'updated',
+      deviceDbId: 'device-db-1',
+    });
+
+    expect(db.device.uuid).toBe('SERIAL-A');
+    expect(db.device.deviceStateInfo?.identity.deviceId).toBe('DEVICE-A');
+    expect(JSON.parse(db.device.features)).toEqual({
+      $app_firmware_type: 'universal',
+    });
+  });
+
   it('refreshes cached DeviceState and legacy passphrase projections before returning', async () => {
     const current = createState({
       revision: 1,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -41,19 +41,11 @@ import type {
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
+import { isPro2SafeOSFirmwareUpdate } from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
-
-function isPro2SafeOSFirmwareUpdate(
-  result: ICheckAllFirmwareReleaseResult | undefined,
-) {
-  return (
-    result?.deviceType === EDeviceType.Pro2 &&
-    result?.updateInfos?.firmware?.hasUpgrade === true
-  );
-}
 
 function FirmwareVersionOnlyProgressText({
   fromVersion = '',
@@ -235,13 +227,15 @@ export function FirmwareChangeLogContentView({
   result: ICheckAllFirmwareReleaseResult | undefined;
 } & IStackProps) {
   const intl = useIntl();
+  const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
   const defaultExpandedSections = useMemo(() => {
-    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
+    if (result?.updateInfos?.firmware?.hasUpgrade || isPro2SafeOSUpdate) {
+      return 'firmware';
+    }
     if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
     if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
     return undefined;
-  }, [result?.updateInfos]);
-  const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
+  }, [isPro2SafeOSUpdate, result?.updateInfos]);
 
   return (
     <Stack {...rest}>
@@ -252,7 +246,7 @@ export function FirmwareChangeLogContentView({
         defaultValue={defaultExpandedSections}
         collapsible
       >
-        {result?.updateInfos?.firmware?.hasUpgrade ? (
+        {result?.updateInfos?.firmware?.hasUpgrade || isPro2SafeOSUpdate ? (
           <ChangeLogSection
             title={
               isPro2SafeOSUpdate

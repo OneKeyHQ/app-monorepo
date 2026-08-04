@@ -21,7 +21,7 @@ describe('resolveDeviceStateForHwWalletCreate', () => {
       }),
     ).resolves.toBe(state);
     expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
-      scope: 'settings',
+      scope: 'runtime',
     });
   });
 
@@ -134,7 +134,7 @@ describe('refreshDeviceStateAfterStandardWalletUnlock', () => {
       }),
     ).resolves.toBe(unlockedState);
     expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
-      scope: 'settings',
+      scope: 'runtime',
     });
   });
 

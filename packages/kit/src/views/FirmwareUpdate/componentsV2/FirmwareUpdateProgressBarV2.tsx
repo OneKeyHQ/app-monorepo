@@ -41,6 +41,7 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+import { isPro2SafeOSFirmwareUpdate } from '../utils';
 
 import {
   PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
@@ -149,15 +150,6 @@ function FirmwareUpdateVersionItem({
         {renderToVersion()}
       </XStack>
     </XStack>
-  );
-}
-
-function isPro2SafeOSFirmwareUpdate(
-  result: ICheckAllFirmwareReleaseResult | undefined,
-) {
-  return (
-    result?.deviceType === EDeviceType.Pro2 &&
-    result?.updateInfos?.firmware?.hasUpgrade === true
   );
 }
 
@@ -501,19 +493,20 @@ export function FirmwareUpdateProgressBarV2({
 
     const versions: IFirmwareUpdateVersions[] = [];
     const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
+    const firmwareInfo = result.updateInfos.firmware;
 
-    if (result.updateInfos.firmware?.hasUpgrade) {
+    if (firmwareInfo?.hasUpgrade || isPro2SafeOSUpdate) {
       versions.push({
         type: isPro2SafeOSUpdate ? 'SafeOS' : 'Firmware',
         info: {
           title: isPro2SafeOSUpdate
             ? 'SafeOS'
             : intl.formatMessage({ id: ETranslations.global_firmware }),
-          fromVersion: result.updateInfos.firmware.fromVersion ?? '',
-          toVersion: result.updateInfos.firmware.toVersion ?? '',
+          fromVersion: firmwareInfo?.fromVersion ?? '',
+          toVersion: firmwareInfo?.toVersion ?? '',
           verifyVersion: resultVerifyVersions?.finalFirmwareVersion,
           hasUpgrade: true,
-          githubReleaseUrl: result.updateInfos.firmware.githubReleaseUrl,
+          githubReleaseUrl: firmwareInfo?.githubReleaseUrl,
         },
       });
     }

@@ -9,8 +9,8 @@ import {
   resolveDeviceState,
   resolveDeviceWithCurrentType,
   resolveUsableWalletWithDevice,
+  shouldApplyDeviceSettingMutationLocally,
 } from './deviceStateManagement';
-import * as deviceStateManagement from './deviceStateManagement';
 
 describe('device reset wallet isolation', () => {
   it('does not expose a deprecated hardware wallet to device details', () => {
@@ -40,17 +40,11 @@ describe('device details navigation state', () => {
 });
 
 describe('device setting state updates', () => {
-  it('refreshes the complete settings snapshot after a Pro2 mutation', () => {
-    const shouldRefresh = (
-      deviceStateManagement as typeof deviceStateManagement & {
-        shouldRefreshDeviceSettingsAfterMutation?: (
-          deviceType: EDeviceType,
-        ) => boolean;
-      }
-    ).shouldRefreshDeviceSettingsAfterMutation;
-
-    expect(shouldRefresh?.(EDeviceType.Pro2)).toBe(true);
-    expect(shouldRefresh?.(EDeviceType.Pro)).toBe(false);
+  it('uses the DeviceState event as the only post-mutation source for Pro2', () => {
+    expect(shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro2)).toBe(
+      false,
+    );
+    expect(shouldApplyDeviceSettingMutationLocally(EDeviceType.Pro)).toBe(true);
   });
 
   it('applies confirmed haptic feedback changes in both directions', () => {

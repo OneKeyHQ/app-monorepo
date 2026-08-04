@@ -40,6 +40,9 @@ const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>(
   ),
 );
 
+const REMOTE_CONFIG_REFRESH_ERROR_MESSAGE =
+  'Unable to refresh the latest remote config';
+
 function isHwkErrorCode(code: unknown): code is number {
   const n = typeof code === 'string' ? Number(code) : code;
   return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
@@ -136,6 +139,9 @@ export function convertDeviceError(
     case HardwareErrorCode.IframeTimeout:
       return new HardwareErrors.InitIframeTimeout({ payload });
     case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+      if (message.includes(REMOTE_CONFIG_REFRESH_ERROR_MESSAGE)) {
+        return new HardwareErrors.NetworkError({ payload });
+      }
       return new HardwareErrors.FirmwareDownloadFailed({ payload });
     case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
       return new HardwareErrors.FirmwareUpdateManuallyEnterBoot({ payload });

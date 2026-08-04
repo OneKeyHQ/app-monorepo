@@ -125,10 +125,17 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
 
 export function buildPro2TargetsToUpdate({
   sdkTargets,
+  forceTargets = [],
 }: {
   sdkTargets: readonly IPro2FirmwareUpdateTarget[] | undefined;
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
 }) {
-  return Array.from(new Set<IPro2FirmwareUpdateTarget>(sdkTargets ?? []));
+  return Array.from(
+    new Set<IPro2FirmwareUpdateTarget>([
+      ...(sdkTargets ?? []),
+      ...forceTargets,
+    ]),
+  );
 }
 
 export type IUpdateFirmwareTaskFn = ({
@@ -172,6 +179,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       forceUpdateOnceFirmware: false,
       forceUpdateOnceBle: false,
       forceUpdateOnceBootloader: false,
+      pro2ForceUpdateOnceTargets: [],
     });
   }
 
@@ -657,10 +665,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // ignore
     }
 
+    const pro2ForceTargets =
+      deviceType === EDeviceType.Pro2
+        ? [
+            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+              'pro2ForceUpdateTargets',
+            )) ?? []),
+            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+              'pro2ForceUpdateOnceTargets',
+            )) ?? []),
+          ]
+        : undefined;
     const pro2TargetsToUpdate =
       deviceType === EDeviceType.Pro2
         ? buildPro2TargetsToUpdate({
             sdkTargets: releaseInfo.targetsToUpdate,
+            forceTargets: pro2ForceTargets,
           })
         : undefined;
 

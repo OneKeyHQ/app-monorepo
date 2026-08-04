@@ -142,10 +142,10 @@ export function mergeDeviceSettingState(
   };
 }
 
-export function shouldRefreshDeviceSettingsAfterMutation(
+export function shouldApplyDeviceSettingMutationLocally(
   deviceType?: EDeviceType,
 ) {
-  return deviceType === EDeviceType.Pro2;
+  return deviceType !== EDeviceType.Pro2;
 }
 
 export function canEditPro2DeviceWideSettings({

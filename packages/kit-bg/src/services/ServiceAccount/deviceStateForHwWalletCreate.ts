@@ -3,7 +3,7 @@ import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 type IGetDeviceStateForHwWalletCreate = (
   connectId: string,
-  params: { scope: 'settings' },
+  params: { scope: 'runtime' },
 ) => Promise<IOneKeyDeviceState>;
 
 export async function resolveDeviceStateForHwWalletCreate({
@@ -30,7 +30,7 @@ export async function resolveDeviceStateForHwWalletCreate({
     return existingState;
   }
   try {
-    const state = await getDeviceState(connectId, { scope: 'settings' });
+    const state = await getDeviceState(connectId, { scope: 'runtime' });
     if (state.status.mode === 'normal' && !state.identity.deviceId) {
       throw new OneKeyLocalError(
         'Unable to resolve live hardware device identity',
@@ -74,7 +74,7 @@ export async function refreshDeviceStateAfterStandardWalletUnlock({
   }
 
   try {
-    return await getDeviceState(connectId, { scope: 'settings' });
+    return await getDeviceState(connectId, { scope: 'runtime' });
   } catch (error) {
     onError?.(error);
     return existingState;

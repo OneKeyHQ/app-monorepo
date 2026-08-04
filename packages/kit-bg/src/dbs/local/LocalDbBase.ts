@@ -5142,7 +5142,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               [item.connectId, item.usbConnectId, item.bleConnectId].some(
                 (value) => value?.toLowerCase() === normalizedConnectId,
               ) &&
-              (!serialNo || !item.uuid || item.uuid === serialNo) &&
               (!deviceId || !item.deviceId || item.deviceId === deviceId),
           )
         : undefined;

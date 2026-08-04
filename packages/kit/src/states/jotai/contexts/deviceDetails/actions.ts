@@ -28,7 +28,7 @@ import {
   mergeDeviceSettingState,
   resolveDeviceState,
   resolveUsableWalletWithDevice,
-  shouldRefreshDeviceSettingsAfterMutation,
+  shouldApplyDeviceSettingMutationLocally,
 } from './deviceStateManagement';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
@@ -365,8 +365,7 @@ class DeviceDetailsActions extends ContextJotaiActionsBase {
       if (!walletId) return;
 
       const deviceType = get(walletWithDeviceStateAtom())?.device?.deviceType;
-      if (shouldRefreshDeviceSettingsAfterMutation(deviceType)) {
-        await this.refresh.call(set, walletId);
+      if (!shouldApplyDeviceSettingMutationLocally(deviceType)) {
         return;
       }
       await this.updateDeviceSettingState.call(set, next);

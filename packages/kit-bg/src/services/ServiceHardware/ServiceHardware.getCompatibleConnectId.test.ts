@@ -2,10 +2,6 @@ import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
@@ -15,6 +11,7 @@ import {
   EHardwareCallContext,
   EHardwareVendor,
 } from '@onekeyhq/shared/types/device';
+import type { IOneKeyDeviceFeaturesWithAppParams } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
@@ -125,7 +122,6 @@ jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
 const mockedLocalDb = jest.mocked(localDb);
 const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
 const mockedCheckBLEState = jest.mocked(checkBLEState);
-const mockedAppEventBus = jest.mocked(appEventBus);
 const mockedAxios = jest.mocked(axios);
 const mutablePlatformEnv = platformEnv as unknown as {
   isDesktop: boolean;
@@ -150,6 +146,151 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
     mockedAxios.post.mockReset();
+  });
+
+  it.each([
+    {
+      platformName: 'iOS',
+      isNativeAndroid: false,
+      bleConnectId: 'F7E44000-1D2C-1C79-509D-55DFDC8201FF',
+    },
+    {
+      platformName: 'Android',
+      isNativeAndroid: true,
+      bleConnectId: 'AA:BB:CC:DD:EE:FF',
+    },
+  ])(
+    'uses the bound BLE connectId on $platformName',
+    async ({ isNativeAndroid, bleConnectId }) => {
+      Object.assign(mutablePlatformEnv, {
+        isDesktop: false,
+        isSupportDesktopBle: false,
+        isNative: true,
+        isNativeAndroid,
+      });
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        id: 'db-pro2-device',
+        connectId: 'PRB09B0088A',
+        usbConnectId: 'PRB09B0088A',
+        bleConnectId,
+        deviceId: 'PRO2_DEVICE_ID',
+        vendor: EHardwareVendor.onekey,
+        name: 'OneKey Pro 2',
+        features: '{}',
+        settingsRaw: '{}',
+        createdAt: 0,
+        updatedAt: 0,
+      } as IDBDevice);
+
+      await expect(
+        new ServiceHardware({
+          backgroundApi: {} as unknown as IBackgroundApi,
+        }).getCompatibleConnectId({
+          connectId: 'PRB09B0088A',
+          featuresDeviceId: 'STALE_DEVICE_ID',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toBe(bleConnectId);
+
+      expect(mockedLocalDb.getDeviceByQuery.mock.calls).toEqual([
+        [{ connectId: 'PRB09B0088A' }],
+      ]);
+    },
+  );
+
+  it('uses the bound Noble peripheral ID before stale device info on desktop', async () => {
+    const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'PRB09B0088A',
+        featuresDeviceId: 'STALE_DEVICE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(bleConnectId);
+
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
+      { connectId: 'PRB09B0088A' },
+    ]);
+  });
+
+  it('falls back to deviceId without combining legacy features', async () => {
+    const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const device = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{"$app_firmware_type":"universal"}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue(device);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'STALE_CONNECT_ID',
+        featuresDeviceId: 'PRO2_DEVICE_ID',
+        features: {
+          $app_firmware_type: 'universal',
+        } as IOneKeyDeviceFeaturesWithAppParams,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe(bleConnectId);
+
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
+      { connectId: 'STALE_CONNECT_ID' },
+    ]);
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls[1]).toEqual([
+      { featuresDeviceId: 'PRO2_DEVICE_ID' },
+    ]);
   });
 
   it('uses a bound Trezor BLE connectId when desktop BLE is selected', async () => {

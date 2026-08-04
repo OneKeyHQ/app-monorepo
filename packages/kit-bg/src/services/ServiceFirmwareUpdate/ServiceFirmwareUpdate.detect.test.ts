@@ -133,7 +133,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 });
 
 describe('buildPro2TargetsToUpdate', () => {
-  it('uses SDK targets as the update source of truth', () => {
+  it('uses SDK targets when no developer override is configured', () => {
     expect(
       buildPro2TargetsToUpdate({
         sdkTargets: ['app_v1', 'resource'],
@@ -163,6 +163,35 @@ describe('buildPro2TargetsToUpdate', () => {
         sdkTargets: ['resource', 'boot_resources'],
       }),
     ).toEqual(['resource', 'boot_resources']);
+  });
+
+  it('merges and deduplicates developer force targets after SDK targets', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['app_v1', 'resource'],
+        forceTargets: ['resource', 'se01'],
+      }),
+    ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('ServiceFirmwareUpdate Pro2 developer settings', () => {
+  it('clears one-time Pro2 targets with the other one-time overrides', async () => {
+    const updateFirmwareUpdateDevSettings = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: { updateFirmwareUpdateDevSettings },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.clearOnceUpdateDevSettings();
+
+    expect(updateFirmwareUpdateDevSettings).toHaveBeenCalledWith({
+      forceUpdateOnceFirmware: false,
+      forceUpdateOnceBle: false,
+      forceUpdateOnceBootloader: false,
+      pro2ForceUpdateOnceTargets: [],
+    });
   });
 });
 

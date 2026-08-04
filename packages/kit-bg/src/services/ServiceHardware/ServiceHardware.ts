@@ -23,10 +23,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  checkBLEPermissions,
-  checkBLEState,
-} from '@onekeyhq/shared/src/hardware/blePermissions';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -3797,14 +3793,19 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // Try to get device from DB first. Keep the default OneKey vendor filter:
-    // broadening it would pull shipped Ledger devices into the third-party
-    // branch below and change a working flow.
-    const device = await localDb.getDeviceByQuery({
-      connectId,
-      featuresDeviceId: featuresDeviceId || undefined,
-      features,
-    });
+    // A transport connect ID is already a precise device key. Do not let stale
+    // device info or legacy feature projections veto a valid USB/BLE ID match.
+    let device = await localDb.getDeviceByQuery({ connectId });
+    if (!device && featuresDeviceId) {
+      device = await localDb.getDeviceByQuery({
+        featuresDeviceId,
+      });
+    }
+    // Features are not an identity source for DeviceState-backed devices. This
+    // final fallback only supports legacy records that have not connected yet.
+    if (!device && features) {
+      device = await localDb.getDeviceByQuery({ features });
+    }
 
     // Third-party devices keep USB as the primary connectId, but Trezor can
     // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE

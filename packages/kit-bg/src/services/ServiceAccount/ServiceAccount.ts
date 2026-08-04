@@ -3786,7 +3786,7 @@ class ServiceAccount extends ServiceBase {
 
     const getDeviceStateForHwWalletCreate = (
       connectId: string,
-      stateParams: { scope: 'settings' },
+      stateParams: { scope: 'runtime' },
     ) =>
       this.backgroundApi.serviceHardware.getDeviceState({
         connectId,
