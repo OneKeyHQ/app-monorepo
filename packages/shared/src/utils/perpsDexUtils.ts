@@ -54,3 +54,21 @@ export function toAssetId({
 }): number {
   return getDexAssetIdOffset(dexIndex) + index;
 }
+
+// TV lowercases everything; HL keys perps as `BTC`, spot as `@N`, and sub-DEX
+// as `<prefix>:<TICKER>` with a lowercase prefix.
+export function normalizeDexCoin(coin: string): string {
+  if (!coin) return coin;
+  if (coin.startsWith('@')) return coin;
+  const separatorIndex = coin.indexOf(DEX_SEPARATOR);
+  if (separatorIndex > 0) {
+    const prefix = coin.slice(0, separatorIndex).toLowerCase();
+    const matched = SUB_DEX_LIST.find((item) => item.prefix === prefix);
+    if (matched) {
+      return `${matched.prefix}${DEX_SEPARATOR}${coin
+        .slice(separatorIndex + DEX_SEPARATOR.length)
+        .toUpperCase()}`;
+    }
+  }
+  return coin.toUpperCase();
+}

@@ -22,9 +22,16 @@ import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDi
 
 const SPOT_PAIR_SEPARATOR = '_';
 
+// Longest prefix first: a shorter registered prefix must not shadow a longer
+// one. Bare-prefix matching has to stay — encodeCoinForUrl emits separator-less
+// tokens like `xyzNVDA`.
 function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
-  return DEX_PREFIXES.find((prefix) => lowerToken.startsWith(prefix)) ?? null;
+  return (
+    [...DEX_PREFIXES]
+      .sort((a, b) => b.length - a.length)
+      .find((prefix) => lowerToken.startsWith(prefix)) ?? null
+  );
 }
 
 function encodeCoinForUrl(params: {

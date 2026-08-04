@@ -46,7 +46,9 @@ export function UniversalSearchPerpItem({
     item.payload;
 
   const isPerpsType = assetType === 'perps';
-  // For perps type, coin is just name; for xyz type, coin needs prefix
+  // For perps type, coin is just name; for xyz type, coin needs prefix.
+  // TODO(server): assetType is still binary ('perps' | xyz). When search starts
+  // returning para results, it must send the dex prefix so this stops assuming xyz.
   const coin = useMemo(
     () => (isPerpsType ? name : `${XYZ_DEX_PREFIX}${name}`),
     [isPerpsType, name],

@@ -4,6 +4,7 @@ import {
   getDexAssetIdOffset,
   getDexIndexByAssetId,
   getDexIndexByCoin,
+  normalizeDexCoin,
   toAssetId,
   toCtxIndex,
 } from './perpsDexUtils';
@@ -80,5 +81,18 @@ describe('perpsDexUtils', () => {
       expect(getDexIndexByAssetId(assetId)).toBe(dexIndex);
       expect(toCtxIndex(assetId)).toBe(4);
     });
+  });
+
+  it('normalizes a sub dex coin without touching its prefix case', () => {
+    expect(normalizeDexCoin('para:unitree')).toBe('para:UNITREE');
+    expect(normalizeDexCoin('PARA:UNITREE')).toBe('para:UNITREE');
+    expect(normalizeDexCoin('xyz:nvda')).toBe('xyz:NVDA');
+    expect(normalizeDexCoin('btc')).toBe('BTC');
+    expect(normalizeDexCoin('@149')).toBe('@149');
+    expect(normalizeDexCoin('')).toBe('');
+  });
+
+  it('does not rewrite an unregistered prefix', () => {
+    expect(normalizeDexCoin('unsupported:tsla')).toBe('UNSUPPORTED:TSLA');
   });
 });
