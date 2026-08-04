@@ -5,8 +5,10 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  DashText,
   Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -62,6 +64,9 @@ function ApprovedTokenItem(props: IProps) {
     useApprovalManagementContext();
   const intl = useIntl();
   const isPermit2Approval = approvalUtils.isPermit2Approval({ approval });
+  const permit2Description = intl.formatMessage({
+    id: ETranslations.permit2_approval__desc,
+  });
 
   const isSelected =
     !!selectedTokens[
@@ -83,11 +88,7 @@ function ApprovedTokenItem(props: IProps) {
     ];
 
   const approvalDate = formatDate(new Date(approval.time), {
-    hideTimeForever: true,
-  });
-  const compactApprovalDate = formatDate(new Date(approval.time), {
-    hideTheYear: true,
-    hideTimeForever: true,
+    formatTemplate: 'PP',
   });
   const permit2ExpirationInfo = useMemo(() => {
     if (!isPermit2Approval) {
@@ -123,7 +124,7 @@ function ApprovedTokenItem(props: IProps) {
       };
     }
     const formattedExpiration = formatDate(expirationDate, {
-      hideSeconds: true,
+      formatTemplate: 'PP, HH:mm',
     });
     if (!formattedExpiration || formattedExpiration === '-') {
       return {
@@ -132,23 +133,12 @@ function ApprovedTokenItem(props: IProps) {
       };
     }
 
-    const approvalYear = new Date(approval.time).getFullYear();
-    const compactExpiration = formatDate(expirationDate, {
-      hideYear: approvalYear === expirationDate.getFullYear(),
-      hideSeconds: true,
-    });
-
-    const displayExpiration =
-      compactExpiration && compactExpiration !== '-'
-        ? compactExpiration
-        : formattedExpiration;
-
     return {
       displayText: intl.formatMessage(
         {
           id: ETranslations.wallet_approval_permit2_expires_at__desc,
         },
-        { date: displayExpiration },
+        { date: formattedExpiration },
       ),
       accessibilityText: intl.formatMessage(
         {
@@ -157,7 +147,7 @@ function ApprovedTokenItem(props: IProps) {
         { date: formattedExpiration },
       ),
     };
-  }, [approval.expirationMs, approval.time, intl, isPermit2Approval]);
+  }, [approval.expirationMs, intl, isPermit2Approval]);
 
   if (!token) {
     return null;
@@ -262,14 +252,48 @@ function ApprovedTokenItem(props: IProps) {
             overflow="hidden"
           >
             {isPermit2Approval ? (
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-                flexShrink={0}
-              >
-                Permit2 ·
-              </SizableText>
+              <XStack alignItems="center" gap="$1" flexShrink={0}>
+                <Popover
+                  title="Permit2"
+                  placement="top-start"
+                  renderTrigger={
+                    <Button
+                      testID={ApprovalManagementTestIDs.permit2InfoBtn}
+                      variant="tertiary"
+                      size="small"
+                      childrenAsText={false}
+                      accessibilityLabel="Permit2"
+                      px="$0"
+                      py="$0"
+                      mx="$0"
+                      my="$0"
+                      borderWidth={0}
+                      hoverStyle={{ bg: '$transparent' }}
+                      pressStyle={{ bg: '$transparent' }}
+                    >
+                      <DashText
+                        size="$bodySmMedium"
+                        color="$textSubdued"
+                        dashColor="$textSubdued"
+                        dashThickness={0.5}
+                        numberOfLines={1}
+                      >
+                        Permit2
+                      </DashText>
+                    </Button>
+                  }
+                  renderContent={
+                    <YStack px="$5" pt="$2" pb="$5">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {permit2Description}
+                      </SizableText>
+                    </YStack>
+                  }
+                />
+                <SizableText size="$bodySm" color="$textSubdued">
+                  ·
+                </SizableText>
+              </XStack>
             ) : null}
             <SizableText
               size="$bodySm"
@@ -279,15 +303,11 @@ function ApprovedTokenItem(props: IProps) {
               flex={1}
               minWidth={0}
             >
-              {permit2ExpirationInfo ? (
-                <>
-                  {intl.formatMessage({
-                    id: ETranslations.global_approval_time,
-                  })}{' '}
-                  {compactApprovalDate}
-                </>
-              ) : (
-                approvalDate
+              {intl.formatMessage(
+                {
+                  id: ETranslations.approved_on_date__desc,
+                },
+                { date: approvalDate },
               )}
             </SizableText>
           </XStack>
