@@ -2891,7 +2891,7 @@ function PerpTradingForm({
               <YStack flex={1} flexBasis={0} minWidth={0}>
                 <LeverageAdjustModal isMobile={isMobile} />
               </YStack>
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={1.2} flexBasis={0} minWidth={0}>
                 <AccountModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}

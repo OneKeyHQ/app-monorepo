@@ -1331,6 +1331,8 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onAddPosition}
           flex={1}
+          flexBasis={platformEnv.isWeb ? 0 : undefined}
+          minWidth={platformEnv.isWeb ? 0 : undefined}
           childrenAsText={false}
         >
           <SizableText
@@ -1352,6 +1354,8 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={onSetTpsl}
           flex={1}
+          flexBasis={platformEnv.isWeb ? 0 : undefined}
+          minWidth={platformEnv.isWeb ? 0 : undefined}
           childrenAsText={false}
           testID="perp-intl-btn"
         >
@@ -1375,6 +1379,8 @@ const PositionRowMobileActions = memo(
           variant="secondary"
           onPress={() => onClosePosition('market')}
           flex={1}
+          flexBasis={platformEnv.isWeb ? 0 : undefined}
+          minWidth={platformEnv.isWeb ? 0 : undefined}
           childrenAsText={false}
         >
           <SizableText
