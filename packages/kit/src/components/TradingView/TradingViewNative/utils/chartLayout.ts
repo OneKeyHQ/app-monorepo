@@ -545,6 +545,9 @@ export function getTradingViewNativeChartLayout({
       TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
     0,
   );
+  if (priceChartHeight <= 0) {
+    return null;
+  }
   const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const volumeTop = volumeBottom - volumeHeight;
   const { maxPrice, minPrice } = visiblePriceRange;

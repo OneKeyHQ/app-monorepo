@@ -1,12 +1,14 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
 } from '../chartConstants';
 
 import {
@@ -216,6 +218,31 @@ describe('TradingViewNative chart layout', () => {
     expect(
       hasTradingViewNativeVolume([...points, { ...points[0], v: 0.000_001 }]),
     ).toBe(true);
+  });
+
+  it('returns no layout when bottom padding leaves no drawable price area', () => {
+    const points = buildPoints({
+      count: 1,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const height =
+      TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT +
+      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
+      TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING +
+      TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING;
+
+    expect(
+      getTradingViewNativeChartLayout({
+        candleIntervalSeconds: SECONDS_PER_HOUR,
+        hasVolume: false,
+        height,
+        minimumTimeTickIndexSpacing: 1,
+        points,
+        visiblePointRange: { endIndex: points.length, startIndex: 0 },
+        width: 402,
+      }),
+    ).toBeNull();
   });
 
   it('calculates volume bar height only for positive finite values', () => {
