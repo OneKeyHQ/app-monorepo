@@ -1,10 +1,37 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
+  resolveWalletPassphraseProtection,
   shouldShowAddHiddenWalletButtonForWallet,
   shouldShowCreateHiddenWalletSidebarButtonForWallet,
   shouldShowDeviceManagementButtonForWallet,
 } from './WalletEditButtonUtils';
+
+describe('resolveWalletPassphraseProtection', () => {
+  it('优先使用 Pro2 的 DeviceState 判断 Passphrase 已开启', () => {
+    expect(
+      resolveWalletPassphraseProtection({
+        deviceState: {
+          status: { passphraseProtection: true },
+        } as never,
+        features: {
+          passphraseProtection: false,
+          passphrase_protection: false,
+        } as never,
+      }),
+    ).toBe(true);
+  });
+
+  it('没有 DeviceState 时兼容 Pro 的旧 Features 字段', () => {
+    expect(
+      resolveWalletPassphraseProtection({
+        features: {
+          passphrase_protection: true,
+        } as never,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('shouldShowAddHiddenWalletButtonForWallet', () => {
   it('allows Trezor hidden wallet creation because Trezor supports passphrase', () => {

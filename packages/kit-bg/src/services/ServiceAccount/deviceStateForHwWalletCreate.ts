@@ -1,6 +1,11 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
+type IGetDeviceStateForHwWalletCreate = (
+  connectId: string,
+  params: { scope: 'settings' },
+) => Promise<IOneKeyDeviceState>;
+
 export async function resolveDeviceStateForHwWalletCreate({
   existingState,
   preserveWalletSession,
@@ -15,10 +20,7 @@ export async function resolveDeviceStateForHwWalletCreate({
   isThirdParty: boolean;
   isMocked: boolean;
   connectId?: string;
-  getDeviceState: (
-    connectId: string,
-    params: { scope: 'settings' },
-  ) => Promise<IOneKeyDeviceState>;
+  getDeviceState: IGetDeviceStateForHwWalletCreate;
   onError?: (error: unknown) => void;
 }) {
   if (preserveWalletSession && existingState) {
@@ -38,5 +40,43 @@ export async function resolveDeviceStateForHwWalletCreate({
   } catch (error) {
     onError?.(error);
     throw error;
+  }
+}
+
+export async function refreshDeviceStateAfterStandardWalletUnlock({
+  existingState,
+  connectProtocol,
+  isThirdParty,
+  isMocked,
+  passphraseState,
+  connectId,
+  getDeviceState,
+  onError,
+}: {
+  existingState?: IOneKeyDeviceState;
+  connectProtocol?: 'V1' | 'V2';
+  isThirdParty: boolean;
+  isMocked: boolean;
+  passphraseState?: string;
+  connectId?: string;
+  getDeviceState: IGetDeviceStateForHwWalletCreate;
+  onError?: (error: unknown) => void;
+}): Promise<IOneKeyDeviceState | undefined> {
+  const protocol = connectProtocol ?? existingState?.protocol;
+  if (
+    protocol !== 'V2' ||
+    isThirdParty ||
+    isMocked ||
+    Boolean(passphraseState) ||
+    !connectId
+  ) {
+    return existingState;
+  }
+
+  try {
+    return await getDeviceState(connectId, { scope: 'settings' });
+  } catch (error) {
+    onError?.(error);
+    return existingState;
   }
 }

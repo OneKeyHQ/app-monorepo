@@ -35,7 +35,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { shouldShowCreateHiddenWalletSidebarButtonForWallet } from '../../../components/WalletEdit/WalletEditButtonUtils';
+import {
+  resolveWalletPassphraseProtection,
+  shouldShowCreateHiddenWalletSidebarButtonForWallet,
+} from '../../../components/WalletEdit/WalletEditButtonUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
@@ -286,12 +289,7 @@ export function AccountSelectorWalletListSideBar({
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
       noop(reloadWalletsHook);
       if (!wallet) return false;
-      const featuresInfo = wallet.associatedDeviceInfo?.featuresInfo as
-        | {
-            passphraseProtection?: boolean | null;
-            passphrase_protection?: boolean | null;
-          }
-        | undefined;
+      const deviceInfo = wallet.associatedDeviceInfo;
       return shouldShowCreateHiddenWalletSidebarButtonForWallet({
         isEditableRouteParams: !!isEditableRouteParams,
         showAddHiddenInWalletSidebar: settings.showAddHiddenInWalletSidebar,
@@ -304,11 +302,12 @@ export function AccountSelectorWalletListSideBar({
         isQrWallet: accountUtils.isQrWallet({
           walletId: wallet.id,
         }),
-        hasPassphraseProtection:
-          featuresInfo?.passphrase_protection === true ||
-          featuresInfo?.passphraseProtection === true,
+        hasPassphraseProtection: resolveWalletPassphraseProtection({
+          deviceState: deviceInfo?.deviceStateInfo,
+          features: deviceInfo?.featuresInfo,
+        }),
         hiddenWalletsLength: wallet.hiddenWallets?.length ?? 0,
-        vendor: wallet.associatedDeviceInfo?.vendor,
+        vendor: deviceInfo?.vendor,
       });
     },
     [

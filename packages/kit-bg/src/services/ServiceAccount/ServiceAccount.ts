@@ -215,7 +215,10 @@ import {
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
 import { buildBtcOnlyFirmwareCacheKey } from './btcOnlyFirmwareCacheUtils';
-import { resolveDeviceStateForHwWalletCreate } from './deviceStateForHwWalletCreate';
+import {
+  refreshDeviceStateAfterStandardWalletUnlock,
+  resolveDeviceStateForHwWalletCreate,
+} from './deviceStateForHwWalletCreate';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 import {
   type IKeylessWalletRemovalCapability,
@@ -3815,7 +3818,20 @@ class ServiceAccount extends ServiceBase {
       isThirdParty: vendorProfile?.isThirdParty,
     });
 
-    const deviceState = await resolveDeviceStateForHwWalletCreate({
+    const getDeviceStateForHwWalletCreate = (
+      connectId: string,
+      stateParams: { scope: 'settings' },
+    ) =>
+      this.backgroundApi.serviceHardware.getDeviceState({
+        connectId,
+        params: {
+          ...stateParams,
+          ...(params.connectProtocol
+            ? { connectProtocol: params.connectProtocol }
+            : {}),
+        },
+      });
+    let deviceState = await resolveDeviceStateForHwWalletCreate({
       existingState: params.deviceState,
       preserveWalletSession:
         !vendorProfile?.isThirdParty &&
@@ -3824,16 +3840,7 @@ class ServiceAccount extends ServiceBase {
       isThirdParty: Boolean(vendorProfile?.isThirdParty),
       isMocked: Boolean(isMockedStandardHwWallet),
       connectId: compatibleConnectId,
-      getDeviceState: (connectId, stateParams) =>
-        this.backgroundApi.serviceHardware.getDeviceState({
-          connectId,
-          params: {
-            ...stateParams,
-            ...(params.connectProtocol
-              ? { connectProtocol: params.connectProtocol }
-              : {}),
-          },
-        }),
+      getDeviceState: getDeviceStateForHwWalletCreate,
       onError: (error) =>
         defaultLogger.hardware.sdkLog.log(
           'createHWWalletBase: unable to seed canonical device state',
@@ -3876,6 +3883,20 @@ class ServiceAccount extends ServiceBase {
         vendor,
       });
     }
+    deviceState = await refreshDeviceStateAfterStandardWalletUnlock({
+      existingState: deviceState,
+      connectProtocol: params.connectProtocol,
+      isThirdParty: Boolean(vendorProfile?.isThirdParty),
+      isMocked: Boolean(isMockedStandardHwWallet),
+      passphraseState,
+      connectId: compatibleConnectId,
+      getDeviceState: getDeviceStateForHwWalletCreate,
+      onError: (error) =>
+        defaultLogger.hardware.sdkLog.log(
+          'createHWWalletBase: unable to refresh state after standard wallet unlock',
+          error instanceof Error ? error.message : 'Unknown error',
+        ),
+    });
     const result = await localDb.createHwWallet({
       ...params,
       deviceState,
