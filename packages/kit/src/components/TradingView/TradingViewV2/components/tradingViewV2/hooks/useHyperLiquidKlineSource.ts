@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import {
-  fetchMarketBasicConfigForPlatform,
-  getLastMarketBasicConfigForPlatform,
-} from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { getLastMarketBasicConfigForPlatform } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
 
 import {
   getPreparedHyperLiquidKlineSource,
-  prepareHyperLiquidKlineSource,
   resolveHyperLiquidKlineSource,
 } from './hyperLiquidKlineSource';
 
@@ -17,7 +14,7 @@ export function useHyperLiquidKlineSource(
   networkId: string,
   tokenAddress: string,
 ): IHyperLiquidKlineSourceResult {
-  const identityKey = `${networkId}:${tokenAddress}`;
+  const { basicConfig, isLoading } = useMarketBasicConfig();
   const immediateResult = useMemo(() => {
     const preparedResult = getPreparedHyperLiquidKlineSource({
       networkId,
@@ -37,60 +34,16 @@ export function useHyperLiquidKlineSource(
         })
       : undefined;
   }, [networkId, tokenAddress]);
-  const [asyncResult, setAsyncResult] = useState<{
-    identityKey: string;
-    result: IHyperLiquidKlineSourceResult;
-  }>();
+  const reactiveResult = useMemo(
+    () =>
+      resolveHyperLiquidKlineSource({
+        basicConfig,
+        isLoading,
+        networkId,
+        tokenAddress,
+      }),
+    [basicConfig, isLoading, networkId, tokenAddress],
+  );
 
-  useEffect(() => {
-    if (immediateResult) {
-      return;
-    }
-
-    let isActive = true;
-    void fetchMarketBasicConfigForPlatform().then(
-      (response) => {
-        if (!isActive) {
-          return;
-        }
-        setAsyncResult({
-          identityKey,
-          result: prepareHyperLiquidKlineSource({
-            basicConfig: response.data,
-            networkId,
-            tokenAddress,
-          }),
-        });
-      },
-      () => {
-        if (!isActive) {
-          return;
-        }
-        setAsyncResult({
-          identityKey,
-          result: {
-            isHyperLiquidSource: false,
-            symbol: undefined,
-            isLoading: false,
-          },
-        });
-      },
-    );
-
-    return () => {
-      isActive = false;
-    };
-  }, [identityKey, immediateResult, networkId, tokenAddress]);
-
-  if (immediateResult) {
-    return immediateResult;
-  }
-  if (asyncResult?.identityKey === identityKey) {
-    return asyncResult.result;
-  }
-  return {
-    isHyperLiquidSource: false,
-    symbol: undefined,
-    isLoading: true,
-  };
+  return immediateResult ?? reactiveResult;
 }
