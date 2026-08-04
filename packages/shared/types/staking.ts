@@ -1775,6 +1775,8 @@ export enum EBorrowProviderEnum {
 }
 
 export type IStakeProtocolListItem = {
+  // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
+  symbol?: string;
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
