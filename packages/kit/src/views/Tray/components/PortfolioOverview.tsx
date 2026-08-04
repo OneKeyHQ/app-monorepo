@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
@@ -36,11 +37,10 @@ export function PortfolioOverview({
     : amountBn.toFormat(2);
   const currencySymbol = totalBalance.symbol || '$';
 
-  const walletAvatarImg = wallet.avatarImg as
-    | keyof typeof AllWalletAvatarImages
-    | undefined;
-  const avatarSource = walletAvatarImg
-    ? AllWalletAvatarImages[walletAvatarImg]
+  const avatarSource = wallet.avatarImg
+    ? AllWalletAvatarImages[
+        wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers
+      ]
     : undefined;
   const hasAccountAvatar = Boolean(
     account.avatar?.address ||
