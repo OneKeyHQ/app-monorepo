@@ -45,6 +45,9 @@ import type {
 type IFilteredProvider = IEarnAggregatedProvider & {
   filteredTvlValue: number;
   maxApy: number;
+  // Reward unit of the row that produced maxApy (review P2): rendering a
+  // fixed "APY" would mislabel APR protocols
+  maxApyUnit: string;
 };
 
 function getRowApy(row: IEarnProtocolTokenRow): number {
@@ -114,11 +117,21 @@ function EarnAllProtocolsContent() {
       if (rows.length === 0) {
         return [];
       }
+      let maxApy = 0;
+      let maxApyUnit = 'APY';
+      for (const row of rows) {
+        const apy = getRowApy(row);
+        if (apy > maxApy) {
+          maxApy = apy;
+          maxApyUnit = row.item.provider.rewardUnit || 'APY';
+        }
+      }
       return [
         {
           ...provider,
           filteredTvlValue: rows.reduce((sum, row) => sum + row.tvlValue, 0),
-          maxApy: Math.max(...rows.map((row) => getRowApy(row))),
+          maxApy,
+          maxApyUnit,
         },
       ];
     });
@@ -221,7 +234,7 @@ function EarnAllProtocolsContent() {
             // of hard-coding the unit into the copy (review feedback)
             <EarnAprSuffixText
               text={`${provider.maxApy.toFixed(2)}%`}
-              fallbackUnit="APY"
+              fallbackUnit={provider.maxApyUnit}
               size="$bodyMdMedium"
               suffixSize="$bodySmMedium"
               color="$textSuccess"

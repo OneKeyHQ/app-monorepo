@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -42,20 +42,20 @@ import type {
 // default option, no subtitle shown)
 type IEarnTokensSortKey = 'tvl' | 'apy';
 
-// Three Tokens-home categories (design: All / Stable Tokens / Non-Stable Tokens)
-const TOKEN_CATEGORY_TYPES = [
-  EAvailableAssetsTypeEnum.All,
-  EAvailableAssetsTypeEnum.StableCoins,
-  EAvailableAssetsTypeEnum.NativeTokens,
-] as const;
+// Three Tokens-home categories (design: All / Stable Tokens / Non-Stable
+// Tokens). Review P2: "non-stable" is NOT the server's NativeTokens contract
+// (chain-native assets only — it would miss WBTC etc.), so the category is a
+// local concept derived as All minus StableCoins.
+type IEarnTokensCategory = 'all' | 'stable' | 'nonStable';
 
-const TOKEN_CATEGORY_LABEL_IDS: Record<string, ETranslations> = {
-  [EAvailableAssetsTypeEnum.All]: ETranslations.global_all,
-  [EAvailableAssetsTypeEnum.StableCoins]:
-    ETranslations.earn_stable_tokens__action,
-  [EAvailableAssetsTypeEnum.NativeTokens]:
-    ETranslations.earn_non_stable_tokens__action,
-};
+const TOKEN_CATEGORIES: {
+  value: IEarnTokensCategory;
+  labelId: ETranslations;
+}[] = [
+  { value: 'all', labelId: ETranslations.global_all },
+  { value: 'stable', labelId: ETranslations.earn_stable_tokens__action },
+  { value: 'nonStable', labelId: ETranslations.earn_non_stable_tokens__action },
+];
 
 // APY/APR merged into one sort dimension (OK-58880); use the display-facing
 // aprWithoutFee, falling back to apr when absent. parseAprPercentValue
@@ -86,9 +86,7 @@ function EarnTokensContent() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const navigateToAsset = useNavigateToEarnAsset();
 
-  const [categoryType, setCategoryType] = useState<EAvailableAssetsTypeEnum>(
-    EAvailableAssetsTypeEnum.All,
-  );
+  const [categoryType, setCategoryType] = useState<IEarnTokensCategory>('all');
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   // Default sort = summed TVL across providers (OK-58880)
@@ -96,14 +94,39 @@ function EarnTokensContent() {
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
+  // Fetch All + StableCoins once; every category derives from these two
+  // datasets client-side, so switching chips never re-requests the server
   const { result: assets, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: categoryType,
+        type: EAvailableAssetsTypeEnum.All,
       }),
-    [categoryType],
+    [],
     { watchLoading: true, undefinedResultIfError: true },
   );
+  const { result: stableAssets, isLoading: isStableLoading } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getAvailableAssets({
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      }),
+    [],
+    { watchLoading: true, undefinedResultIfError: true },
+  );
+  const stableSymbols = useMemo(
+    () => new Set((stableAssets ?? []).map((asset) => asset.symbol)),
+    [stableAssets],
+  );
+  // Category view over the two datasets (review P2)
+  const categoryAssets = useMemo(() => {
+    const list = assets ?? [];
+    if (categoryType === 'stable') {
+      return list.filter((asset) => stableSymbols.has(asset.symbol));
+    }
+    if (categoryType === 'nonStable') {
+      return list.filter((asset) => !stableSymbols.has(asset.symbol));
+    }
+    return list;
+  }, [assets, categoryType, stableSymbols]);
 
   // The Tokens list excludes fixed-rate assets (OK-58879): fixed-rate (PT-like,
   // separate symbols) has its own list page, so filter by the fixedRate symbol set
@@ -135,9 +158,11 @@ function EarnTokensContent() {
     return map;
   }, [aggregatedProviders]);
 
+  // Derive from the category view so the network control only offers
+  // networks that exist in the current category (review P2)
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const asset of assets ?? []) {
+    for (const asset of categoryAssets) {
       const networkIds = new Set(
         (asset.protocols ?? []).map((protocol) => protocol.networkId),
       );
@@ -149,10 +174,24 @@ function EarnTokensContent() {
       availableNetworkIds: Object.keys(counts),
       networkAssetCounts: counts,
     };
-  }, [assets]);
+  }, [categoryAssets]);
+
+  // Review P2: when the category switches, a previously selected network may
+  // not exist in the new dataset - intersect the selection with the new
+  // available set so a stale filter cannot silently empty the list
+  useEffect(() => {
+    setSelectedNetworkIds((prev) => {
+      if (prev.length === 0) {
+        return prev;
+      }
+      const available = new Set(availableNetworkIds);
+      const next = prev.filter((networkId) => available.has(networkId));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availableNetworkIds]);
 
   const filteredAssets = useMemo(() => {
-    const list = assets ?? [];
+    const list = categoryAssets;
     const selectedSet = new Set(selectedNetworkIds);
     const keyword = searchText.trim().toLowerCase();
     return list.filter((asset) => {
@@ -176,7 +215,7 @@ function EarnTokensContent() {
       }
       return true;
     });
-  }, [assets, fixedRateSymbols, searchText, selectedNetworkIds]);
+  }, [categoryAssets, fixedRateSymbols, searchText, selectedNetworkIds]);
 
   const sortedAssets = useMemo(
     () =>
@@ -316,7 +355,7 @@ function EarnTokensContent() {
         />
       </XStack>
       <XStack px="$pagePadding" py="$2" gap="$2">
-        {TOKEN_CATEGORY_TYPES.map((type) => {
+        {TOKEN_CATEGORIES.map(({ value: type, labelId }) => {
           const isActive = categoryType === type;
           return (
             <XStack
@@ -336,7 +375,7 @@ function EarnTokensContent() {
                 size="$bodyMdMedium"
                 color={isActive ? '$text' : '$textSubdued'}
               >
-                {intl.formatMessage({ id: TOKEN_CATEGORY_LABEL_IDS[type] })}
+                {intl.formatMessage({ id: labelId })}
               </SizableText>
             </XStack>
           );
@@ -369,7 +408,11 @@ function EarnTokensContent() {
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={isLoading ? <EarnTokensSkeleton /> : null}
+        ListEmptyComponent={
+          isLoading || (categoryType !== 'all' && isStableLoading) ? (
+            <EarnTokensSkeleton />
+          ) : null
+        }
         contentContainerStyle={{ pb: tabBarHeight }}
       />
     </EarnPageContainer>

@@ -965,7 +965,36 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getAllProtocolList() {
-    return this._getAllProtocolList();
+    const allItems = await this._getAllProtocolList();
+    // Reuse getProtocolList's gating semantics on the full-list fast path
+    // (review P1): drop WithdrawOnly rows and anything the local staking
+    // config has disabled, so aggregation pages never surface protocols the
+    // client does not support or ops have turned off. Rows without a symbol
+    // cannot be checked against the config, so they are dropped too — an
+    // old server that returns symbol-less rows then yields an empty list and
+    // the caller falls back to the per-symbol fan-out path.
+    const visibleItems = allItems.filter(
+      (item) =>
+        Boolean(item.symbol) &&
+        item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+    );
+    const itemsWithEnabledStatus = await promiseAllSettledEnhanced(
+      visibleItems.map((item) => async () => {
+        const stakingConfig = await this.getStakingConfigs({
+          networkId: item.network.networkId,
+          symbol: item.symbol ?? '',
+          provider: item.provider.name,
+        });
+        return { item, isEnabled: stakingConfig?.enabled };
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    return itemsWithEnabledStatus
+      .filter(
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r !== undefined && !!r.isEnabled,
+      )
+      .map((r) => r.item);
   }
 
   @backgroundMethod()
