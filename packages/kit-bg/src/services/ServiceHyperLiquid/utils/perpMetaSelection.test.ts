@@ -50,9 +50,7 @@ describe('perpMetaSelection', () => {
   });
 
   it('drops a slot whose universe does not carry the expected prefix', () => {
-    const shifted = selectPerpMetasByDex(
-      buildAllMetas({ slot8: 'other8:A' }),
-    );
+    const shifted = selectPerpMetasByDex(buildAllMetas({ slot8: 'other8:A' }));
 
     expect(shifted[1]?.universe[0].name).toBe('xyz:XYZ100');
     expect(shifted[2]).toBeUndefined();

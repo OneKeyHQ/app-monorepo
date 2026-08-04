@@ -45,6 +45,10 @@ import {
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
+import {
+  getDexIndexByCoin,
+  toAssetId,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type {
   IResolvedTokenSelectorFavoriteAction,
   ITokenSelectorFavoriteAction,
@@ -57,10 +61,6 @@ import {
   reconcileTokenSelectorFavoritesOrder,
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
-import {
-  getDexIndexByCoin,
-  toAssetId,
-} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import perpsUtils, {
   calculateSpotBalancesTotalUsd,
   isHyperLiquidAbstractionModeEnabled,

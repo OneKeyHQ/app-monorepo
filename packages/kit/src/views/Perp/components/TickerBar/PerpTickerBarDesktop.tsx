@@ -39,13 +39,13 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  formatAssetCtx,
-  getSpotMarketCapValue,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
-import {
   getDexIndexByAssetId,
   toCtxIndex,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  formatAssetCtx,
+  getSpotMarketCapValue,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';

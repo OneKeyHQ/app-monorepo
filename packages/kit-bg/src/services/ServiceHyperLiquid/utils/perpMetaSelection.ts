@@ -20,7 +20,10 @@ export function selectPerpMetasByDex<T extends IPerpMetaLike>(
     ...SUB_DEX_LIST.map((item) => {
       const meta = allMetas[item.hlDexIndex] ?? undefined;
       const firstName = meta?.universe?.[0]?.name;
-      if (firstName && !firstName.startsWith(`${item.prefix}${DEX_SEPARATOR}`)) {
+      if (
+        firstName &&
+        !firstName.startsWith(`${item.prefix}${DEX_SEPARATOR}`)
+      ) {
         return undefined;
       }
       return meta;

@@ -1,3 +1,4 @@
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type { ITokenSelectorFavoriteOrderEntry } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   dedupeTokenSelectorFavoriteCoins,
@@ -7,7 +8,6 @@ import {
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
-import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   compareSpotMarketCapValues,
   getSpotMarketCapValue,

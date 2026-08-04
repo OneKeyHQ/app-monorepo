@@ -29,7 +29,7 @@ function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
   return (
     [...DEX_PREFIXES]
-      .sort((a, b) => b.length - a.length)
+      .toSorted((a, b) => b.length - a.length)
       .find((prefix) => lowerToken.startsWith(prefix)) ?? null
   );
 }
