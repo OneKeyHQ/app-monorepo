@@ -50,5 +50,22 @@
       "#12609"
     ],
     "notes": "Add stock market data to Perps (#12528); sync mnemonic word count after paste (#12576); add device timezone analytics properties (#12578); preserve browser WebViews across tab switches (#12581); prevent browser toolbar scroll jump (#12594); deduplicate all-network worth summing and trust PancakeSwap Permit2 (#12595); stabilize market loading fallback (#12603); add Perps conversion funnel analytics (#12609)"
+  },
+  {
+    "seq": 4,
+    "commit": "0f078ef58a5a35d5de71b78141e0b1b22b911c00",
+    "date": "2026-08-03T11:53:05Z",
+    "prs": [
+      "#12530",
+      "#12564",
+      "#12585",
+      "#12623",
+      "#12638",
+      "#12649",
+      "#12652",
+      "#12660",
+      "#12695"
+    ],
+    "notes": "Keep Tabs scroll extent in sync after tab switches and async refreshes (#12530); reset OTA retry gate on cold restart (#12564); collect Swap referral attribution (#12585); support tab-targeted swap tips (#12623); restore risk approval alert dismissal (#12638); restore Perps orderbook and dead banner taps on notification entry (#12649); track Google Play install attribution (#12652); keep browser content above toolbar (#12660); stabilize swap tips banner layout (#12695)"
   }
 ]
