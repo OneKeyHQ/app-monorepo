@@ -181,6 +181,43 @@ describe('SimpleDbEntityPrime.authStateGeneration', () => {
     expect(persisted.authSessionSource).toBeUndefined();
     expect(persisted.authStateGeneration).toBe(5);
   });
+
+  test('marks OneKey ID logged out without deleting legacy or Keyless session markers', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      authToken: 'deprecated-token',
+      authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      oneKeyIdAuthState: 'loggedIn',
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.LegacyEmailSupabase]: 'legacy-session',
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'keyless-session',
+      },
+      keylessSessionCommitIdByWalletId: {
+        'wallet-1': 'wallet-session',
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await entity.markOneKeyIdLoggedOutPreservingSessions();
+
+    expect(persisted).toMatchObject({
+      authToken: '',
+      oneKeyIdAuthState: 'loggedOut',
+      authSessionCommitIdBySource: {
+        [EPrimeAuthSessionSource.LegacyEmailSupabase]: 'legacy-session',
+        [EPrimeAuthSessionSource.KeylessOAuth]: 'keyless-session',
+      },
+      keylessSessionCommitIdByWalletId: {
+        'wallet-1': 'wallet-session',
+      },
+    });
+    expect(persisted.authSessionSource).toBeUndefined();
+  });
 });
 
 describe('SimpleDbEntityPrime.identityLifecycleRevision', () => {
@@ -968,6 +1005,213 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
         onekeyUserId: 'user-1',
       }),
     ).resolves.toBe(true);
+  });
+
+  test('reuses a completed credential upgrade only at the same lifecycle revision', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const getRawDataSpy = jest.spyOn(entity, 'getRawData');
+    getRawDataSpy.mockResolvedValueOnce({
+      identityLifecycleRevision: 7,
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': 100,
+      },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 7,
+      },
+    });
+
+    await expect(
+      entity.getOneKeyIdOAuthBindPromptUpgradeState({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      hasShown: true,
+      credentialUpgradeCompleted: true,
+      identityLifecycleRevision: 7,
+    });
+
+    getRawDataSpy.mockResolvedValueOnce({
+      identityLifecycleRevision: 8,
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': 100,
+      },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 7,
+      },
+    });
+
+    await expect(
+      entity.getOneKeyIdOAuthBindPromptUpgradeState({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 8,
+    });
+  });
+
+  test('marks credential upgrade completion at the current lifecycle revision', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 9,
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-2': 4,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await expect(
+      entity.markOneKeyIdKeylessCredentialUpgradeCompleted({
+        onekeyUserId: 'user-1',
+        expectedIdentityLifecycleRevision: 9,
+      }),
+    ).resolves.toBe(true);
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({
+      'user-1': 9,
+      'user-2': 4,
+    });
+  });
+
+  test('does not mark credential completion after the lifecycle revision changes', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 10,
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-2': 4,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await expect(
+      entity.markOneKeyIdKeylessCredentialUpgradeCompleted({
+        onekeyUserId: 'user-1',
+        expectedIdentityLifecycleRevision: 9,
+      }),
+    ).resolves.toBe(false);
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({ 'user-2': 4 });
+  });
+
+  test('consumes only the claim that actually presents the reminder', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {};
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await expect(
+      entity.tryClaimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-1',
+        now: 100,
+        expiresAt: 200,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.tryClaimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-2',
+        now: 101,
+        expiresAt: 201,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.releaseOneKeyIdOAuthBindPromptClaim({
+        onekeyUserId: 'user-1',
+        claimId: 'wrong-claim',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.releaseOneKeyIdOAuthBindPromptClaim({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-1',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.tryClaimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-2',
+        now: 102,
+        expiresAt: 202,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.completeOneKeyIdOAuthBindPromptClaim({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-2',
+        shownAt: 103,
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      entity.hasShownOneKeyIdOAuthBindPrompt({ onekeyUserId: 'user-1' }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.tryClaimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+        claimId: 'claim-3',
+        now: 104,
+        expiresAt: 204,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  test('resets only the current OneKey ID prompt marker', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': 1,
+        'user-2': 2,
+      },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 3,
+        'user-2': 4,
+      },
+    };
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await entity.resetOneKeyIdOAuthBindPromptShown({
+      onekeyUserId: 'user-1',
+    });
+
+    expect(persisted.localKeylessUpgradeBindPromptShownAtByUserId).toEqual({
+      'user-2': 2,
+    });
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({ 'user-2': 4 });
   });
 });
 

@@ -19,6 +19,7 @@ import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -414,14 +415,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceIdentityExit() {
-    const Service =
-      require('../services/ServiceIdentityExit/ServiceIdentityExit') as typeof import('../services/ServiceIdentityExit/ServiceIdentityExit');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceIdentityExit', { value });
-    return value;
+  get serviceIdentityExit(): ILazyServiceProxy<ServiceIdentityExit> {
+    return this.buildLazyService(
+      'serviceIdentityExit',
+      () => import('../services/ServiceIdentityExit/ServiceIdentityExit'),
+    );
   }
 
   get servicePrime() {
