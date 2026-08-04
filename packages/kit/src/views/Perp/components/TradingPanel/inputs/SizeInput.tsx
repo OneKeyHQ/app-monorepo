@@ -12,11 +12,18 @@ import type { MutableRefObject, Ref } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatWithPrecision,
   validateSizeInput,
@@ -47,6 +54,26 @@ export type ISizeInputMinimumOrderAction = {
   label: string;
   onPress: () => void;
 };
+
+export function getMinimumOrderToastActionProps(
+  action?: ISizeInputMinimumOrderAction,
+  actionLabel?: string,
+) {
+  if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
+  return {
+    actionsAlign: 'left' as const,
+    actions: (
+      <Button
+        testID="perp-minimum-order-toast-action"
+        size="small"
+        variant="primary"
+        onPress={action.onPress}
+      >
+        {actionLabel}
+      </Button>
+    ),
+  };
+}
 
 interface ISizeInputProps {
   testID?: string;
@@ -390,14 +417,8 @@ export const SizeInput = memo(
       return () => clearTimeout(timer);
     }, [isUserTyping]);
 
-    const handleInputChange = useCallback(
+    const applyManualInputValue = useCallback(
       (newValue: string) => {
-        if (isSliderMode) {
-          setTokenAmount('');
-          onChange('');
-          return;
-        }
-
         setIsUserTyping(true);
         onRequestManualMode?.();
 
@@ -436,7 +457,6 @@ export const SizeInput = memo(
         }
       },
       [
-        isSliderMode,
         inputMode,
         onChange,
         onDisplayValueChange,
@@ -446,8 +466,20 @@ export const SizeInput = memo(
       ],
     );
 
+    const handleInputChange = useCallback(
+      (newValue: string) => {
+        if (isSliderMode) {
+          setTokenAmount('');
+          onChange('');
+          return;
+        }
+        applyManualInputValue(newValue);
+      },
+      [applyManualInputValue, isSliderMode, onChange],
+    );
+
     const minimumOrderSuggestion = useMemo(() => {
-      if (!hasValidPrice || isDisabled || isSliderMode) return undefined;
+      if (!hasValidPrice || isDisabled) return undefined;
 
       const tokenValue = new BigNumber(MINIMUM_ORDER_NOTIONAL)
         .dividedBy(priceBN)
@@ -471,7 +503,6 @@ export const SizeInput = memo(
       hasValidPrice,
       inputMode,
       isDisabled,
-      isSliderMode,
       leverageBN,
       priceBN,
       symbol,
@@ -488,10 +519,10 @@ export const SizeInput = memo(
                 { amount: minimumOrderSuggestion.label },
               ),
               onPress: () =>
-                handleInputChange(minimumOrderSuggestion.displayValue),
+                applyManualInputValue(minimumOrderSuggestion.displayValue),
             }
           : undefined,
-      [handleInputChange, intl, minimumOrderSuggestion],
+      [applyManualInputValue, intl, minimumOrderSuggestion],
     );
     useLayoutEffect(() => {
       if (!minimumOrderActionRef) return;
