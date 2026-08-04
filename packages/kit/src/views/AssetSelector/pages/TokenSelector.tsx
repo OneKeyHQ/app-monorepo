@@ -46,7 +46,10 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { extractCrossNetworkSearchQuery } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import {
+  extractCrossNetworkSearchQuery,
+  filterTokensByAccountNetworkCompatibility,
+} from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
@@ -450,6 +453,17 @@ function TokenSelector() {
     !isSelectorAllNetworks &&
     !network.isCustomNetwork &&
     !showLpTokensOnly;
+  // Others (imported / watch-only / external) accounts hold one credential on
+  // one impl, so cross-network results must be narrowed to the networks that
+  // credential can actually derive an address on. HD/HW accounts are unfiltered
+  // — they can create an account on any network.
+  const othersAccountForNetworkFilter =
+    crossNetworkSearchEnabled &&
+    account &&
+    accountId &&
+    accountUtils.isOthersAccount({ accountId })
+      ? account
+      : undefined;
   let tokenSelectorSearchFilterContext: ITokenSelectorSearchFilterContext =
     'all-token';
   if (showTokenSelectorFilter) {
@@ -1116,6 +1130,12 @@ function TokenSelector() {
             : networkId,
           keywords: crossNetworkQuery?.keywords ?? keywords,
         });
+        if (othersAccountForNetworkFilter) {
+          result = filterTokensByAccountNetworkCompatibility({
+            tokens: result,
+            account: othersAccountForNetworkFilter,
+          });
+        }
         if (showLpTokensOnly && isSelectorAllNetworks) {
           result =
             await filterTokenSelectorSearchTokensByBackendIndexedNetworks({
@@ -1161,6 +1181,7 @@ function TokenSelector() {
       crossNetworkSearchEnabled,
       isSelectorAllNetworks,
       networkId,
+      othersAccountForNetworkFilter,
       showLpTokensOnly,
       showTokenSelectorFilter,
       tokenSelectorFilterParams,

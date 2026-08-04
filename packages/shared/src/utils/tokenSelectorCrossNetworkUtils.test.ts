@@ -1,7 +1,10 @@
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import {
   ETokenSelectorSyntheticRowType,
   buildCrossNetworkSearchListData,
   extractCrossNetworkSearchQuery,
+  filterTokensByAccountNetworkCompatibility,
   isTokenSelectorSyntheticRow,
 } from './tokenSelectorCrossNetworkUtils';
 
@@ -176,6 +179,23 @@ describe('extractCrossNetworkSearchQuery', () => {
       shortname: 'TRX',
     },
     {
+      id: 'btc--0',
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      code: 'btc',
+      shortcode: 'btc',
+      shortname: 'BTC',
+    },
+    // Multi-word display name whose first word is itself another network.
+    {
+      id: 'bch--0',
+      name: 'Bitcoin Cash',
+      symbol: 'BCH',
+      code: 'bch',
+      shortcode: 'bch',
+      shortname: 'BCH',
+    },
+    {
       id: 'sol--101',
       name: 'Solana',
       symbol: 'SOL',
@@ -237,10 +257,34 @@ describe('extractCrossNetworkSearchQuery', () => {
     ).toEqual({ keywords: 'eth sol' });
   });
 
+  test('multi-word network names match as a contiguous phrase, longest first', () => {
+    // "bitcoin" alone names Bitcoin, but the longer "bitcoin cash" wins.
+    expect(
+      extractCrossNetworkSearchQuery({
+        keywords: 'usdt bitcoin cash',
+        networks,
+      }),
+    ).toEqual({ networkId: 'bch--0', keywords: 'usdt' });
+    // Phrase in leading position, and the single-word alias still works.
+    expect(
+      extractCrossNetworkSearchQuery({
+        keywords: 'bitcoin cash usdt',
+        networks,
+      }),
+    ).toEqual({ networkId: 'bch--0', keywords: 'usdt' });
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'usdt bch', networks }),
+    ).toEqual({ networkId: 'bch--0', keywords: 'usdt' });
+  });
+
   test('no extraction when stripping would leave nothing', () => {
     expect(
       extractCrossNetworkSearchQuery({ keywords: 'trx trx', networks }),
     ).toEqual({ keywords: 'trx trx' });
+    // The whole query is one network phrase — no token term remains.
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'bitcoin cash', networks }),
+    ).toEqual({ keywords: 'bitcoin cash' });
   });
 
   test('all-networks pseudo network never matches; partial words never match', () => {
@@ -256,5 +300,56 @@ describe('extractCrossNetworkSearchQuery', () => {
     expect(
       extractCrossNetworkSearchQuery({ keywords: '  USDT   TRX  ', networks }),
     ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'usdt' });
+  });
+});
+
+describe('filterTokensByAccountNetworkCompatibility', () => {
+  const tokens = [
+    buildTestToken({ $key: 'a', networkId: 'evm--1' }),
+    buildTestToken({ $key: 'b', networkId: 'evm--8453' }),
+    buildTestToken({ $key: 'c', networkId: 'sol--101' }),
+    buildTestToken({ $key: 'd', networkId: 'tron--0x2b6653dc' }),
+  ];
+
+  test('imported EVM account keeps every EVM network and drops the rest', () => {
+    const account = { id: 'imported--60--0xabc', impl: 'evm' } as IDBAccount;
+    expect(
+      filterTokensByAccountNetworkCompatibility({ tokens, account }).map(
+        (t) => t.$key,
+      ),
+    ).toEqual(['a', 'b']);
+  });
+
+  test('watch-only account restricted to one network keeps only that network', () => {
+    const account = {
+      id: 'watching--60--0xabc',
+      impl: 'evm',
+      networks: ['evm--1'],
+    } as IDBAccount;
+    expect(
+      filterTokensByAccountNetworkCompatibility({ tokens, account }).map(
+        (t) => t.$key,
+      ),
+    ).toEqual(['a']);
+  });
+
+  test('non-EVM imported account drops incompatible impls', () => {
+    const account = { id: 'imported--501--xyz', impl: 'sol' } as IDBAccount;
+    expect(
+      filterTokensByAccountNetworkCompatibility({ tokens, account }).map(
+        (t) => t.$key,
+      ),
+    ).toEqual(['c']);
+  });
+
+  test('rows without a networkId are never dropped (defensive)', () => {
+    const account = { id: 'imported--501--xyz', impl: 'sol' } as IDBAccount;
+    const withBlank = [...tokens, buildTestToken({ $key: 'e' })];
+    expect(
+      filterTokensByAccountNetworkCompatibility({
+        tokens: withBlank,
+        account,
+      }).map((t) => t.$key),
+    ).toEqual(['c', 'e']);
   });
 });
