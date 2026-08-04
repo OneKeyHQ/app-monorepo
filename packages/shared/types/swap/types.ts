@@ -165,6 +165,8 @@ export interface ISwapInitParams {
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;
+  closeModalAfterSwapBroadcast?: boolean;
+  onSwapBroadcast?: () => void | Promise<void>;
 }
 
 // token & network

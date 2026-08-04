@@ -7,10 +7,9 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const { Text, View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Text, View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
   const dialogShow = jest.fn();
   const toastWarning = jest.fn();
   (globalThis as Record<string, unknown>).__collateralCellComponentsMock = {
@@ -327,11 +326,7 @@ describe('CollateralSwitchCell settlement guard', () => {
       isLoading: false,
     });
     const view = render(
-      <CollateralSwitchCell
-        item={createSuppliedAsset(true)}
-        eModeId={1}
-        isCollateralUnavailableInEMode
-      />,
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
     );
 
     await submitToggle(view);
@@ -344,23 +339,34 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(request).not.toHaveProperty('eModeId');
   });
 
-  it('does not open a confirmation for collateral excluded from active eMode', async () => {
+  it('enables collateral during an active eMode regardless of category membership (v3.2 semantics)', async () => {
     const view = render(
-      <CollateralSwitchCell
-        item={createSuppliedAsset(false)}
-        eModeId={1}
-        isCollateralUnavailableInEMode
-      />,
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={1} />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(false);
+    await submitToggle(view);
+
+    expect(componentsMock.dialogShow).toHaveBeenCalledTimes(1);
+    expect(setCollateralMocks.setCollateral).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useAsCollateral: true,
+        eModeId: 1,
+      }),
+    );
+  });
+
+  it('keeps an unsupported Aave native position visible but disables collateral changes', () => {
+    borrowContext.market = {
+      ...borrowContext.market,
+      networkId: 'evm--42161',
+    };
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true, '')} eModeId={1} />,
     );
 
     expect(getSwitch(view).props.disabled).toBe(true);
-    await act(async () => {
-      const { onChange } = getSwitch(view).props as { onChange: () => void };
-      onChange();
-      await flushMicrotasks();
-    });
-    expect(componentsMock.dialogShow).not.toHaveBeenCalled();
-    expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
   });
 
   it('allows a successful preview that omits optional collateral eligibility', async () => {

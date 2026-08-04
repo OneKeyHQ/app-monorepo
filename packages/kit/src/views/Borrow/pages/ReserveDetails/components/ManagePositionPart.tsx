@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Icon,
   SizableText,
   XStack,
   YStack,
@@ -18,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../borrowUtils';
+import { isUnsupportedAaveNativeReserve } from '../../../components/borrowRepayPosition.utils';
 
 interface IManagePositionPartProps {
   accountId: string;
@@ -89,10 +89,19 @@ export const ManagePositionPart = ({
     logoURI,
   ]);
 
+  // Rows for these reserves stay visible in the position tables, so this page is
+  // reachable for them; the server flag alone would still offer a build that
+  // resolves the native reserve to the wrong token.
+  const isNativeActionUnsupported = isUnsupportedAaveNativeReserve({
+    networkId,
+    providerName: provider,
+    reserveAddress,
+  });
+
   const labels = {
     myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
-    walletBalance: intl.formatMessage({
-      id: ETranslations.global_wallet_balance,
+    balance: intl.formatMessage({
+      id: ETranslations.global_balance,
     }),
     availableToBorrow: intl.formatMessage({
       id: ETranslations.defi_available_to_borrow,
@@ -113,34 +122,36 @@ export const ManagePositionPart = ({
           {labels.myInfo}
         </SizableText>
 
-        {/* Wallet balance section */}
-        <XStack jc="space-between" ai="flex-start">
-          <YStack gap="$1">
-            <XStack ai="center" gap="$1">
-              <Icon name="WalletOutline" size="$4" color="$iconSubdued" />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {labels.walletBalance}
-              </SizableText>
-            </XStack>
+        {/* Balance section */}
+        <XStack jc="space-between" ai="center" gap="$3">
+          <XStack ai="center" gap="$1" flexWrap="wrap" flex={1}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {labels.balance}:
+            </SizableText>
             <EarnText
               text={userInfo?.walletBalance?.title}
-              size="$headingXl"
+              size="$bodyMd"
               color="$text"
             />
-            <EarnText
-              text={userInfo?.walletBalance?.description}
-              size="$bodyMd"
-              color="$textSubdued"
-            />
-          </YStack>
+            {userInfo?.walletBalance?.description ? (
+              <EarnText
+                text={{
+                  text: `(${userInfo.walletBalance.description.text})`,
+                }}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+            ) : null}
+          </XStack>
           {userInfo?.walletBalance?.button ? (
             <Button
               testID="borrow-btn"
-              mt="auto"
-              mb="$1.5"
               variant="primary"
               size="medium"
-              disabled={userInfo.walletBalance.button.disabled}
+              disabled={
+                userInfo.walletBalance.button.disabled ||
+                isNativeActionUnsupported
+              }
               onPress={handleSupply}
             >
               {userInfo.walletBalance.button.text.text}
@@ -181,7 +192,10 @@ export const ManagePositionPart = ({
               mb="$1.5"
               variant="primary"
               size="medium"
-              disabled={userInfo.availableBorrowBalance.button.disabled}
+              disabled={
+                userInfo.availableBorrowBalance.button.disabled ||
+                isNativeActionUnsupported
+              }
               onPress={handleBorrow}
             >
               {userInfo.availableBorrowBalance.button.text.text}

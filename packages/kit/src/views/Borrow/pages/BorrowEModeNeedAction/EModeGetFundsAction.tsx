@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, SizableText, XStack } from '@onekeyhq/components';
+import { ActionList, Button } from '@onekeyhq/components';
 import { BorrowTestIDs } from '@onekeyhq/kit/src/views/Borrow/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -15,41 +15,30 @@ export function EModeGetFundsAction({
   onPress: () => void;
 }) {
   const intl = useIntl();
-  const label = intl.formatMessage(
+  // The button stays symbol-free — the row it sits in already names the token
+  // twice. The sheet keeps the symbol, where there is room to be explicit.
+  const sheetTitle = intl.formatMessage(
     { id: ETranslations.defi_emode_get_symbol__action },
     { symbol },
   );
 
   return (
-    <XStack alignSelf="flex-start">
-      <ActionList
-        title={label}
-        placement="bottom-start"
-        items={items}
-        renderTrigger={
-          <XStack
-            testID={BorrowTestIDs.eModeNeedActionGetFundsBtn}
-            ai="center"
-            cursor="pointer"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.6 }}
-            focusable
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-              outlineWidth: 2,
-            }}
-            role="button"
-            aria-label={label}
-            onPress={onPress}
-          >
-            <SizableText size="$bodyMdMedium" color="$textInfo">
-              {label}
-            </SizableText>
-          </XStack>
-        }
-      />
-    </XStack>
+    <ActionList
+      title={sheetTitle}
+      placement="bottom-end"
+      items={items}
+      renderTrigger={
+        <Button
+          testID={BorrowTestIDs.eModeNeedActionGetFundsBtn}
+          variant="secondary"
+          size="small"
+          iconAfter="ChevronDownSmallOutline"
+          aria-label={sheetTitle}
+          onPress={onPress}
+        >
+          {intl.formatMessage({ id: ETranslations.global_top_up })}
+        </Button>
+      }
+    />
   );
 }
