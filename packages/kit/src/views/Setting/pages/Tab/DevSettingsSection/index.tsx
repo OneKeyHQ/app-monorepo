@@ -138,11 +138,6 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
-const LazySniRequestQaTest = LazyLoad(async () => {
-  const { SniRequestQaTest } = await import('./SniRequestQa');
-  return { default: SniRequestQaTest };
-});
-
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 type ILocalSecretEnvelopeSimulatedKeyLossResult = {
@@ -1333,18 +1328,13 @@ const BaseDevSettingsSection = () => {
                         <SectionPressItem
                           icon="LabOutline"
                           title="SNI Queue & Abort QA"
-                          subtitle="Run queue saturation, AbortController cancellation, cleanup, and recovery cases"
-                          searchKeywords="SNI Queue AbortController QA 20 requests concurrency cancellation Native Desktop"
+                          subtitle="Run fixed /health, 20/40 request, cancellation, and recovery cases"
+                          searchKeywords="SNI Queue AbortController QA health 20 40 requests concurrency cancellation recovery Native Desktop"
                           testID="desktop-sni-queue-qa-menu"
                           onPress={() => {
-                            Dialog.cancel({
-                              title: 'SNI Queue & Abort QA',
-                              floatingPanelProps: {
-                                width: 720,
-                                maxWidth: '90vw',
-                              },
-                              renderContent: <LazySniRequestQaTest />,
-                            });
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSniRequestQa,
+                            );
                           }}
                         />
                       ) : null}

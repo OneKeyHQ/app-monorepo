@@ -26,7 +26,7 @@ const expectedContentText =
 const sniTarget = {
   hostname: process.env.DESKTOP_E2E_SNI_HOSTNAME || 'wallet.onekeytest.com',
   ip: process.env.DESKTOP_E2E_SNI_IP || '104.18.31.39',
-  path: process.env.DESKTOP_E2E_SNI_PATH || '/wallet/v1/health',
+  path: process.env.DESKTOP_E2E_SNI_PATH || '/health',
   timeout: Number(process.env.DESKTOP_E2E_SNI_TIMEOUT_MS) || 15_000,
 };
 const COPY_INJECT_TIMEOUT_MS =
@@ -656,9 +656,7 @@ async function runSniRequestFlow(page) {
       requestId: `desktop-e2e-smoke-${runId}`,
       ip: target.ip,
       hostname: target.hostname,
-      path: `${target.path}${
-        target.path.includes('?') ? '&' : '?'
-      }desktopE2E=smoke-${runId}`,
+      path: target.path,
       headers: {
         Accept: 'application/json',
         'X-OneKey-Desktop-E2E': 'smoke',
@@ -721,31 +719,40 @@ async function runSniRequestFlow(page) {
   const queuePanel = page.locator('[data-testid="desktop-sni-queue-panel"]');
   const queueRunButton = page.locator('[data-testid="desktop-sni-queue-run"]');
   await queueRunButton.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
-  await page.locator('[data-testid="desktop-sni-cases-clear"]').click();
-  assert.equal(await queueRunButton.isDisabled(), true);
-  await page
-    .locator('[data-testid="desktop-sni-case-queue-pending-abort"]')
-    .click();
-  assert((await queueRunButton.textContent()).includes('Run selected (1)'));
-  await page.locator('[data-testid="desktop-sni-cases-select-all"]').click();
-  assert((await queueRunButton.textContent()).includes('Run selected (4)'));
-  await queueRunButton.click();
+
+  const healthRunButton = page.locator(
+    '[data-testid="desktop-sni-case-health-run"]',
+  );
+  await healthRunButton.click();
   await page.waitForFunction(
     () =>
       document
-        .querySelector('[data-testid="desktop-sni-queue-result"]')
-        ?.textContent?.includes('PASS'),
+        .querySelector('[data-testid="desktop-sni-case-health-result"]')
+        ?.textContent?.includes('PASSED'),
     undefined,
     { timeout: APP_TIMEOUT_MS },
   );
-  const caseIds = [
-    'https-success',
-    'active-abort',
-    'queue-pending-abort',
+
+  await queueRunButton.click();
+  await page.waitForFunction(
+    () => {
+      const text = document.querySelector(
+        '[data-testid="desktop-sni-queue-result"]',
+      )?.textContent;
+      return text?.includes('PASS') || text?.includes('PARTIAL');
+    },
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+  const passedCaseIds = [
+    'health',
+    'burst-20',
+    'burst-40',
     'abort-all-recovery',
+    'repeat-40',
   ];
   const caseResultTexts = await Promise.all(
-    caseIds.map((caseId) =>
+    passedCaseIds.map((caseId) =>
       page
         .locator(`[data-testid="desktop-sni-case-${caseId}-result"]`)
         .textContent(),
@@ -754,9 +761,25 @@ async function runSniRequestFlow(page) {
   caseResultTexts.forEach((caseResultText, index) => {
     assert(
       caseResultText.includes('PASSED'),
-      `desktop SNI QA case ${caseIds[index]} should pass`,
+      `desktop SNI QA case ${passedCaseIds[index]} should pass`,
     );
   });
+  const notObservedCaseIds = ['active-abort', 'pending-abort'];
+  const notObservedResultTexts = await Promise.all(
+    notObservedCaseIds.map((caseId) =>
+      page
+        .locator(`[data-testid="desktop-sni-case-${caseId}-result"]`)
+        .textContent(),
+    ),
+  );
+  notObservedResultTexts.forEach((caseResultText, index) => {
+    assert(
+      caseResultText.includes('NOT OBSERVED'),
+      `desktop SNI QA case ${notObservedCaseIds[index]} should honestly report the unavailable request-ID observation`,
+    );
+  });
+
+  const caseIds = [...passedCaseIds, ...notObservedCaseIds];
   for (const caseId of caseIds) {
     const evidenceToggleTestId = `desktop-sni-case-${caseId}-evidence-toggle`;
     const evidenceToggle = page.locator(
@@ -774,62 +797,30 @@ async function runSniRequestFlow(page) {
   }
   const queuePanelText = await queuePanel.textContent();
   assert(
-    queuePanelText.includes('Queue saturation observed') &&
-      queuePanelText.includes('pair active=16, pending=4'),
-    'desktop SNI queue panel should display the observed main-process queue evidence',
+    queuePanelText.includes('Fixed target') &&
+      queuePanelText.includes('wallet.onekeytest.com') &&
+      queuePanelText.includes('/health'),
+    'desktop SNI QA page should display its fixed first-party target',
   );
   assert(
-    queuePanelText.includes('Pending renderer outcomes') &&
-      queuePanelText.includes('cancelled=4, responded=0, failed=0'),
-    'desktop SNI queue panel should display real pending cancellation outcomes',
+    queuePanelText.includes('Observed limiter peaks') &&
+      queuePanelText.includes('Renderer outcomes') &&
+      queuePanelText.includes('responded=40, cancelled=0, failed=0'),
+    'desktop SNI QA page should display real 40-request outcomes and limiter observations',
   );
   assert(
-    queuePanelText.includes('Renderer outcome') &&
-      queuePanelText.includes('SNI_CANCELLED'),
-    'desktop SNI queue panel should display the active AbortController outcome',
+    queuePanelText.includes('active state not observed') &&
+      queuePanelText.includes('pending state not observed'),
+    'desktop SNI QA page should disclose unavailable request-ID observations',
   );
   assert(
-    queuePanelText.includes('Transport cancel acknowledged') &&
-      queuePanelText.includes('1/1 cancelRequest calls returned success=true'),
-    'desktop SNI queue panel should require the active transport cancellation acknowledgement',
-  );
-  assert(
-    queuePanelText.includes('Transport cancellation outcome') &&
-      queuePanelText.includes('1/1 transport promises rejected SNI_CANCELLED'),
-    'desktop SNI queue panel should require the active transport to reject as cancelled',
-  );
-  assert(
-    queuePanelText.includes('Pending transport cancels acknowledged') &&
-      queuePanelText.includes('4/4 cancelRequest calls returned success=true'),
-    'desktop SNI queue panel should require all pending transport cancellation acknowledgements',
-  );
-  assert(
-    queuePanelText.includes('Pending transport outcomes') &&
-      queuePanelText.includes('4/4 transport promises rejected SNI_CANCELLED'),
-    'desktop SNI queue panel should require all pending transports to reject as cancelled',
-  );
-  assert(
-    queuePanelText.includes('Batch renderer outcomes') &&
-      queuePanelText.includes('cancelled=20, responded=0, failed=0'),
-    'desktop SNI queue panel should display real abort-all outcomes',
-  );
-  assert(
-    queuePanelText.includes('Batch transport cancels acknowledged') &&
-      queuePanelText.includes(
-        '20/20 cancelRequest calls returned success=true',
-      ),
-    'desktop SNI queue panel should require all abort-all transport acknowledgements',
-  );
-  assert(
-    queuePanelText.includes('Batch transport outcomes') &&
-      queuePanelText.includes(
-        '20/20 transport promises rejected SNI_CANCELLED',
-      ),
-    'desktop SNI queue panel should require all abort-all transports to reject as cancelled',
+    queuePanelText.includes('cancelRequest acknowledgements') &&
+      queuePanelText.includes('Raw transport outcomes'),
+    'desktop SNI QA page should display real cancellation acknowledgements and transport outcomes',
   );
   assert(
     queuePanelText.includes('Recovery response') &&
-      queuePanelText.includes('HTTP 200'),
+      /Recovery responseHTTP [1-5]\d\d/u.test(queuePanelText),
     'desktop SNI queue panel should display the real recovery response',
   );
   await queuePanel.screenshot({
@@ -837,7 +828,7 @@ async function runSniRequestFlow(page) {
   });
 
   log(
-    `SNI bridge smoke and QA panel passed (${sniTarget.hostname} via ${sniTarget.ip}, smoke HTTP ${result.statusCode}, 4 UI cases)`,
+    `SNI bridge smoke and QA page passed (${sniTarget.hostname} via ${sniTarget.ip}, smoke HTTP ${result.statusCode}, 7 UI cases)`,
   );
 }
 

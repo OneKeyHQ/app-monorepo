@@ -2,13 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { sniRequestQaAdapter } from '@onekeyhq/shared/src/request/helpers/sniRequestQa';
-import {
-  getSniRequestCancelAckError,
-  getSniRequestErrorCode,
-  getSniRequestTransportSettledError,
-  waitForSniRequestCancelAck,
-  waitForSniRequestTransportSettled,
-} from '@onekeyhq/shared/src/request/helpers/sniRequestQaUtils';
+import { getSniRequestErrorCode } from '@onekeyhq/shared/src/request/helpers/sniRequestQaUtils';
 import type {
   ISniRequestCancelSettledResult,
   ISniRequestConfig,
@@ -17,19 +11,29 @@ import type {
   ISniResponse,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
-export const QUEUE_TEST_REQUEST_COUNT = 20;
-export const QUEUE_TEST_ACTIVE_LIMIT = 16;
-export const QUEUE_TEST_PENDING_COUNT =
-  QUEUE_TEST_REQUEST_COUNT - QUEUE_TEST_ACTIVE_LIMIT;
+export const SNI_QA_ACTIVE_LIMIT = 16;
+export const SNI_QA_FIXED_TARGET = {
+  ip: '104.18.31.39',
+  hostname: 'wallet.onekeytest.com',
+  path: '/health',
+} as const satisfies Pick<ISniRequestConfig, 'hostname' | 'ip' | 'path'>;
 
-const SNAPSHOT_POLL_INTERVAL_MS = 25;
-const SNAPSHOT_TIMEOUT_MS = 10_000;
+const BURST_20_COUNT = 20;
+const BURST_40_COUNT = 40;
+const STABILITY_ROUNDS = 3;
+const SNAPSHOT_POLL_INTERVAL_MS = 10;
+const SNAPSHOT_TIMEOUT_MS = 5000;
+const CANCELLATION_OBSERVATION_TIMEOUT_MS = 1000;
+const DIAGNOSTIC_TIMEOUT_MS = 2000;
 
 export const QA_CASE_IDS = [
-  'https-success',
+  'health',
+  'burst-20',
+  'burst-40',
   'active-abort',
-  'queue-pending-abort',
+  'pending-abort',
   'abort-all-recovery',
+  'repeat-40',
 ] as const;
 
 export type IQaCaseId = (typeof QA_CASE_IDS)[number];
@@ -39,6 +43,7 @@ export type IQaCaseStatus =
   | 'running'
   | 'passed'
   | 'failed'
+  | 'not-observed'
   | 'stopped';
 export type IEvidenceTone = 'critical' | 'info' | 'success';
 export type IQueueRequestStatus =
@@ -77,8 +82,6 @@ export type IQueueRequestItem = {
   detail: string;
 };
 
-export type IQueueTarget = Pick<ISniRequestConfig, 'hostname' | 'ip' | 'path'>;
-
 type IRequestOutcome =
   | {
       kind: 'response';
@@ -93,71 +96,105 @@ type IRequestOutcome =
 type ITrackedRequest = {
   cancelAck: Promise<ISniRequestCancelSettledResult>;
   controller: AbortController;
+  index: number;
   outcome: Promise<IRequestOutcome>;
   requestId: string;
+  settled: boolean;
   transportSettled: Promise<ISniRequestTransportSettledResult>;
 };
 
-type ISaturatedBatch = {
-  activeRequests: ITrackedRequest[];
-  pendingRequests: ITrackedRequest[];
-  requests: ITrackedRequest[];
+type IBatchObservation = {
+  peakActive: number;
+  peakGlobalActive: number;
+  peakPending: number;
+  peakGlobalPending: number;
+};
+
+type IOutcomeSummary = {
+  cancelled: number;
+  failed: number;
+  responded: number;
+};
+
+type ICancellationSummary = {
+  ackFalse: number;
+  ackMissing: number;
+  ackRejected: number;
+  ackSuccess: number;
+  transportCancelled: number;
+  transportFulfilled: number;
+  transportMissing: number;
+  transportUnexpected: number;
 };
 
 export const QA_CASES: readonly IQaCaseDefinition[] = [
   {
-    id: 'https-success',
-    title: 'HTTPS request',
-    description: 'Requires a real response with a valid HTTP status.',
+    id: 'health',
+    title: 'Single /health request',
+    description:
+      'Performs one real HTTPS request through the SNI transport and validates its HTTP status.',
+  },
+  {
+    id: 'burst-20',
+    title: '20 request burst',
+    description:
+      'Starts 20 requests together, records real limiter peaks, and verifies every request settles without a slot leak.',
+  },
+  {
+    id: 'burst-40',
+    title: '40 request burst',
+    description:
+      'Applies a larger same-target burst and reports the active and pending queue state actually observed.',
   },
   {
     id: 'active-abort',
-    title: 'Active AbortController',
+    title: 'Abort an active request',
     description:
-      'Observes an active transport request, aborts it, and requires SNI_CANCELLED plus cancelRequest success=true.',
+      'Aborts a request ID confirmed active by the native limiter. Fast completion is reported as NOT OBSERVED.',
   },
   {
-    id: 'queue-pending-abort',
-    title: '20 requests: cancel pending',
+    id: 'pending-abort',
+    title: 'Abort pending requests',
     description:
-      'Observes 16 active and four pending requests, identifies the real pending request IDs, and verifies their transport cancellation acknowledgements.',
+      'Aborts request IDs confirmed pending by the native limiter and verifies renderer and transport outcomes.',
   },
   {
     id: 'abort-all-recovery',
-    title: '20 requests: abort all + recovery',
+    title: 'Abort 40 and recover',
     description:
-      'Cancels pending first, then active requests, verifies every cancellation acknowledgement and drain, then performs a real recovery request.',
+      'Immediately aborts a 40-request burst, records cancellation races, drains the limiter, then sends a recovery request.',
+  },
+  {
+    id: 'repeat-40',
+    title: 'Three rounds of 40',
+    description:
+      'Runs three consecutive 40-request bursts to expose request registry or limiter slot leaks.',
   },
 ];
 
-export const DEFAULT_QUEUE_TARGET: IQueueTarget = {
-  ip: '162.159.142.41',
-  hostname: 'postman-echo.com',
-  path: '/delay/3',
-};
-
-const EMPTY_CASE_RESULTS: Record<IQaCaseId, IQaCaseResult> = {
-  'https-success': { status: 'idle', evidence: [] },
-  'active-abort': { status: 'idle', evidence: [] },
-  'queue-pending-abort': { status: 'idle', evidence: [] },
-  'abort-all-recovery': { status: 'idle', evidence: [] },
-};
+function createEmptyCaseResults(): Record<IQaCaseId, IQaCaseResult> {
+  return {
+    health: { status: 'idle', evidence: [] },
+    'burst-20': { status: 'idle', evidence: [] },
+    'burst-40': { status: 'idle', evidence: [] },
+    'active-abort': { status: 'idle', evidence: [] },
+    'pending-abort': { status: 'idle', evidence: [] },
+    'abort-all-recovery': { status: 'idle', evidence: [] },
+    'repeat-40': { status: 'idle', evidence: [] },
+  };
+}
 
 class QaRunnerError extends Error {
   constructor(
     message: string,
-    readonly stopped = false,
+    readonly kind: 'failed' | 'not-observed' | 'stopped' = 'failed',
   ) {
     super(message);
   }
 }
 
-function normalizeTarget(target: IQueueTarget): IQueueTarget {
-  return {
-    hostname: target.hostname.trim(),
-    ip: target.ip.trim(),
-    path: target.path.trim(),
-  };
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getErrorDetails(error: unknown): { code: string; message: string } {
@@ -186,8 +223,18 @@ function formatSnapshot(snapshot: ISniRequestDebugSnapshot): string {
   return `pair active=${snapshot.activeRequestsForPair}, pending=${snapshot.pendingRequestsForPair}; global active=${snapshot.activeRequests}, pending=${snapshot.pendingRequests}`;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function summarizeOutcomes(outcomes: IRequestOutcome[]): IOutcomeSummary {
+  return {
+    cancelled: outcomes.filter(isCancelledOutcome).length,
+    failed: outcomes.filter(
+      (outcome) => outcome.kind === 'error' && !isCancelledOutcome(outcome),
+    ).length,
+    responded: outcomes.filter((outcome) => outcome.kind === 'response').length,
+  };
+}
+
+function formatOutcomeSummary(summary: IOutcomeSummary): string {
+  return `responded=${summary.responded}, cancelled=${summary.cancelled}, failed=${summary.failed}`;
 }
 
 function requireObservation(
@@ -199,39 +246,47 @@ function requireObservation(
 
 function buildRequestConfig({
   caseId,
-  index,
   requestId,
-  target,
 }: {
   caseId: IQaCaseId;
-  index?: number;
   requestId: string;
-  target: IQueueTarget;
 }): ISniRequestConfig {
-  const pathSeparator = target.path.includes('?') ? '&' : '?';
-  const indexSuffix = index === undefined ? '' : `-${index}`;
   return {
     requestId,
-    ip: target.ip,
-    hostname: target.hostname,
-    path: `${target.path}${pathSeparator}sniQa=${caseId}-${requestId}${indexSuffix}`,
+    ...SNI_QA_FIXED_TARGET,
     headers: {
       Accept: 'application/json',
       'X-OneKey-SNI-QA': caseId,
     },
     method: 'GET',
     body: null,
-    timeout: 30_000,
+    timeout: 15_000,
   };
 }
 
+function updatePeak(
+  peak: IBatchObservation,
+  snapshot: ISniRequestDebugSnapshot,
+): void {
+  peak.peakActive = Math.max(peak.peakActive, snapshot.activeRequestsForPair);
+  peak.peakPending = Math.max(
+    peak.peakPending,
+    snapshot.pendingRequestsForPair,
+  );
+  peak.peakGlobalActive = Math.max(
+    peak.peakGlobalActive,
+    snapshot.activeRequests,
+  );
+  peak.peakGlobalPending = Math.max(
+    peak.peakGlobalPending,
+    snapshot.pendingRequests,
+  );
+}
+
 export function useSniRequestQa() {
-  const [target, setTarget] = useState<IQueueTarget>(DEFAULT_QUEUE_TARGET);
-  const [selectedCaseIds, setSelectedCaseIds] = useState<IQaCaseId[]>([
-    ...QA_CASE_IDS,
-  ]);
-  const [caseResults, setCaseResults] =
-    useState<Record<IQaCaseId, IQaCaseResult>>(EMPTY_CASE_RESULTS);
+  const [caseResults, setCaseResults] = useState<
+    Record<IQaCaseId, IQaCaseResult>
+  >(createEmptyCaseResults);
   const [items, setItems] = useState<IQueueRequestItem[]>([]);
   const [snapshot, setSnapshot] = useState<ISniRequestDebugSnapshot | null>(
     null,
@@ -242,21 +297,18 @@ export function useSniRequestQa() {
   const [expandedEvidenceCaseIds, setExpandedEvidenceCaseIds] = useState<
     IQaCaseId[]
   >([]);
+
+  const caseStartedAtRef = useRef(new Map<IQaCaseId, number>());
+  const controllersRef = useRef(new Map<string, AbortController>());
+  const evidenceIdRef = useRef(0);
   const generationRef = useRef(0);
   const stopRequestedRef = useRef(false);
-  const controllersRef = useRef(new Map<string, AbortController>());
-  const caseStartedAtRef = useRef(new Map<IQaCaseId, number>());
-  const evidenceIdRef = useRef(0);
-
-  const abortOwnRequests = useCallback(() => {
-    controllersRef.current.forEach((controller) => controller.abort());
-  }, []);
 
   const updateCaseResult = useCallback(
-    (caseId: IQaCaseId, update: Partial<IQaCaseResult>) => {
+    (caseId: IQaCaseId, patch: Partial<IQaCaseResult>) => {
       setCaseResults((current) => ({
         ...current,
-        [caseId]: { ...current[caseId], ...update },
+        [caseId]: { ...current[caseId], ...patch },
       }));
     },
     [],
@@ -269,11 +321,11 @@ export function useSniRequestQa() {
       value: string,
       tone: IEvidenceTone = 'info',
     ) => {
-      const startedAt = caseStartedAtRef.current.get(caseId) ?? Date.now();
       evidenceIdRef.current += 1;
       const evidence: IQaEvidence = {
         id: evidenceIdRef.current,
-        elapsedMs: Date.now() - startedAt,
+        elapsedMs:
+          Date.now() - (caseStartedAtRef.current.get(caseId) ?? Date.now()),
         label,
         value,
         tone,
@@ -289,675 +341,649 @@ export function useSniRequestQa() {
     [],
   );
 
-  const updateBatchItem = useCallback(
-    (generation: number, index: number, update: Partial<IQueueRequestItem>) => {
-      if (generationRef.current !== generation) return;
-      setItems((current) =>
-        current.map((item) =>
-          item.index === index ? { ...item, ...update } : item,
-        ),
-      );
-    },
-    [],
-  );
+  const abortOwnRequests = useCallback(() => {
+    controllersRef.current.forEach((controller) => controller.abort());
+  }, []);
 
-  const handleRun = useCallback(async () => {
-    if (selectedCaseIds.length === 0 || isRunning) return;
+  const handleRun = useCallback(
+    async (requestedCaseIds: readonly IQaCaseId[] = QA_CASE_IDS) => {
+      if (isRunning || requestedCaseIds.length === 0) return;
 
-    abortOwnRequests();
-    controllersRef.current.clear();
-    generationRef.current += 1;
-    const generation = generationRef.current;
-    const runTarget = normalizeTarget(target);
-    const runId = `${Date.now().toString(36)}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-    const selectedSet = new Set(selectedCaseIds);
-    stopRequestedRef.current = false;
-    setIsRunning(true);
-    setRunCompleted(false);
-    setSnapshot(null);
-    setSnapshotError(undefined);
-    setItems([]);
-    setExpandedEvidenceCaseIds([]);
-    setCaseResults(() => {
-      const next = { ...EMPTY_CASE_RESULTS };
-      QA_CASE_IDS.forEach((caseId) => {
-        next[caseId] = {
-          status: selectedSet.has(caseId) ? 'pending' : 'idle',
-          evidence: [],
-        };
-      });
-      return next;
-    });
+      const generation = generationRef.current + 1;
+      generationRef.current = generation;
+      stopRequestedRef.current = false;
+      setIsRunning(true);
+      setRunCompleted(false);
+      setSnapshotError(undefined);
 
-    const ensureActive = () => {
-      if (stopRequestedRef.current || generationRef.current !== generation) {
-        throw new QaRunnerError('Stopped by QA', true);
-      }
-    };
-
-    const readSnapshot = async (): Promise<ISniRequestDebugSnapshot> => {
-      ensureActive();
-      try {
-        const nextSnapshot =
-          await sniRequestQaAdapter.getDebugSnapshot(runTarget);
-        ensureActive();
-        setSnapshot(nextSnapshot);
-        setSnapshotError(undefined);
-        return nextSnapshot;
-      } catch (error) {
-        const { message } = getErrorDetails(error);
-        setSnapshotError(message);
-        throw new QaRunnerError(`Snapshot failed: ${message}`);
-      }
-    };
-
-    const waitForSnapshot = async (
-      caseId: IQaCaseId,
-      label: string,
-      predicate: (value: ISniRequestDebugSnapshot) => boolean,
-      timeoutMs = SNAPSHOT_TIMEOUT_MS,
-    ): Promise<ISniRequestDebugSnapshot> => {
-      const deadline = Date.now() + timeoutMs;
-      let latestSnapshot: ISniRequestDebugSnapshot | undefined;
-      do {
-        latestSnapshot = await readSnapshot();
-        if (predicate(latestSnapshot)) {
-          appendEvidence(
-            caseId,
-            label,
-            formatSnapshot(latestSnapshot),
-            'success',
-          );
-          return latestSnapshot;
+      const ensureActive = () => {
+        if (stopRequestedRef.current || generationRef.current !== generation) {
+          throw new QaRunnerError('Stopped by QA', 'stopped');
         }
-        await delay(SNAPSHOT_POLL_INTERVAL_MS);
+      };
+
+      const getSnapshot = async () => {
         ensureActive();
-      } while (Date.now() < deadline);
+        try {
+          const next =
+            await sniRequestQaAdapter.getDebugSnapshot(SNI_QA_FIXED_TARGET);
+          ensureActive();
+          setSnapshot(next);
+          setSnapshotError(undefined);
+          return next;
+        } catch (error) {
+          const { message } = getErrorDetails(error);
+          setSnapshotError(message);
+          throw error;
+        }
+      };
 
-      const lastValue = latestSnapshot
-        ? formatSnapshot(latestSnapshot)
-        : 'no snapshot returned';
-      appendEvidence(caseId, `${label} timeout`, lastValue, 'critical');
-      throw new QaRunnerError(`${label} was not observed; ${lastValue}`);
-    };
-
-    const waitForDrain = (caseId: IQaCaseId, label = 'Limiter drained') =>
-      waitForSnapshot(
-        caseId,
-        label,
-        (value) =>
-          value.activeRequestsForPair === 0 &&
-          value.pendingRequestsForPair === 0,
-      );
-
-    const prepareCase = async (caseId: IQaCaseId) => {
-      await waitForDrain(caseId, 'Target idle before case');
-      const result = await sniRequestQaAdapter.clearDNSCache();
-      requireObservation(
-        result.success,
-        'clearDNSCache returned success=false',
-      );
-      appendEvidence(
-        caseId,
-        'Transport cache reset',
-        `${sniRequestQaAdapter.transportLabel}: clearDNSCache success`,
-      );
-    };
-
-    const startRequest = ({
-      caseId,
-      index,
-      phase,
-    }: {
-      caseId: IQaCaseId;
-      index?: number;
-      phase: string;
-    }): ITrackedRequest => {
-      ensureActive();
-      const requestId = `qa-sni-${phase}-${runId}${
-        index === undefined ? '' : `-${index}`
-      }`;
-      const controller = new AbortController();
-      controllersRef.current.set(requestId, controller);
-      let resolveCancelAck:
-        | ((result: ISniRequestCancelSettledResult) => void)
-        | undefined;
-      const cancelAck = new Promise<ISniRequestCancelSettledResult>(
-        (resolve) => {
-          resolveCancelAck = resolve;
-        },
-      );
-      let resolveTransportSettled:
-        | ((result: ISniRequestTransportSettledResult) => void)
-        | undefined;
-      const transportSettled = new Promise<ISniRequestTransportSettledResult>(
-        (resolve) => {
-          resolveTransportSettled = resolve;
-        },
-      );
-      const requestPromise = sniRequest(
-        buildRequestConfig({
-          caseId,
-          index,
-          requestId,
-          target: runTarget,
-        }),
-        {
-          signal: controller.signal,
-          onCancelSettled: (result) => resolveCancelAck?.(result),
-          onTransportSettled: (result) => resolveTransportSettled?.(result),
-        },
-      );
-      const outcome = requestPromise
-        .then((response): IRequestOutcome => {
-          if (!isValidResponse(response)) {
-            if (index !== undefined) {
-              updateBatchItem(generation, index, {
-                status: 'failed',
-                detail: 'SNI response unavailable or invalid',
-              });
-            }
-            return {
-              kind: 'error',
-              code: 'SNI_INVALID_RESPONSE',
-              message: 'SNI response unavailable or invalid',
-            };
+      const waitForDrain = async (
+        caseId: IQaCaseId,
+        label = 'Limiter drained',
+      ) => {
+        const deadline = Date.now() + SNAPSHOT_TIMEOUT_MS;
+        for (;;) {
+          const current = await getSnapshot();
+          if (
+            current.activeRequestsForPair === 0 &&
+            current.pendingRequestsForPair === 0
+          ) {
+            appendEvidence(caseId, label, formatSnapshot(current), 'success');
+            return;
           }
-          if (index !== undefined) {
-            updateBatchItem(generation, index, {
+          if (Date.now() >= deadline) {
+            throw new QaRunnerError(
+              `${label} timed out: ${formatSnapshot(current)}`,
+            );
+          }
+          await delay(SNAPSHOT_POLL_INTERVAL_MS);
+        }
+      };
+
+      const prepareCase = async (caseId: IQaCaseId) => {
+        setItems([]);
+        await waitForDrain(caseId, 'Initial limiter state');
+        appendEvidence(
+          caseId,
+          'Fixed target',
+          `${SNI_QA_FIXED_TARGET.hostname} (${SNI_QA_FIXED_TARGET.ip})${SNI_QA_FIXED_TARGET.path}`,
+        );
+      };
+
+      const updateBatchItem = (
+        index: number,
+        patch: Partial<IQueueRequestItem>,
+      ) => {
+        if (generationRef.current !== generation) return;
+        setItems((current) =>
+          current.map((item) =>
+            item.index === index ? { ...item, ...patch } : item,
+          ),
+        );
+      };
+
+      const startRequest = ({
+        caseId,
+        index,
+        phase,
+      }: {
+        caseId: IQaCaseId;
+        index: number;
+        phase: string;
+      }): ITrackedRequest => {
+        const requestId = `qa-sni-${caseId}-${generation}-${phase}-${index}`;
+        const controller = new AbortController();
+        controllersRef.current.set(requestId, controller);
+
+        let resolveCancelAck!: (value: ISniRequestCancelSettledResult) => void;
+        const cancelAck = new Promise<ISniRequestCancelSettledResult>(
+          (resolve) => {
+            resolveCancelAck = resolve;
+          },
+        );
+        let resolveTransportSettled!: (
+          value: ISniRequestTransportSettledResult,
+        ) => void;
+        const transportSettled = new Promise<ISniRequestTransportSettledResult>(
+          (resolve) => {
+            resolveTransportSettled = resolve;
+          },
+        );
+
+        const tracked: ITrackedRequest = {
+          cancelAck,
+          controller,
+          index,
+          outcome: Promise.resolve({
+            kind: 'error',
+            code: 'SNI_QA_NOT_STARTED',
+            message: 'Request was not started',
+          }),
+          requestId,
+          settled: false,
+          transportSettled,
+        };
+
+        tracked.outcome = sniRequest(
+          buildRequestConfig({ caseId, requestId }),
+          {
+            signal: controller.signal,
+            onCancelSettled: resolveCancelAck,
+            onTransportSettled: resolveTransportSettled,
+          },
+        )
+          .then((response): IRequestOutcome => {
+            if (!isValidResponse(response)) {
+              updateBatchItem(index, {
+                status: 'failed',
+                detail: 'Transport returned no valid HTTP response',
+              });
+              return {
+                kind: 'error',
+                code: 'SNI_INVALID_RESPONSE',
+                message: 'Transport returned no valid HTTP response',
+              };
+            }
+            updateBatchItem(index, {
               status: 'succeeded',
               detail: `HTTP ${response.statusCode}`,
             });
-          }
-          return { kind: 'response', statusCode: response.statusCode };
-        })
-        .catch((error: unknown): IRequestOutcome => {
-          const { code, message } = getErrorDetails(error);
-          if (index !== undefined) {
-            updateBatchItem(generation, index, {
+            return { kind: 'response', statusCode: response.statusCode };
+          })
+          .catch((error: unknown): IRequestOutcome => {
+            const { code, message } = getErrorDetails(error);
+            updateBatchItem(index, {
               status: code === 'SNI_CANCELLED' ? 'cancelled' : 'failed',
               detail: code || message,
             });
-          }
-          return { kind: 'error', code, message };
-        })
-        .finally(() => {
-          controllersRef.current.delete(requestId);
-        });
-      return {
-        cancelAck,
-        controller,
-        outcome,
-        requestId,
-        transportSettled,
+            return { kind: 'error', code, message };
+          })
+          .finally(() => {
+            tracked.settled = true;
+            controllersRef.current.delete(requestId);
+          });
+
+        return tracked;
       };
-    };
 
-    const startSaturatedBatch = async (
-      caseId: IQaCaseId,
-    ): Promise<ISaturatedBatch> => {
-      const nextItems = Array.from(
-        { length: QUEUE_TEST_REQUEST_COUNT },
-        (_, index): IQueueRequestItem => ({
-          index,
-          requestId: `qa-sni-${caseId}-${runId}-${index}`,
-          status: 'starting',
-          detail: 'Waiting for observed transport state',
-        }),
-      );
-      setItems(nextItems);
-
-      if (sniRequestQaAdapter.supportsRequestIdSnapshot) {
-        const requests = Array.from(
-          { length: QUEUE_TEST_REQUEST_COUNT },
-          (_, index) => startRequest({ caseId, index, phase: caseId }),
+      const startBatch = (caseId: IQaCaseId, count: number, phase: string) => {
+        setItems(
+          Array.from({ length: count }, (_, index) => ({
+            index,
+            requestId: `qa-sni-${caseId}-${generation}-${phase}-${index}`,
+            status: 'starting' as const,
+            detail: 'Waiting for the real transport outcome',
+          })),
         );
-        const saturatedSnapshot = await waitForSnapshot(
+        return Array.from({ length: count }, (_, index) =>
+          startRequest({ caseId, index, phase }),
+        );
+      };
+
+      const observeBatch = async (
+        caseId: IQaCaseId,
+        requests: ITrackedRequest[],
+      ) => {
+        const peak: IBatchObservation = {
+          peakActive: 0,
+          peakGlobalActive: 0,
+          peakPending: 0,
+          peakGlobalPending: 0,
+        };
+        while (requests.some((request) => !request.settled)) {
+          const current = await getSnapshot();
+          updatePeak(peak, current);
+          if (current.activeRequestIdsForPair) {
+            const activeIds = new Set(current.activeRequestIdsForPair);
+            const pendingIds = new Set(current.pendingRequestIdsForPair ?? []);
+            requests.forEach((request) => {
+              if (activeIds.has(request.requestId)) {
+                updateBatchItem(request.index, {
+                  status: 'active',
+                  detail: 'Observed active by the native limiter',
+                });
+              } else if (pendingIds.has(request.requestId)) {
+                updateBatchItem(request.index, {
+                  status: 'queued',
+                  detail: 'Observed pending by the native limiter',
+                });
+              }
+            });
+          }
+          await delay(SNAPSHOT_POLL_INTERVAL_MS);
+        }
+        const outcomes = await Promise.all(
+          requests.map((request) => request.outcome),
+        );
+        const finalSnapshot = await getSnapshot();
+        updatePeak(peak, finalSnapshot);
+        appendEvidence(
           caseId,
-          'Queue saturation observed with request IDs',
-          (value) =>
-            value.activeRequestsForPair === QUEUE_TEST_ACTIVE_LIMIT &&
-            value.pendingRequestsForPair === QUEUE_TEST_PENDING_COUNT &&
-            value.activeRequestIdsForPair?.length === QUEUE_TEST_ACTIVE_LIMIT &&
-            value.pendingRequestIdsForPair?.length === QUEUE_TEST_PENDING_COUNT,
+          'Observed limiter peaks',
+          `pair active=${peak.peakActive}, pending=${peak.peakPending}; global active=${peak.peakGlobalActive}, pending=${peak.peakGlobalPending}`,
+          peak.peakPending > 0 ? 'success' : 'info',
         );
+        requireObservation(
+          peak.peakActive <= SNI_QA_ACTIVE_LIMIT,
+          `Pair active limit exceeded: observed ${peak.peakActive}, limit ${SNI_QA_ACTIVE_LIMIT}`,
+        );
+        requireObservation(
+          peak.peakGlobalActive <= 64,
+          `Global active limit exceeded: observed ${peak.peakGlobalActive}, limit 64`,
+        );
+        return { outcomes, peak };
+      };
+
+      const waitForOwnedRequestIds = async (
+        requests: ITrackedRequest[],
+        state: 'active' | 'pending',
+      ): Promise<ITrackedRequest[]> => {
+        const deadline = Date.now() + CANCELLATION_OBSERVATION_TIMEOUT_MS;
         const requestsById = new Map(
           requests.map((request) => [request.requestId, request]),
         );
-        const activeRequests =
-          saturatedSnapshot.activeRequestIdsForPair?.map((requestId) =>
-            requestsById.get(requestId),
-          ) ?? [];
-        const pendingRequests =
-          saturatedSnapshot.pendingRequestIdsForPair?.map((requestId) =>
-            requestsById.get(requestId),
-          ) ?? [];
-        requireObservation(
-          activeRequests.every(
-            (request): request is ITrackedRequest => request !== undefined,
-          ) && activeRequests.length === QUEUE_TEST_ACTIVE_LIMIT,
-          'Native active request IDs did not match the QA-owned batch',
-        );
-        requireObservation(
-          pendingRequests.every(
-            (request): request is ITrackedRequest => request !== undefined,
-          ) && pendingRequests.length === QUEUE_TEST_PENDING_COUNT,
-          'Native pending request IDs did not match the QA-owned batch',
-        );
-        const activeRequestIds = new Set(
-          activeRequests.map((request) => request.requestId),
-        );
-        const pendingRequestIds = new Set(
-          pendingRequests.map((request) => request.requestId),
-        );
-        setItems((current) =>
-          current.map((item) => {
-            if (activeRequestIds.has(item.requestId)) {
-              return {
-                ...item,
-                status: 'active',
-                detail: `Observed active in ${sniRequestQaAdapter.transportLabel}`,
-              };
-            }
-            if (pendingRequestIds.has(item.requestId)) {
-              return {
-                ...item,
-                status: 'queued',
-                detail: `Observed pending in ${sniRequestQaAdapter.transportLabel}`,
-              };
-            }
-            return {
-              ...item,
-              status: 'failed',
-              detail: 'Request was not present in the Native limiter snapshot',
-            };
-          }),
+        while (
+          Date.now() < deadline &&
+          requests.some((request) => !request.settled)
+        ) {
+          const current = await getSnapshot();
+          const ids =
+            state === 'active'
+              ? current.activeRequestIdsForPair
+              : current.pendingRequestIdsForPair;
+          const owned = (ids ?? [])
+            .map((requestId) => requestsById.get(requestId))
+            .filter((request): request is ITrackedRequest => Boolean(request));
+          if (owned.length > 0) return owned;
+          await delay(SNAPSHOT_POLL_INTERVAL_MS);
+        }
+        return [];
+      };
+
+      const getCancellationSummary = async (
+        requests: ITrackedRequest[],
+      ): Promise<ICancellationSummary> => {
+        const withTimeout = async <T>(promise: Promise<T>) =>
+          Promise.race([
+            promise.then((value) => ({ kind: 'result' as const, value })),
+            delay(DIAGNOSTIC_TIMEOUT_MS).then(() => ({
+              kind: 'timeout' as const,
+            })),
+          ]);
+        const [acknowledgements, transportResults] = await Promise.all([
+          Promise.all(
+            requests.map((request) => withTimeout(request.cancelAck)),
+          ),
+          Promise.all(
+            requests.map((request) => withTimeout(request.transportSettled)),
+          ),
+        ]);
+        return {
+          ackFalse: acknowledgements.filter(
+            (result) =>
+              result.kind === 'result' &&
+              result.value.status === 'fulfilled' &&
+              !result.value.success,
+          ).length,
+          ackMissing: acknowledgements.filter(
+            (result) => result.kind === 'timeout',
+          ).length,
+          ackRejected: acknowledgements.filter(
+            (result) =>
+              result.kind === 'result' && result.value.status === 'rejected',
+          ).length,
+          ackSuccess: acknowledgements.filter(
+            (result) =>
+              result.kind === 'result' &&
+              result.value.status === 'fulfilled' &&
+              result.value.success,
+          ).length,
+          transportCancelled: transportResults.filter(
+            (result) =>
+              result.kind === 'result' &&
+              result.value.status === 'rejected' &&
+              getSniRequestErrorCode(result.value.error) === 'SNI_CANCELLED',
+          ).length,
+          transportFulfilled: transportResults.filter(
+            (result) =>
+              result.kind === 'result' && result.value.status === 'fulfilled',
+          ).length,
+          transportMissing: transportResults.filter(
+            (result) => result.kind === 'timeout',
+          ).length,
+          transportUnexpected: transportResults.filter(
+            (result) =>
+              result.kind === 'result' &&
+              result.value.status === 'rejected' &&
+              getSniRequestErrorCode(result.value.error) !== 'SNI_CANCELLED',
+          ).length,
+        };
+      };
+
+      const appendCancellationEvidence = (
+        caseId: IQaCaseId,
+        summary: ICancellationSummary,
+      ) => {
+        appendEvidence(
+          caseId,
+          'cancelRequest acknowledgements',
+          `success=${summary.ackSuccess}, already-finished=${summary.ackFalse}, missing=${summary.ackMissing}, rejected=${summary.ackRejected}`,
+          summary.ackRejected > 0 ? 'critical' : 'info',
         );
         appendEvidence(
           caseId,
-          'QA-owned request IDs matched',
-          `${activeRequests.length} active, ${pendingRequests.length} pending`,
+          'Raw transport outcomes',
+          `SNI_CANCELLED=${summary.transportCancelled}, fulfilled-before-cancel=${summary.transportFulfilled}, missing=${summary.transportMissing}, unexpected=${summary.transportUnexpected}`,
+          summary.transportUnexpected > 0 ? 'critical' : 'info',
+        );
+        requireObservation(
+          summary.ackRejected === 0,
+          `${summary.ackRejected} cancelRequest acknowledgements rejected`,
+        );
+        requireObservation(
+          summary.transportUnexpected === 0,
+          `${summary.transportUnexpected} transports rejected with an unexpected error`,
+        );
+      };
+
+      const runHealth = async (caseId: IQaCaseId) => {
+        await prepareCase(caseId);
+        const request = startRequest({ caseId, index: 0, phase: 'health' });
+        const outcome = await request.outcome;
+        requireObservation(
+          outcome.kind === 'response',
+          `Expected a real HTTPS response, got ${
+            outcome.kind === 'error'
+              ? outcome.code || outcome.message
+              : 'unknown'
+          }`,
+        );
+        appendEvidence(
+          caseId,
+          'HTTPS response',
+          `HTTP ${outcome.statusCode}`,
           'success',
         );
-        return { activeRequests, pendingRequests, requests };
-      }
-
-      const activeRequests = Array.from(
-        { length: QUEUE_TEST_ACTIVE_LIMIT },
-        (_, index) => startRequest({ caseId, index, phase: caseId }),
-      );
-      await waitForSnapshot(
-        caseId,
-        'Known active batch observed',
-        (value) =>
-          value.activeRequestsForPair === QUEUE_TEST_ACTIVE_LIMIT &&
-          value.pendingRequestsForPair === 0,
-      );
-      setItems((current) =>
-        current.map((item) =>
-          item.index < QUEUE_TEST_ACTIVE_LIMIT
-            ? {
-                ...item,
-                status: 'active',
-                detail: `Observed active in ${sniRequestQaAdapter.transportLabel}`,
-              }
-            : item,
-        ),
-      );
-
-      const pendingRequests = Array.from(
-        { length: QUEUE_TEST_PENDING_COUNT },
-        (_, offset) => {
-          const index = QUEUE_TEST_ACTIVE_LIMIT + offset;
-          return startRequest({ caseId, index, phase: caseId });
-        },
-      );
-      await waitForSnapshot(
-        caseId,
-        'Queue saturation observed: known pending batch',
-        (value) =>
-          value.activeRequestsForPair === QUEUE_TEST_ACTIVE_LIMIT &&
-          value.pendingRequestsForPair === QUEUE_TEST_PENDING_COUNT,
-      );
-      setItems((current) =>
-        current.map((item) =>
-          item.index >= QUEUE_TEST_ACTIVE_LIMIT
-            ? {
-                ...item,
-                status: 'queued',
-                detail: `Observed pending in ${sniRequestQaAdapter.transportLabel}`,
-              }
-            : item,
-        ),
-      );
-      return {
-        activeRequests,
-        pendingRequests,
-        requests: [...activeRequests, ...pendingRequests],
+        await waitForDrain(caseId);
       };
-    };
 
-    const abortPendingFirst = (batch: ISaturatedBatch) => {
-      batch.pendingRequests.forEach((request) => request.controller.abort());
-    };
+      const runBurst = async (
+        caseId: IQaCaseId,
+        count: number,
+        phase: string,
+      ) => {
+        await prepareCase(caseId);
+        const requests = startBatch(caseId, count, phase);
+        const { outcomes } = await observeBatch(caseId, requests);
+        const summary = summarizeOutcomes(outcomes);
+        appendEvidence(
+          caseId,
+          'Renderer outcomes',
+          formatOutcomeSummary(summary),
+          summary.responded === count ? 'success' : 'critical',
+        );
+        requireObservation(
+          summary.responded === count,
+          `Expected ${count} HTTP responses; ${formatOutcomeSummary(summary)}`,
+        );
+        await waitForDrain(caseId);
+      };
 
-    const abortActive = (batch: ISaturatedBatch) => {
-      batch.activeRequests.forEach((request) => request.controller.abort());
-    };
+      const runAbortObserved = async (
+        caseId: IQaCaseId,
+        state: 'active' | 'pending',
+      ) => {
+        await prepareCase(caseId);
+        const requests = startBatch(caseId, BURST_40_COUNT, state);
+        const observed = await waitForOwnedRequestIds(requests, state);
+        if (observed.length === 0) {
+          const outcomes = await Promise.all(
+            requests.map((request) => request.outcome),
+          );
+          appendEvidence(
+            caseId,
+            `${state} state not observed`,
+            `The fixed /health endpoint completed before a QA-owned ${state} request ID was visible. ${formatOutcomeSummary(
+              summarizeOutcomes(outcomes),
+            )}`,
+          );
+          await waitForDrain(caseId);
+          throw new QaRunnerError(
+            `No QA-owned ${state} request remained observable long enough to cancel`,
+            'not-observed',
+          );
+        }
 
-    const summarizeOutcomes = (outcomes: IRequestOutcome[]) => ({
-      cancelled: outcomes.filter(isCancelledOutcome).length,
-      failed: outcomes.filter(
-        (outcome) => outcome.kind === 'error' && !isCancelledOutcome(outcome),
-      ).length,
-      responded: outcomes.filter((outcome) => outcome.kind === 'response')
-        .length,
-    });
-
-    const requireCancelAcknowledgements = async (
-      caseId: IQaCaseId,
-      label: string,
-      requests: ITrackedRequest[],
-    ) => {
-      const results = await Promise.all(
-        requests.map((request) =>
-          waitForSniRequestCancelAck({
-            ack: request.cancelAck,
-            ensureActive,
-            pollIntervalMs: SNAPSHOT_POLL_INTERVAL_MS,
-            requestId: request.requestId,
-            timeoutMs: SNAPSHOT_TIMEOUT_MS,
-          }),
-        ),
-      );
-      const errors = results
-        .map(getSniRequestCancelAckError)
-        .filter((message): message is string => Boolean(message));
-      appendEvidence(
-        caseId,
-        label,
-        errors.length === 0
-          ? `${results.length}/${results.length} cancelRequest calls returned success=true`
-          : errors.join('; '),
-        errors.length === 0 ? 'success' : 'critical',
-      );
-      requireObservation(
-        errors.length === 0,
-        `Transport cancellation acknowledgement failed: ${errors.join('; ')}`,
-      );
-    };
-
-    const requireTransportCancellations = async (
-      caseId: IQaCaseId,
-      label: string,
-      requests: ITrackedRequest[],
-    ) => {
-      const results = await Promise.all(
-        requests.map((request) =>
-          waitForSniRequestTransportSettled({
-            ensureActive,
-            pollIntervalMs: SNAPSHOT_POLL_INTERVAL_MS,
-            requestId: request.requestId,
-            timeoutMs: SNAPSHOT_TIMEOUT_MS,
-            transportSettled: request.transportSettled,
-          }),
-        ),
-      );
-      const errors = results
-        .map(getSniRequestTransportSettledError)
-        .filter((message): message is string => Boolean(message));
-      appendEvidence(
-        caseId,
-        label,
-        errors.length === 0
-          ? `${results.length}/${results.length} transport promises rejected SNI_CANCELLED`
-          : errors.join('; '),
-        errors.length === 0 ? 'success' : 'critical',
-      );
-      requireObservation(
-        errors.length === 0,
-        `Transport cancellation outcome failed: ${errors.join('; ')}`,
-      );
-    };
-
-    const runHttpsSuccess = async (caseId: IQaCaseId) => {
-      await prepareCase(caseId);
-      const request = startRequest({ caseId, phase: 'https-success' });
-      const outcome = await request.outcome;
-      requireObservation(
-        outcome.kind === 'response',
-        `Expected a real HTTPS response, got ${
-          outcome.kind === 'error' ? outcome.code || outcome.message : 'unknown'
-        }`,
-      );
-      appendEvidence(
-        caseId,
-        'HTTPS response',
-        `HTTP ${outcome.statusCode}`,
-        'success',
-      );
-      await waitForDrain(caseId);
-    };
-
-    const runActiveAbort = async (caseId: IQaCaseId) => {
-      await prepareCase(caseId);
-      const request = startRequest({ caseId, phase: 'active-abort' });
-      await waitForSnapshot(
-        caseId,
-        'Active request observed',
-        (value) => value.activeRequestsForPair === 1,
-      );
-      request.controller.abort();
-      appendEvidence(caseId, 'Abort signal sent', request.requestId);
-      const outcome = await request.outcome;
-      requireObservation(
-        isCancelledOutcome(outcome),
-        `Expected SNI_CANCELLED, got ${
-          outcome.kind === 'response'
-            ? `HTTP ${outcome.statusCode}`
-            : outcome.code || outcome.message
-        }`,
-      );
-      appendEvidence(caseId, 'Renderer outcome', 'SNI_CANCELLED', 'success');
-      await requireCancelAcknowledgements(
-        caseId,
-        'Transport cancel acknowledged',
-        [request],
-      );
-      await requireTransportCancellations(
-        caseId,
-        'Transport cancellation outcome',
-        [request],
-      );
-      await waitForDrain(caseId);
-    };
-
-    const runQueuePendingAbort = async (caseId: IQaCaseId) => {
-      await prepareCase(caseId);
-      const batch = await startSaturatedBatch(caseId);
-      abortPendingFirst(batch);
-      appendEvidence(
-        caseId,
-        'Known pending abort signals sent',
-        `${QUEUE_TEST_PENDING_COUNT} AbortController signals`,
-      );
-      const pendingOutcomes = await Promise.all(
-        batch.pendingRequests.map((request) => request.outcome),
-      );
-      const pendingSummary = summarizeOutcomes(pendingOutcomes);
-      appendEvidence(
-        caseId,
-        'Pending renderer outcomes',
-        `cancelled=${pendingSummary.cancelled}, responded=${pendingSummary.responded}, failed=${pendingSummary.failed}`,
-        pendingSummary.cancelled === QUEUE_TEST_PENDING_COUNT
-          ? 'success'
-          : 'critical',
-      );
-      requireObservation(
-        pendingSummary.cancelled === QUEUE_TEST_PENDING_COUNT,
-        `Expected ${QUEUE_TEST_PENDING_COUNT} pending SNI_CANCELLED outcomes; cancelled=${pendingSummary.cancelled}, responded=${pendingSummary.responded}, failed=${pendingSummary.failed}`,
-      );
-      await requireCancelAcknowledgements(
-        caseId,
-        'Pending transport cancels acknowledged',
-        batch.pendingRequests,
-      );
-      await requireTransportCancellations(
-        caseId,
-        'Pending transport outcomes',
-        batch.pendingRequests,
-      );
-      await waitForSnapshot(
-        caseId,
-        'Pending queue drained',
-        (value) => value.pendingRequestsForPair === 0,
-      );
-
-      abortActive(batch);
-      const allOutcomes = await Promise.all(
-        batch.requests.map((request) => request.outcome),
-      );
-      const cleanupSummary = summarizeOutcomes(allOutcomes);
-      appendEvidence(
-        caseId,
-        'Owned-request cleanup',
-        `cancelled=${cleanupSummary.cancelled}, responded=${cleanupSummary.responded}, failed=${cleanupSummary.failed}`,
-      );
-      await waitForDrain(caseId);
-    };
-
-    const runAbortAllRecovery = async (caseId: IQaCaseId) => {
-      await prepareCase(caseId);
-      const batch = await startSaturatedBatch(caseId);
-      abortPendingFirst(batch);
-      abortActive(batch);
-      appendEvidence(
-        caseId,
-        'Abort signals sent',
-        `${QUEUE_TEST_PENDING_COUNT} known pending first, then ${QUEUE_TEST_ACTIVE_LIMIT} known active`,
-      );
-      const outcomes = await Promise.all(
-        batch.requests.map((request) => request.outcome),
-      );
-      const summary = summarizeOutcomes(outcomes);
-      appendEvidence(
-        caseId,
-        'Batch renderer outcomes',
-        `cancelled=${summary.cancelled}, responded=${summary.responded}, failed=${summary.failed}`,
-        summary.cancelled === QUEUE_TEST_REQUEST_COUNT ? 'success' : 'critical',
-      );
-      requireObservation(
-        summary.cancelled === QUEUE_TEST_REQUEST_COUNT,
-        `Expected ${QUEUE_TEST_REQUEST_COUNT} SNI_CANCELLED outcomes; cancelled=${summary.cancelled}, responded=${summary.responded}, failed=${summary.failed}`,
-      );
-      await requireCancelAcknowledgements(
-        caseId,
-        'Batch transport cancels acknowledged',
-        batch.requests,
-      );
-      await requireTransportCancellations(
-        caseId,
-        'Batch transport outcomes',
-        batch.requests,
-      );
-      await waitForDrain(caseId, 'Limiter drained after abort all');
-
-      const recovery = startRequest({ caseId, phase: 'recovery' });
-      const recoveryOutcome = await recovery.outcome;
-      requireObservation(
-        recoveryOutcome.kind === 'response',
-        `Recovery request failed: ${
-          recoveryOutcome.kind === 'error'
-            ? recoveryOutcome.code || recoveryOutcome.message
-            : 'unknown'
-        }`,
-      );
-      appendEvidence(
-        caseId,
-        'Recovery response',
-        `HTTP ${recoveryOutcome.statusCode}`,
-        'success',
-      );
-      await waitForDrain(caseId, 'Limiter drained after recovery');
-    };
-
-    const runCase = async (caseId: IQaCaseId) => {
-      if (caseId === 'https-success') return runHttpsSuccess(caseId);
-      if (caseId === 'active-abort') return runActiveAbort(caseId);
-      if (caseId === 'queue-pending-abort') {
-        return runQueuePendingAbort(caseId);
-      }
-      return runAbortAllRecovery(caseId);
-    };
-
-    let stopped = false;
-    for (const caseId of selectedCaseIds) {
-      if (stopped) {
-        updateCaseResult(caseId, { status: 'stopped' });
-      } else {
-        caseStartedAtRef.current.set(caseId, Date.now());
-        updateCaseResult(caseId, {
-          status: 'running',
-          evidence: [],
-          error: undefined,
-          durationMs: undefined,
+        const targets = state === 'active' ? observed.slice(0, 1) : observed;
+        targets.forEach((request) => {
+          updateBatchItem(request.index, {
+            status: state === 'active' ? 'active' : 'queued',
+            detail: `Confirmed ${state}; AbortController signal sent`,
+          });
+          request.controller.abort();
         });
-        try {
-          await runCase(caseId);
+        appendEvidence(
+          caseId,
+          'Abort signals sent',
+          `${targets.length} snapshot-confirmed ${state} request ID(s)`,
+        );
+
+        const outcomes = await Promise.all(
+          requests.map((request) => request.outcome),
+        );
+        const targetOutcomes = await Promise.all(
+          targets.map((request) => request.outcome),
+        );
+        const targetSummary = summarizeOutcomes(targetOutcomes);
+        appendEvidence(
+          caseId,
+          'Target renderer outcomes',
+          formatOutcomeSummary(targetSummary),
+          targetSummary.cancelled === targets.length ? 'success' : 'critical',
+        );
+        requireObservation(
+          targetSummary.cancelled === targets.length,
+          `AbortController did not cancel every selected renderer request: ${formatOutcomeSummary(
+            targetSummary,
+          )}`,
+        );
+        const cancellationSummary = await getCancellationSummary(targets);
+        appendCancellationEvidence(caseId, cancellationSummary);
+        appendEvidence(
+          caseId,
+          'Whole batch outcomes',
+          formatOutcomeSummary(summarizeOutcomes(outcomes)),
+        );
+        await waitForDrain(caseId);
+
+        if (
+          cancellationSummary.ackSuccess !== targets.length ||
+          cancellationSummary.transportCancelled !== targets.length ||
+          cancellationSummary.ackMissing > 0 ||
+          cancellationSummary.transportMissing > 0
+        ) {
+          throw new QaRunnerError(
+            'The request completed during the bridge cancellation race; renderer abort worked but transport termination was not fully observed',
+            'not-observed',
+          );
+        }
+      };
+
+      const runAbortAllRecovery = async (caseId: IQaCaseId) => {
+        await prepareCase(caseId);
+        const requests = startBatch(caseId, BURST_40_COUNT, 'abort-all');
+        requests.forEach((request) => request.controller.abort());
+        appendEvidence(
+          caseId,
+          'Abort signals sent',
+          `${BURST_40_COUNT} AbortController signals in the launch tick`,
+        );
+        const outcomes = await Promise.all(
+          requests.map((request) => request.outcome),
+        );
+        const summary = summarizeOutcomes(outcomes);
+        appendEvidence(
+          caseId,
+          'Renderer outcomes',
+          formatOutcomeSummary(summary),
+          summary.cancelled === BURST_40_COUNT ? 'success' : 'critical',
+        );
+        requireObservation(
+          summary.cancelled === BURST_40_COUNT,
+          `Expected ${BURST_40_COUNT} renderer cancellations; ${formatOutcomeSummary(
+            summary,
+          )}`,
+        );
+        const cancellationSummary = await getCancellationSummary(requests);
+        appendCancellationEvidence(caseId, cancellationSummary);
+        await waitForDrain(caseId, 'Limiter drained after abort all');
+
+        const recovery = startRequest({
+          caseId,
+          index: BURST_40_COUNT,
+          phase: 'recovery',
+        });
+        const recoveryOutcome = await recovery.outcome;
+        requireObservation(
+          recoveryOutcome.kind === 'response',
+          `Recovery request failed: ${
+            recoveryOutcome.kind === 'error'
+              ? recoveryOutcome.code || recoveryOutcome.message
+              : 'unknown'
+          }`,
+        );
+        appendEvidence(
+          caseId,
+          'Recovery response',
+          `HTTP ${recoveryOutcome.statusCode}`,
+          'success',
+        );
+        await waitForDrain(caseId, 'Limiter drained after recovery');
+
+        if (cancellationSummary.transportCancelled === 0) {
+          throw new QaRunnerError(
+            'All transports completed before native cancellation took effect; recovery passed but transport termination was not observed',
+            'not-observed',
+          );
+        }
+      };
+
+      const runRepeat40 = async (caseId: IQaCaseId) => {
+        await prepareCase(caseId);
+        for (let round = 1; round <= STABILITY_ROUNDS; round += 1) {
           ensureActive();
-          const durationMs =
-            Date.now() - (caseStartedAtRef.current.get(caseId) ?? Date.now());
-          updateCaseResult(caseId, { status: 'passed', durationMs });
-        } catch (error) {
-          const durationMs =
-            Date.now() - (caseStartedAtRef.current.get(caseId) ?? Date.now());
-          if (
-            (error instanceof QaRunnerError && error.stopped) ||
-            stopRequestedRef.current
-          ) {
-            stopped = true;
+          const requests = startBatch(caseId, BURST_40_COUNT, `round-${round}`);
+          const { outcomes, peak } = await observeBatch(caseId, requests);
+          const summary = summarizeOutcomes(outcomes);
+          appendEvidence(
+            caseId,
+            `Round ${round}`,
+            `${formatOutcomeSummary(summary)}; peak active=${
+              peak.peakActive
+            }, pending=${peak.peakPending}`,
+            summary.responded === BURST_40_COUNT ? 'success' : 'critical',
+          );
+          requireObservation(
+            summary.responded === BURST_40_COUNT,
+            `Round ${round} did not complete ${BURST_40_COUNT} responses: ${formatOutcomeSummary(
+              summary,
+            )}`,
+          );
+          await waitForDrain(caseId, `Round ${round} limiter drained`);
+        }
+      };
+
+      const runCase = async (caseId: IQaCaseId) => {
+        if (caseId === 'health') return runHealth(caseId);
+        if (caseId === 'burst-20') {
+          return runBurst(caseId, BURST_20_COUNT, 'burst-20');
+        }
+        if (caseId === 'burst-40') {
+          return runBurst(caseId, BURST_40_COUNT, 'burst-40');
+        }
+        if (caseId === 'active-abort') {
+          return runAbortObserved(caseId, 'active');
+        }
+        if (caseId === 'pending-abort') {
+          return runAbortObserved(caseId, 'pending');
+        }
+        if (caseId === 'abort-all-recovery') {
+          return runAbortAllRecovery(caseId);
+        }
+        return runRepeat40(caseId);
+      };
+
+      let stopped = false;
+      for (const caseId of requestedCaseIds) {
+        if (stopped) {
+          updateCaseResult(caseId, { status: 'stopped' });
+        } else {
+          caseStartedAtRef.current.set(caseId, Date.now());
+          updateCaseResult(caseId, {
+            status: 'running',
+            evidence: [],
+            error: undefined,
+            durationMs: undefined,
+          });
+          try {
+            await runCase(caseId);
+            ensureActive();
             updateCaseResult(caseId, {
-              status: 'stopped',
-              durationMs,
-              error:
-                error instanceof QaRunnerError
-                  ? error.message
-                  : 'Stopped by QA',
+              status: 'passed',
+              durationMs:
+                Date.now() -
+                (caseStartedAtRef.current.get(caseId) ?? Date.now()),
             });
-          } else {
-            const { message } = getErrorDetails(error);
-            appendEvidence(caseId, 'Case failed', message, 'critical');
-            setExpandedEvidenceCaseIds((current) =>
-              current.includes(caseId) ? current : [...current, caseId],
-            );
-            updateCaseResult(caseId, {
-              status: 'failed',
-              durationMs,
-              error: message,
-            });
+          } catch (error) {
+            const durationMs =
+              Date.now() - (caseStartedAtRef.current.get(caseId) ?? Date.now());
+            if (
+              (error instanceof QaRunnerError && error.kind === 'stopped') ||
+              stopRequestedRef.current
+            ) {
+              stopped = true;
+              updateCaseResult(caseId, {
+                status: 'stopped',
+                durationMs,
+                error: error instanceof Error ? error.message : 'Stopped by QA',
+              });
+            } else if (
+              error instanceof QaRunnerError &&
+              error.kind === 'not-observed'
+            ) {
+              appendEvidence(caseId, 'Not observed', error.message);
+              updateCaseResult(caseId, {
+                status: 'not-observed',
+                durationMs,
+                error: error.message,
+              });
+            } else {
+              const { message } = getErrorDetails(error);
+              appendEvidence(caseId, 'Case failed', message, 'critical');
+              setExpandedEvidenceCaseIds((current) =>
+                current.includes(caseId) ? current : [...current, caseId],
+              );
+              updateCaseResult(caseId, {
+                status: 'failed',
+                durationMs,
+                error: message,
+              });
+            }
+          } finally {
+            abortOwnRequests();
+            controllersRef.current.clear();
           }
-        } finally {
-          abortOwnRequests();
-          controllersRef.current.clear();
         }
       }
-    }
 
-    if (generationRef.current === generation) {
-      setIsRunning(false);
-      setRunCompleted(true);
-    }
-  }, [
-    abortOwnRequests,
-    appendEvidence,
-    isRunning,
-    selectedCaseIds,
-    target,
-    updateBatchItem,
-    updateCaseResult,
-  ]);
+      if (generationRef.current === generation) {
+        setIsRunning(false);
+        setRunCompleted(true);
+      }
+    },
+    [abortOwnRequests, appendEvidence, isRunning, updateCaseResult],
+  );
 
   const handleStop = useCallback(() => {
     stopRequestedRef.current = true;
@@ -979,7 +1005,7 @@ export function useSniRequestQa() {
     setSnapshotError(undefined);
     setItems([]);
     setExpandedEvidenceCaseIds([]);
-    setCaseResults(EMPTY_CASE_RESULTS);
+    setCaseResults(createEmptyCaseResults());
   }, [abortOwnRequests]);
 
   useEffect(
@@ -993,21 +1019,23 @@ export function useSniRequestQa() {
   );
 
   const summary = useMemo(() => {
-    const selectedResults = selectedCaseIds.map(
-      (caseId) => caseResults[caseId],
-    );
+    const results = QA_CASE_IDS.map((caseId) => caseResults[caseId]);
     return {
-      failed: selectedResults.filter((result) => result.status === 'failed')
+      failed: results.filter((result) => result.status === 'failed').length,
+      notObserved: results.filter((result) => result.status === 'not-observed')
         .length,
-      passed: selectedResults.filter((result) => result.status === 'passed')
-        .length,
-      stopped: selectedResults.filter((result) => result.status === 'stopped')
-        .length,
+      passed: results.filter((result) => result.status === 'passed').length,
+      stopped: results.filter((result) => result.status === 'stopped').length,
     };
-  }, [caseResults, selectedCaseIds]);
+  }, [caseResults]);
 
   let overallLabel = 'READY';
-  let overallBadgeType: 'critical' | 'default' | 'info' | 'success' = 'default';
+  let overallBadgeType:
+    | 'critical'
+    | 'default'
+    | 'info'
+    | 'success'
+    | 'warning' = 'default';
   if (isRunning) {
     overallLabel = 'RUNNING';
     overallBadgeType = 'info';
@@ -1016,30 +1044,17 @@ export function useSniRequestQa() {
     overallBadgeType = 'critical';
   } else if (runCompleted && summary.stopped > 0) {
     overallLabel = 'STOPPED';
-  } else if (
-    runCompleted &&
-    selectedCaseIds.length > 0 &&
-    summary.passed === selectedCaseIds.length
-  ) {
+  } else if (runCompleted && summary.notObserved > 0) {
+    overallLabel = 'PARTIAL';
+    overallBadgeType = 'warning';
+  } else if (runCompleted) {
     overallLabel = 'PASS';
     overallBadgeType = 'success';
   }
 
-  const setCaseSelected = (caseId: IQaCaseId, selected: boolean) => {
-    setRunCompleted(false);
-    setSelectedCaseIds((current) => {
-      if (selected) {
-        return QA_CASE_IDS.filter(
-          (candidate) => candidate === caseId || current.includes(candidate),
-        );
-      }
-      return current.filter((candidate) => candidate !== caseId);
-    });
-  };
-
   return {
-    caseResults,
     cancelOwnedRequest,
+    caseResults,
     expandedEvidenceCaseIds,
     handleReset,
     handleRun,
@@ -1049,15 +1064,9 @@ export function useSniRequestQa() {
     overallBadgeType,
     overallLabel,
     runCompleted,
-    selectedCaseIds,
-    setCaseSelected,
     setExpandedEvidenceCaseIds,
-    setRunCompleted,
-    setSelectedCaseIds,
-    setTarget,
     snapshot,
     snapshotError,
     summary,
-    target,
   };
 }
