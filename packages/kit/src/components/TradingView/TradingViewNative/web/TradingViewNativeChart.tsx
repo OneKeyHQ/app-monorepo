@@ -9,6 +9,7 @@ import {
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -42,12 +43,15 @@ import {
   getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
 
+import {
+  TradingViewNativeWheelDeltaNormalizer,
+  getTradingViewNativeWheelPanOffsetDelta,
+  getTradingViewNativeWheelZoomAnchorX,
+  getTradingViewNativeWheelZoomScale,
+} from './chartWheel';
+
 import type { ITradingViewNativeChartType } from '../types';
 
-const WHEEL_ZOOM_SENSITIVITY = 0.0015;
-const WHEEL_DELTA_MODE_LINE = 1;
-const WHEEL_DELTA_MODE_PAGE = 2;
-const WHEEL_DELTA_LINE_HEIGHT = 16;
 const ONEKEY_WATERMARK_ASSET =
   require('@onekeyhq/components/svg/illus/logo.svg') as
     | string
@@ -93,16 +97,6 @@ interface IDrawKLineChartOptions {
 
 function getCanvasChartWidth(canvas: HTMLCanvasElement) {
   return getTradingViewNativeChartWidth(canvas.getBoundingClientRect().width);
-}
-
-function getWheelDeltaYInPixels(event: WheelEvent, canvas: HTMLCanvasElement) {
-  if (event.deltaMode === WHEEL_DELTA_MODE_LINE) {
-    return event.deltaY * WHEEL_DELTA_LINE_HEIGHT;
-  }
-  if (event.deltaMode === WHEEL_DELTA_MODE_PAGE) {
-    return event.deltaY * canvas.clientHeight;
-  }
-  return event.deltaY;
 }
 
 function getCanvasFont(font: ITradingViewNativeChartSceneFont) {
@@ -296,6 +290,9 @@ export const TradingViewNativeChart = memo(
       createTradingViewNativeChartRuntimeState(),
     );
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
+    const wheelDeltaNormalizerRef = useRef(
+      new TradingViewNativeWheelDeltaNormalizer(),
+    );
     const appliedViewportRequestRef = useRef({
       chartWidth: 0,
       requestId: 0,
@@ -631,29 +628,64 @@ export const TradingViewNativeChart = memo(
 
     const handleWheel = useCallback(
       (event: WheelEvent) => {
-        event.preventDefault();
         const canvas = canvasRef.current;
-        if (!canvas) {
+        if (!canvas || pointCount <= 0) {
           return;
         }
+        const isMacOS = Boolean(platformEnv.isRuntimeMacOSBrowser);
+        const wheelDelta = wheelDeltaNormalizerRef.current.processWheel({
+          deltaMode: event.deltaMode,
+          deltaX: event.deltaX,
+          deltaY: event.deltaY,
+          isMacOS,
+          shiftKey: event.shiftKey,
+          timeStamp: event.timeStamp,
+        });
+        if (wheelDelta.deltaX === 0 && wheelDelta.deltaY === 0) {
+          return;
+        }
+        event.preventDefault();
+
         const canvasRect = canvas.getBoundingClientRect();
         const chartWidth = getCanvasChartWidth(canvas);
-        const deltaY = getWheelDeltaYInPixels(event, canvas);
-        const anchorX =
-          event.clientX - canvasRect.left - CHART_HORIZONTAL_PADDING;
         const currentRuntimeState = runtimeStateRef.current;
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-          currentRuntimeState,
-          {
-            anchorX,
-            chartWidth,
-            nextZoomScale:
-              currentRuntimeState.viewport.zoomScale *
-              Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY),
-            pointCount,
-            type: 'zoomed',
-          },
-        );
+        let nextRuntimeState = currentRuntimeState;
+        if (wheelDelta.deltaY !== 0) {
+          const cursorX =
+            event.clientX - canvasRect.left - CHART_HORIZONTAL_PADDING;
+          nextRuntimeState = reduceTradingViewNativeChartRuntime(
+            nextRuntimeState,
+            {
+              anchorX: getTradingViewNativeWheelZoomAnchorX({
+                chartWidth,
+                ctrlKey: event.ctrlKey,
+                cursorX,
+                isMacOS,
+                metaKey: event.metaKey,
+              }),
+              chartWidth,
+              nextZoomScale: getTradingViewNativeWheelZoomScale({
+                currentZoomScale: nextRuntimeState.viewport.zoomScale,
+                deltaY: wheelDelta.deltaY,
+              }),
+              pointCount,
+              type: 'zoomed',
+            },
+          );
+        }
+        if (wheelDelta.deltaX !== 0) {
+          nextRuntimeState = reduceTradingViewNativeChartRuntime(
+            nextRuntimeState,
+            {
+              chartWidth,
+              offset:
+                nextRuntimeState.viewport.offset +
+                getTradingViewNativeWheelPanOffsetDelta(wheelDelta.deltaX),
+              pointCount,
+              type: 'panMoved',
+            },
+          );
+        }
         runtimeStateRef.current = nextRuntimeState;
         setViewportState((currentState) =>
           currentState.offset === nextRuntimeState.viewport.offset &&
