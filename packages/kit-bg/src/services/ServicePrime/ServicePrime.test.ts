@@ -428,7 +428,7 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
     let authSessionSource:
       | typeof EPrimeAuthSessionSource.LegacyEmailSupabase
       | undefined;
-    let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' = 'loggedOut';
+    let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' | undefined;
     const userInfo = {
       isLoggedIn: true,
       isLoggedInOnServer: true,
@@ -527,102 +527,41 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
     expect(simpleDbPrime.getKeylessSupabaseAuthToken).not.toHaveBeenCalled();
   });
 
-  it('preserves a valid legacy session when upgrading a stale logged-out tombstone', async () => {
+  it('treats a logged-out tombstone as authoritative instead of recovering a legacy session', async () => {
     jest.clearAllMocks();
-    const { service, simpleDbPrime } = createService();
+    const { service, backgroundApi, simpleDbPrime } = createService();
     const legacyAccessToken = buildFakeJwt({ sub: 'legacy-auth-user-a' });
-    const onekeyAccount = {
-      onekeyUserId: 'onekey-user-a',
-      status: EOneKeyIdAccountStatus.Active,
-      identities: [
-        {
-          identityType: EOneKeyIdIdentityType.LegacyEmail,
-          legacyEmail: 'user-a@example.com',
-        },
-      ],
-    };
-    let authSessionSource:
-      | typeof EPrimeAuthSessionSource.LegacyEmailSupabase
-      | undefined;
-    let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' = 'loggedOut';
-    const userInfo = {
+    mockPrimePersistAtom.get.mockResolvedValue({
       isLoggedIn: true,
       isLoggedInOnServer: true,
       onekeyUserId: 'onekey-user-a',
-      nickname: 'Legacy User',
-      displayEmail: 'user-a@example.com',
-    };
-    simpleDbPrime.getAuthSessionSource.mockImplementation(
-      async () => authSessionSource,
-    );
-    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
-      async () => authSessionSource,
-    );
-    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(
-      async () => oneKeyIdAuthState,
-    );
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
-    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(0);
-    simpleDbPrime.getActiveAuthToken.mockImplementation(async () =>
-      authSessionSource === EPrimeAuthSessionSource.LegacyEmailSupabase
-        ? legacyAccessToken
-        : '',
-    );
-    simpleDbPrime.setAuthSessionSourceWithCommitId.mockImplementation(
-      async (...args: unknown[]) => {
-        const [{ authSessionSource: nextAuthSessionSource }] = args as [
-          {
-            authSessionSource: typeof EPrimeAuthSessionSource.LegacyEmailSupabase;
-          },
-        ];
-        authSessionSource = nextAuthSessionSource;
-        oneKeyIdAuthState = 'loggedIn';
-      },
-    );
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
       accessToken: legacyAccessToken,
     });
-    mockPrimePersistAtom.get.mockImplementation(async () => userInfo);
-    const serverUserInfo = {
-      userId: 'onekey-user-a',
-      nickname: 'Legacy User',
-      emails: ['user-a@example.com'],
-      onekeyAccount,
-    };
-    const get = jest.fn(async () => ({
-      status: 200,
-      data: { code: 0, data: serverUserInfo },
-    }));
+    const get = jest.fn();
     service.getPrimeClient = jest.fn(async () => ({ get }));
 
     await expect(
-      service.apiFetchPrimeUserInfo({ forceRefresh: true }),
-    ).resolves.toMatchObject({
-      userInfo: {
-        isLoggedIn: true,
-        isLoggedInOnServer: true,
-        onekeyUserId: 'onekey-user-a',
-      },
-      serverUserInfo: {
-        userId: 'onekey-user-a',
-        onekeyAccount: {
-          identities: [
-            {
-              identityType: EOneKeyIdIdentityType.LegacyEmail,
-            },
-          ],
-        },
-      },
-    });
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: true });
 
-    expect(authSessionSource).toBe(EPrimeAuthSessionSource.LegacyEmailSupabase);
-    expect(get).toHaveBeenCalledWith(
-      '/prime/v1/account/profile',
-      expect.objectContaining({
-        headers: { 'X-Onekey-Request-Token': legacyAccessToken },
-      }),
-    );
+    expect(get).not.toHaveBeenCalled();
+    expect(mockGetAuthTokenBySessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
     expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
   });
 
@@ -2503,7 +2442,7 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     });
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
-    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
@@ -2547,7 +2486,7 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     });
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
-    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
@@ -2581,7 +2520,7 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     });
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
-    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
@@ -2609,7 +2548,7 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     });
     simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
-    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
     simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
     mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
       status: 'ok',
@@ -2909,6 +2848,18 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
 
   it('delegates missing-session cleanup to the durable identity coordinator', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
 
     const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
       callerName: 'test',
@@ -3335,7 +3286,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
       service.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toEqual({ status: 'skip' });
+    ).resolves.toEqual({ status: 'retryable' });
 
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
@@ -3387,7 +3338,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
       service.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toEqual({ status: 'skip' });
+    ).resolves.toEqual({ status: 'retryable' });
     expect(bindRequiredSpy).not.toHaveBeenCalled();
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
@@ -3443,7 +3394,7 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
       service.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toEqual({ status: 'skip' });
+    ).resolves.toEqual({ status: 'retryable' });
     expect(bindRequiredSpy).not.toHaveBeenCalled();
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,

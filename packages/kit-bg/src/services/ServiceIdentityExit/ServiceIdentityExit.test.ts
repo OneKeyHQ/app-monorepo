@@ -729,7 +729,51 @@ describe('ServiceIdentityExit', () => {
     expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
   });
 
-  test('treats logged-out metadata as authoritative and clears a stale logged-in projection', async () => {
+  test('requires confirmation before normalizing a stale logged-in projection', async () => {
+    const fixture = createFixture();
+    fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+      undefined,
+    );
+    fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+      'loggedOut',
+    );
+
+    const plan = await fixture.service.prepareIdentityExit({
+      type: 'logoutOneKeyId',
+      scene: 'profile',
+    });
+    expectReadyPlan(plan);
+    expect(plan.presentation).toEqual({ type: 'oneKeyIdOnly' });
+    expect(plan.confirmation).toEqual({ type: 'normal' });
+    expect(fixture.setPrimePersistAtomNotLoggedIn).not.toHaveBeenCalled();
+
+    await expect(
+      fixture.service.executeIdentityExit({
+        planId: plan.planId,
+        acknowledgement: 'oneKeyIdLogout',
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      oneKeyIdLoggedOut: true,
+    });
+
+    expect(mockReadSession).not.toHaveBeenCalled();
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).toHaveBeenCalledWith({
+      expectedIdentityLifecycleRevision: 10,
+      expectedProjection: {
+        authSessionSource: undefined,
+        oneKeyIdAuthState: 'loggedOut',
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'onekey-user-1',
+      },
+    });
+  });
+
+  test('completes immediately when logged-out metadata and projection agree', async () => {
+    jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
+      ...primePersistAtomInitialValue,
+    });
     const fixture = createFixture();
     fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
       undefined,
@@ -751,9 +795,8 @@ describe('ServiceIdentityExit', () => {
       },
     });
 
-    expect(fixture.setPrimePersistAtomNotLoggedIn).toHaveBeenCalledTimes(1);
-    expect(mockReadSession).not.toHaveBeenCalled();
-    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
+    expect(fixture.commitExplicitLocalOneKeyIdLogout).not.toHaveBeenCalled();
+    expect(fixture.setPrimePersistAtomNotLoggedIn).not.toHaveBeenCalled();
   });
 
   test('allows explicit local logout when the OneKey ID source is unavailable', async () => {
@@ -1071,6 +1114,29 @@ describe('ServiceIdentityExit', () => {
         sessionCommitId: 'keyless-session',
       },
     });
+  });
+
+  test('does not enter the explicit Keyless removal escape path for transient snapshot failures', async () => {
+    const fixture = createFixture();
+    mockReadSession.mockRejectedValueOnce(
+      new OneKeyLocalError('session storage temporarily unavailable'),
+    );
+
+    await expect(
+      fixture.service.prepareIdentityExit({
+        type: 'removeKeyless',
+        expectedWalletId: keylessWallet.id,
+        scene: 'accountSelector',
+      }),
+    ).resolves.toEqual({
+      status: 'blocked',
+      code: 'STATE_UNAVAILABLE',
+      message: 'session storage temporarily unavailable',
+    });
+
+    expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
+    expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+    expect(fixture.setIdentityExitJournalEntry).not.toHaveBeenCalled();
   });
 
   test('requires explicit acknowledgement before Keyless removal', async () => {

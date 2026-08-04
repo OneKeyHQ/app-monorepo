@@ -2447,7 +2447,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token passcode handling', ()
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'unavailable' });
 
     expect(serviceAny.removeLegacyKeylessOAuthTokens).toHaveBeenCalledWith({
       ownerId: OWNER_ID,
@@ -2488,7 +2488,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     });
   });
 
-  test('interactive migration re-checks blob presence inside the lock and returns null without any exchange when it is gone', async () => {
+  test('interactive migration re-checks blob presence inside the lock and returns unavailable without any exchange when it is gone', async () => {
     const { serviceAny, wallet, backgroundApi } = createService();
     // Blob exists at the cheap pre-prompt check, but is gone by the time the
     // exchange lock is acquired (the passive path consumed it and removed it
@@ -2511,7 +2511,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'unavailable' });
 
     expect(
       backgroundApi.servicePassword.promptPasswordVerify,
@@ -2580,6 +2580,24 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     expect(
       backgroundApi.servicePassword.promptPasswordVerify,
     ).not.toHaveBeenCalled();
+  });
+
+  test('keeps bind guidance available when the migrated legacy identity mismatches', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+    serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
+      async () => ({ status: 'identityMismatch' as const }),
+    );
+
+    await expect(
+      service.ensureKeylessCredentialReadyForOneKeyIdBind(),
+    ).resolves.toEqual({
+      status: 'ready',
+      hasLocalKeylessWallet: true,
+    });
   });
 
   test('allows bind guidance without prompting when passcode is required on click', async () => {
@@ -2664,7 +2682,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
     );
     serviceAny.getActiveKeylessOAuthAccessToken = jest.fn(async () => null);
     serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
-      async () => null,
+      async () => ({ status: 'unavailable' as const }),
     );
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
 
@@ -2675,6 +2693,27 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       provider: EOAuthSocialLoginProvider.Google,
       walletId: WALLET_ID,
     });
+  });
+
+  test('routes a mismatched migrated credential to fresh OAuth without retrying the blob', async () => {
+    const { service, serviceAny } = createService();
+    serviceAny.getActiveKeylessOAuthAccessTokenMatchingLocalWallet = jest.fn(
+      async () => null,
+    );
+    serviceAny.getActiveKeylessOAuthAccessToken = jest.fn(async () => null);
+    serviceAny.migrateLegacyKeylessOAuthSessionForLocalWallet = jest.fn(
+      async () => ({ status: 'identityMismatch' as const }),
+    );
+    serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'needOAuthLogin',
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+    expect(serviceAny.hasLegacyKeylessOAuthRefreshToken).not.toHaveBeenCalled();
   });
 
   test('reports no local Keyless wallet without touching credential storage', async () => {
@@ -2733,7 +2772,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       })
-      .then((result: string | null) => {
+      .then((result: unknown) => {
         migrateResolved = true;
         return result;
       });
@@ -2748,7 +2787,10 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
 
     releaseExchangeLock();
 
-    await expect(migratePromise).resolves.toBe(TOKEN);
+    await expect(migratePromise).resolves.toEqual({
+      status: 'migrated',
+      accessToken: TOKEN,
+    });
     // The in-lock re-read exchanged the rotated token (not a stale copy)…
     expect(fetchSpy).toHaveBeenCalledWith(
       `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`,
@@ -2779,7 +2821,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
   });
 
   test('interactive migration persists the rotated token before wallet validation so a mismatch cannot strand the consumed token', async () => {
-    const { serviceAny, wallet, backgroundApi } = createService();
+    const { service, serviceAny, wallet, backgroundApi } = createService();
     serviceAny.hasLegacyKeylessOAuthRefreshToken = jest.fn(async () => true);
     serviceAny.getLegacyKeylessOAuthRefreshToken = jest.fn(
       async () => 'legacy-refresh-token',
@@ -2808,7 +2850,7 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
         keylessWallet: wallet,
         ownerId: OWNER_ID,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ status: 'identityMismatch' });
 
     // The rotated token must be persisted back even though validation
     // failed — the blob would otherwise keep the consumed token and the
@@ -2825,6 +2867,17 @@ describe('ServiceKeylessWallet legacy keyless OAuth token exchange serialization
       backgroundApi.servicePrime.persistMigratedKeylessOAuthSessionForWallet,
     ).not.toHaveBeenCalled();
     expect(serviceAny.removeLegacyKeylessOAuthTokens).not.toHaveBeenCalled();
+
+    await expect(
+      service.continueOneKeyIdLoginWithLocalKeyless(),
+    ).resolves.toEqual({
+      status: 'needOAuthLogin',
+      provider: EOAuthSocialLoginProvider.Google,
+      walletId: WALLET_ID,
+    });
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerify,
+    ).toHaveBeenCalledTimes(1);
   });
 });
 

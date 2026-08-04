@@ -268,7 +268,8 @@ type ILegacyOneKeyIdUpgradeRecoveryResult =
 
 type IOneKeyIdOAuthBindPromptClaimResult =
   | { status: 'claimed'; claimId: string }
-  | { status: 'skip' };
+  | { status: 'skip' }
+  | { status: 'retryable' };
 
 const ONEKEY_ID_OAUTH_BIND_PROMPT_CLAIM_TTL_MS = 60_000;
 
@@ -2362,22 +2363,31 @@ class ServicePrime extends ServiceBase {
         const keylessCredentialReadiness =
           await this.backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
         if (keylessCredentialReadiness.status === 'retryableIndeterminate') {
-          return { status: 'skip' };
+          return { status: 'retryable' };
         }
       } catch (error) {
         console.error(
           'ServicePrime.claimOneKeyIdOAuthBindPrompt: credential upgrade failed:',
           getSanitizedAuthErrorLog(error),
         );
-        return { status: 'skip' };
+        return { status: 'retryable' };
       }
 
-      const hasShown =
-        await this.backgroundApi.simpleDb.prime.hasShownOneKeyIdOAuthBindPrompt(
-          {
-            onekeyUserId,
-          },
+      let hasShown = false;
+      try {
+        hasShown =
+          await this.backgroundApi.simpleDb.prime.hasShownOneKeyIdOAuthBindPrompt(
+            {
+              onekeyUserId,
+            },
+          );
+      } catch (error) {
+        console.error(
+          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt state read failed:',
+          getSanitizedAuthErrorLog(error),
         );
+        return { status: 'retryable' };
+      }
       if (hasShown) {
         return { status: 'skip' };
       }
@@ -2390,28 +2400,44 @@ class ServicePrime extends ServiceBase {
           'ServicePrime.claimOneKeyIdOAuthBindPrompt: bind required check failed:',
           getSanitizedAuthErrorLog(error),
         );
-        return { status: 'skip' };
+        return { status: 'retryable' };
       }
 
       if (!bindRequired) {
-        await this.backgroundApi.simpleDb.prime.markOneKeyIdOAuthBindPromptShown(
-          { onekeyUserId },
-        );
-        return { status: 'skip' };
+        try {
+          await this.backgroundApi.simpleDb.prime.markOneKeyIdOAuthBindPromptShown(
+            { onekeyUserId },
+          );
+          return { status: 'skip' };
+        } catch (error) {
+          console.error(
+            'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt state write failed:',
+            getSanitizedAuthErrorLog(error),
+          );
+          return { status: 'retryable' };
+        }
       }
 
       const claimId = stringUtils.generateUUID();
       const now = Date.now();
-      const claimed =
-        await this.backgroundApi.simpleDb.prime.tryClaimOneKeyIdOAuthBindPrompt(
-          {
-            onekeyUserId,
-            claimId,
-            now,
-            expiresAt: now + ONEKEY_ID_OAUTH_BIND_PROMPT_CLAIM_TTL_MS,
-          },
+      try {
+        const claimed =
+          await this.backgroundApi.simpleDb.prime.tryClaimOneKeyIdOAuthBindPrompt(
+            {
+              onekeyUserId,
+              claimId,
+              now,
+              expiresAt: now + ONEKEY_ID_OAUTH_BIND_PROMPT_CLAIM_TTL_MS,
+            },
+          );
+        return claimed ? { status: 'claimed', claimId } : { status: 'skip' };
+      } catch (error) {
+        console.error(
+          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt claim failed:',
+          getSanitizedAuthErrorLog(error),
         );
-      return claimed ? { status: 'claimed', claimId } : { status: 'skip' };
+        return { status: 'retryable' };
+      }
     });
   }
 
@@ -3109,13 +3135,10 @@ class ServicePrime extends ServiceBase {
   /**
    * Recover a valid legacy Supabase session that predates authSessionSource.
    *
-   * Some upgraded installations can contain a stale `loggedOut` tombstone
-   * even though the old legacy session slot and the logged-in Prime atom are
-   * both still present. The normal source resolver intentionally trusts that
-   * tombstone, so it cannot see or validate the legacy token. This narrowly
-   * gated migration detects the persisted legacy slot directly, lets the
-   * Supabase SDK restore or refresh it, validates the resulting session
-   * against Prime, and only then commits the new source metadata.
+   * This narrowly gated migration detects a pre-authSessionSource legacy slot,
+   * lets the Supabase SDK restore or refresh it, validates the resulting
+   * session against Prime, and only then commits the new source metadata.
+   * A persisted `loggedOut` tombstone is authoritative and is never recovered.
    * Transient or indeterminate failures preserve the old projection for a
    * later retry instead of turning an upgrade into a logout.
    */
@@ -3152,8 +3175,7 @@ class ServicePrime extends ServiceBase {
           currentUser.isLoggedInOnServer &&
           expectedOneKeyUserId &&
           !authSessionSource &&
-          (oneKeyIdAuthState === undefined ||
-            oneKeyIdAuthState === 'loggedOut') &&
+          oneKeyIdAuthState === undefined &&
           generation === 0,
         );
         if (!isRecoveryCandidate || !expectedOneKeyUserId) {
@@ -3261,8 +3283,7 @@ class ServicePrime extends ServiceBase {
             !latestUser.isLoggedInOnServer ||
             latestUser.onekeyUserId !== expectedOneKeyUserId ||
             latestAuthSessionSource ||
-            (latestOneKeyIdAuthState !== undefined &&
-              latestOneKeyIdAuthState !== 'loggedOut') ||
+            latestOneKeyIdAuthState !== undefined ||
             latestGeneration !== 0 ||
             latestSessionTokenSub !== expectedSessionTokenSub
           ) {
@@ -3562,6 +3583,23 @@ class ServicePrime extends ServiceBase {
     retryScheduled?: boolean;
     recoveredLegacyServerUserInfo?: IPrimeServerUserInfoWithProfile;
   }> {
+    const [oneKeyIdAuthState, authSessionSource] = await Promise.all([
+      this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+      this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+    ]);
+    if (oneKeyIdAuthState === 'loggedOut' && !authSessionSource) {
+      const currentUser = await primePersistAtom.get();
+      const hasStaleLoggedInProjection = Boolean(
+        currentUser.isLoggedIn ||
+        currentUser.isLoggedInOnServer ||
+        currentUser.onekeyUserId,
+      );
+      if (hasStaleLoggedInProjection) {
+        await this.setPrimePersistAtomNotLoggedIn();
+      }
+      this.resetSourceLessOneKeyIdRecoveryRetry();
+      return { cleared: hasStaleLoggedInProjection };
+    }
     const legacyRecovery = await this.tryRecoverLegacyOneKeyIdSessionOnUpgrade({
       callerName,
     });

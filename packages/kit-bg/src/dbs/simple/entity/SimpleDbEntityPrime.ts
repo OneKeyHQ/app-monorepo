@@ -648,6 +648,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     return rawData?.keylessOAuthSessionPersistenceJournal;
   }
 
+  async hasPendingIdentityLifecycleRecovery(): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return Boolean(
+      rawData?.keylessOAuthSessionPersistenceJournal ||
+      Object.keys(rawData?.identityExitOperationJournal ?? {}).length,
+    );
+  }
+
   async setKeylessOAuthSessionPersistenceJournal(
     preparation: IKeylessOAuthSessionPersistenceJournalPreparation,
   ): Promise<IKeylessOAuthSessionPersistenceJournal> {

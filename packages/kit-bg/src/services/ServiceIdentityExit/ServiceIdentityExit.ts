@@ -1237,19 +1237,19 @@ class ServiceIdentityExit extends ServiceBase {
           ]);
           if (oneKeyIdAuthState === 'loggedOut' && !source) {
             if (
-              primeUser.isLoggedIn ||
-              primeUser.isLoggedInOnServer ||
-              primeUser.onekeyUserId
+              !primeUser.isLoggedIn &&
+              !primeUser.isLoggedInOnServer &&
+              !primeUser.onekeyUserId
             ) {
-              await this.backgroundApi.servicePrime.setPrimePersistAtomNotLoggedIn();
-            }
-            return {
-              status: 'completed',
-              receipt: {
+              return {
                 status: 'completed',
-                oneKeyIdLoggedOut: true,
-              },
-            };
+                receipt: {
+                  status: 'completed',
+                  oneKeyIdLoggedOut: true,
+                },
+              };
+            }
+            return this.prepareExplicitLocalOneKeyIdLogoutUnderLock(intent);
           }
         }
         if (intent.type === 'recoverMalformedKeyless') {
@@ -1266,10 +1266,12 @@ class ServiceIdentityExit extends ServiceBase {
             intent.type === 'removeKeyless' &&
             intent.scene === 'accountSelector'
           ) {
+            if (!isIdentityExitSnapshotError(error)) {
+              throw error;
+            }
             if (
-              isIdentityExitSnapshotError(error) &&
               error[IDENTITY_EXIT_SNAPSHOT_ERROR_CODE] ===
-                'KEYLESS_DATA_MALFORMED'
+              'KEYLESS_DATA_MALFORMED'
             ) {
               try {
                 return await this.prepareMalformedKeylessRecoveryUnderLock({
@@ -1277,7 +1279,10 @@ class ServiceIdentityExit extends ServiceBase {
                   expectedWalletId: intent.expectedWalletId,
                   scene: 'accountSelector',
                 });
-              } catch {
+              } catch (recoveryError) {
+                if (!isIdentityExitSnapshotError(recoveryError)) {
+                  throw recoveryError;
+                }
                 // Fall through to the account-selector escape path when the
                 // malformed wallet is readable but OneKey ID state is not.
               }

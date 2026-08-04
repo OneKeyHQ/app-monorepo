@@ -63,6 +63,8 @@ let isLegacyOAuthBindDialogVisible = false;
 
 const PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS = 3;
 const PREPARE_LOCAL_KEYLESS_RETRY_DELAY_MS = 1000;
+const CREDENTIAL_UPGRADE_PROMPT_MAX_ATTEMPTS = 3;
+const CREDENTIAL_UPGRADE_PROMPT_RETRY_DELAY_MS = 1000;
 
 type IOneKeyIdOAuthAccountSwitchResult = 'switched' | 'cancelled' | 'failed';
 type IOneKeyIdOAuthBindDialogResult =
@@ -798,13 +800,21 @@ export function OneKeyIdLegacyOAuthBindPrompt({
         if (!isReady) {
           return;
         }
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       } catch (error) {
         if (!isCancelled) {
           setIsKeylessCredentialReady(false);
         }
         console.error(
           'OneKeyIdLegacyOAuthBindPrompt refresh failed:',
+          getSanitizedAuthErrorText(error),
+        );
+        return;
+      }
+      try {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      } catch (error) {
+        console.error(
+          'OneKeyIdLegacyOAuthBindPrompt profile refresh failed:',
           getSanitizedAuthErrorText(error),
         );
       }
@@ -865,6 +875,7 @@ async function prepareOneKeyIdOAuthBindDialog(
 ): Promise<{
   shouldShow: boolean;
   promptClaim?: IOneKeyIdOAuthBindPromptClaim;
+  retryable?: boolean;
 }> {
   if (intent.type === 'required-for-keyless') {
     return { shouldShow: true };
@@ -886,6 +897,9 @@ async function prepareOneKeyIdOAuthBindDialog(
       await backgroundApiProxy.servicePrime.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId,
       });
+    if (claim.status === 'retryable') {
+      return { shouldShow: false, retryable: true };
+    }
     return claim.status === 'claimed'
       ? {
           shouldShow: true,
@@ -940,7 +954,7 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
   try {
     const preparation = await prepareOneKeyIdOAuthBindDialog(intent);
     if (!preparation.shouldShow) {
-      return false;
+      return preparation.retryable ? ('retryable' as const) : false;
     }
     promptClaim = preparation.promptClaim;
     if (
@@ -1127,13 +1141,31 @@ export async function showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
   onekeyUserId: string | undefined;
   shouldSkip?: () => boolean;
 }) {
-  if (!onekeyUserId || shouldSkip?.()) {
+  if (!onekeyUserId) {
     return false;
   }
 
-  return showOneKeyIdLegacyOAuthBindDialog({
-    type: 'credential-upgrade',
-    onekeyUserId,
-    shouldSkipBeforeShow: shouldSkip,
-  });
+  for (
+    let attempt = 0;
+    attempt < CREDENTIAL_UPGRADE_PROMPT_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    if (shouldSkip?.()) {
+      return false;
+    }
+    const result = await showOneKeyIdLegacyOAuthBindDialog({
+      type: 'credential-upgrade',
+      onekeyUserId,
+      shouldSkipBeforeShow: shouldSkip,
+    });
+    if (result !== 'retryable') {
+      return result;
+    }
+    if (attempt < CREDENTIAL_UPGRADE_PROMPT_MAX_ATTEMPTS - 1) {
+      await timerUtils.wait(
+        CREDENTIAL_UPGRADE_PROMPT_RETRY_DELAY_MS * (attempt + 1),
+      );
+    }
+  }
+  return false;
 }
