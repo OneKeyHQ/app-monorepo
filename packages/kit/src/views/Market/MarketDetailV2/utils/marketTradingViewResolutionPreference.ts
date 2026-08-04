@@ -42,6 +42,7 @@ const DEFAULT_MARKET_TRADING_VIEW_RESOLUTION = '1m';
 const MAX_FIRST_SCREEN_HISTORY_SECONDS = 5 * 365 * 24 * 60 * 60;
 const MAX_FIRST_SCREEN_FUTURE_SECONDS = 24 * 60 * 60;
 const MAX_FIRST_SCREEN_COUNT_BACK = 2000;
+const MAX_MARKET_TRADING_VIEW_SESSION_PREFERENCES = 100;
 
 const cachedResolutions = new Map<
   IMarketTradingViewResolutionNamespace,
@@ -92,6 +93,23 @@ function buildMarketTradingViewSessionPreferenceKey({
     }) ?? '';
 
   return `${namespace}:${normalizedNetworkId}:${normalizedTokenAddress}`;
+}
+
+function setMarketTradingViewSessionPreference(
+  key: string,
+  preference: IMarketTradingViewFirstScreenRequestPreference,
+) {
+  sessionPreferences.delete(key);
+  sessionPreferences.set(key, preference);
+
+  if (sessionPreferences.size <= MAX_MARKET_TRADING_VIEW_SESSION_PREFERENCES) {
+    return;
+  }
+
+  const oldestKey = sessionPreferences.keys().next().value;
+  if (typeof oldestKey === 'string') {
+    sessionPreferences.delete(oldestKey);
+  }
 }
 
 function normalizeStoredResolution(resolution: string | null | undefined) {
@@ -229,7 +247,7 @@ export function startMarketTradingViewSessionPreference({
   const preference = {
     ...getMarketTradingViewFirstScreenRequestPreference(namespace),
   };
-  sessionPreferences.set(
+  setMarketTradingViewSessionPreference(
     buildMarketTradingViewSessionPreferenceKey({
       tokenAddress,
       networkId,
@@ -254,14 +272,17 @@ export function getMarketTradingViewSessionPreference({
     networkId,
     namespace,
   });
-  return (
-    sessionPreferences.get(key) ??
-    startMarketTradingViewSessionPreference({
-      tokenAddress,
-      networkId,
-      namespace,
-    })
-  );
+  const preference = sessionPreferences.get(key);
+  if (preference) {
+    setMarketTradingViewSessionPreference(key, preference);
+    return preference;
+  }
+
+  return startMarketTradingViewSessionPreference({
+    tokenAddress,
+    networkId,
+    namespace,
+  });
 }
 
 export function updateMarketTradingViewSessionResolution({
@@ -282,7 +303,7 @@ export function updateMarketTradingViewSessionResolution({
 
   const range =
     cachedFirstScreenRequestRanges.get(namespace)?.[normalizedResolution];
-  sessionPreferences.set(
+  setMarketTradingViewSessionPreference(
     buildMarketTradingViewSessionPreferenceKey({
       tokenAddress,
       networkId,

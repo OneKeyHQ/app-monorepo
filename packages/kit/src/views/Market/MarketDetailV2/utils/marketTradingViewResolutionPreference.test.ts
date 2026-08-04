@@ -3,9 +3,11 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   clearMarketTradingViewResolutionPreferenceCache,
   getMarketTradingViewPrefetchResolution,
+  getMarketTradingViewSessionPreference,
   hydrateMarketTradingViewPreferences,
   isMarketTradingViewPreferencesHydrated,
   startMarketTradingViewSessionPreference,
+  updateMarketTradingViewSessionResolution,
 } from './marketTradingViewResolutionPreference';
 
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
@@ -20,7 +22,11 @@ const mockGetItem = appStorage.getItem as jest.MockedFunction<
   typeof appStorage.getItem
 >;
 
-describe('marketTradingViewResolutionPreference hydration', () => {
+function buildTokenAddress(index: number) {
+  return `0x${index.toString(16).padStart(40, '0')}`;
+}
+
+describe('marketTradingViewResolutionPreference', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearMarketTradingViewResolutionPreferenceCache();
@@ -65,5 +71,50 @@ describe('marketTradingViewResolutionPreference hydration', () => {
     ]);
 
     expect(mockGetItem).toHaveBeenCalledTimes(4);
+  });
+
+  it('evicts the least recently used session preference at the size limit', () => {
+    const firstTokenAddress = buildTokenAddress(1);
+    const secondTokenAddress = buildTokenAddress(2);
+
+    for (let index = 1; index <= 100; index += 1) {
+      const tokenAddress = buildTokenAddress(index);
+      startMarketTradingViewSessionPreference({
+        tokenAddress,
+        networkId: 'evm--1',
+      });
+      if (index === 1 || index === 2) {
+        updateMarketTradingViewSessionResolution({
+          tokenAddress,
+          networkId: 'evm--1',
+          resolution: index === 1 ? '5m' : '15m',
+        });
+      }
+    }
+
+    expect(
+      getMarketTradingViewSessionPreference({
+        tokenAddress: firstTokenAddress,
+        networkId: 'evm--1',
+      }).resolution,
+    ).toBe('5m');
+
+    startMarketTradingViewSessionPreference({
+      tokenAddress: buildTokenAddress(101),
+      networkId: 'evm--1',
+    });
+
+    expect(
+      getMarketTradingViewSessionPreference({
+        tokenAddress: firstTokenAddress,
+        networkId: 'evm--1',
+      }).resolution,
+    ).toBe('5m');
+    expect(
+      getMarketTradingViewSessionPreference({
+        tokenAddress: secondTokenAddress,
+        networkId: 'evm--1',
+      }).resolution,
+    ).toBe('1m');
   });
 });
