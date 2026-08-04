@@ -61,6 +61,13 @@ type IBorrowManageAsset = {
   token: Pick<IBorrowToken, 'logoURI' | 'symbol'>;
 };
 
+const SECTION_TAB_BAR_CONTAINER_STYLE = {
+  testID: BorrowTestIDs.sectionTabs,
+  position: 'relative',
+  zIndex: 0,
+  bg: 'transparent',
+} as const;
+
 type IBorrowHomeProps = {
   header?: React.ReactNode;
   isActive?: boolean;
@@ -427,13 +434,12 @@ const BorrowHomeContent = memo(
 
       return (
         <YStack flex={1} gap="$5">
-          <YStack testID={BorrowTestIDs.sectionTabs}>
-            <Tabs.TabBar
-              tabNames={sectionTabNames}
-              focusedTab={focusedSectionTab}
-              onTabPress={handleSectionChange}
-            />
-          </YStack>
+          <Tabs.TabBar
+            tabNames={sectionTabNames}
+            focusedTab={focusedSectionTab}
+            onTabPress={handleSectionChange}
+            containerStyle={SECTION_TAB_BAR_CONTAINER_STYLE}
+          />
           {activeSection === 'supply' ? (
             <>
               <SuppliedCard eModeStatus={eModeStatus} />

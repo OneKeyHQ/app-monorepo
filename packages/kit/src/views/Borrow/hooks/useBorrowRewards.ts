@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 
 type IScopedBorrowRewardsResult = {
@@ -58,7 +59,10 @@ export const useBorrowRewards = ({
           ),
           state: 'resolved',
         };
-      } catch {
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Borrow rewards request failed: ${String(error)}`,
+        );
         return {
           scopeKey,
           data:
@@ -78,6 +82,10 @@ export const useBorrowRewards = ({
   );
   const hasSettledCurrentScope = scopedResult?.scopeKey === scopeKey;
   const borrowRewards = hasSettledCurrentScope ? scopedResult.data : null;
+  const isError =
+    Boolean(requestParams) &&
+    hasSettledCurrentScope &&
+    (scopedResult?.state === 'error' || !borrowRewards);
   useEffect(() => {
     if (borrowRewards && scopedResult?.state === 'resolved') {
       lastSuccessfulResultRef.current = { scopeKey, data: borrowRewards };
@@ -88,6 +96,7 @@ export const useBorrowRewards = ({
     borrowRewards,
     isInitialLoading: Boolean(requestParams) && !hasSettledCurrentScope,
     isLoading,
+    isError,
     refresh: run,
   };
 };

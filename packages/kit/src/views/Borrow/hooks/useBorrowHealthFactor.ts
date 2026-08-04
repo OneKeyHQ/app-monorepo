@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBorrowHealthFactor } from '@onekeyhq/shared/types/staking';
 
 interface IUseBorrowHealthFactorParams {
@@ -62,7 +63,10 @@ export const useBorrowHealthFactor = ({
           ),
           state: 'resolved',
         };
-      } catch {
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Borrow health factor request failed: ${String(error)}`,
+        );
         return {
           scopeKey,
           data:
@@ -85,6 +89,10 @@ export const useBorrowHealthFactor = ({
   );
   const hasSettledCurrentScope = scopedResult?.scopeKey === scopeKey;
   const healthFactorData = hasSettledCurrentScope ? scopedResult.data : null;
+  const isError =
+    Boolean(requestParams) &&
+    hasSettledCurrentScope &&
+    (scopedResult?.state === 'error' || !healthFactorData);
   useEffect(() => {
     if (healthFactorData && scopedResult?.state === 'resolved') {
       lastSuccessfulResultRef.current = { scopeKey, data: healthFactorData };
@@ -95,6 +103,7 @@ export const useBorrowHealthFactor = ({
     healthFactorData,
     isInitialLoading: Boolean(requestParams) && !hasSettledCurrentScope,
     isLoading,
+    isError,
     refresh: run,
   };
 };

@@ -217,7 +217,7 @@ export const Overview = ({
               {labels.netWorth}
             </SizableText>
             <XStack ai="center" jc="space-between" gap="$3">
-              <XStack minHeight={48}>
+              <XStack minHeight={48} flexShrink={1}>
                 {isNetWorthLoading ? (
                   <Skeleton w={160} h={48} borderRadius="$2" />
                 ) : (
