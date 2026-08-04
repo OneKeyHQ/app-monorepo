@@ -305,6 +305,12 @@ export interface IMarketTokenKLineDataPoint {
 export type IMarketKLineProvider = 'onekey' | 'hyperliquid';
 
 export interface IMarketTokenKLineHistoryMeta {
+  /**
+   * Stops chart history pagination. When the stop reason is
+   * `page_budget_exhausted`, this is an intentional safety terminal that
+   * prevents sparse assets from repeatedly acquiring a fresh request budget;
+   * it does not assert that the upstream provider has no older candles.
+   */
   noData: boolean;
   isPartial?: boolean;
   stopReason?:

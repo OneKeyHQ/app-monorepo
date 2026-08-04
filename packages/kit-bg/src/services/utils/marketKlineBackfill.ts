@@ -265,7 +265,12 @@ export async function fetchMarketKlineBackfill({
     !reachedHistoryFloor &&
     !stopAfterCountReached &&
     requestCount >= MARKET_KLINE_MAX_BACKFILL_REQUESTS;
-  const noData = !cancelled && (reachedHistoryFloor || requestBudgetExhausted);
+  // Product invariant: exhausting the per-call budget terminates chart history.
+  // Returning a resumable partial result would let sparse assets immediately
+  // start another call with a fresh budget and effectively bypass this limit.
+  const shouldTerminateChartHistory =
+    reachedHistoryFloor || requestBudgetExhausted;
+  const noData = !cancelled && shouldTerminateChartHistory;
   let stopReason: IMarketTokenKLineHistoryMeta['stopReason'];
   if (reachedHistoryFloor) {
     stopReason = 'history_exhausted';

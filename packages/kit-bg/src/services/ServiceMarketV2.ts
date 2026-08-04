@@ -722,6 +722,9 @@ class ServiceMarketV2 extends ServiceBase {
         }
         const responseData: unknown = response.data.data;
         if (isMarketTokenKLineResponse(responseData)) {
+          // The v3 service and local fallback share the terminal request-budget
+          // contract documented by IMarketTokenKLineHistoryMeta. Preserve the
+          // server metadata so either path prevents unbounded sparse backfill.
           return responseData;
         }
       } catch (error) {
