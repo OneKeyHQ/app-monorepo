@@ -1,29 +1,31 @@
 /** @jest-environment jsdom */
 
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
 import { useMarketTokenList } from './useMarketTokenList';
 
-const mockCachedResponse = {
-  list: [
-    {
-      address: '0xcached',
-      name: 'Cached Token',
-      symbol: 'CACHED',
-    },
-  ],
-  total: 1,
-};
-let mockPromiseResultResponse = mockCachedResponse;
-const mockRun = jest.fn(async () => undefined);
 const mockTrackNetworkLoading = jest.fn();
 
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockPromiseResultResponse,
-    isLoading: false,
-    run: mockRun,
+jest.mock('@onekeyhq/components', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => undefined,
+  useDeferredPromise: () => ({
+    promise: Promise.resolve(null),
+    reset: jest.fn(),
+    resolve: jest.fn(),
   }),
+  useNetInfo: () => ({ isRawInternetReachable: true }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -53,25 +55,12 @@ jest.mock('@onekeyhq/kit/src/views/Market/utils/marketReactPerf', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isWeb: true },
+  default: { isNative: false, isWeb: true },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: { isAllNetwork: () => false },
-}));
-
-jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
-  swrCacheUtils: {
-    getWithTimestamp: () => ({
-      data: mockCachedResponse,
-      updatedAt: Date.now(),
-    }),
-    remove: jest.fn(),
-  },
-  swrKeys: {
-    marketHomeTokenList: () => 'market-home-token-list-test-key',
-  },
 }));
 
 jest.mock('../utils/tokenListHelpers', () => ({
@@ -105,17 +94,61 @@ jest.mock('./marketTokenListPlatformApi', () => ({
   fetchMarketTokenListForPlatform: jest.fn(),
 }));
 
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
+function createResponse(
+  address: string,
+  name: string,
+  symbol: string,
+): IMarketTokenListResponse {
+  return {
+    list: [{ address, name, symbol, decimals: 18 }],
+    total: 1,
+  };
+}
+
 describe('useMarketTokenList initial data', () => {
+  const cacheKey = swrKeys.marketHomeTokenList({
+    networkId: 'evm--1',
+    sortBy: 'v24hUSD',
+    sortType: 'desc',
+    pageSize: 20,
+    minLiquidity: 5000,
+    type: 'trending',
+  });
+  const mockFetchMarketTokenList = jest.mocked(fetchMarketTokenListForPlatform);
+
   beforeEach(() => {
-    mockPromiseResultResponse = mockCachedResponse;
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+    mockFetchMarketTokenList.mockReset();
+    mockTrackNetworkLoading.mockReset();
   });
 
-  it('exposes cached rows during the first render', () => {
+  afterEach(() => {
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
+  it('renders SWR rows on the first frame, then replaces and caches the remote page', async () => {
+    const cachedResponse = createResponse('0xcached', 'Cached Token', 'CACHED');
+    const remoteResponse = createResponse('0xremote', 'Remote Token', 'REMOTE');
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
     const renderedTokenIds: string[][] = [];
+
+    swrCacheUtils.set(cacheKey, cachedResponse);
+    mockFetchMarketTokenList.mockReturnValueOnce(remoteRequest.promise);
 
     function Probe() {
       const result = useMarketTokenList({
         networkId: 'evm--1',
+        pollingInterval: 0,
         type: 'trending',
       });
       renderedTokenIds.push(result.data.map((item) => item.id));
@@ -125,37 +158,27 @@ describe('useMarketTokenList initial data', () => {
     render(<Probe />);
 
     expect(renderedTokenIds[0]).toEqual(['0xcached']);
-  });
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: 'evm--1',
+          page: 1,
+          type: 'trending',
+        }),
+        { forceRemote: true },
+      );
+    });
 
-  it('replaces the cached rows when the remote first page arrives', async () => {
-    const renderedTokenIds: string[][] = [];
-
-    function Probe({ revision }: { revision: number }) {
-      const result = useMarketTokenList({
-        networkId: 'evm--1',
-        type: 'trending',
-      });
-      renderedTokenIds.push(result.data.map((item) => item.id));
-      return <span>{revision}</span>;
-    }
-
-    const view = render(<Probe revision={0} />);
-    expect(renderedTokenIds[0]).toEqual(['0xcached']);
-
-    mockPromiseResultResponse = {
-      list: [
-        {
-          address: '0xremote',
-          name: 'Remote Token',
-          symbol: 'REMOTE',
-        },
-      ],
-      total: 1,
-    };
-    view.rerender(<Probe revision={1} />);
+    await act(async () => {
+      remoteRequest.resolve(remoteResponse);
+      await remoteRequest.promise;
+    });
 
     await waitFor(() => {
       expect(renderedTokenIds.at(-1)).toEqual(['0xremote']);
     });
+    expect(swrCacheUtils.get<IMarketTokenListResponse>(cacheKey)).toMatchObject(
+      remoteResponse,
+    );
   });
 });
