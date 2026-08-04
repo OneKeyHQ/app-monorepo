@@ -43,6 +43,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -118,7 +119,7 @@ function resolvePerpRouteFocused(isFocus: boolean) {
 }
 
 function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
-  return Boolean(data.universesByDex?.some((items) => items?.length > 0));
+  return isPerpsUniverseCacheComplete(data.universesByDex);
 }
 
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {

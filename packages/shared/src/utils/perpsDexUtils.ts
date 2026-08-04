@@ -55,6 +55,19 @@ export function toAssetId({
   return getDexAssetIdOffset(dexIndex) + index;
 }
 
+// A persisted `tradingUniverses` cache is positional, so one written before a
+// new sub-DEX was registered is shorter than the registry. It still looks
+// populated, which would otherwise let callers serve a dex set that silently
+// omits the new dex — treat that as a cache miss and force a refresh.
+export function isPerpsUniverseCacheComplete(
+  universesByDex: unknown[][] | undefined,
+): boolean {
+  if (!universesByDex || universesByDex.length < SUB_DEX_LIST.length + 1) {
+    return false;
+  }
+  return universesByDex.some((items) => (items?.length ?? 0) > 0);
+}
+
 // TV lowercases everything; HL keys perps as `BTC`, spot as `@N`, and sub-DEX
 // as `<prefix>:<TICKER>` with a lowercase prefix.
 export function normalizeDexCoin(coin: string): string {

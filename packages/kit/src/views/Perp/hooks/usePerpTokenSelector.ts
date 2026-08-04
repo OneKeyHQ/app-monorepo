@@ -85,7 +85,14 @@ export function usePerpTokenSelector() {
       })
     ) {
       lastRefreshTradingMetaTime = now;
-      void backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      // Re-read after the refresh lands: the first refreshAllAssets() above
+      // serves the persisted universe, which is one dex short right after a
+      // release that registers a new sub-DEX. Without this the selector keeps
+      // showing the stale dex set for the whole session.
+      void backgroundApiProxy.serviceHyperliquid
+        .refreshTradingMeta()
+        .then(() => refreshAllAssets())
+        .catch(() => undefined);
     }
     return () => {};
   }, [actions, refreshAllAssets]);

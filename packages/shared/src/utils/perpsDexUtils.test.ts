@@ -4,6 +4,7 @@ import {
   getDexAssetIdOffset,
   getDexIndexByAssetId,
   getDexIndexByCoin,
+  isPerpsUniverseCacheComplete,
   normalizeDexCoin,
   toAssetId,
   toCtxIndex,
@@ -94,5 +95,27 @@ describe('perpsDexUtils', () => {
 
   it('does not rewrite an unregistered prefix', () => {
     expect(normalizeDexCoin('unsupported:tsla')).toBe('UNSUPPORTED:TSLA');
+  });
+
+  describe('isPerpsUniverseCacheComplete', () => {
+    it('accepts a cache covering every registered dex', () => {
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}]])).toBe(true);
+    });
+
+    // The bug this guards: a cache written before `para` was registered has
+    // only two slots, still looks populated, and silently hides the new dex.
+    it('rejects a cache written before a sub dex was registered', () => {
+      expect(isPerpsUniverseCacheComplete([[{}], [{}]])).toBe(false);
+    });
+
+    it('rejects an empty or missing cache', () => {
+      expect(isPerpsUniverseCacheComplete([])).toBe(false);
+      expect(isPerpsUniverseCacheComplete(undefined)).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[], [], []])).toBe(false);
+    });
+
+    it('accepts a longer cache so an unknown extra slot is not fatal', () => {
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}], [{}]])).toBe(true);
+    });
   });
 });

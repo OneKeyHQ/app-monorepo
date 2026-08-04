@@ -6,6 +6,7 @@ import {
   usePerpTokenFavoritesPersistAtom,
   useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   parseDexCoin,
@@ -74,12 +75,10 @@ export function usePerpsFavorites(options?: {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      // If data is missing, force refresh from API
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
+      // If data is missing, or the cache predates a newly registered sub-DEX,
+      // force refresh from API. A short array is just as unusable as an empty
+      // one here: favorites on the missing dex would silently fail to resolve.
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
         await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
         const res =
           await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();

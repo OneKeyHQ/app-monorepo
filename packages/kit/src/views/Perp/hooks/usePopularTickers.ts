@@ -10,7 +10,10 @@ import {
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  isPerpsUniverseCacheComplete,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   formatSpotPairDisplayName,
   getSpotMarketCapValue,
@@ -71,11 +74,7 @@ export function usePopularTickers(): IPopularTickerItem[] {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
         await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
         const res =
           await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
