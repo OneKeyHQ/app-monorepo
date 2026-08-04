@@ -1,3 +1,4 @@
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   type ITokenSearchAliases,
   getTokenSubtitle,
@@ -10,7 +11,7 @@ import type {
 import {
   DEFAULT_PERP_TOKEN_SORT_DIRECTION,
   DEFAULT_PERP_TOKEN_SORT_FIELD,
-  XYZ_ASSET_ID_OFFSET,
+  SUB_DEX_LIST,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 export type IPerpsTokenSelectorInitialListItem = {
@@ -42,7 +43,7 @@ function getAssetCtxByInitialListEntry({
   if (typeof assetId !== 'number') {
     return undefined;
   }
-  const ctxIndex = dexIndex === 1 ? assetId - XYZ_ASSET_ID_OFFSET : assetId;
+  const ctxIndex = toCtxIndex(assetId, dexIndex);
   return assetCtxsByDex?.[dexIndex]?.[ctxIndex];
 }
 
@@ -109,15 +110,17 @@ export function buildPerpsTokenSelectorInitialList({
 
 export function buildPerpsAssetCtxsByDexFromAllDexsSnapshot(
   data?: IWsAllDexsAssetCtxs,
-) {
+): IPerpsAssetCtx[][] {
   const ctxMap = new Map<string, IPerpsAssetCtx[]>();
   data?.ctxs?.forEach(([dexName, ctxList]) => {
     ctxMap.set(dexName, ctxList || []);
   });
-  const ctxsByDex: IPerpsAssetCtx[][] = [];
-  ctxsByDex[0] = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-  ctxsByDex[1] = ctxMap.get('xyz') ?? [];
-  return ctxsByDex;
+  // Slot order must follow SUB_DEX_LIST so every consumer's dexIndex stays valid
+  // even when the server omits a registered dex.
+  return [
+    ctxMap.get('') ?? ctxMap.get('perps') ?? [],
+    ...SUB_DEX_LIST.map((item) => ctxMap.get(item.prefix) ?? []),
+  ];
 }
 
 export function setCachedPerpsTokenSelectorInitialList(
