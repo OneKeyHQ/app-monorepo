@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
   Empty,
   ScrollView,
-  SegmentControl,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -59,9 +60,6 @@ type IBorrowManageAsset = {
   reserveAddress: string;
   token: Pick<IBorrowToken, 'logoURI' | 'symbol'>;
 };
-
-const SECTION_TABS_MIN_WIDTH = 264;
-const SECTION_TABS_ITEM_STYLE = { flexGrow: 1 } as const;
 
 type IBorrowHomeProps = {
   header?: React.ReactNode;
@@ -220,22 +218,25 @@ const BorrowHomeContent = memo(
     const isMidWidth = gtMd && !gtXl;
     const isPhone = !gtMd;
 
-    const sectionTabOptions = useMemo(
+    const sectionTabNames = useMemo(
       () => [
-        {
-          label: intl.formatMessage({ id: ETranslations.defi_supply }),
-          value: 'supply' as const,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_borrow }),
-          value: 'borrow' as const,
-        },
+        intl.formatMessage({ id: ETranslations.defi_supply }),
+        intl.formatMessage({ id: ETranslations.global_borrow }),
       ],
       [intl],
     );
-    const handleSectionChange = useCallback((value: string | number) => {
-      setActiveSection(value as IBorrowSection);
-    }, []);
+    const focusedSectionTab = useSharedValue(sectionTabNames[0]);
+    useEffect(() => {
+      focusedSectionTab.value =
+        activeSection === 'supply' ? sectionTabNames[0] : sectionTabNames[1];
+    }, [activeSection, focusedSectionTab, sectionTabNames]);
+    const handleSectionChange = useCallback(
+      (name: string) => {
+        focusedSectionTab.value = name;
+        setActiveSection(name === sectionTabNames[1] ? 'borrow' : 'supply');
+      },
+      [focusedSectionTab, sectionTabNames],
+    );
 
     const supplyAssets = useMemo(
       () =>
@@ -426,14 +427,13 @@ const BorrowHomeContent = memo(
 
       return (
         <YStack flex={1} gap="$5">
-          <SegmentControl
-            testID={BorrowTestIDs.sectionTabs}
-            value={activeSection}
-            options={sectionTabOptions}
-            minWidth={SECTION_TABS_MIN_WIDTH}
-            onChange={handleSectionChange}
-            segmentControlItemStyleProps={SECTION_TABS_ITEM_STYLE}
-          />
+          <YStack testID={BorrowTestIDs.sectionTabs}>
+            <Tabs.TabBar
+              tabNames={sectionTabNames}
+              focusedTab={focusedSectionTab}
+              onTabPress={handleSectionChange}
+            />
+          </YStack>
           {activeSection === 'supply' ? (
             <>
               <SuppliedCard eModeStatus={eModeStatus} />
