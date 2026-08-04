@@ -36,10 +36,35 @@ export const PERPS_IP_RESTRICTION_HELP_URL =
   'https://help.onekey.so/articles/15533117';
 
 // Multi-DEX support constants
-export const DEX_PREFIXES = ['xyz'] as const;
+// HIP-3 builder assetId = HIP3_ASSET_ID_BASE + hlDexIndex * HIP3_ASSET_ID_STRIDE + universeIndex
+const HIP3_ASSET_ID_BASE = 100_000;
+// Exported: getDexIndexByAssetId needs it to bound each dex's id range.
+export const HIP3_ASSET_ID_STRIDE = 10_000;
+
+// Registry of supported Hyperliquid sub-DEXs. `hlDexIndex` is the position in
+// the `perpDexs` info response and determines the assetId namespace.
+// APPEND ONLY: the array position is the local dexIndex, and that index is
+// baked into the positional `tradingUniverses` cache in SimpleDbEntityPerp,
+// which has no schema version or migration path. Reordering corrupts it.
+export const SUB_DEX_LIST = [
+  { prefix: 'xyz', hlDexIndex: 1 },
+  { prefix: 'para', hlDexIndex: 8 },
+] as const;
+
 export const DEX_SEPARATOR = ':';
-export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
-export const XYZ_ASSET_ID_OFFSET = 110_000;
+
+export const DEX_PREFIXES = SUB_DEX_LIST.map((item) => item.prefix);
+
+// Indexed by local dexIndex; slot 0 is the main perps DEX.
+export const DEX_ASSET_ID_OFFSETS: readonly number[] = [
+  0,
+  ...SUB_DEX_LIST.map(
+    (item) => HIP3_ASSET_ID_BASE + item.hlDexIndex * HIP3_ASSET_ID_STRIDE,
+  ),
+];
+
+export const XYZ_DEX_PREFIX = `${SUB_DEX_LIST[0].prefix}${DEX_SEPARATOR}`;
+export const XYZ_ASSET_ID_OFFSET = DEX_ASSET_ID_OFFSETS[1];
 export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
 
 // Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index

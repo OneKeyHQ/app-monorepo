@@ -1,0 +1,84 @@
+import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+import {
+  getDexAssetIdOffset,
+  getDexIndexByAssetId,
+  getDexIndexByCoin,
+  toAssetId,
+  toCtxIndex,
+} from './perpsDexUtils';
+
+describe('perpsDexUtils', () => {
+  it('maps local dex index to the hyperliquid assetId offset', () => {
+    expect(getDexAssetIdOffset(0)).toBe(0);
+    expect(getDexAssetIdOffset(1)).toBe(110_000);
+    expect(getDexAssetIdOffset(2)).toBe(180_000);
+  });
+
+  it('falls back to the main dex offset for unknown dex index', () => {
+    expect(getDexAssetIdOffset(99)).toBe(0);
+    expect(getDexAssetIdOffset(-1)).toBe(0);
+  });
+
+  it('resolves the local dex index from a prefixed coin', () => {
+    expect(getDexIndexByCoin('BTC')).toBe(0);
+    expect(getDexIndexByCoin('xyz:NVDA')).toBe(1);
+    expect(getDexIndexByCoin('para:UNITREE')).toBe(2);
+  });
+
+  it('does not treat an unregistered prefix as a sub dex', () => {
+    expect(getDexIndexByCoin('flx:TSLA')).toBe(0);
+  });
+
+  it('resolves the local dex index from an assetId range', () => {
+    expect(getDexIndexByAssetId(0)).toBe(0);
+    expect(getDexIndexByAssetId(231)).toBe(0);
+    expect(getDexIndexByAssetId(110_000)).toBe(1);
+    expect(getDexIndexByAssetId(110_104)).toBe(1);
+    expect(getDexIndexByAssetId(180_000)).toBe(2);
+    expect(getDexIndexByAssetId(180_019)).toBe(2);
+  });
+
+  it('does not classify a spot assetId as a perp dex asset', () => {
+    expect(getDexIndexByAssetId(SPOT_ASSET_ID_OFFSET)).toBe(-1);
+    expect(getDexIndexByAssetId(SPOT_ASSET_ID_OFFSET + 149)).toBe(-1);
+  });
+
+  // Hyperliquid dex indexes are non-contiguous (xyz=1 ... para=8), so the
+  // registered offsets leave gaps that belong to dexs we do not support.
+  it('rejects an assetId belonging to an unregistered sub dex', () => {
+    expect(getDexIndexByAssetId(150_000)).toBe(-1);
+    expect(getDexIndexByAssetId(120_000)).toBe(-1);
+    expect(getDexIndexByAssetId(190_000)).toBe(-1);
+  });
+
+  it('treats a negative sentinel assetId as the main dex', () => {
+    expect(getDexIndexByAssetId(-1)).toBe(0);
+    expect(toCtxIndex(-1)).toBe(-1);
+  });
+
+  it('converts assetId to the per-dex ctx array index', () => {
+    expect(toCtxIndex(5)).toBe(5);
+    expect(toCtxIndex(110_003)).toBe(3);
+    expect(toCtxIndex(180_019)).toBe(19);
+  });
+
+  it('honours an explicitly supplied dex index over detection', () => {
+    expect(toCtxIndex(180_019, 2)).toBe(19);
+    expect(toCtxIndex(7, 0)).toBe(7);
+  });
+
+  it('builds the assetId from a local dex index and universe position', () => {
+    expect(toAssetId({ dexIndex: 0, index: 5 })).toBe(5);
+    expect(toAssetId({ dexIndex: 1, index: 3 })).toBe(110_003);
+    expect(toAssetId({ dexIndex: 2, index: 19 })).toBe(180_019);
+  });
+
+  it('round-trips assetId through ctx index for every registered dex', () => {
+    [0, 1, 2].forEach((dexIndex) => {
+      const assetId = toAssetId({ dexIndex, index: 4 });
+      expect(getDexIndexByAssetId(assetId)).toBe(dexIndex);
+      expect(toCtxIndex(assetId)).toBe(4);
+    });
+  });
+});
