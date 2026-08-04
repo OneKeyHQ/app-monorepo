@@ -851,16 +851,13 @@ class ServicePrime extends ServiceBase {
     this.sourceLessOneKeyIdRecoveryRetryTimer = setTimeout(() => {
       this.sourceLessOneKeyIdRecoveryRetryTimer = undefined;
       void (async () => {
-        const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
-          this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
-        );
-        if (tokenRead.retryableError) {
-          throw tokenRead.retryableError;
-        }
-        // Another login or a successful migration may have made a session
-        // active while this backoff timer was waiting. Never run a
-        // missing-session reconciliation against that live session.
-        if (tokenRead.token) {
+        // A committed source means another login or migration finished while
+        // this source-less retry was waiting. Read the raw discriminator here:
+        // getActiveAuthToken() may infer and persist a legacy source before the
+        // guarded upgrade recovery has compared the server profile identity.
+        const authSessionSource =
+          await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+        if (authSessionSource) {
           this.resetSourceLessOneKeyIdRecoveryRetry();
           return;
         }
@@ -3622,17 +3619,38 @@ class ServicePrime extends ServiceBase {
       this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
     ]);
     if (oneKeyIdAuthState === 'loggedOut' && !authSessionSource) {
-      const currentUser = await primePersistAtom.get();
-      const hasStaleLoggedInProjection = Boolean(
-        currentUser.isLoggedIn ||
-        currentUser.isLoggedInOnServer ||
-        currentUser.onekeyUserId,
+      const tombstoneRepair = await this.authStateWriteMutex.runExclusive(
+        async () => {
+          const [
+            latestOneKeyIdAuthState,
+            latestAuthSessionSource,
+            currentUser,
+          ] = await Promise.all([
+            this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+            this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+            primePersistAtom.get(),
+          ]);
+          if (
+            latestOneKeyIdAuthState !== 'loggedOut' ||
+            latestAuthSessionSource
+          ) {
+            return { handled: false, cleared: false };
+          }
+          const hasStaleLoggedInProjection = Boolean(
+            currentUser.isLoggedIn ||
+            currentUser.isLoggedInOnServer ||
+            currentUser.onekeyUserId,
+          );
+          if (hasStaleLoggedInProjection) {
+            await this.setPrimePersistAtomNotLoggedIn();
+          }
+          return { handled: true, cleared: hasStaleLoggedInProjection };
+        },
       );
-      if (hasStaleLoggedInProjection) {
-        await this.setPrimePersistAtomNotLoggedIn();
+      if (tombstoneRepair.handled) {
+        this.resetSourceLessOneKeyIdRecoveryRetry();
+        return { cleared: tombstoneRepair.cleared };
       }
-      this.resetSourceLessOneKeyIdRecoveryRetry();
-      return { cleared: hasStaleLoggedInProjection };
     }
     const legacyRecovery = await this.tryRecoverLegacyOneKeyIdSessionOnUpgrade({
       callerName,

@@ -60,6 +60,8 @@ import { getOneKeyIdOAuthBindProviders } from './oneKeyIdOAuthBindProviders';
 import type { IntlShape } from 'react-intl';
 
 let isLegacyOAuthBindDialogVisible = false;
+let pendingRequiredKeylessBindDialogCount = 0;
+const legacyOAuthBindDialogAvailableWaiters = new Set<() => void>();
 
 const PREPARE_LOCAL_KEYLESS_MAX_ATTEMPTS = 3;
 const PREPARE_LOCAL_KEYLESS_RETRY_DELAY_MS = 1000;
@@ -941,13 +943,44 @@ async function releaseOneKeyIdOAuthBindPromptClaim(
   }
 }
 
-export async function showOneKeyIdLegacyOAuthBindDialog(
-  intent: IOneKeyIdOAuthBindDialogIntent = { type: 'check-required' },
-) {
-  if (isLegacyOAuthBindDialogVisible) {
+function tryAcquireOptionalLegacyOAuthBindDialogPresentation() {
+  if (
+    isLegacyOAuthBindDialogVisible ||
+    pendingRequiredKeylessBindDialogCount > 0
+  ) {
     return false;
   }
   isLegacyOAuthBindDialogVisible = true;
+  return true;
+}
+
+async function acquireRequiredLegacyOAuthBindDialogPresentation(): Promise<true> {
+  if (isLegacyOAuthBindDialogVisible) {
+    await new Promise<void>((resolve) => {
+      legacyOAuthBindDialogAvailableWaiters.add(resolve);
+    });
+    return acquireRequiredLegacyOAuthBindDialogPresentation();
+  }
+  isLegacyOAuthBindDialogVisible = true;
+  return true;
+}
+
+function releaseLegacyOAuthBindDialogPresentation() {
+  isLegacyOAuthBindDialogVisible = false;
+  const waiters = [...legacyOAuthBindDialogAvailableWaiters];
+  legacyOAuthBindDialogAvailableWaiters.clear();
+  waiters.forEach((resolve) => resolve());
+}
+
+export async function showOneKeyIdLegacyOAuthBindDialog(
+  intent: IOneKeyIdOAuthBindDialogIntent = { type: 'check-required' },
+) {
+  const isRequiredForKeyless = intent.type === 'required-for-keyless';
+  if (isRequiredForKeyless) {
+    pendingRequiredKeylessBindDialogCount += 1;
+  }
+  let isRequiredRequestPending = isRequiredForKeyless;
+  let ownsDialogPresentation = false;
   let promptClaim: IOneKeyIdOAuthBindPromptClaim | undefined;
   let isPromptClaimCompleted = false;
 
@@ -964,7 +997,19 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       return false;
     }
 
-    const isRequiredForKeyless = intent.type === 'required-for-keyless';
+    ownsDialogPresentation = isRequiredForKeyless
+      ? await acquireRequiredLegacyOAuthBindDialogPresentation()
+      : tryAcquireOptionalLegacyOAuthBindDialogPresentation();
+    if (isRequiredForKeyless) {
+      pendingRequiredKeylessBindDialogCount -= 1;
+      isRequiredRequestPending = false;
+    }
+    if (!ownsDialogPresentation) {
+      return intent.type === 'credential-upgrade'
+        ? ('retryable' as const)
+        : false;
+    }
+
     const bindProvider =
       intent.type === 'required-for-keyless' || intent.type === 'check-required'
         ? intent.provider
@@ -1121,10 +1166,15 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
       (isRequiredForKeyless && bindDialogResult === 'switched')
     );
   } finally {
+    if (isRequiredRequestPending) {
+      pendingRequiredKeylessBindDialogCount -= 1;
+    }
     if (promptClaim && !isPromptClaimCompleted) {
       await releaseOneKeyIdOAuthBindPromptClaim(promptClaim);
     }
-    isLegacyOAuthBindDialogVisible = false;
+    if (ownsDialogPresentation) {
+      releaseLegacyOAuthBindDialogPresentation();
+    }
   }
 }
 

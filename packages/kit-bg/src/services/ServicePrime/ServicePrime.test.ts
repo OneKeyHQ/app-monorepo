@@ -570,6 +570,68 @@ describe('ServicePrime.apiFetchPrimeUserInfo', () => {
     expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
   });
 
+  it('does not clear a new login that commits after the tombstone probe', async () => {
+    jest.clearAllMocks();
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const authState: {
+      authSessionSource?: typeof EPrimeAuthSessionSource.LegacyEmailSupabase;
+      oneKeyIdAuthState: 'loggedIn' | 'loggedOut';
+    } = { oneKeyIdAuthState: 'loggedOut' };
+    const initialProbeCompleted = createDeferred();
+    let initialProbeReadCount = 0;
+    const markInitialProbeRead = () => {
+      initialProbeReadCount += 1;
+      if (initialProbeReadCount === 2) {
+        initialProbeCompleted.resolve();
+      }
+    };
+    simpleDbPrime.getAuthSessionSource.mockImplementation(async () => {
+      markInitialProbeRead();
+      return authState.authSessionSource;
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
+      async () => authState.authSessionSource,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(async () => {
+      markInitialProbeRead();
+      return authState.oneKeyIdAuthState;
+    });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'new-onekey-user',
+    });
+    backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession.mockResolvedValue(
+      { cleared: false },
+    );
+
+    const authCommitEntered = createDeferred();
+    const releaseAuthCommit = createDeferred();
+    const activeLoginCommit = (
+      service as unknown as {
+        authStateWriteMutex: {
+          runExclusive: (callback: () => Promise<void>) => Promise<void>;
+        };
+      }
+    ).authStateWriteMutex.runExclusive(async () => {
+      authCommitEntered.resolve();
+      await releaseAuthCommit.promise;
+    });
+    await authCommitEntered.promise;
+
+    const clearResult = service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'test',
+    });
+    await initialProbeCompleted.promise;
+    authState.authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+    authState.oneKeyIdAuthState = 'loggedIn';
+    releaseAuthCommit.resolve();
+    await activeLoginCommit;
+
+    await expect(clearResult).resolves.toEqual({ cleared: false });
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+  });
+
   it('bypasses the short-TTL cache when fresh server truth is required', async () => {
     const { service } = createService();
     const fetchWithCache = Object.assign(
@@ -2820,6 +2882,38 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
         resetSourceLessOneKeyIdRecoveryRetry: () => void;
       }
     ).resetSourceLessOneKeyIdRecoveryRetry();
+  });
+
+  it('routes a source-less retry through guarded recovery without inferring a source', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+      const retryReachedGuardedRecovery = createDeferred();
+      const clearSpy = jest
+        .spyOn(service, 'clearOneKeyIdAuthStateIfNoActiveToken')
+        .mockImplementation(async () => {
+          retryReachedGuardedRecovery.resolve();
+          return { cleared: false };
+        });
+
+      (
+        service as unknown as {
+          scheduleSourceLessOneKeyIdRecoveryRetry: (params: {
+            callerName: string;
+          }) => void;
+        }
+      ).scheduleSourceLessOneKeyIdRecoveryRetry({ callerName: 'test' });
+      jest.advanceTimersByTime(1000);
+      await retryReachedGuardedRecovery.promise;
+
+      expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+      expect(clearSpy).toHaveBeenCalledWith({
+        callerName: 'test.sourceLessRecoveryRetry',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('does not probe Keyless OAuth for a non-upgrade inconsistent state', async () => {

@@ -193,6 +193,14 @@ async function flushMicrotasks(times = 5) {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 async function startRequiredKeylessBind(onBindSuccess: () => Promise<void>) {
   const resultPromise = showOneKeyIdLegacyOAuthBindDialog({
     type: 'required-for-keyless',
@@ -315,6 +323,40 @@ describe('showOneKeyIdLegacyOAuthBindDialog account switch handoff', () => {
     await contentProps.onAccountSwitchResult('switched');
 
     await expect(resultPromise).resolves.toBe(false);
+  });
+
+  it('gives a required Keyless bind priority over an optional claim in preparation', async () => {
+    const optionalClaim = createDeferred<{
+      status: 'claimed';
+      claimId: string;
+    }>();
+    mockClaimCredentialUpgradePrompt.mockImplementationOnce(
+      () => optionalClaim.promise,
+    );
+    const optionalResult = showOneKeyIdLegacyOAuthBindDialog({
+      type: 'credential-upgrade',
+      onekeyUserId: 'onekey-user-a',
+    });
+    await flushMicrotasks();
+
+    const onBindSuccess = jest.fn<Promise<void>, []>(async () => {});
+    const requiredResult = showOneKeyIdLegacyOAuthBindDialog({
+      type: 'required-for-keyless',
+      provider: EOAuthSocialLoginProvider.Google,
+      onBindSuccess,
+    });
+    await flushMicrotasks();
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+
+    optionalClaim.resolve({ status: 'claimed', claimId: 'optional-claim' });
+    await expect(optionalResult).resolves.toBe('retryable');
+    expect(mockReleaseCredentialUpgradePrompt).toHaveBeenCalledWith({
+      onekeyUserId: 'onekey-user-a',
+      claimId: 'optional-claim',
+    });
+
+    mockCurrentDialogOptions?.onCancel();
+    await expect(requiredResult).resolves.toBe(false);
   });
 });
 
