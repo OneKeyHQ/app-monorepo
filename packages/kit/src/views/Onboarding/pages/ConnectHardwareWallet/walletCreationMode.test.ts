@@ -3,6 +3,7 @@ import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import {
+  EHardwareWalletCreationMode,
   getWalletCreationDeviceState,
   resolveAutomaticWalletCreationMode,
   shouldCheckExistingStandardWallet,
@@ -84,7 +85,7 @@ describe('walletCreationMode', () => {
         state,
         existsStandardWallet: false,
       }),
-    ).toBe('hidden');
+    ).toBe(EHardwareWalletCreationMode.Hidden);
   });
 
   it('attach PIN 解锁结果优先于缓存中的 passphrase 开关状态', () => {
@@ -98,7 +99,7 @@ describe('walletCreationMode', () => {
         state,
         existsStandardWallet: false,
       }),
-    ).toBe('hidden');
+    ).toBe(EHardwareWalletCreationMode.Hidden);
   });
 
   it('已有标准钱包且启用 passphrase 时直接创建隐藏钱包', () => {
@@ -110,7 +111,7 @@ describe('walletCreationMode', () => {
         state,
         existsStandardWallet: true,
       }),
-    ).toBe('hidden');
+    ).toBe(EHardwareWalletCreationMode.Hidden);
   });
 
   it('首次连接且启用 passphrase 时交给用户明确选择', () => {
@@ -128,6 +129,6 @@ describe('walletCreationMode', () => {
         state: buildState({ passphraseProtection: false }),
         existsStandardWallet: false,
       }),
-    ).toBe('standard');
+    ).toBe(EHardwareWalletCreationMode.Standard);
   });
 });

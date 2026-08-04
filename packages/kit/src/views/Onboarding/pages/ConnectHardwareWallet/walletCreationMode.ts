@@ -4,7 +4,10 @@ import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
-export type IHardwareWalletCreationMode = 'standard' | 'hidden';
+export enum EHardwareWalletCreationMode {
+  Standard = 'standard',
+  Hidden = 'hidden',
+}
 
 type IWalletCreationHardwareService = {
   getDeviceState: (params: {
@@ -58,7 +61,7 @@ export function resolveAutomaticWalletCreationMode({
 }: {
   state: IOneKeyDeviceState;
   existsStandardWallet: boolean;
-}): IHardwareWalletCreationMode | undefined {
+}): EHardwareWalletCreationMode | undefined {
   const { passphraseProtection, unlocked, unlockedAttachPin } = state.status;
 
   if (unlocked !== true) {
@@ -66,15 +69,17 @@ export function resolveAutomaticWalletCreationMode({
   }
 
   if (unlockedAttachPin === true) {
-    return 'hidden';
+    return EHardwareWalletCreationMode.Hidden;
   }
 
   if (existsStandardWallet) {
-    return passphraseProtection === true ? 'hidden' : 'standard';
+    return passphraseProtection === true
+      ? EHardwareWalletCreationMode.Hidden
+      : EHardwareWalletCreationMode.Standard;
   }
 
   if (passphraseProtection !== true) {
-    return 'standard';
+    return EHardwareWalletCreationMode.Standard;
   }
 
   return undefined;

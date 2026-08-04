@@ -53,7 +53,7 @@ import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmware
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import {
-  type IHardwareWalletCreationMode,
+  EHardwareWalletCreationMode,
   getWalletCreationDeviceState,
   resolveAutomaticWalletCreationMode,
   shouldCheckExistingStandardWallet,
@@ -781,7 +781,7 @@ export function useDeviceConnect({
     async (
       deviceState: IOneKeyDeviceState,
       device: SearchDevice,
-    ): Promise<IHardwareWalletCreationMode | null> => {
+    ): Promise<EHardwareWalletCreationMode | null> => {
       const existsStandardWallet = shouldCheckExistingStandardWallet(
         deviceState,
       )
@@ -802,10 +802,10 @@ export function useDeviceConnect({
 
       const walletType = await showSelectAddWalletTypeDialog();
       if (walletType === 'Standard') {
-        return 'standard';
+        return EHardwareWalletCreationMode.Standard;
       }
       if (walletType === 'Hidden') {
-        return 'hidden';
+        return EHardwareWalletCreationMode.Hidden;
       }
 
       return null;
@@ -816,7 +816,7 @@ export function useDeviceConnect({
   const createHwWallet = useCallback(
     async (
       device: SearchDevice,
-      walletMode: IHardwareWalletCreationMode,
+      walletMode: EHardwareWalletCreationMode,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
       deviceState?: IOneKeyDeviceState,
@@ -835,7 +835,7 @@ export function useDeviceConnect({
           defaultIsTemp: true,
           isAttachPinMode: deviceState?.status.unlockedAttachPin ?? undefined,
         };
-        if (walletMode === 'standard') {
+        if (walletMode === EHardwareWalletCreationMode.Standard) {
           await actions.current.createHWWalletWithoutHidden(params);
         } else {
           await actions.current.createHWWalletWithHidden(params);
