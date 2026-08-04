@@ -46,10 +46,6 @@ export function useHyperLiquidKlineSource(
   }>();
 
   useEffect(() => {
-    if (!shouldLoadConfig) {
-      return undefined;
-    }
-
     let isActive = true;
     const applyConfig = (
       basicConfig: Parameters<
@@ -82,7 +78,7 @@ export function useHyperLiquidKlineSource(
       applyConfig(response.data);
     });
 
-    if (isRawInternetReachable !== false) {
+    if (shouldLoadConfig && isRawInternetReachable !== false) {
       void fetchMarketBasicConfigForPlatform().then(
         (response) => applyConfig(response.data),
         () => applyConfig(undefined),
@@ -101,11 +97,11 @@ export function useHyperLiquidKlineSource(
     tokenAddress,
   ]);
 
-  if (immediateResult) {
-    return immediateResult;
-  }
   if (asyncResult?.identityKey === identityKey) {
     return asyncResult.result;
+  }
+  if (immediateResult) {
+    return immediateResult;
   }
   return {
     isHyperLiquidSource: false,

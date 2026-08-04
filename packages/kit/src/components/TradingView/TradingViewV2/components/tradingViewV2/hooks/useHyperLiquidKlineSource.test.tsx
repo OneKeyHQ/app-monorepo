@@ -109,19 +109,11 @@ describe('useHyperLiquidKlineSource', () => {
     });
   });
 
-  it('does not subscribe or fetch when an immediate result is available', () => {
+  it('replaces an immediate stale result when refreshed config arrives', () => {
     const networkId = 'evm--42161';
     const tokenAddress = '0x1234';
     mockGetLastMarketBasicConfigForPlatform.mockReturnValue(
-      buildConfigResponse({
-        HyperLiquidKlineSourceTokens: [
-          {
-            networkId,
-            tokenAddress,
-            symbol: 'PURR',
-          },
-        ],
-      } as IMarketBasicConfigData),
+      buildConfigResponse({} as IMarketBasicConfigData),
     );
 
     const { result } = renderHook(() =>
@@ -129,12 +121,32 @@ describe('useHyperLiquidKlineSource', () => {
     );
 
     expect(result.current).toEqual({
-      isHyperLiquidSource: true,
-      symbol: 'PURR',
+      isHyperLiquidSource: false,
+      symbol: undefined,
       isLoading: false,
     });
     expect(mockUseNetInfo).toHaveBeenCalledWith(false);
     expect(mockFetchMarketBasicConfigForPlatform).not.toHaveBeenCalled();
-    expect(mockSubscribeMarketBasicConfigForPlatform).not.toHaveBeenCalled();
+    expect(mockSubscribeMarketBasicConfigForPlatform).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockConfigListener?.(
+        buildConfigResponse({
+          HyperLiquidKlineSourceTokens: [
+            {
+              networkId,
+              tokenAddress,
+              symbol: 'PURR',
+            },
+          ],
+        } as IMarketBasicConfigData),
+      );
+    });
+
+    expect(result.current).toEqual({
+      isHyperLiquidSource: true,
+      symbol: 'PURR',
+      isLoading: false,
+    });
   });
 });
