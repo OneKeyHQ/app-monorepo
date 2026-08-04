@@ -138,12 +138,12 @@ import {
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
-  tradingModeAtom,
   spotBalancesAtom,
   spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
   spotPairDisplayNameMapAtom,
   spotTokenFavoritesPersistAtom,
+  tradingModeAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/depositTokenListUtils';
