@@ -818,10 +818,14 @@ export class SimpleDb {
   }
 
   get walletConnectPay() {
-    const SimpleDbEntityWalletConnectPay = (
-      require('../entity/SimpleDbEntityWalletConnectPay') as unknown as typeof import('../entity/SimpleDbEntityWalletConnectPay')
-    ).SimpleDbEntityWalletConnectPay;
-    const value = new SimpleDbEntityWalletConnectPay();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletConnectPay',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletConnectPay').then(
+          ({ SimpleDbEntityWalletConnectPay }) =>
+            new SimpleDbEntityWalletConnectPay(),
+        ),
+    });
     Object.defineProperty(this, 'walletConnectPay', { value });
     return value;
   }
