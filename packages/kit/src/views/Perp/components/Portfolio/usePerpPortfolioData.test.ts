@@ -111,7 +111,7 @@ describe('buildPerpPortfolioFillsStats', () => {
       ],
     });
 
-    expect(stats.feesPaid).toBeCloseTo(1 + 12319.983333 * 0.0000006, 10);
+    expect(stats.feesPaid).toBeCloseTo(1 + 12_319.983_333 * 0.000_000_6, 10);
   });
 
   it('filters portfolio activity stats by pnl type', () => {
