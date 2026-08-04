@@ -26,6 +26,7 @@ import {
   type ITradingFormData,
   useActiveTradeInstrumentAtom,
   useBboForOrderPrice,
+  useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
@@ -39,6 +40,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -60,6 +62,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getSpotTokenDisplayName,
   parseDexCoin,
   resolveTradingSizeBN,
@@ -79,6 +82,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { shouldShowOrderConfirm } from '../../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
@@ -87,6 +91,7 @@ import {
   getTradingButtonStyleValues,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -173,6 +178,11 @@ export function LimitOrderForm({
   // Spot has its own asset/balance atoms; perpsActiveAssetAtom is stale-perp
   // when the active instrument is spot.
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const hyperliquidActions = useHyperliquidActions();
+  // Prevents a double press from double-submitting on the direct (skip-confirm)
+  // path; the dialog path is already serialized by the dialog itself.
+  const isDirectPlacingRef = useRef(false);
   const isSpot = activeTradeInstrument.mode === 'spot';
   const [spotActiveAsset] = useSpotActiveAssetAtom();
   const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
@@ -205,7 +215,7 @@ export function LimitOrderForm({
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
   const [slValue, setSlValue] = useState('');
 
-  const isBBOActive = !isSpot && Boolean(bboPriceMode);
+  const isBBOActive = Boolean(bboPriceMode);
 
   const szDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -269,7 +279,7 @@ export function LimitOrderForm({
       calculateOrderPrice(
         'limit',
         price,
-        isSpot ? undefined : (bboPriceMode ?? undefined),
+        bboPriceMode ?? undefined,
         bboRef.current,
         midPriceBNRef.current,
         forSide,
@@ -280,6 +290,8 @@ export function LimitOrderForm({
         undefined,
         undefined,
         szDecimals,
+        undefined,
+        isSpot ? 'spot' : 'perp',
       ),
     [bboPriceMode, isSpot, price, szDecimals],
   );
@@ -713,19 +725,29 @@ export function LimitOrderForm({
     );
   }, []);
 
-  useEffect(() => {
-    if (isSpot && bboPriceMode) {
-      setBboPriceMode(null);
-    }
-  }, [bboPriceMode, isSpot]);
-
-  const handleTpslCheckboxChange = useCallback((checked: boolean) => {
-    setHasTpsl(checked);
-    if (!checked) {
-      setTpValue('');
-      setSlValue('');
-    }
-  }, []);
+  const handleTpslCheckboxChange = useCallback(
+    (checked: boolean) => {
+      setHasTpsl(checked);
+      if (!checked) {
+        setTpValue('');
+        setSlValue('');
+        return;
+      }
+      // Seed the same 10% ROE default the main panel applies, so the chart
+      // ticket does not open its TP/SL legs empty.
+      const seeded = buildDefaultTpSlPercent({
+        tpType,
+        tpValue,
+        slType,
+        slValue,
+      });
+      setTpType(seeded.tpType);
+      setTpValue(seeded.tpValue);
+      setSlType(seeded.slType);
+      setSlValue(seeded.slValue);
+    },
+    [slType, slValue, tpType, tpValue],
+  );
 
   const handlePlace = useCallback(
     async (pressedSide: ITradeSide) => {
@@ -769,10 +791,11 @@ export function LimitOrderForm({
         return;
       }
       const resolvedPriceBN = orderPrice.price;
-      const resolvedPrice = formatPriceToSignificantDigits(
-        resolvedPriceBN,
-        szDecimals,
-      );
+      // Spot prices validate against MAX_DECIMALS_SPOT; the perp significant-
+      // digits rule truncates them, mirroring the main panel (useOrderConfirm).
+      const resolvedPrice = isSpot
+        ? formatSpotPriceToValid(resolvedPriceBN.toFixed(), szDecimals)
+        : formatPriceToSignificantDigits(resolvedPriceBN, szDecimals);
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
@@ -890,23 +913,63 @@ export function LimitOrderForm({
             price: resolvedPrice,
           });
 
-      showOrderConfirmDialog({
-        overrideSide: pressedSide,
-        formData: builtFormData,
-        price: resolvedPrice,
-        expectedCoin: symbol,
-        intl,
-        aggressiveLimitPriceWarning,
-        onConfirmSuccess: onClose,
-      });
+      // Same gate as the main panel: honour "skip order confirmation", except
+      // an aggressive limit price still forces the dialog so its warning is
+      // seen before submitting.
+      if (
+        shouldShowOrderConfirm({
+          skipOrderConfirm: perpsCustomSettings.skipOrderConfirm,
+          aggressiveLimitPriceWarning,
+        })
+      ) {
+        showOrderConfirmDialog({
+          overrideSide: pressedSide,
+          formData: builtFormData,
+          price: resolvedPrice,
+          expectedCoin: symbol,
+          intl,
+          aggressiveLimitPriceWarning,
+          onConfirmSuccess: onClose,
+        });
+        return;
+      }
+
+      // Mirrors the confirm dialog's override submit path, minus the dialog.
+      if (activeTradeInstrument.assetId === undefined) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_info_not_found__msg,
+          }),
+        });
+        return;
+      }
+      if (isDirectPlacingRef.current) {
+        return;
+      }
+      isDirectPlacingRef.current = true;
+      try {
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeTradeInstrument.assetId,
+          formData: builtFormData,
+          price: resolvedPrice,
+        });
+        onClose();
+      } catch {
+        // Errors surface via withToast inside submitOrder; keep the ticket
+        // open so the inputs can be corrected.
+      } finally {
+        isDirectPlacingRef.current = false;
+      }
     },
     [
       activeTradeInstrument?.coin,
+      activeTradeInstrument?.assetId,
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
       ensureEnableTrading,
       hasTpsl,
+      hyperliquidActions,
       intl,
       isSpot,
       getAggressiveLimitPriceWarning,
@@ -914,6 +977,7 @@ export function LimitOrderForm({
       limitTif,
       marketDataFreshness,
       onClose,
+      perpsCustomSettings.skipOrderConfirm,
       reduceOnly,
       resolvePriceForSide,
       sizeInputMode,
@@ -1096,31 +1160,25 @@ export function LimitOrderForm({
             />
           </YStack>
         )}
-        {isSpot ? null : (
-          <XStack
-            borderRadius="$2"
-            bg="$bgStrong"
-            borderWidth="$px"
-            borderColor="$transparent"
-            px="$3"
-            h={40}
-            alignItems="center"
-            cursor="pointer"
-            hoverStyle={{ bg: '$bgStrong' }}
-            pressStyle={{ bg: '$bgStrong' }}
-            onPress={handleBBOToggle}
-          >
-            <DashText
-              size="$bodyMdMedium"
-              dashColor="$text"
-              dashThickness={0.5}
-            >
-              {intl.formatMessage({
-                id: ETranslations.Perps_BBO_button_title,
-              })}
-            </DashText>
-          </XStack>
-        )}
+        <XStack
+          borderRadius="$2"
+          bg="$bgStrong"
+          borderWidth="$px"
+          borderColor="$transparent"
+          px="$3"
+          h={40}
+          alignItems="center"
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgStrong' }}
+          pressStyle={{ bg: '$bgStrong' }}
+          onPress={handleBBOToggle}
+        >
+          <DashText size="$bodyMdMedium" dashColor="$text" dashThickness={0.5}>
+            {intl.formatMessage({
+              id: ETranslations.Perps_BBO_button_title,
+            })}
+          </DashText>
+        </XStack>
       </XStack>
 
       {/* Size + slider */}

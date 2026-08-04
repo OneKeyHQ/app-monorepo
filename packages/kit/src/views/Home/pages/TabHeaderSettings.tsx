@@ -18,7 +18,7 @@ import {
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -72,10 +72,8 @@ function TokenListSettings() {
     />
   ) : null;
 }
-const filterScamHistorySupportedNetworks =
-  getNetworksSupportFilterScamHistory();
 const filterScamHistorySupportedNetworkIds = new Set(
-  filterScamHistorySupportedNetworks.map((n) => n.id),
+  getNetworkIdsSupportFilterScamHistory(),
 );
 
 function TxHistorySettingsContent({

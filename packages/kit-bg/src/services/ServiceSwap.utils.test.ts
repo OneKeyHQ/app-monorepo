@@ -1,7 +1,60 @@
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
+  shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
+
+describe('shouldAttachSwapReferralBuildTxParams', () => {
+  it('enables attribution for Swap and Bridge builds', () => {
+    expect(
+      shouldAttachSwapReferralBuildTxParams(EProtocolOfExchange.SWAP),
+    ).toBe(true);
+  });
+
+  it.each([
+    EProtocolOfExchange.LIMIT,
+    EProtocolOfExchange.PRIVATE_SEND,
+    EProtocolOfExchange.STOCK,
+    EProtocolOfExchange.ALL,
+  ])('excludes %s builds from referral attribution', (protocol) => {
+    expect(shouldAttachSwapReferralBuildTxParams(protocol)).toBe(false);
+  });
+});
+
+describe('buildSwapReferralBuildTxParams', () => {
+  it('maps a bound EVM wallet to the swap build contract', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+        rebateAddress: '0xcurrent',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+      rebateAddress: '0xcurrent',
+    });
+  });
+
+  it('keeps bound attribution when the current EVM address is unavailable', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+    });
+  });
+
+  it('omits referral attribution for an unbound wallet', () => {
+    expect(buildSwapReferralBuildTxParams()).toEqual({});
+  });
+});
 
 describe('buildPerpDepositOrderStatusRequestParams', () => {
   it('maps the quote order ID to the status request', () => {

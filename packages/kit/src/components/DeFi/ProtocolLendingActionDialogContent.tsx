@@ -26,7 +26,11 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { useBorrowApproveAndSubmit } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproveAndSubmit';
+import {
+  buildAaveNativeGatewayReceiveToken,
+  shouldUseAaveNativeGateway,
+} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { useBorrowApproval } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/hooks/useBorrowApproval';
 import type { IManagePositionApproveTarget } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/types';
 import { isSamePositiveAmount } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/utils';
 import { useUniversalBorrowAction } from '@onekeyhq/kit/src/views/Borrow/components/UniversalBorrowAction';
@@ -38,6 +42,7 @@ import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDeFiProtocolLendingActionSource } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -52,6 +57,7 @@ import {
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
+  EApproveType,
   EBorrowActionsEnum,
   EEarnLabels,
   EManagePositionType,
@@ -63,6 +69,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   type IProtocolLendingPrimaryBalanceLabel,
+  createProtocolLendingSubmitGuard,
   resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
   resolveProtocolLendingRemainingDebtState,
@@ -79,6 +86,7 @@ import {
   getActionLabel,
   getErrorMessage,
   isUserRejectedErrorMessage,
+  showProtocolPositionActionErrorToast,
   useProtocolPositionActionSubmit,
 } from './ProtocolPositionActionDialog';
 import { shouldShowProtocolPositionActionInlineSubmitError } from './protocolPositionActionErrorUtils';
@@ -426,12 +434,10 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
-  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
-  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -440,9 +446,6 @@ function LendingActionAlerts({
   const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
     if (!showLiquidationWarning) {
       return true;
-    }
-    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
-      return false;
     }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
@@ -1267,6 +1270,19 @@ function ProtocolLendingActionBorrowContent({
     }
   };
 
+  // Native (reserveAddress === '') withdraws must route through the
+  // WrappedTokenGateway (`unwrap: true`): the backend's default build is
+  // Pool.withdraw, which hands the user WETH while this dialog displays ETH.
+  // The gateway pulls aWETH via transferFrom, which is why native withdraws
+  // carry the aWETH approval requirement consumed by `approveTarget` below.
+  const shouldUnwrapNativeAaveReserve =
+    isWithdraw &&
+    shouldUseAaveNativeGateway({
+      networkId,
+      providerName: source.provider,
+      reserveAddress,
+    });
+
   const actionResult = useUniversalBorrowAction({
     action: actionType,
     accountId,
@@ -1353,23 +1369,19 @@ function ProtocolLendingActionBorrowContent({
   const submitBorrowTx = useCallback(async () => {
     businessSubmitCounterRef.current += 1;
     startSubmitGuard();
-    let submitGuardReleased = false;
-    const releaseSubmitGuardOnce = () => {
-      if (submitGuardReleased) return;
-      submitGuardReleased = true;
-      releaseSubmitGuard();
-    };
-    const releaseSubmitGuardOnceWithError = (error: unknown) => {
-      if (
-        !submitGuardReleased &&
-        !isActionDialogClosedRef.current &&
-        !isUserRejectedErrorMessage({ error, intl }) &&
-        shouldShowProtocolPositionActionInlineSubmitError(error)
-      ) {
+    const wasActionDialogClosedAtSubmitStart = isActionDialogClosedRef.current;
+    const submitGuard = createProtocolLendingSubmitGuard({
+      isActionDialogClosed: () => isActionDialogClosedRef.current,
+      isUserRejectedError: (error) =>
+        isUserRejectedErrorMessage({ error, intl }),
+      isErrorAlreadyReported: errorToastUtils.wasAutoToastShown,
+      shouldShowInlineError: shouldShowProtocolPositionActionInlineSubmitError,
+      onInlineError: (error) => {
         setSubmitError(getErrorMessage(error));
-      }
-      releaseSubmitGuardOnce();
-    };
+      },
+      onPostCloseError: showProtocolPositionActionErrorToast,
+      onRelease: releaseSubmitGuard,
+    });
     try {
       const { provider, marketAddress } = source;
       const tags: string[] = [
@@ -1406,30 +1418,42 @@ function ProtocolLendingActionBorrowContent({
           // to the tx confirm page, so dialogs don't stack (OK-58105).
           onBeforeNavigate: closeActionDialogBeforeConfirm,
           onSuccess: (data) => {
-            releaseSubmitGuardOnce();
+            submitGuard.release();
             void onSuccess?.({ accountId, networkId, data });
           },
           onSettleResult: async () => {
-            releaseSubmitGuardOnce();
+            submitGuard.release();
             await closeActionDialogBeforeConfirm();
           },
-          onFail: releaseSubmitGuardOnceWithError,
-          onCancel: releaseSubmitGuardOnce,
+          onFail: (error) => {
+            submitGuard.releaseWithError(error);
+          },
+          onCancel: () => {
+            submitGuard.release();
+          },
         });
         return;
       }
+      const receiveToken = shouldUnwrapNativeAaveReserve
+        ? buildAaveNativeGatewayReceiveToken({
+            token: effectiveToken,
+            nativeToken: tokenInfo?.nativeToken?.info,
+            networkId,
+          })
+        : effectiveToken;
       await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
         reserveAddress,
         withdrawAll: isFullClose,
+        ...(shouldUnwrapNativeAaveReserve ? { unwrap: true } : {}),
         stakingInfo: effectiveToken
           ? {
               label: EEarnLabels.Withdraw,
               protocol: protocolLabel,
               protocolLogoURI,
-              receive: { token: effectiveToken, amount },
+              receive: { token: receiveToken ?? effectiveToken, amount },
               tags,
             }
           : undefined,
@@ -1440,18 +1464,33 @@ function ProtocolLendingActionBorrowContent({
         // runs right before navigationToTxConfirm ("close first, then open").
         onBeforeNavigate: closeActionDialogBeforeConfirm,
         onSuccess: (data) => {
-          releaseSubmitGuardOnce();
+          submitGuard.release();
           void onSuccess?.({ accountId, networkId, data });
         },
         onSettleResult: async () => {
-          releaseSubmitGuardOnce();
+          submitGuard.release();
           await closeActionDialogBeforeConfirm();
         },
-        onFail: releaseSubmitGuardOnceWithError,
-        onCancel: releaseSubmitGuardOnce,
+        onFail: (error) => {
+          submitGuard.releaseWithError(error);
+        },
+        onCancel: () => {
+          submitGuard.release();
+        },
       });
     } catch (error) {
-      releaseSubmitGuardOnceWithError(error);
+      const shouldPropagate = submitGuard.releaseWithError(error, {
+        // A detached approval has no owning input surface, so its build
+        // rejection belongs to useBorrowApproval's operation-level fallback.
+        // A direct submission that closed later reports here instead because
+        // its footer catch no longer has a mounted inline surface.
+        postCloseErrorMode: wasActionDialogClosedAtSubmitStart
+          ? 'propagate'
+          : 'report',
+      });
+      if (shouldPropagate) {
+        throw error;
+      }
     }
   }, [
     accountId,
@@ -1470,20 +1509,34 @@ function ProtocolLendingActionBorrowContent({
     reserveAddress,
     closeActionDialogBeforeConfirm,
     releaseSubmitGuard,
+    shouldUnwrapNativeAaveReserve,
     source,
     startSubmitGuard,
+    tokenInfo?.nativeToken?.info,
   ]);
 
-  const { needsApproval, approveLoading, onApprove } =
-    useBorrowApproveAndSubmit({
+  // Shared Borrow approval engine (same as the manage page): brings full-close
+  // max-approve semantics and the mainnet-USDT reset-to-zero step (see
+  // useBorrowApproval's requiresMaxApproval).
+  const { shouldApprove, approving, loadingAllowance, ensureReadyToSubmit } =
+    useBorrowApproval({
+      action: actionType,
+      amountValue: amount,
+      repayAll: !isWithdraw && isFullClose,
+      withdrawAll: isWithdraw && isFullClose,
+      // Borrow implements ERC20 approval transactions only; backend Permit
+      // metadata is normalized to Legacy on the manage page as well.
+      approveType: EApproveType.Legacy,
       approveTarget,
       // useTrackTokenAllowance never fetches on mount - seed it with the
       // manage-page allowance, which tracks the selected reserve because
       // useManagePage loads again per reserveAddress.
       currentAllowance: protocolInfo?.approve?.allowance,
-      amountValue: amount,
-      onSubmit: submitBorrowTx,
+      onApprovedSubmit: submitBorrowTx,
       onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
+      // close() destroys a static dialog after its exit animation. Keep only
+      // this in-flight approval alive so it can launch the business transaction.
+      allowApprovalContinuationAfterUnmount: true,
     });
 
   const handleFooterConfirm = async ({
@@ -1501,13 +1554,12 @@ function ProtocolLendingActionBorrowContent({
     setSubmitError(undefined);
     try {
       await Keyboard.dismissWithDelay(80);
-      if (needsApproval) {
-        const businessSubmitCounterBeforeApprove =
-          businessSubmitCounterRef.current;
-        await onApprove();
+      const businessSubmitCounterBeforeEnsure =
+        businessSubmitCounterRef.current;
+      const readyToSubmit = await ensureReadyToSubmit();
+      if (!readyToSubmit) {
         if (
-          businessSubmitCounterRef.current ===
-          businessSubmitCounterBeforeApprove
+          businessSubmitCounterRef.current === businessSubmitCounterBeforeEnsure
         ) {
           releaseSubmitGuard();
         }
@@ -1601,7 +1653,9 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    !healthFactor &&
+    isAmountPositive &&
+    actionResult.transactionConfirmationLoading;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
@@ -1770,7 +1824,6 @@ function ProtocolLendingActionBorrowContent({
       showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
-      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
     />
   ) : null;
   const contentNode = (
@@ -1796,13 +1849,14 @@ function ProtocolLendingActionBorrowContent({
       ) : null}
     </>
   );
-  const onConfirmText = needsApproval
+  const onConfirmText = shouldApprove
     ? intl.formatMessage({ id: ETranslations.global_approve })
     : actionLabel;
   const confirmButtonProps = {
     disabled: confirmDisabled,
     loading:
-      approveLoading ||
+      approving ||
+      loadingAllowance ||
       actionResult.checkAmountLoading ||
       submitting ||
       isBorrowDataLoading,
