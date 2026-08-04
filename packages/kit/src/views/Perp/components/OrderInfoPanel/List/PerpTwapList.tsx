@@ -39,7 +39,13 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getSpotTokenDisplayName,
+  getValidPriceDecimals,
+  getValidSpotPriceDecimals,
+  isSpotInstrument,
+  isUsdcDenominatedFee,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   ITwapHistoryRecord,
@@ -223,7 +229,11 @@ function getTwapBaseInfo({
       ? executedNotional.dividedBy(executedSize)
       : undefined;
   const avgPriceValue = avgPrice?.isFinite()
-    ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
+    ? avgPrice.toFixed(
+        isSpotInstrument(state.coin)
+          ? getValidSpotPriceDecimals(avgPrice.toFixed(), 0)
+          : getValidPriceDecimals(avgPrice.toFixed()),
+      )
     : undefined;
   const assetSymbol = getOrderAssetDisplayName(
     state.coin,
@@ -926,13 +936,21 @@ function TwapFillRow({
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
-    const closePnlBN = new BigNumber(fill.closedPnl).minus(
-      new BigNumber(fill.fee),
-    );
+    // Only a USDC fee can be netted against the USDC closedPnl; a base-token
+    // fee (spot buys) would subtract token units from dollars.
+    const closePnlBN = isUsdcDenominatedFee(fill.feeToken)
+      ? new BigNumber(fill.closedPnl).minus(new BigNumber(fill.fee))
+      : new BigNumber(fill.closedPnl);
     const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
     const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
+    // Spot fills keep spot precision; the perp rule rounds sub-6-decimal
+    // prices (e.g. 0.0000006 → 0.000001).
     const priceFormatted = priceBN.isFinite()
-      ? priceBN.toFixed(getValidPriceDecimals(fill.px))
+      ? priceBN.toFixed(
+          isSpotInstrument(fill.coin)
+            ? getValidSpotPriceDecimals(fill.px, 0)
+            : getValidPriceDecimals(fill.px),
+        )
       : fill.px;
     return {
       priceFormatted,
@@ -941,7 +959,11 @@ function TwapFillRow({
         priceBN.multipliedBy(sizeBN).toFixed(),
         valueFormatter,
       ),
-      feeFormatted: numberFormat(fill.fee, valueFormatter),
+      feeFormatted: isUsdcDenominatedFee(fill.feeToken)
+        ? numberFormat(fill.fee, valueFormatter)
+        : `${numberFormat(fill.fee, balanceFormatter)} ${getSpotTokenDisplayName(
+            fill.feeToken,
+          )}`,
       closePnlFormatted: numberFormat(closePnlBN.abs().toFixed(), {
         formatter: 'value',
         formatterOptions: {
@@ -951,7 +973,7 @@ function TwapFillRow({
       closePnlColor,
       closePnlPlusOrMinus,
     };
-  }, [fill.closedPnl, fill.fee, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
   const feeTooltipContent = useMemo(() => {
     const feeRatePercentage =
       builderFeeRate !== undefined

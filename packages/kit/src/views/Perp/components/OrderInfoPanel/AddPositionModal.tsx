@@ -6,9 +6,11 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  DashText,
   Dialog,
   Divider,
   Icon,
+  NumberSizeableText,
   SizableText,
   Toast,
   XStack,
@@ -18,17 +20,20 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useConnectionStateAtom,
   useHyperliquidActions,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  calculateLiquidationPrice,
   formatPriceToSignificantDigits,
   parseDexCoin,
   resolveTradingSize,
@@ -86,6 +91,8 @@ const AddPositionForm = memo(
     const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const [{ isConnected }] = useConnectionStateAtom();
+    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
@@ -116,6 +123,8 @@ const AddPositionForm = memo(
     const [assetData, setAssetData] = useState<IActiveAssetData>();
     const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
+    const [hasAssetDataError, setHasAssetDataError] = useState(false);
+    const [assetDataRetryNonce, setAssetDataRetryNonce] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
@@ -166,12 +175,14 @@ const AddPositionForm = memo(
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(result.data);
             setTargetAsset(result.targetAsset);
+            setHasAssetDataError(false);
           }
         })
         .catch(() => {
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(undefined);
             setTargetAsset(undefined);
+            setHasAssetDataError(true);
           }
         })
         .finally(() => {
@@ -182,7 +193,19 @@ const AddPositionForm = memo(
       return () => {
         disposed = true;
       };
-    }, [fetchTargetAssetData]);
+    }, [fetchTargetAssetData, assetDataRetryNonce]);
+
+    // Opening this dialog offline leaves the target asset unresolved, and the
+    // fetch above only re-runs on a coin/account change — so without this the
+    // dialog stays permanently unusable even after the socket comes back.
+    const wasConnectedRef = useRef(isConnected);
+    useEffect(() => {
+      const reconnected = isConnected && !wasConnectedRef.current;
+      wasConnectedRef.current = isConnected;
+      if (reconnected && hasAssetDataError) {
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+      }
+    }, [hasAssetDataError, isConnected]);
 
     useEffect(() => {
       if (midPrice && !isLimitPriceInitializedRef.current) {
@@ -248,6 +271,80 @@ const AddPositionForm = memo(
         }),
       [amount, isBuy, maxSize, sizeInputMode, sizePercent, szDecimals],
     );
+
+    // Margin this add consumes, and where the position would be liquidated once
+    // it fills. Both are previews of the position AFTER the add, so the
+    // liquidation price blends the existing position with the new size.
+    const addPositionPreview = useMemo(() => {
+      const sizeBN = new BigNumber(resolvedSize || 0);
+      const priceBN = new BigNumber(effectivePrice || 0);
+      if (
+        !sizeBN.isFinite() ||
+        sizeBN.lte(0) ||
+        !priceBN.isFinite() ||
+        priceBN.lte(0)
+      ) {
+        return { marginRequired: null, liquidationPrice: null };
+      }
+
+      const totalValue = sizeBN.multipliedBy(priceBN);
+      const safeLeverage = leverage > 0 ? leverage : 1;
+      const marginRequired = totalValue.dividedBy(safeLeverage);
+
+      const marginMode = assetData?.leverage?.type;
+      const maxLeverage = targetAsset?.universe?.maxLeverage;
+      if (!marginMode || !maxLeverage) {
+        return { marginRequired, liquidationPrice: null };
+      }
+
+      const side = isBuy ? 'long' : 'short';
+      const liquidationPrice = calculateLiquidationPrice({
+        totalValue,
+        referencePrice: priceBN,
+        // An aggressive limit fills near the mark, so the preview must
+        // converge on it instead of the extreme limit price — mirrors
+        // useLiquidationPrice and the chart limit ticket.
+        clampToCurrentMark: true,
+        markPrice: assetData?.markPx
+          ? new BigNumber(assetData.markPx)
+          : undefined,
+        positionSize: sizeBN,
+        side,
+        leverage: safeLeverage,
+        mode: marginMode,
+        marginTiers: targetAsset?.margin?.marginTiers,
+        maxLeverage,
+        crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || 0),
+        crossMaintenanceMarginUsed: new BigNumber(
+          accountSummary?.crossMaintenanceMarginUsed || 0,
+        ),
+        existingPositionSize: currentPosition
+          ? new BigNumber(currentPosition.szi)
+          : undefined,
+        existingEntryPrice: currentPosition
+          ? new BigNumber(currentPosition.entryPx)
+          : undefined,
+        newOrderSide: side,
+      });
+
+      return {
+        marginRequired,
+        liquidationPrice:
+          liquidationPrice && liquidationPrice.gt(0) ? liquidationPrice : null,
+      };
+    }, [
+      accountSummary?.crossAccountValue,
+      accountSummary?.crossMaintenanceMarginUsed,
+      assetData?.leverage?.type,
+      assetData?.markPx,
+      currentPosition,
+      effectivePrice,
+      isBuy,
+      leverage,
+      resolvedSize,
+      targetAsset?.margin?.marginTiers,
+      targetAsset?.universe?.maxLeverage,
+    ]);
 
     const handleManualSizeChange = useCallback((value: string) => {
       setAmount(value);
@@ -337,7 +434,22 @@ const AddPositionForm = memo(
     );
 
     const handleSubmit = useCallback(async () => {
-      if (isSubmitting || !isTargetAssetReady) {
+      if (isSubmitting) {
+        return;
+      }
+      // The market data this ticket needs failed to load (typically offline).
+      // Say so and retry instead of leaving a dead button, matching how the size
+      // validations below keep the button pressable and explain themselves.
+      if (hasAssetDataError) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
+          }),
+        });
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+        return;
+      }
+      if (!isTargetAssetReady) {
         return;
       }
       if (!isScopeValid) {
@@ -462,6 +574,7 @@ const AddPositionForm = memo(
       coin,
       effectivePrice,
       fetchTargetAssetData,
+      hasAssetDataError,
       hasTpsl,
       intl,
       isBuy,
@@ -641,13 +754,81 @@ const AddPositionForm = memo(
             ) : null}
           </YStack>
         </YStack>
+        <YStack gap="$2">
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.3}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_cost })}
+            </DashText>
+            {addPositionPreview.marginRequired ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.marginRequired.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
+
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
+            </DashText>
+            {addPositionPreview.liquidationPrice ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.liquidationPrice.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
+        </YStack>
         <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
           <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
             <Button
               testID={PerpTestIDs.AddPositionConfirmButton}
               size={PERP_DIALOG_BUTTON_SIZE}
               variant="primary"
-              disabled={isSubmitting || !isTargetAssetReady}
+              // Stays pressable on a load failure so the press can explain
+              // itself and retry, instead of leaving a dead button after
+              // going offline.
+              disabled={
+                isSubmitting || (!isTargetAssetReady && !hasAssetDataError)
+              }
               loading={isSubmitting}
               onPress={handleSubmit}
             >
