@@ -887,6 +887,25 @@ function TokenSelector() {
                   networkId: network?.id ?? '',
                 };
 
+            // `fetchAllNetworkAccounts` makes the service treat this as an
+            // all-network request, and without an indexedAccountId it derives
+            // one FROM the accountId — a path built for the all-networks mock
+            // id (`hd-1--0000/0`). Handing it a single-chain id parses the
+            // coin type as the index (`m/44'/60'/0'/0/0` -> `hd-1--44`), which
+            // is a valid-looking id, so it is accepted silently: normally it
+            // matches nothing and every cross-network press falls to
+            // createAddress, and if that index exists it resolves someone
+            // else's account. Pass the scope's own indexedAccountId so the
+            // service short-circuits before deriving. Others accounts have
+            // none and must keep taking the othersWalletAccountId branch,
+            // which passing this would disable.
+            const crossNetworkIndexedAccountId =
+              isCrossNetworkTokenPress &&
+              indexedAccountId &&
+              !accountUtils.isOthersAccount({ accountId: params.accountId })
+                ? indexedAccountId
+                : undefined;
+
             let deriveType;
 
             if (token.accountId && token.networkId) {
@@ -909,13 +928,14 @@ function TokenSelector() {
             const { accountsInfo } =
               await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
                 ...params,
+                indexedAccountId: crossNetworkIndexedAccountId,
                 includingNonExistingAccount: true,
                 deriveType,
                 excludeTestNetwork: false,
-                // Single-network accountId cannot be expanded to all-network
-                // accounts without this flag (it resolves the indexedAccountId
-                // first); without a match the flow would always fall through to
-                // createAddress and needlessly wake hardware wallets.
+                // A single-network accountId cannot be expanded to all-network
+                // accounts without this flag; without a match the flow would
+                // always fall through to createAddress and needlessly wake
+                // hardware wallets.
                 fetchAllNetworkAccounts: isCrossNetworkTokenPress,
               });
             accounts = accountsInfo;
