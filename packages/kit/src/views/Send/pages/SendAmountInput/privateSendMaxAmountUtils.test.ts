@@ -1,4 +1,39 @@
-import { calcPrivateSendNativeTokenMaxAmount } from './privateSendMaxAmountUtils';
+import {
+  calcPrivateSendNativeTokenMaxAmount,
+  getMaxSendStateAfterModeChange,
+} from './privateSendMaxAmountUtils';
+
+describe('getMaxSendStateAfterModeChange', () => {
+  it('clears Private Max when switching to Public', () => {
+    expect(
+      getMaxSendStateAfterModeChange({
+        isMaxSend: true,
+        isCurrentModePrivate: true,
+        isNextModePrivate: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('preserves Public Max when switching to Private', () => {
+    expect(
+      getMaxSendStateAfterModeChange({
+        isMaxSend: true,
+        isCurrentModePrivate: false,
+        isNextModePrivate: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('preserves the current state when the mode does not change', () => {
+    expect(
+      getMaxSendStateAfterModeChange({
+        isMaxSend: true,
+        isCurrentModePrivate: true,
+        isNextModePrivate: true,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('calcPrivateSendNativeTokenMaxAmount', () => {
   it('deducts the configured gas reserve before quoting a max send', () => {

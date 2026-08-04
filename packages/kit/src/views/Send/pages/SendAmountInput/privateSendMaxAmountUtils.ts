@@ -1,5 +1,20 @@
 import BigNumber from 'bignumber.js';
 
+export function getMaxSendStateAfterModeChange({
+  isMaxSend,
+  isCurrentModePrivate,
+  isNextModePrivate,
+}: {
+  isMaxSend: boolean;
+  isCurrentModePrivate: boolean;
+  isNextModePrivate: boolean;
+}) {
+  if (isCurrentModePrivate && !isNextModePrivate) {
+    return false;
+  }
+  return isMaxSend;
+}
+
 export function calcPrivateSendNativeTokenMaxAmount({
   balance,
   reserveGas,

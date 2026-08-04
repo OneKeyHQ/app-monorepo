@@ -149,7 +149,10 @@ import {
   type ISiblingDeriveBalance,
   useSiblingDeriveBalances,
 } from './hooks/useSiblingDeriveBalances';
-import { calcPrivateSendNativeTokenMaxAmount } from './privateSendMaxAmountUtils';
+import {
+  calcPrivateSendNativeTokenMaxAmount,
+  getMaxSendStateAfterModeChange,
+} from './privateSendMaxAmountUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1140,6 +1143,13 @@ function SendAmountInputContainer() {
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
+      setIsMaxSend((currentIsMaxSend) =>
+        getMaxSendStateAfterModeChange({
+          isMaxSend: currentIsMaxSend,
+          isCurrentModePrivate: true,
+          isNextModePrivate: false,
+        }),
+      );
       setSendMode(ESendMode.PUBLIC);
     }
   }, [sendMode, showPrivateSendModeSwitch]);
@@ -3332,6 +3342,13 @@ function SendAmountInputContainer() {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
       if (nextMode !== sendMode) {
+        setIsMaxSend((currentIsMaxSend) =>
+          getMaxSendStateAfterModeChange({
+            isMaxSend: currentIsMaxSend,
+            isCurrentModePrivate: sendMode === ESendMode.PRIVATE,
+            isNextModePrivate: nextMode === ESendMode.PRIVATE,
+          }),
+        );
         defaultLogger.transaction.send.sendModeSwitch({
           fromMode: sendMode,
           toMode: nextMode,
