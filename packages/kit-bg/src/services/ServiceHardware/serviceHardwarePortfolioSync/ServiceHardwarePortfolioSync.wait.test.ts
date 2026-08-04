@@ -1,6 +1,10 @@
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+/* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { currencyPersistAtom } from '../../../states/jotai/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import localDb from '../../../dbs/local/localDb';
 
 import ServiceHardwarePortfolioSync, {
   decodePortfolioPackageBase64,
@@ -34,8 +38,19 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: {
+    isHwHiddenWallet: jest.fn(),
     isHwWallet: jest.fn(),
     shortenAddress: jest.fn(({ address }: { address: string }) => address),
+  },
+}));
+
+jest.mock('../../../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: {
+    getAccountSafe: jest.fn(),
+    getIndexedAccountSafe: jest.fn(),
+    getWalletDeviceSafe: jest.fn(),
+    getWalletSafe: jest.fn(),
   },
 }));
 
@@ -245,12 +260,104 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
 });
 
 describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
+  beforeEach(() => {
+    jest.mocked(localDb.getWalletSafe).mockResolvedValue({
+      id: 'hw-1',
+      name: 'OneKey Wallet',
+      type: 'hw',
+    } as never);
+    jest.mocked(localDb.getWalletDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      connectProtocol: 'V2',
+      deviceType: EDeviceType.Pro2,
+      vendor: EHardwareVendor.onekey,
+    } as never);
+    jest.mocked(localDb.getIndexedAccountSafe).mockResolvedValue({
+      id: 'indexed-account-1',
+      index: 0,
+      name: 'Account #1',
+      walletId: 'hw-1',
+    } as never);
+    jest.mocked(localDb.getAccountSafe).mockResolvedValue({
+      id: 'account-1',
+      address: '0x1234567890abcdef',
+      indexedAccountId: 'indexed-account-1',
+      name: 'Ethereum',
+    } as never);
+    (accountUtils.isHwWallet as jest.Mock).mockImplementation(
+      ({ walletId }: { walletId?: string }) => walletId?.startsWith('hw-'),
+    );
+    (accountUtils.isHwHiddenWallet as jest.Mock).mockImplementation(
+      ({ wallet }: { wallet?: { passphraseState?: string } }) =>
+        Boolean(wallet?.passphraseState),
+    );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('drops an older RPC snapshot when its authorization finishes last', async () => {
+    let resolveOlderWallet:
+      | ((wallet: { id: string; name: string; type: 'hw' }) => void)
+      | undefined;
+    const olderWallet = new Promise<{
+      id: string;
+      name: string;
+      type: 'hw';
+    }>((resolve) => {
+      resolveOlderWallet = resolve;
+    });
+    jest
+      .mocked(localDb.getWalletSafe)
+      .mockImplementationOnce(() => olderWallet as never)
+      .mockResolvedValueOnce({
+        id: 'hw-1',
+        name: 'OneKey Wallet',
+        type: 'hw',
+      } as never);
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const handleSettled = jest.fn();
+    (
+      service as unknown as {
+        handleAllNetworksTokenListSettled: typeof handleSettled;
+      }
+    ).handleAllNetworksTokenListSettled = handleSettled;
+
+    const olderTask = service.notifyAllNetworksTokenListSettled({
+      ...buildHardwarePayload(),
+      totalFiat: '1',
+    });
+    await Promise.resolve();
+    const newerTask = service.notifyAllNetworksTokenListSettled({
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    });
+    await newerTask;
+    resolveOlderWallet?.({
+      id: 'hw-1',
+      name: 'OneKey Wallet',
+      type: 'hw',
+    });
+    await olderTask;
+
+    expect(handleSettled).toHaveBeenCalledTimes(1);
+    expect(handleSettled).toHaveBeenCalledWith(
+      expect.objectContaining({ totalFiat: '2' }),
+    );
+  });
+
   function buildHardwarePayload() {
     return {
       accountAddress: '0x1234567890abcdef',
-      accountId: 'evm--1',
+      accountId: 'account-1',
       aggregateTokenMap: {},
       deviceConnectId: 'PRO2_CONNECT_ID',
+      deviceDbId: 'db-device-1',
+      indexedAccountId: 'indexed-account-1',
       totalFiat: '0.00007276',
       totalTokenCount: 1,
       tokenMap: {
@@ -278,7 +385,17 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     } as unknown as IPortfolioSyncSettledPayload;
   }
 
-  function prepareHardwareSync({ busyResults }: { busyResults: boolean[] }) {
+  function prepareHardwareSync({
+    busyResults,
+    targetState,
+  }: {
+    busyResults: boolean[];
+    targetState?: {
+      lastContentHash?: string;
+      lastTransferAt?: number;
+      lastWalletId?: string;
+    };
+  }) {
     const uploadPortfolioPackage = jest
       .fn()
       .mockResolvedValue({ portfolioUpdated: true });
@@ -294,7 +411,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         serviceHardwareUI: { isHardwareChannelBusy },
         simpleDb: {
           hardwarePortfolioSync: {
-            getTargetState: jest.fn().mockResolvedValue(undefined),
+            getTargetState: jest.fn().mockResolvedValue(targetState),
             updateTargetState,
           },
         },
@@ -337,41 +454,122 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     };
   }
 
-  test('short-circuits an empty portfolio before build or upload', async () => {
-    const service = new ServiceHardwarePortfolioSync({
-      backgroundApi: {} as IBackgroundApi,
-    });
-    const payload: IPortfolioSyncSettledPayload = {
-      accountAddress: '0x1234567890abcdef',
-      accountId: 'evm--1',
-      aggregateTokenMap: {},
-      deviceConnectId: 'PRO2_CONNECT_ID',
+  test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {
+    const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
       totalFiat: '0',
       totalTokenCount: 0,
       tokenMap: {},
       tokens: [],
-      walletId: 'hw-1',
-      walletType: 'hw',
+    });
+
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastWalletId: 'hw-1' }),
+    );
+  });
+
+  test('overwrites a legacy target whose matching hash has no wallet binding', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    const emptyPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '0',
+      totalTokenCount: 0,
+      tokenMap: {},
+      tokens: [],
+    };
+    await first.serviceInternals.syncSettledPortfolio(emptyPayload);
+    const firstState = first.updateTargetState.mock.calls[0][1] as {
+      lastContentHash: string;
     };
 
-    await (
-      service as unknown as {
-        syncSettledPortfolio: (
-          eventPayload: IPortfolioSyncSettledPayload,
-        ) => Promise<void>;
-      }
-    ).syncSettledPortfolio(payload);
+    const migrated = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: { lastContentHash: firstState.lastContentHash },
+    });
+    await migrated.serviceInternals.syncSettledPortfolio(emptyPayload);
 
-    expect(currencyPersistAtom.get).not.toHaveBeenCalled();
-    expect(accountUtils.isHwWallet).not.toHaveBeenCalled();
+    expect(migrated.uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects a hidden wallet before portfolio data reaches the server or device', async () => {
+    jest.mocked(localDb.getWalletSafe).mockResolvedValue({
+      id: 'hw-1',
+      name: 'Hidden Wallet',
+      passphraseState: 'hidden-state',
+      type: 'hw',
+    } as never);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false] });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
     await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
-      expect.objectContaining({
-        deviceConnectId: 'PRO2_CONNECT_ID',
-        status: 'empty',
-        totalTokenCount: 0,
-        walletId: 'hw-1',
-      }),
+      expect.objectContaining({ status: 'disabled', walletId: 'hw-1' }),
     );
+  });
+
+  test('rejects frontend device identifiers that do not match the wallet device', async () => {
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false],
+    });
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      deviceDbId: 'forged-device',
+    });
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('rejects an account that is not owned by the wallet indexed account', async () => {
+    jest.mocked(localDb.getAccountSafe).mockResolvedValue({
+      id: 'account-1',
+      indexedAccountId: 'other-indexed-account',
+    } as never);
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false],
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['non-Pro2', { deviceType: EDeviceType.Pro }],
+    ['Protocol V1', { connectProtocol: 'V1' }],
+    ['third-party', { vendor: EHardwareVendor.ledger }],
+    ['unknown-vendor', { vendor: undefined }],
+  ])('rejects a %s wallet device', async (_label, deviceOverride) => {
+    jest.mocked(localDb.getWalletDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      connectProtocol: 'V2',
+      deviceType: EDeviceType.Pro2,
+      vendor: EHardwareVendor.onekey,
+      ...deviceOverride,
+    } as never);
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false],
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
   test('does not build or submit portfolio data for a software wallet', async () => {
@@ -463,36 +661,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
 
-    const payload = {
-      accountAddress: '0x1234567890abcdef',
-      accountId: 'evm--1',
-      aggregateTokenMap: {},
-      deviceConnectId: 'PRO2_CONNECT_ID',
-      totalFiat: '0.00007276',
-      totalTokenCount: 1,
-      tokenMap: {
-        eth: {
-          balance: '0.00007276',
-          balanceParsed: '0.00007276',
-          currency: 'usd',
-          fiatValue: '0.1',
-          price: 1374.38,
-        },
-      },
-      tokens: [
-        {
-          $key: 'eth',
-          address: '',
-          decimals: 18,
-          isNative: true,
-          name: 'Ethereum',
-          networkId: 'evm--1',
-          symbol: 'ETH',
-        },
-      ],
-      walletId: 'hw-1',
-      walletType: 'hw',
-    } as unknown as IPortfolioSyncSettledPayload;
+    const payload = buildHardwarePayload();
 
     await serviceInternals.syncSettledPortfolio(payload);
 

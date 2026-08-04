@@ -309,6 +309,7 @@ describe('SignerHardware', () => {
       expect(mocks.sdk.deviceUnlock).toHaveBeenCalledWith(DEVICE.connectId, {});
       expect(mocks.resolvePassphraseSessionByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
+        DEVICE.deviceId,
         'on_host',
       );
 
@@ -359,6 +360,7 @@ describe('SignerHardware', () => {
 
       expect(mocks.resolvePassphraseSessionByMode).toHaveBeenCalledWith(
         DEVICE.connectId,
+        DEVICE.deviceId,
         'on_host',
       );
       // Both keys must be written so the next process can preload a valid

@@ -1,4 +1,5 @@
-import { debounce } from 'lodash';
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { debounce, uniq } from 'lodash';
 
 import {
   backgroundClass,
@@ -6,16 +7,14 @@ import {
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import localDb from '../../../dbs/local/localDb';
 import {
   currencyPersistAtom,
   settingsPersistAtom,
@@ -131,6 +130,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   private syncGenerationByTargetKey = new Map<string, number>();
 
+  private notificationSequence = 0;
+
+  private latestNotificationSequenceByWalletId = new Map<string, number>();
+
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
 
   private lastResult: IPortfolioSyncLastResult | undefined;
@@ -169,11 +172,131 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       return;
     }
     this.initialized = true;
-    appEventBus.on(
-      EAppEventBusNames.AllNetworksTokenListSettled,
-      this.handleAllNetworksTokenListSettled,
-    );
-    debugPortfolioSyncLog('listener-init');
+    debugPortfolioSyncLog('service-init');
+  }
+
+  private async resolveAuthorizedPortfolioPayload(
+    eventPayload: IPortfolioSyncSettledPayload,
+  ): Promise<IPortfolioSyncSettledPayload | undefined> {
+    const walletId = eventPayload.walletId;
+    if (!walletId) {
+      return undefined;
+    }
+    const wallet = await localDb.getWalletSafe({ walletId });
+    if (
+      !wallet ||
+      wallet.id !== walletId ||
+      !accountUtils.isHwWallet({ walletId: wallet.id }) ||
+      accountUtils.isHwHiddenWallet({ wallet })
+    ) {
+      return undefined;
+    }
+
+    const device = await localDb.getWalletDeviceSafe({
+      dbWallet: wallet,
+      walletId: wallet.id,
+    });
+    const vendor = device?.vendor ?? device?.settings?.vendor;
+    const isProtocolV2 =
+      device?.connectProtocol === 'V2' ||
+      device?.deviceStateInfo?.protocol === 'V2';
+    if (
+      !device ||
+      device.deviceType !== EDeviceType.Pro2 ||
+      !isProtocolV2 ||
+      vendor !== EHardwareVendor.onekey
+    ) {
+      return undefined;
+    }
+
+    const authorizedConnectIds = uniq(
+      [device.connectId, device.usbConnectId, device.bleConnectId].filter(
+        Boolean,
+      ),
+    ) as string[];
+    if (
+      !device.connectId ||
+      (eventPayload.deviceDbId && eventPayload.deviceDbId !== device.id) ||
+      (eventPayload.deviceConnectId &&
+        !authorizedConnectIds.includes(eventPayload.deviceConnectId))
+    ) {
+      return undefined;
+    }
+
+    const accountId = eventPayload.accountId;
+    if (!accountId) {
+      return undefined;
+    }
+    const primaryAccount = await localDb.getAccountSafe({ accountId });
+    const indexedAccountId = primaryAccount?.indexedAccountId;
+    if (
+      !primaryAccount ||
+      !indexedAccountId ||
+      (eventPayload.indexedAccountId &&
+        eventPayload.indexedAccountId !== indexedAccountId)
+    ) {
+      return undefined;
+    }
+    const indexedAccount = await localDb.getIndexedAccountSafe({
+      id: indexedAccountId,
+    });
+    if (!indexedAccount || indexedAccount.walletId !== wallet.id) {
+      return undefined;
+    }
+
+    const ownerAccount = eventPayload.ownerAccountId
+      ? await localDb.getAccountSafe({
+          accountId: eventPayload.ownerAccountId,
+        })
+      : undefined;
+    if (
+      eventPayload.ownerAccountId &&
+      (!ownerAccount || ownerAccount.indexedAccountId !== indexedAccount.id)
+    ) {
+      return undefined;
+    }
+
+    return {
+      ...eventPayload,
+      accountAddress: primaryAccount.address,
+      accountName: primaryAccount.name,
+      deviceConnectId: device.connectId,
+      deviceDbId: device.id,
+      indexedAccountId: indexedAccount.id,
+      indexedAccountIndex: indexedAccount.index,
+      indexedAccountName: indexedAccount.name,
+      walletId: wallet.id,
+      walletType: wallet.type,
+    };
+  }
+
+  private setRejectedPayloadResult(eventPayload: IPortfolioSyncSettledPayload) {
+    this.setLastResult({
+      status: 'disabled',
+      updatedAt: Date.now(),
+      walletId: eventPayload.walletId,
+    });
+  }
+
+  @backgroundMethod()
+  async notifyAllNetworksTokenListSettled(
+    eventPayload: IPortfolioSyncSettledPayload,
+  ) {
+    const walletId = eventPayload.walletId ?? '';
+    this.notificationSequence += 1;
+    const sequence = this.notificationSequence;
+    this.latestNotificationSequenceByWalletId.set(walletId, sequence);
+    const authorizedPayload =
+      await this.resolveAuthorizedPortfolioPayload(eventPayload);
+    if (this.latestNotificationSequenceByWalletId.get(walletId) !== sequence) {
+      return;
+    }
+    this.latestNotificationSequenceByWalletId.delete(walletId);
+    if (!authorizedPayload) {
+      this.setRejectedPayloadResult(eventPayload);
+      return;
+    }
+    this.handleAllNetworksTokenListSettled(authorizedPayload);
   }
 
   private handleAllNetworksTokenListSettled = (
@@ -284,11 +407,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     generation,
     targetKey,
     transferAt,
+    walletId,
   }: {
     artifacts: IPortfolioSyncArtifacts;
     generation: number;
     targetKey: string;
     transferAt?: number;
+    walletId: string;
   }) {
     // Persist only the latest generation after a successful device upload.
     // Compare-and-delete keeps stale cleanup from clearing a newer reservation.
@@ -303,6 +428,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     await this.portfolioSyncDb.updateTargetState(targetKey, {
       lastContentHash: artifacts.contentHash,
       ...(transferAt !== undefined ? { lastTransferAt: transferAt } : {}),
+      lastWalletId: walletId,
     });
     if (this.isCurrentSyncGeneration(targetKey, generation)) {
       this.lastArtifacts = artifacts;
@@ -634,11 +760,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         bytesLength: serverPackageBytes.byteLength,
         contentHash: artifacts.contentHash,
       });
+      if (!eventPayload.walletId) {
+        throw new OneKeyLocalError(
+          'Authorized portfolio payload is missing walletId',
+        );
+      }
       await this.commitProcessedArtifacts({
         artifacts,
         generation,
         targetKey,
         transferAt: Date.now(),
+        walletId: eventPayload.walletId,
       });
       return upload;
     })();
@@ -653,10 +785,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }
 
   private async syncSettledPortfolio(
-    eventPayload: IPortfolioSyncSettledPayload,
+    incomingPayload: IPortfolioSyncSettledPayload,
     requestedGeneration?: number,
   ) {
     const updatedAt = Date.now();
+    const eventPayload =
+      await this.resolveAuthorizedPortfolioPayload(incomingPayload);
+    if (!eventPayload) {
+      this.setRejectedPayloadResult(incomingPayload);
+      return;
+    }
     const targetKey = this.getSyncTargetKey(eventPayload);
     const generation =
       requestedGeneration ?? this.advanceSyncGeneration(targetKey);
@@ -678,27 +816,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
-      // An empty portfolio (no positive-balance tokens) carries nothing to
-      // display on the hardware device. Skip the build -> server pack ->
-      // upload pipeline entirely: otherwise we waste a network round-trip, a
-      // signed-package download, and a device write, and a transient empty
-      // settle (e.g. balances not yet loaded during a refresh) would overwrite
-      // a previously-synced non-empty portfolio because its contentHash
-      // differs from the last non-empty hash.
-      if (eventPayload.tokens.length === 0) {
-        debugPortfolioSyncLog('skip-empty', {
-          totalTokenCount: eventPayload.tokens.length,
-        });
-        this.setLastResult({
-          deviceConnectId: eventPayload.deviceConnectId,
-          status: 'empty',
-          totalTokenCount: eventPayload.tokens.length,
-          updatedAt,
-          walletId: eventPayload.walletId,
-        });
-        return;
-      }
-
       const isHardwareWallet = accountUtils.isHwWallet({
         walletId: eventPayload.walletId,
       });
@@ -714,6 +831,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
+      // Empty standard-wallet snapshots intentionally continue through the
+      // signed package flow so the device atomically overwrites stale data.
       const cooldownRemainingMs = await this.getHardwareCooldownRemainingMs({
         targetKey,
         now: updatedAt,
@@ -775,7 +894,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
       const isDuplicate =
-        artifacts.contentHash === persistedTargetState?.lastContentHash ||
+        (eventPayload.walletId === persistedTargetState?.lastWalletId &&
+          artifacts.contentHash === persistedTargetState?.lastContentHash) ||
         artifacts.contentHash ===
           this.inFlightReservationByTargetKey.get(targetKey)?.contentHash;
       if (isDuplicate) {

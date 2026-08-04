@@ -476,6 +476,24 @@ class ServiceHardwareUI extends ServiceBase {
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
+    const device = params.deviceParams?.dbDevice;
+    const isThirdPartyVendor = getVendorProfile(
+      device?.vendor ?? EHardwareVendor.onekey,
+    ).isThirdParty;
+    if (isThirdPartyVendor) {
+      return this.withHardwareProcessingInternal(fn, params);
+    }
+    // HD Core currently resolves PIN/passphrase responses by response type.
+    // Serialize whole OneKey operations until the SDK exposes interaction IDs.
+    return this.hardwareProcessingManager.runExclusiveOneKeyOperation(() =>
+      this.withHardwareProcessingInternal(fn, params),
+    );
+  }
+
+  private async withHardwareProcessingInternal<T>(
+    fn: () => Promise<T>,
+    params: IWithHardwareProcessingOptions,
+  ): Promise<T> {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
     console.log(

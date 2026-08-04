@@ -250,6 +250,7 @@ export async function executeHardwareLoginCommand({
     const passphrase = await promptPassphraseViaPinentry();
     output.info('Resolving passphrase state on device...');
     const session = await resolvePassphraseSession(connectId, {
+      expectedDeviceId: deviceId,
       passphrase,
     });
     passphraseState = session.passphraseState;
@@ -258,6 +259,7 @@ export async function executeHardwareLoginCommand({
   } else if (passphraseMode === PASSPHRASE_MODE_ON_DEVICE) {
     output.info('Please enter passphrase on device screen...');
     const session = await resolvePassphraseSession(connectId, {
+      expectedDeviceId: deviceId,
       passphraseOnDevice: true,
     });
     passphraseState = session.passphraseState;

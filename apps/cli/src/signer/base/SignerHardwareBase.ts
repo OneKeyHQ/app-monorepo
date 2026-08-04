@@ -170,6 +170,7 @@ export abstract class SignerHardwareBase implements ISigner {
 
     const fresh = await this.deps.resolvePassphraseSessionByMode(
       this.device.connectId,
+      this.device.deviceId,
       this.passphraseMode,
     );
     if (fresh.passphraseState) {

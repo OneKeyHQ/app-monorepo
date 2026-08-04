@@ -190,6 +190,7 @@ describe('openHiddenWalletSession', () => {
           searchDevices,
         } as unknown as CoreApi,
         connectId: 'connect-1',
+        expectedDeviceId: 'device-1',
       }),
     ).resolves.toEqual({
       deviceId: 'device-1',
@@ -230,6 +231,7 @@ describe('openHiddenWalletSession', () => {
       openHiddenWalletSession({
         sdk: sdk as unknown as CoreApi,
         connectId: 'connect-1',
+        expectedDeviceId: 'device-1',
       }),
     ).resolves.toEqual({
       deviceId: 'device-1',
@@ -238,5 +240,65 @@ describe('openHiddenWalletSession', () => {
       sessionId: 'session-1',
     });
     expect(sdk.searchDevices).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a hidden-wallet session returned by another device', async () => {
+    const sdk = {
+      openWalletSession: jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          protocol: 'V2',
+          walletType: 'hidden',
+          deviceId: 'unexpected-device',
+          passphraseState: 'state-1',
+        },
+      }),
+      searchDevices: jest.fn(),
+    };
+
+    await expect(
+      openHiddenWalletSession({
+        sdk: sdk as unknown as CoreApi,
+        connectId: 'connect-1',
+        expectedDeviceId: 'device-1',
+      }),
+    ).rejects.toMatchObject({ code: 'AUTH_SESSION_INVALID' });
+  });
+
+  it('resolves a V1 compatibility session only by the expected stable device id', async () => {
+    const sdk = {
+      openWalletSession: jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          protocol: 'V1',
+          walletType: 'hidden',
+          deviceId: 'device-1',
+          passphraseState: 'state-1',
+        },
+      }),
+      searchDevices: jest.fn().mockResolvedValue({
+        success: true,
+        payload: [
+          {
+            connectId: 'connect-1',
+            deviceId: 'other-device',
+            features: { sessionId: 'wrong-session' },
+          },
+          {
+            connectId: 'reconnected-alias',
+            deviceId: 'device-1',
+            features: { sessionId: 'expected-session' },
+          },
+        ],
+      }),
+    };
+
+    await expect(
+      openHiddenWalletSession({
+        sdk: sdk as unknown as CoreApi,
+        connectId: 'connect-1',
+        expectedDeviceId: 'device-1',
+      }),
+    ).resolves.toMatchObject({ sessionId: 'expected-session' });
   });
 });
