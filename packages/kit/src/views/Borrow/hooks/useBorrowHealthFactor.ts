@@ -1,5 +1,8 @@
+import { useEffect, useMemo, useRef } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IBorrowHealthFactor } from '@onekeyhq/shared/types/staking';
 
 interface IUseBorrowHealthFactorParams {
   networkId?: string;
@@ -11,6 +14,12 @@ interface IUseBorrowHealthFactorParams {
 
 const POLLING_INTERVAL = 30 * 1000; // 30 seconds
 
+type IScopedHealthFactorResult = {
+  scopeKey: string;
+  data: IBorrowHealthFactor | null;
+  state: 'resolved' | 'error';
+};
+
 export const useBorrowHealthFactor = ({
   networkId,
   provider,
@@ -18,41 +27,73 @@ export const useBorrowHealthFactor = ({
   accountId,
   enabled = true,
 }: IUseBorrowHealthFactorParams) => {
+  const scopeKey = JSON.stringify([
+    networkId,
+    provider?.toLowerCase(),
+    marketAddress,
+    accountId,
+    enabled,
+  ]);
+  const requestParams = useMemo(
+    () =>
+      networkId && provider && marketAddress && accountId && enabled
+        ? { networkId, provider, marketAddress, accountId }
+        : null,
+    [accountId, enabled, marketAddress, networkId, provider],
+  );
+  const lastSuccessfulResultRef = useRef<{
+    scopeKey: string;
+    data: IBorrowHealthFactor;
+  } | null>(null);
   const {
-    result: healthFactorData,
+    result: scopedResult,
     run,
     isLoading,
   } = usePromiseResult(
-    async () => {
-      if (!networkId || !provider || !marketAddress || !accountId || !enabled) {
-        return null;
+    async (): Promise<IScopedHealthFactorResult> => {
+      if (!requestParams) {
+        return { scopeKey, data: null, state: 'resolved' };
       }
-
-      const result =
-        await backgroundApiProxy.serviceStaking.getBorrowHealthFactor({
-          networkId,
-          provider,
-          marketAddress,
-          accountId,
-        });
-      return result;
+      try {
+        return {
+          scopeKey,
+          data: await backgroundApiProxy.serviceStaking.getBorrowHealthFactor(
+            requestParams,
+          ),
+          state: 'resolved',
+        };
+      } catch {
+        return {
+          scopeKey,
+          data:
+            lastSuccessfulResultRef.current?.scopeKey === scopeKey
+              ? lastSuccessfulResultRef.current.data
+              : null,
+          state: 'error',
+        };
+      }
     },
-    [networkId, provider, marketAddress, accountId, enabled],
+    [requestParams, scopeKey],
     {
       initResult: null,
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL,
       revalidateOnFocus: true,
-      // Account/network/market changes must never render the previous scope's
-      // risk metric while the next request is in flight.
-      undefinedResultIfReRun: true,
       // Fix: Ensure API responses update state even when page loses focus during request
       alwaysSetState: true,
     },
   );
+  const hasSettledCurrentScope = scopedResult?.scopeKey === scopeKey;
+  const healthFactorData = hasSettledCurrentScope ? scopedResult.data : null;
+  useEffect(() => {
+    if (healthFactorData && scopedResult?.state === 'resolved') {
+      lastSuccessfulResultRef.current = { scopeKey, data: healthFactorData };
+    }
+  }, [healthFactorData, scopeKey, scopedResult?.state]);
 
   return {
     healthFactorData,
+    isInitialLoading: Boolean(requestParams) && !hasSettledCurrentScope,
     isLoading,
     refresh: run,
   };

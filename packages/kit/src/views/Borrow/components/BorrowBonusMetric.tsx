@@ -32,6 +32,7 @@ export function BorrowBonusMetric({
         }
       }
       text={platformBonus?.totalReceived.description ?? placeholderAmountText}
+      isLoading={Boolean(reserves.loading && !reserves.data?.overview)}
       widthMode={widthMode}
       tooltip={
         <BorrowBonusTooltip

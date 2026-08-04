@@ -118,6 +118,7 @@ export const Overview = ({
     text: '-',
     color: '$textSubdued',
   };
+  const isNetWorthLoading = reserves.loading && !reserves.data?.overview;
   const isNetApyLoading = reserves.loading && !reserves.data?.overview;
   const healthFactorDetail =
     healthFactorData?.healthFactor?.button?.data.healthFactorDetail;
@@ -216,14 +217,20 @@ export const Overview = ({
               {labels.netWorth}
             </SizableText>
             <XStack ai="center" jc="space-between" gap="$3">
-              <EarnText
-                text={netWorthText}
-                size="$heading5xl"
-                fontWeight={400}
-                color="$text"
-                numberOfLines={1}
-                flexShrink={1}
-              />
+              <XStack minHeight={48}>
+                {isNetWorthLoading ? (
+                  <Skeleton w={160} h={48} borderRadius="$2" />
+                ) : (
+                  <EarnText
+                    text={netWorthText}
+                    size="$heading5xl"
+                    fontWeight={400}
+                    color="$text"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  />
+                )}
+              </XStack>
               {tools}
             </XStack>
             <XStack
@@ -277,6 +284,7 @@ export const Overview = ({
               <OverviewMetric
                 title={{ text: labels.netWorth }}
                 text={netWorthText}
+                isLoading={isNetWorthLoading}
                 widthMode="hug"
               />
               <BorrowHealthFactorSummary

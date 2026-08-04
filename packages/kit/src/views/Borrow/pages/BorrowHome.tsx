@@ -129,8 +129,11 @@ const BorrowHomeContent = memo(
       borrowDataStatus,
       refreshAllBorrowData,
     } = useBorrowContext();
-    const isReservesPending = isBorrowReservesPending(borrowDataStatus);
-    const isReservesError = borrowDataStatus === EBorrowDataStatus.Error;
+    const isReservesPending =
+      isBorrowReservesPending(borrowDataStatus) ||
+      (reserves.loading && !reserves.data);
+    const isReservesError =
+      !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
     const { activeAccount } = useActiveAccount({ num: 0 });
     const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
     const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
@@ -172,19 +175,16 @@ const BorrowHomeContent = memo(
         Boolean(walletId || accountId || indexedAccountId),
       [activeAccount.ready, walletId, accountId, indexedAccountId],
     );
-    const isEModeProviderUnresolved =
-      isReservesPending && !inferredEModeProvider;
     const isAaveEModeProvider =
       inferredEModeProvider?.toLowerCase() === EBorrowProviderEnum.Aave;
     const isEModeInitialLoading =
       !eModeStatus &&
       !isEModeStatusError &&
       isActive &&
-      (isEModeProviderUnresolved || isAaveEModeProvider) &&
+      isAaveEModeProvider &&
       (!activeAccount.ready ||
         (hasConnectedWallet &&
-          (isReservesPending ||
-            earnAccount.loading ||
+          (earnAccount.loading ||
             Boolean(earnAccountId && isEModeStatusInitialLoading))));
     const isEModeError =
       !eModeStatus && isActive && isAaveEModeProvider && isEModeStatusError;
@@ -205,7 +205,7 @@ const BorrowHomeContent = memo(
         earnAccount.data?.accountAddress,
       ],
     );
-    const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
+    const hasAlerts = Boolean(alerts.length) || showNoAddressWarning;
 
     const refreshEarnAccount = earnAccount.refresh;
     const refreshReserves = reserves.refresh;

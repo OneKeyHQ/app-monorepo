@@ -19,7 +19,10 @@ import {
   deriveBorrowDataStatus,
   isBorrowReservesPending,
 } from '../borrowDataStatus';
-import { getBorrowEarnAccountId } from '../borrowEarnAccount';
+import {
+  getBorrowEarnAccountForNetwork,
+  getBorrowEarnAccountId,
+} from '../borrowEarnAccount';
 import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
@@ -173,16 +176,21 @@ export const BorrowDataGate = ({
     string | null
   >(null);
 
-  const accountId = getBorrowEarnAccountId(earnAccountData);
+  const marketProvider = market?.provider;
+  const marketNetworkId = market?.networkId;
+  const marketAddress = market?.marketAddress;
+  const currentMarketKey = market ? buildBorrowMarketKey(market) : undefined;
+  const scopedEarnAccountData = getBorrowEarnAccountForNetwork(
+    earnAccountData,
+    marketNetworkId,
+  );
+  const accountId = getBorrowEarnAccountId(scopedEarnAccountData);
   const activeAccountId = activeAccount.account?.id;
   const activeIndexedAccountId = activeAccount.indexedAccount?.id;
   const hasAccountContext = Boolean(activeAccountId || activeIndexedAccountId);
   const shouldWaitForAccount =
     !activeAccount.ready ||
-    (hasAccountContext && earnAccountData === undefined);
-  const marketProvider = market?.provider;
-  const marketNetworkId = market?.networkId;
-  const marketAddress = market?.marketAddress;
+    (hasAccountContext && scopedEarnAccountData === undefined);
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
@@ -352,11 +360,22 @@ export const BorrowDataGate = ({
   // Sync earnAccount to Context using IAsyncData format
   useEffect(() => {
     setEarnAccount({
-      data: earnAccountData ?? null,
-      loading: earnAccountLoading ?? false,
+      data: scopedEarnAccountData ?? null,
+      loading:
+        Boolean(earnAccountLoading) ||
+        Boolean(hasAccountContext && marketNetworkId && !scopedEarnAccountData),
       refresh: () => refreshAccount(),
+      ownerMarketKey: currentMarketKey,
     });
-  }, [earnAccountData, earnAccountLoading, refreshAccount, setEarnAccount]);
+  }, [
+    currentMarketKey,
+    earnAccountLoading,
+    hasAccountContext,
+    marketNetworkId,
+    refreshAccount,
+    scopedEarnAccountData,
+    setEarnAccount,
+  ]);
 
   // Sync reserves to Context using IAsyncData format
   useLayoutEffect(() => {
@@ -388,8 +407,10 @@ export const BorrowDataGate = ({
       data: dataToSet,
       loading: isLoading,
       refresh: refreshReservesWithForce,
+      ownerMarketKey: currentMarketKey,
     });
   }, [
+    currentMarketKey,
     dataStatus,
     fetchKey,
     ownedReservesResult,
