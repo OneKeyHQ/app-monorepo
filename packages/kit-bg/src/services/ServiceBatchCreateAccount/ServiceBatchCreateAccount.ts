@@ -82,6 +82,7 @@ import type {
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
@@ -412,7 +413,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         let customNetworks: {
           networkId: string;
           deriveType: IAccountDeriveTypes;
@@ -461,6 +462,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             saveToCache: payload.saveToCache,
             loopMode: true,
             isAutoCreateMultiNetwork: payload.params.isAutoCreateMultiNetwork,
+            oneKeyOperationLease,
           });
         this.progressInfo = this.buildProgressInfo({
           indexes,
@@ -579,7 +581,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const result =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
+        async (oneKeyOperationLease) => {
           const networksParams =
             await this.buildBatchCreateAccountsNetworksParams({
               walletId,
@@ -601,6 +603,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               showOnOneKey,
               saveToCache,
               isVerifyAddressAction,
+              oneKeyOperationLease,
               // skipDeviceCancel: true,
             });
 
@@ -975,6 +978,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     loopMode?: boolean;
     isAutoCreateMultiNetwork?: boolean;
     isVerifyAddressAction?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
     const hwAllNetworkPrepareAccountsResponse =
       new HardwareAllNetworkGetAddressResponse();
@@ -1253,6 +1257,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           skipCloseHardwareUiStateDialog:
             skipCloseHardwareUiStateDialog ?? false,
           hideCheckingDeviceLoading,
+          oneKeyOperationLease: params.oneKeyOperationLease,
         },
       );
     }
@@ -1292,7 +1297,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const networksParams: IBatchBuildAccountsBaseParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
@@ -1348,6 +1353,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             indexes,
             networksParams,
             isAutoCreateMultiNetwork: params.isAutoCreateMultiNetwork,
+            oneKeyOperationLease,
           });
         await this.recordPrimeTransferImportBatchCreateTrace({
           event: 'done',

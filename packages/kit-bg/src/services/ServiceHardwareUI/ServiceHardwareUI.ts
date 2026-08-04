@@ -39,7 +39,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { HardwareProcessingManager } from './HardwareProcessingManager';
+import {
+  HardwareProcessingManager,
+  type IOneKeyHardwareOperationLease,
+} from './HardwareProcessingManager';
 import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
 import type { IDBDevice } from '../../dbs/local/types';
@@ -57,6 +60,7 @@ export type IWithHardwareProcessingControlParams = {
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
   debugMethodName?: string;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
 } & IWithHardwareProcessingControlParams;
 
@@ -473,7 +477,7 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   async withHardwareProcessing<T>(
-    fn: () => Promise<T>,
+    fn: (lease?: IOneKeyHardwareOperationLease) => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
     const device = params.deviceParams?.dbDevice;
@@ -481,13 +485,35 @@ class ServiceHardwareUI extends ServiceBase {
       device?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
     if (isThirdPartyVendor) {
-      return this.withHardwareProcessingInternal(fn, params);
+      return this.withHardwareProcessingInternal(() => fn(undefined), params);
     }
     // HD Core currently resolves PIN/passphrase responses by response type.
     // Serialize whole OneKey operations until the SDK exposes interaction IDs.
-    return this.hardwareProcessingManager.runExclusiveOneKeyOperation(() =>
-      this.withHardwareProcessingInternal(fn, params),
+    return this.runExclusiveOneKeyOperation(
+      (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
+      {
+        deviceKey:
+          device?.id || device?.deviceId || device?.uuid || device?.connectId,
+        lease: params.oneKeyOperationLease,
+      },
     );
+  }
+
+  runExclusiveOneKeyOperation<T>(
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>,
+    {
+      deviceKey,
+      lease,
+    }: {
+      deviceKey?: string;
+      lease?: IOneKeyHardwareOperationLease;
+    } = {},
+  ) {
+    return this.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      deviceKey,
+      lease,
+      operation,
+    });
   }
 
   private async withHardwareProcessingInternal<T>(
@@ -511,12 +537,6 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
-
-    if (connectId) {
-      await this.backgroundApi.serviceHardwarePortfolioSync.waitForActivePortfolioSync(
-        { connectId },
-      );
-    }
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome

@@ -238,6 +238,29 @@ function parsePersistedFeatures(features?: string): IOneKeyDeviceFeatures {
   }
 }
 
+function parsePersistedDeviceState(
+  deviceState?: string,
+): IOneKeyDeviceState | undefined {
+  try {
+    const parsed = JSON.parse(deviceState || 'null') as unknown;
+    if (!isPlainObject(parsed)) {
+      return undefined;
+    }
+    const stateRecord = parsed as Record<string, unknown>;
+    if (
+      !isPlainObject(stateRecord.identity) ||
+      !isPlainObject(stateRecord.status) ||
+      !isPlainObject(stateRecord.settings) ||
+      !isPlainObject(stateRecord.versions)
+    ) {
+      return undefined;
+    }
+    return parsed as IOneKeyDeviceState;
+  } catch {
+    return undefined;
+  }
+}
+
 export type IUpdateDeviceStateResult =
   | {
       kind: 'updated';
@@ -609,7 +632,8 @@ function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
     return {};
   }
   try {
-    return JSON.parse(settingsRaw) as IDBDeviceSettings;
+    const parsed = JSON.parse(settingsRaw) as unknown;
+    return isPlainObject(parsed) ? (parsed as IDBDeviceSettings) : {};
   } catch {
     return {};
   }
@@ -771,6 +795,11 @@ export type IIndexedAccountsCreationPreparedData = {
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
+  private deviceStateEventOrderByDeviceId = new Map<
+    string,
+    { sdkEventSequence: number; sdkInstanceEpoch: number }
+  >();
+
   tempWallets: {
     [walletId: string]: boolean;
   } = {};
@@ -5063,11 +5092,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async updateDeviceState({
     changedKeys,
     connectId,
+    sdkEventSequence,
+    sdkInstanceEpoch,
     state,
   }: {
     changedKeys: string[];
     connectId?: string | null;
     revision: number;
+    sdkEventSequence?: number;
+    sdkInstanceEpoch?: number;
     source: string;
     state: IOneKeyDeviceState;
   }): Promise<IUpdateDeviceStateResult> {
@@ -5128,9 +5161,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [device.id],
         updater: (item) => {
-          const currentState = item.deviceState
-            ? (JSON.parse(item.deviceState) as IOneKeyDeviceState)
-            : undefined;
+          const currentState = parsePersistedDeviceState(item.deviceState);
           const currentDeviceId =
             currentState?.identity.deviceId || item.deviceId;
           if (
@@ -5147,12 +5178,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             };
             return item;
           }
-          if (
+          const currentEventOrder = this.deviceStateEventOrderByDeviceId.get(
+            item.id,
+          );
+          const hasSdkEventOrder =
+            sdkInstanceEpoch !== undefined && sdkEventSequence !== undefined;
+          const isStaleSdkEvent = Boolean(
+            hasSdkEventOrder &&
+            currentEventOrder &&
+            (sdkInstanceEpoch < currentEventOrder.sdkInstanceEpoch ||
+              (sdkInstanceEpoch === currentEventOrder.sdkInstanceEpoch &&
+                sdkEventSequence <= currentEventOrder.sdkEventSequence)),
+          );
+          const isStaleLegacyEvent = Boolean(
+            !hasSdkEventOrder &&
             currentState &&
             (state.updatedAt < currentState.updatedAt ||
               (state.updatedAt === currentState.updatedAt &&
-                state.revision <= currentState.revision))
-          ) {
+                state.revision <= currentState.revision)),
+          );
+          if (isStaleSdkEvent || isStaleLegacyEvent) {
             return item;
           }
           const persistedState = mergeDeviceStateEvent({
@@ -5184,6 +5229,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           if (persistedState.identity.deviceType !== EDeviceType.Unknown) {
             item.deviceType = persistedState.identity.deviceType;
+          }
+          if (hasSdkEventOrder) {
+            this.deviceStateEventOrderByDeviceId.set(item.id, {
+              sdkEventSequence,
+              sdkInstanceEpoch,
+            });
           }
           updateResult = {
             kind: 'updated',
@@ -8702,10 +8753,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {
     const persistedFeatures = parsePersistedFeatures(device.features);
-    device.deviceStateInfo = device.deviceState
-      ? JSON.parse(device.deviceState)
-      : undefined;
-    device.settings = JSON.parse(device.settingsRaw || '{}');
+    device.deviceStateInfo = parsePersistedDeviceState(device.deviceState);
+    device.settings = parseDeviceSettingsRaw(device.settingsRaw);
     device.vendor = device.settings?.vendor ?? EHardwareVendor.onekey;
     device.featuresInfo =
       device.vendor === EHardwareVendor.onekey && device.deviceStateInfo

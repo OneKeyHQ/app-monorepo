@@ -6554,7 +6554,24 @@ class ServiceAccount extends ServiceBase {
   };
 
   generateHwWalletsMissingXfpDebounced = debounce(
-    this.generateHwWalletsMissingXfpFn,
+    (params: Parameters<typeof this.generateHwWalletsMissingXfpFn>[0]) => {
+      const operation = () => this.generateHwWalletsMissingXfpFn(params);
+      const vendor =
+        params.wallet?.associatedDeviceInfo?.vendor ?? EHardwareVendor.onekey;
+      if (getVendorProfile(vendor).isThirdParty) {
+        void operation();
+        return;
+      }
+      void this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        operation,
+        {
+          deviceKey:
+            params.wallet?.associatedDevice ||
+            params.deviceId ||
+            params.connectId,
+        },
+      );
+    },
     3000,
     {
       leading: false,
@@ -6663,7 +6680,7 @@ class ServiceAccount extends ServiceBase {
     deviceId: string | undefined;
     withUserInteraction: boolean;
   }) {
-    await this.generateHwWalletsMissingXfpDebounced({
+    this.generateHwWalletsMissingXfpDebounced({
       wallet,
       connectId,
       deviceId,
