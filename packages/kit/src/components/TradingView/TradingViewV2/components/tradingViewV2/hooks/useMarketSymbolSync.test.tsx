@@ -173,6 +173,7 @@ describe('useMarketSymbolSync', () => {
           webRef,
           identity,
           frameIdentity: firstIdentity,
+          documentGeneration: 0,
           enabled,
         }),
       {
@@ -218,6 +219,7 @@ describe('useMarketSymbolSync', () => {
           webRef,
           identity,
           frameIdentity,
+          documentGeneration: 0,
           enabled: true,
         }),
       {
@@ -239,6 +241,33 @@ describe('useMarketSymbolSync', () => {
 
     expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
     expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SYMBOL_CHANGE',
+        payload: expect.objectContaining({ symbol: 'TWO' }),
+      }),
+    );
+  });
+
+  it('sends the current identity again after the webview document reloads', () => {
+    const { sendMessageViaInjectedScript, webRef } = createWebRef();
+    const { rerender } = renderHook(
+      ({ documentGeneration }: { documentGeneration: number }) =>
+        useMarketSymbolSync({
+          webRef,
+          identity: secondIdentity,
+          frameIdentity: firstIdentity,
+          documentGeneration,
+          enabled: true,
+        }),
+      {
+        initialProps: { documentGeneration: 0 },
+      },
+    );
+
+    rerender({ documentGeneration: 1 });
+
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(2);
+    expect(sendMessageViaInjectedScript).toHaveBeenLastCalledWith(
       expect.objectContaining({
         type: 'SYMBOL_CHANGE',
         payload: expect.objectContaining({ symbol: 'TWO' }),

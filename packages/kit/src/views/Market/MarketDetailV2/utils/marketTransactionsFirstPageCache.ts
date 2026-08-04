@@ -112,19 +112,30 @@ function requestMarketTransactionsFirstPageWithCache({
   networkId: string;
   retainUntilConsumed: boolean;
 }): Promise<IMarketTokenTransactionsResponse> {
-  pruneMarketTransactionsFirstPageRequestEntries();
+  const now = Date.now();
+  pruneMarketTransactionsFirstPageRequestEntries(now);
   const key = buildMarketTransactionsFirstPageRequestKey({
     tokenAddress,
     networkId,
   });
-  const existingEntry = marketTransactionsFirstPageRequestEntries.get(key);
+  let existingEntry = marketTransactionsFirstPageRequestEntries.get(key);
+  if (
+    existingEntry?.result &&
+    existingEntry.expiresAt !== undefined &&
+    existingEntry.expiresAt <= now
+  ) {
+    marketTransactionsFirstPageRequestEntries.delete(key);
+    existingEntry = undefined;
+  }
   if (existingEntry) {
     if (retainUntilConsumed) {
-      existingEntry.retainUntilConsumed = true;
-      existingEntry.retainExpiresAt =
-        Date.now() + MARKET_TRANSACTIONS_FIRST_PAGE_PREFETCH_RETENTION_MS;
+      if (!existingEntry.retainUntilConsumed) {
+        existingEntry.retainUntilConsumed = true;
+        existingEntry.retainExpiresAt =
+          now + MARKET_TRANSACTIONS_FIRST_PAGE_PREFETCH_RETENTION_MS;
+      }
     } else {
-      consumeMarketTransactionsFirstPageEntry(existingEntry);
+      consumeMarketTransactionsFirstPageEntry(existingEntry, now);
     }
     return existingEntry.request;
   }
@@ -139,7 +150,7 @@ function requestMarketTransactionsFirstPageWithCache({
     request,
     retainUntilConsumed,
     retainExpiresAt: retainUntilConsumed
-      ? Date.now() + MARKET_TRANSACTIONS_FIRST_PAGE_PREFETCH_RETENTION_MS
+      ? now + MARKET_TRANSACTIONS_FIRST_PAGE_PREFETCH_RETENTION_MS
       : undefined,
   };
   marketTransactionsFirstPageRequestEntries.set(key, entry);

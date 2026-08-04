@@ -175,4 +175,38 @@ describe('DesktopWebView', () => {
 
     expect(onLoadStart).toHaveBeenCalledWith(event);
   });
+
+  it('removes old navigation listeners when document reconciliation throws', async () => {
+    const firstOnLoadStart = jest.fn();
+    const secondOnLoadStart = jest.fn();
+    const { rerender } = render(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={firstOnLoadStart}
+      />,
+    );
+    const webview = await screen.findByTestId('desktop-webview');
+
+    rerender(
+      <DesktopWebView
+        data-testid="desktop-webview"
+        src="https://app.uniswap.org"
+        receiveHandler={jest.fn()}
+        onLoadStart={secondOnLoadStart}
+      />,
+    );
+
+    const event = Object.assign(new Event('did-start-navigation'), {
+      isMainFrame: true,
+      url: 'https://app.uniswap.org',
+    });
+    act(() => {
+      webview.dispatchEvent(event);
+    });
+
+    expect(firstOnLoadStart).not.toHaveBeenCalled();
+    expect(secondOnLoadStart).toHaveBeenCalledTimes(1);
+  });
 });

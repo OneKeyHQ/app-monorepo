@@ -1134,6 +1134,71 @@ describe('TradingViewV2 native source discovery', () => {
     unmount();
   });
 
+  it('revokes history readiness when the current first-history ACK fails', () => {
+    mockHyperLiquidKlineSource = {
+      isHyperLiquidSource: false,
+      symbol: undefined,
+      isLoading: false,
+    };
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        dataSource="polling"
+      />,
+    );
+
+    const getMessageHandlerParams = () =>
+      mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
+        | {
+            isKLineHistoryReady?: boolean;
+            onHistoryReady?: (data: {
+              requestId: string;
+              resolution: string;
+              firstDataRequest: boolean;
+              status: 'success' | 'failed';
+              symbol: string;
+              tokenAddress: string;
+              networkId: string;
+            }) => void;
+          }
+        | undefined;
+    const historyReadyData = {
+      requestId: 'abc-history',
+      resolution: '1m',
+      firstDataRequest: true,
+      symbol: 'ABC',
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+    } as const;
+
+    act(() => {
+      getMessageHandlerParams()?.onHistoryReady?.({
+        ...historyReadyData,
+        status: 'success',
+      });
+    });
+
+    expect(getMessageHandlerParams()?.isKLineHistoryReady).toBe(true);
+    expect(mockUseAutoKLineUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+
+    act(() => {
+      getMessageHandlerParams()?.onHistoryReady?.({
+        ...historyReadyData,
+        status: 'failed',
+      });
+    });
+
+    expect(getMessageHandlerParams()?.isKLineHistoryReady).toBe(false);
+    expect(mockUseAutoKLineUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+  });
+
   it('falls back to legacy capabilities when chart-ready handshake times out', () => {
     jest.useFakeTimers();
     const onLegacyHistoryReady = jest.fn();
@@ -1620,6 +1685,46 @@ describe('TradingViewV2 native source discovery', () => {
 
     expect(onFirstPaintReady).toHaveBeenCalledTimes(2);
     expect(mockTradingViewLogger.dexTVFirstPaint).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads the chart when the iOS WebView content process terminates', () => {
+    const onContentProcessDidTerminate = jest.fn();
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+        onContentProcessDidTerminate={onContentProcessDidTerminate}
+      />,
+    );
+    const reload = jest.fn();
+    const webViewProps = mockWebViewProps.at(-1);
+    const event = { nativeEvent: {} };
+
+    act(() => {
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: {
+              reload: () => void;
+              loadURL: () => void;
+              sendMessageViaInjectedScript: () => void;
+            }) => void)
+          | undefined
+      )?.({
+        reload,
+        loadURL: jest.fn(),
+        sendMessageViaInjectedScript: jest.fn(),
+      });
+      (
+        webViewProps?.onContentProcessDidTerminate as
+          | ((terminatedEvent: typeof event) => void)
+          | undefined
+      )?.(event);
+    });
+
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(onContentProcessDidTerminate).toHaveBeenCalledWith(event);
   });
 
   it('forwards a later successful first paint after an initial failure', () => {

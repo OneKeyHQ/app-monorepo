@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { View } from 'react-native';
 import { useTabsContext } from 'react-native-collapsible-tab-view';
 import { runOnUI, scrollTo } from 'react-native-reanimated';
 import { useTransitionProgress } from 'react-native-screens';
 
 import { useCurrentTabScrollY } from '@onekeyhq/components';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
@@ -45,12 +45,15 @@ function scrollPersistentChartTabOnUI({
 
 export function NativePersistentMarketTradingViewSlot({
   clipTop,
+  isChartPageVisible,
   tradingViewProps,
 }: {
   clipTop: number;
+  isChartPageVisible: boolean;
   tradingViewProps: IMarketTradingViewProps;
 }) {
-  const isFocused = useIsFocused();
+  const isRouteFocused = useRouteIsFocused();
+  const isActive = isRouteFocused && isChartPageVisible;
   const { progress: transitionProgress } = useTransitionProgress();
   const scrollY = useCurrentTabScrollY();
   const { focusedTab, refMap } = useTabsContext();
@@ -60,11 +63,11 @@ export function NativePersistentMarketTradingViewSlot({
   const onTouchScroll = tradingViewProps.onTouchScroll;
   const tokenDetailActions = useTokenDetailActions();
   const slotRef = useRef<View>(null);
-  const isFocusedRef = useRef(isFocused);
+  const isActiveRef = useRef(isActive);
   const clipTopRef = useRef(clipTop);
   const tradingViewPropsRef = useRef(tradingViewProps);
   const sessionIdRef = useRef<number | undefined>(undefined);
-  isFocusedRef.current = isFocused;
+  isActiveRef.current = isActive;
   clipTopRef.current = clipTop;
   tradingViewPropsRef.current = tradingViewProps;
   if (sessionIdRef.current === undefined) {
@@ -120,7 +123,7 @@ export function NativePersistentMarketTradingViewSlot({
   };
 
   const measureSlot = useCallback(() => {
-    if (!isFocusedRef.current) {
+    if (!isActiveRef.current) {
       return;
     }
     slotRef.current?.measureInWindow((x, y, width, height) => {
@@ -141,7 +144,7 @@ export function NativePersistentMarketTradingViewSlot({
   }, [scrollY, sessionId]);
 
   useEffect(() => {
-    if (!isFocused) {
+    if (!isActive) {
       deactivateNativeMarketTradingViewSession(sessionId);
       return undefined;
     }
@@ -156,10 +159,10 @@ export function NativePersistentMarketTradingViewSlot({
       latestTradingViewProps.onNativeIndicatorQuickBarChange?.(null);
       deactivateNativeMarketTradingViewSession(sessionId);
     };
-  }, [isFocused, measureSlot, sessionId]);
+  }, [isActive, measureSlot, sessionId]);
 
   useEffect(() => {
-    if (!isFocused) {
+    if (!isActive) {
       return undefined;
     }
     updateNativeMarketTradingViewSessionProps({
@@ -167,7 +170,7 @@ export function NativePersistentMarketTradingViewSlot({
       props: persistentTradingViewProps,
     });
     return undefined;
-  }, [isFocused, persistentTradingViewProps, sessionId]);
+  }, [isActive, persistentTradingViewProps, sessionId]);
 
   return (
     <View

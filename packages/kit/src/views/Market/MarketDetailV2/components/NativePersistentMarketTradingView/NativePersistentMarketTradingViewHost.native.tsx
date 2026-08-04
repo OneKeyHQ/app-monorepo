@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -39,6 +40,8 @@ import {
   requestNativeMarketTradingViewWarmup,
   subscribeNativeMarketTradingViewHost,
 } from './nativeMarketTradingViewHostStore';
+
+import type { View } from 'react-native';
 
 const GLOBAL_WARMUP_DEFER_MS = 3000;
 const WARMUP_COMPACT_FALLBACK_MS = 12_000;
@@ -92,6 +95,11 @@ export function NativePersistentMarketTradingViewHost() {
   );
   const [isWarmupCompact, setIsWarmupCompact] = useState(false);
   const [arePreferencesHydrated, setArePreferencesHydrated] = useState(false);
+  const [hostWindowOrigin, setHostWindowOrigin] = useState<{
+    x: number;
+    y: number;
+  }>();
+  const hostRef = useRef<View>(null);
   const lastVisibleSessionIdRef = useRef<number | undefined>(undefined);
   const inactiveScrollY = useSharedValue(0);
   const chartVisibility = useSharedValue(0);
@@ -99,7 +107,7 @@ export function NativePersistentMarketTradingViewHost() {
   const scrollY = activeSession?.scrollY ?? inactiveScrollY;
   const frame = activeSession?.frame;
   const isSessionActive = Boolean(activeSession);
-  const isActive = Boolean(activeSession && frame);
+  const isActive = Boolean(activeSession && frame && hostWindowOrigin);
   const activeSessionId = activeSession?.id;
   const transitionProgress = activeSession?.transitionProgress;
   const activeChartIdentity = activeSession
@@ -108,6 +116,16 @@ export function NativePersistentMarketTradingViewHost() {
       }`
     : undefined;
   const windowSize = Dimensions.get('window');
+  const measureHostWindowOrigin = useCallback(() => {
+    hostRef.current?.measureInWindow((x, y) => {
+      setHostWindowOrigin((currentOrigin) => {
+        if (currentOrigin?.x === x && currentOrigin.y === y) {
+          return currentOrigin;
+        }
+        return { x, y };
+      });
+    });
+  }, []);
   const navigationTransitionStyle = useMemo(() => {
     if (!isActive || !transitionProgress) {
       return undefined;
@@ -209,7 +227,7 @@ export function NativePersistentMarketTradingViewHost() {
   }, []);
 
   const outerAnimatedStyle = useAnimatedStyle(() => {
-    if (!isActive || !frame) {
+    if (!isActive || !frame || !hostWindowOrigin) {
       return {
         left: isWarmupCompact ? -2 : -windowSize.width - 2,
         top: 0,
@@ -219,23 +237,30 @@ export function NativePersistentMarketTradingViewHost() {
       };
     }
 
-    const rawTop = frame.anchorY - scrollY.value;
+    const rawTop = frame.anchorY - hostWindowOrigin.y - scrollY.value;
     const clippedTop = Math.max(rawTop, frame.clipTop);
     const clippedHeight = Math.max(
       0,
       frame.height - Math.max(0, clippedTop - rawTop),
     );
     return {
-      left: frame.anchorX,
+      left: frame.anchorX - hostWindowOrigin.x,
       top: clippedTop,
       width: frame.width,
       height: clippedHeight,
       opacity: clippedHeight > 0 ? chartVisibility.value : 0,
     };
-  }, [frame, isActive, isWarmupCompact, windowSize.height, windowSize.width]);
+  }, [
+    frame,
+    hostWindowOrigin,
+    isActive,
+    isWarmupCompact,
+    windowSize.height,
+    windowSize.width,
+  ]);
 
   const innerAnimatedStyle = useAnimatedStyle(() => {
-    if (!isActive || !frame) {
+    if (!isActive || !frame || !hostWindowOrigin) {
       return {
         top: 0,
         width: isWarmupCompact ? 1 : windowSize.width,
@@ -243,14 +268,21 @@ export function NativePersistentMarketTradingViewHost() {
       };
     }
 
-    const rawTop = frame.anchorY - scrollY.value;
+    const rawTop = frame.anchorY - hostWindowOrigin.y - scrollY.value;
     const clippedTop = Math.max(rawTop, frame.clipTop);
     return {
       top: rawTop - clippedTop,
       width: frame.width,
       height: frame.height,
     };
-  }, [frame, isActive, isWarmupCompact, windowSize.height, windowSize.width]);
+  }, [
+    frame,
+    hostWindowOrigin,
+    isActive,
+    isWarmupCompact,
+    windowSize.height,
+    windowSize.width,
+  ]);
 
   if (
     !platformEnv.isNativeIOS ||
@@ -273,8 +305,10 @@ export function NativePersistentMarketTradingViewHost() {
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <NativeAnimated.View
+          ref={hostRef}
           pointerEvents="box-none"
           style={[styles.transitionLayer, navigationTransitionStyle]}
+          onLayout={measureHostWindowOrigin}
         >
           <Animated.View
             pointerEvents={isActive ? 'auto' : 'none'}

@@ -234,4 +234,35 @@ describe('desktop webview injected message delivery', () => {
     sendSymbolChange(captured, 'MARKER_late');
     expect(deliveredSymbols(node)).toContain('late');
   });
+
+  it('forwards main-frame load-start events through the desktop wrapper', async () => {
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        webview: {
+          getPreloadJsContent: jest
+            .fn()
+            .mockResolvedValue('file:///preload.js'),
+        },
+      },
+    });
+    const onLoadStart = jest.fn();
+    const { container } = render(
+      <InpageProviderWebView
+        src={SRC}
+        receiveHandler={jest.fn()}
+        allowpopups={false}
+        displayProgressBar={false}
+        onLoadStart={onLoadStart}
+      />,
+    );
+    const node = await getWebviewNode(container);
+
+    dispatch(node, 'did-start-navigation', {
+      isMainFrame: true,
+      url: SRC,
+    });
+
+    expect(onLoadStart).toHaveBeenCalledTimes(1);
+  });
 });

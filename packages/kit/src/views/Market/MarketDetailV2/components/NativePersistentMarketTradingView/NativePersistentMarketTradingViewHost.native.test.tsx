@@ -21,17 +21,38 @@ const mockChartUnmount = jest.fn();
 const mockChartProps = jest.fn();
 const mockEventListeners = new Map<string, () => void>();
 
-jest.mock('react-native', () => ({
-  Animated: {
-    View: ({ children }: PropsWithChildren) => children,
-  },
-  Dimensions: {
-    get: () => ({ height: 844, width: 390 }),
-  },
-  StyleSheet: {
-    create: (styles: unknown) => styles,
-  },
-}));
+jest.mock('react-native', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const MockAnimatedView = React.forwardRef<
+    { measureInWindow: (callback: (x: number, y: number) => void) => void },
+    PropsWithChildren<{ onLayout?: () => void }>
+  >(({ children, onLayout }, ref) => {
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        measureInWindow: (callback: (x: number, y: number) => void) =>
+          callback(0, 0),
+      }),
+      [],
+    );
+    React.useEffect(() => {
+      onLayout?.();
+    }, [onLayout]);
+    return React.createElement(React.Fragment, null, children);
+  });
+  MockAnimatedView.displayName = 'MockAnimatedView';
+  return {
+    Animated: {
+      View: MockAnimatedView,
+    },
+    Dimensions: {
+      get: () => ({ height: 844, width: 390 }),
+    },
+    StyleSheet: {
+      create: (styles: unknown) => styles,
+    },
+  };
+});
 
 jest.mock('react-native-reanimated', () => {
   const React = jest.requireActual<typeof import('react')>('react');

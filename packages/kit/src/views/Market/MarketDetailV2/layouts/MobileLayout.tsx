@@ -4,7 +4,13 @@ import type { ComponentProps, ReactNode } from 'react';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent, View } from 'react-native';
+import {
+  Dimensions,
+  type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  View,
+} from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
@@ -174,6 +180,7 @@ function MobileMarketTradingView({
   dataSource,
   pageWidth,
   clipTop,
+  isChartPageVisible,
   onNativeIndicatorQuickBarChange,
   onNativeSubIndicatorCountChange,
   onIndicatorsDialogOpenChange,
@@ -188,6 +195,7 @@ function MobileMarketTradingView({
   dataSource?: 'websocket' | 'polling';
   pageWidth?: number;
   clipTop: number;
+  isChartPageVisible: boolean;
   onNativeIndicatorQuickBarChange: (quickBar: ReactNode | null) => void;
   onNativeSubIndicatorCountChange: (count: number | null) => void;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
@@ -237,6 +245,7 @@ function MobileMarketTradingView({
     return (
       <NativePersistentMarketTradingViewSlot
         clipTop={clipTop}
+        isChartPageVisible={isChartPageVisible}
         tradingViewProps={tradingViewProps}
       />
     );
@@ -320,6 +329,9 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
+  const targetTopTabIndexRef = useRef(0);
+  const [isPersistentChartPageVisible, setIsPersistentChartPageVisible] =
+    useState(true);
   const [
     isTradingViewIndicatorsDialogOpen,
     setIsTradingViewIndicatorsDialogOpen,
@@ -341,13 +353,31 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
 
   const handleTabChange = useCallback(
     (tabName: string) => {
+      const nextTabIndex = tabNames.indexOf(tabName);
+      const previousTargetTabIndex = targetTopTabIndexRef.current;
+      targetTopTabIndexRef.current = nextTabIndex;
+      if (nextTabIndex !== 0) {
+        setIsPersistentChartPageVisible(false);
+      } else if (previousTargetTabIndex === 0) {
+        setIsPersistentChartPageVisible(true);
+      }
       focusedTab.value = tabName;
       scrollViewRef.current?.scrollTo({
-        x: effectivePageWidth * tabNames.indexOf(tabName),
+        x: effectivePageWidth * nextTabIndex,
         animated: true,
       });
     },
     [focusedTab, tabNames, effectivePageWidth],
+  );
+
+  const handleTopPagerScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const isChartTarget = targetTopTabIndexRef.current === 0;
+      const isChartPageSettled =
+        Math.abs(event.nativeEvent.contentOffset.x) < 1;
+      setIsPersistentChartPageVisible(isChartTarget && isChartPageSettled);
+    },
+    [],
   );
 
   const handleContainerLayout = useCallback(
@@ -549,6 +579,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
                       dataSource={marketTradingViewParams.dataSource}
                       pageWidth={effectivePageWidth}
                       clipTop={headerHeight}
+                      isChartPageVisible={isPersistentChartPageVisible}
                       onNativeIndicatorQuickBarChange={
                         handleNativeIndicatorQuickBarChange
                       }
@@ -604,6 +635,7 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isTradingViewScrollLocked,
+    isPersistentChartPageVisible,
     marketTradingViewParams,
     nativeIndicatorQuickBar,
     tradingViewChartHeight,
@@ -725,7 +757,14 @@ export function MobileLayout({ disableTrade }: IMobileLayoutProps) {
         tabNames={tabNames}
         focusedTab={focusedTab}
       />
-      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+      <ScrollView
+        horizontal
+        ref={scrollViewRef}
+        flex={1}
+        scrollEnabled={false}
+        scrollEventThrottle={16}
+        onScroll={handleTopPagerScroll}
+      >
         {tabNames.map((_, index) => (
           <YStack
             key={index}

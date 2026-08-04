@@ -61,7 +61,7 @@ export function normalizeMarketHistoryStartTimeSeconds(value: unknown) {
     : Math.floor(numericValue);
 }
 
-function isMatchingChartToken(
+export function isMatchingMarketTokenIdentity(
   token:
     | Pick<IMarketTokenDetail, 'address' | 'networkId'>
     | Pick<IMarketTokenDetailPreview, 'address' | 'networkId'>,
@@ -99,7 +99,7 @@ export function buildMarketTradingViewBootstrap({
   | undefined {
   const preview =
     tokenDetailPreview &&
-    isMatchingChartToken(tokenDetailPreview, {
+    isMatchingMarketTokenIdentity(tokenDetailPreview, {
       tokenAddress,
       networkId,
       isNative,
@@ -108,7 +108,7 @@ export function buildMarketTradingViewBootstrap({
       : undefined;
   const detail =
     tokenDetail &&
-    isMatchingChartToken(tokenDetail, {
+    isMatchingMarketTokenIdentity(tokenDetail, {
       tokenAddress,
       networkId,
       isNative,

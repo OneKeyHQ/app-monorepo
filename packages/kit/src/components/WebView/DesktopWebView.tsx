@@ -123,7 +123,7 @@ const DesktopWebView = forwardRef(
       onDomReady,
       onShouldStartLoadWithRequest,
       ...props
-    }: ComponentProps<typeof WEBVIEW_TAG> &
+    }: Omit<ComponentProps<typeof WEBVIEW_TAG>, 'onLoadStart' | 'onLoadEnd'> &
       IElectronWebViewEvents &
       IInpageProviderWebViewProps,
     ref: any,
@@ -392,12 +392,17 @@ const DesktopWebView = forwardRef(
         // A local document can finish loading before React attaches these
         // listeners. Reconcile with Electron's current state so bridge
         // messages do not remain queued after a missed one-shot event.
-        if (
-          !lastMainFrameLoadErrorRef.current &&
-          webview.getURL() &&
-          webview.isLoading?.() === false
-        ) {
-          updateIsDomReady(true);
+        try {
+          if (
+            !lastMainFrameLoadErrorRef.current &&
+            webview.getURL() &&
+            webview.isLoading?.() === false
+          ) {
+            updateIsDomReady(true);
+          }
+        } catch (_error) {
+          // Electron can reject document access while the webview is being
+          // replaced. Listener cleanup must still be registered in that case.
         }
 
         return () => {

@@ -144,5 +144,13 @@ describe('nativeMarketTradingViewHostStore', () => {
     releaseNativeMarketTradingViewHostIfInactive();
 
     expect(getNativeMarketTradingViewHostSnapshot().activeSession?.id).toBe(id);
+
+    deactivateNativeMarketTradingViewSession(id);
+
+    expect(getNativeMarketTradingViewHostSnapshot()).toEqual({
+      activeSession: undefined,
+      lastProps: undefined,
+      mountRequested: false,
+    });
   });
 });

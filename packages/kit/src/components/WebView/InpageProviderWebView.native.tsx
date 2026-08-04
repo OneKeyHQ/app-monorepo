@@ -70,6 +70,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       onLoad,
       onLoadStart,
       onLoadEnd,
+      onContentProcessDidTerminate,
       onScroll,
       androidLayerType,
       displayProgressBar,
@@ -209,7 +210,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
         {progressLoading}
 
         <NativeWebView
-          cacheEnabled={cacheEnabled ?? false}
+          cacheEnabled={cacheEnabled}
           useSharedProcessPool={useSharedProcessPool}
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
@@ -237,6 +238,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           onLoad={onLoad}
           onLoadStart={onLoadStart}
           onLoadEnd={onLoadEnd}
+          onContentProcessDidTerminate={onContentProcessDidTerminate}
           onScroll={onScroll}
           allowFileAccessFromFileURLs={allowFileAccessFromFileURLs}
           allowFileAccess={allowFileAccess}

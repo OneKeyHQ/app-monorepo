@@ -101,21 +101,28 @@ export function useMarketSymbolSync({
   webRef,
   identity,
   frameIdentity,
+  documentGeneration,
   enabled,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   identity: IMarketTradingViewSymbolIdentity;
   frameIdentity: IMarketTradingViewSymbolIdentity;
+  documentGeneration: number;
   enabled: boolean;
 }) {
   const identityKey = buildMarketTradingViewIdentityKey(identity);
   const frameIdentityKey = buildMarketTradingViewIdentityKey(frameIdentity);
   const deliveredIdentityKeyRef = useRef(frameIdentityKey);
   const lastFrameIdentityKeyRef = useRef(frameIdentityKey);
+  const lastDocumentGenerationRef = useRef(documentGeneration);
 
   useEffect(() => {
-    if (lastFrameIdentityKeyRef.current !== frameIdentityKey) {
+    if (
+      lastFrameIdentityKeyRef.current !== frameIdentityKey ||
+      lastDocumentGenerationRef.current !== documentGeneration
+    ) {
       lastFrameIdentityKeyRef.current = frameIdentityKey;
+      lastDocumentGenerationRef.current = documentGeneration;
       deliveredIdentityKeyRef.current = frameIdentityKey;
     }
 
@@ -147,5 +154,12 @@ export function useMarketSymbolSync({
       },
     });
     deliveredIdentityKeyRef.current = identityKey;
-  }, [enabled, frameIdentityKey, identity, identityKey, webRef]);
+  }, [
+    documentGeneration,
+    enabled,
+    frameIdentityKey,
+    identity,
+    identityKey,
+    webRef,
+  ]);
 }

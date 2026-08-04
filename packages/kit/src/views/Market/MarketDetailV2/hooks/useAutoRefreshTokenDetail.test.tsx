@@ -6,6 +6,7 @@ import { useAutoRefreshTokenDetail } from './useAutoRefreshTokenDetail';
 
 const mockTokenDetailActions = {
   setTokenDetail: jest.fn(),
+  setTokenDetailPreview: jest.fn(),
   setTokenDetailWebsocket: jest.fn(),
   setPerpsInfo: jest.fn(),
   setTokenAddress: jest.fn(),
@@ -101,6 +102,9 @@ describe('useAutoRefreshTokenDetail', () => {
       undefined,
     );
     expect(mockTokenDetailActions.setTokenDetailWebsocket).toHaveBeenCalledWith(
+      undefined,
+    );
+    expect(mockTokenDetailActions.setTokenDetailPreview).toHaveBeenCalledWith(
       undefined,
     );
     expect(mockTokenDetailActions.setPerpsInfo).toHaveBeenCalledWith(undefined);

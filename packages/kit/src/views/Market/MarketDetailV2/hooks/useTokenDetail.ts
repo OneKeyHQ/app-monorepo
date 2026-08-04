@@ -19,6 +19,7 @@ import type {
 
 import {
   buildMarketTradingViewBootstrap,
+  isMatchingMarketTokenIdentity,
   isSameMarketTradingViewBootstrap,
   normalizeChartTokenAddress,
 } from '../utils/marketTradingViewBootstrap';
@@ -47,23 +48,48 @@ export function useTokenDetail(): IUseTokenDetailResult {
   const [isNative] = useIsNativeAtom();
   const [websocketConfig] = useTokenDetailWebsocketAtom();
   const [perpsInfo] = usePerpsInfoAtom();
+  const matchingTokenDetail = useMemo(
+    () =>
+      tokenDetail &&
+      isMatchingMarketTokenIdentity(tokenDetail, {
+        tokenAddress,
+        networkId,
+        isNative,
+      })
+        ? tokenDetail
+        : undefined,
+    [isNative, networkId, tokenAddress, tokenDetail],
+  );
+  const matchingTokenDetailPreview = useMemo(
+    () =>
+      tokenDetailPreview &&
+      isMatchingMarketTokenIdentity(tokenDetailPreview, {
+        tokenAddress,
+        networkId,
+        isNative,
+      })
+        ? tokenDetailPreview
+        : undefined,
+    [isNative, networkId, tokenAddress, tokenDetailPreview],
+  );
 
   const isReady = useMemo(
-    () => !isLoading && !!tokenDetail,
-    [isLoading, tokenDetail],
+    () => !isLoading && !!matchingTokenDetail,
+    [isLoading, matchingTokenDetail],
   );
 
   const isStockToken = useMemo(
     () =>
       Boolean(
-        (tokenDetail ?? tokenDetailPreview)?.stock?.underlyingAssetTicker,
+        (matchingTokenDetail ?? matchingTokenDetailPreview)?.stock
+          ?.underlyingAssetTicker,
       ),
-    [tokenDetail, tokenDetailPreview],
+    [matchingTokenDetail, matchingTokenDetailPreview],
   );
 
   return {
-    tokenDetail,
-    tokenDetailPreview,
+    tokenDetail: matchingTokenDetail,
+    tokenDetailPreview: matchingTokenDetailPreview,
     isLoading,
     tokenAddress,
     networkId,

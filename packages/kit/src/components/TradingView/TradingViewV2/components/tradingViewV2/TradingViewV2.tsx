@@ -86,6 +86,7 @@ import type {
   WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
+  WebViewTerminatedEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 
 const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
@@ -340,6 +341,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onFirstPaintReady,
     onLoadStart,
     onLoadEnd,
+    onContentProcessDidTerminate,
     ...stackStyle
   } = props;
   const isVisible =
@@ -781,6 +783,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         resolution: data.resolution,
       });
       if (readyKey === currentHistoryReadyKey) {
+        if (data.status === 'failed') {
+          setFirstHistoryReadyKey((currentReadyKey) =>
+            currentReadyKey === readyKey ? null : currentReadyKey,
+          );
+          return;
+        }
         clearMarketSymbolSyncRecoveryTimer();
         initialHistoryBootstrapSentIdentityRef.current = undefined;
         setFirstHistoryReadyKey(readyKey);
@@ -1076,6 +1084,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     identity: marketSymbolIdentity,
     frameIdentity: iframeIdentity,
+    documentGeneration: webViewLoadGeneration.current,
     enabled: isVisible && isMarketSymbolSyncSupported === true,
   });
   const tradingViewWebViewStyleProps = useMemo(
@@ -1424,29 +1433,27 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ],
   );
 
+  const deliverInitialHistoryBootstrapRef = useRef(
+    deliverInitialHistoryBootstrap,
+  );
+  deliverInitialHistoryBootstrapRef.current = deliverInitialHistoryBootstrap;
+
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
-      if (!ref) {
-        clearCapabilityHandshakeTimer();
-        cancelInitialHistoryBootstrapSubscriptionRef.current?.();
-        cancelInitialHistoryBootstrapSubscriptionRef.current = undefined;
-        clearMarketSymbolSyncRecoveryTimer();
-        initialHistoryBootstrapSentIdentityRef.current = undefined;
-        resetInteractionLocks();
-      }
       webRef.current = ref;
-      if (ref && isVisible) {
-        deliverInitialHistoryBootstrap(ref);
+      if (ref && isDataRequestEnabledRef.current) {
+        deliverInitialHistoryBootstrapRef.current(ref);
       }
     },
-    [
-      clearCapabilityHandshakeTimer,
-      clearMarketSymbolSyncRecoveryTimer,
-      deliverInitialHistoryBootstrap,
-      isVisible,
-      resetInteractionLocks,
-      webRef,
-    ],
+    [webRef],
+  );
+
+  const handleContentProcessDidTerminate = useCallback(
+    (event: WebViewTerminatedEvent) => {
+      webRef.current?.reload();
+      onContentProcessDidTerminate?.(event);
+    },
+    [onContentProcessDidTerminate, webRef],
   );
 
   const handleLoadEnd = useCallback(
@@ -1586,6 +1593,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         allowsBackForwardNavigationGestures={false}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
+        onContentProcessDidTerminate={handleContentProcessDidTerminate}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -1602,6 +1610,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       customReceiveHandler,
       handleLoadStart,
       handleLoadEnd,
+      handleContentProcessDidTerminate,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
       theme,

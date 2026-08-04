@@ -127,6 +127,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
     if (isRoutePriceScopeChanged || isActiveIdentityChanged) {
       tokenDetailActions.setTokenDetail(undefined);
+      tokenDetailActions.setTokenDetailPreview(undefined);
       tokenDetailActions.setTokenDetailWebsocket(undefined);
       tokenDetailActions.setPerpsInfo(undefined);
     }

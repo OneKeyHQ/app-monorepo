@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -32,6 +33,9 @@ const mockFetchMarketTokenKline: jest.MockedFunction<IFetchMarketTokenKline> =
   jest.fn();
 const mockFetchMarketTokenKlineByCount: jest.MockedFunction<IFetchMarketTokenKlineByCount> =
   jest.fn();
+const mockCancelMarketTokenKlineByCount = jest.fn(
+  (_params: { requestId: string }) => Promise.resolve(),
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -42,7 +46,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchMarketTokenKlineByCount: (
         params: Parameters<IFetchMarketTokenKlineByCount>[0],
       ) => mockFetchMarketTokenKlineByCount(params),
-      cancelMarketTokenKlineByCount: jest.fn(() => Promise.resolve()),
+      cancelMarketTokenKlineByCount: (params: { requestId: string }) =>
+        mockCancelMarketTokenKlineByCount(params),
     },
   },
 }));
@@ -64,6 +69,16 @@ function buildPoint(t: number, close = t): IMarketTokenKLineDataPoint {
     v: 0,
     t,
   };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
 }
 
 describe('fetchTradingViewV2DataWithSlicing', () => {
@@ -600,6 +615,75 @@ describe('first-screen K-line prefetch subscription', () => {
     });
 
     expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it('retries immediately after a first-screen prefetch rejects', async () => {
+    const identity = {
+      tokenAddress: '0x0000000000000000000000000000000000000567',
+      networkId: 'evm--1',
+      interval: '1m',
+    };
+    let dateNowCallCount = 0;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => {
+      dateNowCallCount += 1;
+      if (dateNowCallCount === 4) {
+        throw new OneKeyLocalError('prefetch failed');
+      }
+      return 1000;
+    });
+
+    await expect(
+      prefetchTradingViewV2FirstScreenData(identity),
+    ).rejects.toThrow('prefetch failed');
+    dateNowSpy.mockRestore();
+    await Promise.resolve();
+    mockFetchMarketTokenKlineByCount.mockResolvedValueOnce({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+    });
+    await expect(
+      prefetchTradingViewV2FirstScreenData(identity),
+    ).resolves.toEqual(
+      expect.objectContaining({ points: [buildPoint(1020, 3)] }),
+    );
+
+    expect(mockFetchMarketTokenKlineByCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cancel a pending prefetch that has an active chart subscriber', async () => {
+    const activeIdentity = {
+      tokenAddress: '0x0000000000000000000000000000000000000578',
+      networkId: 'evm--1',
+      interval: '1m',
+    };
+    const hoverIdentity = {
+      tokenAddress: '0x0000000000000000000000000000000000000589',
+      networkId: 'evm--1',
+      interval: '1m',
+    };
+    const activeResponse = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchMarketTokenKlineByCount
+      .mockReturnValueOnce(activeResponse.promise)
+      .mockResolvedValueOnce({
+        points: [buildPoint(1080, 4)],
+        total: 1,
+      });
+    const unsubscribe = subscribeTradingViewV2FirstScreenPrefetch({
+      ...activeIdentity,
+      kLineProvider: 'onekey',
+      onResult: jest.fn(),
+    });
+    const activePromise = prefetchTradingViewV2FirstScreenData(activeIdentity);
+
+    await prefetchTradingViewV2FirstScreenData(hoverIdentity);
+
+    expect(mockCancelMarketTokenKlineByCount).not.toHaveBeenCalled();
+    activeResponse.resolve({
+      points: [buildPoint(1020, 3)],
+      total: 1,
+    });
+    await activePromise;
+    unsubscribe();
   });
 
   it('reuses a completed first-screen prefetch for later chart history requests', async () => {

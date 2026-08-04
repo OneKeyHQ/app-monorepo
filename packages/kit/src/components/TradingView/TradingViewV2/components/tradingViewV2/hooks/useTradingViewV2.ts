@@ -491,6 +491,7 @@ function cancelStaleFirstScreenPrefetchRecords(activeKey: string) {
   for (const [key, record] of firstScreenPrefetchRecords) {
     if (
       key !== activeKey &&
+      !firstScreenPrefetchRecordSubscribers.get(key)?.size &&
       (record.isInitialPending || record.isUpgradePending)
     ) {
       cancelFirstScreenPrefetchRecord(key, record);
@@ -1483,6 +1484,11 @@ export function prefetchTradingViewV2FirstScreenData(
     .then((result) => {
       if (result && firstScreenPrefetchRecords.get(key) === record) {
         record.latestResult = result;
+      }
+    })
+    .catch(() => {
+      if (firstScreenPrefetchRecords.get(key) === record) {
+        firstScreenPrefetchRecords.delete(key);
       }
     })
     .finally(() => {
