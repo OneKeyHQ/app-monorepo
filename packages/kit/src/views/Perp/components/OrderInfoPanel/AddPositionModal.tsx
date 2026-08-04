@@ -301,6 +301,13 @@ const AddPositionForm = memo(
       const liquidationPrice = calculateLiquidationPrice({
         totalValue,
         referencePrice: priceBN,
+        // An aggressive limit fills near the mark, so the preview must
+        // converge on it instead of the extreme limit price — mirrors
+        // useLiquidationPrice and the chart limit ticket.
+        clampToCurrentMark: true,
+        markPrice: assetData?.markPx
+          ? new BigNumber(assetData.markPx)
+          : undefined,
         positionSize: sizeBN,
         side,
         leverage: safeLeverage,
@@ -329,6 +336,7 @@ const AddPositionForm = memo(
       accountSummary?.crossAccountValue,
       accountSummary?.crossMaintenanceMarginUsed,
       assetData?.leverage?.type,
+      assetData?.markPx,
       currentPosition,
       effectivePrice,
       isBuy,

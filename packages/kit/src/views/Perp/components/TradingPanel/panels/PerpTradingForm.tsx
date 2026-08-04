@@ -99,6 +99,7 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
+import { resolveStandardReferencePriceBN } from '../../../utils/tradingReferencePrice';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -931,10 +932,14 @@ function PerpTradingForm({
         lowerPrice: formData.scaleLowerPrice,
         upperPrice: formData.scaleUpperPrice,
       });
-    } else if (formData.type === 'limit' && formData.price) {
-      price = new BigNumber(formData.price);
-    } else if (formData.type === 'market') {
-      price = midPriceBN;
+    } else {
+      price = resolveStandardReferencePriceBN({
+        type: formData.type,
+        bboPriceMode: formData.bboPriceMode,
+        orderPriceBN,
+        formPrice: formData.price,
+        midPriceBN,
+      });
     }
     return [
       price,
@@ -945,6 +950,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
+    formData.bboPriceMode,
     formData.orderMode,
     formData.triggerOrderType,
     formData.triggerPrice,
@@ -953,6 +959,7 @@ function PerpTradingForm({
     formData.scaleUpperPrice,
     isSpot,
     midPriceBN,
+    orderPriceBN,
     sizeSzDecimals,
   ]);
 

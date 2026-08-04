@@ -182,15 +182,20 @@ export function buildPerpPortfolioFillsStats({
           .toNumber()
       : null;
 
-  // Base-token fees (spot buys) are not USD amounts; adding them raw would
-  // inflate the USD total by the token unit count. Their real USD value is
-  // fee×price at fill time, which these stats do not track — dropping them
-  // slightly understates fees instead of wildly overstating them.
+  // Base-token fees (spot buys) are token units, not USD; convert them at the
+  // fill's own price (the same px volumeUsd trusts). A fill without a usable
+  // price is dropped rather than counted as raw token units.
   const feesPaid = filteredFills
-    .reduce(
-      (sum, f) => (isUsdcDenominatedFee(f.feeToken) ? sum.plus(f.fee) : sum),
-      new BigNumber(0),
-    )
+    .reduce((sum, f) => {
+      if (isUsdcDenominatedFee(f.feeToken)) {
+        return sum.plus(f.fee);
+      }
+      const px = new BigNumber(f.px);
+      const fee = new BigNumber(f.fee);
+      return px.isFinite() && px.gt(0) && fee.isFinite()
+        ? sum.plus(fee.multipliedBy(px))
+        : sum;
+    }, new BigNumber(0))
     .toNumber();
 
   const volumeUsd = filteredFills
