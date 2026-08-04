@@ -2,7 +2,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
@@ -114,7 +113,7 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
 
   it('reuses the open socket while the stream is fresh', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
-    internals._lastFrameAt = Date.now() - 1_000;
+    internals._lastFrameAt = Date.now() - 1000;
 
     await service.resumeSubscriptions();
 
@@ -145,10 +144,9 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
           e: CustomEvent,
         ) => Promise<void>;
       }
-    )._handleSubscriptionData(
-      ESubscriptionType.ALL_MIDS,
-      { detail: {} } as unknown as CustomEvent,
-    );
+    )._handleSubscriptionData(ESubscriptionType.ALL_MIDS, {
+      detail: {},
+    } as unknown as CustomEvent);
 
     await service.resumeSubscriptions();
 
@@ -182,7 +180,7 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
   it('trusts a freshly opened socket that has not received messages yet', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
     internals._lastMessageAt = Date.now() - 60_000;
-    internals._socketOpenedAt = Date.now() - 1_000;
+    internals._socketOpenedAt = Date.now() - 1000;
 
     await service.resumeSubscriptions();
 
