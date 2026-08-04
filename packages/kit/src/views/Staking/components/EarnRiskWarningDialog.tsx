@@ -30,8 +30,7 @@ const RISK_WARNING_COPY = {
   ],
   checkboxPrefix: 'I understand the above risks, agree to the OneKey ',
   termsLink: 'Terms of Use',
-  checkboxSuffix:
-    ', and confirm that I will do my own research (DYOR).',
+  checkboxSuffix: ', and confirm that I will do my own research (DYOR).',
   cancel: 'Cancel',
   confirm: 'Confirm',
 } as const;
@@ -90,7 +89,13 @@ function EarnRiskWarningContent({
         </SizableText>
       </XStack>
       <XStack gap="$2.5" pt="$1">
-        <Button flex={1} size="large" variant="secondary" onPress={onCancel}>
+        <Button
+          testID="earn-risk-warning-cancel"
+          flex={1}
+          size="large"
+          variant="secondary"
+          onPress={onCancel}
+        >
           {RISK_WARNING_COPY.cancel}
         </Button>
         <Button

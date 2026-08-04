@@ -1217,6 +1217,19 @@ export function UniversalStake({
       }
     }
 
+    // OK-59196 (review P2): gate here, before submitting/wrap progress state
+    // transitions, so rejecting the risk dialog leaves the form untouched —
+    // the gate inside useUniversalStake would otherwise return void and the
+    // caller would resetAmount() as if the flow had completed
+    const earnRiskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId,
+    });
+    if (!earnRiskConfirmed) {
+      return;
+    }
+
     // Stakefish ETH: sign before building the staking transaction.
     if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);
@@ -1570,6 +1583,13 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    // Take the approving lock synchronously BEFORE any await (review P1):
+    // the confirm button's loading derives from `approving`, so awaiting
+    // first would leave a double-tap window as wide as one bg IPC roundtrip
+    if (approving) {
+      return;
+    }
+    setApproving(true);
     // OK-59196: the approve step is the user's first on-chain action in the
     // two-step flow and bypasses useUniversalStake, so the one-time risk
     // disclaimer must gate here too (once accepted it resolves immediately)
@@ -1579,9 +1599,9 @@ export function UniversalStake({
       networkId: approveTarget.networkId,
     });
     if (!riskConfirmed) {
+      setApproving(false);
       return;
     }
-    setApproving(true);
     let approveAllowance = allowance;
     try {
       const allowanceInfo = await fetchAllowanceResponse();
@@ -1706,6 +1726,7 @@ export function UniversalStake({
       },
     });
   }, [
+    approving,
     allowance,
     amountValue,
     tokenInfo?.token,
