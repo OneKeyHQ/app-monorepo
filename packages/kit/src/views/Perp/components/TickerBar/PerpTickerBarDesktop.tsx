@@ -73,6 +73,18 @@ function isValidPerpFormattedCtx(
   return Number.isFinite(markPriceNumber) && markPriceNumber > 0;
 }
 
+// Mirrors the mobile header: a ctx left over from the previous pair must not
+// render under the new one. The perp branch already matches on coin, and the
+// instrument is written optimistically at switch start, so the spot branch
+// needs the same guard to stay blank until its own ctx arrives.
+function useTickerBarSpotAssetCtx() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  return spotAssetCtx?.coin === activeTradeInstrument.coin
+    ? spotAssetCtx
+    : undefined;
+}
+
 function useTickerBarPerpAssetCtx() {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
@@ -160,14 +172,14 @@ function useTickerBarIsLoading() {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   if (isSpot) {
     // Spot: only loading if spot ctx hasn't arrived yet.
     // Don't gate on isReady (perps WS connection state) — spot data
     // flows through the same WS but isReady can be temporarily false
     // during mode transitions while the spot subscription is active.
-    return !spotAssetCtx?.ctx;
+    return !spotCtx?.ctx;
   }
   const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
@@ -230,10 +242,10 @@ function TickerBarMarkPrice() {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   const formattedMarkPrice = formatLocalizedNumberString(
-    (isSpot ? spotAssetCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
+    (isSpot ? spotCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
   );
   const isLoading = useTickerBarIsLoading();
   useEffect(() => {
@@ -292,8 +304,8 @@ export function TickerBarChange24h() {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
+  const spotCtx = useTickerBarSpotAssetCtx();
+  const displayCtx = tradingMode === 'spot' ? spotCtx?.ctx : assetCtx?.ctx;
   const changeDisplay = useMemo(() => {
     return formatTickerBarChange24hDisplay({
       change24h: displayCtx?.change24h,
@@ -405,10 +417,10 @@ function TickerBar24hVolume() {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const isSpot = tradingMode === 'spot';
   const volume24h = isSpot
-    ? spotAssetCtx?.ctx?.volume24h || '0'
+    ? spotCtx?.ctx?.volume24h || '0'
     : assetCtx?.ctx?.volume24h || '0';
   const formattedVolume24h = formatDisplayNumber(
     NUMBER_FORMATTER.marketCap(volume24h.toString()),
@@ -524,11 +536,11 @@ const TickerBarMarketCapView = memo(
 TickerBarMarketCapView.displayName = 'TickerBarMarketCapView';
 
 function TickerBarMarketCap() {
-  const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
+  const spotCtx = useTickerBarSpotAssetCtx();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const marketCap = getSpotMarketCapValue(
-    spotAssetCtx?.ctx,
-    spotAssetCtx?.baseName ?? spotAssetCtx?.coin,
+    spotCtx?.ctx,
+    spotCtx?.baseName ?? spotCtx?.coin,
     spotMarketCaps,
   );
   const formattedMarketCap = marketCap
