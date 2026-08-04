@@ -363,7 +363,11 @@ export const BorrowDataGate = ({
       data: scopedEarnAccountData ?? null,
       loading:
         Boolean(earnAccountLoading) ||
-        Boolean(hasAccountContext && marketNetworkId && !scopedEarnAccountData),
+        Boolean(
+          hasAccountContext &&
+          marketNetworkId &&
+          scopedEarnAccountData === undefined,
+        ),
       refresh: () => refreshAccount(),
       ownerMarketKey: currentMarketKey,
     });
