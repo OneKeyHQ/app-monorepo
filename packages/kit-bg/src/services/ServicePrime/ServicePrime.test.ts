@@ -338,6 +338,11 @@ function createService() {
     isAllIdentityAuthMetadataCleared: jest.fn(async () => false),
     clearAllIdentityAuthMetadataAndBumpRevision: jest.fn(async () => 1),
     hasShownOneKeyIdOAuthBindPrompt: jest.fn(async () => false),
+    getOneKeyIdOAuthBindPromptUpgradeState: jest.fn(async () => ({
+      hasShown: false,
+      credentialUpgradeCompleted: false,
+    })),
+    markOneKeyIdKeylessCredentialUpgradeCompleted: jest.fn(async () => true),
     markOneKeyIdOAuthBindPromptShown: jest.fn(async () => undefined),
     tryClaimOneKeyIdOAuthBindPrompt: jest.fn(async () => true),
     completeOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
@@ -3172,8 +3177,11 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
 
   it('still upgrades credentials without rechecking bind state when already reminded', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
-    mockOneKeyIdCredentialReady(service);
-    simpleDbPrime.hasShownOneKeyIdOAuthBindPrompt.mockResolvedValue(true);
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+    });
     const bindRequiredSpy = jest.spyOn(
       service,
       'isLegacyOneKeyIdOAuthBindRequired',
@@ -3186,12 +3194,75 @@ describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
     ).resolves.toEqual({ status: 'skip' });
 
     expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceKeylessWallet
         .ensureKeylessCredentialReadyForOneKeyIdBind,
     ).toHaveBeenCalledTimes(1);
     expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+    expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('skips profile and credential work after both upgrade gates complete', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: true,
+    });
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch profile or mark completion when an old reminder still needs passcode', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+    });
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'requiresPasscode',
+        hasLocalKeylessWallet: true,
+      },
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
     ).not.toHaveBeenCalled();
   });
 

@@ -99,6 +99,14 @@ export interface ISimpleDBPrime {
   // historical field name is retained for persisted-data compatibility;
   // any finite timestamp now means the reminder has been consumed forever.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
+  // A completed passive legacy-Keyless credential upgrade is reusable only
+  // while the complete identity lifecycle stays unchanged. Any OneKey ID,
+  // Keyless wallet, or Keyless OAuth session mutation advances the revision
+  // and makes the cached completion stale.
+  localKeylessCredentialUpgradeCompletedRevisionByUserId?: Record<
+    string,
+    number
+  >;
   oneKeyIdOAuthBindPromptClaimByUserId?: Record<
     string,
     { claimId: string; expiresAt: number }
@@ -1105,6 +1113,70 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       return false;
     }
     return true;
+  }
+
+  @backgroundMethod()
+  async getOneKeyIdOAuthBindPromptUpgradeState({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<{
+    hasShown: boolean;
+    credentialUpgradeCompleted: boolean;
+  }> {
+    if (!onekeyUserId) {
+      return {
+        hasShown: false,
+        credentialUpgradeCompleted: false,
+      };
+    }
+    const rawData = await this.getRawData();
+    const shownAt =
+      rawData?.localKeylessUpgradeBindPromptShownAtByUserId?.[onekeyUserId];
+    const currentRevision = rawData?.identityLifecycleRevision ?? 0;
+    const completedRevision =
+      rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId?.[
+        onekeyUserId
+      ];
+    return {
+      hasShown: typeof shownAt === 'number' && Number.isFinite(shownAt),
+      credentialUpgradeCompleted:
+        typeof currentRevision === 'number' &&
+        Number.isFinite(currentRevision) &&
+        typeof completedRevision === 'number' &&
+        Number.isFinite(completedRevision) &&
+        completedRevision === currentRevision,
+    };
+  }
+
+  @backgroundMethod()
+  async markOneKeyIdKeylessCredentialUpgradeCompleted({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<boolean> {
+    if (!onekeyUserId) {
+      return false;
+    }
+    let marked = false;
+    await this.setRawData((rawData) => {
+      const currentRevision = rawData?.identityLifecycleRevision ?? 0;
+      if (
+        typeof currentRevision !== 'number' ||
+        !Number.isFinite(currentRevision)
+      ) {
+        return { ...rawData };
+      }
+      marked = true;
+      return {
+        ...rawData,
+        localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+          ...rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+          [onekeyUserId]: currentRevision,
+        },
+      };
+    });
+    return marked;
   }
 
   @backgroundMethod()

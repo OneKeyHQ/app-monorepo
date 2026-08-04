@@ -1007,6 +1007,78 @@ describe('SimpleDbEntityPrime.hasShownOneKeyIdOAuthBindPrompt', () => {
     ).resolves.toBe(true);
   });
 
+  test('reuses a completed credential upgrade only at the same lifecycle revision', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const getRawDataSpy = jest.spyOn(entity, 'getRawData');
+    getRawDataSpy.mockResolvedValueOnce({
+      identityLifecycleRevision: 7,
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': 100,
+      },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 7,
+      },
+    });
+
+    await expect(
+      entity.getOneKeyIdOAuthBindPromptUpgradeState({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      hasShown: true,
+      credentialUpgradeCompleted: true,
+    });
+
+    getRawDataSpy.mockResolvedValueOnce({
+      identityLifecycleRevision: 8,
+      localKeylessUpgradeBindPromptShownAtByUserId: {
+        'user-1': 100,
+      },
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-1': 7,
+      },
+    });
+
+    await expect(
+      entity.getOneKeyIdOAuthBindPromptUpgradeState({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+    });
+  });
+
+  test('marks credential upgrade completion at the current lifecycle revision', async () => {
+    const entity = new SimpleDbEntityPrime();
+    let persisted: ISimpleDBPrime = {
+      identityLifecycleRevision: 9,
+      localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+        'user-2': 4,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') {
+        persisted = await updater(persisted);
+      } else {
+        persisted = updater;
+      }
+      return persisted;
+    });
+
+    await expect(
+      entity.markOneKeyIdKeylessCredentialUpgradeCompleted({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toBe(true);
+    expect(
+      persisted.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+    ).toEqual({
+      'user-1': 9,
+      'user-2': 4,
+    });
+  });
+
   test('consumes only the claim that actually presents the reminder', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: ISimpleDBPrime = {};

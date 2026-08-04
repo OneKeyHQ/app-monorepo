@@ -2350,45 +2350,79 @@ class ServicePrime extends ServiceBase {
       return { status: 'skip' };
     }
     return this.oneKeyIdOAuthBindPromptCheckMutex.runExclusive(async () => {
+      let promptUpgradeState: {
+        hasShown: boolean;
+        credentialUpgradeCompleted: boolean;
+      };
       try {
-        const { userInfo } = await this.apiFetchPrimeUserInfo();
-        if (
-          !userInfo.isLoggedIn ||
-          !userInfo.isLoggedInOnServer ||
-          userInfo.onekeyUserId !== onekeyUserId
-        ) {
-          return { status: 'skip' };
-        }
-
-        const keylessCredentialReadiness =
-          await this.backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
-        if (keylessCredentialReadiness.status === 'retryableIndeterminate') {
-          return { status: 'retryable' };
-        }
-      } catch (error) {
-        console.error(
-          'ServicePrime.claimOneKeyIdOAuthBindPrompt: credential upgrade failed:',
-          getSanitizedAuthErrorLog(error),
-        );
-        return { status: 'retryable' };
-      }
-
-      let hasShown = false;
-      try {
-        hasShown =
-          await this.backgroundApi.simpleDb.prime.hasShownOneKeyIdOAuthBindPrompt(
-            {
-              onekeyUserId,
-            },
+        promptUpgradeState =
+          await this.backgroundApi.simpleDb.prime.getOneKeyIdOAuthBindPromptUpgradeState(
+            { onekeyUserId },
           );
       } catch (error) {
         console.error(
-          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt state read failed:',
+          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt upgrade state read failed:',
           getSanitizedAuthErrorLog(error),
         );
         return { status: 'retryable' };
       }
-      if (hasShown) {
+
+      if (
+        promptUpgradeState.hasShown &&
+        promptUpgradeState.credentialUpgradeCompleted
+      ) {
+        return { status: 'skip' };
+      }
+
+      // An already-consumed reminder may predate credential unification. It
+      // must still get one passive Keyless migration opportunity, but profile
+      // freshness is irrelevant because no dialog will be shown. New reminder
+      // decisions still validate the live OneKey ID before touching Keyless.
+      if (!promptUpgradeState.hasShown) {
+        try {
+          const { userInfo } = await this.apiFetchPrimeUserInfo();
+          if (
+            !userInfo.isLoggedIn ||
+            !userInfo.isLoggedInOnServer ||
+            userInfo.onekeyUserId !== onekeyUserId
+          ) {
+            return { status: 'skip' };
+          }
+        } catch (error) {
+          console.error(
+            'ServicePrime.claimOneKeyIdOAuthBindPrompt: OneKey ID refresh failed:',
+            getSanitizedAuthErrorLog(error),
+          );
+          return { status: 'retryable' };
+        }
+      }
+
+      if (!promptUpgradeState.credentialUpgradeCompleted) {
+        try {
+          const keylessCredentialReadiness =
+            await this.backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
+          if (keylessCredentialReadiness.status === 'retryableIndeterminate') {
+            return { status: 'retryable' };
+          }
+          if (keylessCredentialReadiness.status !== 'requiresPasscode') {
+            const marked =
+              await this.backgroundApi.simpleDb.prime.markOneKeyIdKeylessCredentialUpgradeCompleted(
+                { onekeyUserId },
+              );
+            if (!marked) {
+              return { status: 'retryable' };
+            }
+          }
+        } catch (error) {
+          console.error(
+            'ServicePrime.claimOneKeyIdOAuthBindPrompt: credential upgrade failed:',
+            getSanitizedAuthErrorLog(error),
+          );
+          return { status: 'retryable' };
+        }
+      }
+
+      if (promptUpgradeState.hasShown) {
         return { status: 'skip' };
       }
 
