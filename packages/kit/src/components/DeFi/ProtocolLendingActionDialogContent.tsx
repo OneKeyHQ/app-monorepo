@@ -434,12 +434,10 @@ function LendingActionAlerts({
   showLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
-  riskOfLiquidationAlert,
 }: {
   showLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
-  riskOfLiquidationAlert?: boolean;
 }) {
   const intl = useIntl();
   const liquidationWarningText = intl.formatMessage({
@@ -448,9 +446,6 @@ function LendingActionAlerts({
   const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
     if (!showLiquidationWarning) {
       return true;
-    }
-    if (riskOfLiquidationAlert && checkAmountAlerts.length === 1) {
-      return false;
     }
     return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
       (text) => text?.trim() === liquidationWarningText.trim(),
@@ -1658,7 +1653,9 @@ function ProtocolLendingActionBorrowContent({
     actionResult.checkAmountResult === false ||
     actionResult.checkAmountLoading;
   const shouldShowHealthFactorSkeleton =
-    !healthFactor && isAmountPositive && !actionResult.transactionConfirmation;
+    !healthFactor &&
+    isAmountPositive &&
+    actionResult.transactionConfirmationLoading;
   // Belt-and-suspenders: a selectable Aave entry whose asset fetch AND protocol
   // info both come back empty falls back to the empty state instead of crashing.
   const isEmpty =
@@ -1827,7 +1824,6 @@ function ProtocolLendingActionBorrowContent({
       showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
-      riskOfLiquidationAlert={actionResult.riskOfLiquidationAlert}
     />
   ) : null;
   const contentNode = (

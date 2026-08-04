@@ -881,6 +881,9 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  bindedAccountAddress?: string;
+  bindedNetworkId?: string;
+  rebateAddress?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
