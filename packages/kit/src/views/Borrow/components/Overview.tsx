@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -46,12 +46,17 @@ export const Overview = ({
   isEModeLoading = false,
   overviewData,
   showBottomSpacing = true,
+  onBorrowHistoryActionChange,
 }: {
   eModeStatus: IBorrowEModeStatus | null;
   isEModeError?: boolean;
   isEModeLoading?: boolean;
   overviewData: IBorrowOverviewData;
   showBottomSpacing?: boolean;
+  onBorrowHistoryActionChange?: (
+    handler: (() => void) | null,
+    visible: boolean,
+  ) => void;
 }) => {
   const { reserves, market, earnAccount, pendingTxs } = useBorrowContext();
   const intl = useIntl();
@@ -125,15 +130,35 @@ export const Overview = ({
   const pendingCount = pendingTxs.length;
   const historyAction = reserves.data?.overview?.history;
   const historyVisible = !historyAction?.disabled && pendingCount === 0;
+  const showMobileHeaderHistoryAction =
+    !gtMd && (pendingCount > 0 || !historyAction?.disabled);
+
+  useEffect(() => {
+    if (!onBorrowHistoryActionChange) {
+      return undefined;
+    }
+
+    onBorrowHistoryActionChange(
+      showMobileHeaderHistoryAction ? handleHistoryPress : null,
+      showMobileHeaderHistoryAction,
+    );
+    return () => {
+      onBorrowHistoryActionChange(null, false);
+    };
+  }, [
+    handleHistoryPress,
+    onBorrowHistoryActionChange,
+    showMobileHeaderHistoryAction,
+  ]);
 
   /* Both tools act on the numbers rather than on the market, so they travel
      with net worth instead of sitting up on the market's line. */
   const tools = (
     <XStack ai="center" gap="$3" flexShrink={0}>
-      {pendingCount > 0 ? (
+      {gtMd && pendingCount > 0 ? (
         <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
       ) : null}
-      {historyVisible ? (
+      {gtMd && historyVisible ? (
         <XStack testID={BorrowTestIDs.overviewHistoryBtn} ai="center">
           {historyAction ? (
             <EarnActionIcon

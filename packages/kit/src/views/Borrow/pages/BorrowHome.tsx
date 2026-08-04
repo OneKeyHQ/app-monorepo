@@ -69,6 +69,10 @@ type IBorrowHomeProps = {
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
+  onBorrowHistoryActionChange?: (
+    handler: (() => void) | null,
+    visible: boolean,
+  ) => void;
 };
 
 const BorrowPendingBridge = ({
@@ -105,7 +109,11 @@ const BorrowPendingBridge = ({
 };
 
 const BorrowHomeContent = memo(
-  ({ header, isActive = true }: IBorrowHomeProps) => {
+  ({
+    header,
+    isActive = true,
+    onBorrowHistoryActionChange,
+  }: IBorrowHomeProps) => {
     const intl = useIntl();
     const tabBarHeight = useScrollContentTabBarOffset();
     const { gtMd, gtXl } = useMedia();
@@ -459,6 +467,7 @@ const BorrowHomeContent = memo(
               isEModeLoading={isEModeInitialLoading}
               overviewData={overviewData}
               showBottomSpacing={!hasAlerts}
+              onBorrowHistoryActionChange={onBorrowHistoryActionChange}
             />
             {hasAlerts ? (
               <YStack
@@ -508,6 +517,7 @@ const BorrowHomeCmp = memo(
     pendingTxs,
     onRegisterBorrowRefresh,
     onBorrowNetworksChange,
+    onBorrowHistoryActionChange,
   }: IBorrowHomeProps) => {
     return (
       <BorrowProvider>
@@ -519,7 +529,11 @@ const BorrowHomeCmp = memo(
           isActive={isActive}
           onBorrowNetworksChange={onBorrowNetworksChange}
         >
-          <BorrowHomeContent header={header} isActive={isActive} />
+          <BorrowHomeContent
+            header={header}
+            isActive={isActive}
+            onBorrowHistoryActionChange={onBorrowHistoryActionChange}
+          />
         </BorrowDataGate>
       </BorrowProvider>
     );
