@@ -1,12 +1,13 @@
 import { HardwareDevice } from '.';
 
-import { XStack } from '../../primitives';
+import { XStack, YStack } from '../../primitives';
 
 import type { IHardwareDeviceType } from '.';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
-// Model-keyed entry point to the code-drawn replicas. The two shells are
-// verified in their own stories; this one covers the routing.
+// The one entry point to the code-drawn replicas: pick a model, pick a
+// scene. Both shells are drawn from their Figma nodes and verified against
+// them on an iOS simulator; this is where you look at either.
 const meta = {
   title: 'Content/HardwareDevice',
   component: HardwareDevice,
@@ -28,6 +29,7 @@ const meta = {
       control: 'radio',
       options: ['confirm', 'enterPin', 'enterPassphrase'],
     },
+    width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
   },
 } satisfies Meta<typeof HardwareDevice>;
 
@@ -54,5 +56,26 @@ export const ByDeviceType: Story = {
         />
       ))}
     </XStack>
+  ),
+};
+
+// Shrinking is the free direction: the transform minifies, so the drawing
+// only gets denser. Enlarging is where the Classic softens on iOS and
+// Android, since its noise and blurs become magnified bitmaps; the Pro has
+// neither and only its wordmark rasterizes.
+export const Sizes: Story = {
+  render: () => (
+    <YStack gap="$4">
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="classic" width={80} />
+        <HardwareDevice deviceType="classic" width={160} />
+        <HardwareDevice deviceType="classic" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="pro" width={80} />
+        <HardwareDevice deviceType="pro" width={160} />
+        <HardwareDevice deviceType="pro" width={240} />
+      </XStack>
+    </YStack>
   ),
 };

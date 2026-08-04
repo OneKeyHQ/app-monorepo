@@ -5,21 +5,22 @@ import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IProDeviceScene } from '../ProDevice';
 
 /**
- * Picks the code-drawn replica for a connected device. Call sites hold the
- * model at runtime and fix the scenario at build time - the reverse of what
- * the per-device components express - so this is the shape almost every
- * caller wants:
+ * The code-drawn hardware devices. This is the entry point; ../ClassicDevice
+ * and ../ProDevice are the per-model drawings behind it, not a second way in.
+ * Call sites hold the model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
- * It also owns the two mappings that would otherwise be copied to every call
- * site: the Classic family collapsing onto one replica, and models without a
+ * It owns the two mappings that would otherwise be copied to every call site:
+ * the Classic family collapsing onto one replica, and models without a
  * replica rendering nothing.
  *
- * Custom screen content stays on ClassicDevice / ProDevice rather than
- * passing through here, because it is not model-agnostic: the canvases differ
- * (a 256x128 OLED against a 288x484 touchscreen) and only the Classic's
- * animation contract carries key presses.
+ * Only the routing is shared. The two shells stay apart because they draw
+ * different objects - the Classic carries noise, blurs, four physical keys
+ * and a 256x128 OLED; the Pro has none of that and a 288x484 touchscreen -
+ * and what they genuinely have in common already lives in ../deviceScene.
+ * Live screen content, when something needs it, attaches per model at that
+ * layer, where the canvas and the key presses are known.
  */
 
 /**
