@@ -147,17 +147,30 @@ describe('buildCrossNetworkSearchListData', () => {
 });
 
 describe('extractCrossNetworkSearchQuery', () => {
+  // Field values mirror packages/shared/src/config/presetNetworks.ts — in
+  // particular Base carries symbol 'ETH', which is what makes "eth base"
+  // resolvable (see the alias-collision test below).
   const networks = [
     {
       id: 'evm--1',
       name: 'Ethereum',
+      symbol: 'ETH',
       code: 'eth',
       shortcode: 'eth',
       shortname: 'ETH',
     },
     {
+      id: 'evm--8453',
+      name: 'Base',
+      symbol: 'ETH',
+      code: 'base',
+      shortcode: 'base',
+      shortname: 'Base',
+    },
+    {
       id: 'tron--0x2b6653dc',
       name: 'Tron',
+      symbol: 'TRX',
       code: 'trx',
       shortcode: 'trx',
       shortname: 'TRX',
@@ -165,6 +178,7 @@ describe('extractCrossNetworkSearchQuery', () => {
     {
       id: 'sol--101',
       name: 'Solana',
+      symbol: 'SOL',
       code: 'sol',
       shortcode: 'sol',
       shortname: 'SOL',
@@ -200,7 +214,24 @@ describe('extractCrossNetworkSearchQuery', () => {
     ).toEqual({ keywords: 'usdt' });
   });
 
-  test('no extraction when keywords match multiple different networks', () => {
+  test('token/network alias collision resolves to the unambiguous network', () => {
+    // "eth" names Ethereum but is also Ethereum's own symbol, so it is the
+    // TOKEN term; "base" can only be a network (Base's symbol is ETH).
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'eth base', networks }),
+    ).toEqual({ networkId: 'evm--8453', keywords: 'eth' });
+    // Same shape with the words reversed.
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'base eth', networks }),
+    ).toEqual({ networkId: 'evm--8453', keywords: 'eth' });
+    // Two aliases of one network: the non-symbol one wins, the other stays as
+    // the token term.
+    expect(
+      extractCrossNetworkSearchQuery({ keywords: 'tron trx', networks }),
+    ).toEqual({ networkId: 'tron--0x2b6653dc', keywords: 'trx' });
+  });
+
+  test('no extraction when every network word is also a token symbol', () => {
     expect(
       extractCrossNetworkSearchQuery({ keywords: 'eth sol', networks }),
     ).toEqual({ keywords: 'eth sol' });
@@ -208,8 +239,8 @@ describe('extractCrossNetworkSearchQuery', () => {
 
   test('no extraction when stripping would leave nothing', () => {
     expect(
-      extractCrossNetworkSearchQuery({ keywords: 'tron trx', networks }),
-    ).toEqual({ keywords: 'tron trx' });
+      extractCrossNetworkSearchQuery({ keywords: 'trx trx', networks }),
+    ).toEqual({ keywords: 'trx trx' });
   });
 
   test('all-networks pseudo network never matches; partial words never match', () => {

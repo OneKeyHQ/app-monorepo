@@ -441,10 +441,14 @@ function TokenSelector() {
   // the backend across all networks and group results by network. Excluded for
   // custom networks (their search goes through RPC contract lookup) and the LP
   // filter (its backend results are network-scoped by design).
+  // `network` resolves asynchronously: require it before enabling, otherwise
+  // `!network?.isCustomNetwork` reads as true while it is still undefined and a
+  // custom network would dispatch an all-network search on a cold start.
   const crossNetworkSearchEnabled =
     !!enableCrossNetworkSearch &&
+    !!network &&
     !isSelectorAllNetworks &&
-    !network?.isCustomNetwork &&
+    !network.isCustomNetwork &&
     !showLpTokensOnly;
   let tokenSelectorSearchFilterContext: ITokenSelectorSearchFilterContext =
     'all-token';
@@ -1064,6 +1068,11 @@ function TokenSelector() {
         accountId ?? '',
         networkId ?? '',
         tokenSelectorSearchFilterContext,
+        // Part of the identity: the gate flips when `network` resolves, and the
+        // two runs would otherwise share a context — letting the earlier
+        // (differently scoped) response pass isLatest() and overwrite the newer
+        // one if it lands after the abort.
+        crossNetworkSearchEnabled ? 'cross' : 'scoped',
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;

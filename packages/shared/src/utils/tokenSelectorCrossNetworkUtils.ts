@@ -37,8 +37,7 @@ export function isTokenSelectorSyntheticRow(
 // keyword names a network exactly (name/code/shortcode/shortname), strip it
 // and scope the backend request to that network instead — the local AND filter
 // still applies the full query afterwards. Conservative by design: only
-// extracts when exactly one keyword matches exactly one network and at least
-// one keyword remains.
+// extracts when the network is unambiguous and at least one keyword remains.
 export function extractCrossNetworkSearchQuery({
   keywords,
   networks,
@@ -51,32 +50,45 @@ export function extractCrossNetworkSearchQuery({
     return { keywords };
   }
 
-  const matchedNetworkIds = new Set<string>();
-  const networkWords = new Set<string>();
+  const matchesByWord = new Map<string, IServerNetwork[]>();
   for (const word of words) {
-    for (const network of networks) {
-      if (network.isAllNetworks) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      if (
-        network.name?.toLowerCase() === word ||
-        network.code?.toLowerCase() === word ||
-        network.shortcode?.toLowerCase() === word ||
-        network.shortname?.toLowerCase() === word
-      ) {
-        matchedNetworkIds.add(network.id);
-        networkWords.add(word);
-      }
+    const matched = networks.filter(
+      (network) =>
+        !network.isAllNetworks &&
+        (network.name?.toLowerCase() === word ||
+          network.code?.toLowerCase() === word ||
+          network.shortcode?.toLowerCase() === word ||
+          network.shortname?.toLowerCase() === word),
+    );
+    if (matched.length > 0) {
+      matchesByWord.set(word, matched);
     }
   }
 
-  const remainingWords = words.filter((word) => !networkWords.has(word));
-  if (
-    matchedNetworkIds.size !== 1 ||
-    networkWords.size !== 1 ||
-    remainingWords.length === 0
-  ) {
+  let networkWords = Array.from(matchesByWord.keys());
+  if (networkWords.length > 1) {
+    // Several words look like networks. A word that is also its own network's
+    // gas-token symbol ("eth" -> Ethereum, symbol ETH) is really the TOKEN
+    // term: in "eth base" the user wants the ETH token on Base. Drop those and
+    // keep the word that can only be a network. If that leaves zero or several
+    // (e.g. "eth sol", both token-like), the query stays genuinely ambiguous.
+    networkWords = networkWords.filter(
+      (word) =>
+        !(matchesByWord.get(word) ?? []).some(
+          (network) => network.symbol?.toLowerCase() === word,
+        ),
+    );
+  }
+  if (networkWords.length !== 1) {
+    return { keywords };
+  }
+
+  const networkWord = networkWords[0];
+  const matchedNetworkIds = new Set(
+    (matchesByWord.get(networkWord) ?? []).map((network) => network.id),
+  );
+  const remainingWords = words.filter((word) => word !== networkWord);
+  if (matchedNetworkIds.size !== 1 || remainingWords.length === 0) {
     return { keywords };
   }
 
