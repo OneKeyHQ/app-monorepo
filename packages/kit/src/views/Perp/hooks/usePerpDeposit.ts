@@ -1296,6 +1296,11 @@ const usePerpDeposit = (
         errorStage,
         errorCode: getPerpDepositErrorCode(error),
       });
+      // Preserve the legacy send/sign behavior while allowing preparation
+      // failures to reach the modal's error handling instead of closing it.
+      if (errorStage === 'build' || errorStage === 'approve') {
+        throw error;
+      }
     }
   }, [
     perpDepositQuote,
