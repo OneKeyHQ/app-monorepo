@@ -1239,6 +1239,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               };
 
               resolveSdkGetAllAddressResponse();
+              hwAllNetworkPrepareAccountsResponse.completeSdkResponse();
 
               if (process.env.NODE_ENV !== 'production') {
                 // resolve by console call manually:

@@ -1841,7 +1841,7 @@ function TokenListBlock({
       if (
         isPortfolioSyncDevEnabled &&
         wallet &&
-        !accountUtils.isHwHiddenWallet({ wallet })
+        accountUtils.isHwWallet({ walletId: wallet.id })
       ) {
         const flattenedAggregateTokenMap = flattenAggregateTokensMap(
           snapshot.aggregateTokenMap,

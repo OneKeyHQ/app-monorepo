@@ -835,6 +835,67 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     });
   });
 
+  it('clears device progress when the matching Protocol V2 interaction closes', async () => {
+    const listeners = new Map<
+      string,
+      (payload: unknown) => void | Promise<void>
+    >();
+    const instance = {
+      on: jest.fn(
+        (
+          event: string,
+          listener: (payload: unknown) => void | Promise<void>,
+        ) => {
+          listeners.set(event, listener);
+        },
+      ),
+    };
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents(instance as never);
+    const listener = listeners.get(UI_EVENT);
+
+    await listener?.({
+      type: UI_REQUEST.DEVICE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        interaction: {
+          interactionId: 'interaction-progress',
+          phaseId: 'interaction-progress:phase-1',
+          sequence: 1,
+          phase: 'processing',
+          transition: 'start',
+          protocol: 'V2',
+        },
+        progress: 100,
+      },
+    });
+    await listener?.({
+      type: UI_REQUEST.CLOSE_UI_WINDOW,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        interactionId: 'interaction-progress',
+        phaseId: 'interaction-progress:phase-1',
+        sequence: 2,
+        phase: 'processing',
+        transition: 'finish',
+        outcome: 'succeeded',
+        protocol: 'V2',
+      },
+    });
+
+    expect(setHardwareUiStateMock).toHaveBeenLastCalledWith(undefined);
+  });
+
   it('persists and broadcasts canonical SDK state events', async () => {
     const listeners = new Map<
       string,

@@ -202,6 +202,44 @@ describe('hardware UI event state machine', () => {
     expect(result.state.phase).toBe('passphrase');
   });
 
+  it('accepts the final metadata-less close after V2 progress reopens a closed interaction', () => {
+    let state = reduceHardwareUiEventState(createHardwareUiEventState(), {
+      type: EHardwareUiStateAction.REQUEST_BUTTON,
+      renderAction: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: 'PRO2_USB',
+      payload: {
+        interaction: createInteraction({ phase: 'button' }),
+      },
+    }).state;
+    state = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      renderAction: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      payload: createInteraction({
+        phase: 'button',
+        sequence: 2,
+        transition: 'finish',
+      }),
+    }).state;
+
+    expect(state.phase).toBe('closed');
+
+    state = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.DEVICE_PROGRESS,
+      renderAction: EHardwareUiStateAction.DEVICE_PROGRESS,
+      payload: { progress: 100 },
+    }).state;
+
+    const result = reduceHardwareUiEventState(state, {
+      type: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      renderAction: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.action).toBe(EHardwareUiStateAction.CLOSE_UI_WINDOW);
+    expect(result.state.phase).toBe('closed');
+    expect(result.connectId).toBe('PRO2_USB');
+  });
+
   it('accepts a new device after the previous interaction closes', () => {
     let state = reduceHardwareUiEventState(createHardwareUiEventState(), {
       type: EHardwareUiStateAction.REQUEST_BUTTON,

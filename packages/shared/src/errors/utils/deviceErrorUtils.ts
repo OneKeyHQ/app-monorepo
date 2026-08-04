@@ -234,6 +234,8 @@ export function convertDeviceError(
       return new HardwareErrors.OpenBlindSign({ payload });
     case HardwareErrorCode.FileAlreadyExists:
       return new HardwareErrors.FileAlreadyExistError({ payload });
+    case HardwareErrors.PRO2_NFT_STORAGE_LIMIT_REACHED_ERROR_CODE:
+      return new HardwareErrors.NftStorageLimitReachedError({ payload });
     case HardwareErrorCode.CheckDownloadFileError:
       return new HardwareErrors.IncompleteFileError({ payload });
     case HardwareErrorCode.NotInSigningMode:

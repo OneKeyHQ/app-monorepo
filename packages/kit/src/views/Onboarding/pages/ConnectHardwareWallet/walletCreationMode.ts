@@ -1,6 +1,44 @@
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+
 export type IHardwareWalletCreationMode = 'standard' | 'hidden';
+
+type IWalletCreationHardwareService = {
+  getDeviceState: (params: {
+    connectId: string;
+    params: {
+      connectProtocol?: HardwareConnectProtocol;
+      scope: 'runtime';
+    };
+  }) => Promise<IOneKeyDeviceState>;
+  getDeviceStateWithUnlock: (params: {
+    connectId: string;
+    params: {
+      connectProtocol?: HardwareConnectProtocol;
+      scope: 'runtime';
+    };
+  }) => Promise<IOneKeyDeviceState>;
+};
+
+export async function getWalletCreationDeviceState({
+  serviceHardware,
+  connectId,
+  connectProtocol,
+}: {
+  serviceHardware: IWalletCreationHardwareService;
+  connectId: string;
+  connectProtocol?: HardwareConnectProtocol;
+}): Promise<IOneKeyDeviceState> {
+  const params = {
+    connectProtocol,
+    scope: 'runtime' as const,
+  };
+  if (connectProtocol === 'V2') {
+    return serviceHardware.getDeviceState({ connectId, params });
+  }
+  return serviceHardware.getDeviceStateWithUnlock({ connectId, params });
+}
 
 export function shouldCheckExistingStandardWallet(
   state: IOneKeyDeviceState,

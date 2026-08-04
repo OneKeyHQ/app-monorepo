@@ -60,12 +60,6 @@ const STEP_BY_VALUE: Record<number | string, IPro2NormalizedStep> = {
   ONBOARDING_STEP_PIN: 'pin',
   ONBOARDING_STEP_SETUP: 'setup',
   ONBOARDING_STEP_DONE: 'done',
-  DEV_ONBOARDING_STEP_UNKNOWN: 'unknown',
-  DEV_ONBOARDING_STEP_CHECKING: 'checking',
-  DEV_ONBOARDING_STEP_PERSONALIZATION: 'personalization',
-  DEV_ONBOARDING_STEP_PIN: 'pin',
-  DEV_ONBOARDING_STEP_SETUP: 'setup',
-  DEV_ONBOARDING_STEP_DONE: 'done',
 };
 
 function normalizeStep(step: unknown): IPro2NormalizedStep {
@@ -81,15 +75,12 @@ function normalizeSetupKind(
   switch (kind) {
     case OnboardingSetupKind.ONBOARDING_SETUP_KIND_CHOICE:
     case 'ONBOARDING_SETUP_KIND_CHOICE':
-    case 'DEV_ONBOARDING_SETUP_KIND_CHOICE':
       return 'choice';
     case OnboardingSetupKind.ONBOARDING_SETUP_KIND_CREATE:
     case 'ONBOARDING_SETUP_KIND_CREATE':
-    case 'DEV_ONBOARDING_SETUP_KIND_CREATE':
       return 'create';
     case OnboardingSetupKind.ONBOARDING_SETUP_KIND_RESTORE:
     case 'ONBOARDING_SETUP_KIND_RESTORE':
-    case 'DEV_ONBOARDING_SETUP_KIND_RESTORE':
       return 'restore';
     default:
       return undefined;
@@ -102,11 +93,9 @@ function normalizeSetupMethod(
   switch (method) {
     case OnboardingSetupMethod.ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE:
     case 'ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE':
-    case 'DEV_ONBOARDING_SETUP_METHOD_RECOVERY_PHRASE':
       return 'recoveryPhrase';
     case OnboardingSetupMethod.ONBOARDING_SETUP_METHOD_SEEDCARD:
     case 'ONBOARDING_SETUP_METHOD_SEEDCARD':
-    case 'DEV_ONBOARDING_SETUP_METHOD_SEEDCARD':
       return 'seedCard';
     default:
       return undefined;
@@ -121,9 +110,6 @@ function isBackupPhase(phase: unknown): boolean {
     'ONBOARDING_PHASE_WALLET_READY',
     'ONBOARDING_PHASE_SEEDCARD_BACKUP_PROMPT',
     'ONBOARDING_PHASE_SEEDCARD_BACKUP',
-    'DEV_ONBOARDING_PHASE_WALLET_READY',
-    'DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP_PROMPT',
-    'DEV_ONBOARDING_PHASE_SEEDCARD_BACKUP',
   ].includes(phase as OnboardingPhase | string);
 }
 

@@ -116,4 +116,20 @@ describe('mapPro2OnboardingStatus', () => {
       ready: false,
     });
   });
+
+  it('does not accept removed DEV onboarding enum names', () => {
+    expect(
+      mapPro2OnboardingStatus({
+        step: ['DEV', 'ONBOARDING', 'STEP', 'DONE'].join(
+          '_',
+        ) as unknown as OnboardingStep,
+        pin_set: true,
+        wallet_initialized: true,
+      }),
+    ).toMatchObject({
+      phase: 'checking',
+      step: EPro2OnboardingStep.Checking,
+      ready: false,
+    });
+  });
 });
