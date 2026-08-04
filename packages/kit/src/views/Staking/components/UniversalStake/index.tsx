@@ -1404,6 +1404,12 @@ export function UniversalStake({
   // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
   // can re-enter the approve step once the allowance has been reset to 0.
   const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  // Whitelist flag for the deliberate USDT-reset re-entry (OK-58027): that
+  // flow re-enters onApprove while approving === true, so the reentry guard
+  // must let it through (review P0). A ref (not a param) keeps onApprove
+  // zero-arg — it is passed directly to the footer button's onPress, where a
+  // press event would otherwise land in the options slot.
+  const usdtResetReentryRef = useRef(false);
 
   const resetUSDTApproveValue = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -1450,6 +1456,9 @@ export function UniversalStake({
                 // navigationToTxConfirm outside any try/catch, and a swallowed
                 // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                  // Bypass the approving-reentry guard: this deliberate
+                  // re-entry runs with approving === true (OK-58027)
+                  usdtResetReentryRef.current = true;
                   void onApproveRef.current?.().catch((e) => {
                     console.error(
                       'Re-enter approve after USDT reset failed:',
@@ -1585,8 +1594,14 @@ export function UniversalStake({
     Keyboard.dismiss();
     // Take the approving lock synchronously BEFORE any await (review P1):
     // the confirm button's loading derives from `approving`, so awaiting
-    // first would leave a double-tap window as wide as one bg IPC roundtrip
-    if (approving) {
+    // first would leave a double-tap window as wide as one bg IPC roundtrip.
+    // The USDT reset flow (OK-58027) re-enters deliberately with
+    // approving === true, so it is whitelisted via usdtResetReentryRef —
+    // blocking it would dead-end the flow with the button stuck loading
+    // (review P0)
+    const isUsdtResetReentry = usdtResetReentryRef.current;
+    usdtResetReentryRef.current = false;
+    if (approving && !isUsdtResetReentry) {
       return;
     }
     setApproving(true);
