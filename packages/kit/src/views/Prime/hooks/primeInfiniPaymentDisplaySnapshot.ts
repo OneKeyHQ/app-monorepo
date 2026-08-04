@@ -1,0 +1,78 @@
+/* cspell:ignore Infini */
+export function resolvePrimeInfiniPaymentPinnedAssetKey({
+  selectedAssetKey,
+  pendingAssetKey,
+}: {
+  selectedAssetKey: string;
+  pendingAssetKey?: string;
+}) {
+  return selectedAssetKey || pendingAssetKey || '';
+}
+
+export function isPrimeInfiniPaymentAccountSyncReady({
+  syncedNetworkId,
+  selectedNetworkId,
+}: {
+  syncedNetworkId: string;
+  selectedNetworkId: string;
+}) {
+  return Boolean(
+    syncedNetworkId && syncedNetworkId.trim() === selectedNetworkId.trim(),
+  );
+}
+
+export function resolvePrimeInfiniPaymentDisplaySnapshot<
+  TSelectionSnapshot,
+  TPayment,
+>({
+  selectionSnapshot,
+  lastReadySelectionSnapshot,
+  isSelectionReady = true,
+  payment,
+  isPaymentCurrent,
+}: {
+  selectionSnapshot: TSelectionSnapshot;
+  lastReadySelectionSnapshot?: TSelectionSnapshot;
+  isSelectionReady?: boolean;
+  payment: TPayment | undefined;
+  isPaymentCurrent: boolean;
+}) {
+  return {
+    selectionSnapshot:
+      isSelectionReady || !lastReadySelectionSnapshot
+        ? selectionSnapshot
+        : lastReadySelectionSnapshot,
+    payment: isPaymentCurrent ? payment : undefined,
+  };
+}
+
+export function shouldShowPrimeInfiniPaymentButtonSkeleton({
+  hasCurrentPayment,
+  isOptionsRefreshing,
+  isBalanceLoading,
+  accountSyncReady,
+  accountSyncFailed,
+}: {
+  hasCurrentPayment: boolean;
+  isOptionsRefreshing: boolean;
+  isBalanceLoading: boolean;
+  accountSyncReady: boolean;
+  accountSyncFailed: boolean;
+}) {
+  return (
+    !hasCurrentPayment ||
+    isOptionsRefreshing ||
+    isBalanceLoading ||
+    (!accountSyncReady && !accountSyncFailed)
+  );
+}
+
+export function shouldShowPrimeInfiniExternalCheckoutLink({
+  canUseExternalCheckout,
+  isPaymentButtonPreparing,
+}: {
+  canUseExternalCheckout: boolean;
+  isPaymentButtonPreparing: boolean;
+}) {
+  return canUseExternalCheckout && !isPaymentButtonPreparing;
+}

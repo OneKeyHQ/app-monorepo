@@ -38,7 +38,7 @@ interface ISwapQuoteResultRateProps {
   quoting?: boolean;
   isLoading?: boolean;
   showNoProvider?: boolean;
-  onOpenResult?: () => void;
+  canOpenResult?: boolean;
   refreshAction: (manual?: boolean) => void;
   openResult?: boolean;
 }
@@ -55,7 +55,7 @@ const SwapQuoteResultRate = ({
   providerIcon,
   isLoading,
   showNoProvider,
-  onOpenResult,
+  canOpenResult,
   openResult,
   refreshAction,
 }: ISwapQuoteResultRateProps) => {
@@ -180,7 +180,7 @@ const SwapQuoteResultRate = ({
         {!providerIcon ||
         !fromToken ||
         !toToken ||
-        !onOpenResult ||
+        !canOpenResult ||
         quoting ? null : (
           <XStack
             alignItems="center"
@@ -190,7 +190,7 @@ const SwapQuoteResultRate = ({
             justifyContent={
               shouldUseInlineSlippageLayout ? undefined : 'flex-end'
             }
-            animation="quick"
+            animation="popoverQuick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
@@ -247,9 +247,9 @@ const SwapQuoteResultRate = ({
             </Stack>
           </XStack>
         )}
-        {!quoting && onOpenResult ? (
+        {!quoting && canOpenResult ? (
           <Stack
-            animation="quick"
+            animation="popoverQuick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={openResult ? '180deg' : '0deg'}
           >
@@ -276,9 +276,9 @@ const SwapQuoteResultRate = ({
                 }}
               />
             ) : null}
-            {onOpenResult ? (
+            {canOpenResult ? (
               <Stack
-                animation="quick"
+                animation="popoverQuick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={openResult ? '180deg' : '0deg'}
               >

@@ -622,6 +622,7 @@ onboard
 onboarding
 Onchain
 oncomplete
+ondo
 onekey
 onekeyall
 onekeyfe
@@ -645,6 +646,7 @@ Outout
 p2pkh
 p2wpkh
 pageview
+pancakeswap
 passcode
 passpharse
 passphrase
@@ -1059,6 +1061,7 @@ Overscroll
 Flatpak
 Rspack
 rspack
+rssi
 myposition
 favs
 extractable
@@ -1566,3 +1569,15 @@ navigations
 
 # OpenType tabular-figures feature tag
 tnum
+
+EXCLUDEFROMCAPTURE
+
+# KeyTag punch/verify domain terms
+mistap
+mispunch
+mispunched
+
+# Unifold deposit vendor
+unifold
+hypercore
+lookback

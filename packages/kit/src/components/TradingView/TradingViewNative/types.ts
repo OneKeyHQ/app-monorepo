@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
+export type ITradingViewNativeChartType = 'candlestick' | 'line';
 
 export type ITradingViewNativeSource =
   | {
@@ -13,6 +14,7 @@ export type ITradingViewNativeSource =
   | {
       kind: 'market';
       fallbackCoinGeckoId?: string;
+      isNative?: boolean;
       networkId: string;
       tokenAddress: string;
       symbol: string;

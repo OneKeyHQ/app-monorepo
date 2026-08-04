@@ -67,6 +67,7 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
@@ -260,6 +261,7 @@ export function LimitOrderForm({
   bboRef.current = bbo;
   const midPriceBNRef = useRef(midPriceBN);
   midPriceBNRef.current = midPriceBN;
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   // With a BBO mode the price comes from the live orderbook; otherwise the typed input.
   const resolvePriceForSide = useCallback(
@@ -705,13 +707,6 @@ export function LimitOrderForm({
     return referencePriceBN.gt(0) && maxBN.isFinite();
   }, [computeSizeBN, referencePriceBN, side]);
 
-  const handleUseMidPrice = useCallback(() => {
-    if (!midPrice) {
-      return;
-    }
-    setPrice(formatPriceToSignificantDigits(midPrice, szDecimals));
-  }, [midPrice, szDecimals]);
-
   const handleBBOToggle = useCallback(() => {
     setBboPriceMode((prev) =>
       prev ? null : { type: 'counterparty', offsetTicks: 0 },
@@ -857,6 +852,7 @@ export function LimitOrderForm({
         referencePrice: resolvedPriceBN,
         side: pressedSide,
         leverage,
+        szDecimals: isSpot ? undefined : szDecimals,
       });
 
       // Normalize to a concrete manual token size so the confirm dialog display
@@ -885,6 +881,14 @@ export function LimitOrderForm({
         slValue,
         orderMode: 'standard',
       };
+      const aggressiveLimitPriceWarning = isSpot
+        ? undefined
+        : getAggressiveLimitPriceWarning({
+            coin: symbol,
+            formData: builtFormData,
+            side: pressedSide,
+            price: resolvedPrice,
+          });
 
       showOrderConfirmDialog({
         overrideSide: pressedSide,
@@ -892,6 +896,7 @@ export function LimitOrderForm({
         price: resolvedPrice,
         expectedCoin: symbol,
         intl,
+        aggressiveLimitPriceWarning,
         onConfirmSuccess: onClose,
       });
     },
@@ -904,6 +909,7 @@ export function LimitOrderForm({
       hasTpsl,
       intl,
       isSpot,
+      getAggressiveLimitPriceWarning,
       leverage,
       limitTif,
       marketDataFreshness,
@@ -1086,7 +1092,6 @@ export function LimitOrderForm({
             <PriceInput
               value={price}
               onChange={setPrice}
-              onUseMidPrice={midPrice ? handleUseMidPrice : undefined}
               szDecimals={szDecimals}
             />
           </YStack>

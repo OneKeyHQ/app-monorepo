@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -13,6 +13,7 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -26,23 +27,28 @@ export const InputAccessoryDoneButton = ({
   const isKeyboardShown = useIsKeyboardShown();
   if (!platformEnv.isNativeIOS && !isKeyboardShown) return null;
   return (
-    <XStack
-      p="$2.5"
-      px="$3.5"
-      justifyContent={leftContent ? 'space-between' : 'flex-end'}
-      bg="$bgSubdued"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubduedLight"
-    >
-      {leftContent}
-      <Button
-        variant="tertiary"
-        onPress={() => Keyboard.dismiss()}
-        testID="perp-is-keyboard-shown-btn"
+    <YStack bg="$bgApp">
+      <XStack
+        p="$2.5"
+        px="$3.5"
+        justifyContent={leftContent ? 'space-between' : 'flex-end'}
+        bg="$bgSubdued"
+        borderTopWidth="$px"
+        borderTopColor="$borderSubduedLight"
       >
-        {intl.formatMessage({ id: ETranslations.global_done })}
-      </Button>
-    </XStack>
+        {leftContent}
+        <Button
+          variant="tertiary"
+          childrenAsText={false}
+          onPress={() => Keyboard.dismiss()}
+          testID="perp-is-keyboard-shown-btn"
+        >
+          <SizableText size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({ id: ETranslations.global_done })}
+          </SizableText>
+        </Button>
+      </XStack>
+    </YStack>
   );
 };
 
@@ -57,6 +63,12 @@ interface IInputAction {
 interface IInputHelper {
   text: string;
   align?: 'left' | 'right';
+}
+
+interface IInputAccessoryAction {
+  label: string;
+  onPress: () => void;
+  testID?: string;
 }
 
 interface ITradingFormInputProps {
@@ -78,6 +90,8 @@ interface ITradingFormInputProps {
   ifOnDialog?: boolean;
   isMobile?: boolean;
   showAddOnsWhenDisabled?: boolean;
+  inputAccessoryAction?: IInputAccessoryAction;
+  inputRef?: Ref<IInputRef>;
 }
 
 export const TradingFormInput = memo(
@@ -99,6 +113,8 @@ export const TradingFormInput = memo(
     ifOnDialog = false,
     isMobile = false,
     showAddOnsWhenDisabled = false,
+    inputAccessoryAction,
+    inputRef,
   }: ITradingFormInputProps) => {
     const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
@@ -115,7 +131,18 @@ export const TradingFormInput = memo(
       },
       [validator, onChange],
     );
-
+    const inputAccessoryLeftContent = inputAccessoryAction ? (
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        role="button"
+        testID={inputAccessoryAction.testID}
+        userSelect="none"
+        onPress={inputAccessoryAction.onPress}
+      >
+        {inputAccessoryAction.label}
+      </SizableText>
+    ) : undefined;
     const renderAddOns = () => {
       const addOns = [];
 
@@ -178,6 +205,7 @@ export const TradingFormInput = memo(
           }
         >
           <Input
+            ref={inputRef}
             testID={testID ?? 'perp-input'}
             flex={1}
             h={platformEnv.isNativeAndroid ? 40 : 36}
@@ -199,6 +227,15 @@ export const TradingFormInput = memo(
             InputComponentStyle={{
               p: 0,
               bg: 'transparent',
+              ...(!ifOnDialog
+                ? {
+                    fontFamily: platformEnv.isNative
+                      ? 'Roobert-Medium'
+                      : undefined,
+                    fontSize: 14,
+                    fontWeight: '500' as const,
+                  }
+                : {}),
             }}
             addOns={
               disabled && !showAddOnsWhenDisabled ? undefined : renderAddOns()
@@ -224,7 +261,9 @@ export const TradingFormInput = memo(
           ) : null}
           {shouldShowAccessory ? (
             <InputAccessoryView nativeID={accessoryId}>
-              <InputAccessoryDoneButton />
+              <InputAccessoryDoneButton
+                leftContent={inputAccessoryLeftContent}
+              />
             </InputAccessoryView>
           ) : null}
         </YStack>
@@ -249,6 +288,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
+            ref={inputRef}
             testID={testID ?? 'perp-input'}
             h={32}
             placeholder={placeholder}
@@ -297,7 +337,7 @@ export const TradingFormInput = memo(
         </YStack>
         {shouldShowAccessory ? (
           <InputAccessoryView nativeID={accessoryId}>
-            <InputAccessoryDoneButton />
+            <InputAccessoryDoneButton leftContent={inputAccessoryLeftContent} />
           </InputAccessoryView>
         ) : null}
       </YStack>

@@ -40,6 +40,7 @@ const entries = {
 } as const;
 
 interface IReplacementConfig {
+  contentMarker?: string;
   regexToFind: RegExp;
   replacement: string;
 }
@@ -67,14 +68,19 @@ class ChromeExtensionV3ViolationPlugin implements RspackPluginInstance {
                 let changed = false;
 
                 for (const config of this.replaceConfigs) {
-                  config.regexToFind.lastIndex = 0;
-                  if (config.regexToFind.test(content)) {
+                  const matchesContentMarker =
+                    !config.contentMarker ||
+                    content.includes(config.contentMarker);
+                  if (matchesContentMarker) {
                     config.regexToFind.lastIndex = 0;
-                    content = content.replace(
-                      config.regexToFind,
-                      config.replacement,
-                    );
-                    changed = true;
+                    if (config.regexToFind.test(content)) {
+                      config.regexToFind.lastIndex = 0;
+                      content = content.replace(
+                        config.regexToFind,
+                        config.replacement,
+                      );
+                      changed = true;
+                    }
                   }
                 }
 
@@ -116,8 +122,9 @@ function createChromeExtensionV3ViolationPlugin(): RspackPluginInstance {
       replacement: '',
     },
     {
-      regexToFind: /https:\/\/js\.stripe\.com\/v3\//g,
-      replacement: '',
+      contentMarker: 'webpackChunkStripeJSouter',
+      regexToFind: /(\.p\s*=\s*)(["'])https:\/\/js\.stripe\.com\/v3\/\2/g,
+      replacement: '$1$2$2',
     },
   ]);
 }

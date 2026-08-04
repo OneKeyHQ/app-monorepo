@@ -32,11 +32,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
-  type ESwapSource,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
   getSwapAnalyticsEnterFrom,
@@ -98,6 +99,7 @@ function CustomTabItem({
             },
           })}
       {...rest}
+      testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
       onLayout={(event) => {
         handleItemLayout(itemId, event);
@@ -165,7 +167,11 @@ const SwapHeaderContainer = ({
     }
   }, [hasPendingSwapProEntry, navigation]);
   useEffect(() => {
-    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+    ) {
       return;
     }
     // Avoid switching the default toToken before it has been loaded,
@@ -267,10 +273,12 @@ const SwapHeaderContainer = ({
     {
       label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.SWAP),
     },
     {
       label: stockLabel,
       value: ESwapTabSwitchType.STOCK,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.STOCK),
     },
     {
       label: intl.formatMessage({
@@ -279,6 +287,7 @@ const SwapHeaderContainer = ({
           : ETranslations.swap_page_limit,
       }),
       value: ESwapTabSwitchType.LIMIT,
+      testID: SwapTestIDs.typeTab(ESwapTabSwitchType.LIMIT),
     },
   ];
 

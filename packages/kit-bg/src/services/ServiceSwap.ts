@@ -135,8 +135,10 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   normalizeSwapTokenListCurrency,
+  shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
@@ -147,6 +149,8 @@ import {
 } from './utils/swapHistoryStatusUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+
+const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
 
 const formatter: INumberFormatProps = {
   formatter: 'balance',
@@ -486,7 +490,7 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _speedSwapQuoteAbortController?: AbortController;
+  private _speedSwapQuoteAbortControllers = new Map<string, AbortController>();
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
@@ -532,6 +536,26 @@ export default class ServiceSwap extends ServiceBase {
 
   private swapSupportNetworksTtl = 1000 * 60 * 120;
 
+  private async getSwapReferralBuildTxParams({
+    accountId,
+    protocol,
+  }: {
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+  }) {
+    if (!accountId || !shouldAttachSwapReferralBuildTxParams(protocol)) {
+      return buildSwapReferralBuildTxParams();
+    }
+    // Referral attribution is best effort and must not block building a swap.
+    const referralInfo = await this.backgroundApi.serviceReferralCode
+      .getBoundEvmReferralCodeWalletInfo({
+        accountId,
+        requestTimeoutMs: SWAP_REFERRAL_LOOKUP_TIMEOUT_MS,
+      })
+      .catch(() => undefined);
+    return buildSwapReferralBuildTxParams(referralInfo);
+  }
+
   private _limitOrderCurrentAccountId?: string;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
@@ -573,12 +597,18 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async cancelFetchSpeedSwapQuote() {
-    if (this._speedSwapQuoteAbortController) {
-      this._speedSwapQuoteAbortController.abort();
-      this._speedSwapQuoteAbortController = undefined;
+  private cancelSpeedSwapQuoteByScope(requestScopeKey: string) {
+    const abortController =
+      this._speedSwapQuoteAbortControllers.get(requestScopeKey);
+    if (abortController) {
+      abortController.abort();
+      this._speedSwapQuoteAbortControllers.delete(requestScopeKey);
     }
+  }
+
+  @backgroundMethod()
+  async cancelFetchSpeedSwapQuote(requestScopeKey = 'default') {
+    this.cancelSpeedSwapQuoteByScope(requestScopeKey);
   }
 
   async removeQuoteEventSourceListeners() {
@@ -987,6 +1017,67 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  private checkTokenPrivateSendSupportedMemo = memoizee(
+    async (
+      networkId: string,
+      contractAddress: string,
+      accountAddress: string,
+      accountId: string,
+    ) => {
+      const tokens = await this.fetchSwapTokenDetails({
+        networkId,
+        contractAddress,
+        accountAddress,
+        accountId,
+        protocol: EProtocolOfExchange.PRIVATE_SEND,
+      });
+      if (!tokens || tokens.length === 0) {
+        // fetchSwapTokenDetails swallows request errors and resolves with an
+        // empty list, which is indistinguishable from "backend knows nothing
+        // about this token". Throw so memoizee drops the entry and the next
+        // caller retries instead of pinning a false negative for the TTL.
+        throw new OneKeyError('Private send support check returned no data');
+      }
+      const matchedToken = tokens.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item,
+          token2: { networkId, contractAddress },
+        }),
+      );
+      return matchedToken?.supportProtocol === true;
+    },
+    {
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
+
+  // Prefetched from the send recipient page and read again on the amount
+  // page with identical keys, so the amount page hits the memo cache (or
+  // joins the in-flight request) and the Regular/Private switch can render
+  // without waiting for a fresh round trip.
+  @backgroundMethod()
+  async checkTokenPrivateSendSupported({
+    networkId,
+    contractAddress,
+    accountAddress,
+    accountId,
+  }: {
+    networkId: string;
+    contractAddress: string;
+    accountAddress: string;
+    accountId: string;
+  }): Promise<boolean> {
+    return this.checkTokenPrivateSendSupportedMemo(
+      networkId,
+      contractAddress,
+      accountAddress,
+      accountId,
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   async fetchQuotesEvents({
@@ -1264,6 +1355,10 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
+    const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
+      accountId,
+      protocol,
+    });
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1279,6 +1374,7 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
@@ -3132,24 +3228,36 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
+  // Short-lived memo so many concurrent subscribers (status badges, the
+  // trading-hours panel) share one request instead of each polling the API.
+  private fetchCheckUSMarketStatusMemo = memoizee(
+    async (): Promise<IFetchUSMarketStatusResult> => {
+      const unavailableStatus: IFetchUSMarketStatusResult = {
+        open: false,
+        session: 'CLOSED',
+        reason: 'market-status-unavailable',
+        unavailable: true,
+      };
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Swap);
+        const { data } = await client.get<
+          IFetchResponse<IFetchUSMarketStatusResult>
+        >('/swap/v1/check/us-market-status');
+        return data?.data ?? unavailableStatus;
+      } catch (error) {
+        console.error(error);
+        return unavailableStatus;
+      }
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
+    },
+  );
+
   @backgroundMethod()
   async fetchCheckUSMarketStatus(): Promise<IFetchUSMarketStatusResult> {
-    const unavailableStatus: IFetchUSMarketStatusResult = {
-      open: false,
-      session: 'CLOSED',
-      reason: 'market-status-unavailable',
-      unavailable: true,
-    };
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } = await client.get<
-        IFetchResponse<IFetchUSMarketStatusResult>
-      >('/swap/v1/check/us-market-status');
-      return data?.data ?? unavailableStatus;
-    } catch (error) {
-      console.error(error);
-      return unavailableStatus;
-    }
+    return this.fetchCheckUSMarketStatusMemo();
   }
 
   @backgroundMethod()
@@ -3180,6 +3288,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSpeedSwapQuote({
     fromToken,
     toToken,
+    requestScopeKey = 'default',
     fromTokenAmount,
     userAddress,
     slippagePercentage,
@@ -3191,64 +3300,72 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     protocol,
   }: IFetchSwapQuoteParams) {
-    await this.cancelFetchSpeedSwapQuote();
-    const walletDevice =
-      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
-        accountId: accountId ?? '',
-      });
-    const params: IFetchQuotesParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
-      userAddress,
-      slippagePercentage,
-      autoSlippage,
-      blockNumber,
-      receivingAddress,
-      expirationTime,
-      kind,
-      walletDeviceType: walletDevice?.deviceType,
-    };
-    this._speedSwapQuoteAbortController = new AbortController();
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fetchUrl = '/swap/v1/quote/speed';
+    this.cancelSpeedSwapQuoteByScope(requestScopeKey);
+    const abortController = new AbortController();
+    this._speedSwapQuoteAbortControllers.set(requestScopeKey, abortController);
     try {
-      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
-        fetchUrl,
-        {
-          params,
-          signal: this._speedSwapQuoteAbortController.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
-      this._speedSwapQuoteAbortController = undefined;
-
-      if (data?.code === 0 && data?.data?.length) {
-        return data?.data;
-      }
-    } catch (e) {
-      if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
-        throw new Error('swap speed fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+      const walletDevice =
+        await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
+          accountId: accountId ?? '',
         });
+      const params: IFetchQuotesParams = {
+        fromTokenAddress: fromToken.contractAddress,
+        toTokenAddress: toToken.contractAddress,
+        fromTokenAmount,
+        fromNetworkId: fromToken.networkId,
+        toNetworkId: toToken.networkId,
+        protocol: getProtocolOfExchangeFromSwapTab(protocol),
+        userAddress,
+        slippagePercentage,
+        autoSlippage,
+        blockNumber,
+        receivingAddress,
+        expirationTime,
+        kind,
+        walletDeviceType: walletDevice?.deviceType,
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const fetchUrl = '/swap/v1/quote/speed';
+      try {
+        const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+          fetchUrl,
+          {
+            params,
+            signal: abortController.signal,
+            headers:
+              await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+                {
+                  accountId,
+                },
+              ),
+          },
+        );
+        if (data?.code === 0 && data?.data?.length) {
+          return data?.data;
+        }
+      } catch (e) {
+        if (axios.isCancel(e)) {
+          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
+          throw new Error('swap speed fetch quote cancel', {
+            cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
+          });
+        }
+      }
+      return [
+        {
+          info: { provider: '', providerName: '' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+        },
+      ];
+    } finally {
+      if (
+        this._speedSwapQuoteAbortControllers.get(requestScopeKey) ===
+        abortController
+      ) {
+        this._speedSwapQuoteAbortControllers.delete(requestScopeKey);
       }
     }
-    return [
-      {
-        info: { provider: '', providerName: '' },
-        fromTokenInfo: fromToken,
-        toTokenInfo: toToken,
-      },
-    ];
   }
 
   @backgroundMethod()
@@ -3346,19 +3463,25 @@ export default class ServiceSwap extends ServiceBase {
           }
         : {}),
     };
-    const params: IFetchBuildTxParams = buildSpeedSwapTxParams({
-      fromToken,
-      toToken,
-      fromTokenAmount,
-      protocol,
-      provider,
-      userAddress,
-      receivingAddress,
-      slippagePercentage,
-      kind,
-      walletType,
-      quoteResultCtx,
-    });
+    const params: IFetchBuildTxParams = {
+      ...buildSpeedSwapTxParams({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        protocol,
+        provider,
+        userAddress,
+        receivingAddress,
+        slippagePercentage,
+        kind,
+        walletType,
+        quoteResultCtx,
+      }),
+      ...(await this.getSwapReferralBuildTxParams({
+        accountId,
+        protocol,
+      })),
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(

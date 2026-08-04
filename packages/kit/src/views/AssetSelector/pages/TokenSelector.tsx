@@ -16,7 +16,9 @@ import {
   type IScopedActiveTokenListState,
   buildScopedActiveTokenListFromResponses,
   fetchFilteredTokenSelectorTokens,
+  fetchTokenSelectorAccountTokens,
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
+  resolveIsSelectorAllNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
@@ -392,18 +394,40 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  // Derive all-networks mode synchronously from the networkId: `network` loads
+  // async, and falling back to `network?.isAllNetworks` let the mount-frame
+  // self-fetch run in single-network mode and POST the all-network mock id to
+  // the wallet API (entries like Receive don't pass the route param).
+  const isSelectorAllNetworks = resolveIsSelectorAllNetworks({
+    isAllNetworks,
+    networkId,
+  });
   const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
+  // `network` loads async, but the filter support check short-circuits on
+  // `isAllNetworks` alone, so probe with a synchronous stand-in in all-networks
+  // mode: otherwise `showLpTokensOnly` flips after mount and the normal
+  // self-fetch fires a full all-network fan-out before the filtered branch
+  // takes over and fires a second one.
+  let filterProbeNetwork:
+    | Pick<IServerNetwork, 'id' | 'isAllNetworks' | 'backendIndex'>
+    | undefined;
+  if (network) {
+    filterProbeNetwork = {
+      id: network.id,
+      isAllNetworks: isSelectorAllNetworks,
+      backendIndex: network.backendIndex,
+    };
+  } else if (isSelectorAllNetworks) {
+    filterProbeNetwork = {
+      id: networkId,
+      isAllNetworks: true,
+      backendIndex: undefined,
+    };
+  }
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: network
-        ? {
-            id: network.id,
-            isAllNetworks: isSelectorAllNetworks,
-            backendIndex: network.backendIndex,
-          }
-        : undefined,
+      network: filterProbeNetwork,
       isDeFiEnabled,
     });
   const showLpTokensOnly = showTokenSelectorFilter
@@ -1400,11 +1424,10 @@ function TokenSelector() {
           }
         }
 
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        const r = await fetchTokenSelectorAccountTokens({
           accountId: activeAccountId,
           networkId: activeNetworkId,
           indexedAccountId,
-          flag: 'token-selector',
           ...tokenSelectorFilterParams,
         });
 
@@ -1642,15 +1665,12 @@ function TokenSelector() {
                 onlyBackendIndexedNetworks: false,
                 tokenSelectorFilterParams,
               })
-            : backgroundApiProxy.serviceToken
-                .fetchAccountTokens({
-                  accountId,
-                  networkId,
-                  indexedAccountId,
-                  flag: 'token-selector',
-                  ...tokenSelectorFilterParams,
-                })
-                .then((r) => ({ responses: [r], expectedResponseCount: 1 })),
+            : fetchTokenSelectorAccountTokens({
+                accountId,
+                networkId,
+                indexedAccountId,
+                ...tokenSelectorFilterParams,
+              }).then((r) => ({ responses: [r], expectedResponseCount: 1 })),
           backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
             accountId,
             networkId,

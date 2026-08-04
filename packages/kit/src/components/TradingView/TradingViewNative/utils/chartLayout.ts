@@ -6,6 +6,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP,
+  TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
@@ -18,6 +20,8 @@ import {
   type ITradingViewNativeVisiblePointRange,
   getTradingViewNativePriceRange,
 } from './chartViewport';
+
+import type { ITradingViewNativeChartType } from '../types';
 
 export type ITradingViewNativeTimeAxisUnit =
   | 'minute'
@@ -42,14 +46,14 @@ export interface ITradingViewNativePriceTick {
   y: number;
 }
 
-export interface ITradingViewNativePriceTransform {
-  scaleY: number;
-  translateY: number;
-}
-
 export interface ITradingViewNativeCurrentPriceLayout {
   labelTop: number;
   lineY: number;
+}
+
+export interface ITradingViewNativePriceExtremumHorizontalLayout {
+  lineEndX: number;
+  textX: number;
 }
 
 export interface ITradingViewNativeWatermarkLayout {
@@ -116,12 +120,38 @@ export function formatTradingViewNativePriceTick(price: number) {
 }
 
 export function getTradingViewNativeChartWidth(width: number) {
+  'worklet';
+
   return Math.max(
     width -
       TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH -
       TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
     0,
   );
+}
+
+export function getTradingViewNativePriceExtremumHorizontalLayout({
+  anchorX,
+  canvasWidth,
+  textWidth,
+}: {
+  anchorX: number;
+  canvasWidth: number;
+  textWidth: number;
+}): ITradingViewNativePriceExtremumHorizontalLayout {
+  'worklet';
+
+  const shouldPlaceLabelOnLeft = anchorX > canvasWidth / 2;
+  const lineEndX =
+    anchorX +
+    (shouldPlaceLabelOnLeft
+      ? -TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH
+      : TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH);
+  const textX = shouldPlaceLabelOnLeft
+    ? lineEndX - TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP - textWidth
+    : lineEndX + TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP;
+
+  return { lineEndX, textX };
 }
 
 export function getTradingViewNativeWatermarkLayout({
@@ -131,6 +161,8 @@ export function getTradingViewNativeWatermarkLayout({
   height: number;
   width: number;
 }): ITradingViewNativeWatermarkLayout | null {
+  'worklet';
+
   if (
     !Number.isFinite(height) ||
     !Number.isFinite(width) ||
@@ -188,20 +220,6 @@ export function getTradingViewNativeMaxVolume({
   return maxVolume;
 }
 
-export function getTradingViewNativeVolumeScale({
-  baseMaxVolume,
-  visibleMaxVolume,
-}: {
-  baseMaxVolume: number;
-  visibleMaxVolume: number;
-}) {
-  'worklet';
-
-  return baseMaxVolume > 0 && visibleMaxVolume > 0
-    ? baseMaxVolume / visibleMaxVolume
-    : 1;
-}
-
 export function getTradingViewNativeVolumeBarHeight({
   maxVolume,
   volume,
@@ -213,12 +231,19 @@ export function getTradingViewNativeVolumeBarHeight({
 }) {
   'worklet';
 
-  return maxVolume > 0 && volume > 0 && volumeHeight > 0
+  return Number.isFinite(maxVolume) &&
+    Number.isFinite(volume) &&
+    Number.isFinite(volumeHeight) &&
+    maxVolume > 0 &&
+    volume > 0 &&
+    volumeHeight > 0
     ? (volume / maxVolume) * volumeHeight
     : 0;
 }
 
 function padTimeAxisValue(value: number) {
+  'worklet';
+
   return value.toString().padStart(2, '0');
 }
 
@@ -226,6 +251,8 @@ export function formatTradingViewNativeCrosshairTime(
   timestamp: number,
   candleIntervalSeconds: number,
 ) {
+  'worklet';
+
   const date = new Date(timestamp * 1000);
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
@@ -246,6 +273,8 @@ function formatTradingViewNativeTimeTick(
   unit: ITradingViewNativeTimeAxisUnit,
   previousTimestamp?: number,
 ) {
+  'worklet';
+
   const date = new Date(timestamp * 1000);
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
@@ -281,6 +310,8 @@ function getTimeAxisBucket(
   timestamp: number,
   { step, unit }: ITimeAxisInterval,
 ) {
+  'worklet';
+
   const date = new Date(timestamp * 1000);
   const localTimestamp =
     timestamp - date.getTimezoneOffset() * SECONDS_PER_MINUTE;
@@ -312,6 +343,8 @@ function getClosestTimeAxisInterval({
   minimumSeconds: number;
   targetSeconds: number;
 }) {
+  'worklet';
+
   const firstEligibleInterval =
     TIME_AXIS_INTERVALS.find(
       ({ approximateSeconds }) => approximateSeconds >= minimumSeconds,
@@ -359,6 +392,8 @@ export function getTradingViewNativeTimeAxisLayout({
   points: IMarketTokenKLineDataPoint[];
   startIndex: number;
 }): ITradingViewNativeTimeAxisLayout {
+  'worklet';
+
   const clampedStartIndex = Math.min(
     Math.max(Math.floor(startIndex), 0),
     points.length,
@@ -399,42 +434,57 @@ export function getTradingViewNativeTimeAxisLayout({
     minimumSeconds: minimumInterval,
     targetSeconds: targetInterval,
   });
-  const tickCandidates: Array<{ index: number; timestamp: number }> = [];
-  let previousBucket: number | null = null;
-
-  for (let index = 0; index < points.length; index += 1) {
-    const timestamp = points[index]?.t;
-    if (Number.isFinite(timestamp)) {
-      const bucket = getTimeAxisBucket(timestamp, interval);
-      if (bucket !== previousBucket) {
-        tickCandidates.push({ index, timestamp });
-        previousBucket = bucket;
-      }
-    }
-  }
-
   const normalizedMinimumIndexSpacing = Math.max(
     Math.ceil(minimumIndexSpacing),
     1,
   );
+  // Align an expanded window so nearby viewport updates keep the same
+  // tick anchors without rebuilding candidates for the full history.
+  const tickWindowPadding = normalizedMinimumIndexSpacing * 2;
+  const tickWindowStart = Math.max(
+    Math.floor(
+      (clampedStartIndex - tickWindowPadding) / normalizedMinimumIndexSpacing,
+    ) * normalizedMinimumIndexSpacing,
+    0,
+  );
+  const tickWindowEnd = Math.min(
+    Math.ceil(
+      (clampedEndIndex + tickWindowPadding) / normalizedMinimumIndexSpacing,
+    ) * normalizedMinimumIndexSpacing,
+    points.length,
+  );
   const ticks: ITradingViewNativeTimeTick[] = [];
   let previousTick: ITradingViewNativeTimeTick | undefined;
+  const previousTimestamp =
+    tickWindowStart > 0 ? points[tickWindowStart - 1]?.t : undefined;
+  let previousBucket =
+    typeof previousTimestamp === 'number' && Number.isFinite(previousTimestamp)
+      ? getTimeAxisBucket(previousTimestamp, interval)
+      : null;
 
-  for (const candidate of tickCandidates) {
-    if (
-      !previousTick ||
-      candidate.index - previousTick.index >= normalizedMinimumIndexSpacing
-    ) {
-      const tick = {
-        ...candidate,
-        label: formatTradingViewNativeTimeTick(
-          candidate.timestamp,
-          interval.unit,
-          previousTick?.timestamp,
-        ),
-      };
-      ticks.push(tick);
-      previousTick = tick;
+  for (let index = tickWindowStart; index < tickWindowEnd; index += 1) {
+    const timestamp = points[index]?.t;
+    if (Number.isFinite(timestamp)) {
+      const bucket = getTimeAxisBucket(timestamp, interval);
+      if (bucket !== previousBucket) {
+        previousBucket = bucket;
+        if (
+          !previousTick ||
+          index - previousTick.index >= normalizedMinimumIndexSpacing
+        ) {
+          const tick = {
+            index,
+            label: formatTradingViewNativeTimeTick(
+              timestamp,
+              interval.unit,
+              previousTick?.timestamp,
+            ),
+            timestamp,
+          };
+          ticks.push(tick);
+          previousTick = tick;
+        }
+      }
     }
   }
 
@@ -443,6 +493,7 @@ export function getTradingViewNativeTimeAxisLayout({
 
 export function getTradingViewNativeChartLayout({
   candleIntervalSeconds,
+  chartType = 'candlestick',
   height,
   minimumTimeTickIndexSpacing,
   points,
@@ -450,12 +501,15 @@ export function getTradingViewNativeChartLayout({
   width,
 }: {
   candleIntervalSeconds: number;
+  chartType?: ITradingViewNativeChartType;
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
 }): ITradingViewNativeChartLayout | null {
+  'worklet';
+
   const priceAxisX = width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH;
   const chartWidth = getTradingViewNativeChartWidth(width);
   const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
@@ -469,6 +523,7 @@ export function getTradingViewNativeChartLayout({
 
   const visiblePriceRange = getTradingViewNativePriceRange({
     ...visiblePointRange,
+    chartType,
     points,
   });
   if (!visiblePriceRange) {
@@ -623,54 +678,5 @@ export function getTradingViewNativeCurrentPriceLayout({
       maximumLabelTop,
     ),
     lineY,
-  };
-}
-
-export function getTradingViewNativePriceTransform({
-  baseMaxPrice,
-  basePriceRange,
-  priceChartHeight,
-  targetMaxPrice,
-  targetPriceRange,
-}: {
-  baseMaxPrice: number;
-  basePriceRange: number;
-  priceChartHeight: number;
-  targetMaxPrice: number;
-  targetPriceRange: number;
-}): ITradingViewNativePriceTransform {
-  'worklet';
-
-  if (
-    !Number.isFinite(baseMaxPrice) ||
-    !Number.isFinite(basePriceRange) ||
-    !Number.isFinite(priceChartHeight) ||
-    !Number.isFinite(targetMaxPrice) ||
-    !Number.isFinite(targetPriceRange) ||
-    basePriceRange <= 0 ||
-    priceChartHeight <= 0 ||
-    targetPriceRange < 0
-  ) {
-    return { scaleY: 1, translateY: 0 };
-  }
-
-  if (targetPriceRange === 0) {
-    const baseY =
-      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-      ((baseMaxPrice - targetMaxPrice) / basePriceRange) * priceChartHeight;
-    return {
-      scaleY: 1,
-      translateY:
-        TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight / 2 - baseY,
-    };
-  }
-
-  const scaleY = basePriceRange / targetPriceRange;
-  return {
-    scaleY,
-    translateY:
-      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-      ((targetMaxPrice - baseMaxPrice) / targetPriceRange) * priceChartHeight -
-      scaleY * TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   };
 }

@@ -119,7 +119,7 @@ export const TpSlFormInput = memo(
             <XStack alignItems="center" gap="$2" cursor="default">
               {isMobile ? <Divider vertical h={24} /> : null}
               <SizableText
-                size="$bodyMdMedium"
+                size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
                 color={disabled ? '$textDisabled' : '$textSubdued'}
                 userSelect="none"
               >

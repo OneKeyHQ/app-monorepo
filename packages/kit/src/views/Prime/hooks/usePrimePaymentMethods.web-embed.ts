@@ -285,6 +285,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
+          // The web-embed page hosts RevenueCat web billing (Stripe) inside
+          // the Android in-app webview
+          paymentMethod: 'stripe',
         });
 
         // test credit card

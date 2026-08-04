@@ -17,12 +17,22 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActivePositionAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useAccountIsAutoCreatingAtom,
+  useIndexedAccountAddressCreationStateAtom,
+  usePerpsAbstractionModeAtom,
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountStatusAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { consumePerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import type { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -32,7 +42,6 @@ import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
-import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -49,6 +58,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { buildPerpAccountStatusAnalyticsParams } from '../utils/perpAccountStatusAnalytics';
 import { preloadPerpsDepositSelectTokenModal } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { preloadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
@@ -83,25 +93,34 @@ function PerpBodyContent() {
   );
 }
 
-function PerpContent() {
-  const { gtMd } = useMedia();
+function PerpAnalyticsTracker() {
+  const isFocused = useIsFocused();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
+  const [indexedAccountAddressCreationState] =
+    useIndexedAccountAddressCreationStateAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [accountLoadingInfo] = usePerpsAccountLoadingInfoAtom();
+  const [computedAccountValue] = usePerpsComputedAccountValueAtom();
+  const [positionsState] = usePerpsActivePositionAtom();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
   const walletTypeRef = useRef(activePerpsAccount.walletType);
   walletTypeRef.current = activePerpsAccount.walletType;
-  const { top: safeAreaTop } = useSafeAreaInsets();
-  const resolvedSafeAreaTop =
-    safeAreaTop || initialWindowMetrics?.insets.top || 0;
   const firedRef = useRef(false);
-  const headerLayoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
-    undefined,
-  );
+  const trackedAccountSnapshotsRef = useRef(new Set<string>());
+  const [pageSession, setPageSession] = useState<{
+    source: EPerpPageEnterSource;
+  }>();
 
   useFocusEffect(
     useCallback(() => {
       if (!firedRef.current) {
         firedRef.current = true;
-        defaultLogger.perp.common.pageView({
-          source: consumePerpPageEnterSource(),
+        trackedAccountSnapshotsRef.current.clear();
+        const source = consumePerpPageEnterSource();
+        setPageSession({ source });
+        defaultLogger.perp.common.perpPageView({
+          source,
           walletType: walletTypeRef.current ?? 'unknown',
         });
       }
@@ -109,6 +128,74 @@ function PerpContent() {
         firedRef.current = false;
       };
     }, []),
+  );
+
+  useEffect(() => {
+    if (!isFocused || !pageSession) {
+      return;
+    }
+    if (
+      !activePerpsAccount.accountAddress &&
+      !activePerpsAccount.indexedAccountId &&
+      !activePerpsAccount.accountId
+    ) {
+      return;
+    }
+    const params = buildPerpAccountStatusAnalyticsParams({
+      source: pageSession.source,
+      walletType: activePerpsAccount.walletType ?? 'unknown',
+      accountStatus: perpsAccountStatus,
+      selectAccountLoading: accountLoadingInfo.selectAccountLoading,
+      accountCreationPending: Boolean(
+        activePerpsAccount.indexedAccountId &&
+        (accountIsAutoCreating?.indexedAccountId ===
+          activePerpsAccount.indexedAccountId ||
+          indexedAccountAddressCreationState?.indexedAccountId ===
+            activePerpsAccount.indexedAccountId),
+      ),
+      computedAccountValue,
+      positionsState,
+      abstractionMode,
+    });
+    if (!params) {
+      return;
+    }
+    const accountKey =
+      activePerpsAccount.indexedAccountId ??
+      activePerpsAccount.accountId ??
+      activePerpsAccount.accountAddress?.toLowerCase() ??
+      params.snapshotStatus;
+    if (trackedAccountSnapshotsRef.current.has(accountKey)) {
+      return;
+    }
+    trackedAccountSnapshotsRef.current.add(accountKey);
+    defaultLogger.perp.common.perpAccountStatus(params);
+  }, [
+    abstractionMode,
+    activePerpsAccount.accountAddress,
+    activePerpsAccount.accountId,
+    activePerpsAccount.indexedAccountId,
+    activePerpsAccount.walletType,
+    accountIsAutoCreating?.indexedAccountId,
+    accountLoadingInfo.selectAccountLoading,
+    computedAccountValue,
+    isFocused,
+    indexedAccountAddressCreationState?.indexedAccountId,
+    pageSession,
+    perpsAccountStatus,
+    positionsState,
+  ]);
+
+  return null;
+}
+
+function PerpContent() {
+  const { gtMd } = useMedia();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const resolvedSafeAreaTop =
+    safeAreaTop || initialWindowMetrics?.insets.top || 0;
+  const headerLayoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(
+    undefined,
   );
 
   useEffect(() => {
@@ -168,11 +255,15 @@ function PerpContent() {
       }
       customToolbarItems={
         <>
-          <PerpsActivityCenterAction size="small" copyAsUrl />
-          {gtMd ? <PerpGuidePopover /> : null}
+          {!gtMd && !platformEnv.isNative ? (
+            <PerpsActivityCenterAction size="small" copyAsUrl />
+          ) : null}
           <PerpSettingsButton
             testID={PerpTestIDs.HeaderSettingsButton}
-            showGuideEntry={!gtMd}
+            showActivityCenterEntry={
+              platformEnv.isNative || (gtMd && !platformEnv.isWebDappMode)
+            }
+            showGuideEntry
           />
           <HeaderIconButton
             icon="DownloadOutline"
@@ -227,6 +318,7 @@ function PerpView() {
   ) : (
     <>
       <PerpsGlobalEffects />
+      <PerpAnalyticsTracker />
       <PerpContent />
     </>
   );

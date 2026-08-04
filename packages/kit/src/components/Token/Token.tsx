@@ -4,6 +4,7 @@
 */
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +13,6 @@ import type {
   IKeyOfIcons,
   ISizableTextProps,
   IXStackProps,
-  SizeTokens,
 } from '@onekeyhq/components';
 import {
   Badge,
@@ -31,9 +31,10 @@ import { useAccountData } from '../../hooks/useAccountData';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
+import { type ITokenSize, TOKEN_SIZE_MAP } from './tokenSize';
+
 import type { ImageURISource } from 'react-native';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 export type ITokenProps = {
   isNFT?: boolean;
   fallbackIcon?: IKeyOfIcons;
@@ -43,25 +44,11 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   showNetworkIconBorder?: boolean;
+  cornerBadge?: ReactNode;
+  showCornerBadgeBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
-
-const sizeMap: Record<
-  ITokenSize,
-  {
-    tokenImageSize: SizeTokens;
-    chainImageSize: SizeTokens;
-    fallbackIconSize: SizeTokens;
-  }
-> = {
-  xl: { tokenImageSize: '$12', chainImageSize: '$5', fallbackIconSize: '$8' },
-  lg: { tokenImageSize: '$10', chainImageSize: '$4', fallbackIconSize: '$7' },
-  md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
-  sm: { tokenImageSize: '$6', chainImageSize: '$3', fallbackIconSize: '$6' },
-  xs: { tokenImageSize: '$5', chainImageSize: '$2.5', fallbackIconSize: '$5' },
-  xxs: { tokenImageSize: '$4', chainImageSize: '$2', fallbackIconSize: '$4' },
-};
 
 export function Token({
   isNFT,
@@ -72,14 +59,16 @@ export function Token({
   networkId,
   showNetworkIcon,
   showNetworkIconBorder = true,
+  cornerBadge,
+  showCornerBadgeBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
-    ? sizeMap[size]
-    : sizeMap.lg;
+    ? TOKEN_SIZE_MAP[size]
+    : TOKEN_SIZE_MAP.lg;
 
   const themeVariant = useThemeVariant();
 
@@ -155,6 +144,24 @@ export function Token({
     ) : (
       <Image source={source} {...sharedImageProps} />
     );
+
+  if (cornerBadge) {
+    return (
+      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
+        {tokenImage}
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          p={showCornerBadgeBorder ? '$0.5' : '$0'}
+          bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
+          borderRadius="$full"
+        >
+          {cornerBadge}
+        </Stack>
+      </Stack>
+    );
+  }
 
   if (networkImageUri) {
     return (

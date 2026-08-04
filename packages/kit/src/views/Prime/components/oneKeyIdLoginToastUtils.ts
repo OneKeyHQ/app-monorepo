@@ -1,11 +1,16 @@
 import { Toast } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
+
 import type { IntlShape } from 'react-intl';
+
+export { scrubSensitiveErrorMessageText } from '../../../utils/sensitiveErrorMessageUtils';
 
 const ONEKEY_ID_FAILURE_SERVER_LOGGED = '$$onekeyIdFailureServerLogged';
 
@@ -73,20 +78,17 @@ export function showOneKeyIdLoginFailedToast({
   }
 
   const err = error as IOneKeyError | undefined;
-  // Surface the underlying failure reason as the toast body: this manual
-  // toast is the fallback for errors the global auto toast did NOT handle,
-  // and collapsing them all into a bare "unknown error" hides actionable
-  // causes (e.g. a rejected Supabase GET /auth/v1/user) from users and from
-  // exported bug-report logs.
+  // Keep the underlying reason in diagnostics without exposing raw SDK,
+  // server, or platform error text in the client UI.
   const errorMessage = getLoginFailureReason(error);
 
-  // Mirror the toast body into exported logs — toast content is otherwise
-  // unrecoverable after the fact. Skip when the source already logged this
-  // reason to the server (persistKeylessOAuthSession) to avoid a duplicate
-  // @LogToServer event for a single failure.
+  // Skip when the source already logged this reason to the server
+  // (persistKeylessOAuthSession) to avoid a duplicate @LogToServer event.
   if (!wasOneKeyIdFailureServerLogged(error)) {
     defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
-      reason: errorMessage || err?.className || 'unknown',
+      reason: scrubSensitiveErrorMessageText(
+        errorMessage || err?.className || 'unknown',
+      ),
     });
   }
 
@@ -99,7 +101,6 @@ export function showOneKeyIdLoginFailedToast({
     title: intl.formatMessage({
       id: ETranslations.global_unknown_error_retry_message,
     }),
-    message: errorMessage,
   });
 
   // This fallback toast has now surfaced the error. Mark it so the global
@@ -112,4 +113,64 @@ export function showOneKeyIdLoginFailedToast({
       err as IOneKeyError & { $$autoToastErrorTriggered?: boolean }
     ).$$autoToastErrorTriggered = true;
   }
+}
+
+// Shared sanitizer for auth/OAuth SDK errors: bounds what reaches logs to a
+// fixed field allowlist, with free-text `message` additionally scrubbed of
+// secrets (see scrubSensitiveErrorMessageText).
+export function getSanitizedAuthErrorLogFields(error: unknown) {
+  const safeError = error as {
+    name?: unknown;
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+    httpStatusCode?: unknown;
+    requestId?: unknown;
+  };
+  return {
+    name: String(safeError?.name || ''),
+    message: scrubSensitiveErrorMessageText(
+      String(safeError?.message || 'unknown'),
+    ),
+    code: String(safeError?.code || ''),
+    status: String(safeError?.status || safeError?.httpStatusCode || ''),
+    requestId: String(safeError?.requestId || ''),
+  };
+}
+
+export function getSanitizedAuthErrorText(error: unknown): string {
+  const fields = getSanitizedAuthErrorLogFields(error);
+  return `name=${fields.name} message=${fields.message} code=${fields.code} status=${fields.status} requestId=${fields.requestId}`;
+}
+
+// Record the stable English failure reason to its dedicated server event
+// (the localized user-facing copy varies per locale and collapses distinct
+// failure classes into one string). Deliberately does NOT touch the
+// onekeyIdLoginFailedToast event or its dedupe mark: that event strictly
+// means "the fallback toast was shown" and keeps firing on its own terms.
+export function logOneKeyIdLoginFailureReason(reason: string) {
+  const safeReason = scrubSensitiveErrorMessageText(reason);
+  console.error(safeReason);
+  defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+    reason: safeReason,
+  });
+}
+
+// Standard shape for "hide the raw cause from the UI, keep it in
+// diagnostics": server-log the stable English reason, then throw a localized
+// error for toasts and dialogs.
+export function throwLocalizedOneKeyIdLoginError({
+  intl,
+  reason,
+  key = ETranslations.global_unknown_error_retry_message,
+}: {
+  intl: IntlShape;
+  reason: string;
+  key?: ETranslations;
+}): never {
+  logOneKeyIdLoginFailureReason(reason);
+  throw new OneKeyLocalError({
+    message: intl.formatMessage({ id: key }),
+    key,
+  });
 }

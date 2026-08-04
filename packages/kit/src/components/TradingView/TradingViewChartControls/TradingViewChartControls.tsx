@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useMemo } from 'react';
+import { type ComponentProps, type ReactNode, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,10 @@ import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeInte
 import { PriceMarketCapSelect } from './priceMarketCap/PriceMarketCapSelect';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from './utils/NativeChartControlsShared';
 
-import type { ICalendarPanelSubmitPayload } from './calendarControls/CalendarPanelPopover';
+import type {
+  ICalendarPanelAvailableTimeRange,
+  ICalendarPanelSubmitPayload,
+} from './calendarControls/CalendarPanelPopover';
 import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewChartTypeOption,
@@ -28,6 +31,7 @@ type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
 
 export interface ITradingViewChartControlsProps {
+  backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -52,6 +56,7 @@ export interface ITradingViewChartControlsProps {
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
   chartTimezone: string;
+  calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
   onIntervalChange: (interval: string) => void;
@@ -60,6 +65,7 @@ export interface ITradingViewChartControlsProps {
   onChartTypeChange: (chartType: number) => void;
   onChartTypeToggle: () => void;
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
+  onCalendarPanelOpen?: () => void;
   onCalendarPanelSubmit?: (payload: ICalendarPanelSubmitPayload) => void;
   onSettingsPress: () => void;
   onControlInteraction?: () => void;
@@ -78,6 +84,7 @@ export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 
 export const TradingViewChartControls = memo(
   ({
+    backgroundColor = '$bgApp',
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -102,6 +109,7 @@ export const TradingViewChartControls = memo(
     intervalControlMode,
     layoutMode,
     chartTimezone,
+    calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
     onIntervalChange,
@@ -110,6 +118,7 @@ export const TradingViewChartControls = memo(
     onChartTypeChange,
     onChartTypeToggle,
     onPriceMarketCapModeChange,
+    onCalendarPanelOpen,
     onCalendarPanelSubmit,
     onSettingsPress,
     onControlInteraction,
@@ -233,7 +242,9 @@ export const TradingViewChartControls = memo(
     const calendarControl =
       hasCalendarControl && onCalendarPanelSubmit ? (
         <CalendarPanelPopover
+          availableTimeRange={calendarAvailableTimeRange}
           chartTimezone={chartTimezone}
+          onOpen={onCalendarPanelOpen}
           onSubmit={onCalendarPanelSubmit}
           onControlInteraction={onControlInteraction}
         />
@@ -328,7 +339,7 @@ export const TradingViewChartControls = memo(
     if (isDesktopLayout) {
       return (
         <Stack
-          bg="$bgApp"
+          bg={backgroundColor}
           px={desktopFullscreenHeader ? '$2' : '$4'}
           py="$1"
           h={
@@ -393,7 +404,7 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg="$bgApp" px="$2" py="$2" zIndex={3}>
+      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
         <XStack
           alignItems="center"
           justifyContent="space-between"

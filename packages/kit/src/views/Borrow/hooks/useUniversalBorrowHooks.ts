@@ -11,6 +11,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  type IBorrowEModeSwitchCheck,
+  type IBorrowTransactionConfirmation,
   type IRepayWithCollateralQuote,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -172,7 +174,7 @@ export function useUniversalBorrowSupply({
       });
 
       await navigationToTxConfirm({
-        encodedTx: resp.tx,
+        encodedTx: parseBorrowEncodedTx(resp.tx),
         stakingInfo: stakingInfoWithOrderId,
         onSuccess: async (data) => {
           await handleBorrowSuccess({
@@ -209,6 +211,7 @@ export function useUniversalBorrowBorrow({
       provider,
       marketAddress,
       reserveAddress,
+      unwrap,
       stakingInfo,
       onSuccess,
       onFail,
@@ -221,6 +224,7 @@ export function useUniversalBorrowBorrow({
           marketAddress,
           reserveAddress,
           amount,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -550,5 +554,240 @@ export function useUniversalBorrowClaim({
       });
     },
     [accountId, networkId, navigationToTxConfirm],
+  );
+}
+
+export function useUniversalBorrowSetEMode({
+  networkId,
+  accountId,
+  waitForFinalStatus = true,
+}: {
+  networkId: string;
+  accountId: string;
+  waitForFinalStatus?: boolean;
+}) {
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+  const intl = useIntl();
+  return useCallback(
+    async ({
+      provider,
+      marketAddress,
+      eModeId,
+      stakingInfo,
+      ignoreOrderTrackingError,
+      onSuccess,
+      onFail,
+      onCancel,
+    }: {
+      provider: string;
+      marketAddress: string;
+      eModeId: number;
+      stakingInfo?: IStakingInfo;
+      ignoreOrderTrackingError?: boolean;
+      onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+      onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onCancel?: () => void;
+    }): Promise<IBorrowEModeSwitchCheck> => {
+      let switchCheckResp;
+      try {
+        switchCheckResp =
+          await backgroundApiProxy.serviceStaking.borrowSwitchCheckEMode({
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            targetEModeId: eModeId,
+            autoHandleError: false,
+          });
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      if (switchCheckResp.code !== 0 || !switchCheckResp.data) {
+        const message =
+          switchCheckResp.message ||
+          intl.formatMessage({ id: ETranslations.global_failed });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
+      const latestCheck = switchCheckResp.data;
+      if (!latestCheck.canSwitch) {
+        return latestCheck;
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceStaking.borrowBuildSetEModeTransaction({
+          networkId,
+          accountId,
+          provider,
+          marketAddress,
+          eModeId,
+        });
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+      await navigationToTxConfirm({
+        encodedTx: parseBorrowEncodedTx(resp.tx),
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            accountId,
+            stakingInfo: stakingInfoWithOrderId,
+            waitForFinalStatus,
+            ignoreOrderTrackingError,
+            onSuccess,
+          });
+        },
+        onFail,
+        onCancel,
+      });
+      return latestCheck;
+    },
+    [accountId, intl, networkId, navigationToTxConfirm, waitForFinalStatus],
+  );
+}
+
+export function useUniversalBorrowSetCollateral({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+  const intl = useIntl();
+  return useCallback(
+    async ({
+      provider,
+      marketAddress,
+      reserveAddress,
+      useAsCollateral,
+      eModeId,
+      stakingInfo,
+      onSuccess,
+      onFail,
+      onCancel,
+    }: {
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      useAsCollateral: boolean;
+      eModeId?: number;
+      stakingInfo?: IStakingInfo;
+      onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+      onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      onCancel?: () => void;
+    }) => {
+      let confirmation: IBorrowTransactionConfirmation | undefined;
+      try {
+        confirmation =
+          await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
+            {
+              networkId,
+              accountId,
+              provider,
+              marketAddress,
+              reserveAddress,
+              action: 'setCollateral',
+              amount: '0',
+              useAsCollateral,
+              ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+            },
+          );
+      } catch (error) {
+        if (
+          (error as { autoToast?: boolean } | undefined)?.autoToast !== true
+        ) {
+          const message = (error as { message?: unknown } | undefined)?.message;
+          Toast.error({
+            title:
+              typeof message === 'string' && message
+                ? message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        throw error;
+      }
+
+      const unavailable =
+        !confirmation ||
+        confirmation.liquidationRisk === true ||
+        (useAsCollateral && confirmation.canBeCollateral === false);
+      if (unavailable) {
+        const message = intl.formatMessage({
+          id:
+            confirmation?.liquidationRisk === true
+              ? ETranslations.defi_disable_collateral_liquidation_risk__desc
+              : ETranslations.defi_action_unavailable__msg,
+        });
+        Toast.error({ title: message });
+        throw new OneKeyLocalError({
+          message,
+          autoToast: false,
+        });
+      }
+
+      const resp =
+        await backgroundApiProxy.serviceStaking.borrowBuildSetCollateralTransaction(
+          {
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            reserveAddress,
+            useAsCollateral,
+            ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+          },
+        );
+      const stakingInfoWithOrderId = attachBorrowOrderId({
+        stakingInfo,
+        orderId: resp.orderId,
+      });
+      await navigationToTxConfirm({
+        encodedTx: parseBorrowEncodedTx(resp.tx),
+        stakingInfo: stakingInfoWithOrderId,
+        onSuccess: async (data) => {
+          await handleBorrowSuccess({
+            data,
+            orderId: resp.orderId,
+            networkId,
+            accountId,
+            stakingInfo: stakingInfoWithOrderId,
+            // Order tracking is auxiliary after broadcast. Collateral state
+            // reconciliation must continue even if that request is unavailable.
+            ignoreOrderTrackingError: true,
+            onSuccess,
+          });
+        },
+        onFail,
+        onCancel,
+      });
+    },
+    [accountId, intl, networkId, navigationToTxConfirm],
   );
 }

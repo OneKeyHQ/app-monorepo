@@ -44,15 +44,16 @@ export function buildPositionTpslScopeKey({
 export function getPositionTpslScopeChangeErrorTitle({
   initialScopeKey,
   currentScopeKey,
+  errorTitle,
 }: {
   initialScopeKey: string;
   currentScopeKey: string;
+  errorTitle: string;
 }) {
   if (initialScopeKey === currentScopeKey) {
     return undefined;
   }
-  // TODO: Replace this temporary English copy after the i18n key is available.
-  return 'Position changed. Please review and submit again.';
+  return errorTitle;
 }
 
 export function captureInitialPositionTpslScopeKey(

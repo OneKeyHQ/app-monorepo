@@ -536,6 +536,7 @@ export type IProtocolInfo = {
   approve?: {
     allowance?: string;
     approveType: EApproveType;
+    approveAsset?: string;
     approveTarget: string;
   };
   approveAsset?: string;
@@ -562,7 +563,7 @@ export type IProtocolInfo = {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
-  // Max repay balance (debt balance) for repay max button
+  // Max repay input balance. Repay-all debt semantics use debtBalance.
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;
@@ -570,6 +571,8 @@ export type IProtocolInfo = {
   needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
+  // Borrow delegation allowance returned by Aave borrow manage-page.
+  borrowAllowance?: string;
   receiptTokenRate?: string;
   morphoTokenRate?: string;
 };
@@ -1392,6 +1395,7 @@ export interface IEarnManagePageResponse {
   approve?: {
     allowance?: string;
     approveType?: string;
+    approveAsset?: string;
     approveTarget?: string;
   };
   approveAsset?: string;
@@ -1647,6 +1651,14 @@ export interface IStakeTransactionConfirmation {
     description: IEarnText;
     tooltip?: IEarnTooltip;
   };
+  // Server-driven "Available liquidity" row (e.g. Bitway withdraw: instant
+  // withdrawal is capped by the flash pool balance; amounts above it must go
+  // through the queued path). Rendered like `receive` when present.
+  availableLiquidity?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
   transactionDetails?: {
     type: string;
     text?: IEarnText;
@@ -1755,6 +1767,11 @@ export enum EBorrowActionsEnum {
   Withdraw = 'withdraw',
   Borrow = 'borrow',
   Repay = 'repay',
+}
+
+export enum EBorrowProviderEnum {
+  Kamino = 'kamino',
+  Aave = 'aave',
 }
 
 export type IStakeProtocolListItem = {
@@ -2380,7 +2397,7 @@ export interface IBorrowAsset {
     logoURI: string;
   };
   canBeCollateral?: boolean;
-  balance: {
+  balance?: {
     title: IEarnText;
     description: IEarnText;
   };
@@ -2390,10 +2407,10 @@ export interface IBorrowAsset {
   // Optional: the repay-action asset-list omits `supplied` (only the
   // withdraw/supply lists carry it), so callers must guard before deref.
   supplied?: IBorrowBalance;
-  apyDetail: IBorrowApy;
+  apyDetail?: IBorrowApy;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 }
 
@@ -2491,6 +2508,9 @@ export interface IBorrowReserveItem {
       suppliedAmount: IBorrowBalance;
       liquidationLtv?: string;
       canBeCollateral?: boolean;
+      // Current on-chain state: position counted as collateral right now.
+      // Absent ⇒ provider unsupported (e.g. Kamino) — the collateral Switch is not rendered.
+      usageAsCollateral?: boolean;
       withdrawButton: IEarnWithdrawActionData;
       platformBonusApy?: {
         title: IEarnText;
@@ -2777,6 +2797,61 @@ export interface IBorrowTransactionConfirmation {
 export interface IBorrowUnsignedTransaction {
   tx: string;
   orderId?: string;
+}
+
+export interface IBorrowEModeAsset {
+  reserveAddress: string;
+  token: IToken;
+  boostedLTV: boolean;
+  borrowable: boolean;
+}
+
+export interface IBorrowEModeCategory {
+  eModeId: number;
+  label: string;
+  ltv: string; // boosted LTV, e.g. "93"
+  liquidationThreshold?: string; // e.g. "95"; backend may omit on older markets
+  disabled: boolean;
+  // Optional: backend may report whether each category is switchable. Absent →
+  // the client treats a non-disabled row as optimistically switchable and
+  // resolves the real state via switch-check on tap.
+  canSwitch?: boolean;
+  assets: IBorrowEModeAsset[];
+}
+
+export interface IBorrowEModeStatus {
+  eModeId: number; // 0 = normal mode
+  originalLtv: string;
+  categories: IBorrowEModeCategory[];
+}
+
+export interface IBorrowEModeBlockerAsset {
+  reserveAddress: string;
+  token: IToken;
+  supplied?: { title: IEarnText; description?: IEarnText; number: string };
+  borrowed?: { title: IEarnText; description?: IEarnText; number: string };
+}
+
+// collateral/debt carry title+description; maxLtv/healthFactor carry title only.
+// Reuse the existing confirmation row shapes instead of new parallel types.
+export type IBorrowEModeConfirmRow = NonNullable<
+  IBorrowTransactionConfirmation['mySupply']
+>;
+export type IBorrowEModeHfRow = NonNullable<
+  IBorrowTransactionConfirmation['healthFactor']
+>;
+
+export interface IBorrowEModeSwitchCheck {
+  canSwitch: boolean;
+  reasons: string[];
+  disableCollateralAssets: IBorrowEModeBlockerAsset[];
+  repayAssets: IBorrowEModeBlockerAsset[];
+  additionalRepayAssets: IBorrowEModeBlockerAsset[];
+  additionalRepayFiatValue?: string; // server-formatted fiat total, e.g. "< $0.01"
+  collateral: IBorrowEModeConfirmRow;
+  debt: IBorrowEModeConfirmRow;
+  maxLtv: IBorrowEModeHfRow;
+  healthFactor: IBorrowEModeHfRow;
 }
 
 export type IBorrowManagePage = IEarnManagePageResponse;

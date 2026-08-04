@@ -403,11 +403,6 @@ export class OAuthPopup extends OAuthPopupBase {
             });
           }, OAUTH_FLOW_TIMEOUT_MS);
         } catch (error) {
-          Dialog.debugMessage({
-            title: 'OAuth',
-            debugMessage:
-              error instanceof Error ? error.message : 'OAuth setup failed',
-          });
           reject(OAuthPopup.wrapError(error, 'OAuth setup failed'));
         }
       })();

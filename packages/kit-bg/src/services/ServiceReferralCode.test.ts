@@ -76,6 +76,16 @@ function createService() {
     serviceAccount: {
       getWallets: jest.fn(),
       getDevice: jest.fn(),
+      getDBAccountSafe: jest.fn(
+        async ({ accountId }: { accountId: string }) => ({
+          id: accountId,
+          indexedAccountId: 'hd-1--7',
+        }),
+      ),
+      getDbAccountIdFromIndexedAccountId: jest.fn(
+        async () => "hd-1--m/44'/60'/0'/0/7",
+      ),
+      getAccount: jest.fn(async () => ({ address: '0xcurrent' })),
     },
     serviceHardware: {},
   };
@@ -326,6 +336,58 @@ describe('ServiceReferralCode.checkWalletBindStatus', () => {
       }),
     ).rejects.toThrow('Missing wallet referral bind status');
   });
+
+  test('aborts a bounded bind-status request when its timeout expires', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service } = createService();
+      const post = jest.fn(
+        (
+          _url: string,
+          _body: unknown,
+          config: { signal: AbortSignal; timeout: number },
+        ) =>
+          new Promise((_resolve, reject) => {
+            config.signal.addEventListener('abort', () => {
+              reject(new Error('request aborted'));
+            });
+          }),
+      );
+      (appApiClient.getClient as unknown as jest.Mock).mockResolvedValue({
+        post,
+      });
+
+      const request = service.checkWalletBindStatus(
+        {
+          address: '0xabc',
+          networkId: 'evm--1',
+        },
+        3000,
+      );
+      await Promise.all([
+        expect(request).rejects.toThrow('request aborted'),
+        jest.advanceTimersByTimeAsync(3000),
+      ]);
+
+      expect(post).toHaveBeenCalledWith(
+        '/rebate/v1/wallet/batch-check-v2',
+        {
+          items: [
+            {
+              address: '0xabc',
+              networkId: 'evm--1',
+            },
+          ],
+        },
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+          timeout: 3000,
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('ServiceReferralCode.checkAndUpdateReferralCode', () => {
@@ -436,5 +498,140 @@ describe('ServiceReferralCode.checkAndUpdateReferralCode', () => {
     expect(
       backgroundApi.simpleDb.referralCode.setWalletReferralCode,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('adds the current logical account EVM address to bound attribution', async () => {
+    const { service, backgroundApi } = createService();
+    const checkWalletBindStatusSpy = jest
+      .spyOn(service, 'checkWalletBindStatus')
+      .mockResolvedValue({
+        data: true,
+        bindable: false,
+        reason: undefined,
+      });
+
+    await expect(
+      service.getBoundEvmReferralCodeWalletInfo({
+        accountId: "hd-1--m/86'/0'/7'",
+      }),
+    ).resolves.toEqual({
+      walletId: 'hd-1',
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      address: '0xabc',
+      networkId: 'evm--1',
+      rebateAddress: '0xcurrent',
+    });
+
+    expect(service.getReferralCodeWalletInfo).toHaveBeenCalledWith({
+      walletId: 'hd-1',
+    });
+    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith({
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+    expect(
+      backgroundApi.simpleDb.referralCode.getWalletReferralCode,
+    ).not.toHaveBeenCalled();
+    expect(backgroundApi.serviceAccount.getDBAccountSafe).toHaveBeenCalledWith({
+      accountId: "hd-1--m/86'/0'/7'",
+    });
+    expect(
+      backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId,
+    ).toHaveBeenCalledWith({
+      indexedAccountId: 'hd-1--7',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    });
+    expect(backgroundApi.serviceAccount.getAccount).toHaveBeenCalledWith({
+      accountId: "hd-1--m/44'/60'/0'/0/7",
+      networkId: 'evm--1',
+    });
+  });
+
+  test('passes the Swap request budget to the authoritative bind check', async () => {
+    const { service } = createService();
+    const checkWalletBindStatusSpy = jest
+      .spyOn(service, 'checkWalletBindStatus')
+      .mockResolvedValue({
+        data: true,
+        bindable: false,
+        reason: undefined,
+      });
+
+    await service.getBoundEvmReferralCodeWalletInfo({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      requestTimeoutMs: 3000,
+    });
+
+    expect(checkWalletBindStatusSpy).toHaveBeenCalledWith(
+      {
+        address: '0xabc',
+        networkId: 'evm--1',
+      },
+      3000,
+    );
+  });
+
+  test('omits the EVM attribution when the server does not confirm binding', async () => {
+    const { service } = createService();
+    jest.spyOn(service, 'checkWalletBindStatus').mockResolvedValue({
+      data: false,
+      bindable: true,
+      reason: undefined,
+    });
+
+    await expect(
+      service.getBoundEvmReferralCodeWalletInfo({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('keeps bound attribution when the current EVM account is unavailable', async () => {
+    const { service, backgroundApi } = createService();
+    jest.spyOn(service, 'checkWalletBindStatus').mockResolvedValue({
+      data: true,
+      bindable: false,
+      reason: undefined,
+    });
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue(undefined);
+
+    await expect(
+      service.getBoundEvmReferralCodeWalletInfo({
+        accountId: "hd-1--m/44'/60'/0'/0/7",
+      }),
+    ).resolves.toEqual({
+      walletId: 'hd-1',
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+  });
+
+  test('skips wallets whose referral identity is not EVM', async () => {
+    const { service } = createService();
+    jest.spyOn(service, 'getReferralCodeWalletInfo').mockResolvedValue({
+      walletId: 'hw-btc-only',
+      accountId: "hw-btc-only--m/86'/0'/0'/0/0",
+      address: 'bc1ptest',
+      networkId: 'btc--0',
+    });
+    const checkWalletBindStatusSpy = jest.spyOn(
+      service,
+      'checkWalletBindStatus',
+    );
+
+    await expect(
+      service.getBoundEvmReferralCodeWalletInfo({
+        accountId: "hw-btc-only--m/86'/0'/0'/0/0",
+      }),
+    ).resolves.toBeUndefined();
+    expect(checkWalletBindStatusSpy).not.toHaveBeenCalled();
   });
 });

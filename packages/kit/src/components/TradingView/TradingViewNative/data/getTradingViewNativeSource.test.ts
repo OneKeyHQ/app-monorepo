@@ -42,6 +42,29 @@ describe('TradingViewNative source resolver', () => {
     );
   });
 
+  it('keeps the native-token identity for interval persistence', () => {
+    const source = getTradingViewNativeSource({
+      hyperliquidCoin: '',
+      isNative: true,
+      marketDataSource: 'polling',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+      tokenAddress: '0xeeee',
+    });
+
+    expect(source).toEqual({
+      kind: 'market',
+      isNative: true,
+      networkId: 'evm--1',
+      tokenAddress: '0xeeee',
+      symbol: 'ETH',
+      realtime: 'disabled',
+    });
+    expect(getTradingViewNativeSourceKey(source)).toBe(
+      'market:evm--1:0xeeee:ETH:native',
+    );
+  });
+
   it('normalizes the Market token identity independently from its symbol', () => {
     expect(
       getTradingViewNativeMarketTokenKey({

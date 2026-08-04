@@ -6,7 +6,6 @@ import { useUpdateEffect } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  useAppIsLockedAtom,
   usePrimeInitAtom,
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -24,8 +23,8 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
-import { showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
+import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 
 import type {
@@ -34,17 +33,66 @@ import type {
 } from './usePrimePaymentTypes';
 
 function PrimeGlobalEffectAfterAuthReady() {
-  const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
+  const [primePersistAtom] = usePrimePersistAtom();
   const [, setPrimeInitAtom] = usePrimeInitAtom();
-  const [isAppLocked] = useAppIsLockedAtom();
 
   const { getCustomerInfo } = usePrimePaymentMethods();
   const { isLoggedInOnServer } = primePersistAtom;
 
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelayMs = 2000;
+
+    const reconcileLoggedOutProjection = async (expectedRevision?: number) => {
+      if (expectedRevision !== undefined) {
+        const currentRevision =
+          await backgroundApiProxy.simpleDb.prime.getIdentityLifecycleRevision();
+        if (currentRevision !== expectedRevision) {
+          return;
+        }
+      }
+      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+        return;
+      }
+      const completed = await logoutPurchasesSdk();
+      if (!completed && !cancelled) {
+        retryTimer = setTimeout(() => {
+          void reconcileLoggedOutProjection();
+        }, retryDelayMs);
+        retryDelayMs = Math.min(retryDelayMs * 2, 60_000);
+      }
+    };
+
+    const onIdentityLifecycleCommitted = (payload: {
+      revision: number;
+      oneKeyIdState: 'loggedIn' | 'loggedOut';
+    }) => {
+      if (payload.oneKeyIdState === 'loggedOut') {
+        void reconcileLoggedOutProjection(payload.revision);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.IdentityLifecycleCommitted,
+      onIdentityLifecycleCommitted,
+    );
+    if (!primePersistAtom.isLoggedIn || !isLoggedInOnServer) {
+      void reconcileLoggedOutProjection();
+    }
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      appEventBus.off(
+        EAppEventBusNames.IdentityLifecycleCommitted,
+        onIdentityLifecycleCommitted,
+      );
+    };
+  }, [isLoggedInOnServer, primePersistAtom.isLoggedIn]);
+
   const {
     user,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    logout,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     supabaseUser,
     isSupabaseLoggedIn,
@@ -52,8 +100,6 @@ function PrimeGlobalEffectAfterAuthReady() {
 
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
-  const isAppLockedRef = useRef(isAppLocked);
-  isAppLockedRef.current = isAppLocked;
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     try {
@@ -141,35 +187,6 @@ function PrimeGlobalEffectAfterAuthReady() {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
 
-  useEffect(() => {
-    if (isAppLocked || !user?.onekeyUserId || !user?.isLoggedInOnServer) {
-      return;
-    }
-    let isCancelled = false;
-
-    // Concurrent/duplicate runs are deduplicated by the atomic bg gate
-    // (servicePrime.checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt), so
-    // no in-flight ref guard is needed here; when throttled, this is a
-    // single cheap bg round-trip.
-    void (async () => {
-      try {
-        await showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade({
-          onekeyUserId: user.onekeyUserId,
-          shouldSkip: () => isCancelled || isAppLockedRef.current,
-        });
-      } catch (error) {
-        console.error(
-          'PrimeGlobalEffect.showOneKeyIdLegacyOAuthBindDialogForLocalKeylessUpgrade failed:',
-          error,
-        );
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isAppLocked, user?.onekeyUserId, user?.isLoggedInOnServer]);
-
   const isUserLoggedIn = user.isLoggedIn;
   const isUserLoggedInOnServer = user.isLoggedInOnServer;
   useEffect(() => {
@@ -182,9 +199,6 @@ function PrimeGlobalEffectAfterAuthReady() {
             await backgroundApiProxy.servicePrime.apiLogin({
               accessToken,
             });
-          } else {
-            // Do not call apiLogout here, otherwise the user will automatically call logout during the login process, resulting in no login
-            // await backgroundApiProxy.servicePrime.apiLogout();
           }
         }
       } catch (error) {
@@ -257,7 +271,7 @@ function PrimeGlobalEffectAfterAuthReady() {
         );
       }
     })();
-  }, [setPrimePersistAtom, setPrimeInitAtom, isSupabaseLoggedIn]);
+  }, [setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
   useUpdateEffect(() => {
@@ -293,8 +307,7 @@ function PrimeGlobalEffectView() {
 
   useEffect(() => {
     // Main-runtime handler NEVER mutates the shared session storage: every
-    // persistent session deletion is bg-owned and generation-gated (see
-    // ServicePrime.clearAuthSessionIfGenerationStillMatches) — a main-side
+    // persistent session deletion is bg-owned and identity-coordinated — a main-side
     // signOut here could race a fresh login's persist and delete
     // credentials no later guard can restore (extension runs this handler
     // once per UI surface, multiplying that window). The session
@@ -329,14 +342,6 @@ function PrimeGlobalEffectView() {
           });
           return;
         }
-      }
-      if (!payload?.clearedByBackground) {
-        // Payload-less defensive branch (no current emitter): route the
-        // legacy-session deletion through the bg-owned slot queue instead
-        // of a main-side signOut. Never touch the keyless session here —
-        // it may be the only credential of a local keyless wallet and must
-        // not be destroyed without an explicit keyless-sourced payload.
-        await backgroundApiProxy.simpleDb.prime.clearLegacyAuthSession();
       }
       // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
       // invalid-token cleanup already reset the atom in-lock before

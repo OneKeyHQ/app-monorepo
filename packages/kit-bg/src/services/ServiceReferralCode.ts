@@ -550,6 +550,69 @@ class ServiceReferralCode extends ServiceBase {
     return undefined;
   }
 
+  private async getCurrentEvmAccountAddress({
+    accountId,
+  }: {
+    accountId: string;
+  }) {
+    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    if (!dbAccount?.indexedAccountId) {
+      return undefined;
+    }
+
+    const networkId = getNetworkIdsMap().eth;
+    const evmAccountId =
+      await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
+        {
+          indexedAccountId: dbAccount.indexedAccountId,
+          networkId,
+          deriveType: 'default',
+        },
+      );
+    const evmAccount = await this.backgroundApi.serviceAccount.getAccount({
+      accountId: evmAccountId,
+      networkId,
+    });
+    return evmAccount?.address;
+  }
+
+  @backgroundMethod()
+  async getBoundEvmReferralCodeWalletInfo({
+    accountId,
+    requestTimeoutMs,
+  }: {
+    accountId: string;
+    requestTimeoutMs?: number;
+  }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    // Swap attribution uses the first EVM address as the stable wallet identity.
+    if (!walletInfo || walletInfo.networkId !== getNetworkIdsMap().eth) {
+      return undefined;
+    }
+
+    const bindStatusParams = {
+      address: walletInfo.address,
+      networkId: walletInfo.networkId,
+    };
+    const bindStatus = requestTimeoutMs
+      ? await this.checkWalletBindStatus(bindStatusParams, requestTimeoutMs)
+      : await this.checkWalletBindStatus(bindStatusParams);
+    if (!bindStatus.data) {
+      return undefined;
+    }
+
+    const rebateAddress = await this.getCurrentEvmAccountAddress({
+      accountId,
+    }).catch(() => undefined);
+    return {
+      ...walletInfo,
+      ...(rebateAddress ? { rebateAddress } : {}),
+    };
+  }
+
   @backgroundMethod()
   async updateMyReferralCode(code: string) {
     await this.backgroundApi.simpleDb.referralCode.updateCode({
@@ -772,35 +835,69 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    // Bind-status checks gate dialogs / nudges; skip the prompt silently in
-    // production rather than toast a backend error to the user.
-    const response = await client.post<{
-      data: IBatchCheckWalletV2Response;
-    }>('/rebate/v1/wallet/batch-check-v2', { items }, SILENT_IN_PROD);
-    return response.data.data;
+  async batchCheckWalletsBoundReferralCodeV2(
+    items: IBatchCheckWalletItem[],
+    requestTimeoutMs?: number,
+  ) {
+    const requestAbortController =
+      requestTimeoutMs && requestTimeoutMs > 0
+        ? new AbortController()
+        : undefined;
+    const requestTimeout = requestAbortController
+      ? setTimeout(() => requestAbortController.abort(), requestTimeoutMs)
+      : undefined;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      // Bind-status checks gate dialogs / nudges; skip the prompt silently in
+      // production rather than toast a backend error to the user.
+      const response = await client.post<{
+        data: IBatchCheckWalletV2Response;
+      }>(
+        '/rebate/v1/wallet/batch-check-v2',
+        { items },
+        {
+          ...SILENT_IN_PROD,
+          ...(requestAbortController
+            ? {
+                signal: requestAbortController.signal,
+                timeout: requestTimeoutMs,
+              }
+            : {}),
+        },
+      );
+      return response.data.data;
+    } finally {
+      if (requestTimeout) {
+        clearTimeout(requestTimeout);
+      }
+    }
   }
 
   @backgroundMethod()
-  async checkWalletBindStatus({
-    address,
-    networkId,
-  }: {
-    address: string;
-    networkId: string;
-  }) {
+  async checkWalletBindStatus(
+    {
+      address,
+      networkId,
+    }: {
+      address: string;
+      networkId: string;
+    },
+    requestTimeoutMs?: number,
+  ) {
     const requestAddress =
       normalizeTokenContractAddress({
         networkId,
         contractAddress: address,
       }) || address;
-    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2([
-      {
-        address: requestAddress,
-        networkId,
-      },
-    ]);
+    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2(
+      [
+        {
+          address: requestAddress,
+          networkId,
+        },
+      ],
+      requestTimeoutMs,
+    );
     const requestedKey = `${networkId}:${requestAddress}`;
     const serverData = batchResult[requestedKey];
     if (!serverData) {

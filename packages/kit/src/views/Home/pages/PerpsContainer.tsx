@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
   DashText,
   Icon,
@@ -32,7 +33,6 @@ import {
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
@@ -47,6 +47,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -168,6 +172,7 @@ function useOpenPerpAsset() {
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
         }
+        setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;
@@ -717,7 +722,9 @@ function PerpsEmptyRecommendSection() {
                     <LeverageBadge leverage={token.maxLeverage} />
                   </XStack>
                   {token.subtitle ? (
-                    <SubtitleText subtitle={token.subtitle} />
+                    <XStack alignItems="center" minWidth={0}>
+                      <SubtitleText subtitle={token.subtitle} />
+                    </XStack>
                   ) : null}
                 </YStack>
               </XStack>
@@ -927,7 +934,6 @@ function PerpsDepositButton({
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
-  const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
 
   const handleDeposit = useCallback(async () => {
     if (!canDeposit || isDepositDisabled) {
@@ -950,31 +956,27 @@ function PerpsDepositButton({
   }
 
   return (
-    <Button
+    <Badge
       testID={testID}
-      size="small"
+      borderRadius="$full"
+      size="medium"
       variant="primary"
+      alignItems="center"
+      justifyContent="center"
+      flexDirection="row"
+      gap="$2"
+      px="$3"
+      h={28}
       bg="$bgAccent"
-      minHeight={32}
-      color={buttonStyles.textColor}
+      opacity={isDepositDisabled ? 0.5 : 1}
       cursor={isDepositDisabled ? 'default' : 'pointer'}
-      disabled={isDepositDisabled}
-      hoverStyle={{ bg: '$bgAccentHover' }}
-      pressStyle={{ bg: '$bgAccentActive' }}
-      onPress={() => void handleDeposit()}
-      childrenAsText={false}
+      onPress={isDepositDisabled ? undefined : () => void handleDeposit()}
     >
-      <XStack alignItems="center" gap="$2">
-        <Icon
-          name="AlignBottomOutline"
-          size="$4"
-          color={buttonStyles.textColor}
-        />
-        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </XStack>
-    </Button>
+      <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
+      <SizableText size="$bodySmMedium" color="$textInverse">
+        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+      </SizableText>
+    </Badge>
   );
 }
 

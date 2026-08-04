@@ -186,6 +186,7 @@ type IUniversalWithdrawProps = {
     token?: IToken;
   };
   currentAllowance?: string;
+  approveType?: EApproveType;
   pendleSlippage?: number;
   initialWithdrawType?: IEarnWithdrawType;
   receiptTokenRate?: string;
@@ -292,14 +293,22 @@ function WithdrawPathDialogContent({
                   </SizableText>
                 ) : null}
               </YStack>
+              {/* textAlign is required besides ai="flex-end": long i18n copy
+                  wraps to multiple lines and wrapped lines default to
+                  left-alignment inside the text box (OK-58722) */}
               <YStack flex={1} gap="$1" ai="flex-end">
-                <EarnAmountText size="$headingMd" color="$text">
+                <EarnAmountText
+                  size="$headingMd"
+                  color="$text"
+                  textAlign="right"
+                >
                   {box.description.text}
                 </EarnAmountText>
                 {box.subtitleDescription?.text ? (
                   <SizableText
                     size="$bodyMd"
                     color={box.subtitleDescription?.color || '$textSubdued'}
+                    textAlign="right"
                   >
                     {box.subtitleDescription.text}
                   </SizableText>
@@ -376,6 +385,7 @@ export function UniversalWithdraw({
   onQuoteRefreshingChange,
   approveTarget,
   currentAllowance = '0',
+  approveType = EApproveType.Legacy,
   pendleSlippage,
   initialWithdrawType,
   receiptTokenRate,
@@ -698,7 +708,7 @@ export function UniversalWithdraw({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
-    approveType: EApproveType.Legacy,
+    approveType,
   });
 
   const isFocus = useIsFocused();
@@ -1894,6 +1904,51 @@ export function UniversalWithdraw({
                   </XStack>
                 );
               })}
+              {transactionConfirmation?.availableLiquidity ? (
+                // Server-driven "Available liquidity" row (e.g. Bitway:
+                // instant withdrawal is capped by the flash pool balance, so
+                // amounts above it must go through the queued path). Kept in
+                // the always-visible summary so users can see why instant
+                // withdrawal is unavailable. (OK-58353)
+                <XStack ai="center" jc="space-between" flexWrap="wrap">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.availableLiquidity.title}
+                      color={
+                        transactionConfirmation.availableLiquidity.title
+                          .color ?? '$textSubdued'
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.title.size ??
+                        '$bodyMd'
+                      }
+                    />
+                    {transactionConfirmation.availableLiquidity.tooltip ? (
+                      <EarnTooltip
+                        title={
+                          transactionConfirmation.availableLiquidity.title.text
+                        }
+                        tooltip={
+                          transactionConfirmation.availableLiquidity.tooltip
+                        }
+                      />
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.availableLiquidity.description
+                    }
+                    size={
+                      transactionConfirmation.availableLiquidity.description
+                        .size ?? '$bodyMdMedium'
+                    }
+                    color={
+                      transactionConfirmation.availableLiquidity.description
+                        .color
+                    }
+                  />
+                </XStack>
+              ) : null}
             </YStack>
           ) : null}
           {hasSummarySection && showPendleTransactionSection ? (
@@ -1993,7 +2048,7 @@ export function UniversalWithdraw({
       {beforeFooter}
       {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
-          approveType={EApproveType.Legacy}
+          approveType={approveType}
           currentStep={
             shouldApprove
               ? EStakeProgressStep.approve

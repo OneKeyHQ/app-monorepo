@@ -167,20 +167,20 @@ const PaginationDoneOnKeyboard = ({
       <XStack>
         {totalAmount ? (
           <>
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_page })}{' '}
             </SizableText>
-            <SizableText size="$bodyLg" color="$text">
+            <SizableText size="$bodyMdMedium" color="$text">
               {inputAmount ?? ''}
             </SizableText>
-            <SizableText size="$bodyLg" color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               {' '}
               / {totalAmount}
             </SizableText>
           </>
         ) : null}
         {inputAmount && !totalAmount ? (
-          <SizableText size="$bodyLg" color="$textSubdued">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
             {inputAmount}
           </SizableText>
         ) : null}
@@ -188,12 +188,15 @@ const PaginationDoneOnKeyboard = ({
       <Button
         testID="perp-btn"
         variant="tertiary"
+        childrenAsText={false}
         onPress={() => {
           Keyboard.dismiss();
           onDone();
         }}
       >
-        {intl.formatMessage({ id: ETranslations.global_done })}
+        <SizableText size="$bodyMdMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.global_done })}
+        </SizableText>
       </Button>
     </XStack>
   ) : null;
@@ -420,6 +423,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   onViewAll?: () => void;
   onPullToRefresh?: () => Promise<void>;
   ListHeaderComponent?: ReactElement | null;
+  mobileLoadingComponent?: ReactElement;
 }
 
 export function CommonTableListView<T>({
@@ -448,6 +452,7 @@ export function CommonTableListView<T>({
   onViewAll,
   onPullToRefresh,
   ListHeaderComponent,
+  mobileLoadingComponent,
 }: ICommonTableListViewProps<T>) {
   const shouldUseTabsList = useTabsList ?? true;
   const themeVariant = useThemeVariant();
@@ -713,11 +718,9 @@ export function CommonTableListView<T>({
     if (renderRowsInline) {
       let inlineRows: ReactElement | ReactElement[];
       if (paginatedData.length === 0) {
-        inlineRows = effectiveListLoading ? (
-          <MobileCardLoadingSkeleton />
-        ) : (
-          emptyComponent
-        );
+        inlineRows = effectiveListLoading
+          ? (mobileLoadingComponent ?? <MobileCardLoadingSkeleton />)
+          : emptyComponent;
       } else {
         inlineRows = paginatedData.map((item, index) => (
           <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
@@ -762,11 +765,9 @@ export function CommonTableListView<T>({
               return renderRow(item, index, 'full');
             }}
             ListEmptyComponent={
-              effectiveListLoading ? (
-                <TradesHistoryLoadingView />
-              ) : (
-                emptyComponent
-              )
+              effectiveListLoading
+                ? (mobileLoadingComponent ?? <TradesHistoryLoadingView />)
+                : emptyComponent
             }
             contentContainerStyle={{
               flexGrow: paginatedData.length === 0 ? 1 : undefined,

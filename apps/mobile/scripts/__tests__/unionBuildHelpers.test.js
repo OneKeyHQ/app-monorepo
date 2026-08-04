@@ -277,6 +277,38 @@ describe('unionBuildHelpers', () => {
     );
   });
 
+  it('overrides a merged background segment path when the module is eager in main', () => {
+    const tierPath =
+      '/repo/packages/shared/src/performance/devicePerformanceTier.native.ts';
+    const wrappedModules = [
+      [1, 'module.exports={"paths":{"1932":"old-tier-path"}};'],
+    ];
+
+    rewriteAsyncRequirePaths(wrappedModules, {
+      moduleToSegment: new Map([
+        [1932, 'seg:shared.performance.devicePerformanceTier.native'],
+      ]),
+      moduleIdToAbsPath: new Map([[1932, tierPath]]),
+      eagerAbsPaths: new Set([tierPath]),
+      runtimeVariants: {
+        main: {
+          absPathToSegment: new Map(),
+          eagerAbsPaths: new Set([tierPath]),
+        },
+        background: {
+          absPathToSegment: new Map([
+            [tierPath, 'seg:shared.performance.devicePerformanceTier.native'],
+          ]),
+          eagerAbsPaths: new Set(),
+        },
+      },
+    });
+
+    expect(wrappedModules[0][1]).toContain(
+      '"1932":{"main":null,"background":"seg:shared.performance.devicePerformanceTier.native"}',
+    );
+  });
+
   it('prefers segment keys over eager nulling when a module is split out', () => {
     const splitPath = '/repo/src/feature/split.js';
     const wrappedModules = [

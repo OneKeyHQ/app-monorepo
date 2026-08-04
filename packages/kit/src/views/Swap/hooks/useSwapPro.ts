@@ -98,7 +98,10 @@ import {
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
 } from '../utils/swapProAccountUtils';
-import { getValidSwapProPositionsCache } from '../utils/swapProPositionsCacheUtils';
+import {
+  getValidSwapProPositionsCache,
+  resolveSwapProPositionsDisplayOwner,
+} from '../utils/swapProPositionsCacheUtils';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   getSwapAnalyticsTokenListType,
@@ -789,6 +792,9 @@ export function useSwapProTokenInit() {
     useSwapProInputAmountAtom();
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const shouldSyncSwapProTokenInfo =
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const {
     defaultTokens,
@@ -1118,6 +1124,9 @@ export function useSwapProTokenInit() {
   } = useSwapProTokenInfoSync();
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (
       (inputToken && !inputToken.balanceParsed) ||
       (inputToken as ISwapToken)?.accountAddress !==
@@ -1127,21 +1136,28 @@ export function useSwapProTokenInit() {
     }
   }, [
     inputToken,
+    shouldSyncSwapProTokenInfo,
     syncInputTokenBalance,
     netAccountRes.result?.addressDetail.address,
   ]);
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (swapProSellToToken && !swapProSellToToken.price) {
       void syncToTokenPrice();
     }
-  }, [swapProSellToToken, syncToTokenPrice]);
+  }, [shouldSyncSwapProTokenInfo, swapProSellToToken, syncToTokenPrice]);
 
   useEffect(() => {
+    if (!shouldSyncSwapProTokenInfo) {
+      return;
+    }
     if (swapProSelectToken && isNil(swapProSelectToken?.isNative)) {
       void syncSelectTokenNative();
     }
-  }, [swapProSelectToken, syncSelectTokenNative]);
+  }, [shouldSyncSwapProTokenInfo, swapProSelectToken, syncSelectTokenNative]);
 
   const isMEV = useMemo(() => {
     return Array.isArray(swapMevNetConfig)
@@ -1637,15 +1653,16 @@ export function useSwapProSupportNetworksTokenList(
   const positionAccountId =
     positionAccountIdentity.indexedAccountId ??
     positionAccountIdentity.accountId;
-  const positionNetworkIdsKey = useMemo(
-    () =>
-      networkList
-        .map((item) => item.networkId)
-        .filter(Boolean)
-        .toSorted()
-        .join(','),
-    [networkList],
-  );
+  const positionNetworkIdsKey = useMemo(() => {
+    if (!supportNetworksReady) {
+      return '';
+    }
+    return networkList
+      .map((item) => item.networkId)
+      .filter(Boolean)
+      .toSorted()
+      .join(',');
+  }, [networkList, supportNetworksReady]);
   const positionOwnerKey = useMemo(
     () =>
       buildSwapProPositionsOwnerKey({
@@ -1655,88 +1672,31 @@ export function useSwapProSupportNetworksTokenList(
       }),
     [positionAccountId, positionCurrencyId, positionNetworkIdsKey],
   );
-  const cachedPositionEntry = useMemo(() => {
-    if (positionOwnerKey) {
-      const exactEntry = validSwapProPositionsCache.byOwner[positionOwnerKey];
-      if (exactEntry) {
-        return exactEntry;
-      }
-    }
-    if (!positionAccountId || positionNetworkIdsKey || supportNetworksReady) {
-      return undefined;
-    }
-    const ownerPrefix = `${positionAccountId}__`;
-    return Object.values(validSwapProPositionsCache.byOwner)
-      .filter(
-        (entry) =>
-          entry.ownerKey.startsWith(ownerPrefix) &&
-          entry.currencyId === positionCurrencyId,
-      )
-      .toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
-  }, [
-    positionAccountId,
-    positionCurrencyId,
-    positionNetworkIdsKey,
-    positionOwnerKey,
-    supportNetworksReady,
-    validSwapProPositionsCache.byOwner,
-  ]);
-  const hasCachedPositionSnapshot = useMemo(() => {
-    if (
-      !cachedPositionEntry ||
-      (!positionNetworkIdsKey && !positionAccountId)
-    ) {
-      return false;
-    }
-    if (
-      cachedPositionEntry?.ownerKey === positionOwnerKey &&
-      cachedPositionEntry.networkIdsKey === positionNetworkIdsKey
-    ) {
-      return true;
-    }
-    if (!supportNetworksReady && !positionNetworkIdsKey && positionAccountId) {
-      const ownerPrefix = `${positionAccountId}__`;
-      if (
-        cachedPositionEntry.ownerKey.startsWith(ownerPrefix) &&
-        cachedPositionEntry.currencyId === positionCurrencyId
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }, [
+  const {
     cachedPositionEntry,
-    positionAccountId,
-    positionCurrencyId,
-    positionNetworkIdsKey,
-    positionOwnerKey,
-    supportNetworksReady,
-  ]);
+    hasCachedPositionSnapshot,
+    hasPositionOwner,
+    isLiveTokenListForCurrentOwner,
+  } = useMemo(
+    () =>
+      resolveSwapProPositionsDisplayOwner({
+        cacheByOwner: validSwapProPositionsCache.byOwner,
+        dataOwnerKey: swapProPositionsDataOwnerKey,
+        hasPositionAccount: Boolean(positionAccountId),
+        positionOwnerKey,
+        supportNetworksReady,
+      }),
+    [
+      positionAccountId,
+      positionOwnerKey,
+      supportNetworksReady,
+      swapProPositionsDataOwnerKey,
+      validSwapProPositionsCache.byOwner,
+    ],
+  );
   const cachedPositionTokenList = hasCachedPositionSnapshot
     ? (cachedPositionEntry?.tokens ?? [])
     : [];
-  const isLiveTokenListForCurrentOwner = useMemo(() => {
-    if (positionOwnerKey) {
-      return swapProPositionsDataOwnerKey === positionOwnerKey;
-    }
-    if (positionAccountId && !positionNetworkIdsKey) {
-      if (supportNetworksReady) {
-        return !swapProPositionsDataOwnerKey;
-      }
-      return (
-        swapProPositionsDataOwnerKey.startsWith(`${positionAccountId}__`) &&
-        swapProPositionsDataOwnerKey.endsWith(`__${positionCurrencyId}`)
-      );
-    }
-    return !positionAccountId && !swapProPositionsDataOwnerKey;
-  }, [
-    positionAccountId,
-    positionCurrencyId,
-    positionNetworkIdsKey,
-    positionOwnerKey,
-    supportNetworksReady,
-    swapProPositionsDataOwnerKey,
-  ]);
   const swapProSelectTokenRef = useRef(swapSelectToken);
   if (swapProSelectTokenRef.current !== swapSelectToken) {
     swapProSelectTokenRef.current = swapSelectToken;
@@ -1846,9 +1806,7 @@ export function useSwapProSupportNetworksTokenList(
 
   return {
     cachedPositionTokenList,
-    hasPositionOwner:
-      Boolean(positionOwnerKey) ||
-      (!supportNetworksReady && Boolean(positionAccountId)),
+    hasPositionOwner,
     hasCachedPositionSnapshot,
     isLiveTokenListForCurrentOwner,
     swapProLoadSupportNetworksTokenListRun,

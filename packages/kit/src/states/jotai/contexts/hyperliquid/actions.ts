@@ -125,6 +125,12 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
+import {
+  getPerpsOrderChangedMessage,
+  getPerpsOrderNoLongerEligibleForChaseMessage,
+  getPerpsTokenInfoNotFoundMessage,
+  getPerpsTradingNotEnabledMessage,
+} from './utils/config';
 import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
@@ -522,13 +528,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     requestId: number;
     viewState: ITradeRouteViewState;
   }): Promise<void> {
-    if (
-      !this.isLatestActiveInstrumentChange(params.requestId) ||
-      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
-    ) {
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
     }
 
+    // Unconditional: the BG reconcile aborts every channel while this atom
+    // still names the previous coin, so gating the publish on route focus
+    // stranded context-less switches (notification / banner / tray).
     const stored = getPerpsOrderBookTickOptionsWithCache(
       params.orderBookTickOptions,
     )[params.instrument.coin];
@@ -545,6 +551,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       isLatest: () => this.isLatestActiveInstrumentChange(params.requestId),
     });
     if (!isLatest) {
+      return;
+    }
+
+    // Best-effort saving only: extension and native reconcile off the atom
+    // watcher regardless. Desktop and web have no watcher, so this is their
+    // only gate.
+    if (!this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)) {
       return;
     }
 
@@ -3196,18 +3209,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           if (existing.coin !== params.coin) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} does not belong to ${params.coin}`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsOrderAmendKind(existing);
           if (!amendKind) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} cannot be modified safely`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
@@ -3241,7 +3250,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsChaseOrderAmendKind(existing);
           const remainingSize = new BigNumber(existing.sz);
@@ -3253,7 +3262,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             remainingSize.lte(0)
           ) {
             throw new OneKeyLocalError(
-              `Order ${params.oid} is no longer eligible for chase`,
+              getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
@@ -3287,7 +3296,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
-        Toast.error({ title: `Order ${params.oid} not found` });
+        Toast.error({
+          title: getPerpsOrderChangedMessage(),
+        });
         return undefined;
       }
       const symbolMeta =
@@ -3295,7 +3306,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           coin: existing.coin,
         });
       if (!symbolMeta) {
-        Toast.error({ title: `Unknown coin: ${existing.coin}` });
+        Toast.error({
+          title: getPerpsTokenInfoNotFoundMessage(),
+        });
         return undefined;
       }
       return this.cancelOrder.call(set, {
@@ -3475,7 +3488,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const info = await perpsActiveAccountIsAgentReadyAtom.get();
     if (info.isAgentReady === false) {
       showEnableTradingDialog();
-      throw new OneKeyLocalError('Trading not enabled');
+      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
     }
   });
 

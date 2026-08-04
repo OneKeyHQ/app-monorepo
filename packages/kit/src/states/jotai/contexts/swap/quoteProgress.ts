@@ -87,6 +87,56 @@ export enum ESwapQuoteUiPhase {
   StaleRefreshing = 'staleRefreshing',
 }
 
+export enum ESwapQuoteRefreshAction {
+  AutoRequest = 'autoRequest',
+  RequireManualRefresh = 'requireManualRefresh',
+}
+
+export function resolveSwapQuoteRefreshAction({
+  automaticRefreshCount,
+  maxAutomaticRefreshCount,
+}: {
+  automaticRefreshCount: number;
+  maxAutomaticRefreshCount: number;
+}) {
+  if (automaticRefreshCount >= maxAutomaticRefreshCount) {
+    return {
+      action: ESwapQuoteRefreshAction.RequireManualRefresh,
+      nextAutomaticRefreshCount: automaticRefreshCount,
+    };
+  }
+
+  return {
+    action: ESwapQuoteRefreshAction.AutoRequest,
+    nextAutomaticRefreshCount: automaticRefreshCount + 1,
+  };
+}
+
+export function shouldPlaySwapQuoteRefreshAnimation({
+  autoRefreshTimerActive,
+  disabled,
+  focused,
+  loading,
+  manualRefreshRequired,
+  refreshActionRequired,
+}: {
+  autoRefreshTimerActive: boolean;
+  disabled: boolean;
+  focused: boolean;
+  loading: boolean;
+  manualRefreshRequired: boolean;
+  refreshActionRequired: boolean;
+}) {
+  return (
+    autoRefreshTimerActive &&
+    focused &&
+    !disabled &&
+    !loading &&
+    !manualRefreshRequired &&
+    !refreshActionRequired
+  );
+}
+
 export function buildSwapQuoteProviderKey(quote: {
   info: ISwapQuoteProviderIdentity;
 }) {
@@ -174,18 +224,22 @@ export function isSwapNoProviderSupportsTrade({
   zeroProviderQuoteCompleted,
   quote,
   quoteResultPairNoMatch,
+  quoteEventCompleted,
+  quoteRequestMatchesCurrentInput,
 }: {
   zeroProviderQuoteCompleted: boolean;
   quote?: Pick<IFetchQuoteResult, 'toAmount' | 'limit'>;
   quoteResultPairNoMatch: boolean;
+  quoteEventCompleted: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
 }) {
-  // Only trust the no-provider verdict when the quote belongs to the current
-  // token pair; a stale quote left over from a previous pair must not lock
-  // the action button out of its "Refresh quotes" recovery state. The veto
-  // must stay identity-based: provider-error quotes carry no amount fields
-  // at all, so an amount-based mismatch check would permanently veto the
-  // genuine no-provider signal. (OK-57545)
+  // Provider errors can arrive before the rest of the quote event. Only the
+  // matching request's terminal state can establish that no provider supports
+  // the trade. Pair identity remains separate because provider-error quotes
+  // do not carry amount fields. (OK-57545, OK-58528)
   return (
+    quoteEventCompleted &&
+    quoteRequestMatchesCurrentInput &&
     (zeroProviderQuoteCompleted ||
       Boolean(quote && !quote.toAmount && !quote.limit)) &&
     !quoteResultPairNoMatch
@@ -264,11 +318,26 @@ export function shouldOfferSwapQuoteRefresh({
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (isRefreshQuote) {
+    return true;
+  }
+
   return (
     !quoteLoading &&
     !quoteEventFetching &&
-    (isRefreshQuote || (quoteResultNoMatch && quoteResultNoMatchDebounced))
+    quoteResultNoMatch &&
+    quoteResultNoMatchDebounced
   );
+}
+
+export function isSwapQuoteManualRefreshRequired({
+  shouldRefreshQuote,
+  quoteRequestMatchesCurrentInput,
+}: {
+  shouldRefreshQuote: boolean;
+  quoteRequestMatchesCurrentInput: boolean;
+}) {
+  return shouldRefreshQuote && quoteRequestMatchesCurrentInput;
 }
 
 export function shouldShowSwapQuoteActionLoading({
@@ -276,12 +345,18 @@ export function shouldShowSwapQuoteActionLoading({
   isWaitingActionableQuote,
   isQuoteEventSettlingForAction,
   isWaitingAutoSlippage,
+  manualRefreshRequired,
 }: {
   hasActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
   isQuoteEventSettlingForAction: boolean;
   isWaitingAutoSlippage: boolean;
+  manualRefreshRequired: boolean;
 }) {
+  if (manualRefreshRequired) {
+    return false;
+  }
+
   return (
     isWaitingActionableQuote ||
     (!hasActionableQuote && isQuoteEventSettlingForAction) ||
