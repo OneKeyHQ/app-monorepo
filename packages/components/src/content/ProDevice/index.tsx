@@ -9,16 +9,20 @@ export type { IProDeviceScene } from './scenes';
 export type { IProDeviceAnimation } from './animation';
 
 /**
- * Code-drawn OneKey Pro device. One component, one `animation` prop:
+ * Code-drawn OneKey Pro device. Reached through ../HardwareDevice, which is
+ * what call sites use; this layer is where the Pro's own scenes and screen
+ * live.
  *
  *   <ProDevice animation="confirm" />          built-in scene loop
  *   <ProDevice animation="enterPin" />
  *   <ProDevice animation="enterPassphrase" />
  *   <ProDevice />                              static shell, screen dark
  *
- * Advanced: `animation` also accepts a custom IProDeviceAnimation contract
- * (see ./animation.ts) paired with your own `screenContent`. Switching scene
- * names remounts, so the loop restarts from the top.
+ * `animation` also accepts a custom IProDeviceAnimation contract (see
+ * ./animation.ts) paired with your own `screenContent` - the way live content
+ * would go on the 288x484 touchscreen, which is the whole point of drawing
+ * the device in code rather than shipping a Lottie. Switching scene names
+ * remounts, so the loop restarts from the top.
  */
 export interface IProDeviceProps extends Omit<
   IProDeviceShellProps,
