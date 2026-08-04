@@ -84,6 +84,7 @@ import {
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
+import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
@@ -1569,6 +1570,17 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    // OK-59196: the approve step is the user's first on-chain action in the
+    // two-step flow and bypasses useUniversalStake, so the one-time risk
+    // disclaimer must gate here too (once accepted it resolves immediately)
+    const riskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId: approveTarget.networkId,
+    });
+    if (!riskConfirmed) {
+      return;
+    }
     setApproving(true);
     let approveAllowance = allowance;
     try {
@@ -1709,6 +1721,7 @@ export function UniversalStake({
     getPermitCache,
     getPermitSignature,
     providerName,
+    actionSymbol,
     updatePermitCache,
     onSubmit,
     waitForAllowanceAfterApprove,

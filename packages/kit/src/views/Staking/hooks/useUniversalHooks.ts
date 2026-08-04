@@ -32,6 +32,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { showEarnRiskWarningDialog } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 
 const createStakeInfoWithOrderId = ({
@@ -201,6 +202,16 @@ export function useUniversalStake({
       // Stakefish specific param
       validatorPublicKey?: string;
     }) => {
+      // OK-59196: one-time risk disclaimer gates the first earn trade on
+      // this device; resolves immediately once accepted
+      const riskConfirmed = await showEarnRiskWarningDialog({
+        provider,
+        symbol,
+        networkId,
+      });
+      if (!riskConfirmed) {
+        return;
+      }
       const buildStakeConfirmPayload = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
