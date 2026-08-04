@@ -91,7 +91,6 @@ import {
 } from './hardwareUiEventStateMachine';
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
-import { decodeJpegToRgba } from './jpegRgbaUtils';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
@@ -2923,6 +2922,7 @@ class ServiceHardware extends ServiceBase {
     subtitle,
     timestampMs,
   }: IUploadPro2NftParams) {
+    const { decodeJpegToRgba } = await import('./jpegRgbaUtils');
     const image = decodeJpegToRgba({
       imageHex,
       expectedWidth: 540,

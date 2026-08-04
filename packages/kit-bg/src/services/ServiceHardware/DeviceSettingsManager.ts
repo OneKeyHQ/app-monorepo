@@ -33,7 +33,6 @@ import {
 } from '../../vaults/base/trezorTransportUtils';
 
 import { getWallpaperResourceType } from './getWallpaperResourceType';
-import { decodeJpegToRgba } from './jpegRgbaUtils';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type { TrezorDeviceSettingsParams } from './adapters/types';
@@ -555,6 +554,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
                 'Upload Pro2 wallpaper error: screenHex not defined',
               );
             }
+            const { decodeJpegToRgba } = await import('./jpegRgbaUtils');
             const decoded = decodeJpegToRgba({
               imageHex: finallyScreenHex,
               expectedWidth: 604,
