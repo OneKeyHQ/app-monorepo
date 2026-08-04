@@ -1,4 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -200,6 +201,7 @@ describe('DeviceSettingsManager device adapters', () => {
       ).resolves.toBe(expected);
       expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
         connectId: device.connectId,
+        pinType: DeviceSessionPinType.Main,
         params: { scope: 'settings' },
         oneKeyOperationLease: expect.objectContaining({
           deviceKey: 'device-db-id',

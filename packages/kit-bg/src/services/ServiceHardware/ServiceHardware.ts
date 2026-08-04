@@ -149,6 +149,7 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+import type { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
@@ -2074,7 +2075,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async unlockDevice({ connectId }: { connectId: string }) {
+  async unlockDevice({
+    connectId,
+    pinType,
+  }: {
+    connectId: string;
+    pinType?: DeviceSessionPinType;
+  }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -2082,8 +2089,11 @@ class ServiceHardware extends ServiceBase {
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
+    const unlockParams: CommonParams & {
+      pinType?: DeviceSessionPinType;
+    } = pinType === undefined ? {} : { pinType };
     return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUnlock(compatibleConnectId, {}),
+      hardwareSDK?.deviceUnlock(compatibleConnectId, unlockParams),
     );
   }
 
@@ -2415,15 +2425,18 @@ class ServiceHardware extends ServiceBase {
   async getDeviceStateWithUnlock({
     connectId,
     oneKeyOperationLease,
+    pinType,
     params,
   }: {
     connectId: string;
     oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    pinType?: DeviceSessionPinType;
     params?: GetDeviceStateParams;
   }) {
     const dbDevice = await localDb.getDeviceByQuery({ connectId });
     return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-      () => this.getDeviceStateWithUnlockInternal({ connectId, params }),
+      () =>
+        this.getDeviceStateWithUnlockInternal({ connectId, pinType, params }),
       {
         deviceKey:
           dbDevice?.id ||
@@ -2438,9 +2451,11 @@ class ServiceHardware extends ServiceBase {
 
   private async getDeviceStateWithUnlockInternal({
     connectId,
+    pinType,
     params,
   }: {
     connectId: string;
+    pinType?: DeviceSessionPinType;
     params?: GetDeviceStateParams;
   }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
@@ -2456,7 +2471,7 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('Device is not initialized');
     }
     if (state.status.unlocked === false) {
-      await this.unlockDevice({ connectId: compatibleConnectId });
+      await this.unlockDevice({ connectId: compatibleConnectId, pinType });
       state = await this.getDeviceState({
         connectId: compatibleConnectId,
         params,

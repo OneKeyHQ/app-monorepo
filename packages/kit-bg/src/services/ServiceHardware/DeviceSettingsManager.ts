@@ -6,6 +6,7 @@ import {
   type DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -423,6 +424,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         // touch or Pro should unlock device first, otherwise features?.passphraseProtection will return undefined
         await this.serviceHardware.unlockDevice({
           connectId: dbDevice.connectId,
+          pinType: DeviceSessionPinType.Main,
         });
 
         const state = await this.serviceHardware.getDeviceStateByWallet({
@@ -472,6 +474,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const state =
           await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock({
             connectId: compatibleConnectId,
+            pinType: DeviceSessionPinType.Main,
             params: { scope: 'settings' },
             oneKeyOperationLease,
           });

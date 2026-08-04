@@ -102,6 +102,7 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
 import {
   type IHardwareWalletCreationMode,
+  getWalletCreationDeviceState,
   resolveAutomaticWalletCreationMode,
   shouldCheckExistingStandardWallet,
 } from './walletCreationMode';
@@ -1458,6 +1459,7 @@ export function ConnectYourDevicePage() {
   const selectAddWalletType = useCallback(
     async ({
       device,
+      features: connectedFeatures,
       isFirmwareVerified,
     }: {
       device: SearchDevice;
@@ -1474,11 +1476,16 @@ export function ConnectYourDevicePage() {
       let deviceState: IOneKeyDeviceState;
 
       try {
-        deviceState =
-          await backgroundApiProxy.serviceHardware.getDeviceStateWithUnlock({
-            connectId: device.connectId ?? '',
-            params: { scope: 'runtime' },
-          });
+        const connectProtocol =
+          connectedFeatures.protocol === 'V1' ||
+          connectedFeatures.protocol === 'V2'
+            ? connectedFeatures.protocol
+            : undefined;
+        deviceState = await getWalletCreationDeviceState({
+          serviceHardware: backgroundApiProxy.serviceHardware,
+          connectId: device.connectId ?? '',
+          connectProtocol,
+        });
         features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });

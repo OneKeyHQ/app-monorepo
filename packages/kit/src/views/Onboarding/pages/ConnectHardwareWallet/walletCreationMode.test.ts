@@ -1,3 +1,5 @@
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
+
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import {
@@ -20,10 +22,10 @@ function buildState(
 }
 
 describe('walletCreationMode', () => {
-  it('Protocol V2 创建钱包前只读取状态，不提前解锁', async () => {
+  it('Protocol V2 创建钱包前使用 Any 解锁并读取解锁后的状态', async () => {
     const state = buildState({ unlocked: false });
     const getDeviceState = jest.fn().mockResolvedValue(state);
-    const getDeviceStateWithUnlock = jest.fn();
+    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue(state);
 
     await expect(
       getWalletCreationDeviceState({
@@ -33,11 +35,12 @@ describe('walletCreationMode', () => {
       }),
     ).resolves.toBe(state);
 
-    expect(getDeviceState).toHaveBeenCalledWith({
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
       connectId: 'pro2-connect',
+      pinType: DeviceSessionPinType.Any,
       params: { connectProtocol: 'V2', scope: 'runtime' },
     });
-    expect(getDeviceStateWithUnlock).not.toHaveBeenCalled();
+    expect(getDeviceState).not.toHaveBeenCalled();
   });
 
   it('Protocol V1 保留创建钱包前的原有解锁流程', async () => {
@@ -76,6 +79,20 @@ describe('walletCreationMode', () => {
     const state = buildState({ unlockedAttachPin: true });
 
     expect(shouldCheckExistingStandardWallet(state)).toBe(false);
+    expect(
+      resolveAutomaticWalletCreationMode({
+        state,
+        existsStandardWallet: false,
+      }),
+    ).toBe('hidden');
+  });
+
+  it('attach PIN 解锁结果优先于缓存中的 passphrase 开关状态', () => {
+    const state = buildState({
+      unlockedAttachPin: true,
+      passphraseProtection: false,
+    });
+
     expect(
       resolveAutomaticWalletCreationMode({
         state,

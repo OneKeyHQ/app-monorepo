@@ -1,3 +1,4 @@
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
 import {
@@ -572,6 +573,53 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     expect(service.getDeviceState).toHaveBeenCalledTimes(2);
   });
 
+  it('forwards an explicit PIN type before rereading the canonical state', async () => {
+    const lockedState = {
+      status: { initialized: true, unlocked: false },
+    } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
+    const unlockedState = {
+      status: {
+        initialized: true,
+        unlocked: true,
+        unlockedAttachPin: true,
+      },
+    } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>;
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation: jest.fn(
+            async (operation: (lease: object) => Promise<unknown>) =>
+              operation({ deviceKey: 'PRO2_USB', owner: Symbol('test') }),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    service.getDeviceState = jest
+      .fn()
+      .mockResolvedValueOnce(lockedState)
+      .mockResolvedValueOnce(unlockedState);
+    const unlockDevice = jest
+      .spyOn(service, 'unlockDevice')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.getDeviceStateWithUnlock({
+        connectId: 'ORIGINAL_CONNECT_ID',
+        pinType: DeviceSessionPinType.Any,
+        params: { scope: 'runtime' },
+      }),
+    ).resolves.toBe(unlockedState);
+
+    expect(unlockDevice).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+      pinType: DeviceSessionPinType.Any,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+    expect(service.getDeviceState).toHaveBeenCalledTimes(2);
+  });
+
   it('does not request an unlock before the device wallet is initialized', async () => {
     const uninitializedState = {
       status: { initialized: false, unlocked: false },
@@ -603,5 +651,30 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     expect(unlockDevice).not.toHaveBeenCalled();
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     expect(service.getDeviceState).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceHardware.unlockDevice', () => {
+  it('passes the explicit PIN type to the hardware SDK', async () => {
+    const deviceUnlock = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { unlocked: true },
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      deviceUnlock,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    await service.unlockDevice({
+      connectId: 'ORIGINAL_CONNECT_ID',
+      pinType: DeviceSessionPinType.Any,
+    });
+
+    expect(deviceUnlock).toHaveBeenCalledWith('PRO2_USB', {
+      pinType: DeviceSessionPinType.Any,
+    });
   });
 });

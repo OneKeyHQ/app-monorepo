@@ -1,3 +1,5 @@
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
+
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
@@ -14,6 +16,7 @@ type IWalletCreationHardwareService = {
   }) => Promise<IOneKeyDeviceState>;
   getDeviceStateWithUnlock: (params: {
     connectId: string;
+    pinType?: DeviceSessionPinType;
     params: {
       connectProtocol?: HardwareConnectProtocol;
       scope: 'runtime';
@@ -34,10 +37,11 @@ export async function getWalletCreationDeviceState({
     connectProtocol,
     scope: 'runtime' as const,
   };
-  if (connectProtocol === 'V2') {
-    return serviceHardware.getDeviceState({ connectId, params });
-  }
-  return serviceHardware.getDeviceStateWithUnlock({ connectId, params });
+  return serviceHardware.getDeviceStateWithUnlock({
+    connectId,
+    ...(connectProtocol === 'V2' ? { pinType: DeviceSessionPinType.Any } : {}),
+    params,
+  });
 }
 
 export function shouldCheckExistingStandardWallet(
@@ -61,7 +65,11 @@ export function resolveAutomaticWalletCreationMode({
     return undefined;
   }
 
-  if (unlockedAttachPin === true || existsStandardWallet) {
+  if (unlockedAttachPin === true) {
+    return 'hidden';
+  }
+
+  if (existsStandardWallet) {
     return passphraseProtection === true ? 'hidden' : 'standard';
   }
 
