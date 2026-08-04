@@ -57,6 +57,10 @@ import {
   reconcileTokenSelectorFavoritesOrder,
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
+import {
+  getDexIndexByCoin,
+  toAssetId,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import perpsUtils, {
   calculateSpotBalancesTotalUsd,
   isHyperLiquidAbstractionModeEnabled,
@@ -70,8 +74,6 @@ import {
   CACHE_TIME_QUANTIZE_MS,
   DEX_PREFIXES,
   SPOT_ASSET_ID_OFFSET,
-  XYZ_ASSET_ID_OFFSET,
-  XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
@@ -155,6 +157,7 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import { selectPerpMetasByDex } from './utils/perpMetaSelection';
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
@@ -546,10 +549,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.serviceHyperliquidWallet;
   }
 
-  private detectDexIndexByCoin(coin: string): number {
-    return coin.startsWith(XYZ_DEX_PREFIX) ? 1 : 0;
-  }
-
   private resolveInfoRequestCoin(coin: string) {
     const { dexLabel } = parseDexCoin(coin);
     return {
@@ -569,19 +568,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       return undefined;
     }
     return assetCtxs[ctxIndex];
-  }
-
-  private getAssetIdWithDexPrefix({
-    dexIndex,
-    index,
-  }: {
-    dexIndex: number;
-    index: number;
-  }) {
-    if (dexIndex === 1) {
-      return XYZ_ASSET_ID_OFFSET + index;
-    }
-    return index;
   }
 
   private async init() {
@@ -1410,21 +1396,19 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_refresh_trading_meta_start');
 
     // oxlint-disable-next-line @cspell/spellchecker
-    let perpMetaMultiDexList = await infoClient.allPerpMetas();
+    const allPerpMetas = await infoClient.allPerpMetas();
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
-      dexCount: perpMetaMultiDexList?.length ?? 0,
+      dexCount: allPerpMetas?.length ?? 0,
     });
-    if (perpMetaMultiDexList?.length) {
-      if (perpMetaMultiDexList.length >= 2) {
-        perpMetaMultiDexList = perpMetaMultiDexList.slice(0, 2);
-      }
-      const universes = perpMetaMultiDexList.map((meta, dexIndex) =>
+    const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
+    if (perpMetaByDex.length) {
+      const universes = perpMetaByDex.map((meta, dexIndex) =>
         (meta?.universe || []).map((item, index) => ({
           ...item,
-          assetId: this.getAssetIdWithDexPrefix({ dexIndex, index }),
+          assetId: toAssetId({ dexIndex, index }),
         })),
       );
-      const marginTablesMapList = perpMetaMultiDexList.map((meta) =>
+      const marginTablesMapList = perpMetaByDex.map((meta) =>
         meta?.marginTables?.reduce((acc, item) => {
           acc[item[0]] = item[1];
           return acc;
@@ -1480,7 +1464,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
         return;
       }
-      const dexIndex = this.detectDexIndexByCoin(coin);
+      const dexIndex = getDexIndexByCoin(coin);
       const universes = universesByDex?.[dexIndex];
       const marginTables = marginTablesMapByDex?.[dexIndex];
       const universe = universes?.find((item) => item.name === coin);
@@ -2655,7 +2639,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
 
-      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const targetDexIndex = getDexIndexByCoin(newCoin);
       const dexUniverses: IPerpsUniverse[] | undefined =
         universesByDex?.[targetDexIndex];
       const dexMarginTables: IMarginTableMap | undefined =
