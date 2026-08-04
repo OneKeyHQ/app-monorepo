@@ -3,6 +3,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -60,6 +62,132 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
     await internals._closeClient();
 
     expect(internals._fastL2RecoveryGeneration).toBe(5);
+  });
+});
+
+describe('ServiceHyperliquidSubscription resume stream liveness', () => {
+  type IResumeInternals = {
+    _lastMessageAt: number | null;
+    _lastFrameAt: number | null;
+    _socketOpenedAt: number | null;
+    _forceReconnectTransport: () => Promise<void>;
+    _reconcileOpenSocketSubscriptionsOnResume: (p?: unknown) => Promise<void>;
+    _watchSubscriptionAtoms: () => void;
+    getWebSocketClient: () => Promise<unknown>;
+  };
+
+  const setupOpenSocketService = () => {
+    const service = createService();
+    const internals = service as unknown as IResumeInternals;
+    jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockResolvedValue({ transport: { socket: { readyState: 1 } } });
+    const force = jest
+      .spyOn(internals, '_forceReconnectTransport')
+      .mockResolvedValue(undefined);
+    const reconcile = jest
+      .spyOn(internals, '_reconcileOpenSocketSubscriptionsOnResume')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    return { service, internals, force, reconcile };
+  };
+
+  beforeAll(() => {
+    const g = globalThis as { WebSocket?: unknown };
+    if (typeof g.WebSocket === 'undefined') {
+      g.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
+    }
+  });
+
+  it('forces a reconnect when the open socket stream went stale', async () => {
+    const { service, internals, force, reconcile } = setupOpenSocketService();
+    internals._lastMessageAt = Date.now() - 60_000;
+    internals._socketOpenedAt = Date.now() - 60_000;
+
+    await service.resumeSubscriptions();
+
+    expect(force).toHaveBeenCalledTimes(1);
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it('reuses the open socket while the stream is fresh', async () => {
+    const { service, internals, force, reconcile } = setupOpenSocketService();
+    internals._lastFrameAt = Date.now() - 1_000;
+
+    await service.resumeSubscriptions();
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the legacy reuse when no liveness evidence exists', async () => {
+    const { service, internals, force, reconcile } = setupOpenSocketService();
+    internals._lastMessageAt = null;
+    internals._socketOpenedAt = null;
+
+    await service.resumeSubscriptions();
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps trusting the socket when frames arrived while the handler was disabled', async () => {
+    const { service, internals, force, reconcile } = setupOpenSocketService();
+    internals._lastMessageAt = Date.now() - 60_000;
+    internals._socketOpenedAt = Date.now() - 60_000;
+    await service.disableSubscriptionsHandler();
+    await (
+      service as unknown as {
+        _handleSubscriptionData: (
+          t: ESubscriptionType,
+          e: CustomEvent,
+        ) => Promise<void>;
+      }
+    )._handleSubscriptionData(
+      ESubscriptionType.ALL_MIDS,
+      { detail: {} } as unknown as CustomEvent,
+    );
+
+    await service.resumeSubscriptions();
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).toHaveBeenCalledTimes(1);
+  });
+
+  it('dedupes concurrent stale-stream reconnects into one transport rebuild', async () => {
+    const { service, internals, force } = setupOpenSocketService();
+    let release: (() => void) | undefined;
+    force.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    internals._lastMessageAt = Date.now() - 60_000;
+    internals._socketOpenedAt = Date.now() - 60_000;
+
+    const first = service.resumeSubscriptions();
+    const second = service.resumeSubscriptions();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    release?.();
+    await Promise.all([first, second]);
+
+    expect(force).toHaveBeenCalledTimes(1);
+  });
+
+  it('trusts a freshly opened socket that has not received messages yet', async () => {
+    const { service, internals, force, reconcile } = setupOpenSocketService();
+    internals._lastMessageAt = Date.now() - 60_000;
+    internals._socketOpenedAt = Date.now() - 1_000;
+
+    await service.resumeSubscriptions();
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).toHaveBeenCalledTimes(1);
   });
 });
 
