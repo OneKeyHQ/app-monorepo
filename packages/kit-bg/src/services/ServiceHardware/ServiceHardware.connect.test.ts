@@ -1,9 +1,28 @@
+import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
+import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
+
+import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { Features, SearchDevice } from '@onekeyfe/hd-core';
+import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
+import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type {
+  Features,
+  SearchDevice,
+  UiResponseEvent,
+} from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -36,8 +55,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isDesktop: true,
     isJest: true,
     isNative: false,
+    isNativeAndroid: false,
     isSupportDesktopBle: false,
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
+  checkBLEPermissions: jest.fn(),
+  checkBLEState: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
@@ -50,7 +75,20 @@ jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getAllDevices: jest.fn(),
+    getAllWallets: jest.fn(),
     getDeviceByQuery: jest.fn(),
+    updateDeviceConnectProtocol: jest.fn(),
+  },
+}));
+
+jest.mock('../../dbs/simple/simpleDb', () => ({
+  __esModule: true,
+  default: {
+    appStatus: {
+      getRawData: jest.fn(),
+      setRawData: jest.fn(),
+    },
   },
 }));
 
@@ -65,8 +103,15 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 
 const mutablePlatformEnv = platformEnv as unknown as {
+  isNative: boolean;
+  isNativeAndroid: boolean;
   isSupportDesktopBle: boolean;
 };
+const mockedLocalDb = jest.mocked(localDb);
+const mockedAppStatus = jest.mocked(simpleDb.appStatus);
+const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
+const mockedCheckBLEState = jest.mocked(checkBLEState);
+let appStatusData: ISimpleDBAppStatus;
 
 function buildDevice({
   features,
@@ -90,7 +135,173 @@ function buildDevice({
 describe('ServiceHardware.connect WebUSB reuse', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    HardwareConnectionManager.resetInstance();
+    mutablePlatformEnv.isNative = false;
+    mutablePlatformEnv.isNativeAndroid = false;
     mutablePlatformEnv.isSupportDesktopBle = false;
+    mockedLocalDb.getAllDevices.mockResolvedValue({ devices: [] });
+    mockedLocalDb.getAllWallets.mockResolvedValue({ wallets: [] });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    mockedLocalDb.updateDeviceConnectProtocol.mockResolvedValue(undefined);
+    appStatusData = {
+      hardwareConnectProtocolMigrationVersion: 1,
+    } as ISimpleDBAppStatus;
+    mockedAppStatus.getRawData.mockImplementation(() =>
+      Promise.resolve(appStatusData),
+    );
+    mockedAppStatus.setRawData.mockImplementation((dataOrBuilder) => {
+      const nextValue =
+        typeof dataOrBuilder === 'function'
+          ? dataOrBuilder(appStatusData)
+          : dataOrBuilder;
+      return Promise.resolve(nextValue).then((value) => {
+        appStatusData = value;
+        return value;
+      });
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(true);
+    mockedCheckBLEState.mockResolvedValue(true);
+  });
+
+  it('升级时仅迁移历史 OneKey 硬件设备的连接协议', async () => {
+    appStatusData = {};
+    mockedLocalDb.getAllWallets.mockResolvedValue({
+      wallets: [
+        {
+          id: 'hw-wallet-legacy',
+          type: 'hw',
+          associatedDevice: 'legacy-onekey-device',
+        } as IDBWallet,
+        {
+          id: 'hw-wallet-observed-v2',
+          type: 'hw',
+          associatedDevice: 'observed-v2-device',
+        } as IDBWallet,
+        {
+          id: 'hw-wallet-prefilled',
+          type: 'hw',
+          associatedDevice: 'prefilled-device',
+        } as IDBWallet,
+        {
+          id: 'qr-wallet',
+          type: 'qr',
+          associatedDevice: 'qr-device',
+        } as IDBWallet,
+        {
+          id: 'hw-wallet-ledger',
+          type: 'hw',
+          associatedDevice: 'ledger-device',
+        } as IDBWallet,
+      ],
+    });
+    mockedLocalDb.getAllDevices.mockResolvedValue({
+      devices: [
+        {
+          id: 'legacy-onekey-device',
+          vendor: EHardwareVendor.onekey,
+        } as IDBDevice,
+        {
+          id: 'observed-v2-device',
+          vendor: EHardwareVendor.onekey,
+          deviceStateInfo: { protocol: 'V2' },
+        } as IDBDevice,
+        {
+          id: 'prefilled-device',
+          vendor: EHardwareVendor.onekey,
+          connectProtocol: 'V2',
+        } as IDBDevice,
+        {
+          id: 'qr-device',
+          vendor: EHardwareVendor.onekey,
+        } as IDBDevice,
+        {
+          id: 'ledger-device',
+          vendor: EHardwareVendor.ledger,
+        } as IDBDevice,
+      ],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await service.migrateExistingDeviceConnectProtocols();
+
+    expect(mockedLocalDb.updateDeviceConnectProtocol.mock.calls).toEqual([
+      [
+        {
+          dbDeviceId: 'legacy-onekey-device',
+          connectProtocol: 'V1',
+        },
+      ],
+      [
+        {
+          dbDeviceId: 'observed-v2-device',
+          connectProtocol: 'V2',
+        },
+      ],
+    ]);
+    expect(appStatusData).toMatchObject({
+      hardwareConnectProtocolMigrationVersion: 1,
+    });
+  });
+
+  it('连接协议迁移完成后不重复扫描数据库', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await service.migrateExistingDeviceConnectProtocols();
+    await service.migrateExistingDeviceConnectProtocols();
+
+    expect(mockedLocalDb.getAllDevices.mock.calls).toHaveLength(0);
+    expect(mockedLocalDb.getAllWallets.mock.calls).toHaveLength(0);
+    expect(mockedLocalDb.updateDeviceConnectProtocol.mock.calls).toHaveLength(
+      0,
+    );
+  });
+
+  it('连接协议迁移失败时保留重试机会且不写完成标记', async () => {
+    appStatusData = {};
+    mockedLocalDb.getAllWallets.mockResolvedValue({
+      wallets: [
+        {
+          id: 'hw-wallet-legacy',
+          type: 'hw',
+          associatedDevice: 'legacy-onekey-device',
+        } as IDBWallet,
+      ],
+    });
+    mockedLocalDb.getAllDevices.mockResolvedValue({
+      devices: [
+        {
+          id: 'legacy-onekey-device',
+          vendor: EHardwareVendor.onekey,
+        } as IDBDevice,
+      ],
+    });
+    mockedLocalDb.updateDeviceConnectProtocol.mockRejectedValueOnce(
+      new Error('db write failed'),
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await expect(
+      service.migrateExistingDeviceConnectProtocols(),
+    ).rejects.toThrow('db write failed');
+    expect(appStatusData).not.toMatchObject({
+      hardwareConnectProtocolMigrationVersion: 1,
+    });
+
+    await expect(
+      service.migrateExistingDeviceConnectProtocols(),
+    ).resolves.toBeUndefined();
+    expect(mockedLocalDb.updateDeviceConnectProtocol.mock.calls).toHaveLength(
+      2,
+    );
+    expect(appStatusData).toMatchObject({
+      hardwareConnectProtocolMigrationVersion: 1,
+    });
   });
 
   it('复用首次 WebUSB 通讯结果，后续调用固定已探测协议', async () => {
@@ -118,6 +329,37 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(connectDevice).toHaveBeenCalledWith({
       connectId: 'USB_SERIAL',
       params: { connectProtocol: 'V1' },
+    });
+  });
+
+  it('onboarding 复用 WebUSB 搜索结果后持久化已确认协议', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'getCompatibleConnectId')
+      .mockResolvedValue('USB_SERIAL');
+    const connectDevice = jest
+      .spyOn(service, 'connectDevice')
+      .mockResolvedValue({ label: 'OneKey Pro 2' } as Features);
+    const features = { label: 'OneKey Pro 2' } as Features;
+
+    await expect(
+      service.connect({
+        device: buildDevice({ features, connectProtocol: 'V2' }),
+        forceProtocolDetection: true,
+      }),
+    ).resolves.toBe(features);
+    expect(connectDevice).not.toHaveBeenCalled();
+    expect(appStatusData.hardwareConnectProtocolByConnectId).toMatchObject({
+      usb_serial: { protocol: 'V2' },
+      device_serial: { protocol: 'V2' },
+    });
+
+    await service.connect({ device: buildDevice({}) });
+    expect(connectDevice).toHaveBeenCalledWith({
+      connectId: 'USB_SERIAL',
+      params: { connectProtocol: 'V2' },
     });
   });
 
@@ -166,5 +408,308 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
       connectId: blePeripheralId,
       params: {},
     });
+  });
+
+  it('onboarding 首次连接忽略搜索阶段的协议提示', async () => {
+    mutablePlatformEnv.isSupportDesktopBle = true;
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectDevice = jest
+      .spyOn(service, 'connectDevice')
+      .mockResolvedValue({ label: 'OneKey Pro' } as Features);
+    const blePeripheralId = 'PRO_BLE_ID';
+
+    await service.connect({
+      device: {
+        connectId: blePeripheralId,
+        connectProtocol: 'V2',
+        uuid: blePeripheralId,
+        deviceId: null,
+        deviceType: 'pro2',
+        name: 'Pro 2',
+        commType: 'electron-ble',
+      } as SearchDevice,
+      connectProtocol: 'V2',
+      forceProtocolDetection: true,
+    });
+
+    expect(connectDevice).toHaveBeenCalledWith({
+      connectId: blePeripheralId,
+      params: { forceProtocolDetection: true },
+    });
+  });
+
+  it('onboarding 首次连接自动探测协议，并在后续调用固定探测结果', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectId = 'PRO_BLE_ID';
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        protocol: 'V1',
+        identity: { serialNo: 'PRO_SERIAL' },
+      },
+    });
+    const getFeatures = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        label: 'OneKey Pro',
+        protocol: 'V1',
+      },
+    });
+    jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+      getDeviceState,
+      getFeatures,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    (
+      service as unknown as {
+        deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+      }
+    ).deviceProtocolByConnectId.set(connectId, 'V2');
+
+    await service._getFeaturesLowLevel({
+      connectId,
+      params: { forceProtocolDetection: true },
+    });
+
+    expect(getDeviceState).toHaveBeenCalledWith(connectId, {
+      forceProtocolDetection: true,
+    });
+    expect(getFeatures).toHaveBeenCalledWith(connectId, {
+      connectProtocol: 'V1',
+    });
+
+    getDeviceState.mockClear();
+    getFeatures.mockClear();
+    await service._getFeaturesLowLevel({ connectId });
+
+    expect(getDeviceState).not.toHaveBeenCalled();
+    expect(getFeatures).toHaveBeenCalledWith(connectId, {
+      connectProtocol: 'V1',
+    });
+  });
+
+  it.each([
+    {
+      platformName: 'iOS',
+      isNativeAndroid: false,
+      connectId: 'IOS_CBPERIPHERAL_UUID',
+      storedBleConnectId: 'ios_cbperipheral_uuid',
+      connectProtocol: 'V1' as const,
+      deviceType: 'pro',
+    },
+    {
+      platformName: 'Android',
+      isNativeAndroid: true,
+      connectId: 'AA:BB:CC:DD:EE:FF',
+      storedBleConnectId: 'AA:BB:CC:DD:EE:FF',
+      connectProtocol: 'V2' as const,
+      deviceType: 'pro2',
+    },
+  ])(
+    'keeps the current $platformName BLE connectId and forwards $connectProtocol',
+    async ({
+      isNativeAndroid,
+      connectId,
+      storedBleConnectId,
+      connectProtocol,
+      deviceType,
+    }) => {
+      mutablePlatformEnv.isNative = true;
+      mutablePlatformEnv.isNativeAndroid = isNativeAndroid;
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        id: 'db-device',
+        connectId: 'USB_SERIAL',
+        usbConnectId: 'USB_SERIAL',
+        bleConnectId: storedBleConnectId,
+        deviceId: 'DEVICE_ID',
+        connectProtocol,
+        vendor: EHardwareVendor.onekey,
+        name: 'OneKey',
+        features: '{}',
+        settingsRaw: '{}',
+        createdAt: 0,
+        updatedAt: 0,
+      } as IDBDevice);
+
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.BLE),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      const connectDevice = jest
+        .spyOn(service, 'connectDevice')
+        .mockResolvedValue({ label: 'OneKey' } as Features);
+
+      await service.connect({
+        device: {
+          connectId,
+          uuid: connectId,
+          deviceId: 'DEVICE_ID',
+          deviceType,
+          name: 'OneKey',
+          commType: 'ble',
+          connectProtocol,
+        } as unknown as SearchDevice,
+        connectProtocol,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+
+      expect(connectDevice).toHaveBeenCalledWith({
+        connectId,
+        params: { connectProtocol },
+      });
+    },
+  );
+
+  it('按设备及 USB/BLE 端点隔离绑定已确认协议', async () => {
+    const setDeviceConnectProtocol = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      activeHardwareSDKInstance: {
+        setDeviceConnectProtocol: typeof setDeviceConnectProtocol;
+      };
+      rememberDeviceProtocol: (params: {
+        connectIds: string[];
+        protocol: 'V1' | 'V2';
+      }) => Promise<void>;
+    };
+    internals.activeHardwareSDKInstance = { setDeviceConnectProtocol };
+
+    await internals.rememberDeviceProtocol({
+      connectIds: ['DEVICE_A_USB', 'DEVICE_A_BLE'],
+      protocol: 'V2',
+    });
+    await internals.rememberDeviceProtocol({
+      connectIds: ['DEVICE_B_USB', 'DEVICE_B_BLE'],
+      protocol: 'V1',
+    });
+
+    expect(setDeviceConnectProtocol.mock.calls).toEqual([
+      ['DEVICE_A_USB', 'V2'],
+      ['DEVICE_A_BLE', 'V2'],
+      ['DEVICE_B_USB', 'V1'],
+      ['DEVICE_B_BLE', 'V1'],
+    ]);
+  });
+
+  it('钱包设备记录创建前也持久化端点协议，并可由新服务实例恢复', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      rememberDeviceProtocol: (params: {
+        connectIds: string[];
+        protocol: 'V1' | 'V2';
+      }) => Promise<void>;
+    };
+
+    await internals.rememberDeviceProtocol({
+      connectIds: ['DEVICE_USB', 'DEVICE_BLE'],
+      protocol: 'V2',
+    });
+
+    expect(appStatusData.hardwareConnectProtocolByConnectId).toMatchObject({
+      device_usb: { protocol: 'V2' },
+      device_ble: { protocol: 'V2' },
+    });
+
+    const restoredService = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const restoredInternals = restoredService as unknown as {
+      getKnownDeviceProtocol: (
+        connectId: string,
+      ) => Promise<'V1' | 'V2' | undefined>;
+    };
+    await expect(
+      restoredInternals.getKnownDeviceProtocol('DEVICE_BLE'),
+    ).resolves.toBe('V2');
+  });
+
+  it('冷启动时从持久化恢复协议并绑定同一设备的 USB/BLE 端点', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device',
+      connectId: 'DEVICE_USB',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+      deviceId: 'DEVICE_ID',
+      connectProtocol: 'V2',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+    const setDeviceConnectProtocol = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      getKnownDeviceProtocol: (connectId: string) => Promise<'V1' | 'V2'>;
+      bindRememberedDeviceProtocols: (instance: {
+        setDeviceConnectProtocol: typeof setDeviceConnectProtocol;
+      }) => void;
+    };
+
+    await expect(internals.getKnownDeviceProtocol('DEVICE_USB')).resolves.toBe(
+      'V2',
+    );
+    internals.bindRememberedDeviceProtocols({ setDeviceConnectProtocol });
+
+    expect(setDeviceConnectProtocol).toHaveBeenCalledWith('DEVICE_USB', 'V2');
+    expect(setDeviceConnectProtocol).toHaveBeenCalledWith('DEVICE_BLE', 'V2');
+  });
+
+  it('普通设备调用缺少数据库或缓存协议时拒绝初始化 SDK', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await expect(
+      service.getSDKInstance({ connectId: 'UNKNOWN_DEVICE' }),
+    ).rejects.toThrow('Hardware connect protocol is unavailable');
+  });
+
+  it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {
+    const uiResponse = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const shouldSwitchTransportType = jest.spyOn(
+      service.connectionManager,
+      'shouldSwitchTransportType',
+    );
+    const internals = service as unknown as {
+      activeHardwareSDKInstance: { uiResponse: typeof uiResponse };
+      sendUiResponseToActiveSdk?: (response: UiResponseEvent) => Promise<void>;
+    };
+    internals.activeHardwareSDKInstance = { uiResponse };
+    const response = {
+      type: 'ui-receive_passphrase',
+      payload: {
+        value: 'hidden wallet',
+        passphraseOnDevice: false,
+        attachPinOnDevice: false,
+        save: false,
+      },
+      interactionId: 'pro-ble-interaction',
+      deviceId: 'pro-device',
+    } as UiResponseEvent;
+
+    expect(typeof internals.sendUiResponseToActiveSdk).toBe('function');
+    await internals.sendUiResponseToActiveSdk?.(response);
+
+    expect(uiResponse).toHaveBeenCalledWith(response);
+    expect(shouldSwitchTransportType).not.toHaveBeenCalled();
   });
 });

@@ -212,16 +212,29 @@ export function useDeviceConnect({
       device: SearchDevice,
       hardwareCallContext?: EHardwareCallContext,
       connectProtocol?: HardwareConnectProtocol,
+      forceProtocolDetection?: boolean,
     ) => {
       await ensureStopScan();
       try {
         const features = await backgroundApiProxy.serviceHardware.connect({
           connectProtocol,
           device,
+          forceProtocolDetection,
           hardwareCallContext,
         });
-        activeDeviceRef.current = { ...device };
+        const confirmedConnectProtocol =
+          features?.protocol === 'V1' || features?.protocol === 'V2'
+            ? features.protocol
+            : undefined;
+        const connectedDevice: SearchDevice = {
+          ...device,
+          ...(confirmedConnectProtocol
+            ? { connectProtocol: confirmedConnectProtocol }
+            : {}),
+        };
+        activeDeviceRef.current = connectedDevice;
         activeFeaturesRef.current = features ?? null;
+        setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
         if (error instanceof OneKeyHardwareError) {
@@ -247,7 +260,7 @@ export function useDeviceConnect({
         throw error;
       }
     },
-    [ensureStopScan],
+    [ensureStopScan, setCurrentDevice],
   );
 
   const ensureActiveConnection = useCallback(
@@ -255,6 +268,7 @@ export function useDeviceConnect({
       device: SearchDevice,
       options?: {
         connectProtocol?: HardwareConnectProtocol;
+        forceProtocolDetection?: boolean;
         forceReconnect?: boolean;
       },
     ) => {
@@ -287,6 +301,7 @@ export function useDeviceConnect({
         device,
         hardwareCallContext,
         options?.connectProtocol,
+        options?.forceProtocolDetection,
       );
       // If device was in bootloader mode and connectId is empty, search for the updated device
       if (device.connectId === '' && isBootMode && !features?.bootloaderMode) {
@@ -481,6 +496,7 @@ export function useDeviceConnect({
 
       let connectionFailureTracked = false;
       let forceTransportType: EHardwareTransportType | undefined;
+      const confirmedConnectProtocol = device.connectProtocol;
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
@@ -549,14 +565,21 @@ export function useDeviceConnect({
         }
 
         // Select transport for the current platform; native Bluetooth requires BLE.
-        forceTransportType = await getForceTransportType(tabValue);
+        forceTransportType = await getForceTransportType(tabValue, {
+          connectProtocol: confirmedConnectProtocol,
+        });
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,
           });
         }
 
-        const features = await ensureActiveConnection(device);
+        const features = await ensureActiveConnection(
+          device,
+          confirmedConnectProtocol
+            ? { connectProtocol: confirmedConnectProtocol }
+            : { forceProtocolDetection: true },
+        );
         // Get the latest device reference after connection (it may have been updated)
         const latestDevice = getActiveDevice() ?? device;
 
@@ -879,7 +902,14 @@ export function useDeviceConnect({
         });
       }
 
-      await ensureActiveConnection(device, { connectProtocol });
+      const cachedProtocol = getActiveDeviceFeatures()?.protocol;
+      const resolvedConnectProtocol =
+        cachedProtocol === 'V1' || cachedProtocol === 'V2'
+          ? cachedProtocol
+          : connectProtocol;
+      await ensureActiveConnection(device, {
+        connectProtocol: resolvedConnectProtocol,
+      });
       const currentDevice = getActiveDevice() ?? device;
       void backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
         connectId: currentDevice.connectId ?? '',
@@ -892,7 +922,7 @@ export function useDeviceConnect({
         deviceState = await getWalletCreationDeviceState({
           serviceHardware: backgroundApiProxy.serviceHardware,
           connectId: currentDevice.connectId ?? '',
-          connectProtocol,
+          connectProtocol: resolvedConnectProtocol,
         });
         features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (error) {
@@ -920,12 +950,13 @@ export function useDeviceConnect({
         features,
         isFirmwareVerified,
         deviceState,
-        connectProtocol,
+        resolvedConnectProtocol,
       );
     },
     [
       ensureActiveConnection,
       getActiveDevice,
+      getActiveDeviceFeatures,
       determineWalletCreationStrategy,
       createHwWallet,
       closeDialogAndReturn,

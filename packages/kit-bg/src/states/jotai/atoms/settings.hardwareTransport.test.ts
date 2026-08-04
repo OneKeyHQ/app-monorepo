@@ -16,7 +16,7 @@ jest.mock('../utils', () => ({
 }));
 
 describe('settings default hardware transport', () => {
-  it('prefers WebUSB on Linux desktop when it is supported', () => {
+  it('uses WebUSB on Linux desktop', () => {
     expect(settingsAtomInitialValue.hardwareTransportType).toBe(
       EHardwareTransportType.WEBUSB,
     );

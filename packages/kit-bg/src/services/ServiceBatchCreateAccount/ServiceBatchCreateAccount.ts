@@ -559,6 +559,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey,
     saveToCache,
     isVerifyAddressAction,
+    oneKeyOperationLease,
   }: {
     walletId: string;
     networkId: string;
@@ -567,6 +568,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     isVerifyAddressAction?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }) {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
@@ -583,7 +585,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const result =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async (oneKeyOperationLease) => {
+        async (activeOneKeyOperationLease) => {
           const networksParams =
             await this.buildBatchCreateAccountsNetworksParams({
               walletId,
@@ -605,7 +607,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               showOnOneKey,
               saveToCache,
               isVerifyAddressAction,
-              oneKeyOperationLease,
+              oneKeyOperationLease: activeOneKeyOperationLease,
               // skipDeviceCancel: true,
             });
 
@@ -620,11 +622,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
             skipDeviceCancel: true,
             isVerifyAddressAction,
             hdCredentialCacheScopeId,
-            oneKeyOperationLease,
+            oneKeyOperationLease: activeOneKeyOperationLease,
           });
         },
         {
           deviceParams,
+          oneKeyOperationLease,
           skipDeviceCancel: true,
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();

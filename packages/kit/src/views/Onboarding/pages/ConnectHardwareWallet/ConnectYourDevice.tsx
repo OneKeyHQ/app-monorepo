@@ -152,10 +152,9 @@ async function getForceTransportType(
       if (platformEnv.isNative) return EHardwareTransportType.BLE;
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
-        const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
-        if (usbCommunicationMode === 'bridge')
-          return EHardwareTransportType.Bridge;
-        return EHardwareTransportType.WEBUSB;
+        return deviceUtils.getDesktopUsbTransportType({
+          usbCommunicationMode: dev?.settings?.usbCommunicationMode,
+        });
       }
       // For web/extension, use system setting transport type
       const currentTransportType =
@@ -1325,6 +1324,7 @@ export function ConnectYourDevicePage() {
     try {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
+        forceProtocolDetection: true,
       });
     } catch (error: any) {
       if (error instanceof OneKeyHardwareError) {

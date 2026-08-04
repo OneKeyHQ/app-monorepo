@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
-import { UI_EVENT, UI_REQUEST } from '@onekeyfe/hd-core';
+import { DEVICE, LOG_EVENT, UI_EVENT, UI_REQUEST } from '@onekeyfe/hd-core';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -7,6 +7,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  LogLevel,
+  NativeLogger,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
@@ -44,11 +49,21 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
+  () => ({
+    LogLevel: { Debug: 0, Info: 1, Warning: 2, Error: 3 },
+    NativeLogger: { write: jest.fn() },
+  }),
+);
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isDesktop: true,
+    isDev: true,
     isJest: true,
+    isNative: false,
     isSupportDesktopBle: false,
   },
 }));
@@ -65,6 +80,16 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     getDeviceByQuery: jest.fn(),
     updateDeviceState: jest.fn(),
+  },
+}));
+
+jest.mock('../../dbs/simple/simpleDb', () => ({
+  __esModule: true,
+  default: {
+    appStatus: {
+      getRawData: jest.fn().mockResolvedValue({}),
+      setRawData: jest.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -163,6 +188,109 @@ const createService = ({
     state,
   };
 };
+
+describe('ServiceHardware SDK debug logging', () => {
+  const mutablePlatformEnv = platformEnv as {
+    isDesktop: boolean;
+    isDev: boolean;
+    isNative: boolean;
+  };
+  const originalPlatformEnv = {
+    isDesktop: mutablePlatformEnv.isDesktop,
+    isDev: mutablePlatformEnv.isDev,
+    isNative: mutablePlatformEnv.isNative,
+  };
+
+  beforeEach(() => {
+    mutablePlatformEnv.isDesktop = true;
+    mutablePlatformEnv.isDev = true;
+    mutablePlatformEnv.isNative = false;
+    jest.mocked(NativeLogger.write).mockClear();
+  });
+
+  afterEach(() => {
+    mutablePlatformEnv.isDesktop = originalPlatformEnv.isDesktop;
+    mutablePlatformEnv.isDev = originalPlatformEnv.isDev;
+    mutablePlatformEnv.isNative = originalPlatformEnv.isNative;
+    jest.restoreAllMocks();
+  });
+
+  const registerSdkDebugLogListener = async ({
+    showSdkDebugLogs,
+  }: {
+    showSdkDebugLogs: boolean;
+  }) => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const instance = {
+      on: jest.fn((event: string, listener: (payload: unknown) => void) => {
+        listeners.set(event, listener);
+      }),
+    };
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const registerSdkEvents = service.registerSdkEvents.bind(service) as (
+      sdkInstance: never,
+      options: { showSdkDebugLogs: boolean },
+    ) => Promise<void>;
+
+    await registerSdkEvents(instance as never, { showSdkDebugLogs });
+    return listeners;
+  };
+
+  it('writes every SDK log event to the native sink when native debug logging is enabled', async () => {
+    mutablePlatformEnv.isDesktop = false;
+    mutablePlatformEnv.isNative = true;
+    const listeners = await registerSdkDebugLogListener({
+      showSdkDebugLogs: true,
+    });
+
+    listeners.get(LOG_EVENT)?.({
+      event: LOG_EVENT,
+      type: 'log',
+      payload: ['DevicePool', 'scan started'],
+    });
+
+    expect(NativeLogger.write).toHaveBeenCalledWith(
+      LogLevel.Info,
+      '[HardwareSDK][bg] DevicePool scan started',
+    );
+  });
+
+  it('writes every SDK log event to the Desktop console when Desktop debug logging is enabled', async () => {
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    const listeners = await registerSdkDebugLogListener({
+      showSdkDebugLogs: true,
+    });
+
+    listeners.get(LOG_EVENT)?.({
+      event: LOG_EVENT,
+      type: 'log',
+      payload: ['DevicePool', 'scan started'],
+    });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[HardwareSDK][bg] DevicePool scan started',
+    );
+    expect(NativeLogger.write).not.toHaveBeenCalled();
+  });
+
+  it('does not write SDK log events when Desktop debug logging is disabled', async () => {
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    const listeners = await registerSdkDebugLogListener({
+      showSdkDebugLogs: false,
+    });
+
+    listeners.get(LOG_EVENT)?.({
+      event: LOG_EVENT,
+      type: 'log',
+      payload: ['DevicePool', 'scan started'],
+    });
+
+    expect(consoleLogSpy).not.toHaveBeenCalled();
+    expect(NativeLogger.write).not.toHaveBeenCalled();
+  });
+});
 
 describe('ServiceHardware wallet session compatibility', () => {
   it('allows an explicit Pro2 onboarding dev flow to skip unavailable attestation', async () => {
@@ -349,7 +477,7 @@ describe('ServiceHardware wallet session compatibility', () => {
     expect(getPassphraseState).not.toHaveBeenCalled();
   });
 
-  it('preserves the Protocol V1 getPassphraseState parameters', async () => {
+  it('restores the Protocol V1 constraint for getPassphraseState from the device database', async () => {
     const { service, openWalletSession, getPassphraseState } = createService({
       unlocked: true,
     });
@@ -372,33 +500,32 @@ describe('ServiceHardware wallet session compatibility', () => {
     expect(getPassphraseState).toHaveBeenCalledWith('CLASSIC', {
       initSession: true,
       useEmptyPassphrase: true,
+      connectProtocol: 'V1',
     });
     expect(openWalletSession).not.toHaveBeenCalled();
   });
 
-  it('detects and caches the protocol before opening a V2 wallet session', async () => {
+  it('does not detect the protocol while opening a wallet session', async () => {
     const { service, getDeviceState, openWalletSession } = createService({
       unlocked: true,
     });
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(undefined);
 
-    await service.getPassphraseStateBase({
-      connectId: 'NEW_PRO2',
-      forceInputPassphrase: true,
-    });
-    await service.getPassphraseStateBase({
-      connectId: 'NEW_PRO2',
-      forceInputPassphrase: true,
-    });
+    await expect(
+      service.getPassphraseStateBase({
+        connectId: 'NEW_PRO2',
+        forceInputPassphrase: true,
+      }),
+    ).rejects.toThrow('Hardware connect protocol is unavailable');
 
-    expect(getDeviceState).toHaveBeenCalledTimes(1);
-    expect(openWalletSession).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).not.toHaveBeenCalled();
+    expect(openWalletSession).not.toHaveBeenCalled();
   });
 });
 
 describe('ServiceHardware.getDeviceState', () => {
-  it('does not infer the protocol from deviceType when no negotiated protocol is stored', async () => {
+  it('does not detect or infer the protocol during a normal device-state call', async () => {
     const { service, getDeviceState } = createService({ unlocked: false });
     // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
@@ -407,9 +534,11 @@ describe('ServiceHardware.getDeviceState', () => {
       deviceType: EDeviceType.Pro2,
     } as never);
 
-    await service.getDeviceState({ connectId: 'PRO2_USB' });
+    await expect(
+      service.getDeviceState({ connectId: 'PRO2_USB' }),
+    ).rejects.toThrow('Hardware connect protocol is unavailable');
 
-    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', undefined);
+    expect(getDeviceState).not.toHaveBeenCalled();
   });
 
   it('queries the live canonical SDK state', async () => {
@@ -660,6 +789,35 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it('普通断连后保留已确认协议，供重连继续固定使用', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    const internals = service as unknown as {
+      deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+      rememberDeviceProtocol: (params: {
+        connectIds: string[];
+        protocol: 'V1' | 'V2';
+      }) => Promise<void>;
+    };
+    await internals.rememberDeviceProtocol({
+      connectIds: ['PRO2_USB'],
+      protocol: 'V2',
+    });
+
+    listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+
+    expect(internals.deviceProtocolByConnectId.get('PRO2_USB')).toBe('V2');
+  });
+
   it('deprecates wallets immediately after a successful device wipe', async () => {
     const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
     const getWalletDevice = jest.fn().mockResolvedValue({

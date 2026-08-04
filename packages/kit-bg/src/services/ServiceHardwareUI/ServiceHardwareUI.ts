@@ -46,7 +46,10 @@ import {
 import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
 import type { IDBDevice } from '../../dbs/local/types';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type {
+  IHardwareUiPayload,
+  IHardwareUiResponseCorrelation,
+} from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
@@ -137,11 +140,9 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
-    return (
-      await this.backgroundApi.serviceHardware.getSDKInstance({
-        connectId: undefined,
-      })
-    ).uiResponse(response);
+    return this.backgroundApi.serviceHardware.sendUiResponseToActiveSdk(
+      response,
+    );
   }
 
   @backgroundMethod()
@@ -280,50 +281,79 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPassphraseOnDeviceDialog() {
+  async showEnterPassphraseOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
       payload: buildPassphraseUiResponsePayload({ mode: 'device' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterAttachPinOnDeviceDialog() {
+  async showEnterAttachPinOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
       payload: buildPassphraseUiResponsePayload({ mode: 'attach-pin' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPinToDevice({ pin }: { pin: string }) {
+  async sendPinToDevice({
+    pin,
+    responseCorrelation,
+  }: {
+    pin: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: pin,
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
+  async sendPassphraseToDevice({
+    passphrase,
+    responseCorrelation,
+  }: {
+    passphrase: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
       payload: buildPassphraseUiResponsePayload({ mode: 'host', passphrase }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterPinOnDevice() {
+  async showEnterPinOnDevice({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+      ...responseCorrelation,
     });
   }
 
@@ -335,7 +365,9 @@ class ServiceHardwareUI extends ServiceBase {
     connectId: string;
     payload: IHardwareUiPayload | undefined;
   }) {
-    await this.showEnterPinOnDevice();
+    await this.showEnterPinOnDevice({
+      responseCorrelation: payload?.uiResponseCorrelation,
+    });
 
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
@@ -487,8 +519,8 @@ class ServiceHardwareUI extends ServiceBase {
     if (isThirdPartyVendor) {
       return this.withHardwareProcessingInternal(() => fn(undefined), params);
     }
-    // HD Core currently resolves PIN/passphrase responses by response type.
-    // Serialize whole OneKey operations until the SDK exposes interaction IDs.
+    // Keep operation-level serialization during the mixed-SDK rollout and for
+    // shared lifecycle work outside the correlated PIN/passphrase response path.
     return this.runExclusiveOneKeyOperation(
       (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
       {

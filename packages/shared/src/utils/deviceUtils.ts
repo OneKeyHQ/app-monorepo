@@ -1,4 +1,8 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  type HardwareConnectProtocol,
+} from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -713,18 +717,49 @@ function getDeviceConnectId(
   }
 }
 
+function getDesktopUsbTransportType({
+  usbCommunicationMode,
+  connectProtocol,
+}: {
+  usbCommunicationMode?: 'webusb' | 'bridge';
+  connectProtocol?: HardwareConnectProtocol;
+}): EHardwareTransportType {
+  if (
+    connectProtocol === 'V2' ||
+    platformEnv.isDesktopLinux ||
+    usbCommunicationMode !== 'bridge'
+  ) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
+function normalizeHardwareTransportTypeForPlatform({
+  transportType,
+  connectProtocol,
+}: {
+  transportType: EHardwareTransportType;
+  connectProtocol?: HardwareConnectProtocol;
+}): EHardwareTransportType {
+  if (transportType === EHardwareTransportType.Bridge) {
+    return getDesktopUsbTransportType({
+      usbCommunicationMode: 'bridge',
+      connectProtocol,
+    });
+  }
+  return transportType;
+}
+
 function getDefaultHardwareTransportType(): EHardwareTransportType {
   if (platformEnv.isNative) {
     return EHardwareTransportType.BLE;
   }
-  // Because of uDev rules, using http bridge in linux desktop
-  if (platformEnv.isDesktopLinux) {
-    return EHardwareTransportType.Bridge;
-  }
   if (platformEnv.isSupportWebUSB) {
     return EHardwareTransportType.WEBUSB;
   }
-  return EHardwareTransportType.Bridge;
+  return normalizeHardwareTransportTypeForPlatform({
+    transportType: EHardwareTransportType.Bridge,
+  });
 }
 
 function getFirmwareTypeByCachedFeatures({
@@ -990,6 +1025,8 @@ export default {
   getRawDeviceId,
   isBluetoothSearchDevice,
   getDeviceConnectId,
+  getDesktopUsbTransportType,
+  normalizeHardwareTransportTypeForPlatform,
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
   getFirmwareTypeByCachedFeatures,

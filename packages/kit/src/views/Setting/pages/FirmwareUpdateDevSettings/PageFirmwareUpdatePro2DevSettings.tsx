@@ -141,7 +141,7 @@ function FirmwareUpdatePro2DevSettings() {
     <YStack>
       <ListItem
         title="Pro2 force targets"
-        subtitle="boot / app_v1 / app_v2 / coprocessor / resource / se01-se04"
+        subtitle="boot / app_v1 / app_v2 / coprocessor / resource / boot_resources / se01-se04"
         titleProps={{ color: '$textCritical' }}
       />
       {PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS.map((target) => (

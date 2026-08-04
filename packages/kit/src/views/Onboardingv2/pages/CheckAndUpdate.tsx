@@ -97,6 +97,7 @@ function CheckAndUpdatePage({
     verifyHardware,
     ensureActiveConnection,
     getActiveDevice,
+    getActiveDeviceFeatures,
     ensureStopScan,
   } = useDeviceConnect({
     setCurrentDevice,
@@ -107,13 +108,28 @@ function CheckAndUpdatePage({
     if (!tabValue) {
       return;
     }
-    const forceTransportType = await getForceTransportType(tabValue);
+    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const confirmedConnectProtocol =
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
+        ? activeFeaturesProtocol
+        : (getActiveDevice()?.connectProtocol ??
+          currentDevice?.connectProtocol ??
+          connectProtocol);
+    const forceTransportType = await getForceTransportType(tabValue, {
+      connectProtocol: confirmedConnectProtocol,
+    });
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
       });
     }
-  }, [tabValue]);
+  }, [
+    connectProtocol,
+    currentDevice?.connectProtocol,
+    getActiveDevice,
+    getActiveDeviceFeatures,
+    tabValue,
+  ]);
 
   const deviceImage = useMemo(() => {
     const device = currentDevice as SearchDevice;
@@ -298,13 +314,22 @@ function CheckAndUpdatePage({
   // (its connectId may have changed after a firmware update) so DeviceSetup
   // and FinalizeWalletSetup talk to the right device.
   const toDeviceSetup = useCallback(() => {
+    const activeDevice = (getActiveDevice() ??
+      currentDevice ??
+      deviceData.device) as SearchDevice;
+    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const confirmedConnectProtocol =
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
+        ? activeFeaturesProtocol
+        : (activeDevice.connectProtocol ?? connectProtocol);
     navigation.push(EOnboardingPagesV2.DeviceSetup, {
-      connectProtocol,
+      connectProtocol: confirmedConnectProtocol,
       deviceData: {
         ...deviceData,
-        device: (getActiveDevice() ??
-          currentDevice ??
-          deviceData.device) as SearchDevice,
+        device: {
+          ...activeDevice,
+          connectProtocol: confirmedConnectProtocol,
+        },
       },
       tabValue,
       isFirmwareVerified: isFirmwareVerifiedRef.current,
@@ -314,6 +339,7 @@ function CheckAndUpdatePage({
     navigation,
     deviceData,
     getActiveDevice,
+    getActiveDeviceFeatures,
     currentDevice,
     tabValue,
   ]);

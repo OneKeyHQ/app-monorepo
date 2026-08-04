@@ -2469,18 +2469,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
           'forceUpdateResEvenSameVersion',
         );
-      const pro2ForceUpdateTargets =
-        (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-          'pro2ForceUpdateTargets',
-        )) ?? [];
-      const pro2ForceUpdateOnceTargets =
-        (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-          'pro2ForceUpdateOnceTargets',
-        )) ?? [];
-      const forcedUpdateRes =
-        forceUpdateResEvenIfSameVersion === true ||
-        pro2ForceUpdateTargets.includes('resource') ||
-        pro2ForceUpdateOnceTargets.includes('resource');
+      const forcedUpdateRes = forceUpdateResEvenIfSameVersion === true;
       const shouldVerifyFirmwareVersion =
         !params.isPro2Device ||
         !params.pro2ForceTargets?.length ||

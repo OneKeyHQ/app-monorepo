@@ -145,6 +145,7 @@ export const PRO2_FIRMWARE_UPDATE_TARGETS = [
   'app_v2',
   'coprocessor',
   'resource',
+  'boot_resources',
   'se01',
   'se02',
   'se03',
