@@ -6,9 +6,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IWcPayStoredActionEntry {
-  // stableStringify of the action's walletRpc (chainId+method+params);
-  // proves a stored result still belongs to the same-index action when the
-  // server returns a recomputed action list on a later attempt
+  // stableStringify of the action's normalized walletRpc (chainId + method
+  // + JSON-parsed params, see getWcPayActionFingerprint); proves a stored
+  // result still belongs to the same-index action when the server returns a
+  // recomputed action list on a later attempt
   fingerprint: string;
   result: string;
 }

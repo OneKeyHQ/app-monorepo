@@ -5,7 +5,6 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WALLET_CONNECT_PAY_EIP155_CHAIN_REFS,
@@ -28,13 +27,8 @@ import {
   extractWcPayPersonalSignMessage,
   extractWcPayTypedDataMessage,
 } from './evmPayUtils';
+import { getWcPayActionFingerprint } from './payFingerprintUtils';
 import { extractWcPaySolanaTransaction } from './solPayUtils';
-
-// canonical identity of an action used to match stored progress entries to
-// a freshly fetched action list across app restarts
-function getWcPayActionFingerprint(action: IWcPayAction): string {
-  return stringUtils.stableStringify(action.walletRpc);
-}
 
 /**
  * Validate the whole action list before it reaches the executor. Actions run
@@ -209,6 +203,14 @@ class ServiceWalletConnectPay extends ServiceBase {
     accountId?: string;
     indexedAccountId?: string;
   }): Promise<IWcPayOptionsResult> {
+    // the QR/deeplink entry runs this same check, but the service is the
+    // real trust boundary: any internal caller reaching this background
+    // method must present a link passing the same shape + domain validation,
+    // so an attacker-controlled link can never reach the Pay SDK by
+    // bypassing the UI entry
+    if (!(await this.isPaymentLink({ uri: paymentLink }))) {
+      throw new OneKeyError('Invalid WalletConnect Pay payment link');
+    }
     const pay = await this.getPayClient();
     const accounts = await this.buildPayAccounts({
       accountId,
@@ -273,12 +275,15 @@ class ServiceWalletConnectPay extends ServiceBase {
     if (!record?.entries?.length) {
       return [];
     }
-    const isMatching = record.entries.every(
-      (entry, index) =>
-        entry &&
-        actions[index] &&
-        entry.fingerprint === getWcPayActionFingerprint(actions[index]),
-    );
+    const isMatching = record.entries.every((entry, index) => {
+      if (!entry || !actions[index]) {
+        return false;
+      }
+      const fingerprint = getWcPayActionFingerprint(actions[index]);
+      // null means unparseable params: such an action can never legitimately
+      // match stored progress, so the whole record is discarded below
+      return fingerprint !== null && entry.fingerprint === fingerprint;
+    });
     if (!isMatching) {
       await this.backgroundApi.simpleDb.walletConnectPay.removeProgress({
         paymentId,
@@ -311,12 +316,18 @@ class ServiceWalletConnectPay extends ServiceBase {
     index: number;
     result: string;
   }): Promise<void> {
+    const fingerprint = getWcPayActionFingerprint(action);
+    if (fingerprint === null) {
+      // validateWcPayActions guarantees parseable params before any action
+      // executes, so this only fires when the API is misused
+      throw new OneKeyError('Invalid WalletConnect Pay action params');
+    }
     await this.backgroundApi.simpleDb.walletConnectPay.saveActionResult({
       paymentId,
       optionId,
       accountKey,
       index,
-      fingerprint: getWcPayActionFingerprint(action),
+      fingerprint,
       result,
     });
   }

@@ -1,9 +1,51 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Spinner, Stack } from '@onekeyhq/components';
-import { isWcPayTrustedHost } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  WALLET_CONNECT_PAY_TRUSTED_HOST,
+  isWcPayTrustedHost,
+} from '@onekeyhq/shared/src/walletConnect/payConstant';
 
 import type { IDataCollectionViewProps } from './types';
+
+const INNER_FRAME_ID = 'wc-pay-form-frame';
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * The hosted form is embedded through a same-origin srcdoc wrapper document
+ * whose CSP `frame-src` is limited to the trusted WalletConnect Pay host.
+ * The browser enforces frame-src on EVERY navigation of the nested browsing
+ * context — initial load, redirects, and navigations initiated by the page
+ * itself — which gives web/desktop the same "main document must stay on the
+ * trusted host" semantics as the native onShouldStartLoadWithRequest guard.
+ * Like the native guard it constrains only the form's main document; frames
+ * nested inside the form are governed by the form page's own CSP.
+ *
+ * The wrapper carries no script: the shell reaches into the same-origin
+ * document from outside to observe load state, messages, and CSP violation
+ * events, so blocking never depends on shell code running.
+ */
+function buildWrapperSrcDoc(url: string): string {
+  const frameSrc = `https://${WALLET_CONNECT_PAY_TRUSTED_HOST} https://*.${WALLET_CONNECT_PAY_TRUSTED_HOST}`;
+  return [
+    '<!doctype html><html><head>',
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${frameSrc}; style-src 'unsafe-inline'">`,
+    '<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}</style>',
+    '</head><body>',
+    `<iframe id="${INNER_FRAME_ID}" title="WalletConnect Pay" sandbox="allow-scripts allow-forms allow-same-origin" src="${escapeHtmlAttribute(
+      url,
+    )}"></iframe>`,
+    '</body></html>',
+  ].join('');
+}
 
 /**
  * Web/desktop variant: the hosted compliance form runs in an iframe and
@@ -15,10 +57,12 @@ export function DataCollectionView({
   onError,
 }: IDataCollectionViewProps) {
   const completedRef = useRef(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const wrapperRef = useRef<HTMLIFrameElement | null>(null);
   // the hosted form can take seconds to load; keep a spinner over the empty
   // iframe so the page never looks blank/frozen
   const [isFormLoaded, setIsFormLoaded] = useState(false);
+
+  const srcDoc = useMemo(() => buildWrapperSrcDoc(url), [url]);
 
   useEffect(() => {
     // bind acceptance to the exact origin the iframe was loaded from, not
@@ -29,46 +73,137 @@ export function DataCollectionView({
     } catch {
       expectedOrigin = null;
     }
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        // a completion message must come from the window of the iframe this
-        // view is presenting — another WC Pay window/frame that merely shares
-        // a trusted hostname must not be able to finish this form
+
+    const wrapper = wrapperRef.current;
+    let disposed = false;
+    const cleanups: Array<() => void> = [];
+
+    const finishWithError = (message: string) => {
+      if (!completedRef.current) {
+        completedRef.current = true;
+        onError(message);
+      }
+    };
+
+    const attach = (): boolean => {
+      const doc = wrapper?.contentDocument ?? null;
+      // present only in the parsed srcdoc document, never in the initial
+      // about:blank one — its existence marks the wrapper as ready
+      const frame = doc?.getElementById(
+        INNER_FRAME_ID,
+      ) as HTMLIFrameElement | null;
+      const wrapperWindow = wrapper?.contentWindow;
+      if (!doc || !frame || !wrapperWindow) {
+        return false;
+      }
+
+      const handleMessage = (event: MessageEvent) => {
+        try {
+          // a completion message must come from the window of the form frame
+          // this view is presenting — another WC Pay window/frame that merely
+          // shares a trusted hostname must not be able to finish this form
+          if (
+            !expectedOrigin ||
+            event.origin !== expectedOrigin ||
+            !event.source ||
+            event.source !== frame.contentWindow
+          ) {
+            return;
+          }
+          // defense-in-depth: the loaded url is validated before mount, so
+          // its origin's hostname is expected to always pass this check
+          if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
+            return;
+          }
+          const data =
+            typeof event.data === 'string'
+              ? JSON.parse(event.data)
+              : event.data;
+          if (data?.type === 'IC_COMPLETE' && !completedRef.current) {
+            completedRef.current = true;
+            onComplete();
+          } else if (data?.type === 'IC_ERROR' && !completedRef.current) {
+            completedRef.current = true;
+            onError(String(data?.error ?? 'Data collection failed'));
+          }
+        } catch {
+          // ignore non-JSON messages
+        }
+      };
+      // the form may post to its direct parent (the wrapper) or to the top
+      // window; accept the message in either place with identical checks
+      window.addEventListener('message', handleMessage);
+      wrapperWindow.addEventListener('message', handleMessage);
+      cleanups.push(() => {
+        window.removeEventListener('message', handleMessage);
+        try {
+          wrapperWindow.removeEventListener('message', handleMessage);
+        } catch {
+          // wrapper window may already be torn down
+        }
+      });
+
+      const handleViolation = (event: SecurityPolicyViolationEvent) => {
         if (
-          !expectedOrigin ||
-          event.origin !== expectedOrigin ||
-          !event.source ||
-          event.source !== iframeRef.current?.contentWindow
+          event.effectiveDirective !== 'frame-src' &&
+          event.violatedDirective !== 'frame-src'
         ) {
           return;
         }
-        // defense-in-depth: the loaded url is validated before mount, so its
-        // origin's hostname is expected to always pass this check
-        if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
-          return;
+        // the browser already blocked the navigation; also tear the frame
+        // down and abort the flow instead of leaving a dead form on screen
+        frame.remove();
+        finishWithError(
+          'Data collection left the trusted WalletConnect Pay domain',
+        );
+      };
+      doc.addEventListener('securitypolicyviolation', handleViolation);
+      cleanups.push(() => {
+        try {
+          doc.removeEventListener('securitypolicyviolation', handleViolation);
+        } catch {
+          // wrapper document may already be torn down
         }
-        const data =
-          typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data?.type === 'IC_COMPLETE' && !completedRef.current) {
-          completedRef.current = true;
-          onComplete();
-        } else if (data?.type === 'IC_ERROR' && !completedRef.current) {
-          completedRef.current = true;
-          onError(String(data?.error ?? 'Data collection failed'));
+      });
+
+      const handleFrameLoad = () => setIsFormLoaded(true);
+      frame.addEventListener('load', handleFrameLoad);
+      cleanups.push(() => {
+        try {
+          frame.removeEventListener('load', handleFrameLoad);
+        } catch {
+          // frame may already be removed
         }
-      } catch {
-        // ignore non-JSON messages
-      }
+      });
+      return true;
     };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [url, onComplete, onError]);
+
+    // the srcdoc document parses asynchronously; poll briefly until its
+    // elements exist. CSP blocking never depends on these listeners — they
+    // only surface errors and load state — so the short attach delay is safe
+    if (!attach()) {
+      const timer = setInterval(() => {
+        if (disposed || attach()) {
+          clearInterval(timer);
+        }
+      }, 30);
+      cleanups.push(() => clearInterval(timer));
+    }
+
+    return () => {
+      disposed = true;
+      cleanups.forEach((fn) => fn());
+    };
+  }, [url, srcDoc, onComplete, onError]);
 
   return (
     <Stack flex={1}>
       <iframe
-        ref={iframeRef}
-        src={url}
+        // remount on url change so listeners never attach to a stale
+        // wrapper document that is about to be replaced
+        key={srcDoc}
+        ref={wrapperRef}
+        srcDoc={srcDoc}
         title="WalletConnect Pay"
         style={{
           flex: 1,
@@ -77,7 +212,6 @@ export function DataCollectionView({
           border: 'none',
         }}
         sandbox="allow-scripts allow-forms allow-same-origin"
-        onLoad={() => setIsFormLoaded(true)}
       />
       {!isFormLoaded ? (
         <Stack
