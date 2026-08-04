@@ -20,7 +20,7 @@ export function resolveAutomaticWalletCreationMode({
   const { passphraseProtection, unlocked, unlockedAttachPin } = state.status;
 
   if (unlocked !== true) {
-    return 'standard';
+    return undefined;
   }
 
   if (unlockedAttachPin === true || existsStandardWallet) {

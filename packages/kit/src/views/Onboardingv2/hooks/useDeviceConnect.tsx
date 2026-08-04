@@ -888,14 +888,14 @@ export function useDeviceConnect({
       let deviceState: IOneKeyDeviceState;
 
       try {
-        deviceState = await backgroundApiProxy.serviceHardware.getDeviceState({
-          connectId: currentDevice.connectId ?? '',
-          params: {
-            connectProtocol,
-            scope: 'runtime',
-          },
-          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-        });
+        deviceState =
+          await backgroundApiProxy.serviceHardware.getDeviceStateWithUnlock({
+            connectId: currentDevice.connectId ?? '',
+            params: {
+              connectProtocol,
+              scope: 'runtime',
+            },
+          });
         features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
@@ -965,35 +965,41 @@ export function useDeviceConnect({
 export const useConnectDeviceError = (
   onError: (errorMessageId: ETranslations) => void,
 ) => {
-  const uiRequestCallback = throttle(
-    ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
-      if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
-        onError(ETranslations.onboarding_enable_bluetooth);
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
-      ) {
-        onError(
-          platformEnv.isNativeIOS
-            ? ETranslations.feedback_try_toggling_bluetooth
-            : ETranslations.feedback_try_repairing_device_in_settings,
-        );
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
-      ) {
-        onError(ETranslations.device_not_connected);
-      }
-    },
-    2500,
-  );
-  appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, uiRequestCallback);
-  return () => {
-    appEventBus.off(
+  useEffect(() => {
+    const uiRequestCallback = throttle(
+      ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+        if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+          onError(ETranslations.onboarding_enable_bluetooth);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+        ) {
+          onError(
+            platformEnv.isNativeIOS
+              ? ETranslations.feedback_try_toggling_bluetooth
+              : ETranslations.feedback_try_repairing_device_in_settings,
+          );
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+        ) {
+          onError(ETranslations.device_not_connected);
+        }
+      },
+      2500,
+    );
+    appEventBus.on(
       EAppEventBusNames.RequestHardwareUIDialog,
       uiRequestCallback,
     );
-  };
+    return () => {
+      uiRequestCallback.cancel();
+      appEventBus.off(
+        EAppEventBusNames.RequestHardwareUIDialog,
+        uiRequestCallback,
+      );
+    };
+  }, [onError]);
 };
 
 export enum EBluetoothStatus {

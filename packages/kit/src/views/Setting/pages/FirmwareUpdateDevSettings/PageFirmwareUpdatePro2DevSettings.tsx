@@ -140,26 +140,6 @@ function FirmwareUpdatePro2DevSettings() {
   return (
     <YStack>
       <ListItem
-        title="Enable Pro2 firmware verification"
-        subtitle="Development only. Calls the verification service for Pro2 instead of skipping it."
-        titleProps={{ color: '$textCritical' }}
-      >
-        <Switch
-          size={ESwitchSize.small}
-          value={devSetting.enablePro2FirmwareVerification}
-          onChange={async (enablePro2FirmwareVerification) => {
-            setDevSetting((prev) => ({
-              ...prev,
-              enablePro2FirmwareVerification,
-            }));
-            await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
-              { enablePro2FirmwareVerification },
-            );
-          }}
-          testID="pro2-enable-firmware-verification"
-        />
-      </ListItem>
-      <ListItem
         title="Pro2 force targets"
         subtitle="boot / app_v1 / app_v2 / coprocessor / resource / se01-se04"
         titleProps={{ color: '$textCritical' }}

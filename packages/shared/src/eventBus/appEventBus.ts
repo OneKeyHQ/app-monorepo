@@ -351,6 +351,7 @@ export interface IAppEventBusPayload {
     accountName?: string;
     aggregateTokenMap: Record<string, ITokenFiat>;
     deviceConnectId?: string;
+    deviceDbId?: string;
     indexedAccountId?: string;
     indexedAccountIndex?: number;
     indexedAccountName?: string;

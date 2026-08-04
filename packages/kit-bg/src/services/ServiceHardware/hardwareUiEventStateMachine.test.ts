@@ -131,6 +131,49 @@ describe('hardware UI event state machine', () => {
     expect(result.connectId).toBe('CLASSIC_USB');
   });
 
+  test.each([
+    [
+      EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
+      EHardwareUiStateAction.REQUEST_PIN,
+      'pin',
+    ],
+    [
+      EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      EHardwareUiStateAction.REQUEST_PASSPHRASE,
+      'passphrase',
+    ],
+  ] as const)(
+    'ignores metadata-less %s from a previous V1 device',
+    (closeType, requestType, phase) => {
+      let state = reduceHardwareUiEventState(createHardwareUiEventState(), {
+        type: EHardwareUiStateAction.REQUEST_PIN,
+        renderAction: EHardwareUiStateAction.REQUEST_PIN,
+        connectId: 'CLASSIC_USB',
+      }).state;
+      state = reduceHardwareUiEventState(state, {
+        type: requestType,
+        renderAction: requestType,
+        connectId: 'PRO2_USB',
+        payload: {
+          interaction: createInteraction({
+            interactionId: 'interaction-2',
+            phase,
+            phaseId: `${phase}-phase`,
+          }),
+        },
+      }).state;
+
+      const result = reduceHardwareUiEventState(state, {
+        type: closeType,
+        renderAction: closeType,
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.state.connectId).toBe('PRO2_USB');
+      expect(result.state.phase).toBe(phase);
+    },
+  );
+
   it('ignores a stale close event from an older interaction', () => {
     const state = reduceHardwareUiEventState(createHardwareUiEventState(), {
       type: EHardwareUiStateAction.REQUEST_PASSPHRASE,

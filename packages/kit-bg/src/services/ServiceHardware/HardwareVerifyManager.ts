@@ -1,4 +1,4 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   backgroundMethod,
@@ -104,18 +104,8 @@ function buildSkippedFirmwareHashResult(
 }
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
-  private async isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
-    if (deviceUtils.isFirmwareVerifySupported(deviceType)) {
-      return true;
-    }
-    if (deviceType !== EDeviceType.Pro2) {
-      return false;
-    }
-    return (
-      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'enablePro2FirmwareVerification',
-      )) === true
-    );
+  private isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
+    return deviceUtils.isFirmwareVerifySupported(deviceType);
   }
 
   @backgroundMethod()
@@ -143,7 +133,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
-    if (!(await this.isFirmwareVerificationEnabled(device.deviceType))) {
+    if (!this.isFirmwareVerificationEnabled(device.deviceType)) {
       return false;
     }
 
@@ -172,7 +162,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     skipDeviceCancel,
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
-    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
       return buildSkippedFirmwareAuthenticateResult(device);
     }
 
@@ -281,7 +271,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const deviceType = features
       ? await deviceUtils.getDeviceTypeFromFeatures({ features })
       : undefined;
-    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
       return false;
     }
 
@@ -342,7 +332,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
-    if (!(await this.isFirmwareVerificationEnabled(params.deviceType))) {
+    if (!this.isFirmwareVerificationEnabled(params.deviceType)) {
       return [];
     }
 
@@ -392,7 +382,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
-    if (!(await this.isFirmwareVerificationEnabled(deviceType))) {
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
       return buildSkippedFirmwareHashResult(onekeyFeatures);
     }
 
