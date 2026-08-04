@@ -1,44 +1,37 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType } from "@onekeyfe/hd-shared";
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
-import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
-import type {
-  IConnectYourDeviceItem,
-  IOneKeyDeviceFeatures,
-} from '@onekeyhq/shared/types/device';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { defaultLogger } from "@onekeyhq/shared/src/logger/logger";
+import platformEnv from "@onekeyhq/shared/src/platformEnv";
+import deviceUtils from "@onekeyhq/shared/src/utils/deviceUtils";
+import { EHardwareTransportType } from "@onekeyhq/shared/types";
+import { EConnectDeviceChannel } from "@onekeyhq/shared/types/connectDevice";
+import type { IConnectYourDeviceItem, IOneKeyDeviceFeatures } from "@onekeyhq/shared/types/device";
+import { EHardwareVendor } from "@onekeyhq/shared/types/device";
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from "../../background/instance/backgroundApiProxy";
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+import type { IDeviceType } from "@onekeyfe/hd-core";
+import type { HardwareConnectProtocol } from "@onekeyfe/hd-shared";
 
 // Helper function to convert transport type enum to analytics string
-export type IHardwareCommunicationType =
-  | 'Bluetooth'
-  | 'WebUSB'
-  | 'USB'
-  | 'QRCode';
+export type IHardwareCommunicationType = "Bluetooth" | "WebUSB" | "USB" | "QRCode";
 // TODO: update this function to use the new transport type
 export function getHardwareCommunicationTypeString(
-  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode',
+  hardwareTransportType: EHardwareTransportType | undefined | "QRCode",
 ): IHardwareCommunicationType {
   if (
     hardwareTransportType === EHardwareTransportType.BLE ||
     hardwareTransportType === EHardwareTransportType.DesktopWebBle
   ) {
-    return 'Bluetooth';
+    return "Bluetooth";
   }
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-    return 'WebUSB';
+    return "WebUSB";
   }
-  if (hardwareTransportType === 'QRCode') {
-    return 'QRCode';
+  if (hardwareTransportType === "QRCode") {
+    return "QRCode";
   }
-  return platformEnv.isNative ? 'Bluetooth' : 'USB';
+  return platformEnv.isNative ? "Bluetooth" : "USB";
 }
 
 // Helper function to map user-selected channel to forced transport type
@@ -87,25 +80,22 @@ export async function getDesktopForceUSBTransportType(options?: {
   return null;
 }
 
-export const getDeviceLabel = (
-  deviceTypeItems: EDeviceType[],
-  separator = '/',
-) => {
+export const getDeviceLabel = (deviceTypeItems: EDeviceType[], separator = "/") => {
   return deviceTypeItems
     .map((deviceType) => {
       switch (deviceType) {
         case EDeviceType.Pro:
-          return 'OneKey Pro';
+          return "OneKey Pro";
         case EDeviceType.Classic:
-          return 'OneKey Classic';
+          return "OneKey Classic";
         case EDeviceType.Classic1s:
-          return 'OneKey Classic 1S';
+          return "OneKey Classic 1S";
         case EDeviceType.ClassicPure:
-          return '1S Pure';
+          return "1S Pure";
         case EDeviceType.Mini:
-          return 'OneKey Mini';
+          return "OneKey Mini";
         case EDeviceType.Touch:
-          return 'OneKey Touch';
+          return "OneKey Touch";
         default:
           return deviceType;
       }
@@ -122,10 +112,7 @@ export const sortDevicesData = (
 
   for (let i = 0; i < devices.length; i += 1) {
     const device = devices[i];
-    if (
-      device.device?.deviceType &&
-      deviceTypeItems.includes(device.device.deviceType)
-    ) {
+    if (device.device?.deviceType && deviceTypeItems.includes(device.device.deviceType)) {
       prioritizedDevices.push(device);
     } else {
       otherDevices.push(device);
@@ -142,11 +129,11 @@ export const trackHardwareWalletConnection = async ({
   hardwareTransportType,
   vendor = EHardwareVendor.onekey,
 }: {
-  status: 'success' | 'failure';
+  status: "success" | "failure";
   deviceType: IDeviceType;
   isSoftwareWalletOnlyUser: boolean;
   features?: IOneKeyDeviceFeatures;
-  hardwareTransportType: EHardwareTransportType | undefined | 'QRCode';
+  hardwareTransportType: EHardwareTransportType | undefined | "QRCode";
   vendor?: EHardwareVendor;
 }) => {
   const connectionType: IHardwareCommunicationType =
@@ -161,9 +148,9 @@ export const trackHardwareWalletConnection = async ({
 
   defaultLogger.account.wallet.walletAdded({
     status,
-    addMethod: 'ConnectHWWallet',
+    addMethod: "ConnectHWWallet",
     details: {
-      hardwareWalletType: 'Standard',
+      hardwareWalletType: "Standard",
       communication: connectionType,
       deviceType,
       vendor,
