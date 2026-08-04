@@ -172,6 +172,12 @@ function useReceiveToken({
           tokens,
           tokenListState,
           searchAll: true,
+          enableCrossNetworkSearch: true,
+          // Receive does not care about holdings — never show the
+          // Send-semantics "You don't hold any crypto" browse empty.
+          browseEmptyTitle: intl.formatMessage({
+            id: ETranslations.token_selector_no_tokens__title,
+          }),
           showDeFiTokenSwitch: true,
           closeAfterSelect: false,
           footerTipText: intl.formatMessage({
@@ -197,7 +203,9 @@ function useReceiveToken({
 
             if (
               settings.mergeDeriveAssetsEnabled &&
-              network?.isAllNetworks &&
+              // Cross-network hits under a single-network scope (t.networkId
+              // differs) need the same derive-aware path as All Networks.
+              (network?.isAllNetworks || t.networkId !== networkId) &&
               !accountUtils.isOthersWallet({ walletId })
             ) {
               navigation.push(EModalReceiveRoutes.ReceiveToken, {

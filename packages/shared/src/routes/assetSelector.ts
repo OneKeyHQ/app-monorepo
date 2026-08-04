@@ -55,6 +55,13 @@ export type ITokenSelectorParamList = {
     initialized: boolean;
   };
   searchAll?: boolean;
+  // Main Receive only: search across all networks under a single-network scope
+  // and group results into current-network / other-networks sections.
+  enableCrossNetworkSearch?: boolean;
+  // Overrides the browse-state (no search) empty title. Callers whose flow
+  // does not care about holdings (Receive) set this so the shared selector
+  // never shows the Send-semantics "You don't hold any crypto" copy.
+  browseEmptyTitle?: string;
   isAllNetworks?: boolean;
   searchPlaceholder?: string;
   footerTipText?: string;
