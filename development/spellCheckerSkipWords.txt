@@ -706,6 +706,7 @@ pwkey
 qrcode
 Queueing
 Rabby
+rasterizes
 rbf
 rbtc
 rdns
@@ -982,6 +983,7 @@ wmin
 wns
 wordlist
 wordlists
+wordmark
 worklet
 xaid
 xbuf
