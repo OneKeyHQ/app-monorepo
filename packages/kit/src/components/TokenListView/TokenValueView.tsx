@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import { Currency } from '../Currency';
@@ -19,8 +19,9 @@ function TokenValueView(props: IProps) {
   // token. Seam handled inside the hook.
   const { has, fiatValue, balanceParsed, currency } = useTokenValueSlice($key);
 
+  // See TokenBalanceView: no fiat record means render nothing, not "-".
   if (!has) {
-    return <SizableText {...rest}>-</SizableText>;
+    return null;
   }
 
   return (
