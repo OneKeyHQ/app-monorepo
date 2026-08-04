@@ -5,6 +5,7 @@ import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import {
   FUNDING_INTENT_APPEARANCE_TIMEOUT_MS,
+  type IEModeFundingIntent,
   matchesFundingIntent,
   resolveEModeFundingState,
   shouldDisarmFundingIntentOnFocus,
@@ -22,11 +23,12 @@ const NETWORK_ID = 'evm--1';
 const ACCOUNT_ID = 'hd-1--m/44/60/0/0/0';
 const USDT = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 
-const intent = {
+const intent: IEModeFundingIntent = {
   stepKey: 'repay:usdt',
   tokenAddress: USDT.toLowerCase(),
   armedAt: 1000,
   broadcasted: false,
+  broadcastedAt: null,
   seen: false,
 };
 
@@ -185,7 +187,7 @@ describe('shouldDisarmFundingIntentOnFocus', () => {
 });
 
 describe('resolveEModeFundingState', () => {
-  const broadcast = { ...intent, broadcasted: true };
+  const broadcast = { ...intent, broadcasted: true, broadcastedAt: 2000 };
   const withStatus = (status: ESwapTxHistoryStatus) =>
     ({ ...buildHistory(), status }) as ISwapTxHistory;
   const resolve = ({
@@ -355,6 +357,33 @@ describe('useEModeFundingTx', () => {
         jest.advanceTimersByTime(FUNDING_INTENT_APPEARANCE_TIMEOUT_MS);
       });
 
+      expect(result.current.fundingResolved).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('starts the appearance deadline at broadcast after a delayed confirmation', () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(5000);
+      const { result } = renderFundingHook();
+
+      act(() => result.current.armFunding());
+      act(() => {
+        jest.advanceTimersByTime(FUNDING_INTENT_APPEARANCE_TIMEOUT_MS * 2);
+      });
+      act(() => result.current.markFundingBroadcasted());
+
+      expect(result.current.fundingResolved).toBe(false);
+      act(() => {
+        jest.advanceTimersByTime(FUNDING_INTENT_APPEARANCE_TIMEOUT_MS - 1);
+      });
+      expect(result.current.fundingResolved).toBe(false);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
       expect(result.current.fundingResolved).toBe(true);
     } finally {
       jest.useRealTimers();

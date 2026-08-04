@@ -108,6 +108,7 @@ describe('swap pending history handoff', () => {
   });
 
   beforeEach(async () => {
+    jest.useFakeTimers();
     loggerErrorSpy = jest
       .spyOn(defaultLogger.app.error, 'log')
       .mockImplementation();
@@ -123,6 +124,8 @@ describe('swap pending history handoff', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -333,12 +336,9 @@ describe('swap pending history handoff', () => {
       );
     });
 
-    it('retries on a status poll tick, the only cadence a modal-launched swap gets', async () => {
-      // The reconcile is not a cadence: at bootstrap this in-memory queue is
-      // always empty, and its other call sites are the Swap history modal and
-      // the Swap tab. A top-up launched as a modal from the Borrow flow reaches
-      // none of them. This loop reschedules itself for as long as the swap is
-      // pending, so it is what actually drains the queue.
+    it('retries on a status poll tick without waiting for the backoff timer', async () => {
+      // Polling remains an opportunistic signal while the swap is pending, so a
+      // recovered store can drain immediately instead of waiting for backoff.
       const { service, stagePendingSwapHistoryItem } = createFailingStore();
       const history = createPendingHistory({ txId: '0xpoll-tick' });
       await service.addSwapHistoryItem(history);
@@ -367,9 +367,9 @@ describe('swap pending history handoff', () => {
       );
     });
 
-    it('retries when the pending list changes, covering the terminal tick', async () => {
-      // Polling stops once a swap goes terminal, so the last transition needs
-      // this second hook to get a final attempt.
+    it('retries immediately when the pending list reaches its terminal tick', async () => {
+      // Polling stops once a swap goes terminal, so the list transition gets an
+      // immediate attempt before the independent timer owns later retries.
       const { service, stagePendingSwapHistoryItem } = createFailingStore();
       await service.addSwapHistoryItem(
         createPendingHistory({ txId: '0xpoll-driven' }),
@@ -405,6 +405,36 @@ describe('swap pending history handoff', () => {
       await service.syncSwapHistoryPendingList();
 
       expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('keeps retrying after the terminal tick until storage recovers', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      const history = createPendingHistory({ txId: '0xterminal-retry' });
+      await service.addSwapHistoryItem(history);
+
+      await service.updateSwapHistoryItem(
+        { ...history, status: ESwapTxHistoryStatus.SUCCESS },
+        { shouldShowToast: false },
+      );
+      stagePendingSwapHistoryItem.mockClear();
+      await service.swapHistoryStatusFetchLoop();
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+
+      // No pending-list or status-poll signal follows this terminal tick. The
+      // queue's own timer must recover the latest payload once storage returns.
+      stagePendingSwapHistoryItem.mockClear();
+      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      await jest.advanceTimersToNextTimerAsync();
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ESwapTxHistoryStatus.SUCCESS,
+          txInfo: expect.objectContaining({ txId: '0xterminal-retry' }),
+        }),
+      );
+      expect(jest.getTimerCount()).toBe(0);
     });
 
     it('never writes back a history the user cleared one by one', async () => {
@@ -421,6 +451,7 @@ describe('swap pending history handoff', () => {
       await service.syncSwapHistoryPendingList();
 
       expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
     });
 
     it('never writes back a history the user cleared in bulk', async () => {
@@ -435,6 +466,7 @@ describe('swap pending history handoff', () => {
       await service.syncSwapHistoryPendingList();
 
       expect(stagePendingSwapHistoryItem).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
     });
 
     it('retries the current status rather than the one that failed', async () => {

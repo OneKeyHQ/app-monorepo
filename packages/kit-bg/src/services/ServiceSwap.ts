@@ -161,6 +161,12 @@ const SWAP_HISTORY_PERSIST_MAX_ATTEMPTS = 3;
 const SWAP_HISTORY_PERSIST_RETRY_MIN_TIMEOUT_MS = timerUtils.getTimeDurationMs({
   seconds: 1,
 });
+const SWAP_HISTORY_DURABLE_RETRY_MIN_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  seconds: 1,
+});
+const SWAP_HISTORY_DURABLE_RETRY_MAX_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  seconds: 30,
+});
 // Bounded because storage can stay unavailable indefinitely, and this queue is
 // the one place a broadcast swap is held outside any store.
 const SWAP_HISTORY_DURABLE_RETRY_MAX_ENTRIES = 50;
@@ -539,8 +545,8 @@ export default class ServiceSwap extends ServiceBase {
   private swapHistoryMutationMutex = new Semaphore(1);
 
   /**
-   * Broadcast swaps whose durable write failed outright, retried on the next
-   * history reconcile.
+   * Broadcast swaps whose durable write failed outright. The service owns an
+   * independent backoff timer until every queued item reaches storage.
    *
    * The pending atom cannot stand in for this list. The reconcile rebuilds that
    * atom from the very store the write failed against, so a non-durable item is
@@ -548,11 +554,16 @@ export default class ServiceSwap extends ServiceBase {
    * is also why the delete paths have to clear it: a queued retry must never
    * reinstate a history the user cleared in the meantime.
    *
-   * In-memory on purpose. A runtime restart loses this queue and the atom
-   * together, which is the same outcome either way — there is nothing left to
-   * preserve once the only copy of the item is gone.
+   * In-memory because an unavailable store cannot persist its own retry. The
+   * timer keeps the payload alive for this service runtime; runtime teardown
+   * owns final timer cleanup when the JS heap is destroyed.
    */
   private swapHistoryDurableRetryQueue = new Map<string, ISwapTxHistory>();
+
+  private swapHistoryDurableRetryTimer?: ReturnType<typeof setTimeout>;
+
+  private swapHistoryDurableRetryTimeoutMs =
+    SWAP_HISTORY_DURABLE_RETRY_MIN_TIMEOUT_MS;
 
   private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
     {};
@@ -2212,16 +2223,42 @@ export default class ServiceSwap extends ServiceBase {
       );
     }
     this.swapHistoryDurableRetryQueue.set(key, item);
+    this.syncSwapHistoryDurableRetrySchedule();
+  }
+
+  private clearSwapHistoryDurableRetrySchedule() {
+    if (this.swapHistoryDurableRetryTimer !== undefined) {
+      clearTimeout(this.swapHistoryDurableRetryTimer);
+      this.swapHistoryDurableRetryTimer = undefined;
+    }
+    this.swapHistoryDurableRetryTimeoutMs =
+      SWAP_HISTORY_DURABLE_RETRY_MIN_TIMEOUT_MS;
+  }
+
+  private syncSwapHistoryDurableRetrySchedule() {
+    if (!this.swapHistoryDurableRetryQueue.size) {
+      this.clearSwapHistoryDurableRetrySchedule();
+      return;
+    }
+    if (this.swapHistoryDurableRetryTimer !== undefined) {
+      return;
+    }
+    const timeoutMs = this.swapHistoryDurableRetryTimeoutMs;
+    this.swapHistoryDurableRetryTimeoutMs = Math.min(
+      timeoutMs * 2,
+      SWAP_HISTORY_DURABLE_RETRY_MAX_TIMEOUT_MS,
+    );
+    this.swapHistoryDurableRetryTimer = setTimeout(() => {
+      this.swapHistoryDurableRetryTimer = undefined;
+      void this.flushSwapHistoryDurableRetriesWithLock().catch((error) => {
+        this.logSwapHistoryPersistError(error);
+        this.syncSwapHistoryDurableRetrySchedule();
+      });
+    }, timeoutMs);
   }
 
   /**
-   * Cadence entry point for the durable retry, for callers outside the mutex.
-   *
-   * The reconcile alone is not a cadence: it runs at bootstrap, where this
-   * in-memory queue is always empty, and otherwise only when the user visits
-   * Swap history. A swap launched as a modal from another flow would never
-   * reach either, so the retry has to ride the status poll, which reschedules
-   * itself for exactly as long as the swap is pending.
+   * Entry point for timer, reconcile, and status-poll callers outside the mutex.
    */
   private async flushSwapHistoryDurableRetriesWithLock() {
     // Checked before taking the mutex: this runs on every poll tick, and the
@@ -2237,11 +2274,10 @@ export default class ServiceSwap extends ServiceBase {
   /**
    * Re-attempts the durable write for swaps that reached no store at all.
    *
-   * One attempt per item per pass: the reconcile that calls this is itself the
-   * retry cadence, so spacing the attempts here would only hold the mutex while
-   * a store that is still down rejects them. Must run before the reconcile
-   * reads storage, otherwise the rebuild evicts these items from the atom
-   * before they have been written back into it.
+   * One attempt per item per pass. The independent timer provides the spacing,
+   * so this method never holds the mutex while waiting. Must run before a
+   * reconcile reads storage, otherwise the rebuild evicts these items from the
+   * atom before they have been written back into it.
    *
    * Caller holds swapHistoryMutationMutex.
    */
@@ -2261,6 +2297,7 @@ export default class ServiceSwap extends ServiceBase {
         this.logSwapHistoryPersistError(error);
         // Every queued item targets the same store, so one rejection settles
         // the rest of this pass too.
+        this.syncSwapHistoryDurableRetrySchedule();
         return;
       }
       // Staged is already durable — recoverPendingSwapHistoryItems promotes it
@@ -2274,6 +2311,7 @@ export default class ServiceSwap extends ServiceBase {
         this.logSwapHistoryPersistError(error);
       }
     }
+    this.syncSwapHistoryDurableRetrySchedule();
   }
 
   /**
@@ -2363,6 +2401,7 @@ export default class ServiceSwap extends ServiceBase {
         this.swapHistoryDurableRetryQueue.delete(
           this.getSwapHistoryIntervalKey(enrichedItem),
         );
+        this.syncSwapHistoryDurableRetrySchedule();
       } else {
         this.enqueueSwapHistoryDurableRetry(enrichedItem);
       }
@@ -2569,6 +2608,7 @@ export default class ServiceSwap extends ServiceBase {
       // an already-non-durable item its retry; resurrecting a deleted history
       // is not recoverable.
       this.swapHistoryDurableRetryQueue.clear();
+      this.syncSwapHistoryDurableRetrySchedule();
       const inAppNotification = await inAppNotificationAtom.get();
       const deleteHistoryIds = filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
@@ -2641,6 +2681,7 @@ export default class ServiceSwap extends ServiceBase {
       // Same identity the retry queue is keyed by, so a pending durable retry
       // cannot write this history back after the user removed it.
       this.swapHistoryDurableRetryQueue.delete(deleteHistoryId);
+      this.syncSwapHistoryDurableRetrySchedule();
       await inAppNotificationAtom.set((pre) => ({
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(
@@ -2788,9 +2829,9 @@ export default class ServiceSwap extends ServiceBase {
     const shouldShowToast = options?.shouldShowToast ?? true;
     const privateSendStatusSource =
       options?.privateSendStatusSource ?? 'orderDetail';
-    // This loop reschedules itself while the swap is pending, which is the only
-    // recurring signal a swap started outside the Swap tab ever gets. Awaited
-    // and released before the status update below takes the same mutex.
+    // Retry opportunistically on each pending-status tick rather than waiting
+    // for the queue's backoff timer. Awaited and released before the status
+    // update below takes the same mutex.
     await this.flushSwapHistoryDurableRetriesWithLock();
     let currentSwapTxHistory = cloneDeep(swapTxHistory);
     const isPrivateSendHistory =
@@ -2938,9 +2979,8 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
-    // Also here, not just on the poll tick: a queued item that reaches a
-    // terminal status stops being polled, and this fires on every pending-list
-    // change, so it covers that last transition.
+    // Also retry on the pending-list transition so a terminal item gets one
+    // immediate attempt before the independent backoff timer takes over.
     await this.flushSwapHistoryDurableRetriesWithLock();
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = filterSwapHistoryPendingList(

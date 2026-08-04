@@ -15,6 +15,8 @@ export type IEModeFundingIntent = {
   tokenAddress: string;
   armedAt: number;
   broadcasted: boolean;
+  /** The real broadcast time; appearance timeout starts here, not at arm. */
+  broadcastedAt: number | null;
   /** The top-up has been observed in pending history at least once. */
   seen: boolean;
 };
@@ -154,13 +156,16 @@ export function useEModeFundingTx({
       tokenAddress: activeFundingAddress,
       armedAt: Date.now(),
       broadcasted: false,
+      broadcastedAt: null,
       seen: false,
     });
   }, [activeStepKey, activeFundingAddress]);
 
   const markFundingBroadcasted = useCallback(() => {
     setIntent((current) =>
-      current ? { ...current, broadcasted: true } : current,
+      current && !current.broadcasted
+        ? { ...current, broadcasted: true, broadcastedAt: Date.now() }
+        : current,
     );
   }, []);
 
@@ -207,7 +212,11 @@ export function useEModeFundingTx({
   const [appearanceDeadlinePassed, setAppearanceDeadlinePassed] =
     useState(false);
   useEffect(() => {
-    if (!armedIntent || !armedIntent.broadcasted || armedIntent.seen) {
+    if (
+      !armedIntent ||
+      armedIntent.broadcastedAt === null ||
+      armedIntent.seen
+    ) {
       setAppearanceDeadlinePassed(false);
       return;
     }
@@ -215,7 +224,9 @@ export function useEModeFundingTx({
       () => setAppearanceDeadlinePassed(true),
       Math.max(
         0,
-        armedIntent.armedAt + FUNDING_INTENT_APPEARANCE_TIMEOUT_MS - Date.now(),
+        armedIntent.broadcastedAt +
+          FUNDING_INTENT_APPEARANCE_TIMEOUT_MS -
+          Date.now(),
       ),
     );
     return () => clearTimeout(timer);
