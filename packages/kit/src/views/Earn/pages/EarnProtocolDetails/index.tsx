@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
@@ -136,6 +137,10 @@ const ProtocolHeader = ({
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
+    if (platformEnv.isNative) {
+      EarnNavigation.pushToEarnPositions(navigation);
+      return;
+    }
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 

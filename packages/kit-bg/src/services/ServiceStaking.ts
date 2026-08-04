@@ -26,6 +26,7 @@ import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   IEarnAvailableAssetV2,
+  IEarnPageBannerListItem,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -945,6 +946,57 @@ class ServiceStaking extends ServiceBase {
     },
   );
 
+  // Full protocol list (Protocols aggregation page, 6.6.0+): the same
+  // endpoint without a symbol returns every protocol row in one response.
+  // Display-only data (TVL/APY), cached for 5 minutes.
+  _getAllProtocolList = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.post<{
+        data: { protocols: IStakeProtocolListItem[] };
+      }>('/earn/v2/stake-protocol/list', {});
+      return resp.data.data.protocols;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getAllProtocolList() {
+    const allItems = await this._getAllProtocolList();
+    // Reuse getProtocolList's gating semantics on the full-list fast path
+    // (review P1): drop WithdrawOnly rows and anything the local staking
+    // config has disabled, so aggregation pages never surface protocols the
+    // client does not support or ops have turned off. Rows without a symbol
+    // cannot be checked against the config, so they are dropped too — an
+    // old server that returns symbol-less rows then yields an empty list and
+    // the caller falls back to the per-symbol fan-out path.
+    const visibleItems = allItems.filter(
+      (item) =>
+        Boolean(item.symbol) &&
+        item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+    );
+    const itemsWithEnabledStatus = await promiseAllSettledEnhanced(
+      visibleItems.map((item) => async () => {
+        const stakingConfig = await this.getStakingConfigs({
+          networkId: item.network.networkId,
+          symbol: item.symbol ?? '',
+          provider: item.provider.name,
+        });
+        return { item, isEnabled: stakingConfig?.enabled };
+      }),
+      { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    return itemsWithEnabledStatus
+      .filter(
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r !== undefined && !!r.isEnabled,
+      )
+      .map((r) => r.item);
+  }
+
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
@@ -1437,6 +1489,15 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async clearAvailableAssetsCache() {
     void this._getAvailableAssets.clear();
+  }
+
+  @backgroundMethod()
+  async getEarnPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IEarnPageBannerListItem[];
+    }>('/earn/v1/banner/list');
+    return response.data.data;
   }
 
   @backgroundMethod()
