@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Icon,
+  ScrollView,
   SizableText,
   Spinner,
   Switch,
@@ -11,19 +12,26 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useFixedColumnShadow } from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ISwapInviteItem,
   ISwapInvitesSortBy,
   ISwapInvitesSortOrder,
+  ISwapRecordsParams,
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { getSwapRecordsStatusByTab } from '../utils';
 
 import { SwapEmptyData } from './SwapEmptyData';
 import { SwapInviteRecord } from './SwapInviteRecord';
+import { useSwapTableColumns } from './useSwapTableColumns';
 
+import type { ISwapInviteColumnWidths } from './useSwapTableColumns';
 import type { ISwapRecordQuery, ISwapRecordsTab } from '../types';
+
+const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
 
 interface ISwapDetailsSectionProps {
   records: ISwapInviteItem[];
@@ -191,28 +199,29 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function SortableHeader({
   field,
-  flex,
   hasUserSorted,
   label,
   onSort,
   sortBy,
   sortOrder,
+  width,
   justifyContent = 'flex-start',
 }: {
   field: ISwapInvitesSortBy;
-  flex: number;
   hasUserSorted: boolean;
   label: string;
   onSort: (field: ISwapInvitesSortBy) => void;
   sortBy: ISwapInvitesSortBy;
   sortOrder: ISwapInvitesSortOrder;
+  width: string | number;
   justifyContent?: 'flex-start' | 'flex-end';
 }) {
   const isActive = hasUserSorted && sortBy === field;
 
   return (
     <XStack
-      flex={flex}
+      w={width}
+      minWidth={0}
       gap="$1"
       ai="center"
       jc={justifyContent}
@@ -240,17 +249,137 @@ function SortableHeader({
   );
 }
 
+function DesktopRecordsTable({
+  columnWidths,
+  isCompact,
+  recordStatus,
+  showFixedDivider,
+  tableMinWidth,
+  ...props
+}: ISwapDetailsSectionProps & {
+  columnWidths: ISwapInviteColumnWidths;
+  isCompact: boolean;
+  recordStatus: ISwapRecordsParams['status'];
+  showFixedDivider: boolean;
+  tableMinWidth: number;
+}) {
+  const intl = useIntl();
+  const { recordQuery, records } = props;
+
+  return (
+    <YStack w={isCompact ? tableMinWidth : '100%'}>
+      <XStack pl={isCompact ? 0 : '$5'} pr="$5" py="$2.5" bg="$bgStrong">
+        <XStack
+          w={columnWidths.address}
+          gap="$2"
+          ai="center"
+          minWidth={0}
+          pl={isCompact ? '$5' : undefined}
+          borderRightWidth={
+            showFixedDivider ? StyleSheet.hairlineWidth : undefined
+          }
+          borderRightColor="$borderSubdued"
+          $platform-web={
+            isCompact
+              ? {
+                  position: 'sticky' as any,
+                  left: 0,
+                  zIndex: 2,
+                  backgroundColor: 'inherit',
+                }
+              : undefined
+          }
+        >
+          <XStack w="$5" />
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.global_address })}
+          </SizableText>
+        </XStack>
+        <SortableHeader
+          field="invitationTime"
+          width={columnWidths.invitedAt}
+          label={intl.formatMessage({
+            id: ETranslations.referral_perps_invited_at,
+          })}
+          {...props}
+        />
+        <XStack w={columnWidths.referralCode} minWidth={0}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({
+              id: ETranslations.referral_perps_referral_code,
+            })}
+          </SizableText>
+        </XStack>
+        <SortableHeader
+          field="firstTradeTime"
+          width={columnWidths.firstTrade}
+          label={intl.formatMessage({
+            id: ETranslations.referral_perps_first_trade,
+          })}
+          {...props}
+        />
+        <SortableHeader
+          field="volume"
+          width={columnWidths.volume}
+          label={intl.formatMessage({
+            id: ETranslations.referral_perps_volume,
+          })}
+          {...props}
+        />
+        <SortableHeader
+          field="fee"
+          width={columnWidths.fee}
+          label={intl.formatMessage({
+            id: ETranslations.referral_perps_onekey_fee,
+          })}
+          {...props}
+        />
+        <SortableHeader
+          field="reward"
+          width={columnWidths.rewards}
+          justifyContent="flex-end"
+          label={intl.formatMessage({ id: ETranslations.earn_rewards })}
+          {...props}
+        />
+      </XStack>
+      {records.map((item, index) => (
+        <SwapInviteRecord
+          key={`${index}:${item._id}`}
+          item={item}
+          query={recordQuery}
+          status={recordStatus}
+          variant="desktop"
+          columnWidths={columnWidths}
+          isCompact={isCompact}
+          showFixedDivider={showFixedDivider}
+        />
+      ))}
+    </YStack>
+  );
+}
+
 function DesktopSection(props: ISwapDetailsSectionProps) {
   const intl = useIntl();
+  const media = useMedia();
+  const isCompact = media.xl;
+  const { columnWidths, tableMinWidth } = useSwapTableColumns(isCompact);
   const {
-    activeTab,
-    hasError,
-    isLoadingMore,
-    isTabLoading,
-    onRetry,
-    recordQuery,
-    records,
-  } = props;
+    showShadow: showFixedShadow,
+    scrollViewRef,
+    handleNativeScroll,
+    handleWebScroll,
+  } = useFixedColumnShadow({ position: 'left', enabled: isCompact });
+  const showFixedDivider = showFixedShadow && !platformEnv.isNative;
+  const { activeTab, hasError, isLoadingMore, isTabLoading, onRetry, records } =
+    props;
   const hasData = records.length > 0;
   const recordStatus = getSwapRecordsStatusByTab(activeTab);
 
@@ -288,79 +417,39 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
               {!hasError && !hasData ? <SwapEmptyData /> : null}
               {!hasError && hasData ? (
                 <>
-                  <XStack px="$5" py="$2.5" gap="$3" bg="$bgStrong">
-                    <SizableText
-                      flex={1.2}
-                      size="$headingXs"
-                      color="$textSubdued"
-                      textTransform="uppercase"
+                  {isCompact ? (
+                    <ScrollView
+                      ref={scrollViewRef}
+                      horizontal
+                      showsHorizontalScrollIndicator
+                      bounces={false}
+                      onScroll={
+                        platformEnv.isNative
+                          ? handleNativeScroll
+                          : handleWebScroll
+                      }
+                      scrollEventThrottle={16}
+                      contentContainerStyle={SCROLL_CONTENT_STYLE}
                     >
-                      {intl.formatMessage({
-                        id: ETranslations.global_address,
-                      })}
-                    </SizableText>
-                    <SortableHeader
-                      field="invitationTime"
-                      flex={1.1}
-                      label={intl.formatMessage({
-                        id: ETranslations.referral_perps_invited_at,
-                      })}
+                      <DesktopRecordsTable
+                        {...props}
+                        columnWidths={columnWidths}
+                        isCompact
+                        recordStatus={recordStatus}
+                        showFixedDivider={showFixedDivider}
+                        tableMinWidth={tableMinWidth}
+                      />
+                    </ScrollView>
+                  ) : (
+                    <DesktopRecordsTable
                       {...props}
+                      columnWidths={columnWidths}
+                      isCompact={false}
+                      recordStatus={recordStatus}
+                      showFixedDivider={false}
+                      tableMinWidth={tableMinWidth}
                     />
-                    <SizableText
-                      flex={0.9}
-                      size="$headingXs"
-                      color="$textSubdued"
-                      textTransform="uppercase"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.referral_perps_referral_code,
-                      })}
-                    </SizableText>
-                    <SortableHeader
-                      field="firstTradeTime"
-                      flex={1.1}
-                      label={intl.formatMessage({
-                        id: ETranslations.referral_perps_first_trade,
-                      })}
-                      {...props}
-                    />
-                    <SortableHeader
-                      field="volume"
-                      flex={1}
-                      label={intl.formatMessage({
-                        id: ETranslations.referral_perps_volume,
-                      })}
-                      {...props}
-                    />
-                    <SortableHeader
-                      field="fee"
-                      flex={1}
-                      label={intl.formatMessage({
-                        id: ETranslations.referral_perps_onekey_fee,
-                      })}
-                      {...props}
-                    />
-                    <SortableHeader
-                      field="reward"
-                      flex={1}
-                      justifyContent="flex-end"
-                      label={intl.formatMessage({
-                        id: ETranslations.earn_rewards,
-                      })}
-                      {...props}
-                    />
-                    <XStack w="$5" />
-                  </XStack>
-                  {records.map((item, index) => (
-                    <SwapInviteRecord
-                      key={`${index}:${item._id}`}
-                      item={item}
-                      query={recordQuery}
-                      status={recordStatus}
-                      variant="desktop"
-                    />
-                  ))}
+                  )}
                   {isLoadingMore ? (
                     <YStack py="$4" ai="center">
                       <Spinner size="small" />

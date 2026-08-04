@@ -14,6 +14,7 @@ import type { ISwapCumulativeRewardsResponse } from '@onekeyhq/shared/src/referr
 import { SwapRewardHeader } from './SwapRewardHeader';
 
 const mockCards: IStatCardProps[] = [];
+const mockMedia = { lg: false, md: false };
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -23,14 +24,33 @@ jest.mock('react-intl', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  useMedia: () => ({ lg: false }),
+  useMedia: () => mockMedia,
 }));
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ symbol: '$' }),
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
+  __esModule: true,
+  default: () => ({
+    format: () => 'Aug 1',
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/views/ReferFriends/components', () => ({
+  RewardHeaderLayout: ({
+    primaryCard,
+    secondaryCards,
+  }: {
+    primaryCard: ReactNode;
+    secondaryCards: ReactNode;
+  }) => (
+    <>
+      {primaryCard}
+      {secondaryCards}
+    </>
+  ),
   ResponsiveFourColumnLayout: ({
     firstColumn,
     secondColumn,
@@ -81,6 +101,8 @@ const data: ISwapCumulativeRewardsResponse = {
 describe('SwapRewardHeader', () => {
   beforeEach(() => {
     mockCards.length = 0;
+    mockMedia.lg = false;
+    mockMedia.md = false;
   });
 
   it('associates the next distribution date with undistributed rewards', () => {
@@ -94,8 +116,25 @@ describe('SwapRewardHeader', () => {
     );
 
     expect(undistributedCard?.subtitle).toContain(
-      `${ETranslations.referral_next_distribution}: 2026-08-01`,
+      `${ETranslations.referral_next_distribution}: Aug 1`,
     );
     expect(pendingCard?.subtitle).toBeUndefined();
+  });
+
+  it('uses the Perps-style primary and two-card layout on mobile', () => {
+    mockMedia.lg = true;
+    mockMedia.md = true;
+
+    render(<SwapRewardHeader data={data} />);
+
+    expect(mockCards.map((card) => card.title)).toEqual([
+      ETranslations.referral_undistributed,
+      ETranslations.referral_perps_volume,
+      ETranslations.referral_perps_invited_addresses,
+    ]);
+    expect(mockCards[0].subtitle).toContain(
+      `${ETranslations.referral_pending}: $1.00`,
+    );
+    expect(mockCards[0].fullWidth).toBe(true);
   });
 });

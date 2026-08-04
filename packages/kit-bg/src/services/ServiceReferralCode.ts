@@ -645,34 +645,6 @@ class ServiceReferralCode extends ServiceBase {
     return undefined;
   }
 
-  private async getCurrentEvmAccountAddress({
-    accountId,
-  }: {
-    accountId: string;
-  }) {
-    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
-      accountId,
-    });
-    if (!dbAccount?.indexedAccountId) {
-      return undefined;
-    }
-
-    const networkId = getNetworkIdsMap().eth;
-    const evmAccountId =
-      await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
-        {
-          indexedAccountId: dbAccount.indexedAccountId,
-          networkId,
-          deriveType: 'default',
-        },
-      );
-    const evmAccount = await this.backgroundApi.serviceAccount.getAccount({
-      accountId: evmAccountId,
-      networkId,
-    });
-    return evmAccount?.address;
-  }
-
   @backgroundMethod()
   async getBoundEvmReferralCodeWalletInfo({
     accountId,
@@ -706,6 +678,45 @@ class ServiceReferralCode extends ServiceBase {
       ...walletInfo,
       ...(rebateAddress ? { rebateAddress } : {}),
     };
+  }
+
+  @backgroundMethod()
+  async getCurrentEvmAccountAddress({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }): Promise<string | undefined> {
+    try {
+      let currentIndexedAccountId = indexedAccountId;
+      if (!currentIndexedAccountId && accountId) {
+        const dbAccount =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        currentIndexedAccountId = dbAccount?.indexedAccountId;
+      }
+      if (!currentIndexedAccountId) {
+        return undefined;
+      }
+
+      const networkId = getNetworkIdsMap().eth;
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const evmAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId: currentIndexedAccountId,
+          deriveType,
+          networkId,
+        });
+      return evmAccount?.address;
+    } catch {
+      return undefined;
+    }
   }
 
   @backgroundMethod()

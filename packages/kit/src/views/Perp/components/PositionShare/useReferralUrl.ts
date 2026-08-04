@@ -39,7 +39,7 @@ async function getPrimaryInviteCode(cacheKey: string) {
   }
 }
 
-export function useReferralUrl() {
+export function useReferralUrl(page: 'perps' | 'swap' = 'perps') {
   const [devSettings] = useDevSettingsPersistAtom();
   const [primeUser] = usePrimePersistAtom();
 
@@ -97,14 +97,14 @@ export function useReferralUrl() {
     ? primaryInviteCodeCache.get(referralCacheKey)
     : undefined;
   const inviteCode = summaryInfo?.inviteCode || cachedPrimaryCode;
-  const defaultReferralUrl = `${webAppUrl}/perps`;
+  const defaultReferralUrl = `${webAppUrl}/${page}`;
 
   const referralQrCodeUrl = useMemo(() => {
     if (!inviteCode) {
       return defaultReferralUrl;
     }
-    return `${webAppUrl}/r/${inviteCode}/app/perps`;
-  }, [inviteCode, webAppUrl, defaultReferralUrl]);
+    return `${webAppUrl}/r/${inviteCode}/app/${page}`;
+  }, [inviteCode, webAppUrl, defaultReferralUrl, page]);
 
   const referralDisplayText = inviteCode || defaultReferralUrl;
 

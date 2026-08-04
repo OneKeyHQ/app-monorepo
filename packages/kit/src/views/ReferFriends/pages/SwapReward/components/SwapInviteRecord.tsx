@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -27,10 +28,16 @@ import type {
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { useSwapRecordDetails } from '../hooks/useSwapRecordDetails';
-import { buildSwapRecordKey, groupSwapRecords } from '../utils';
+import {
+  SWAP_INVITE_DESKTOP_COLUMN_WIDTHS,
+  SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS,
+  buildSwapRecordKey,
+  groupSwapRecords,
+} from '../utils';
 
 import { SwapRewardStatusBadge } from './SwapRewardStatusBadge';
 
+import type { ISwapInviteColumnWidths } from './useSwapTableColumns';
 import type { ISwapRecordQuery } from '../types';
 
 interface ISwapInviteRecordProps {
@@ -38,6 +45,9 @@ interface ISwapInviteRecordProps {
   query: ISwapRecordQuery;
   status: ISwapRecordsParams['status'];
   variant: 'desktop' | 'mobile';
+  columnWidths?: ISwapInviteColumnWidths;
+  isCompact?: boolean;
+  showFixedDivider?: boolean;
 }
 
 function formatDateTime(dateString: string | null): string {
@@ -45,6 +55,13 @@ function formatDateTime(dateString: string | null): string {
     return '-';
   }
   return formatDate(dateString, { hideSeconds: true });
+}
+
+function isZeroValue(value: string | null | undefined): boolean {
+  if (!value) {
+    return true;
+  }
+  return Number(value) === 0;
 }
 
 function FiatValue({
@@ -61,12 +78,33 @@ function FiatValue({
   );
 }
 
+function SummaryFiatValue({
+  isZeroData,
+  value,
+  color,
+}: {
+  isZeroData: boolean;
+  value: string;
+  color?: '$text' | '$textSuccess';
+}) {
+  if (isZeroData) {
+    return (
+      <SizableText size="$bodyMd" color="$textSubdued">
+        --
+      </SizableText>
+    );
+  }
+
+  return <FiatValue value={value} color={color} />;
+}
+
 function TokenAmount({ item }: { item: ISwapRecordItem }) {
   return (
     <XStack gap="$1" ai="baseline">
       <NumberSizeableText
         formatter="value"
-        size="$bodyMd"
+        size="$bodySm"
+        color="$textSubdued"
         formatterOptions={{ tokenSymbol: item.token.symbol }}
       >
         {item.amount || '0'}
@@ -124,49 +162,69 @@ function DesktopMonthlyRecords({ items }: { items: ISwapRecordItem[] }) {
 
   return (
     <YStack>
-      <XStack px="$5" py="$2.5" bg="$bgStrong" gap="$3">
-        <SizableText
-          flex={0.8}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
+      <XStack px="$4" py="$2.5" bg="$bgStrong">
+        <XStack
+          w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.period}
+          minWidth={0}
         >
-          {intl.formatMessage({ id: ETranslations.earn_period })}
-        </SizableText>
-        <SizableText
-          flex={1}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.earn_period })}
+          </SizableText>
+        </XStack>
+        <XStack
+          w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.volume}
+          minWidth={0}
         >
-          {intl.formatMessage({
-            id: ETranslations.referral_perps_volume,
-          })}
-        </SizableText>
-        <SizableText
-          flex={1}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({
+              id: ETranslations.referral_perps_volume,
+            })}
+          </SizableText>
+        </XStack>
+        <XStack
+          w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.rewards}
+          minWidth={0}
         >
-          {intl.formatMessage({ id: ETranslations.earn_rewards })}
-        </SizableText>
-        <SizableText
-          flex={0.9}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.earn_rewards })}
+          </SizableText>
+        </XStack>
+        <XStack
+          w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.status}
+          minWidth={0}
         >
-          {intl.formatMessage({ id: ETranslations.global_status })}
-        </SizableText>
-        <SizableText
-          flex={1.3}
-          size="$headingXs"
-          color="$textSubdued"
-          textTransform="uppercase"
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.global_status })}
+          </SizableText>
+        </XStack>
+        <XStack
+          w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.transactionHash}
+          minWidth={0}
         >
-          {intl.formatMessage({ id: ETranslations.global_transaction_id })}
-        </SizableText>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.global_transaction_id })}
+          </SizableText>
+        </XStack>
       </XStack>
       {groups.map((group) => (
         <YStack
@@ -177,30 +235,48 @@ function DesktopMonthlyRecords({ items }: { items: ISwapRecordItem[] }) {
           {group.items.map((record, index) => (
             <XStack
               key={buildSwapRecordKey(record, index)}
-              px="$5"
+              px="$4"
               py="$3"
-              gap="$3"
               ai="center"
               borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
               borderTopColor="$borderSubdued"
             >
-              <SizableText flex={0.8} size="$bodyMd">
-                {index === 0 ? group.period : ''}
-              </SizableText>
-              <XStack flex={1}>
+              <XStack
+                w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.period}
+                minWidth={0}
+              >
+                <SizableText size="$bodyMd">
+                  {index === 0 ? group.period : ''}
+                </SizableText>
+              </XStack>
+              <XStack
+                w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.volume}
+                minWidth={0}
+              >
                 <FiatValue value={record.tradingVolumeFiatValue} />
               </XStack>
-              <YStack flex={1} gap="$0.5">
-                <FiatValue
-                  value={record.amountFiatValue}
-                  color="$textSuccess"
-                />
-                <TokenAmount item={record} />
-              </YStack>
-              <XStack flex={0.9}>
+              <XStack
+                w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.rewards}
+                minWidth={0}
+              >
+                <YStack gap="$0.5">
+                  <FiatValue
+                    value={record.amountFiatValue}
+                    color="$textSuccess"
+                  />
+                  <TokenAmount item={record} />
+                </YStack>
+              </XStack>
+              <XStack
+                w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.status}
+                minWidth={0}
+              >
                 <SwapRewardStatusBadge intl={intl} status={record.status} />
               </XStack>
-              <XStack flex={1.3} minWidth={0}>
+              <XStack
+                w={SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS.transactionHash}
+                minWidth={0}
+              >
                 <TransactionLink item={record} />
               </XStack>
             </XStack>
@@ -216,18 +292,9 @@ function MobileMonthlyRecords({ items }: { items: ISwapRecordItem[] }) {
   const groups = groupSwapRecords(items);
 
   return (
-    <YStack gap="$3" px="$4" pb="$4">
+    <YStack gap="$4" px="$4" pb="$4">
       {groups.map((group) => (
-        <YStack
-          key={group.key}
-          p="$3"
-          gap="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          borderRadius="$2"
-          bg="$bgApp"
-        >
-          <SizableText size="$bodyMdMedium">{group.period}</SizableText>
+        <YStack key={group.key} gap="$3">
           {group.items.map((record, index) => (
             <YStack
               key={buildSwapRecordKey(record, index)}
@@ -236,11 +303,14 @@ function MobileMonthlyRecords({ items }: { items: ISwapRecordItem[] }) {
               borderTopWidth={index === 0 ? 0 : StyleSheet.hairlineWidth}
               borderTopColor="$borderSubdued"
             >
-              <XStack jc="flex-end" ai="center">
+              <XStack jc="space-between" ai="center" gap="$3">
+                <SizableText size="$bodyMdMedium" flex={1} minWidth={0}>
+                  {index === 0 ? group.period : ''}
+                </SizableText>
                 <SwapRewardStatusBadge intl={intl} status={record.status} />
               </XStack>
-              <XStack jc="space-between" gap="$3">
-                <YStack gap="$1">
+              <XStack gap="$4" ai="flex-start">
+                <YStack flex={1} minWidth={0} gap="$1">
                   <SizableText size="$bodySm" color="$textSubdued">
                     {intl.formatMessage({
                       id: ETranslations.referral_perps_volume,
@@ -248,7 +318,7 @@ function MobileMonthlyRecords({ items }: { items: ISwapRecordItem[] }) {
                   </SizableText>
                   <FiatValue value={record.tradingVolumeFiatValue} />
                 </YStack>
-                <YStack gap="$1" ai="flex-end">
+                <YStack flex={1} minWidth={0} gap="$1" ai="flex-end">
                   <SizableText size="$bodySm" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.earn_rewards })}
                   </SizableText>
@@ -334,13 +404,26 @@ function ExpandedRecords({
 }
 
 export function SwapInviteRecord({
+  columnWidths = SWAP_INVITE_DESKTOP_COLUMN_WIDTHS,
   item,
+  isCompact = false,
   query,
+  showFixedDivider = false,
   status,
   variant,
 }: ISwapInviteRecordProps) {
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(false);
+  const isZeroData =
+    isZeroValue(item.volumeFiatValue) &&
+    isZeroValue(item.feeFiatValue) &&
+    isZeroValue(item.rewardFiatValue);
+  const firstTradeTime =
+    isZeroData && !item.firstTradeTime
+      ? '--'
+      : formatDateTime(item.firstTradeTime);
+  const firstTradeTimeColor =
+    isZeroData && !item.firstTradeTime ? '$textSubdued' : '$text';
   const { hasError, isLoading, records, retry } = useSwapRecordDetails({
     enabled: isExpanded,
     inviteeId: item._id,
@@ -383,7 +466,11 @@ export function SwapInviteRecord({
             <SizableText size="$bodyLgMedium" flex={1}>
               {item.address}
             </SizableText>
-            <FiatValue value={item.rewardFiatValue} color="$textSuccess" />
+            <SummaryFiatValue
+              isZeroData={isZeroData}
+              value={item.rewardFiatValue}
+              color="$textSuccess"
+            />
           </XStack>
           <XStack jc="space-between" ai="center">
             <XStack gap="$3" ai="center" flex={1}>
@@ -393,33 +480,57 @@ export function SwapInviteRecord({
                     id: ETranslations.referral_perps_volume,
                   })}
                 </SizableText>
-                <FiatValue value={item.volumeFiatValue} />
+                <SummaryFiatValue
+                  isZeroData={isZeroData}
+                  value={item.volumeFiatValue}
+                />
               </XStack>
               <InviteCodeValue item={item} />
             </XStack>
             {chevron}
           </XStack>
           {isExpanded ? (
-            <XStack gap="$5">
-              <YStack flex={1} gap="$1">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_perps_invited_at,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd">
-                  {formatDateTime(item.invitationTime)}
-                </SizableText>
+            <XStack gap="$5" ai="flex-start">
+              <YStack flex={1} gap="$3">
+                <YStack gap="$1">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_perps_invited_at,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd">
+                    {formatDateTime(item.invitationTime)}
+                  </SizableText>
+                </YStack>
+                <YStack gap="$1">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_perps_first_trade,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color={firstTradeTimeColor}>
+                    {firstTradeTime}
+                  </SizableText>
+                </YStack>
               </YStack>
               <YStack flex={1} gap="$1">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_perps_first_trade,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd">
-                  {formatDateTime(item.firstTradeTime)}
-                </SizableText>
+                <XStack ai="center" gap="$1">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.referral_perps_onekey_fee,
+                    })}
+                  </SizableText>
+                  <InfoIcon
+                    size="$4"
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
+                    })}
+                  />
+                </XStack>
+                <SummaryFiatValue
+                  isZeroData={isZeroData}
+                  value={item.feeFiatValue}
+                />
               </YStack>
             </XStack>
           ) : null}
@@ -447,51 +558,91 @@ export function SwapInviteRecord({
   return (
     <YStack>
       <XStack
-        px="$5"
+        pl={isCompact ? 0 : '$5'}
+        pr="$5"
         py="$3"
-        gap="$3"
         ai="center"
         cursor="pointer"
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
+        bg="$bgApp"
         onPress={handleToggle}
       >
-        <SizableText flex={1.2} size="$bodyMd" numberOfLines={1}>
-          {item.address}
-        </SizableText>
-        <SizableText flex={1.1} size="$bodyMd">
-          {formatDateTime(item.invitationTime)}
-        </SizableText>
-        <YStack flex={0.9} gap="$0.5" ai="flex-start" minWidth={0}>
-          <InviteCodeValue item={item} />
-        </YStack>
-        <SizableText flex={1.1} size="$bodyMd">
-          {formatDateTime(item.firstTradeTime)}
-        </SizableText>
-        <XStack flex={1}>
-          <FiatValue value={item.volumeFiatValue} />
-        </XStack>
-        <XStack flex={1}>
-          <FiatValue value={item.feeFiatValue} />
-        </XStack>
-        <XStack flex={1} jc="flex-end">
-          <FiatValue value={item.rewardFiatValue} color="$textSuccess" />
-        </XStack>
-        <XStack w="$5" jc="flex-end">
+        <XStack
+          w={columnWidths.address}
+          gap="$2"
+          ai="center"
+          minWidth={0}
+          pl={isCompact ? '$5' : undefined}
+          borderRightWidth={
+            showFixedDivider ? StyleSheet.hairlineWidth : undefined
+          }
+          borderRightColor="$borderSubdued"
+          $platform-web={
+            isCompact
+              ? {
+                  position: 'sticky' as any,
+                  left: 0,
+                  zIndex: 2,
+                  backgroundColor: 'inherit',
+                }
+              : undefined
+          }
+        >
           {chevron}
+          <SizableText flex={1} size="$bodyMd" numberOfLines={1}>
+            {item.address}
+          </SizableText>
+        </XStack>
+        <XStack w={columnWidths.invitedAt} minWidth={0}>
+          <SizableText size="$bodyMd">
+            {formatDateTime(item.invitationTime)}
+          </SizableText>
+        </XStack>
+        <XStack w={columnWidths.referralCode} minWidth={0}>
+          <InviteCodeValue item={item} />
+        </XStack>
+        <XStack w={columnWidths.firstTrade} minWidth={0}>
+          <SizableText size="$bodyMd" color={firstTradeTimeColor}>
+            {firstTradeTime}
+          </SizableText>
+        </XStack>
+        <XStack w={columnWidths.volume} minWidth={0}>
+          <SummaryFiatValue
+            isZeroData={isZeroData}
+            value={item.volumeFiatValue}
+          />
+        </XStack>
+        <XStack w={columnWidths.fee} minWidth={0}>
+          <SummaryFiatValue isZeroData={isZeroData} value={item.feeFiatValue} />
+        </XStack>
+        <XStack w={columnWidths.rewards} minWidth={0} jc="flex-end">
+          <SummaryFiatValue
+            isZeroData={isZeroData}
+            value={item.rewardFiatValue}
+            color="$textSuccess"
+          />
         </XStack>
       </XStack>
       {isExpanded ? (
-        <YStack bg="$bgSubdued">
-          <ExpandedRecords
-            error={hasError}
-            isLoading={isLoading}
-            records={records}
-            retry={retry}
-            variant={variant}
-          />
+        <YStack bg="$bgSubdued" pl="$12" pr="$5" py="$3">
+          <YStack
+            bg="$bgApp"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            borderRadius="$2"
+            overflow="hidden"
+          >
+            <ExpandedRecords
+              error={hasError}
+              isLoading={isLoading}
+              records={records}
+              retry={retry}
+              variant={variant}
+            />
+          </YStack>
         </YStack>
       ) : null}
     </YStack>

@@ -29,6 +29,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => {
   const pushModal = jest.fn();
   return {
     __esModule: true,
+    __pushModal: pushModal,
     default: () => ({
       pushModal,
     }),
@@ -55,11 +56,13 @@ jest.mock(
 );
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
+  const getCurrentEvmAccountAddress = jest.fn();
   const getReferralCodeWalletInfo = jest.fn();
   const getWallet = jest.fn();
   return {
     __esModule: true,
     __backgroundMocks: {
+      getCurrentEvmAccountAddress,
       getReferralCodeWalletInfo,
       getWallet,
     },
@@ -68,6 +71,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
         getWallet,
       },
       serviceReferralCode: {
+        getCurrentEvmAccountAddress,
         getReferralCodeWalletInfo,
       },
     },
@@ -80,12 +84,14 @@ jest.mock('@onekeyhq/shared/src/config/networkIds', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: {
-    isNative: false,
-  },
-}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const platformEnv = { isNative: false };
+  return {
+    __esModule: true,
+    __platformEnv: platformEnv,
+    default: platformEnv,
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
@@ -104,18 +110,26 @@ import { useShowSwapInviteeReward } from './useShowSwapInviteeReward';
 function getMocks() {
   const dialogShow = jest.requireMock('@onekeyhq/components')
     .__dialogShow as jest.Mock;
+  const pushModal = jest.requireMock('@onekeyhq/kit/src/hooks/useAppNavigation')
+    .__pushModal as jest.Mock;
+  const platformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv')
+    .__platformEnv as { isNative: boolean };
   const { bindWalletInviteCode, getReferralCodeBondStatus } = jest.requireMock(
     '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode',
   ).__referralMocks;
-  const { getReferralCodeWalletInfo, getWallet } = jest.requireMock(
-    '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
-  ).__backgroundMocks;
+  const { getCurrentEvmAccountAddress, getReferralCodeWalletInfo, getWallet } =
+    jest.requireMock(
+      '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+    ).__backgroundMocks;
   return {
     bindWalletInviteCode: bindWalletInviteCode as jest.Mock,
     dialogShow,
+    getCurrentEvmAccountAddress: getCurrentEvmAccountAddress as jest.Mock,
     getReferralCodeBondStatus: getReferralCodeBondStatus as jest.Mock,
     getReferralCodeWalletInfo: getReferralCodeWalletInfo as jest.Mock,
     getWallet: getWallet as jest.Mock,
+    platformEnv,
+    pushModal,
   };
 }
 
@@ -123,10 +137,46 @@ describe('useShowSwapInviteeReward', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     const mocks = getMocks();
+    mocks.platformEnv.isNative = false;
+    mocks.getCurrentEvmAccountAddress.mockResolvedValue('0xCurrent');
     mocks.getWallet.mockResolvedValue({
       id: 'hd-1',
       name: 'Wallet 1',
     });
+  });
+
+  it('opens the Swap reward modal route on native', async () => {
+    const mocks = getMocks();
+    mocks.platformEnv.isNative = true;
+    mocks.getReferralCodeWalletInfo.mockResolvedValue({
+      address: '0xabc',
+      networkId: 'evm--1',
+    });
+    mocks.getReferralCodeBondStatus.mockResolvedValue(false);
+
+    const { result, unmount } = renderHook(() =>
+      useShowSwapInviteeReward({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        indexedAccountId: 'hd-1--0',
+      }),
+    );
+
+    act(() => {
+      result.current.showSwapInviteeReward();
+    });
+
+    await waitFor(() => {
+      expect(mocks.pushModal).toHaveBeenCalledWith('SwapModal', {
+        screen: 'SwapInviteeReward',
+        params: {
+          accountId: "hd-1--m/44'/60'/0'/0/0",
+          currentEvmAddress: '0xCurrent',
+          indexedAccountId: 'hd-1--0',
+        },
+      });
+    });
+    expect(mocks.dialogShow).not.toHaveBeenCalled();
+    unmount();
   });
 
   it('prompts an eligible unbound EVM wallet before opening rewards', async () => {
@@ -140,6 +190,7 @@ describe('useShowSwapInviteeReward', () => {
     const { result } = renderHook(() =>
       useShowSwapInviteeReward({
         accountId: "hd-1--m/44'/60'/0'/0/0",
+        indexedAccountId: 'hd-1--0',
       }),
     );
 
@@ -169,6 +220,13 @@ describe('useShowSwapInviteeReward', () => {
       bindParams.onClose();
     });
     expect(mocks.dialogShow).toHaveBeenCalledTimes(1);
+    expect(mocks.dialogShow.mock.calls[0][0].renderContent.props).toMatchObject(
+      {
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        currentEvmAddress: '0xCurrent',
+        indexedAccountId: 'hd-1--0',
+      },
+    );
   });
 
   it.each([
@@ -261,6 +319,36 @@ describe('useShowSwapInviteeReward', () => {
     expect(mocks.bindWalletInviteCode).not.toHaveBeenCalled();
   });
 
+  it('does not offer binding when the current account has no EVM address', async () => {
+    const mocks = getMocks();
+    mocks.getReferralCodeWalletInfo.mockResolvedValue({
+      address: '0xFirstEvm',
+      networkId: 'evm--1',
+    });
+    mocks.getCurrentEvmAccountAddress.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useShowSwapInviteeReward({
+        accountId: "hd-1--m/501'/7'/0'",
+        indexedAccountId: 'hd-1--7',
+      }),
+    );
+
+    act(() => {
+      result.current.showSwapInviteeReward();
+    });
+
+    await waitFor(() => {
+      expect(mocks.dialogShow).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.getCurrentEvmAccountAddress).toHaveBeenCalledWith({
+      accountId: "hd-1--m/501'/7'/0'",
+      indexedAccountId: 'hd-1--7',
+    });
+    expect(mocks.getReferralCodeBondStatus).not.toHaveBeenCalled();
+    expect(mocks.bindWalletInviteCode).not.toHaveBeenCalled();
+  });
+
   it('ignores a pending binding check after the active account changes', async () => {
     const mocks = getMocks();
     let resolveWalletInfo:
@@ -274,11 +362,17 @@ describe('useShowSwapInviteeReward', () => {
     );
 
     const { rerender, result } = renderHook(
-      ({ accountId }: { accountId: string }) =>
-        useShowSwapInviteeReward({ accountId }),
+      ({
+        accountId,
+        indexedAccountId,
+      }: {
+        accountId: string;
+        indexedAccountId: string;
+      }) => useShowSwapInviteeReward({ accountId, indexedAccountId }),
       {
         initialProps: {
           accountId: "hd-1--m/44'/60'/0'/0/0",
+          indexedAccountId: 'hd-1--0',
         },
       },
     );
@@ -287,7 +381,8 @@ describe('useShowSwapInviteeReward', () => {
       result.current.showSwapInviteeReward();
     });
     rerender({
-      accountId: "hd-2--m/44'/60'/0'/0/0",
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--1',
     });
     await act(async () => {
       resolveWalletInfo?.({

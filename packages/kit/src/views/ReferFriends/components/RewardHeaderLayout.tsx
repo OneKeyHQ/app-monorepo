@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 interface IRewardHeaderLayoutProps {
   primaryCard: ReactNode;
@@ -67,33 +67,39 @@ function ResponsiveColumnLayout({
   pb,
   px = '$5',
 }: IResponsiveColumnLayoutProps) {
+  const { lg } = useMedia();
+
+  if (lg) {
+    return (
+      <YStack width="100%" alignSelf="stretch" gap={gap} pb={pb} px={px}>
+        {columns.map((column, index) => (
+          <YStack
+            key={index}
+            width="100%"
+            alignSelf="stretch"
+            alignItems="stretch"
+          >
+            {column}
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
+
   return (
-    <Stack
-      gap={gap}
-      pb={pb}
-      px={px}
-      flexDirection="row"
-      alignItems="stretch"
-      $lg={{
-        flexDirection: 'column',
-      }}
-    >
+    <XStack gap={gap} pb={pb} px={px} alignItems="stretch">
       {columns.map((column, index) => (
-        <Stack
+        <XStack
           key={index}
           flexGrow={1}
           flexShrink={1}
           flexBasis={0}
-          $lg={{
-            flexGrow: 0,
-            flexShrink: 1,
-            flexBasis: 'auto',
-          }}
+          minWidth={0}
         >
           {column}
-        </Stack>
+        </XStack>
       ))}
-    </Stack>
+    </XStack>
   );
 }
 

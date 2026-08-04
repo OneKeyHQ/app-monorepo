@@ -92,9 +92,11 @@ export type ILoadSwapInviteeRewardResult =
 
 export async function loadSwapInviteeReward({
   accountId,
+  currentEvmAddress,
   dependencies,
 }: {
   accountId: string;
+  currentEvmAddress?: string;
   dependencies: ILoadSwapInviteeRewardDependencies;
 }): Promise<ILoadSwapInviteeRewardResult> {
   try {
@@ -109,8 +111,12 @@ export async function loadSwapInviteeReward({
       return { status: 'unsupported' };
     }
 
+    if (!currentEvmAddress) {
+      return { status: 'unsupported' };
+    }
+
     const data = await dependencies.getSwapInviteeRewards({
-      walletAddress: walletInfo.address,
+      walletAddress: currentEvmAddress,
     });
     return { status: 'success', data };
   } catch {

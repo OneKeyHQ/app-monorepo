@@ -18,7 +18,10 @@ export function useSwapInviteeRewardAction() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const accountId =
     activeAccount.account?.id ?? activeAccount.indexedAccount?.id;
-  const { showSwapInviteeReward } = useShowSwapInviteeReward({ accountId });
+  const { showSwapInviteeReward } = useShowSwapInviteeReward({
+    accountId,
+    indexedAccountId: activeAccount.indexedAccount?.id,
+  });
   const title = intl.formatMessage({
     id: ETranslations.referral_swap_reward,
   });

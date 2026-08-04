@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapInviteeRewardHistoryItem } from '@onekeyhq/shared/src/referralCode/type';
@@ -42,6 +43,7 @@ function RewardItemSkeleton() {
 
 function RewardItem({ item }: { item: ISwapInviteeRewardHistoryItem }) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const handleTxPress = useCallback(() => {
     void openTransactionDetailsUrl({
       networkId: item.token.networkId,
@@ -52,7 +54,7 @@ function RewardItem({ item }: { item: ISwapInviteeRewardHistoryItem }) {
   return (
     <YStack gap="$2">
       <SizableText size="$bodySmMedium" color="$textSubdued">
-        {item.date}
+        {formatDate(item.date, { hideTimeForever: true })}
       </SizableText>
       <XStack ai="center" jc="space-between" py="$1">
         <XStack ai="center" gap="$3" flex={1}>

@@ -21,6 +21,8 @@ import { loadSwapInviteeReward } from './utils';
 
 interface ISwapInviteeRewardContentProps {
   accountId?: string;
+  currentEvmAddress?: string;
+  indexedAccountId?: string;
   isMobile?: boolean;
 }
 
@@ -93,6 +95,8 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 export function SwapInviteeRewardContent({
   accountId,
+  currentEvmAddress,
+  indexedAccountId,
   isMobile,
 }: ISwapInviteeRewardContentProps) {
   const intl = useIntl();
@@ -104,6 +108,7 @@ export function SwapInviteeRewardContent({
 
       return loadSwapInviteeReward({
         accountId,
+        currentEvmAddress,
         dependencies: {
           ethNetworkId: getNetworkIdsMap().eth,
           getReferralCodeWalletInfo: (params) =>
@@ -117,7 +122,7 @@ export function SwapInviteeRewardContent({
         },
       });
     },
-    [accountId],
+    [accountId, currentEvmAddress],
     {
       watchLoading: true,
       undefinedResultIfReRun: true,
@@ -160,7 +165,7 @@ export function SwapInviteeRewardContent({
           })}
         </SizableText>
         <RewardHistoryList
-          key={accountId}
+          key={`${accountId ?? ''}:${indexedAccountId ?? ''}`}
           isLoading={showLoading}
           history={data?.history}
         />

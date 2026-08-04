@@ -2,13 +2,12 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 import {
   ResponsiveFourColumnLayout,
   SimpleTabs,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
@@ -28,6 +27,7 @@ export function InvitationDetailsSection({
   fetchSummaryInfo,
 }: IInvitationDetailsSectionProps) {
   const intl = useIntl();
+  const { lg } = useMedia();
   const [selectedTab, setSelectedTab] = useState<EInvitationDetailsTab>(
     EInvitationDetailsTab.REWARD,
   );
@@ -107,7 +107,7 @@ export function InvitationDetailsSection({
 
       {selectedTab === EInvitationDetailsTab.REWARD ? (
         <ResponsiveFourColumnLayout
-          gap={platformEnv.isDesktop ? '$4' : undefined}
+          gap={lg ? '$3' : '$4'}
           firstColumn={
             <HardwareSalesReward
               hardwareSales={HardwareSales}
@@ -117,8 +117,8 @@ export function InvitationDetailsSection({
           secondColumn={
             <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
           }
-          thirdColumn={<OnChainReward onChain={Onchain} />}
-          fourthColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
+          thirdColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
+          fourthColumn={<OnChainReward onChain={Onchain} />}
         />
       ) : (
         <YStack px="$pagePadding" gap="$4">

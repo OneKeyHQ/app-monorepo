@@ -33,7 +33,6 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -62,7 +61,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -80,7 +78,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapInviteeRewardActionButton } from '../../components/InviteeReward/SwapInviteeRewardActionButton';
+import {
+  SwapInviteeRewardActionButton,
+  useSwapInviteeRewardAction,
+} from '../../components/InviteeReward/SwapInviteeRewardActionButton';
 import { SwapInviteeRewardSettingsItem } from '../../components/InviteeReward/SwapInviteeRewardSettingsItem';
 import { getSwapInviteeRewardActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
@@ -297,11 +298,14 @@ const SwapSlippageCustomContent = ({
 };
 
 const SwapSettingsDialogContent = ({
+  inviteeRewardAction,
   marketPresetSettings,
-  showInviteeRewardEntry,
 }: {
+  inviteeRewardAction?: {
+    onShow: () => void;
+    title: string;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
-  showInviteeRewardEntry?: boolean;
 }) => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -506,21 +510,13 @@ const SwapSettingsDialogContent = ({
             />
           </>
         ) : null}
-        {showInviteeRewardEntry ? (
+        {inviteeRewardAction ? (
           <>
             <Divider />
-            {/* This dialog renders in the global overlay portal, outside the
-                swap page's providers, so the account-dependent item must bring
-                its own account-selector mirror. */}
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.swap,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-            >
-              <SwapInviteeRewardSettingsItem />
-            </AccountSelectorProviderMirror>
+            <SwapInviteeRewardSettingsItem
+              onShowSwapInviteeReward={inviteeRewardAction.onShow}
+              title={inviteeRewardAction.title}
+            />
           </>
         ) : null}
       </YStack>
@@ -661,7 +657,10 @@ type ISwapSettingsHeaderButtonProps = {
   iconColor?: ColorTokens;
   compact?: boolean;
   showCustomSlippageValue?: boolean;
-  showInviteeRewardEntry?: boolean;
+  inviteeRewardAction?: {
+    onShow: () => void;
+    title: string;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -671,7 +670,7 @@ export function SwapSettingsHeaderButton({
   iconColor,
   compact,
   showCustomSlippageValue,
-  showInviteeRewardEntry,
+  inviteeRewardAction,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -722,8 +721,8 @@ export function SwapSettingsHeaderButton({
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
+            inviteeRewardAction={inviteeRewardAction}
             marketPresetSettings={marketPresetSettings}
-            showInviteeRewardEntry={showInviteeRewardEntry}
           />
         </SwapProviderMirror>
       ),
@@ -734,7 +733,7 @@ export function SwapSettingsHeaderButton({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, showInviteeRewardEntry, swapStoreName]);
+  }, [intl, inviteeRewardAction, marketPresetSettings, swapStoreName]);
 
   if (slippageTitle) {
     return (
@@ -773,6 +772,26 @@ export function SwapSettingsHeaderButton({
       onPress={onOpenSwapSettings}
       iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
       size={resolvedButtonSize}
+    />
+  );
+}
+
+function SwapSettingsHeaderButtonWithInviteeRewardAction(
+  props: Omit<ISwapSettingsHeaderButtonProps, 'inviteeRewardAction'>,
+) {
+  const { showSwapInviteeReward, title } = useSwapInviteeRewardAction();
+  const inviteeRewardAction = useMemo(
+    () => ({
+      onShow: showSwapInviteeReward,
+      title,
+    }),
+    [showSwapInviteeReward, title],
+  );
+
+  return (
+    <SwapSettingsHeaderButton
+      {...props}
+      inviteeRewardAction={inviteeRewardAction}
     />
   );
 }
@@ -993,14 +1012,23 @@ const SwapHeaderRightActionContainer = ({
           />
         ) : null}
         {kLineButton}
-        <SwapSettingsHeaderButton
-          pageType={pageType}
-          iconSize={iconSize}
-          iconColor={iconColor}
-          compact={compact}
-          marketPresetSettings={marketPresetSettings}
-          showInviteeRewardEntry={showSwapInviteeRewardSettingsItem}
-        />
+        {showSwapInviteeRewardSettingsItem ? (
+          <SwapSettingsHeaderButtonWithInviteeRewardAction
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        ) : (
+          <SwapSettingsHeaderButton
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        )}
 
         {/* On mobile every tab has its own Order History list, so the global
             history button is hidden there; keep it on desktop / web / ext. */}

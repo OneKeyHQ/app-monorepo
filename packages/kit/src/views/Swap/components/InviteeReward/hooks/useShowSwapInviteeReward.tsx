@@ -28,8 +28,10 @@ const ETH_NETWORK_ID = getNetworkIdsMap().eth;
 
 export function useShowSwapInviteeReward({
   accountId,
+  indexedAccountId,
 }: {
   accountId?: string;
+  indexedAccountId?: string;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -67,46 +69,65 @@ export function useShowSwapInviteeReward({
     return () => {
       prepareRequestIdRef.current += 1;
     };
-  }, [accountId]);
+  }, [accountId, indexedAccountId]);
 
-  const openSwapInviteeReward = useCallback(() => {
-    isOpeningRef.current = true;
-    const showAsDialog = !platformEnv.isNative && gtMd;
+  const openSwapInviteeReward = useCallback(
+    (currentEvmAddress?: string) => {
+      isOpeningRef.current = true;
+      const showAsDialog = !platformEnv.isNative && gtMd;
 
-    if (showAsDialog) {
-      let dialog: ReturnType<typeof dialogInTab.show> | null = null;
-      dialog = dialogInTab.show({
-        title: intl.formatMessage({
-          id: ETranslations.referral_swap_reward,
-        }),
-        floatingPanelProps: {
-          width: 480,
-        },
-        renderContent: <SwapInviteeRewardContent accountId={accountId} />,
-        showFooter: false,
-        onClose: () => {
-          if (dialogRef.current === dialog) {
-            dialogRef.current = null;
-          }
+      if (showAsDialog) {
+        let dialog: ReturnType<typeof dialogInTab.show> | null = null;
+        dialog = dialogInTab.show({
+          title: intl.formatMessage({
+            id: ETranslations.referral_swap_reward,
+          }),
+          floatingPanelProps: {
+            width: 480,
+          },
+          renderContent: (
+            <SwapInviteeRewardContent
+              accountId={accountId}
+              currentEvmAddress={currentEvmAddress}
+              indexedAccountId={indexedAccountId}
+            />
+          ),
+          showFooter: false,
+          onClose: () => {
+            if (dialogRef.current === dialog) {
+              dialogRef.current = null;
+            }
+          },
+        });
+        dialogRef.current = dialog;
+        isOpeningRef.current = false;
+        return;
+      }
+
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapInviteeReward,
+        params: {
+          accountId,
+          currentEvmAddress,
+          indexedAccountId,
         },
       });
-      dialogRef.current = dialog;
-      isOpeningRef.current = false;
-      return;
-    }
-
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapInviteeReward,
-      params: {
-        accountId,
-      },
-    });
-    clearOpeningTimer();
-    openingTimerRef.current = setTimeout(() => {
-      isOpeningRef.current = false;
-      openingTimerRef.current = null;
-    }, MODAL_OPEN_LOCK_MS);
-  }, [accountId, clearOpeningTimer, dialogInTab, gtMd, intl, navigation]);
+      clearOpeningTimer();
+      openingTimerRef.current = setTimeout(() => {
+        isOpeningRef.current = false;
+        openingTimerRef.current = null;
+      }, MODAL_OPEN_LOCK_MS);
+    },
+    [
+      accountId,
+      clearOpeningTimer,
+      dialogInTab,
+      gtMd,
+      indexedAccountId,
+      intl,
+      navigation,
+    ],
+  );
 
   const showSwapInviteeReward = useCallback(() => {
     if (isOpeningRef.current || dialogRef.current) {
@@ -120,8 +141,24 @@ export function useShowSwapInviteeReward({
       prepareRequestIdRef.current === prepareRequestId;
 
     const prepareAndOpen = async () => {
+      let currentEvmAddress: string | undefined;
       if (accountId) {
         try {
+          currentEvmAddress =
+            await backgroundApiProxy.serviceReferralCode.getCurrentEvmAccountAddress(
+              {
+                accountId,
+                indexedAccountId,
+              },
+            );
+          if (!isCurrentRequest()) {
+            return;
+          }
+          if (!currentEvmAddress) {
+            openSwapInviteeReward();
+            return;
+          }
+
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId,
           });
@@ -164,7 +201,7 @@ export function useShowSwapInviteeReward({
                     return;
                   }
                   if (shouldOpenReward) {
-                    openSwapInviteeReward();
+                    openSwapInviteeReward(currentEvmAddress);
                   } else {
                     isOpeningRef.current = false;
                   }
@@ -184,7 +221,7 @@ export function useShowSwapInviteeReward({
       }
 
       if (isCurrentRequest()) {
-        openSwapInviteeReward();
+        openSwapInviteeReward(currentEvmAddress);
       }
     };
 
@@ -197,6 +234,7 @@ export function useShowSwapInviteeReward({
     accountId,
     bindWalletInviteCode,
     getReferralCodeBondStatus,
+    indexedAccountId,
     openSwapInviteeReward,
   ]);
 

@@ -4,6 +4,24 @@ import type {
   ISwapRecordsParams,
 } from '@onekeyhq/shared/src/referralCode/type';
 
+export const SWAP_INVITE_DESKTOP_COLUMN_WIDTHS = {
+  address: '14%',
+  invitedAt: '16%',
+  referralCode: '14%',
+  firstTrade: '18%',
+  volume: '14%',
+  fee: '14%',
+  rewards: '10%',
+} as const;
+
+export const SWAP_MONTHLY_RECORD_DESKTOP_COLUMN_WIDTHS = {
+  period: '16%',
+  volume: '18%',
+  rewards: '20%',
+  status: '18%',
+  transactionHash: '28%',
+} as const;
+
 export function getSwapRecordsStatusByTab(
   tab: 'undistributed' | 'total',
 ): ISwapRecordsParams['status'] {

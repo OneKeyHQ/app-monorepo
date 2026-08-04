@@ -1,10 +1,19 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Empty, YStack } from '@onekeyhq/components';
+import { Button, Empty, YStack, useClipboard } from '@onekeyhq/components';
+import { useReferralUrl } from '@onekeyhq/kit/src/views/Perp/components/PositionShare/useReferralUrl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function SwapEmptyData() {
   const intl = useIntl();
+  const { copyUrl } = useClipboard();
+  const { referralQrCodeUrl, isReady } = useReferralUrl('swap');
+
+  const handleCopyLink = useCallback(() => {
+    copyUrl(referralQrCodeUrl);
+  }, [copyUrl, referralQrCodeUrl]);
 
   return (
     <YStack ai="center">
@@ -18,6 +27,14 @@ export function SwapEmptyData() {
           id: ETranslations.referral_referred_empty_desc,
         })}
       />
+      <Button
+        testID="swap-reward-copy-link-btn"
+        variant="primary"
+        loading={!isReady}
+        onPress={handleCopyLink}
+      >
+        {intl.formatMessage({ id: ETranslations.browser_copy_link })}
+      </Button>
     </YStack>
   );
 }

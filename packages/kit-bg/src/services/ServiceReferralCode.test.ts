@@ -80,6 +80,7 @@ function createService() {
       },
     },
     serviceAccount: {
+      getNetworkAccount: jest.fn(async () => ({ address: '0xcurrent' })),
       getWallets: jest.fn(),
       getDevice: jest.fn(),
       getDBAccountSafe: jest.fn(
@@ -88,10 +89,9 @@ function createService() {
           indexedAccountId: 'hd-1--7',
         }),
       ),
-      getDbAccountIdFromIndexedAccountId: jest.fn(
-        async () => "hd-1--m/44'/60'/0'/0/7",
-      ),
-      getAccount: jest.fn(async () => ({ address: '0xcurrent' })),
+    },
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
     },
     serviceHardware: {},
   };
@@ -283,6 +283,79 @@ describe('ServiceReferralCode Swap rebate API', () => {
     ).rejects.toBe(error);
 
     expect(error.autoToast).toBe(false);
+  });
+
+  test('resolves the current logical account EVM address from its indexed account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork.mockResolvedValue(
+      'ledgerLive',
+    );
+    backgroundApi.serviceAccount.getNetworkAccount.mockResolvedValue({
+      address: '0xCurrent',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: "hd-1--m/501'/7'/0'",
+        indexedAccountId: 'hd-1--7',
+      }),
+    ).resolves.toBe('0xCurrent');
+
+    expect(
+      backgroundApi.serviceAccount.getDBAccountSafe,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork,
+    ).toHaveBeenCalledWith({ networkId: 'evm--1' });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--7',
+        deriveType: 'ledgerLive',
+        networkId: 'evm--1',
+      },
+    );
+  });
+
+  test('falls back to the DB account identity when no indexed account is provided', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      indexedAccountId: 'hd-1--8',
+    });
+    backgroundApi.serviceAccount.getNetworkAccount.mockResolvedValue({
+      address: '0xFallback',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: "hd-1--m/44'/60'/0'/0/8",
+      }),
+    ).resolves.toBe('0xFallback');
+
+    expect(backgroundApi.serviceAccount.getDBAccountSafe).toHaveBeenCalledWith({
+      accountId: "hd-1--m/44'/60'/0'/0/8",
+    });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--8',
+        deriveType: 'default',
+        networkId: 'evm--1',
+      },
+    );
+  });
+
+  test('returns undefined when the current logical account has no EVM account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getNetworkAccount.mockRejectedValue(
+      new Error('EVM account unavailable'),
+    );
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        indexedAccountId: 'hd-1--9',
+      }),
+    ).resolves.toBeUndefined();
   });
 
   test('exports Swap without transforming CSV or dropping an epoch range', async () => {
@@ -770,16 +843,16 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
       accountId: "hd-1--m/86'/0'/7'",
     });
     expect(
-      backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId,
-    ).toHaveBeenCalledWith({
-      indexedAccountId: 'hd-1--7',
-      networkId: 'evm--1',
-      deriveType: 'default',
-    });
-    expect(backgroundApi.serviceAccount.getAccount).toHaveBeenCalledWith({
-      accountId: "hd-1--m/44'/60'/0'/0/7",
-      networkId: 'evm--1',
-    });
+      backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork,
+    ).toHaveBeenCalledWith({ networkId: 'evm--1' });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--7',
+        deriveType: 'default',
+        networkId: 'evm--1',
+      },
+    );
   });
 
   test('passes the Swap request budget to the authoritative bind check', async () => {

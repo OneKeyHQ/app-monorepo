@@ -1,38 +1,39 @@
 import { useCallback } from 'react';
 
-import {
-  Icon,
-  SizableText,
-  XStack,
-  useDialogInstance,
-} from '@onekeyhq/components';
+import { useDialogInstance } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { SwapTestIDs } from '../../testIDs';
 
-import { useSwapInviteeRewardAction } from './SwapInviteeRewardActionButton';
-
-export function SwapInviteeRewardSettingsItem() {
+export function SwapInviteeRewardSettingsItem({
+  onShowSwapInviteeReward,
+  title,
+}: {
+  onShowSwapInviteeReward: () => void;
+  title: string;
+}) {
   const dialog = useDialogInstance();
-  const { showSwapInviteeReward, title } = useSwapInviteeRewardAction();
   const handlePress = useCallback(async () => {
     await dialog.close();
-    showSwapInviteeReward();
-  }, [dialog, showSwapInviteeReward]);
+    onShowSwapInviteeReward();
+  }, [dialog, onShowSwapInviteeReward]);
 
   return (
-    <XStack
+    <ListItem
       testID={SwapTestIDs.inviteeRewardSettingsItem}
+      bg="transparent"
+      hoverStyle={{ bg: 'transparent' }}
+      pressStyle={{ bg: 'transparent' }}
+      mx="$0"
+      px="$0"
+      py="$0"
       minHeight="$9"
-      alignItems="center"
-      justifyContent="space-between"
+      title={title}
+      titleProps={{ size: '$bodyLgMedium' }}
+      drillIn
       onPress={handlePress}
+      nativePressableStyle={{ flexShrink: 0 }}
       cursor="default"
-    >
-      <XStack alignItems="center" gap="$3">
-        <Icon name="GiftOutline" size="$5" color="$iconSubdued" />
-        <SizableText size="$bodyMdMedium">{title}</SizableText>
-      </XStack>
-      <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
-    </XStack>
+    />
   );
 }
