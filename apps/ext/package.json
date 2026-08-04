@@ -25,7 +25,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
-    "adm-zip": "0.5.17",
+    "adm-zip": "0.6.0",
     "rimraf": "3.0.2"
   }
 }
