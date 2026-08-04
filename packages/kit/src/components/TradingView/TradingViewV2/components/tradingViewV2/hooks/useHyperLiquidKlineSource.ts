@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNetInfo } from '@onekeyhq/components';
 import {
   fetchMarketBasicConfigForPlatform,
+  getCachedMarketBasicConfigForPlatform,
   getLastMarketBasicConfigForPlatform,
   subscribeMarketBasicConfigForPlatform,
 } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
@@ -19,7 +20,17 @@ export function useHyperLiquidKlineSource(
   tokenAddress: string,
 ): IHyperLiquidKlineSourceResult {
   const identityKey = `${networkId}:${tokenAddress}`;
+  const freshBasicConfig = getCachedMarketBasicConfigForPlatform();
   const immediateResult = useMemo(() => {
+    if (freshBasicConfig) {
+      return resolveHyperLiquidKlineSource({
+        basicConfig: freshBasicConfig.data,
+        isLoading: false,
+        networkId,
+        tokenAddress,
+      });
+    }
+
     const preparedResult = getPreparedHyperLiquidKlineSource({
       networkId,
       tokenAddress,
@@ -37,8 +48,9 @@ export function useHyperLiquidKlineSource(
           tokenAddress,
         })
       : undefined;
-  }, [networkId, tokenAddress]);
-  const shouldLoadConfig = immediateResult === undefined;
+  }, [freshBasicConfig, networkId, tokenAddress]);
+  const shouldLoadConfig = freshBasicConfig === undefined;
+  const hasImmediateResult = immediateResult !== undefined;
   const { isRawInternetReachable } = useNetInfo(shouldLoadConfig);
   const [asyncResult, setAsyncResult] = useState<{
     identityKey: string;
@@ -81,7 +93,11 @@ export function useHyperLiquidKlineSource(
     if (shouldLoadConfig && isRawInternetReachable !== false) {
       void fetchMarketBasicConfigForPlatform().then(
         (response) => applyConfig(response.data),
-        () => applyConfig(undefined),
+        () => {
+          if (!hasImmediateResult) {
+            applyConfig(undefined);
+          }
+        },
       );
     }
 
@@ -91,6 +107,7 @@ export function useHyperLiquidKlineSource(
     };
   }, [
     identityKey,
+    hasImmediateResult,
     isRawInternetReachable,
     networkId,
     shouldLoadConfig,

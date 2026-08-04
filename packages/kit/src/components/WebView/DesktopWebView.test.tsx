@@ -193,7 +193,7 @@ describe('DesktopWebView', () => {
     const webview = await screen.findByTestId('desktop-webview');
     const event = Object.assign(new Event('did-start-navigation'), {
       isMainFrame: true,
-      isSameDocument: true,
+      isInPlace: true,
       url: 'https://app.uniswap.org/#settings',
     });
 

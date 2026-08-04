@@ -20,6 +20,9 @@ const mockFetchMarketBasicConfigForPlatform: jest.MockedFunction<
 const mockGetLastMarketBasicConfigForPlatform = jest.fn(
   (): IMarketBasicConfigResponse | undefined => undefined,
 );
+const mockGetCachedMarketBasicConfigForPlatform = jest.fn(
+  (): IMarketBasicConfigResponse | undefined => undefined,
+);
 let mockConfigListener:
   | ((response: IMarketBasicConfigResponse) => void)
   | undefined;
@@ -39,6 +42,8 @@ jest.mock(
   () => ({
     fetchMarketBasicConfigForPlatform: () =>
       mockFetchMarketBasicConfigForPlatform(),
+    getCachedMarketBasicConfigForPlatform: () =>
+      mockGetCachedMarketBasicConfigForPlatform(),
     getLastMarketBasicConfigForPlatform: () =>
       mockGetLastMarketBasicConfigForPlatform(),
     subscribeMarketBasicConfigForPlatform: (
@@ -63,6 +68,8 @@ describe('useHyperLiquidKlineSource', () => {
     mockFetchMarketBasicConfigForPlatform.mockReset();
     mockGetLastMarketBasicConfigForPlatform.mockReset();
     mockGetLastMarketBasicConfigForPlatform.mockReturnValue(undefined);
+    mockGetCachedMarketBasicConfigForPlatform.mockReset();
+    mockGetCachedMarketBasicConfigForPlatform.mockReturnValue(undefined);
     mockSubscribeMarketBasicConfigForPlatform.mockClear();
     mockConfigListener = undefined;
   });
@@ -109,11 +116,22 @@ describe('useHyperLiquidKlineSource', () => {
     });
   });
 
-  it('replaces an immediate stale result when refreshed config arrives', () => {
+  it('revalidates an expired immediate result and applies the response', async () => {
     const networkId = 'evm--42161';
     const tokenAddress = '0x1234';
     mockGetLastMarketBasicConfigForPlatform.mockReturnValue(
       buildConfigResponse({} as IMarketBasicConfigData),
+    );
+    mockFetchMarketBasicConfigForPlatform.mockResolvedValueOnce(
+      buildConfigResponse({
+        HyperLiquidKlineSourceTokens: [
+          {
+            networkId,
+            tokenAddress,
+            symbol: 'PURR',
+          },
+        ],
+      } as IMarketBasicConfigData),
     );
 
     const { result } = renderHook(() =>
@@ -125,22 +143,12 @@ describe('useHyperLiquidKlineSource', () => {
       symbol: undefined,
       isLoading: false,
     });
-    expect(mockUseNetInfo).toHaveBeenCalledWith(false);
-    expect(mockFetchMarketBasicConfigForPlatform).not.toHaveBeenCalled();
+    expect(mockUseNetInfo).toHaveBeenCalledWith(true);
+    expect(mockFetchMarketBasicConfigForPlatform).toHaveBeenCalledTimes(1);
     expect(mockSubscribeMarketBasicConfigForPlatform).toHaveBeenCalledTimes(1);
 
-    act(() => {
-      mockConfigListener?.(
-        buildConfigResponse({
-          HyperLiquidKlineSourceTokens: [
-            {
-              networkId,
-              tokenAddress,
-              symbol: 'PURR',
-            },
-          ],
-        } as IMarketBasicConfigData),
-      );
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(result.current).toEqual({
@@ -148,5 +156,33 @@ describe('useHyperLiquidKlineSource', () => {
       symbol: 'PURR',
       isLoading: false,
     });
+  });
+
+  it('uses a fresh cached response without fetching again', () => {
+    const networkId = 'evm--42161';
+    const tokenAddress = '0x1234';
+    mockGetCachedMarketBasicConfigForPlatform.mockReturnValue(
+      buildConfigResponse({
+        HyperLiquidKlineSourceTokens: [
+          {
+            networkId,
+            tokenAddress,
+            symbol: 'PURR',
+          },
+        ],
+      } as IMarketBasicConfigData),
+    );
+
+    const { result } = renderHook(() =>
+      useHyperLiquidKlineSource(networkId, tokenAddress),
+    );
+
+    expect(result.current).toEqual({
+      isHyperLiquidSource: true,
+      symbol: 'PURR',
+      isLoading: false,
+    });
+    expect(mockUseNetInfo).toHaveBeenCalledWith(false);
+    expect(mockFetchMarketBasicConfigForPlatform).not.toHaveBeenCalled();
   });
 });
