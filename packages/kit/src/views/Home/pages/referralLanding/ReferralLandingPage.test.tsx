@@ -18,6 +18,7 @@ const mockNavigation = {
   reset: jest.fn(),
 };
 type IReferralWebLandingMockProps = {
+  variant: 'perps' | 'defi' | 'swap';
   onDownload: () => void;
   onScrollToBind: () => void;
   onCopyCode: () => void;
@@ -262,6 +263,24 @@ describe('ReferralLandingPage', () => {
     expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledTimes(1);
   });
 
+  it('renders the Swap referral variant for the Swap web landing route', async () => {
+    mockedPlatformEnv.isWeb = true;
+    mockRouteParams = {
+      code: 'LI2ZUE',
+      page: 'swap',
+    };
+
+    render(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockReferralWebLandingProps?.variant).toBe('swap');
+    expect(mockedReferralLogger.referralPageOpen).toHaveBeenCalledWith({
+      referralCode: 'LI2ZUE',
+      landingPage: '/app/swap',
+      pageVariant: 'swap',
+    });
+  });
+
   it('deduplicates repeated web enter events with the same source', () => {
     mockedPlatformEnv.isWeb = true;
     mockIsOneKeyInstalled = true;
@@ -330,6 +349,20 @@ describe('ReferralLandingPage', () => {
     expect(
       mockedOpenReferralInvitedByFriendModalWithGuard,
     ).not.toHaveBeenCalled();
+  });
+
+  it('routes a native Swap referral landing to the Swap tab', async () => {
+    mockRouteParams = {
+      code: 'R7EKUT',
+      page: 'swap',
+      fromDeepLink: true,
+      referralRequestId: createReferralLandingRequestId(),
+    };
+
+    render(<ReferralLandingPage />);
+    await flushAsyncTasks();
+
+    expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Swap);
   });
 
   it('reprocesses when a reused route receives a newer referral request id', async () => {
