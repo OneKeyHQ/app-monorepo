@@ -66,6 +66,7 @@ export function getNativeMarketTradingViewHostSnapshot() {
 }
 
 export function requestNativeMarketTradingViewWarmup() {
+  releaseRequested = false;
   if (snapshot.mountRequested) {
     return;
   }
@@ -73,7 +74,6 @@ export function requestNativeMarketTradingViewWarmup() {
     ...snapshot,
     mountRequested: true,
   };
-  releaseRequested = false;
   emitChange();
 }
 
@@ -133,19 +133,24 @@ export function deactivateNativeMarketTradingViewSession(id: number) {
   if (snapshot.activeSession?.id !== id) {
     return;
   }
-  const shouldRelease = releaseRequested;
+  snapshot = {
+    activeSession: undefined,
+    lastProps: removeSessionCallbacks(snapshot.activeSession.props),
+    mountRequested: true,
+  };
+  emitChange();
+}
+
+export function finalizeNativeMarketTradingViewHostReleaseIfRequested() {
+  if (!releaseRequested || snapshot.activeSession) {
+    return;
+  }
   releaseRequested = false;
-  snapshot = shouldRelease
-    ? {
-        activeSession: undefined,
-        lastProps: undefined,
-        mountRequested: false,
-      }
-    : {
-        activeSession: undefined,
-        lastProps: removeSessionCallbacks(snapshot.activeSession.props),
-        mountRequested: true,
-      };
+  snapshot = {
+    activeSession: undefined,
+    lastProps: undefined,
+    mountRequested: false,
+  };
   emitChange();
 }
 

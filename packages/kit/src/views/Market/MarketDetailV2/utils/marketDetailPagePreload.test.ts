@@ -1,5 +1,11 @@
 import { prefetchTradingViewV2FirstScreenData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2';
 
+import {
+  fetchMarketBasicConfigForPlatform,
+  getCachedMarketBasicConfigForPlatform,
+  getLastMarketBasicConfigForPlatform,
+} from '../../hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
+
 import { prefetchMarketDetailV2FirstScreenKLineData } from './marketDetailPagePreload';
 import {
   hydrateMarketTradingViewPreferences,
@@ -55,10 +61,26 @@ const mockPrefetchTradingViewV2FirstScreenData =
   prefetchTradingViewV2FirstScreenData as jest.MockedFunction<
     typeof prefetchTradingViewV2FirstScreenData
   >;
+const mockFetchMarketBasicConfigForPlatform =
+  fetchMarketBasicConfigForPlatform as jest.MockedFunction<
+    typeof fetchMarketBasicConfigForPlatform
+  >;
+const mockGetCachedMarketBasicConfigForPlatform =
+  getCachedMarketBasicConfigForPlatform as jest.MockedFunction<
+    typeof getCachedMarketBasicConfigForPlatform
+  >;
+const mockGetLastMarketBasicConfigForPlatform =
+  getLastMarketBasicConfigForPlatform as jest.MockedFunction<
+    typeof getLastMarketBasicConfigForPlatform
+  >;
 
 describe('prefetchMarketDetailV2FirstScreenKLineData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCachedMarketBasicConfigForPlatform.mockReturnValue({
+      data: {},
+    } as ReturnType<typeof getCachedMarketBasicConfigForPlatform>);
+    mockGetLastMarketBasicConfigForPlatform.mockReturnValue(undefined);
   });
 
   it('waits for the already-started preference hydration before capturing a session', async () => {
@@ -91,5 +113,24 @@ describe('prefetchMarketDetailV2FirstScreenKLineData', () => {
         interval: '4H',
       }),
     );
+  });
+
+  it('skips K-line prefetch when the provider cannot be resolved', async () => {
+    mockGetCachedMarketBasicConfigForPlatform.mockReturnValue(undefined);
+    mockGetLastMarketBasicConfigForPlatform.mockReturnValue(undefined);
+    mockFetchMarketBasicConfigForPlatform.mockRejectedValueOnce(
+      new Error('config unavailable'),
+    );
+    mockHydrateMarketTradingViewPreferences.mockResolvedValueOnce();
+
+    await expect(
+      prefetchMarketDetailV2FirstScreenKLineData({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockStartMarketTradingViewSessionPreference).not.toHaveBeenCalled();
+    expect(mockPrefetchTradingViewV2FirstScreenData).not.toHaveBeenCalled();
   });
 });

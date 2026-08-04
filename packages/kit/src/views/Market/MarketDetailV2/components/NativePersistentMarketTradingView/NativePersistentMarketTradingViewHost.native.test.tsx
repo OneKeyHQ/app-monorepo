@@ -20,18 +20,35 @@ const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockChartProps = jest.fn();
 const mockEventListeners = new Map<string, () => void>();
+let mockHostWindowFrame = { x: 200, y: 0, width: 512, height: 844 };
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const MockAnimatedView = React.forwardRef<
-    { measureInWindow: (callback: (x: number, y: number) => void) => void },
+    {
+      measureInWindow: (
+        callback: (x: number, y: number, width: number, height: number) => void,
+      ) => void;
+    },
     PropsWithChildren<{ onLayout?: () => void }>
   >(({ children, onLayout }, ref) => {
     React.useImperativeHandle(
       ref,
       () => ({
-        measureInWindow: (callback: (x: number, y: number) => void) =>
-          callback(0, 0),
+        measureInWindow: (
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+          ) => void,
+        ) =>
+          callback(
+            mockHostWindowFrame.x,
+            mockHostWindowFrame.y,
+            mockHostWindowFrame.width,
+            mockHostWindowFrame.height,
+          ),
       }),
       [],
     );
@@ -46,7 +63,7 @@ jest.mock('react-native', () => {
       View: MockAnimatedView,
     },
     Dimensions: {
-      get: () => ({ height: 844, width: 390 }),
+      get: () => ({ height: 844, width: 1024 }),
     },
     StyleSheet: {
       create: (styles: unknown) => styles,
@@ -161,6 +178,7 @@ describe('NativePersistentMarketTradingViewHost', () => {
     mockChartUnmount.mockClear();
     mockChartProps.mockClear();
     mockEventListeners.clear();
+    mockHostWindowFrame = { x: 200, y: 0, width: 512, height: 844 };
   });
 
   afterEach(() => {
@@ -241,7 +259,7 @@ describe('NativePersistentMarketTradingViewHost', () => {
     expect(mockChartMount).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the native stack progress for the chart slide transition', async () => {
+  it('uses the measured host width for the chart slide transition', async () => {
     const interpolate = jest.fn(() => 0);
     render(<NativePersistentMarketTradingViewHost />);
     await act(async () => {
@@ -274,7 +292,7 @@ describe('NativePersistentMarketTradingViewHost', () => {
 
     expect(interpolate).toHaveBeenCalledWith({
       inputRange: [0, 1],
-      outputRange: [390, 0],
+      outputRange: [512, 0],
       extrapolate: 'clamp',
     });
   });

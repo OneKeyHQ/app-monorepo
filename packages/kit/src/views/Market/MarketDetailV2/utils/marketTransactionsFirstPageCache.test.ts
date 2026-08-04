@@ -103,9 +103,15 @@ describe('marketTransactionsFirstPageCache', () => {
       cursor: 'fresh-page',
     };
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
-    mockFetchMarketTokenTransactions
-      .mockResolvedValueOnce(staleResponse)
-      .mockResolvedValueOnce(freshResponse);
+    let resolveFreshResponse:
+      | ((response: IMarketTokenTransactionsResponse) => void)
+      | undefined;
+    mockFetchMarketTokenTransactions.mockResolvedValueOnce(staleResponse);
+    mockFetchMarketTokenTransactions.mockReturnValueOnce(
+      new Promise<IMarketTokenTransactionsResponse>((resolve) => {
+        resolveFreshResponse = resolve;
+      }),
+    );
 
     await prefetchMarketTransactionsFirstPageWithCache(tokenIdentity);
     nowSpy.mockReturnValue(7000);
@@ -113,9 +119,17 @@ describe('marketTransactionsFirstPageCache', () => {
     expect(getCachedMarketTransactionsFirstPage(tokenIdentity)).toEqual(
       staleResponse,
     );
-    await expect(
-      fetchMarketTransactionsFirstPageWithCache(tokenIdentity),
-    ).resolves.toEqual(freshResponse);
+    const refreshRequest =
+      fetchMarketTransactionsFirstPageWithCache(tokenIdentity);
+    expect(getCachedMarketTransactionsFirstPage(tokenIdentity)).toEqual(
+      staleResponse,
+    );
+
+    resolveFreshResponse?.(freshResponse);
+    await expect(refreshRequest).resolves.toEqual(freshResponse);
+    expect(getCachedMarketTransactionsFirstPage(tokenIdentity)).toEqual(
+      freshResponse,
+    );
     expect(mockFetchMarketTokenTransactions).toHaveBeenCalledTimes(2);
   });
 

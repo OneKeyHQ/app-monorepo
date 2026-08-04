@@ -95,9 +95,10 @@ export function NativePersistentMarketTradingViewHost() {
   );
   const [isWarmupCompact, setIsWarmupCompact] = useState(false);
   const [arePreferencesHydrated, setArePreferencesHydrated] = useState(false);
-  const [hostWindowOrigin, setHostWindowOrigin] = useState<{
+  const [hostWindowFrame, setHostWindowFrame] = useState<{
     x: number;
     y: number;
+    width: number;
   }>();
   const hostRef = useRef<View>(null);
   const lastVisibleSessionIdRef = useRef<number | undefined>(undefined);
@@ -107,7 +108,7 @@ export function NativePersistentMarketTradingViewHost() {
   const scrollY = activeSession?.scrollY ?? inactiveScrollY;
   const frame = activeSession?.frame;
   const isSessionActive = Boolean(activeSession);
-  const isActive = Boolean(activeSession && frame && hostWindowOrigin);
+  const isActive = Boolean(activeSession && frame && hostWindowFrame);
   const activeSessionId = activeSession?.id;
   const transitionProgress = activeSession?.transitionProgress;
   const activeChartIdentity = activeSession
@@ -116,18 +117,25 @@ export function NativePersistentMarketTradingViewHost() {
       }`
     : undefined;
   const windowSize = Dimensions.get('window');
-  const measureHostWindowOrigin = useCallback(() => {
-    hostRef.current?.measureInWindow((x, y) => {
-      setHostWindowOrigin((currentOrigin) => {
-        if (currentOrigin?.x === x && currentOrigin.y === y) {
-          return currentOrigin;
+  const measureHostWindowFrame = useCallback(() => {
+    hostRef.current?.measureInWindow((x, y, width) => {
+      if (width <= 0) {
+        return;
+      }
+      setHostWindowFrame((currentFrame) => {
+        if (
+          currentFrame?.x === x &&
+          currentFrame.y === y &&
+          currentFrame.width === width
+        ) {
+          return currentFrame;
         }
-        return { x, y };
+        return { x, y, width };
       });
     });
   }, []);
   const navigationTransitionStyle = useMemo(() => {
-    if (!isActive || !transitionProgress) {
+    if (!isActive || !transitionProgress || !hostWindowFrame) {
       return undefined;
     }
     return {
@@ -135,13 +143,13 @@ export function NativePersistentMarketTradingViewHost() {
         {
           translateX: transitionProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: [windowSize.width, 0],
+            outputRange: [hostWindowFrame.width, 0],
             extrapolate: 'clamp',
           }),
         },
       ],
     };
-  }, [isActive, transitionProgress, windowSize.width]);
+  }, [hostWindowFrame, isActive, transitionProgress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,7 +235,7 @@ export function NativePersistentMarketTradingViewHost() {
   }, []);
 
   const outerAnimatedStyle = useAnimatedStyle(() => {
-    if (!isActive || !frame || !hostWindowOrigin) {
+    if (!isActive || !frame || !hostWindowFrame) {
       return {
         left: isWarmupCompact ? -2 : -windowSize.width - 2,
         top: 0,
@@ -237,14 +245,14 @@ export function NativePersistentMarketTradingViewHost() {
       };
     }
 
-    const rawTop = frame.anchorY - hostWindowOrigin.y - scrollY.value;
+    const rawTop = frame.anchorY - hostWindowFrame.y - scrollY.value;
     const clippedTop = Math.max(rawTop, frame.clipTop);
     const clippedHeight = Math.max(
       0,
       frame.height - Math.max(0, clippedTop - rawTop),
     );
     return {
-      left: frame.anchorX - hostWindowOrigin.x,
+      left: frame.anchorX - hostWindowFrame.x,
       top: clippedTop,
       width: frame.width,
       height: clippedHeight,
@@ -252,7 +260,7 @@ export function NativePersistentMarketTradingViewHost() {
     };
   }, [
     frame,
-    hostWindowOrigin,
+    hostWindowFrame,
     isActive,
     isWarmupCompact,
     windowSize.height,
@@ -260,7 +268,7 @@ export function NativePersistentMarketTradingViewHost() {
   ]);
 
   const innerAnimatedStyle = useAnimatedStyle(() => {
-    if (!isActive || !frame || !hostWindowOrigin) {
+    if (!isActive || !frame || !hostWindowFrame) {
       return {
         top: 0,
         width: isWarmupCompact ? 1 : windowSize.width,
@@ -268,7 +276,7 @@ export function NativePersistentMarketTradingViewHost() {
       };
     }
 
-    const rawTop = frame.anchorY - hostWindowOrigin.y - scrollY.value;
+    const rawTop = frame.anchorY - hostWindowFrame.y - scrollY.value;
     const clippedTop = Math.max(rawTop, frame.clipTop);
     return {
       top: rawTop - clippedTop,
@@ -277,7 +285,7 @@ export function NativePersistentMarketTradingViewHost() {
     };
   }, [
     frame,
-    hostWindowOrigin,
+    hostWindowFrame,
     isActive,
     isWarmupCompact,
     windowSize.height,
@@ -308,7 +316,7 @@ export function NativePersistentMarketTradingViewHost() {
           ref={hostRef}
           pointerEvents="box-none"
           style={[styles.transitionLayer, navigationTransitionStyle]}
-          onLayout={measureHostWindowOrigin}
+          onLayout={measureHostWindowFrame}
         >
           <Animated.View
             pointerEvents={isActive ? 'auto' : 'none'}

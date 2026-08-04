@@ -90,6 +90,44 @@ function limitMarketTransactionsFirstPageSuccessCache() {
   }
 }
 
+function trackMarketTransactionsFirstPageRequest({
+  entry,
+  key,
+  request,
+}: {
+  entry: IMarketTransactionsFirstPageRequestEntry;
+  key: string;
+  request: Promise<IMarketTokenTransactionsResponse>;
+}) {
+  void request.then(
+    (result) => {
+      if (
+        marketTransactionsFirstPageRequestEntries.get(key) === entry &&
+        entry.request === request
+      ) {
+        entry.result = result;
+        entry.expiresAt =
+          Date.now() + MARKET_TRANSACTIONS_FIRST_PAGE_CACHE_TTL_MS;
+        pruneMarketTransactionsFirstPageRequestEntries();
+        limitMarketTransactionsFirstPageSuccessCache();
+      }
+    },
+    () => {
+      if (
+        marketTransactionsFirstPageRequestEntries.get(key) === entry &&
+        entry.request === request
+      ) {
+        if (entry.result) {
+          entry.expiresAt =
+            Date.now() + MARKET_TRANSACTIONS_FIRST_PAGE_CACHE_TTL_MS;
+        } else {
+          marketTransactionsFirstPageRequestEntries.delete(key);
+        }
+      }
+    },
+  );
+}
+
 export function getCachedMarketTransactionsFirstPage({
   tokenAddress,
   networkId,
@@ -118,14 +156,27 @@ function requestMarketTransactionsFirstPageWithCache({
     tokenAddress,
     networkId,
   });
-  let existingEntry = marketTransactionsFirstPageRequestEntries.get(key);
+  const existingEntry = marketTransactionsFirstPageRequestEntries.get(key);
   if (
     existingEntry?.result &&
     existingEntry.expiresAt !== undefined &&
     existingEntry.expiresAt <= now
   ) {
-    marketTransactionsFirstPageRequestEntries.delete(key);
-    existingEntry = undefined;
+    consumeMarketTransactionsFirstPageEntry(existingEntry, now);
+    existingEntry.expiresAt = undefined;
+    const refreshRequest =
+      backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
+        tokenAddress,
+        networkId,
+        limit: MARKET_TRANSACTIONS_FIRST_PAGE_SIZE,
+      });
+    existingEntry.request = refreshRequest;
+    trackMarketTransactionsFirstPageRequest({
+      entry: existingEntry,
+      key,
+      request: refreshRequest,
+    });
+    return refreshRequest;
   }
   if (existingEntry) {
     if (retainUntilConsumed) {
@@ -154,23 +205,7 @@ function requestMarketTransactionsFirstPageWithCache({
       : undefined,
   };
   marketTransactionsFirstPageRequestEntries.set(key, entry);
-
-  void request.then(
-    (result) => {
-      if (marketTransactionsFirstPageRequestEntries.get(key) === entry) {
-        entry.result = result;
-        entry.expiresAt =
-          Date.now() + MARKET_TRANSACTIONS_FIRST_PAGE_CACHE_TTL_MS;
-        pruneMarketTransactionsFirstPageRequestEntries();
-        limitMarketTransactionsFirstPageSuccessCache();
-      }
-    },
-    () => {
-      if (marketTransactionsFirstPageRequestEntries.get(key) === entry) {
-        marketTransactionsFirstPageRequestEntries.delete(key);
-      }
-    },
-  );
+  trackMarketTransactionsFirstPageRequest({ entry, key, request });
 
   return request;
 }

@@ -12,6 +12,12 @@ let cachedResponse:
 let lastResolvedResponse:
   | Awaited<ReturnType<typeof fetchMarketBasicConfigLight>>
   | undefined;
+type IMarketBasicConfigResponse = Awaited<
+  ReturnType<typeof fetchMarketBasicConfigLight>
+>;
+const responseListeners = new Set<
+  (response: IMarketBasicConfigResponse) => void
+>();
 
 export const MARKET_BASIC_CONFIG_CACHE_TTL_MS = 30_000;
 
@@ -40,6 +46,7 @@ const fetchMarketBasicConfigForPlatform = () => {
   const request = fetchMarketBasicConfigLight().then((response) => {
     cachedResponse = { response, cachedAt: Date.now() };
     lastResolvedResponse = response;
+    responseListeners.forEach((listener) => listener(response));
     return response;
   });
   inFlightRequest = request;
@@ -62,9 +69,17 @@ const clearMarketBasicConfigForPlatformCache = () => {
 
 const getLastMarketBasicConfigForPlatform = () => lastResolvedResponse;
 
+const subscribeMarketBasicConfigForPlatform = (
+  listener: (response: IMarketBasicConfigResponse) => void,
+) => {
+  responseListeners.add(listener);
+  return () => responseListeners.delete(listener);
+};
+
 export {
   clearMarketBasicConfigForPlatformCache,
   fetchMarketBasicConfigForPlatform,
   getCachedMarketBasicConfigForPlatform,
   getLastMarketBasicConfigForPlatform,
+  subscribeMarketBasicConfigForPlatform,
 };

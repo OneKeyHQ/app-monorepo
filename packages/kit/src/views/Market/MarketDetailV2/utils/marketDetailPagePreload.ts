@@ -147,13 +147,14 @@ export async function prefetchMarketDetailV2FirstScreenKLineData({
     cachedBasicConfigResponse ??
     (await fetchMarketBasicConfigForPlatform().catch(() => undefined));
   await preferenceHydrationPromise;
-  const kLineSource = basicConfigResponse
-    ? prepareHyperLiquidKlineSource({
-        basicConfig: basicConfigResponse.data,
-        networkId,
-        tokenAddress,
-      })
-    : undefined;
+  if (!basicConfigResponse) {
+    return undefined;
+  }
+  const kLineSource = prepareHyperLiquidKlineSource({
+    basicConfig: basicConfigResponse.data,
+    networkId,
+    tokenAddress,
+  });
   const namespace = kLineSource?.isHyperLiquidSource
     ? 'market-hyperliquid'
     : 'market';

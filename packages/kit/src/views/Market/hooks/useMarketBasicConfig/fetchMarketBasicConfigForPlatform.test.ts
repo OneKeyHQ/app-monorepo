@@ -6,6 +6,7 @@ import {
   fetchMarketBasicConfigForPlatform,
   getCachedMarketBasicConfigForPlatform,
   getLastMarketBasicConfigForPlatform,
+  subscribeMarketBasicConfigForPlatform,
 } from './fetchMarketBasicConfigForPlatform';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -56,5 +57,15 @@ describe('fetchMarketBasicConfigForPlatform', () => {
 
     expect(getCachedMarketBasicConfigForPlatform()).toBe(response);
     expect(getLastMarketBasicConfigForPlatform()).toBe(response);
+  });
+
+  it('notifies lightweight source subscribers after config recovery', async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeMarketBasicConfigForPlatform(listener);
+
+    await fetchMarketBasicConfigForPlatform();
+
+    expect(listener).toHaveBeenCalledWith(response);
+    unsubscribe();
   });
 });

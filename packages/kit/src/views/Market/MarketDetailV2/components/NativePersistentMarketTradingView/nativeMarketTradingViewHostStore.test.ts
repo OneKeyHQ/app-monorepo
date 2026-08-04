@@ -2,6 +2,7 @@ import {
   activateNativeMarketTradingViewSession,
   createNativeMarketTradingViewSessionId,
   deactivateNativeMarketTradingViewSession,
+  finalizeNativeMarketTradingViewHostReleaseIfRequested,
   getNativeMarketTradingViewHostSnapshot,
   releaseNativeMarketTradingViewHostIfInactive,
   requestNativeMarketTradingViewWarmup,
@@ -126,7 +127,7 @@ describe('nativeMarketTradingViewHostStore', () => {
     });
   });
 
-  it('releases an inactive host but preserves an active chart', () => {
+  it('defers an active host release until the detail route is left', () => {
     requestNativeMarketTradingViewWarmup();
     releaseNativeMarketTradingViewHostIfInactive();
     expect(getNativeMarketTradingViewHostSnapshot().mountRequested).toBe(false);
@@ -147,10 +148,45 @@ describe('nativeMarketTradingViewHostStore', () => {
 
     deactivateNativeMarketTradingViewSession(id);
 
+    expect(getNativeMarketTradingViewHostSnapshot()).toMatchObject({
+      activeSession: undefined,
+      lastProps: {
+        tokenSymbol: 'ONE',
+      },
+      mountRequested: true,
+    });
+
+    finalizeNativeMarketTradingViewHostReleaseIfRequested();
+
     expect(getNativeMarketTradingViewHostSnapshot()).toEqual({
       activeSession: undefined,
       lastProps: undefined,
       mountRequested: false,
+    });
+  });
+
+  it('clears a pending release when warmup is requested again', () => {
+    const id = createNativeMarketTradingViewSessionId();
+    activateNativeMarketTradingViewSession({
+      id,
+      scrollY,
+      props: {
+        tokenAddress: '0x1',
+        networkId: 'evm--1',
+        tokenSymbol: 'ONE',
+      },
+    });
+    releaseNativeMarketTradingViewHostIfInactive();
+
+    requestNativeMarketTradingViewWarmup();
+    deactivateNativeMarketTradingViewSession(id);
+    finalizeNativeMarketTradingViewHostReleaseIfRequested();
+
+    expect(getNativeMarketTradingViewHostSnapshot()).toMatchObject({
+      lastProps: {
+        tokenSymbol: 'ONE',
+      },
+      mountRequested: true,
     });
   });
 });

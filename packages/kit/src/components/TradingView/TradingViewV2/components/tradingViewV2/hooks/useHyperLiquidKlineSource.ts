@@ -1,7 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
-import { getLastMarketBasicConfigForPlatform } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
+import { useNetInfo } from '@onekeyhq/components';
+import {
+  fetchMarketBasicConfigForPlatform,
+  getLastMarketBasicConfigForPlatform,
+  subscribeMarketBasicConfigForPlatform,
+} from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig/fetchMarketBasicConfigForPlatform';
 
 import {
   getPreparedHyperLiquidKlineSource,
@@ -14,7 +18,7 @@ export function useHyperLiquidKlineSource(
   networkId: string,
   tokenAddress: string,
 ): IHyperLiquidKlineSourceResult {
-  const { basicConfig, isLoading } = useMarketBasicConfig();
+  const identityKey = `${networkId}:${tokenAddress}`;
   const immediateResult = useMemo(() => {
     const preparedResult = getPreparedHyperLiquidKlineSource({
       networkId,
@@ -34,16 +38,78 @@ export function useHyperLiquidKlineSource(
         })
       : undefined;
   }, [networkId, tokenAddress]);
-  const reactiveResult = useMemo(
-    () =>
-      resolveHyperLiquidKlineSource({
+  const shouldLoadConfig = immediateResult === undefined;
+  const { isRawInternetReachable } = useNetInfo(shouldLoadConfig);
+  const [asyncResult, setAsyncResult] = useState<{
+    identityKey: string;
+    result: IHyperLiquidKlineSourceResult;
+  }>();
+
+  useEffect(() => {
+    if (!shouldLoadConfig) {
+      return undefined;
+    }
+
+    let isActive = true;
+    const applyConfig = (
+      basicConfig: Parameters<
+        typeof resolveHyperLiquidKlineSource
+      >[0]['basicConfig'],
+    ) => {
+      if (!isActive) {
+        return;
+      }
+      const result = resolveHyperLiquidKlineSource({
         basicConfig,
-        isLoading,
+        isLoading: false,
         networkId,
         tokenAddress,
-      }),
-    [basicConfig, isLoading, networkId, tokenAddress],
-  );
+      });
+      setAsyncResult((currentResult) => {
+        if (
+          currentResult?.identityKey === identityKey &&
+          currentResult.result.isHyperLiquidSource ===
+            result.isHyperLiquidSource &&
+          currentResult.result.symbol === result.symbol &&
+          currentResult.result.isLoading === result.isLoading
+        ) {
+          return currentResult;
+        }
+        return { identityKey, result };
+      });
+    };
+    const unsubscribe = subscribeMarketBasicConfigForPlatform((response) => {
+      applyConfig(response.data);
+    });
 
-  return immediateResult ?? reactiveResult;
+    if (isRawInternetReachable !== false) {
+      void fetchMarketBasicConfigForPlatform().then(
+        (response) => applyConfig(response.data),
+        () => applyConfig(undefined),
+      );
+    }
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [
+    identityKey,
+    isRawInternetReachable,
+    networkId,
+    shouldLoadConfig,
+    tokenAddress,
+  ]);
+
+  if (immediateResult) {
+    return immediateResult;
+  }
+  if (asyncResult?.identityKey === identityKey) {
+    return asyncResult.result;
+  }
+  return {
+    isHyperLiquidSource: false,
+    symbol: undefined,
+    isLoading: true,
+  };
 }

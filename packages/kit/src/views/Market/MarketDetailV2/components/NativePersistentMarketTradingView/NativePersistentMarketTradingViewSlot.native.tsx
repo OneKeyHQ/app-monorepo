@@ -15,6 +15,7 @@ import {
   activateNativeMarketTradingViewSession,
   createNativeMarketTradingViewSessionId,
   deactivateNativeMarketTradingViewSession,
+  finalizeNativeMarketTradingViewHostReleaseIfRequested,
   updateNativeMarketTradingViewSessionFrame,
   updateNativeMarketTradingViewSessionProps,
 } from './nativeMarketTradingViewHostStore';
@@ -64,10 +65,12 @@ export function NativePersistentMarketTradingViewSlot({
   const tokenDetailActions = useTokenDetailActions();
   const slotRef = useRef<View>(null);
   const isActiveRef = useRef(isActive);
+  const isRouteFocusedRef = useRef(isRouteFocused);
   const clipTopRef = useRef(clipTop);
   const tradingViewPropsRef = useRef(tradingViewProps);
   const sessionIdRef = useRef<number | undefined>(undefined);
   isActiveRef.current = isActive;
+  isRouteFocusedRef.current = isRouteFocused;
   clipTopRef.current = clipTop;
   tradingViewPropsRef.current = tradingViewProps;
   if (sessionIdRef.current === undefined) {
@@ -146,6 +149,9 @@ export function NativePersistentMarketTradingViewSlot({
   useEffect(() => {
     if (!isActive) {
       deactivateNativeMarketTradingViewSession(sessionId);
+      if (!isRouteFocused) {
+        finalizeNativeMarketTradingViewHostReleaseIfRequested();
+      }
       return undefined;
     }
 
@@ -158,8 +164,19 @@ export function NativePersistentMarketTradingViewSlot({
       latestTradingViewProps.onInteractionOverlayOpenChange?.(false);
       latestTradingViewProps.onNativeIndicatorQuickBarChange?.(null);
       deactivateNativeMarketTradingViewSession(sessionId);
+      if (!isRouteFocusedRef.current) {
+        finalizeNativeMarketTradingViewHostReleaseIfRequested();
+      }
     };
-  }, [isActive, measureSlot, sessionId]);
+  }, [isActive, isRouteFocused, measureSlot, sessionId]);
+
+  useEffect(
+    () => () => {
+      deactivateNativeMarketTradingViewSession(sessionId);
+      finalizeNativeMarketTradingViewHostReleaseIfRequested();
+    },
+    [sessionId],
+  );
 
   useEffect(() => {
     if (!isActive) {
