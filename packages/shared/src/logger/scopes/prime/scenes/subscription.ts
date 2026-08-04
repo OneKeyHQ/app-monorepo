@@ -96,6 +96,15 @@ export type IOneKeyIdAuthStateMigrationParams = {
   reason?: string;
 };
 
+export type IOneKeyIdAuthStateRepairParams = {
+  stage: 'candidateDetected' | 'stateCommit';
+  status: 'started' | 'succeeded' | 'failed' | 'stateChanged';
+  repairType:
+    | 'legacyLoggedOutWithoutTombstone'
+    | 'invalidLoggedInProjection'
+    | 'incompleteLogoutProjection';
+};
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -331,6 +340,15 @@ export class PrimeSubscriptionScene extends BaseScene {
    */
   @LogToLocal()
   public onekeyIdAuthStateMigration(params: IOneKeyIdAuthStateMigrationParams) {
+    return params;
+  }
+
+  /**
+   * Sanitized diagnostics for repairing an inconsistent local OneKey ID projection.
+   */
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdAuthStateRepair(params: IOneKeyIdAuthStateRepairParams) {
     return params;
   }
 

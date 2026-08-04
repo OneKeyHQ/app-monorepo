@@ -21,6 +21,7 @@ const mockPrimeLoginDialogAtom = {
 };
 const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
+const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
@@ -74,6 +75,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
         }
         if (loggerMethod === 'prime.subscription.onekeyIdAuthStateMigration') {
           return mockOneKeyIdAuthStateMigrationLog;
+        }
+        if (loggerMethod === 'prime.subscription.onekeyIdAuthStateRepair') {
+          return mockOneKeyIdAuthStateRepairLog;
         }
         if (loggerMethod === 'prime.subscription.onekeyIdLoginFailedReason') {
           return mockOneKeyIdLoginFailedReasonLog;
@@ -405,6 +409,56 @@ function createService() {
   const service = new ServicePrime({ backgroundApi });
   backgroundApi.servicePrime = service;
   return { service, backgroundApi, simpleDbPrime };
+}
+
+function setupV650LoggedOutProjectionWithStaleLegacySession(
+  simpleDbPrime: ReturnType<typeof createService>['simpleDbPrime'],
+) {
+  let authSessionSource:
+    | typeof EPrimeAuthSessionSource.LegacyEmailSupabase
+    | undefined;
+  let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' | undefined;
+  let identityLifecycleRevision = 0;
+  let didRestoreLegacySession = false;
+  mockPrimePersistAtom.get.mockResolvedValue({
+    isLoggedIn: false,
+    isLoggedInOnServer: false,
+    onekeyUserId: undefined,
+  });
+  simpleDbPrime.getAuthSessionSource.mockImplementation(
+    async () => authSessionSource,
+  );
+  simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(async () => {
+    if (oneKeyIdAuthState === 'loggedOut') {
+      return undefined;
+    }
+    didRestoreLegacySession = true;
+    authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+    oneKeyIdAuthState = 'loggedIn';
+    return authSessionSource;
+  });
+  simpleDbPrime.getOneKeyIdAuthState.mockImplementation(
+    async () => oneKeyIdAuthState,
+  );
+  simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+  simpleDbPrime.getIdentityLifecycleRevision.mockImplementation(
+    async () => identityLifecycleRevision,
+  );
+  simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockImplementation(
+    async () => {
+      authSessionSource = undefined;
+      oneKeyIdAuthState = 'loggedOut';
+    },
+  );
+  simpleDbPrime.bumpIdentityLifecycleRevision.mockImplementation(async () => {
+    identityLifecycleRevision += 1;
+    return identityLifecycleRevision;
+  });
+  return {
+    getAuthSessionSource: () => authSessionSource,
+    getOneKeyIdAuthState: () => oneKeyIdAuthState,
+    didRestoreLegacySession: () => didRestoreLegacySession,
+  };
 }
 
 function createDeferred<T = void>() {
@@ -2593,6 +2647,104 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
   });
 
+  it('migrates a v6.5.0 logged-out projection before a stale legacy session can be restored', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const legacyAccessToken = buildFakeJwt({ sub: 'legacy-auth-user-a' });
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: legacyAccessToken,
+    });
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(v650LoggedOutState.getOneKeyIdAuthState()).toBe('loggedOut');
+    expect(v650LoggedOutState.getAuthSessionSource()).toBeUndefined();
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(simpleDbPrime.getEffectiveAuthSessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenNthCalledWith(1, {
+      stage: 'candidateDetected',
+      status: 'started',
+      repairType: 'legacyLoggedOutWithoutTombstone',
+    });
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenNthCalledWith(2, {
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'legacyLoggedOutWithoutTombstone',
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateRepairLog.mock.calls),
+    ).not.toContain(legacyAccessToken);
+  });
+
+  it('repairs logged-in flags when the required OneKey ID is missing', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
+  });
+
+  it('logs a fixed failure stage without including repair error details', async () => {
+    const { service, simpleDbPrime } = createService();
+    const sensitiveErrorText =
+      'repair failed for user-a@example.com with eyJheader.payload.signature';
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockRejectedValue(
+      new Error(sensitiveErrorText),
+    );
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).rejects.toThrow(sensitiveErrorText);
+
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenLastCalledWith({
+      stage: 'stateCommit',
+      status: 'failed',
+      repairType: 'incompleteLogoutProjection',
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateRepairLog.mock.calls),
+    ).not.toContain(sensitiveErrorText);
+  });
+
   it('keeps a legacy upgrade session when profile validation is temporarily unavailable', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     const accessToken = buildFakeJwt({ sub: 'legacy-user-a' });
@@ -2728,7 +2880,15 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
-    ).toHaveBeenCalledWith({ callerName: 'test' });
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
   });
 
   it('recovers a source-less pre-upgrade OneKey ID from its matching Keyless OAuth session', async () => {
@@ -3036,7 +3196,15 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
-    ).toHaveBeenCalledWith({ callerName: 'test' });
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
   });
 
   it('delegates missing-session cleanup to the durable identity coordinator', async () => {
@@ -3132,6 +3300,62 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
 describe('ServicePrime.apiEmailOtpLogin serialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('repairs a v6.5.0 logged-out projection before the Email login guard', async () => {
+    const { service, simpleDbPrime } = createService();
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+
+    await expect(
+      service.apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      }),
+    ).resolves.toEqual({ success: true });
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+    expect(service.apiLoginWithPersistedLegacySession).toHaveBeenCalledWith({
+      accessToken: 'next-email-token',
+    });
+  });
+
+  it('stops Email login when the auth state changes during repair', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+    simpleDbPrime.getIdentityLifecycleRevision
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(8);
+
+    await expect(
+      service.apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      }),
+    ).rejects.toThrow('auth state changed during recovery');
+
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
   });
 
   it('rejects a queued stale Email login after another surface commits first', async () => {
@@ -4175,17 +4399,41 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('repairs a v6.5.0 logged-out projection before the OAuth login guard', async () => {
+    const { service, simpleDbPrime } = createService();
+    const post = mockOAuthLoginClient(service);
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+
+    await expect(
+      service.apiOAuthLogin({
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+      }),
+    ).resolves.toBeDefined();
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the ordinary OAuth login blocked while OneKey ID is already logged in', async () => {
     const { service, simpleDbPrime } = createService();
     const post = mockOAuthLoginClient(service);
     mockPrimePersistAtom.get.mockResolvedValue({
       isLoggedIn: true,
       isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
     });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
     simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
 
     await expect(
       service.apiOAuthLogin({
@@ -4198,6 +4446,9 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('OneKey ID is already logged in'),
     });
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -4279,6 +4530,36 @@ describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () =>
     expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
       accessToken: nextAccessToken,
       refreshToken: 'refresh-b',
+    });
+  });
+
+  it('persists a new Keyless session from the exact v6.5.0 logged-out data shape', async () => {
+    const { service, simpleDbPrime } = createService();
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    const nextAccessToken = buildFakeJwt({ sub: 'user-b' });
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: nextAccessToken,
+        refreshToken: 'refresh-b',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        identityLifecycleRevision: expect.any(Number),
+        rollbackHandle: expect.any(String),
+      }),
+    );
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken: nextAccessToken,
+      refreshToken: 'refresh-b',
+    });
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'legacyLoggedOutWithoutTombstone',
     });
   });
 
@@ -4987,6 +5268,40 @@ describe('ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState', () => {
   }) {
     service.getPrimeClient = jest.fn(async () => ({ post }));
   }
+
+  it('repairs a v6.5.0 logged-out projection before a fresh OAuth login', async () => {
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'user-a' });
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          userId: 'user-a',
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    mockFreshOAuthLoginClient({ service, post });
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).resolves.toBeDefined();
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken,
+      refreshToken: 'refresh-a',
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+  });
 
   it('rechecks the logged-out precondition after waiting for loginMutex', async () => {
     const { service, simpleDbPrime } = createService();

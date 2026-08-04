@@ -1575,6 +1575,17 @@ class ServicePrime extends ServiceBase {
   private async assertOneKeyIdLoggedOutForInteractiveLogin(
     callerName: string,
   ): Promise<void> {
+    const incompleteLogoutRepair =
+      await this.repairIncompleteLocalOneKeyIdLogout();
+    if (incompleteLogoutRepair === 'stateChanged') {
+      const error = new OneKeyLocalError(
+        `${callerName}: OneKey ID auth state changed during recovery. Please try again.`,
+      );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: getSanitizedAuthErrorLog(error),
+      });
+      throw error;
+    }
     const [user, source, authState] = await Promise.all([
       primePersistAtom.get(),
       this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
@@ -1823,15 +1834,30 @@ class ServicePrime extends ServiceBase {
       currentUser,
       authSessionSource,
       oneKeyIdAuthState,
+      authStateGeneration,
       identityLifecycleRevision,
     ] = await Promise.all([
       primePersistAtom.get(),
       this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
       this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+      this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
       this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
     ]);
-    const isFullyLoggedIn = Boolean(
+    const hasLoggedInFlags = Boolean(
       currentUser.isLoggedIn && currentUser.isLoggedInOnServer,
+    );
+    const isCurrentLoggedInProjection = Boolean(
+      hasLoggedInFlags &&
+      currentUser.onekeyUserId &&
+      authSessionSource &&
+      oneKeyIdAuthState === 'loggedIn',
+    );
+    const isPreUpgradeLoggedInProjection = Boolean(
+      hasLoggedInFlags &&
+      currentUser.onekeyUserId &&
+      !authSessionSource &&
+      oneKeyIdAuthState === undefined &&
+      authStateGeneration === 0,
     );
     const isFullyLoggedOut = Boolean(
       !currentUser.isLoggedIn &&
@@ -1840,9 +1866,37 @@ class ServicePrime extends ServiceBase {
       !authSessionSource &&
       oneKeyIdAuthState === 'loggedOut',
     );
-    if (isFullyLoggedIn || isFullyLoggedOut) {
+    if (
+      isCurrentLoggedInProjection ||
+      isPreUpgradeLoggedInProjection ||
+      isFullyLoggedOut
+    ) {
       return 'notNeeded';
     }
+
+    let repairType:
+      | 'legacyLoggedOutWithoutTombstone'
+      | 'invalidLoggedInProjection'
+      | 'incompleteLogoutProjection';
+    if (
+      !currentUser.isLoggedIn &&
+      !currentUser.isLoggedInOnServer &&
+      !currentUser.onekeyUserId &&
+      !authSessionSource &&
+      oneKeyIdAuthState === undefined &&
+      authStateGeneration === 0
+    ) {
+      repairType = 'legacyLoggedOutWithoutTombstone';
+    } else if (hasLoggedInFlags) {
+      repairType = 'invalidLoggedInProjection';
+    } else {
+      repairType = 'incompleteLogoutProjection';
+    }
+    defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+      stage: 'candidateDetected',
+      status: 'started',
+      repairType,
+    });
 
     // Treat every partial projection as an interrupted local logout. The
     // compare-and-set commit rechecks the revision and full projection before
@@ -1850,17 +1904,31 @@ class ServicePrime extends ServiceBase {
     // Session slots stay intact here because an incomplete projection cannot
     // prove their ownership; the normal identity-exit journal clears owned
     // slots, while a later successful login safely replaces its Keyless slot.
-    const result = await this.commitExplicitLocalOneKeyIdLogout({
-      expectedIdentityLifecycleRevision: identityLifecycleRevision,
-      expectedProjection: {
-        authSessionSource,
-        oneKeyIdAuthState,
-        isLoggedIn: currentUser.isLoggedIn,
-        isLoggedInOnServer: currentUser.isLoggedInOnServer,
-        onekeyUserId: currentUser.onekeyUserId,
-      },
-    });
-    return result.status === 'committed' ? 'repaired' : 'stateChanged';
+    try {
+      const result = await this.commitExplicitLocalOneKeyIdLogout({
+        expectedIdentityLifecycleRevision: identityLifecycleRevision,
+        expectedProjection: {
+          authSessionSource,
+          oneKeyIdAuthState,
+          isLoggedIn: currentUser.isLoggedIn,
+          isLoggedInOnServer: currentUser.isLoggedInOnServer,
+          onekeyUserId: currentUser.onekeyUserId,
+        },
+      });
+      defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+        stage: 'stateCommit',
+        status: result.status === 'committed' ? 'succeeded' : 'stateChanged',
+        repairType,
+      });
+      return result.status === 'committed' ? 'repaired' : 'stateChanged';
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+        stage: 'stateCommit',
+        status: 'failed',
+        repairType,
+      });
+      throw error;
+    }
   }
 
   private async persistKeylessOAuthSessionWithinReservation({
