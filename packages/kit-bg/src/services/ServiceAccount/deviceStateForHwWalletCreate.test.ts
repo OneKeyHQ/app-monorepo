@@ -1,4 +1,7 @@
-import { resolveDeviceStateForHwWalletCreate } from './deviceStateForHwWalletCreate';
+import {
+  refreshDeviceStateAfterStandardWalletUnlock,
+  resolveDeviceStateForHwWalletCreate,
+} from './deviceStateForHwWalletCreate';
 
 describe('resolveDeviceStateForHwWalletCreate', () => {
   it('loads the canonical OneKey state before creating the DB record', async () => {
@@ -94,5 +97,106 @@ describe('resolveDeviceStateForHwWalletCreate', () => {
       }),
     ).resolves.toBeUndefined();
     expect(getDeviceState).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshDeviceStateAfterStandardWalletUnlock', () => {
+  it('刷新 Pro2 标准钱包解锁后的 Passphrase 状态', async () => {
+    const lockedState = {
+      protocol: 'V2',
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      status: {
+        mode: 'normal',
+        unlocked: false,
+        passphraseProtection: null,
+      },
+    } as never;
+    const unlockedState = {
+      protocol: 'V2',
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      status: {
+        mode: 'normal',
+        unlocked: true,
+        passphraseProtection: true,
+      },
+    } as never;
+    const getDeviceState = jest.fn().mockResolvedValue(unlockedState);
+
+    await expect(
+      refreshDeviceStateAfterStandardWalletUnlock({
+        existingState: lockedState,
+        connectProtocol: 'V2',
+        isThirdParty: false,
+        isMocked: false,
+        passphraseState: undefined,
+        connectId: 'PRO2_USB',
+        getDeviceState,
+      }),
+    ).resolves.toBe(unlockedState);
+    expect(getDeviceState).toHaveBeenCalledWith('PRO2_USB', {
+      scope: 'settings',
+    });
+  });
+
+  it('不刷新 Pro1 或隐藏钱包会话', async () => {
+    const existingState = {
+      protocol: 'V1',
+      identity: { deviceId: 'PRO1_DEVICE_ID' },
+      status: { mode: 'normal', passphraseProtection: true },
+    } as never;
+    const hiddenWalletState = {
+      protocol: 'V2',
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      status: { mode: 'normal', passphraseProtection: true },
+    } as never;
+    const getDeviceState = jest.fn();
+
+    await expect(
+      refreshDeviceStateAfterStandardWalletUnlock({
+        existingState,
+        connectProtocol: 'V1',
+        isThirdParty: false,
+        isMocked: false,
+        passphraseState: undefined,
+        connectId: 'PRO1_USB',
+        getDeviceState,
+      }),
+    ).resolves.toBe(existingState);
+    await expect(
+      refreshDeviceStateAfterStandardWalletUnlock({
+        existingState: hiddenWalletState,
+        connectProtocol: 'V2',
+        isThirdParty: false,
+        isMocked: false,
+        passphraseState: 'hidden-session',
+        connectId: 'PRO2_USB',
+        getDeviceState,
+      }),
+    ).resolves.toBe(hiddenWalletState);
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('刷新失败时沿用建钱包前的状态，不阻断钱包创建', async () => {
+    const existingState = {
+      protocol: 'V2',
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      status: { mode: 'normal', passphraseProtection: null },
+    } as never;
+    const error = new Error('read failed');
+    const onError = jest.fn();
+
+    await expect(
+      refreshDeviceStateAfterStandardWalletUnlock({
+        existingState,
+        connectProtocol: 'V2',
+        isThirdParty: false,
+        isMocked: false,
+        passphraseState: undefined,
+        connectId: 'PRO2_USB',
+        getDeviceState: jest.fn().mockRejectedValue(error),
+        onError,
+      }),
+    ).resolves.toBe(existingState);
+    expect(onError).toHaveBeenCalledWith(error);
   });
 });
