@@ -57,6 +57,21 @@ export class HardwareAllNetworkGetAddressResponse {
     }
   }
 
+  onSdkResponse({
+    items,
+    completed,
+  }: {
+    items: IHwAllNetworkPrepareAccountsItem[];
+    completed: boolean;
+  }) {
+    for (const item of items) {
+      this.onSdkItemCallResponse(item);
+    }
+    if (completed) {
+      this.completeSdkResponse();
+    }
+  }
+
   completeSdkResponse() {
     this.sdkResponseCompleted = true;
     Object.entries(this.promiseTargets).forEach(([key, target]) => {
