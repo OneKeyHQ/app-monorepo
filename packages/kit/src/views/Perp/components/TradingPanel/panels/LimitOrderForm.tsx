@@ -179,7 +179,8 @@ export function LimitOrderForm({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
 
   // Spot has its own asset/balance atoms; perpsActiveAssetAtom is stale-perp
   // when the active instrument is spot.

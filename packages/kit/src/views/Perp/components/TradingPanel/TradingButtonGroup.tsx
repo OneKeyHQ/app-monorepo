@@ -484,7 +484,7 @@ function SideButtonInternal({
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -1856,7 +1856,8 @@ function EmptySizeSideButton({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
