@@ -1057,10 +1057,17 @@ function useHyperliquidSymbolSelect() {
           ? activeTradeInstrumentRef.current
           : undefined,
       });
+      // Diagnostic only: mirrorMode is main's copy of the bg-owned mode, while
+      // instrumentMode drives what the order book and price actually render.
+      // Comparing them against the bg-side marker locates a divergence.
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,
         coin: switchParams?.coin,
         mode: switchParams?.mode,
+        claimed,
+        mirrorMode: await tradingModeAtom.get(),
+        instrumentMode: activeTradeInstrumentRef.current?.mode,
+        instrumentCoin: activeTradeInstrumentRef.current?.coin,
       });
       if (!switchParams) {
         return;

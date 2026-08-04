@@ -138,6 +138,7 @@ import {
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
+  tradingModeAtom,
   spotBalancesAtom,
   spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
@@ -2974,8 +2975,19 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
     this.perpsAccountStatusCheckSeq += 1;
     const checkSeq = this.perpsAccountStatusCheckSeq;
+    // Diagnostic only: bg holds the authoritative mode while main only mirrors
+    // it, so pairing these with the main-side marker tells a mirror that fell
+    // out of sync apart from a mode that was genuinely persisted wrong.
+    const [bgTradingMode, bgSpotAsset, bgPerpAsset] = await Promise.all([
+      tradingModeAtom.get(),
+      spotActiveAssetAtom.get(),
+      perpsActiveAssetAtom.get(),
+    ]);
     markPerpsColdStartPerf('service_check_account_status_start', {
       isEnableTradingTrigger,
+      bgTradingMode,
+      bgSpotCoin: bgSpotAsset?.coin,
+      bgPerpCoin: bgPerpAsset?.coin,
     });
     const statusDetails: IPerpsActiveAccountStatusDetails =
       buildPerpsAccountStatusCheckInitialDetails();
