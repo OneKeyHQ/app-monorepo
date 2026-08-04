@@ -1,7 +1,3 @@
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
-import accountUtils from './accountUtils';
-
 import type { IServerNetwork } from '../../types';
 import type { IAccountToken } from '../../types/token';
 
@@ -129,28 +125,6 @@ export function extractCrossNetworkSearchQuery({
     networkId: Array.from(matchedNetworkIds)[0],
     keywords: remainingWords.join(' '),
   };
-}
-
-// Others (imported / watch-only / external) accounts are one credential on one
-// impl: they can never produce an address on an incompatible network, and the
-// cross-network press path would fall through to the HD/HW batch createAddress
-// with no indexedAccountId. Drop those rows so they are never offered. An
-// imported EVM key still keeps every EVM network, which is the point.
-export function filterTokensByAccountNetworkCompatibility({
-  tokens,
-  account,
-}: {
-  tokens: IAccountToken[];
-  account: IDBAccount;
-}): IAccountToken[] {
-  return tokens.filter(
-    (token) =>
-      !token.networkId ||
-      accountUtils.isAccountCompatibleWithNetwork({
-        account,
-        networkId: token.networkId,
-      }),
-  );
 }
 
 // Splits a filtered & sorted flat token list into a current-network section and

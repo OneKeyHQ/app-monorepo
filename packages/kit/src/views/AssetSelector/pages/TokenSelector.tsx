@@ -46,10 +46,7 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  extractCrossNetworkSearchQuery,
-  filterTokensByAccountNetworkCompatibility,
-} from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import { extractCrossNetworkSearchQuery } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
@@ -69,6 +66,7 @@ import { useAccountSelectorCreateAddress } from '../../../components/AccountSele
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { filterTokensByAccountNetworkCompatibility } from '../../../utils/tokenSelectorAccountCompatibility';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
