@@ -51,12 +51,7 @@ jobs:
       - name: 'Setup ENV'
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($GITHUB_RUN_NUMBER % 100))
-          run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
-          echo '$build_number='$build_number
-          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=2026080430" >> $GITHUB_ENV
 
       - name: 'Save workflow parameters'
         run: |
@@ -89,6 +84,5 @@ jobs:
       #     git config --local user.name "GitHub Action"
       #     git commit -am "build ${{ needs.get-commit-id.outputs.upstream_id }} in $CURRENT_TIME"
       #     git push --set-upstream origin buildhistory
-
 
 
