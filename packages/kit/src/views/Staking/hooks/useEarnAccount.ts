@@ -33,7 +33,7 @@ export function useEarnAccount({
     indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
 
   const {
-    result: earnAccount,
+    result: earnAccountResult,
     run: refreshAccount,
     isLoading,
   } = usePromiseResult(
@@ -41,16 +41,23 @@ export function useEarnAccount({
       if (!networkId || (!resolvedAccountId && !resolvedIndexedAccountId)) {
         return undefined;
       }
-      return backgroundApiProxy.serviceStaking.getEarnAccount({
-        accountId: resolvedAccountId,
+      return {
         networkId,
-        indexedAccountId: resolvedIndexedAccountId,
-        btcOnlyTaproot,
-      });
+        earnAccount: await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId: resolvedAccountId,
+          networkId,
+          indexedAccountId: resolvedIndexedAccountId,
+          btcOnlyTaproot,
+        }),
+      };
     },
     [networkId, resolvedAccountId, resolvedIndexedAccountId, btcOnlyTaproot],
     { watchLoading: true, undefinedResultIfReRun: true },
   );
+  const earnAccount =
+    earnAccountResult && earnAccountResult.networkId === networkId
+      ? earnAccountResult.earnAccount
+      : undefined;
 
   return {
     earnAccount,
