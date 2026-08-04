@@ -1,4 +1,32 @@
-import { scrubSensitiveErrorMessageText } from './oneKeyIdLoginToastUtils';
+import { Toast } from '@onekeyhq/components';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+
+import {
+  logOneKeyIdLoginFailureReason,
+  scrubSensitiveErrorMessageText,
+  showOneKeyIdLoginFailedToast,
+} from './oneKeyIdLoginToastUtils';
+
+const mockOneKeyIdLoginFailedReason = jest.fn();
+
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: jest.fn(),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        onekeyIdLoginFailedReason: (...args: unknown[]) => {
+          mockOneKeyIdLoginFailedReason(...args);
+        },
+        onekeyIdLoginFailedToast: jest.fn(),
+      },
+    },
+  },
+}));
 
 describe('scrubSensitiveErrorMessageText', () => {
   test('redacts JWTs', () => {
@@ -62,5 +90,123 @@ describe('scrubSensitiveErrorMessageText', () => {
     ).toBe(
       'OneKey ID OAuth sign-in failed: name=AuthApiError message=Invalid grant code=400 status=400 requestId=req_1',
     );
+  });
+
+  test('sanitizes nested error causes used by background wrappers', () => {
+    const error = new Error(
+      'Keyless passive migration network error',
+    ) as Error & {
+      cause?: Error;
+    };
+    error.cause = new Error(
+      'request for test+auth@example.com failed with access_token=secret',
+    );
+
+    expect(getSanitizedErrorLogText(error)).toContain(
+      'cause=request for [email] failed with access_token=[redacted]',
+    );
+  });
+});
+
+describe('logOneKeyIdLoginFailureReason', () => {
+  test('logs a sanitized reason once for the same error object', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const error = new Error('request failed');
+
+    logOneKeyIdLoginFailureReason(
+      'OAuth failed for test+auth@example.com with access_token=secret',
+      error,
+    );
+    logOneKeyIdLoginFailureReason('duplicate', error);
+
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: 'OAuth failed for [email] with access_token=[redacted]',
+    });
+    consoleErrorSpy.mockRestore();
+  });
+});
+
+describe('showOneKeyIdLoginFailedToast', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
+  test('shows the sanitized underlying error instead of a generic fallback', () => {
+    const intl = {
+      formatMessage: jest.fn(() => 'Unknown error. Please try again.'),
+    };
+
+    showOneKeyIdLoginFailedToast({
+      error: new Error(
+        'Failed to persist Keyless OAuth session for test+auth@example.com',
+      ),
+      intl: intl as never,
+    });
+
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'Failed to persist Keyless OAuth session for [email]',
+    });
+    expect(intl.formatMessage).not.toHaveBeenCalled();
+  });
+
+  test('does not replace a frozen third-party error while marking the toast', () => {
+    const error = Object.freeze(new Error('Frozen OAuth SDK error'));
+
+    expect(() =>
+      showOneKeyIdLoginFailedToast({
+        error,
+        intl: { formatMessage: jest.fn() } as never,
+      }),
+    ).not.toThrow();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'Frozen OAuth SDK error',
+    });
+  });
+
+  test('logs the reason when a global auto toast already handled the UI', () => {
+    const error = new Error('OAuth session refresh failed') as Error & {
+      $$autoToastErrorTriggered?: boolean;
+    };
+    error.$$autoToastErrorTriggered = true;
+
+    showOneKeyIdLoginFailedToast({
+      error,
+      intl: { formatMessage: jest.fn() } as never,
+    });
+
+    expect(Toast.error).not.toHaveBeenCalled();
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: 'OneKey ID fallback toast skipped: OAuth session refresh failed',
+    });
+  });
+
+  test('logs the reason when manual and auto toasts are disabled', () => {
+    const error = new Error('Post-login continuation failed') as Error & {
+      autoToast?: boolean;
+    };
+    error.autoToast = false;
+
+    showOneKeyIdLoginFailedToast({
+      error,
+      intl: { formatMessage: jest.fn() } as never,
+    });
+
+    expect(Toast.error).not.toHaveBeenCalled();
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason:
+        'OneKey ID fallback toast skipped: Post-login continuation failed',
+    });
   });
 });

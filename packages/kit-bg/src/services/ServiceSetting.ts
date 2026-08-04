@@ -297,6 +297,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
+    if (values.oneKeyId) {
+      await this.backgroundApi.servicePrime.clearOneKeyIdLocalAuthCache();
+    }
     if (values.tokenAndNFT) {
       // clear token and nft
       await this.backgroundApi.simpleDb.localTokens.clearRawData();

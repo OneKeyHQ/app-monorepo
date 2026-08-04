@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PrimeLoginEmailCodeDialogV2 } from './PrimeLoginEmailCodeDialogV2';
 
 const mockCopyText = jest.fn();
+const mockOneKeyIdLoginFailedReason = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -114,6 +115,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    prime: {
+      subscription: {
+        onekeyIdLoginFailedReason: (...args: unknown[]) => {
+          mockOneKeyIdLoginFailedReason(...args);
+        },
+      },
+    },
     referral: {
       page: {
         signupOneKeyID: jest.fn(),
@@ -158,6 +166,10 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     });
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.email_verification_rate_limit,
+    });
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason:
+        'Prime email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
     });
   });
 

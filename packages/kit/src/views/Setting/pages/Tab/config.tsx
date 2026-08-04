@@ -619,6 +619,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             {
               icon: 'BroomOutline',
+              testID: SettingTestIDs.clearAppCacheItem,
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_cache_on_app,
               }),

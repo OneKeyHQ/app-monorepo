@@ -23,13 +23,14 @@ const mockKeylessSession = {
 const mockGetAuthSessionSource = jest.fn<Promise<unknown>, []>();
 const mockStorageGetItem = jest.fn<Promise<string | null>, [string]>();
 const mockLegacyGetSession = jest.fn<
-  Promise<{ data: { session: Session | null }; error: null }>,
+  Promise<{ data: { session: Session | null }; error: Error | null }>,
   []
 >();
 const mockKeylessGetSession = jest.fn<
-  Promise<{ data: { session: Session | null }; error: null }>,
+  Promise<{ data: { session: Session | null }; error: Error | null }>,
   []
 >();
+const mockLogOneKeyIdLoginFailureReason = jest.fn();
 const mockLegacyUnsubscribe = jest.fn();
 const mockKeylessUnsubscribe = jest.fn();
 const mockLegacyOnAuthStateChange = jest.fn(() => ({
@@ -62,6 +63,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [{ isLoggedIn: true }, jest.fn()],
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils',
+  () => ({
+    getSanitizedAuthErrorText: (error: Error) => `message=${error.message}`,
+    logOneKeyIdLoginFailureReason: (...args: unknown[]) => {
+      mockLogOneKeyIdLoginFailureReason(...args);
+    },
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
@@ -197,5 +208,27 @@ describe('SupabaseAuthProvider runtime subscriptions', () => {
     unmount();
     expect(mockLegacyUnsubscribe).toHaveBeenCalledTimes(1);
     expect(mockKeylessUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  test('logs a Supabase session result error before keeping its projection', async () => {
+    mockIsTokenRefreshRuntime = true;
+    const sessionError = new Error('refresh token rejected');
+    mockLegacyGetSession.mockResolvedValue({
+      data: { session: mockLegacySession },
+      error: sessionError,
+    });
+
+    render(
+      <SupabaseAuthProvider>
+        <SessionProbe />
+      </SupabaseAuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockLogOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
+        'SupabaseAuthProvider session fetch failed: message=refresh token rejected',
+        sessionError,
+      );
+    });
   });
 });

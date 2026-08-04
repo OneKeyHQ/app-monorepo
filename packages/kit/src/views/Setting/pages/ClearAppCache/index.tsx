@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SettingTestIDs } from '@onekeyhq/kit/src/views/Setting/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
@@ -21,6 +22,7 @@ export default function ClearAppCache() {
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
+      oneKeyId: false,
       tokenAndNFT: true,
       transactionHistory: true,
       swapHistory: true,
@@ -40,7 +42,7 @@ export default function ClearAppCache() {
   const values = form.watch();
   const disabled = !Object.values(values).some((o) => Boolean(o));
   return (
-    <Page scrollEnabled>
+    <Page testID={SettingTestIDs.clearAppCachePage} scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_clear_cache_on_app,
@@ -90,6 +92,16 @@ export default function ClearAppCache() {
                     label={intl.formatMessage({
                       id: ETranslations.settings_app_update_cache,
                     })}
+                  />
+                </Form.Field>
+              )}
+              {platformEnv.isWebDappMode ? null : (
+                <Form.Field name="oneKeyId">
+                  <Checkbox
+                    testID={SettingTestIDs.clearAppCacheOneKeyIdCheckbox}
+                    label={`OneKey ID ${intl.formatMessage({
+                      id: ETranslations.settings_data,
+                    })}`}
                   />
                 </Form.Field>
               )}
