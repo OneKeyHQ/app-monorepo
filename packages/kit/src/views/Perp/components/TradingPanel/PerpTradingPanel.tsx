@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useActiveTradeInstrumentAtom,
   useTradingFormAtom,
   useTradingFormComputedSize,
   useTradingLoadingAtom,
@@ -21,7 +22,6 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 
@@ -59,7 +59,8 @@ function PerpTradingDisabledPlaceOrderButton() {
   const { price: effectivePriceBN } = useOrderPrice(formData.side);
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
 
   const disabledForAccountLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
@@ -190,7 +191,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready

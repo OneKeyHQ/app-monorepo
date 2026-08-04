@@ -23,7 +23,6 @@ import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -158,7 +157,8 @@ function formatTickerBarChange24hDisplay({
 
 function useTickerBarIsLoading() {
   const { currentToken } = usePerpSession();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
@@ -227,7 +227,8 @@ const TickerBarMarkPriceView = memo(
 TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
 
 function TickerBarMarkPrice() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
@@ -288,7 +289,8 @@ const TickerBarChange24hView = memo(
 TickerBarChange24hView.displayName = 'TickerBarChange24hView';
 
 export function TickerBarChange24h() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const displayCtx = tradingMode === 'spot' ? spotAssetCtx?.ctx : assetCtx?.ctx;
@@ -400,7 +402,8 @@ const TickerBar24hVolumeView = memo(
 TickerBar24hVolumeView.displayName = 'TickerBar24hVolumeView';
 
 function TickerBar24hVolume() {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = tradingMode === 'spot';
@@ -888,7 +891,8 @@ function TickerBarFundingRate() {
 
 function PerpTickerBarDesktop() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const assetCtx = useTickerBarPerpAssetCtx();
   const isSpot = tradingMode === 'spot';
   const marketDataGap = useMemo(() => (isSpot ? '$6' : '$6'), [isSpot]);
