@@ -30,6 +30,7 @@ export const SwapTestIDs = {
   providerSelector: 'swap-provider-selector',
   quoteDetailsToggle: 'swap-quote-details-toggle',
   providerItem: (name: string) => `swap-provider-${name}`,
+  tipsContainer: 'swap-tips-container',
 
   // Pro
   proContainer: 'swap-pro-container',

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
 import { createEmailOtpRateLimitError } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
@@ -8,11 +8,24 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrimeLoginEmailCodeDialogV2 } from './PrimeLoginEmailCodeDialogV2';
 
+const mockCopyText = jest.fn();
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }, values?: { seconds?: number }) => {
+    formatMessage: (
+      { id }: { id: string },
+      values?: {
+        seconds?: number;
+        onekey?: (
+          chunks: import('react').ReactNode[],
+        ) => import('react').ReactNode;
+      },
+    ) => {
       if (id === 'resend_code_countdown__action') {
         return `${id} (${String(values?.seconds)}s)`;
+      }
+      if (id === 'onekey_id_verification_email_hint__desc') {
+        return values?.onekey?.(['OneKey']) ?? id;
       }
       return id;
     },
@@ -25,6 +38,11 @@ jest.mock('@onekeyhq/components', () => {
     React.createElement('div', null, children);
 
   return {
+    Alert: ({
+      descriptionComponent,
+    }: {
+      descriptionComponent?: import('react').ReactNode;
+    }) => React.createElement('div', null, descriptionComponent),
     Button: ({
       children,
       disabled,
@@ -50,14 +68,35 @@ jest.mock('@onekeyhq/components', () => {
       Icon: () => null,
       Title: Container,
     },
+    Icon: () => null,
     OTPInput: () => null,
-    SizableText: Container,
+    SizableText: ({
+      children,
+      onPress,
+      role,
+      testID,
+    }: {
+      children?: import('react').ReactNode;
+      onPress?: () => void;
+      role?: string;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'span',
+        {
+          'data-testid': testID,
+          onClick: onPress,
+          role,
+        },
+        children,
+      ),
     Stack: Container,
     Toast: {
       error: jest.fn(),
     },
     XStack: Container,
     YStack: Container,
+    useClipboard: () => ({ copyText: mockCopyText }),
   };
 });
 
@@ -111,9 +150,11 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
 
     await waitFor(() => {
       expect(sendCode).toHaveBeenCalledWith({ email: 'test@example.com' });
-      expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.resend_code_countdown__action} (33s)`,
-      );
+      expect(
+        screen.getByRole('button', {
+          name: `${ETranslations.resend_code_countdown__action} (33s)`,
+        }),
+      ).toBeTruthy();
     });
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.email_verification_rate_limit,
@@ -137,9 +178,11 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
 
     await waitFor(() => {
       expect(sendCode).toHaveBeenCalledWith({ email: 'test@example.com' });
-      expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.resend_code_countdown__action} (17s)`,
-      );
+      expect(
+        screen.getByRole('button', {
+          name: `${ETranslations.resend_code_countdown__action} (17s)`,
+        }),
+      ).toBeTruthy();
     });
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.email_verification_rate_limit,
@@ -164,9 +207,11 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
 
     await waitFor(() => {
       expect(sendCode).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('button').textContent).toBe(
-        `${ETranslations.resend_code_countdown__action} (33s)`,
-      );
+      expect(
+        screen.getByRole('button', {
+          name: `${ETranslations.resend_code_countdown__action} (33s)`,
+        }),
+      ).toBeTruthy();
     });
 
     rerender(<PrimeLoginEmailCodeDialogV2 {...props} active={false} />);
@@ -175,5 +220,28 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     await waitFor(() => {
       expect(sendCode).toHaveBeenCalledTimes(1);
     });
+  });
+
+  test('copies the OneKey verification email sender name', async () => {
+    const sendCode = jest.fn().mockResolvedValue(undefined);
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={sendCode}
+        loginWithCode={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', {
+          name: `${ETranslations.resend_code_countdown__action} (60s)`,
+        }),
+      ).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId('prime-login-email-sender-copy'));
+
+    expect(mockCopyText).toHaveBeenCalledWith('OneKey');
   });
 });
