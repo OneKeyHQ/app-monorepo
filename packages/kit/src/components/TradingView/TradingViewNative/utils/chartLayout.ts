@@ -6,6 +6,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
+  TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
@@ -88,7 +89,6 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
-const PRICE_VOLUME_GAP_RATIO = 0.04;
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
   { approximateSeconds: 5 * SECONDS_PER_MINUTE, step: 5, unit: 'minute' },
@@ -193,6 +193,12 @@ export function getTradingViewNativeWatermarkLayout({
     x: (width - watermarkWidth) / 2,
     y: (height - watermarkHeight) / 2,
   };
+}
+
+export function hasTradingViewNativeVolume(
+  points: IMarketTokenKLineDataPoint[],
+) {
+  return points.some((point) => Number.isFinite(point.v) && point.v > 0);
 }
 
 export function getTradingViewNativeMaxVolume({
@@ -494,6 +500,7 @@ export function getTradingViewNativeTimeAxisLayout({
 export function getTradingViewNativeChartLayout({
   candleIntervalSeconds,
   chartType = 'candlestick',
+  hasVolume,
   height,
   minimumTimeTickIndexSpacing,
   points,
@@ -502,6 +509,7 @@ export function getTradingViewNativeChartLayout({
 }: {
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
+  hasVolume: boolean;
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
@@ -530,9 +538,13 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
-  const volumeHeight = contentHeight * VOLUME_HEIGHT_RATIO;
-  const priceChartHeight =
-    contentHeight * (1 - VOLUME_HEIGHT_RATIO - PRICE_VOLUME_GAP_RATIO);
+  const volumeHeight = hasVolume ? contentHeight * VOLUME_HEIGHT_RATIO : 0;
+  const priceChartHeight = Math.max(
+    contentHeight -
+      volumeHeight -
+      TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
+    0,
+  );
   const volumeBottom = timeAxisY - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const volumeTop = volumeBottom - volumeHeight;
   const { maxPrice, minPrice } = visiblePriceRange;

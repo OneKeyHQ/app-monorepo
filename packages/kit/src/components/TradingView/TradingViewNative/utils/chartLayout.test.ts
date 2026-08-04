@@ -4,6 +4,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_VERTICAL_PADDING,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+  TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP,
 } from '../chartConstants';
@@ -22,6 +23,7 @@ import {
   getTradingViewNativeTimeTickMinimumIndexSpacing,
   getTradingViewNativeVolumeBarHeight,
   getTradingViewNativeWatermarkLayout,
+  hasTradingViewNativeVolume,
 } from './chartLayout';
 
 const SECONDS_PER_HOUR = 60 * 60;
@@ -125,6 +127,7 @@ describe('TradingViewNative chart layout', () => {
     const width = 402;
     const layout = getTradingViewNativeChartLayout({
       candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: true,
       height: 300,
       minimumTimeTickIndexSpacing: 1,
       points,
@@ -145,6 +148,10 @@ describe('TradingViewNative chart layout', () => {
       volumeBottom: 276,
       volumeTop: 225.6,
     });
+    expect(
+      layout.volumeTop -
+        (TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight),
+    ).toBe(TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING);
     expect(layout.priceTicks).toHaveLength(7);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
@@ -163,6 +170,7 @@ describe('TradingViewNative chart layout', () => {
     const visiblePointRange = { endIndex: 3, startIndex: 1 };
     const layout = getTradingViewNativeChartLayout({
       candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: true,
       height: 300,
       minimumTimeTickIndexSpacing: 1,
       points,
@@ -174,6 +182,40 @@ describe('TradingViewNative chart layout', () => {
       getTradingViewNativeMaxVolume({ ...visiblePointRange, points }),
     ).toBe(10);
     expect(layout?.maxVolume).toBe(10);
+  });
+
+  it('keeps bottom padding below the price area when the token has no volume', () => {
+    const points = buildPoints({
+      count: 5,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: hasTradingViewNativeVolume(points),
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      visiblePointRange: { endIndex: points.length, startIndex: 0 },
+      width: 402,
+    });
+
+    expect(hasTradingViewNativeVolume(points)).toBe(false);
+    expect(layout).toMatchObject({
+      priceChartHeight: 244,
+      volumeBottom: 276,
+      volumeHeight: 0,
+      volumeTop: 276,
+    });
+    expect(
+      layout
+        ? 276 -
+            (TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight)
+        : 0,
+    ).toBe(TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING);
+    expect(
+      hasTradingViewNativeVolume([...points, { ...points[0], v: 0.000_001 }]),
+    ).toBe(true);
   });
 
   it('calculates volume bar height only for positive finite values', () => {
