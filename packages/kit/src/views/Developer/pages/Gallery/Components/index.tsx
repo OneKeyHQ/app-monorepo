@@ -71,7 +71,6 @@ const Index = () => {
             <ListItem
               style={{ width: '90%', maxWidth: 640, alignSelf: 'center' }}
               key={item.replace('component-', '')}
-              testID={`developer-gallery-${item}-item`}
               drillIn
               onPress={() => {
                 // @ts-expect-error
