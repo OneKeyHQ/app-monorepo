@@ -55,12 +55,6 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
-const FirmwareUpdatePro2DevSettings = LazyLoadPage(async () => {
-  const { PageFirmwareUpdatePro2DevSettings } =
-    await import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings');
-  return { default: PageFirmwareUpdatePro2DevSettings };
-});
-
 const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
 );
@@ -242,10 +236,6 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
     component: FirmwareUpdateDevSettings,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
-    component: FirmwareUpdatePro2DevSettings,
   },
   {
     name: EModalSettingRoutes.SettingDevAppUpdateModal,

@@ -2,9 +2,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 describe('TokenListBlock portfolio sync producer', () => {
-  it('checks the dev feature before building the cross-runtime payload', () => {
+  it('checks the Pro2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
-    const gateIndex = source.indexOf('isPortfolioSyncDevEnabled &&');
+    const gateIndex = source.indexOf(
+      'device?.deviceType === EDeviceType.Pro2 &&',
+    );
     const buildIndex = source.indexOf(
       'const flattenedAggregateTokenMap = flattenAggregateTokensMap',
     );
@@ -12,13 +14,11 @@ describe('TokenListBlock portfolio sync producer', () => {
       'backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled',
     );
 
-    expect(source).toContain('useDevSettingsPersistAtom');
+    expect(source).not.toContain('useDevSettingsPersistAtom');
     expect(source).toContain(
       'deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id',
     );
-    expect(source).toMatch(
-      /isPro2DebugModuleEnabled\(\s*devSettings,\s*'portfolio',?\s*\)/,
-    );
+    expect(source).not.toContain('isPro2DebugModuleEnabled');
     expect(source).toContain(
       'accountUtils.isHwWallet({ walletId: wallet.id })',
     );

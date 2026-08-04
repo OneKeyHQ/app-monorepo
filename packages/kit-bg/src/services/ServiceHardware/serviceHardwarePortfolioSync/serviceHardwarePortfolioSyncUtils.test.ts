@@ -13,7 +13,6 @@ import {
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
   getPortfolioSyncCooldownRemainingMs,
-  isPortfolioSyncDevEnabled,
 } from './serviceHardwarePortfolioSyncUtils';
 
 const currencyMap: Record<string, ICurrencyItem> = {
@@ -64,43 +63,6 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         timezoneOffsetMinutes: -540,
       }),
     ).toBe(1_784_624_400_000);
-  });
-
-  test('requires both the Pro 2 master switch and explicit portfolio switch', () => {
-    expect(
-      isPortfolioSyncDevEnabled({
-        devSettings: {
-          enabled: true,
-          settings: {
-            enablePortfolioSyncDev: true,
-            enablePro2TestMode: false,
-          },
-        },
-      }),
-    ).toBe(false);
-
-    expect(
-      isPortfolioSyncDevEnabled({
-        devSettings: {
-          enabled: true,
-          settings: {
-            enablePortfolioSyncDev: true,
-            enablePro2TestMode: true,
-          },
-        },
-      }),
-    ).toBe(true);
-
-    expect(
-      isPortfolioSyncDevEnabled({
-        devSettings: {
-          enabled: true,
-          settings: {
-            enablePro2TestMode: true,
-          },
-        },
-      }),
-    ).toBe(false);
   });
 
   test('calculates the 20s hardware transfer cooldown window', () => {
@@ -199,6 +161,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         iconName: string | null;
         isAllNetworks: boolean;
         isNative: boolean;
+        logoURI: string;
         portfolioPercentage: number;
       }[];
     };
@@ -221,6 +184,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: true,
+          logoURI: 'https://example.com/eth.png',
           portfolioPercentage: 28,
         },
         {
@@ -229,6 +193,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: false,
+          logoURI: 'https://example.com/usdt.png',
           portfolioPercentage: 27.71,
         },
         {
@@ -237,6 +202,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
           iconName: null,
           isAllNetworks: false,
           isNative: false,
+          logoURI: '',
           portfolioPercentage: 27.43,
         },
       ],
@@ -322,7 +288,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     });
   });
 
-  test('does not send remote logo URLs after filtering ineligible tokens', () => {
+  test('keeps server logoURI aligned after filtering ineligible tokens', () => {
     const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
       {
         accountAddress: '0x1234567890abcdef',
@@ -367,8 +333,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
 
     expect(artifacts.portfolio.tokens).toHaveLength(1);
     expect(artifacts.portfolio.tokens[0]).toMatchObject({
+      logoURI: 'https://example.com/eth.png',
       symbol: 'ETH',
     });
-    expect(artifacts.portfolio.tokens[0]).not.toHaveProperty('logoURI');
   });
 });

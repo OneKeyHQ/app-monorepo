@@ -1,4 +1,4 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   backgroundMethod,
@@ -31,8 +31,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
-import { isPro2DebugModuleEnabled } from '../../states/jotai/atoms/devSettings';
-
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type {
@@ -109,32 +107,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return deviceUtils.isFirmwareVerifySupported(deviceType);
   }
 
-  private async canSkipUnavailableFirmwareVerification(
-    deviceType?: IDeviceType,
-  ) {
-    if (deviceType !== EDeviceType.Pro2) {
-      return false;
-    }
-    try {
-      const devSettings =
-        await this.backgroundApi.serviceDevSetting.getDevSetting();
-      return isPro2DebugModuleEnabled(devSettings, 'onboarding');
-    } catch {
-      return false;
-    }
-  }
-
-  private async assertUnavailableFirmwareVerificationCanBeSkipped(
-    deviceType?: IDeviceType,
-  ) {
-    if (await this.canSkipUnavailableFirmwareVerification(deviceType)) {
-      return;
-    }
-    throw new OneKeyLocalError(
-      'Pro2 firmware attestation is unavailable; refusing to continue outside the onboarding development flow',
-    );
-  }
-
   @backgroundMethod()
   async getDeviceCertWithSig({
     connectId,
@@ -161,9 +133,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     device,
   }: IShouldAuthenticateFirmwareParams) {
     if (!this.isFirmwareVerificationEnabled(device.deviceType)) {
-      await this.assertUnavailableFirmwareVerificationCanBeSkipped(
-        device.deviceType,
-      );
       return false;
     }
 
@@ -193,7 +162,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
     if (!this.isFirmwareVerificationEnabled(deviceType)) {
-      await this.assertUnavailableFirmwareVerificationCanBeSkipped(deviceType);
       return buildSkippedFirmwareAuthenticateResult(device);
     }
 

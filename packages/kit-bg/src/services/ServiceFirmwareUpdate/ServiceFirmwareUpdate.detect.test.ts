@@ -11,6 +11,7 @@ import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateRetryAtom,
   firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
 import ServiceFirmwareUpdate, {
@@ -79,6 +80,9 @@ jest.mock('../../states/jotai/atoms', () => ({
   hardwareUiStateAtom: {
     set: jest.fn(),
   },
+  hardwareUiStateCompletedAtom: {
+    set: jest.fn(),
+  },
 }));
 
 jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
@@ -133,7 +137,6 @@ describe('buildPro2TargetsToUpdate', () => {
     expect(
       buildPro2TargetsToUpdate({
         sdkTargets: ['app_v1', 'resource'],
-        forceTargets: [],
       }),
     ).toEqual(['app_v1', 'resource']);
   });
@@ -142,16 +145,14 @@ describe('buildPro2TargetsToUpdate', () => {
     expect(
       buildPro2TargetsToUpdate({
         sdkTargets: ['app_v1'],
-        forceTargets: [],
       }),
     ).toEqual(['app_v1']);
   });
 
-  it('preserves and deduplicates explicit force-update targets', () => {
+  it('deduplicates SDK update targets', () => {
     expect(
       buildPro2TargetsToUpdate({
-        sdkTargets: ['se01'],
-        forceTargets: ['se01', 'resource'],
+        sdkTargets: ['se01', 'se01', 'resource'],
       }),
     ).toEqual(['se01', 'resource']);
   });
@@ -159,8 +160,7 @@ describe('buildPro2TargetsToUpdate', () => {
   it('keeps boot resources independent from stable resources', () => {
     expect(
       buildPro2TargetsToUpdate({
-        sdkTargets: ['resource'],
-        forceTargets: ['boot_resources'],
+        sdkTargets: ['resource', 'boot_resources'],
       }),
     ).toEqual(['resource', 'boot_resources']);
   });
@@ -171,7 +171,7 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps a debug-selected resource target on the incremental inventory path', async () => {
+  it('keeps an SDK-selected resource target on the incremental inventory path', async () => {
     const firmwareUpdateV4 = jest.fn().mockResolvedValue({
       success: true,
       payload: {},
@@ -198,12 +198,6 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
             if (key === 'forceUpdateResEvenSameVersion') {
               return false;
             }
-            if (key === 'pro2ForceUpdateTargets') {
-              return ['resource'];
-            }
-            if (key === 'pro2ForceUpdateOnceTargets') {
-              return [];
-            }
             return undefined;
           }),
         },
@@ -217,7 +211,6 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       bootloaderVersion: undefined,
       firmwareType: undefined,
       isPro2Device: true,
-      pro2ForceTargets: ['resource'],
       pro2TargetsToUpdate: ['resource'],
     });
 
@@ -470,6 +463,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
       expect.objectContaining({ retryCount: 1 }),
     );
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
   it('does not wait for attempt analytics before exposing retry state', async () => {

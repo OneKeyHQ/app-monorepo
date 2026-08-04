@@ -110,12 +110,6 @@ export function FirmwareUpdateDevSettings() {
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
-        name="forceUpdateResource"
-        title="Force update resource"
-      >
-        <Switch size={ESwitchSize.small} />
-      </FirmwareUpdateSectionFieldItem>
-      <FirmwareUpdateSectionFieldItem
         name="forceUpdateResEvenSameVersion"
         title="Force update res even same version"
       >

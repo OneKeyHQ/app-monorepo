@@ -7,20 +7,25 @@ import { packPortfolioArchive } from '@onekeyhq/shared/src/utils/portfolioArchiv
 import {
   buildPortfolioPayload,
   buildPortfolioPayloadHash,
+  selectPortfolioPayloadTokens,
 } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import type { IPortfolioPayload } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 
-import {
-  type IDevSettingsPersistAtom,
-  isPro2DebugModuleEnabled,
-} from '../../../states/jotai/atoms/devSettings';
-
 export type IPortfolioSyncSettledPayload =
   IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled];
 
-export type IPortfolioServerSubmitPayload = IPortfolioPayload;
+export type IPortfolioServerSubmitPayload = Omit<
+  IPortfolioPayload,
+  'tokens'
+> & {
+  tokens: Array<
+    IPortfolioPayload['tokens'][number] & {
+      logoURI: string;
+    }
+  >;
+};
 
 export type IPortfolioSyncArtifacts = {
   contentHash: string;
@@ -58,14 +63,6 @@ export function getPortfolioSyncCooldownRemainingMs({
     return 0;
   }
   return Math.max(lastTransferAt + cooldownMs - now, 0);
-}
-
-export function isPortfolioSyncDevEnabled({
-  devSettings,
-}: {
-  devSettings: IDevSettingsPersistAtom;
-}): boolean {
-  return isPro2DebugModuleEnabled(devSettings, 'portfolio');
 }
 
 function buildPortfolioAccountFromEventPayload(
@@ -112,12 +109,16 @@ export function buildPortfolioSyncArtifacts({
     tokenMap: eventPayload.tokenMap,
     tokens: eventPayload.tokens,
   };
+  const selectedSourceTokens = selectPortfolioPayloadTokens(
+    portfolioPayloadParams,
+  );
   const mockPortfolio = buildPortfolioPayload(portfolioPayloadParams);
   const portfolio: IPortfolioServerSubmitPayload = {
     ...mockPortfolio,
-    tokens: mockPortfolio.tokens.map((token) => ({
+    tokens: mockPortfolio.tokens.map((token, index) => ({
       ...token,
       iconName: null,
+      logoURI: selectedSourceTokens[index]?.logoURI ?? '',
     })),
   };
   const portfolioJsonText = stringUtils.stableStringify(portfolio);

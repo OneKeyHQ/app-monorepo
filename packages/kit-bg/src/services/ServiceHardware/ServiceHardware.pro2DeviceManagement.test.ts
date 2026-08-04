@@ -293,18 +293,9 @@ describe('ServiceHardware SDK debug logging', () => {
 });
 
 describe('ServiceHardware wallet session compatibility', () => {
-  it('allows an explicit Pro2 onboarding dev flow to skip unavailable attestation', async () => {
-    const getDevSetting = jest.fn().mockResolvedValue({
-      enabled: true,
-      settings: {
-        enablePro2OnboardingDev: true,
-        enablePro2TestMode: true,
-      },
-    });
+  it('skips unavailable Pro2 firmware attestation', async () => {
     const service = new ServiceHardware({
-      backgroundApi: {
-        serviceDevSetting: { getDevSetting },
-      } as unknown as IBackgroundApi,
+      backgroundApi: {} as IBackgroundApi,
     });
     const getSDKInstanceSpy = jest.spyOn(service, 'getSDKInstance');
 
@@ -321,43 +312,12 @@ describe('ServiceHardware wallet session compatibility', () => {
         verified: false,
       }),
     );
-    expect(getDevSetting).toHaveBeenCalledTimes(1);
     expect(getSDKInstanceSpy).not.toHaveBeenCalled();
   });
 
-  it('fails closed when Pro2 attestation is unavailable outside the onboarding dev flow', async () => {
-    const getDevSetting = jest.fn().mockResolvedValue({
-      enabled: false,
-      settings: {},
-    });
+  it('does not require unavailable Pro2 attestation before wallet creation', async () => {
     const service = new ServiceHardware({
-      backgroundApi: {
-        serviceDevSetting: { getDevSetting },
-      } as unknown as IBackgroundApi,
-    });
-    const getSDKInstanceSpy = jest.spyOn(service, 'getSDKInstance');
-
-    await expect(
-      service.firmwareAuthenticate({
-        device: {
-          connectId: 'PRO2_USB',
-          deviceType: EDeviceType.Pro2,
-        } as never,
-      }),
-    ).rejects.toThrow('Pro2 firmware attestation is unavailable');
-    expect(getSDKInstanceSpy).not.toHaveBeenCalled();
-  });
-
-  it('blocks Pro2 onboarding before wallet creation when attestation is unavailable', async () => {
-    const service = new ServiceHardware({
-      backgroundApi: {
-        serviceDevSetting: {
-          getDevSetting: jest.fn().mockResolvedValue({
-            enabled: false,
-            settings: {},
-          }),
-        },
-      } as unknown as IBackgroundApi,
+      backgroundApi: {} as IBackgroundApi,
     });
 
     await expect(
@@ -368,7 +328,7 @@ describe('ServiceHardware wallet session compatibility', () => {
           deviceType: EDeviceType.Pro2,
         } as never,
       }),
-    ).rejects.toThrow('Pro2 firmware attestation is unavailable');
+    ).resolves.toBe(false);
   });
 
   it('uses the GetFeatures-only state scope for Classic-family firmware verification', async () => {

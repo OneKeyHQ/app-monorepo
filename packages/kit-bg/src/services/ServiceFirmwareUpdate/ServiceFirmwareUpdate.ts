@@ -61,7 +61,6 @@ import type {
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
-  PRO2_FIRMWARE_UPDATE_TARGETS,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -124,23 +123,12 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v2',
 ]);
 
-const PRO2_NON_BOOT_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>(
-  PRO2_FIRMWARE_UPDATE_TARGETS.filter((target) => target !== 'boot'),
-);
-
 export function buildPro2TargetsToUpdate({
   sdkTargets,
-  forceTargets,
 }: {
   sdkTargets: readonly IPro2FirmwareUpdateTarget[] | undefined;
-  forceTargets: readonly IPro2FirmwareUpdateTarget[];
 }) {
-  return Array.from(
-    new Set<IPro2FirmwareUpdateTarget>([
-      ...(sdkTargets ?? []),
-      ...forceTargets,
-    ]),
-  );
+  return Array.from(new Set<IPro2FirmwareUpdateTarget>(sdkTargets ?? []));
 }
 
 export type IUpdateFirmwareTaskFn = ({
@@ -184,7 +172,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       forceUpdateOnceFirmware: false,
       forceUpdateOnceBle: false,
       forceUpdateOnceBootloader: false,
-      pro2ForceUpdateOnceTargets: [],
     });
   }
 
@@ -416,11 +403,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareType,
     skipCancel,
     baseReleaseInfoCache,
+    checkFirmwareHash,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     skipCancel?: boolean;
     baseReleaseInfoCache?: AllFirmwareRelease;
+    checkFirmwareHash?: boolean;
   }): Promise<ICheckAllFirmwareReleaseResult> {
     const hardwareSdk = await CoreSDKLoader();
     const getDeviceSerialNo =
@@ -430,9 +419,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
         }
       ).getDeviceSerialNo ?? hardwareSdk.getDeviceUUID;
 
-    const releaseInfoCache = this._checkCacheMeetExpectations({
-      baseReleaseInfo: baseReleaseInfoCache,
-    });
+    const releaseInfoCache = checkFirmwareHash
+      ? undefined
+      : this._checkCacheMeetExpectations({
+          baseReleaseInfo: baseReleaseInfoCache,
+        });
 
     const originalConnectId = connectId;
     // Skip cancel when using cached data since device state was already verified
@@ -513,6 +504,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         connectId: originalConnectId,
         firmwareType,
         skipChangeTransportType: true,
+        checkFirmwareHash,
       }));
 
     const currentFirmwareType = await deviceUtils.getFirmwareType({
@@ -665,24 +657,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // ignore
     }
 
-    const pro2ForceTargets =
-      deviceType === EDeviceType.Pro2
-        ? Array.from(
-            new Set([
-              ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-                'pro2ForceUpdateTargets',
-              )) ?? []),
-              ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-                'pro2ForceUpdateOnceTargets',
-              )) ?? []),
-            ]),
-          )
-        : undefined;
     const pro2TargetsToUpdate =
       deviceType === EDeviceType.Pro2
         ? buildPro2TargetsToUpdate({
             sdkTargets: releaseInfo.targetsToUpdate,
-            forceTargets: pro2ForceTargets ?? [],
           })
         : undefined;
 
@@ -706,7 +684,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge,
       },
       totalPhase: totalPhase.filter(Boolean),
-      pro2ForceTargets,
       pro2TargetsToUpdate,
     };
 
@@ -756,12 +733,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     skipChangeTransportType,
     retryCount,
     silentMode,
+    checkFirmwareHash,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     skipChangeTransportType?: boolean;
     retryCount?: number;
     silentMode?: boolean;
+    checkFirmwareHash?: boolean;
   }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
@@ -781,6 +760,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         // method fail if device on boot mode
         hardwareSDK.checkAllFirmwareRelease(currentConnectId, {
           checkBridgeRelease,
+          checkFirmwareHash,
           firmwareType,
           retryCount,
         }),
@@ -997,14 +977,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateOnceBootloader',
       );
-    const pro2ForceUpdateTargets =
-      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'pro2ForceUpdateTargets',
-      )) ?? [];
-    const pro2ForceUpdateOnceTargets =
-      (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'pro2ForceUpdateOnceTargets',
-      )) ?? [];
     const releaseFeatures =
       'features' in releasePayload ? releasePayload.features : undefined;
     const isPro2Device =
@@ -1012,21 +984,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
       (await deviceUtils.getDeviceTypeFromFeatures({
         features: releaseFeatures,
       })) === EDeviceType.Pro2;
-    const pro2ForceTargets = [
-      ...pro2ForceUpdateTargets,
-      ...pro2ForceUpdateOnceTargets,
-    ];
-    const shouldForcePro2Firmware = pro2ForceTargets.some((target) =>
-      PRO2_NON_BOOT_UPDATE_TARGETS.has(target),
-    );
-    const shouldForcePro2Bootloader =
-      pro2ForceUpdateTargets.includes('boot') ||
-      pro2ForceUpdateOnceTargets.includes('boot');
     if (
       firmwareType === 'firmware' &&
-      (isPro2Device
-        ? shouldForcePro2Firmware || shouldForcePro2Bootloader
-        : mockUpdateFirmware || mockUpdateOnceFirmware)
+      !isPro2Device &&
+      (mockUpdateFirmware || mockUpdateOnceFirmware)
     ) {
       hasUpgrade = true;
     }
@@ -1035,9 +996,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
     if (
       firmwareType === 'bootloader' &&
-      (isPro2Device
-        ? shouldForcePro2Bootloader
-        : mockUpdateBootloader || mockUpdateOnceBootloader)
+      !isPro2Device &&
+      (mockUpdateBootloader || mockUpdateOnceBootloader)
     ) {
       hasUpgrade = true;
     }
@@ -2328,6 +2288,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // Re-block lock screen before resuming hardware communication
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
+    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({
@@ -2430,7 +2391,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
       isPro2Device,
-      pro2ForceTargets: releaseResult.pro2ForceTargets,
       pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
     };
     return this.createRunTaskWithRetry({
@@ -2472,8 +2432,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const forcedUpdateRes = forceUpdateResEvenIfSameVersion === true;
       const shouldVerifyFirmwareVersion =
         !params.isPro2Device ||
-        !params.pro2ForceTargets?.length ||
-        params.pro2ForceTargets.some((target) =>
+        !params.pro2TargetsToUpdate?.length ||
+        params.pro2TargetsToUpdate.some((target) =>
           PRO2_APP_FIRMWARE_UPDATE_TARGETS.has(target),
         );
 

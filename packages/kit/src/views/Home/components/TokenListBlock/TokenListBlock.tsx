@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniqBy } from 'lodash';
@@ -77,10 +78,6 @@ import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  isPro2DebugModuleEnabled,
-  useDevSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -257,11 +254,6 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
-  const [devSettings] = useDevSettingsPersistAtom();
-  const isPortfolioSyncDevEnabled = isPro2DebugModuleEnabled(
-    devSettings,
-    'portfolio',
-  );
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
   // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
@@ -1839,7 +1831,7 @@ function TokenListBlock({
       });
 
       if (
-        isPortfolioSyncDevEnabled &&
+        device?.deviceType === EDeviceType.Pro2 &&
         wallet &&
         accountUtils.isHwWallet({ walletId: wallet.id })
       ) {
@@ -1923,7 +1915,6 @@ function TokenListBlock({
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
-    isPortfolioSyncDevEnabled,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,

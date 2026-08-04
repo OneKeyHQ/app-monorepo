@@ -135,7 +135,6 @@ export type ICheckAllFirmwareReleaseResult = {
     bridge: IHardwareBridgeReleasePayload | undefined;
   };
   totalPhase: IDeviceFirmwareType[];
-  pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 
@@ -340,6 +339,7 @@ export enum EFirmwareUpdateTipMessages {
   UpdateSysResourceSuccess = 'UpdateSysResourceSuccess',
   StartTransferData = 'StartTransferData',
   InstallingFirmware = 'InstallingFirmware',
+  FirmwareUpdating = 'FirmwareUpdating',
 
   // For V3
   StartDownloadFirmware = 'StartDownloadFirmware',
@@ -454,7 +454,6 @@ export type IFirmwareUpdateV3VersionParams = {
   bootloaderVersion: string | undefined;
   firmwareType: EFirmwareType | undefined;
   isPro2Device?: boolean;
-  pro2ForceTargets?: IPro2FirmwareUpdateTarget[];
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
 };
 

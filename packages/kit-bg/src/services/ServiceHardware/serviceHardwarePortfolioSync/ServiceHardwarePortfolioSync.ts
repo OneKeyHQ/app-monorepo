@@ -4,7 +4,6 @@ import { debounce, uniq } from 'lodash';
 import {
   backgroundClass,
   backgroundMethod,
-  backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -19,14 +18,12 @@ import {
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../../../states/jotai/atoms';
-import { devSettingsPersistAtom } from '../../../states/jotai/atoms/devSettings';
 import ServiceBase from '../../ServiceBase';
 
 import {
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
   getPortfolioSyncCooldownRemainingMs,
-  isPortfolioSyncDevEnabled,
 } from './serviceHardwarePortfolioSyncUtils';
 
 import type {
@@ -225,18 +222,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       this.targetKeyByConnectId.set(authorizedConnectId, device.id);
     }
 
-    const accountId = eventPayload.accountId;
-    if (!accountId) {
-      return undefined;
-    }
-    const primaryAccount = await localDb.getAccountSafe({ accountId });
-    const indexedAccountId = primaryAccount?.indexedAccountId;
-    if (
-      !primaryAccount ||
-      !indexedAccountId ||
-      (eventPayload.indexedAccountId &&
-        eventPayload.indexedAccountId !== indexedAccountId)
-    ) {
+    // All Networks account IDs are runtime-only aggregate accounts. Validate
+    // ownership with the stable indexed account and rebuild display fields.
+    const indexedAccountId = eventPayload.indexedAccountId;
+    if (!indexedAccountId) {
       return undefined;
     }
     const indexedAccount = await localDb.getIndexedAccountSafe({
@@ -246,22 +235,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       return undefined;
     }
 
-    const ownerAccount = eventPayload.ownerAccountId
-      ? await localDb.getAccountSafe({
-          accountId: eventPayload.ownerAccountId,
-        })
-      : undefined;
-    if (
-      eventPayload.ownerAccountId &&
-      (!ownerAccount || ownerAccount.indexedAccountId !== indexedAccount.id)
-    ) {
-      return undefined;
-    }
-
     return {
       ...eventPayload,
-      accountAddress: primaryAccount.address,
-      accountName: primaryAccount.name,
+      accountAddress: undefined,
+      accountName: indexedAccount.name,
       deviceConnectId: device.connectId,
       deviceDbId: device.id,
       indexedAccountId: indexedAccount.id,
@@ -535,13 +512,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     return getPortfolioSyncCooldownRemainingMs({
       lastTransferAt: state?.lastTransferAt,
       now,
-    });
-  }
-
-  private async shouldRunDevFlow(): Promise<boolean> {
-    const devSettings = await devSettingsPersistAtom.get();
-    return isPortfolioSyncDevEnabled({
-      devSettings,
     });
   }
 
@@ -821,15 +791,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       this.cancelHardwareBusyRetry(pendingDeviceConnectId);
     }
     try {
-      if (!(await this.shouldRunDevFlow())) {
-        if (!this.isCurrentSyncGeneration(targetKey, generation)) {
-          return;
-        }
-        debugPortfolioSyncLog('skip-disabled');
-        this.setLastResult({ status: 'disabled', updatedAt });
-        return;
-      }
-
       const isHardwareWallet = accountUtils.isHwWallet({
         walletId: eventPayload.walletId,
       });
@@ -1019,24 +980,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     }
     await activeUpload.catch(() => undefined);
     return true;
-  }
-
-  @backgroundMethodForDev()
-  async getLastPortfolioSyncResultForDev() {
-    return this.lastResult;
-  }
-
-  @backgroundMethodForDev()
-  async getLastPortfolioSyncArtifactSummaryForDev() {
-    if (!this.lastArtifacts) {
-      return undefined;
-    }
-    return {
-      contentHash: this.lastArtifacts.contentHash,
-      mockArchiveBytesLength: this.lastArtifacts.mockArchiveBytes.byteLength,
-      portfolioJsonBytesLength:
-        this.lastArtifacts.portfolioJsonBytes.byteLength,
-    };
   }
 }
 

@@ -25,6 +25,7 @@ import {
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateResultVerifyAtom,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
@@ -40,6 +41,13 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+
+import {
+  PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
+  PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
+  calculateProgressInRange,
+  getNextEstimatedFirmwareProgress,
+} from './firmwareUpdateProgressUtils';
 
 interface IFirmwareUpdateVersionInfo {
   fromVersion: string;
@@ -70,23 +78,6 @@ type IProgressConfigItem = {
 };
 
 const checkingMaxProgress = 10;
-
-const calculateProgressInRange = ({
-  startAt,
-  maxAt,
-  currentProgress,
-}: {
-  startAt: number;
-  maxAt: number;
-  currentProgress: number | null | undefined;
-}) => {
-  let newProgress =
-    startAt + (currentProgress ?? 0) * ((maxAt - startAt) / 100);
-  if (newProgress >= maxAt) {
-    newProgress = maxAt;
-  }
-  return newProgress;
-};
 
 function FirmwareUpdateVersionItem({
   title,
@@ -249,6 +240,7 @@ export function FirmwareUpdateProgressBarV2({
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
@@ -321,7 +313,7 @@ export function FirmwareUpdateProgressBarV2({
         {
           type: [EFirmwareUpdateTipMessages.SwitchFirmwareReconnectDevice],
           progress: () => progressRef.current,
-          progressMax: () => 99,
+          progressMax: () => PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
           desc: () =>
             intl.formatMessage({
               id: isPro2SafeOSFirmwareUpdate(result)
@@ -331,6 +323,7 @@ export function FirmwareUpdateProgressBarV2({
         },
         {
           type: [EFirmwareUpdateTipMessages.StartTransferData],
+          progressMax: () => 50,
           progress: () =>
             calculateProgressInRange({
               startAt: 12,
@@ -343,13 +336,23 @@ export function FirmwareUpdateProgressBarV2({
             }),
         },
         {
-          type: ['installing'],
+          type: [EFirmwareUpdateTipMessages.ConfirmOnDevice],
+          progress: () => progressRef.current,
+          progressMax: () => progressRef.current,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.global_confirm_on_device,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.FirmwareUpdating, 'installing'],
           progress: () =>
             calculateProgressInRange({
               startAt: 50,
               maxAt: 90,
               currentProgress: firmwareProgressRef.current,
             }),
+          progressMax: () => PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
           desc: () => {
             return intl.formatMessage({
               id: ETranslations.update_installing,
@@ -446,6 +449,36 @@ export function FirmwareUpdateProgressBarV2({
       );
     }
   }, [firmwareProgress, firmwareProgressType]);
+
+  const shouldEstimatePro2Progress =
+    result?.deviceType === EDeviceType.Pro2 &&
+    stepInfo.step === EFirmwareUpdateSteps.installing &&
+    firmwareProgressType === 'installingFirmware' &&
+    lastFirmwareTipMessage !==
+      EFirmwareUpdateTipMessages.FirmwareUpdateCompleted &&
+    !retryInfo &&
+    !isDone;
+
+  useEffect(() => {
+    if (!shouldEstimatePro2Progress) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setProgress((currentProgress) => {
+        const nextProgress = getNextEstimatedFirmwareProgress({
+          currentProgress,
+          maxProgress: progressMaxRef.current,
+        });
+        progressRef.current = nextProgress;
+        return nextProgress;
+      });
+    }, 2000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [shouldEstimatePro2Progress]);
 
   useEffect(() => {
     console.log('FirmwareUpdateProgressBar: =>>>> result: ', result);

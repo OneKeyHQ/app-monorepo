@@ -20,7 +20,6 @@ import {
   ANIMATE_ONLY_BG_BORDER_COLOR,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,8 +36,6 @@ import {
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
 import PixelShimmer from '../components/PixelShimmer';
 
-import { shouldShowPro2OnboardingEntry } from './pro2TestMode';
-
 // Neutral shimmer for the non-OneKey "use another device" card; OneKey device
 // cards fall back to PixelShimmer's brand-green default.
 const SHIMMER_NEUTRAL = ['#94A3B8', '#CBD5E1', '#A0AEC0'];
@@ -47,7 +44,6 @@ export default function PickYourDevice() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const [devSettings] = useDevSettingsPersistAtom();
   const DEVICES = useMemo<
     Array<{
       name: string;
@@ -57,15 +53,6 @@ export default function PickYourDevice() {
     }>
   >(() => {
     const devices = [
-      ...(shouldShowPro2OnboardingEntry(devSettings)
-        ? [
-            {
-              name: 'OneKey Pro 2',
-              deviceType: [EDeviceType.Pro2],
-              image: require('@onekeyhq/kit/assets/pick-pro.png'),
-            },
-          ]
-        : []),
       {
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro],
@@ -101,7 +88,7 @@ export default function PickYourDevice() {
     }
 
     return devices;
-  }, [devSettings, intl]);
+  }, [intl]);
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();

@@ -58,19 +58,6 @@ jest.mock('../../../states/jotai/atoms', () => ({
   settingsPersistAtom: { get: jest.fn() },
 }));
 
-jest.mock('../../../states/jotai/atoms/devSettings', () => ({
-  devSettingsPersistAtom: {
-    get: jest.fn().mockResolvedValue({
-      enabled: true,
-      settings: {
-        enablePortfolioSyncDev: true,
-        enablePro2TestMode: true,
-      },
-    }),
-  },
-  isPro2DebugModuleEnabled: jest.fn().mockReturnValue(true),
-}));
-
 describe('decodePortfolioPackageBase64', () => {
   test('returns a standalone buffer for a valid package', () => {
     expect(
@@ -544,6 +531,28 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
+  test('authorizes an All Networks snapshot by indexed account when the virtual account is not persisted', async () => {
+    jest
+      .mocked(localDb.getAccountSafe)
+      .mockClear()
+      .mockResolvedValue(undefined);
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false],
+    });
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      accountAddress: 'AllNetworkMockAddress',
+      accountId: 'hw-1--onekeyall--0000/0',
+      ownerAccountId: 'hw-1--onekeyall--0000/0',
+    });
+
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
   test('rejects frontend device identifiers that do not match the wallet device', async () => {
     const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
       busyResults: [false],
@@ -558,10 +567,12 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
-  test('rejects an account that is not owned by the wallet indexed account', async () => {
-    jest.mocked(localDb.getAccountSafe).mockResolvedValue({
-      id: 'account-1',
-      indexedAccountId: 'other-indexed-account',
+  test('rejects an indexed account that is not owned by the wallet', async () => {
+    jest.mocked(localDb.getIndexedAccountSafe).mockResolvedValue({
+      id: 'indexed-account-1',
+      index: 0,
+      name: 'Account #1',
+      walletId: 'hw-other',
     } as never);
     const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
       busyResults: [false],
@@ -620,7 +631,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(serviceInternals.getCurrencyMapForBuild).not.toHaveBeenCalled();
     expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
-    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
       expect.objectContaining({
         status: 'disabled',
         walletId: 'hd-1',
@@ -699,7 +710,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       packageBytes: expect.any(ArrayBuffer),
     });
     expect(updateTargetState).toHaveBeenCalled();
-    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
       expect.objectContaining({
         status: 'uploaded',
         upload: { portfolioUpdated: true },
@@ -844,7 +855,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }
     ).inFlightReservationByTargetKey;
     expect(inFlightReservations.size).toBe(0);
-    await expect(service.getLastPortfolioSyncResultForDev()).resolves.toEqual(
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
       expect.objectContaining({
         errorMessage: 'Device unplugged',
         status: 'error',
