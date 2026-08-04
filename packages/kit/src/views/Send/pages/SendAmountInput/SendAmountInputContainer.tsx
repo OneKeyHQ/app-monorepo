@@ -111,6 +111,7 @@ import {
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
+  ISwapNativeTokenConfig,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
@@ -150,6 +151,7 @@ import {
   type ISiblingDeriveBalance,
   useSiblingDeriveBalances,
 } from './hooks/useSiblingDeriveBalances';
+import { calcPrivateSendNativeTokenMaxAmount } from './privateSendMaxAmountUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1039,6 +1041,32 @@ function SendAmountInputContainer() {
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
   );
+  const isPrivateSendNativeToken =
+    sendMode === ESendMode.PRIVATE && privateSendToken?.isNative === true;
+  const privateSendNativeTokenNetworkId = isPrivateSendNativeToken
+    ? privateSendToken.networkId
+    : undefined;
+  const {
+    result: privateSendNativeTokenConfig,
+    isLoading: isPrivateSendNativeTokenConfigLoading,
+  } = usePromiseResult<ISwapNativeTokenConfig | undefined>(
+    async () => {
+      if (!privateSendNativeTokenNetworkId) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+        networkId: privateSendNativeTokenNetworkId,
+      });
+    },
+    [privateSendNativeTokenNetworkId],
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+  const isPrivateSendNativeTokenConfigReady =
+    !isPrivateSendNativeToken ||
+    privateSendNativeTokenConfig?.networkId === privateSendNativeTokenNetworkId;
   const sendSwapTargetToken = useMemo(
     () =>
       privateSendToken ??
@@ -1214,6 +1242,39 @@ function SendAmountInputContainer() {
     return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, selectedUtxoTotalAmount]);
 
+  const privateSendMaxTokenAmount = useMemo(() => {
+    if (!isPrivateSendNativeToken || !isPrivateSendNativeTokenConfigReady) {
+      return undefined;
+    }
+    return calcPrivateSendNativeTokenMaxAmount({
+      balance: maxBalance,
+      reserveGas: privateSendNativeTokenConfig?.reserveGas,
+      decimals: privateSendToken?.decimals,
+    });
+  }, [
+    isPrivateSendNativeToken,
+    isPrivateSendNativeTokenConfigReady,
+    maxBalance,
+    privateSendNativeTokenConfig?.reserveGas,
+    privateSendToken?.decimals,
+  ]);
+
+  const privateSendMaxInputAmount = useMemo(() => {
+    if (privateSendMaxTokenAmount === undefined) {
+      return undefined;
+    }
+    if (!isUseFiat) {
+      return privateSendMaxTokenAmount;
+    }
+    const priceBN = new BigNumber(tokenDetails?.price ?? '');
+    if (!priceBN.isFinite() || priceBN.lte(0)) {
+      return undefined;
+    }
+    return new BigNumber(privateSendMaxTokenAmount)
+      .multipliedBy(priceBN)
+      .toFixed();
+  }, [isUseFiat, privateSendMaxTokenAmount, tokenDetails?.price]);
+
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || 0);
     // For Lightning in BTC mode, the input is in BTC but price is per-sat.
@@ -1285,6 +1346,45 @@ function SendAmountInputContainer() {
     () => new BigNumber(privateSendAmount || 0),
     [privateSendAmount],
   );
+  const shouldApplyPrivateSendNativeMax = isPrivateSendNativeToken && isMaxSend;
+  const isPrivateSendNativeMaxAmountReady = useMemo(() => {
+    if (!shouldApplyPrivateSendNativeMax) {
+      return true;
+    }
+    if (
+      !isPrivateSendNativeTokenConfigReady ||
+      privateSendMaxTokenAmount === undefined ||
+      privateSendAmountBN.isNaN()
+    ) {
+      return false;
+    }
+    return privateSendAmountBN.lte(privateSendMaxTokenAmount);
+  }, [
+    isPrivateSendNativeTokenConfigReady,
+    privateSendAmountBN,
+    privateSendMaxTokenAmount,
+    shouldApplyPrivateSendNativeMax,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldApplyPrivateSendNativeMax ||
+      privateSendMaxInputAmount === undefined ||
+      privateSendMaxTokenAmount === undefined ||
+      privateSendAmountBN.lte(privateSendMaxTokenAmount)
+    ) {
+      return;
+    }
+    form.setValue('amount', privateSendMaxInputAmount, {
+      shouldValidate: true,
+    });
+  }, [
+    form,
+    privateSendAmountBN,
+    privateSendMaxInputAmount,
+    privateSendMaxTokenAmount,
+    shouldApplyPrivateSendNativeMax,
+  ]);
   const {
     result: privateSendQuoteRecipientResult,
     isLoading: isPrivateSendRecipientResolving,
@@ -1359,10 +1459,12 @@ function SendAmountInputContainer() {
       !!privateSendToken &&
       !!account?.address &&
       !!recipientAddress &&
+      isPrivateSendNativeMaxAmountReady &&
       !privateSendAmountBN.isNaN() &&
       privateSendAmountBN.isGreaterThan(0),
     [
       account?.address,
+      isPrivateSendNativeMaxAmountReady,
       isPrivateSendSupported,
       privateSendAmountBN,
       privateSendToken,
@@ -2208,6 +2310,16 @@ function SendAmountInputContainer() {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
+      if (stage === 100 && isPrivateSendNativeToken) {
+        if (privateSendMaxInputAmount === undefined) {
+          return;
+        }
+        form.setValue('amount', privateSendMaxInputAmount, {
+          shouldValidate: true,
+        });
+        setIsMaxSend(true);
+        return;
+      }
       const balance = isUseFiat ? maxBalanceFiat : maxBalance;
       let decimals = tokenDetails?.info.decimals;
       if (isUseFiat) {
@@ -2233,10 +2345,12 @@ function SendAmountInputContainer() {
       form,
       isIntegerAmount,
       isLightningNetwork,
+      isPrivateSendNativeToken,
       isUseFiat,
       lnUnit,
       maxBalance,
       maxBalanceFiat,
+      privateSendMaxInputAmount,
       tokenDetails?.info.decimals,
     ],
   );
@@ -3951,8 +4065,25 @@ function SendAmountInputContainer() {
           variant="secondary"
           size="small"
           ml="$2"
+          disabled={
+            isPrivateSendNativeToken && privateSendMaxInputAmount === undefined
+          }
+          loading={
+            isPrivateSendNativeToken &&
+            (isPrivateSendNativeTokenConfigLoading ||
+              !isPrivateSendNativeTokenConfigReady)
+          }
           onPress={() => {
-            form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance, {
+            let maxInputAmount: string | undefined = isUseFiat
+              ? maxBalanceFiat
+              : maxBalance;
+            if (isPrivateSendNativeToken) {
+              maxInputAmount = privateSendMaxInputAmount;
+            }
+            if (maxInputAmount === undefined) {
+              return;
+            }
+            form.setValue('amount', maxInputAmount, {
               shouldValidate: true,
             });
             setIsMaxSend(true);
@@ -3969,11 +4100,15 @@ function SendAmountInputContainer() {
     form,
     intl,
     isLoadingAssets,
+    isPrivateSendNativeToken,
+    isPrivateSendNativeTokenConfigLoading,
+    isPrivateSendNativeTokenConfigReady,
     isUseFiat,
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
     nftDetails,
+    privateSendMaxInputAmount,
     sendMode,
     tokenDetails,
     tokenInfo?.logoURI,
