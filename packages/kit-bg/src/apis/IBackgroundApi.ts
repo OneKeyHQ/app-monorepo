@@ -197,7 +197,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
-  serviceIdentityExit: ServiceIdentityExit;
+  serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;

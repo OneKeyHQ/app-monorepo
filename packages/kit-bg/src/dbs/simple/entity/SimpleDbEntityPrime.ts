@@ -19,6 +19,7 @@ import {
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPayment,
@@ -98,6 +99,18 @@ export interface ISimpleDBPrime {
   // historical field name is retained for persisted-data compatibility;
   // any finite timestamp now means the reminder has been consumed forever.
   localKeylessUpgradeBindPromptShownAtByUserId?: Record<string, number>;
+  // A completed passive legacy-Keyless credential upgrade is reusable only
+  // while the complete identity lifecycle stays unchanged. Any OneKey ID,
+  // Keyless wallet, or Keyless OAuth session mutation advances the revision
+  // and makes the cached completion stale.
+  localKeylessCredentialUpgradeCompletedRevisionByUserId?: Record<
+    string,
+    number
+  >;
+  oneKeyIdOAuthBindPromptClaimByUserId?: Record<
+    string,
+    { claimId: string; expiresAt: number }
+  >;
   infiniPendingPaymentSessionByUserId?: Record<
     string,
     IPrimeInfiniPendingPaymentSession
@@ -363,9 +376,12 @@ export type IIdentityExitJournalEntry = {
     removeKeyless: boolean;
     clearKeylessSession?: boolean;
     clearAllIdentityAuth?: boolean;
+    explicitLocalOneKeyIdLogout?: boolean;
+    explicitLocalKeylessRemoval?: boolean;
     switchOAuthProvider?: EOAuthSocialLoginProvider;
     allowUnknownKeylessSessionIdentity?: boolean;
   };
+  explicitLocalOneKeyIdLogoutProjection?: IExplicitLocalOneKeyIdLogoutProjection;
   oneKeyId?: {
     onekeyUserId: string;
     source: EPrimeAuthSessionSource;
@@ -638,6 +654,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   > {
     const rawData = await this.getRawData();
     return rawData?.keylessOAuthSessionPersistenceJournal;
+  }
+
+  async hasPendingIdentityLifecycleRecovery(): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return Boolean(
+      rawData?.keylessOAuthSessionPersistenceJournal ||
+      Object.keys(rawData?.identityExitOperationJournal ?? {}).length,
+    );
   }
 
   async setKeylessOAuthSessionPersistenceJournal(
@@ -1036,6 +1060,16 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     clearSupabaseStorageCache();
   }
 
+  async markOneKeyIdLoggedOutPreservingSessions() {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      authToken: '',
+      authSessionSource: undefined,
+      oneKeyIdAuthState: 'loggedOut' as const,
+    }));
+    clearSupabaseStorageCache();
+  }
+
   async clearAllIdentityAuthMetadataAndBumpRevision(): Promise<number> {
     const next = await this.setRawData((rawData) => ({
       ...rawData,
@@ -1082,6 +1116,78 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async getOneKeyIdOAuthBindPromptUpgradeState({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<{
+    hasShown: boolean;
+    credentialUpgradeCompleted: boolean;
+    identityLifecycleRevision?: number;
+  }> {
+    if (!onekeyUserId) {
+      return {
+        hasShown: false,
+        credentialUpgradeCompleted: false,
+      };
+    }
+    const rawData = await this.getRawData();
+    const shownAt =
+      rawData?.localKeylessUpgradeBindPromptShownAtByUserId?.[onekeyUserId];
+    const currentRevision = rawData?.identityLifecycleRevision ?? 0;
+    const completedRevision =
+      rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId?.[
+        onekeyUserId
+      ];
+    const identityLifecycleRevision =
+      typeof currentRevision === 'number' && Number.isFinite(currentRevision)
+        ? currentRevision
+        : undefined;
+    return {
+      hasShown: typeof shownAt === 'number' && Number.isFinite(shownAt),
+      credentialUpgradeCompleted:
+        identityLifecycleRevision !== undefined &&
+        typeof completedRevision === 'number' &&
+        Number.isFinite(completedRevision) &&
+        completedRevision === identityLifecycleRevision,
+      identityLifecycleRevision,
+    };
+  }
+
+  @backgroundMethod()
+  async markOneKeyIdKeylessCredentialUpgradeCompleted({
+    onekeyUserId,
+    expectedIdentityLifecycleRevision,
+  }: {
+    onekeyUserId: string;
+    expectedIdentityLifecycleRevision: number;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !Number.isFinite(expectedIdentityLifecycleRevision)) {
+      return false;
+    }
+    let marked = false;
+    await this.setRawData((rawData) => {
+      const currentRevision = rawData?.identityLifecycleRevision ?? 0;
+      if (
+        typeof currentRevision !== 'number' ||
+        !Number.isFinite(currentRevision) ||
+        currentRevision !== expectedIdentityLifecycleRevision
+      ) {
+        return { ...rawData };
+      }
+      marked = true;
+      return {
+        ...rawData,
+        localKeylessCredentialUpgradeCompletedRevisionByUserId: {
+          ...rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+          [onekeyUserId]: currentRevision,
+        },
+      };
+    });
+    return marked;
+  }
+
+  @backgroundMethod()
   async markOneKeyIdOAuthBindPromptShown({
     onekeyUserId,
   }: {
@@ -1090,13 +1196,150 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     if (!onekeyUserId) {
       return;
     }
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      localKeylessUpgradeBindPromptShownAtByUserId: {
+    await this.setRawData((rawData) => {
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: {
+          ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
+          [onekeyUserId]: Date.now(),
+        },
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+  }
+
+  async tryClaimOneKeyIdOAuthBindPrompt({
+    onekeyUserId,
+    claimId,
+    expiresAt,
+    now,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+    expiresAt: number;
+    now: number;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !claimId || expiresAt <= now) {
+      return false;
+    }
+    let claimed = false;
+    await this.setRawData((rawData) => {
+      const shownAt =
+        rawData?.localKeylessUpgradeBindPromptShownAtByUserId?.[onekeyUserId];
+      if (typeof shownAt === 'number' && Number.isFinite(shownAt)) {
+        return { ...rawData };
+      }
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim && currentClaim.expiresAt > now) {
+        return { ...rawData };
+      }
+      claimed = true;
+      return {
+        ...rawData,
+        oneKeyIdOAuthBindPromptClaimByUserId: {
+          ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+          [onekeyUserId]: { claimId, expiresAt },
+        },
+      };
+    });
+    return claimed;
+  }
+
+  async completeOneKeyIdOAuthBindPromptClaim({
+    onekeyUserId,
+    claimId,
+    shownAt,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+    shownAt: number;
+  }): Promise<boolean> {
+    let completed = false;
+    await this.setRawData((rawData) => {
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim?.claimId !== claimId) {
+        return { ...rawData };
+      }
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      completed = true;
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: {
+          ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
+          [onekeyUserId]: shownAt,
+        },
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+    return completed;
+  }
+
+  async releaseOneKeyIdOAuthBindPromptClaim({
+    onekeyUserId,
+    claimId,
+  }: {
+    onekeyUserId: string;
+    claimId: string;
+  }): Promise<boolean> {
+    let released = false;
+    await this.setRawData((rawData) => {
+      const currentClaim =
+        rawData?.oneKeyIdOAuthBindPromptClaimByUserId?.[onekeyUserId];
+      if (currentClaim?.claimId !== claimId) {
+        return { ...rawData };
+      }
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      delete claims[onekeyUserId];
+      released = true;
+      return {
+        ...rawData,
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+      };
+    });
+    return released;
+  }
+
+  @backgroundMethod()
+  async resetOneKeyIdOAuthBindPromptShown({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }) {
+    if (!onekeyUserId) {
+      return;
+    }
+    await this.setRawData((rawData) => {
+      const shownAtByUserId = {
         ...rawData?.localKeylessUpgradeBindPromptShownAtByUserId,
-        [onekeyUserId]: Date.now(),
-      },
-    }));
+      };
+      const claims = {
+        ...rawData?.oneKeyIdOAuthBindPromptClaimByUserId,
+      };
+      const credentialUpgradeCompletedRevisionByUserId = {
+        ...rawData?.localKeylessCredentialUpgradeCompletedRevisionByUserId,
+      };
+      delete shownAtByUserId[onekeyUserId];
+      delete claims[onekeyUserId];
+      delete credentialUpgradeCompletedRevisionByUserId[onekeyUserId];
+      return {
+        ...rawData,
+        localKeylessUpgradeBindPromptShownAtByUserId: shownAtByUserId,
+        oneKeyIdOAuthBindPromptClaimByUserId: claims,
+        localKeylessCredentialUpgradeCompletedRevisionByUserId:
+          credentialUpgradeCompletedRevisionByUserId,
+      };
+    });
   }
 
   @backgroundMethod()

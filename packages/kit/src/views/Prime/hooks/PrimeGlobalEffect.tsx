@@ -6,6 +6,7 @@ import { useUpdateEffect } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  useAppIsLockedAtom,
   usePrimeInitAtom,
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -23,6 +24,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
+import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
@@ -35,6 +37,9 @@ import type {
 function PrimeGlobalEffectAfterAuthReady() {
   const [primePersistAtom] = usePrimePersistAtom();
   const [, setPrimeInitAtom] = usePrimeInitAtom();
+  const [isAppLocked] = useAppIsLockedAtom();
+  const isAppLockedRef = useRef(isAppLocked);
+  isAppLockedRef.current = isAppLocked;
 
   const { getCustomerInfo } = usePrimePaymentMethods();
   const { isLoggedInOnServer } = primePersistAtom;
@@ -186,6 +191,34 @@ function PrimeGlobalEffectAfterAuthReady() {
   useEffect(() => {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
+
+  useEffect(() => {
+    if (isAppLocked || !user?.onekeyUserId || !user?.isLoggedInOnServer) {
+      return undefined;
+    }
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        await showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+          onekeyUserId: user.onekeyUserId,
+          shouldSkip: () => isCancelled || isAppLockedRef.current,
+        });
+      } catch (error) {
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: '',
+          errorCode: -1759,
+          errorMessage: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
+            error,
+          )}`,
+        });
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAppLocked, user?.onekeyUserId, user?.isLoggedInOnServer]);
 
   const isUserLoggedIn = user.isLoggedIn;
   const isUserLoggedInOnServer = user.isLoggedInOnServer;
