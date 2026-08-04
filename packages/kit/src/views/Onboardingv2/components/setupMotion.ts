@@ -1,4 +1,4 @@
-import { Easing, FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
+import { Easing, FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 // Shared motion vocabulary for the device-setup cards.
 //
@@ -16,12 +16,20 @@ export const EASE_OUT_CUBIC = Easing.out(Easing.cubic);
 // Drives both the macro-phase swap (checking → stepper → ready) and the in-card
 // body swap (the Setup card cycling choice / create / restore). Keep `exitMs`
 // ~20–25% shorter than `enterMs` — exits read quicker than entrances.
-export function makeSequencedFade({ enterMs, exitMs }: { enterMs: number; exitMs: number }) {
+export function makeSequencedFade({
+  enterMs,
+  exitMs,
+}: {
+  enterMs: number;
+  exitMs: number;
+}) {
   return {
     entering: FadeIn.duration(enterMs)
       .delay(exitMs)
       .easing(EASE_OUT_CUBIC)
       .reduceMotion(ReduceMotion.System),
-    exiting: FadeOut.duration(exitMs).easing(EASE_OUT_CUBIC).reduceMotion(ReduceMotion.System),
+    exiting: FadeOut.duration(exitMs)
+      .easing(EASE_OUT_CUBIC)
+      .reduceMotion(ReduceMotion.System),
   };
 }

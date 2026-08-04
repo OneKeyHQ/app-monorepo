@@ -31,6 +31,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
+
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type {

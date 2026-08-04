@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file -- vendored pixel-canvas algorithm: Pixel and its controller are one cohesive unit */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 
-import type { IPixelShimmerProps } from "./PixelShimmer.types";
+import type { IPixelShimmerProps } from './PixelShimmer.types';
 
 /**
  * Clerk-style pixel shimmer for web + desktop card hovers.
@@ -21,11 +21,12 @@ import type { IPixelShimmerProps } from "./PixelShimmer.types";
  * position:relative; overflow:hidden.
  */
 
-const DEFAULT_COLORS = ["#32B826", "#3EDC2F", "#56BF4C", "#88D380"];
+const DEFAULT_COLORS = ['#32B826', '#3EDC2F', '#56BF4C', '#88D380'];
 
 // Top-dense, bottom-fading veil ("上密下疏"). This is a CSS mask, not canvas
 // logic — the canvas itself paints an even field.
-const MASK_IMAGE = "linear-gradient(to bottom, #000 0%, #000 10%, transparent 92%)";
+const MASK_IMAGE =
+  'linear-gradient(to bottom, #000 0%, #000 10%, transparent 92%)';
 
 const MAX_DPR = 2;
 const FRAME_INTERVAL = 1000 / 60;
@@ -38,7 +39,8 @@ const MAX_SIZE_INTEGER = 2;
 
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(value, max));
 
 function distanceToCenter(x: number, y: number, width: number, height: number) {
   const dx = x - width / 2;
@@ -46,7 +48,7 @@ function distanceToCenter(x: number, y: number, width: number, height: number) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-type IAnimationName = "appear" | "disappear";
+type IAnimationName = 'appear' | 'disappear';
 
 // One square. Only its `size` animates: grows in → shimmers → shrinks out.
 class Pixel {
@@ -100,7 +102,12 @@ class Pixel {
   private draw() {
     const centerOffset = MAX_SIZE_INTEGER * 0.5 - this.size * 0.5;
     this.ctx.fillStyle = this.color;
-    this.ctx.fillRect(this.x + centerOffset, this.y + centerOffset, this.size, this.size);
+    this.ctx.fillRect(
+      this.x + centerOffset,
+      this.y + centerOffset,
+      this.size,
+      this.size,
+    );
   }
 
   appear() {
@@ -225,8 +232,12 @@ class PixelShimmerController {
     this.gap = clamp(Math.floor(options.gap), GAP_MIN, GAP_MAX);
     this.playOnFocus = options.playOnFocus;
     this.autoPlay = options.autoPlay;
-    this.reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    this.pixelSpeed = this.reducedMotion ? 0 : clamp(options.speed, 0, 100) * SPEED_THROTTLE;
+    this.reducedMotion = globalThis.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+    this.pixelSpeed = this.reducedMotion
+      ? 0
+      : clamp(options.speed, 0, 100) * SPEED_THROTTLE;
     this.timePrevious = performance.now();
 
     // observe() always fires the callback once with the initial size, and that
@@ -239,29 +250,29 @@ class PixelShimmerController {
       // Always-on background: mark the loop as 'appear' so the first init()
       // (fired by the ResizeObserver with the initial size) starts the shimmer
       // and keeps it running. No pointer/focus listeners.
-      this.activeAnimation = "appear";
+      this.activeAnimation = 'appear';
     } else {
-      host.addEventListener("mouseenter", this.onMouseEnter);
-      host.addEventListener("mouseleave", this.onMouseLeave);
+      host.addEventListener('mouseenter', this.onMouseEnter);
+      host.addEventListener('mouseleave', this.onMouseLeave);
       if (this.playOnFocus) {
-        host.addEventListener("focusin", this.onFocusIn);
-        host.addEventListener("focusout", this.onFocusOut);
+        host.addEventListener('focusin', this.onFocusIn);
+        host.addEventListener('focusout', this.onFocusOut);
       }
     }
   }
 
-  private readonly onMouseEnter = () => this.handleAnimation("appear");
+  private readonly onMouseEnter = () => this.handleAnimation('appear');
 
-  private readonly onMouseLeave = () => this.handleAnimation("disappear");
+  private readonly onMouseLeave = () => this.handleAnimation('disappear');
 
   private readonly onFocusIn = (event: FocusEvent) => {
     if (this.isInternalFocusShift(event)) return;
-    this.handleAnimation("appear");
+    this.handleAnimation('appear');
   };
 
   private readonly onFocusOut = (event: FocusEvent) => {
     if (this.isInternalFocusShift(event)) return;
-    this.handleAnimation("disappear");
+    this.handleAnimation('disappear');
   };
 
   // Ignore focus moving between children of the host (only react to focus
@@ -291,20 +302,30 @@ class PixelShimmerController {
     // when the first non-zero size arrives after a sub-1px mount), resume the loop
     // against the fresh pixels — otherwise the shimmer stays blank until the
     // next mouseenter.
-    if (this.activeAnimation === "appear") {
-      this.handleAnimation("appear");
+    if (this.activeAnimation === 'appear') {
+      this.handleAnimation('appear');
     }
   }
 
   private createPixels() {
     for (let x = 0; x < this.cssWidth; x += this.gap) {
       for (let y = 0; y < this.cssHeight; y += this.gap) {
-        const color = this.colors[Math.floor(Math.random() * this.colors.length)];
+        const color =
+          this.colors[Math.floor(Math.random() * this.colors.length)];
         const delay = this.reducedMotion
           ? 0
           : distanceToCenter(x, y, this.cssWidth, this.cssHeight);
         this.pixels.push(
-          new Pixel(this.ctx, x, y, color, this.pixelSpeed, delay, this.cssWidth, this.cssHeight),
+          new Pixel(
+            this.ctx,
+            x,
+            y,
+            color,
+            this.pixelSpeed,
+            delay,
+            this.cssWidth,
+            this.cssHeight,
+          ),
         );
       }
     }
@@ -339,7 +360,7 @@ class PixelShimmerController {
       // (reduced motion, above) must KEEP activeAnimation so init()'s resume
       // check still fires on the next ResizeObserver rebuild — otherwise the
       // fresh size-0 grid would never be drawn and the card would go blank.
-      if (fnName === "disappear") {
+      if (fnName === 'disappear') {
         this.activeAnimation = null;
       }
     }
@@ -348,10 +369,10 @@ class PixelShimmerController {
   destroy() {
     cancelAnimationFrame(this.rafId);
     this.resizeObserver.disconnect();
-    this.host.removeEventListener("mouseenter", this.onMouseEnter);
-    this.host.removeEventListener("mouseleave", this.onMouseLeave);
-    this.host.removeEventListener("focusin", this.onFocusIn);
-    this.host.removeEventListener("focusout", this.onFocusOut);
+    this.host.removeEventListener('mouseenter', this.onMouseEnter);
+    this.host.removeEventListener('mouseleave', this.onMouseLeave);
+    this.host.removeEventListener('focusin', this.onFocusIn);
+    this.host.removeEventListener('focusout', this.onFocusOut);
   }
 }
 
@@ -366,12 +387,12 @@ export default function PixelShimmer({
 }: IPixelShimmerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Re-run when the palette identity changes (callers pass stable arrays).
-  const colorsKey = colors.join(",");
+  const colorsKey = colors.join(',');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const host = canvas?.parentElement;
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext('2d');
     if (!canvas || !host || !ctx) return undefined;
 
     const controller = new PixelShimmerController(canvas, ctx, host, {
@@ -392,12 +413,12 @@ export default function PixelShimmer({
       aria-hidden
       className={className}
       style={{
-        position: "absolute",
+        position: 'absolute',
         top: 0,
         left: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
         WebkitMaskImage: MASK_IMAGE,
         maskImage: MASK_IMAGE,
         ...style,

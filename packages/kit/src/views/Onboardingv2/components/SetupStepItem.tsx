@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import type { PropsWithChildren, ReactNode } from "react";
+import { useEffect, useRef } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import Animated, {
   Easing,
@@ -7,16 +7,16 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
-import { Icon, XStack, YStack } from "@onekeyhq/components";
+import { Icon, XStack, YStack } from '@onekeyhq/components';
 
-import { SetupCard } from "./SetupCard";
+import { SetupCard } from './SetupCard';
 
-import type { ImageSourcePropType } from "react-native";
+import type { ImageSourcePropType } from 'react-native';
 
 // Re-export so existing callers can keep importing the body slot from here.
-export { SetupCardBody } from "./SetupCard";
+export { SetupCardBody } from './SetupCard';
 
 // A single row in the device-setup vertical stepper (Figma: "SetupStep" =
 // SetupConnector + SetupCard). This file owns the left status column (state
@@ -30,7 +30,7 @@ export { SetupCardBody } from "./SetupCard";
 //   - inProgress: hollow green ring + green title  (elevated card: header →
 //                 body slot → footer with device + instruction)
 //   - done:       filled green check + muted title  (flat card, title only)
-export type ISetupStepState = "pending" | "inProgress" | "done";
+export type ISetupStepState = 'pending' | 'inProgress' | 'done';
 
 // Fixed pill count for the dotted rail — enough to overflow the tallest card,
 // with the excess clipped by overflow:hidden. Hoisted so the array isn't
@@ -124,13 +124,17 @@ function StepIconLayer({
 function SetupStepIcon({ state }: { state: ISetupStepState }) {
   return (
     <YStack w="$5" h="$5">
-      <StepIconLayer visible={state !== "done"}>
-        <Icon name="CirclePlaceholderOnOutline" size="$5" color="$iconSubdued" />
+      <StepIconLayer visible={state !== 'done'}>
+        <Icon
+          name="CirclePlaceholderOnOutline"
+          size="$5"
+          color="$iconSubdued"
+        />
       </StepIconLayer>
-      <StepIconLayer visible={state === "inProgress"}>
+      <StepIconLayer visible={state === 'inProgress'}>
         <Icon name="CirclePlaceholderOnOutline" size="$5" color="$brand8" />
       </StepIconLayer>
-      <StepIconLayer visible={state === "done"} pop>
+      <StepIconLayer visible={state === 'done'} pop>
         <Icon name="CheckRadioSolid" size="$5" color="$brand9" />
       </StepIconLayer>
     </YStack>
@@ -143,7 +147,14 @@ function ConnectorRail({ color }: { color: string }) {
   return (
     <YStack gap="$1">
       {CONNECTOR_DOTS.map((_, i) => (
-        <YStack key={i} w="100%" h="$1" flexShrink={0} bg={color} borderRadius="$full" />
+        <YStack
+          key={i}
+          w="100%"
+          h="$1"
+          flexShrink={0}
+          bg={color}
+          borderRadius="$full"
+        />
       ))}
     </YStack>
   );
@@ -157,7 +168,7 @@ function ConnectorRail({ color }: { color: string }) {
 // with no gap between them); both rails share the parent's overflow clip.
 // Respects the reduced-motion system setting.
 function SetupStepConnectorLine({ state }: { state: ISetupStepState }) {
-  const isDone = state === "done";
+  const isDone = state === 'done';
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(isDone ? 1 : 0);
   const hasMounted = useRef(false);
@@ -176,9 +187,23 @@ function SetupStepConnectorLine({ state }: { state: ISetupStepState }) {
   }, [isDone, reduceMotion, progress]);
   const brandStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   return (
-    <YStack position="absolute" top={44} bottom={-36} left={9} w={2} overflow="hidden">
+    <YStack
+      position="absolute"
+      top={44}
+      bottom={-36}
+      left={9}
+      w={2}
+      overflow="hidden"
+    >
       <ConnectorRail color="$neutral6" />
-      <AnimatedYStack position="absolute" top={0} left={0} right={0} bottom={0} style={brandStyle}>
+      <AnimatedYStack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        style={brandStyle}
+      >
         <ConnectorRail color="$brand9" />
       </AnimatedYStack>
     </YStack>
@@ -215,7 +240,7 @@ export function SetupStepItem({
   contentKey,
   children,
 }: ISetupStepItemProps) {
-  const isInProgress = state === "inProgress";
+  const isInProgress = state === 'inProgress';
   // The card's content slots (footer instruction, device thumbnail, background,
   // body) only apply to the expanded InProgress card; collapsed pending/done
   // rows render the title alone.
@@ -224,7 +249,7 @@ export function SetupStepItem({
     : undefined;
 
   return (
-    <XStack gap="$3" pb={showIndicator && showConnector ? "$5" : 0}>
+    <XStack gap="$3" pb={showIndicator && showConnector ? '$5' : 0}>
       {/* Left status column: state indicator icon + timeline rail. */}
       {showIndicator ? (
         <YStack pt="$5">
@@ -237,7 +262,7 @@ export function SetupStepItem({
         flex={1}
         elevated={isInProgress}
         title={title}
-        titleColor={isInProgress ? "$brand9" : "$textSubdued"}
+        titleColor={isInProgress ? '$brand9' : '$textSubdued'}
         {...contentProps}
       >
         {isInProgress ? children : null}

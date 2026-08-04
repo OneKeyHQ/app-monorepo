@@ -1,14 +1,14 @@
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType, HardwareErrorCode } from "@onekeyfe/hd-shared";
-import { useIsFocused } from "@react-navigation/core";
-import { useNavigation } from "@react-navigation/native";
-import { get } from "lodash";
-import natsort from "natsort";
-import { useIntl } from "react-intl";
-import { Linking, StyleSheet } from "react-native";
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useIsFocused } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/native';
+import { get } from 'lodash';
+import natsort from 'natsort';
+import { useIntl } from 'react-intl';
+import { Linking, StyleSheet } from 'react-native';
 
-import type { IPageScreenProps } from "@onekeyhq/components";
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -28,13 +28,13 @@ import {
   useMedia,
   usePopoverContext,
   useThemeName,
-} from "@onekeyhq/components";
-import { usePromptWebDeviceAccess } from "@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess";
-import { useSettingsPersistAtom } from "@onekeyhq/kit-bg/src/states/jotai/atoms";
+} from '@onekeyhq/components';
+import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HARDWARE_BRIDGE_DOWNLOAD_URL,
   HARDWARE_TROUBLESHOOTING_URL,
-} from "@onekeyhq/shared/src/config/appConfig";
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -47,50 +47,64 @@ import {
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
   OneKeyHardwareError,
-} from "@onekeyhq/shared/src/errors";
-import { convertDeviceError } from "@onekeyhq/shared/src/errors/utils/deviceErrorUtils";
-import bleManagerInstance from "@onekeyhq/shared/src/hardware/bleManager";
-import { checkBLEPermissions } from "@onekeyhq/shared/src/hardware/blePermissions";
-import { ETranslations } from "@onekeyhq/shared/src/locale";
-import { showIntercom } from "@onekeyhq/shared/src/modules3rdParty/intercom";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import type { IOnboardingParamListV2 } from "@onekeyhq/shared/src/routes/onboardingv2";
-import { EOnboardingPagesV2 } from "@onekeyhq/shared/src/routes/onboardingv2";
-import { HwWalletAvatarImages, getDeviceAvatarImage } from "@onekeyhq/shared/src/utils/avatarUtils";
-import deviceUtils from "@onekeyhq/shared/src/utils/deviceUtils";
-import timerUtils from "@onekeyhq/shared/src/utils/timerUtils";
-import { EAccountSelectorSceneName, EHardwareTransportType } from "@onekeyhq/shared/types";
-import { EConnectDeviceChannel } from "@onekeyhq/shared/types/connectDevice";
-import type { IConnectYourDeviceItem } from "@onekeyhq/shared/types/device";
-import { EHardwareVendor } from "@onekeyhq/shared/types/device";
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
+import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import {
+  HwWalletAvatarImages,
+  getDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
+import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import backgroundApiProxy from "../../../background/instance/backgroundApiProxy";
-import { AccountSelectorProviderMirror } from "../../../components/AccountSelector/AccountSelectorProvider";
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
-} from "../../../components/Hardware/HardwareDialog";
-import { HyperlinkText } from "../../../components/HyperlinkText";
-import { ListItem } from "../../../components/ListItem";
-import { WalletAvatar } from "../../../components/WalletAvatar";
-import useAppNavigation from "../../../hooks/useAppNavigation";
-import { OnboardingPage } from "../components/Layout";
-import { EBluetoothStatus, useDesktopBluetoothStatusPolling } from "../hooks/useDeviceConnect";
-import { OnboardingTestIDs } from "../testIDs";
-import { getDeviceLabel, getForceTransportType, sortDevicesData } from "../utils";
+} from '../../../components/Hardware/HardwareDialog';
+import { HyperlinkText } from '../../../components/HyperlinkText';
+import { ListItem } from '../../../components/ListItem';
+import { WalletAvatar } from '../../../components/WalletAvatar';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { OnboardingPage } from '../components/Layout';
+import {
+  EBluetoothStatus,
+  useDesktopBluetoothStatusPolling,
+} from '../hooks/useDeviceConnect';
+import { OnboardingTestIDs } from '../testIDs';
+import {
+  getDeviceLabel,
+  getForceTransportType,
+  sortDevicesData,
+} from '../utils';
 
-import { ConnectionIndicator } from "./ConnectionIndicator";
-import type { IDeviceType, SearchDevice } from "@onekeyfe/hd-core";
-import type { HardwareConnectProtocol } from "@onekeyfe/hd-shared";
-import type { ReactVideoSource } from "react-native-video";
+import { ConnectionIndicator } from './ConnectionIndicator';
 
-const LedgerConnectionFlow = lazy(() => import("./ConnectionFlowLedger"));
-const TrezorConnectionFlow = lazy(() => import("./ConnectionFlowTrezor"));
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
+import type { ReactVideoSource } from 'react-native-video';
+
+const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
+const TrezorConnectionFlow = lazy(() => import('./ConnectionFlowTrezor'));
 
 enum EConnectionStatus {
-  init = "init",
-  searching = "searching",
-  listing = "listing",
+  init = 'init',
+  searching = 'searching',
+  listing = 'listing',
 }
 
 function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
@@ -134,7 +148,7 @@ function useDeviceConnection({
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
-  const searchStateRef = useRef<"start" | "stop">("stop");
+  const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
   const currentTabValueRef = useRef(tabValue);
 
@@ -152,11 +166,11 @@ function useDeviceConnection({
 
     if (previousTabValue !== tabValue) {
       console.log(
-        "🔍 Tab changed from",
+        '🔍 Tab changed from',
         previousTabValue,
-        "to",
+        'to',
         tabValue,
-        "- clearing search state",
+        '- clearing search state',
       );
 
       // Stop current scanning
@@ -173,7 +187,7 @@ function useDeviceConnection({
       deviceScanner
         .waitForCurrentSearchToComplete()
         .then(() => {
-          console.log("🔍 Previous search completed, results ignored");
+          console.log('🔍 Previous search completed, results ignored');
         })
         .catch(() => {
           // Ignore errors
@@ -198,8 +212,8 @@ function useDeviceConnection({
     const transportType =
       forceTransportType === EHardwareTransportType.BLE ||
       forceTransportType === EHardwareTransportType.DesktopWebBle
-        ? "ble"
-        : "usb";
+        ? 'ble'
+        : 'usb';
 
     isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
@@ -213,17 +227,20 @@ function useDeviceConnection({
               !(error instanceof BleLocationServiceError)
             ) {
               Toast.error({
-                title: error.message || "DeviceScanError",
+                title: error.message || 'DeviceScanError',
               });
             } else {
               deviceScanner.stopScan();
             }
-          } else if (error instanceof InitIframeLoadFail || error instanceof InitIframeTimeout) {
+          } else if (
+            error instanceof InitIframeLoadFail ||
+            error instanceof InitIframeTimeout
+          ) {
             Toast.error({
               title: intl.formatMessage({
                 id: ETranslations.global_network_error,
               }),
-              message: error.message || "DeviceScanError",
+              message: error.message || 'DeviceScanError',
             });
             deviceScanner.stopScan();
           }
@@ -236,24 +253,27 @@ function useDeviceConnection({
               title: intl.formatMessage({
                 id: ETranslations.global_connection_failed,
               }),
-              message: error.message || "DeviceScanError",
+              message: error.message || 'DeviceScanError',
             });
             deviceScanner.stopScan();
           }
 
-          if (error instanceof ConnectTimeoutError || error instanceof DeviceMethodCallTimeout) {
+          if (
+            error instanceof ConnectTimeoutError ||
+            error instanceof DeviceMethodCallTimeout
+          ) {
             Toast.error({
               title: intl.formatMessage({
                 id: ETranslations.global_connection_failed,
               }),
-              message: error.message || "DeviceScanError",
+              message: error.message || 'DeviceScanError',
             });
             deviceScanner.stopScan();
           }
 
           if (error instanceof NeedOneKeyBridge) {
             Dialog.confirm({
-              icon: "OnekeyBrand",
+              icon: 'OnekeyBrand',
               title: intl.formatMessage({
                 id: ETranslations.onboarding_install_onekey_bridge,
               }),
@@ -284,7 +304,7 @@ function useDeviceConnection({
               : sortedDevices,
           );
         } else {
-          console.log("🔍 Ignoring search results - tab changed during search");
+          console.log('🔍 Ignoring search results - tab changed during search');
         }
       },
       (state) => {
@@ -305,15 +325,19 @@ function useDeviceConnection({
 
   const ensureStopScan = useCallback(async () => {
     // Force stop scanning and wait for any ongoing search to complete
-    console.log("ensureStopScan: Stopping device scan and waiting for completion");
+    console.log(
+      'ensureStopScan: Stopping device scan and waiting for completion',
+    );
     isSearchingRef.current = false;
 
     try {
       // Use the new stopScanAndWait method that properly waits for ongoing searches
       await deviceScanner.stopScanAndWait();
-      console.log("ensureStopScan: Device scan stopped and all ongoing searches completed");
+      console.log(
+        'ensureStopScan: Device scan stopped and all ongoing searches completed',
+      );
     } catch (error) {
-      console.error("ensureStopScan: Error while stopping scan:", error);
+      console.error('ensureStopScan: Error while stopping scan:', error);
       // Fallback: just stop scan without waiting
       deviceScanner.stopScan();
     }
@@ -371,7 +395,7 @@ function useDeviceConnection({
   );
 }
 
-function TroubleShootingButton({ type: _type }: { type: "usb" | "bluetooth" }) {
+function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
 
@@ -390,16 +414,16 @@ function TroubleShootingButton({ type: _type }: { type: "usb" | "bluetooth" }) {
           bg="$bgSubdued"
           $platform-web={{
             boxShadow:
-              "0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)",
+              '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
           }}
           $theme-dark={{
             borderWidth: StyleSheet.hairlineWidth,
-            borderColor: "$neutral3",
-            bg: "$neutral3",
+            borderColor: '$neutral3',
+            bg: '$neutral3',
           }}
           $platform-native={{
             borderWidth: StyleSheet.hairlineWidth,
-            borderColor: "$neutral3",
+            borderColor: '$neutral3',
           }}
           borderRadius="$2.5"
           borderCurve="continuous"
@@ -456,19 +480,30 @@ function BluetoothCard({
             h={420}
             left="50%"
             top="50%"
-            transform={[{ translateX: "-50%" }, { translateY: "-50%" }]}
+            transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
             p={60}
             flex={1}
             borderWidth={3}
             borderColor="$neutral1"
             borderRadius="$full"
           >
-            <YStack p={50} flex={1} borderWidth={2} borderColor="$neutral2" borderRadius="$full">
-              <YStack flex={1} borderWidth={1} borderColor="$neutral3" borderRadius="$full" />
+            <YStack
+              p={50}
+              flex={1}
+              borderWidth={2}
+              borderColor="$neutral2"
+              borderRadius="$full"
+            >
+              <YStack
+                flex={1}
+                borderWidth={1}
+                borderColor="$neutral3"
+                borderRadius="$full"
+              />
             </YStack>
           </YStack>
           <LottieView
-            source={require("@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json")}
+            source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
             width={320}
             height={320}
           />
@@ -513,12 +548,17 @@ function DeviceVideo({
   themeVariant,
 }: {
   deviceTypeItems: EDeviceType[];
-  themeVariant: "light" | "dark";
+  themeVariant: 'light' | 'dark';
 }) {
-  const isPro2 = useMemo(() => deviceTypeItems.includes(EDeviceType.Pro2), [deviceTypeItems]);
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
+    [deviceTypeItems],
+  );
 
   const isTouch = useMemo(() => {
-    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Touch);
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Touch,
+    );
   }, [deviceTypeItems]);
 
   const isClassic = useMemo(() => {
@@ -531,31 +571,33 @@ function DeviceVideo({
   }, [deviceTypeItems]);
 
   const isMini = useMemo(() => {
-    return deviceTypeItems.find((deviceType) => deviceType === EDeviceType.Mini);
+    return deviceTypeItems.find(
+      (deviceType) => deviceType === EDeviceType.Mini,
+    );
   }, [deviceTypeItems]);
 
   const videoSource = useMemo<ReactVideoSource>(() => {
     if (isPro2) {
-      return require("@onekeyhq/kit/assets/onboarding/ProW-D.mp4") as ReactVideoSource;
+      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
     }
     if (isMini) {
-      return themeVariant === "dark"
-        ? (require("@onekeyhq/kit/assets/onboarding/Mini-D.mp4") as ReactVideoSource)
-        : (require("@onekeyhq/kit/assets/onboarding/Mini-L.mp4") as ReactVideoSource);
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
     }
 
     if (isClassic) {
-      return themeVariant === "dark"
-        ? (require("@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4") as ReactVideoSource)
-        : (require("@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4") as ReactVideoSource);
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
     }
 
     if (isTouch) {
-      return themeVariant === "dark"
-        ? (require("@onekeyhq/kit/assets/onboarding/Touch-D.mp4") as ReactVideoSource)
-        : (require("@onekeyhq/kit/assets/onboarding/Touch-L.mp4") as ReactVideoSource);
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
     }
-    return require("@onekeyhq/kit/assets/onboarding/ProW-D.mp4") as ReactVideoSource;
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
   }, [isClassic, isMini, isPro2, isTouch, themeVariant]);
 
   return (
@@ -578,7 +620,7 @@ function USBOrBLEConnectionIndicator({
   connectDevice,
   vendor,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeName() as "light" | "dark";
+  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -606,7 +648,7 @@ function USBOrBLEConnectionIndicator({
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
     const checkState = await bleManagerInstance.checkState();
-    return checkState === "on";
+    return checkState === 'on';
   }, []);
 
   const listingDevice = useCallback(async () => {
@@ -678,9 +720,10 @@ function USBOrBLEConnectionIndicator({
 
       const device = await promptWebUsbDeviceAccess();
       if (device?.serialNumber) {
-        const connectedDevice = await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
-          deviceSerialNumberFromUI: device.serialNumber,
-        });
+        const connectedDevice =
+          await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
+            deviceSerialNumberFromUI: device.serialNumber,
+          });
         if (connectedDevice.device) {
           navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
             deviceData: {
@@ -695,13 +738,16 @@ function USBOrBLEConnectionIndicator({
         }
       }
     } catch (error) {
-      console.error("onConnectWebDevice error:", error);
+      console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
   }, [navigation, promptWebUsbDeviceAccess, setIsChecking, tabValue]);
 
   useEffect(() => {
-    if (hardwareTransportType === EHardwareTransportType.WEBUSB && !platformEnv.isDesktop) {
+    if (
+      hardwareTransportType === EHardwareTransportType.WEBUSB &&
+      !platformEnv.isDesktop
+    ) {
       return;
     }
 
@@ -713,7 +759,13 @@ function USBOrBLEConnectionIndicator({
       platformEnv.isNative ? 120 : 0,
     );
     return () => clearTimeout(timeoutId);
-  }, [listingDevice, hardwareTransportType, tabValue, startBLEConnection, vendor]);
+  }, [
+    listingDevice,
+    hardwareTransportType,
+    tabValue,
+    startBLEConnection,
+    vendor,
+  ]);
 
   useEffect(
     () => () => {
@@ -730,17 +782,23 @@ function USBOrBLEConnectionIndicator({
     return sortDevicesData(devicesData, deviceTypeItems);
   }, [deviceTypeItems, devicesData]);
 
-  console.log("connectStatus", connectStatus);
-  console.log("sortedDevicesData", sortedDevicesData);
+  console.log('connectStatus', connectStatus);
+  console.log('sortedDevicesData', sortedDevicesData);
   return (
     <>
       <ConnectionIndicator>
         {isBLE ? (
-          <BluetoothCard onConnect={startBLEConnection} connectStatus={connectStatus} />
+          <BluetoothCard
+            onConnect={startBLEConnection}
+            connectStatus={connectStatus}
+          />
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <DeviceVideo themeVariant={themeVariant} deviceTypeItems={deviceTypeItems} />
+              <DeviceVideo
+                themeVariant={themeVariant}
+                deviceTypeItems={deviceTypeItems}
+              />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>
@@ -797,7 +855,10 @@ function USBOrBLEConnectionIndicator({
                     }}
                     userSelect="none"
                   >
-                    <WalletAvatar wallet={undefined} img={data.device?.deviceType as IDeviceType} />
+                    <WalletAvatar
+                      wallet={undefined}
+                      img={data.device?.deviceType as IDeviceType}
+                    />
                     <ListItem.Text primary={data.device?.name} flex={1} />
                   </ListItem>
                 ))}
@@ -830,7 +891,8 @@ function BluetoothConnectionIndicator({
     vendor,
   });
 
-  const { devicesData, scanDevice, stopScan, handleDeviceSelect } = deviceConnection;
+  const { devicesData, scanDevice, stopScan, handleDeviceSelect } =
+    deviceConnection;
 
   const handleOpenPrivacySettings = useCallback(() => {
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
@@ -844,7 +906,7 @@ function BluetoothConnectionIndicator({
       // Re-check bluetooth status after enabling
       void checkBluetoothStatus();
     } catch (error) {
-      console.error("Failed to enable desktop bluetooth:", error);
+      console.error('Failed to enable desktop bluetooth:', error);
     }
   }, [checkBluetoothStatus]);
 
@@ -881,7 +943,7 @@ function BluetoothConnectionIndicator({
           id: ETranslations.bluetooth_enable_in_app_settings,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
@@ -901,7 +963,7 @@ function BluetoothConnectionIndicator({
           id: ETranslations.bluetooth_permission_prompt,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.global_go_to_settings,
           }),
@@ -919,7 +981,7 @@ function BluetoothConnectionIndicator({
           id: ETranslations.bluetooth_enable_in_system_settings,
         })}
         buttonProps={{
-          variant: "primary",
+          variant: 'primary',
           children: intl.formatMessage({
             id: ETranslations.onboarding_enable_bluetooth,
           }),
@@ -1000,7 +1062,7 @@ function QRWalletConnect({
       pt="$0"
       gap="$3"
       $gtMd={{
-        p: "$3",
+        p: '$3',
       }}
     >
       {gtMd ? (
@@ -1037,15 +1099,19 @@ function QRWalletConnect({
 
 function ConnectYourDevicePage({
   route: routeParams,
-}: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.ConnectYourDevice>) {
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.ConnectYourDevice
+>) {
   const { deviceType: deviceTypeItems, vendor } = routeParams?.params || {};
-  console.log("deviceTypeItems", deviceTypeItems);
+  console.log('deviceTypeItems', deviceTypeItems);
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
-      (deviceType) => deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
+      (deviceType) =>
+        deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
@@ -1058,10 +1124,11 @@ function ConnectYourDevicePage({
       {
         label: platformEnv.isNative
           ? intl.formatMessage({ id: ETranslations.global_bluetooth })
-          : "USB",
+          : 'USB',
         value: EConnectDeviceChannel.usbOrBle,
       },
-      platformEnv.isSupportDesktopBle && !deviceTypeItems.includes(EDeviceType.Mini)
+      platformEnv.isSupportDesktopBle &&
+      !deviceTypeItems.includes(EDeviceType.Mini)
         ? {
             label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
             value: EConnectDeviceChannel.bluetooth,
@@ -1072,7 +1139,7 @@ function ConnectYourDevicePage({
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
   useEffect(() => {
-    const unsubscribe = reactNavigation.addListener("beforeRemove", () => {
+    const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
       // Clean up forceTransportType when leaving this page
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
     });
@@ -1081,16 +1148,22 @@ function ConnectYourDevicePage({
   }, [reactNavigation]);
 
   const connectDevice = useCallback(
-    async (item: IConnectYourDeviceItem, innerTabValue: EConnectDeviceChannel) => {
+    async (
+      item: IConnectYourDeviceItem,
+      innerTabValue: EConnectDeviceChannel,
+    ) => {
       if (!item.device) {
         return;
       }
-      const connectId = item.device.connectId ?? "";
+      const connectId = item.device.connectId ?? '';
       let detectedConnectProtocol: HardwareConnectProtocol | undefined;
       let connectedDevice = item.device;
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
-        if (item.vendor === EHardwareVendor.ledger || item.vendor === EHardwareVendor.trezor) {
+        if (
+          item.vendor === EHardwareVendor.ledger ||
+          item.vendor === EHardwareVendor.trezor
+        ) {
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             deviceData: {
               ...item,
@@ -1102,19 +1175,23 @@ function ConnectYourDevicePage({
           return;
         }
 
-        if (item.device?.commType === "electron-ble" || item.device?.commType === "ble") {
+        if (
+          item.device?.commType === 'electron-ble' ||
+          item.device?.commType === 'ble'
+        ) {
           void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId,
           });
-          const features = await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-            connectId,
-            params: {
-              forceProtocolDetection: true,
-              retryCount: 0,
-            },
-          });
+          const features =
+            await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+              connectId,
+              params: {
+                forceProtocolDetection: true,
+                retryCount: 0,
+              },
+            });
           detectedConnectProtocol =
-            features.protocol === "V1" || features.protocol === "V2"
+            features.protocol === 'V1' || features.protocol === 'V2'
               ? features.protocol
               : undefined;
           connectedDevice = {
@@ -1141,10 +1218,10 @@ function ConnectYourDevicePage({
             return;
           }
           Toast.error({
-            title: message || "DeviceConnectError",
+            title: message || 'DeviceConnectError',
           });
         } else {
-          console.error("connectDevice error:", get(error, "message", ""));
+          console.error('connectDevice error:', get(error, 'message', ''));
         }
       } finally {
         void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -1183,7 +1260,9 @@ function ConnectYourDevicePage({
                 />
               }
               renderContent={
-                <QRWalletConnect navigateToCreateQRWallet={navigateToCreateQRWallet} />
+                <QRWalletConnect
+                  navigateToCreateQRWallet={navigateToCreateQRWallet}
+                />
               }
             />
           </YStack>
@@ -1223,7 +1302,7 @@ function ConnectYourDevicePage({
       scrollable
       alignTop
       narrow
-      contentContainerProps={{ gap: "$5" }}
+      contentContainerProps={{ gap: '$5' }}
     >
       {content}
     </OnboardingPage>
@@ -1233,7 +1312,10 @@ function ConnectYourDevicePage({
 export function ConnectYourDevice({
   route,
   navigation,
-}: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.ConnectYourDevice>) {
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.ConnectYourDevice
+>) {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

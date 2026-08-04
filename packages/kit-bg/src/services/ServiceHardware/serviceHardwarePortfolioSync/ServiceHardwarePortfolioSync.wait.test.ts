@@ -2,7 +2,10 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
 
@@ -385,6 +388,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     };
   }) {
     let operationLeaseHeld = false;
+    const getDeviceState = jest.fn().mockResolvedValue({ protocol: 'V2' });
     const uploadPortfolioPackage = jest.fn(
       async (_params: { connectId: string; packageBytes: ArrayBuffer }) => {
         expect(operationLeaseHeld).toBe(true);
@@ -412,7 +416,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
-        serviceHardware: { uploadPortfolioPackage },
+        serviceHardware: { getDeviceState, uploadPortfolioPackage },
         serviceHardwareUI: {
           isHardwareChannelBusy,
           runExclusiveOneKeyOperation,
@@ -454,6 +458,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
     return {
+      getDeviceState,
       isHardwareChannelBusy,
       runExclusiveOneKeyOperation,
       service,
@@ -482,6 +487,33 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(updateTargetState).toHaveBeenCalledWith(
       'db-device-1',
       expect.objectContaining({ lastWalletId: 'hw-1' }),
+    );
+  });
+
+  test('does not submit portfolio data when the device is unreachable', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    getDeviceState.mockRejectedValueOnce(new Error('Device not found'));
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      params: { scope: 'runtime' },
+      silentMode: true,
+    });
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        errorMessage: 'Device not found',
+        status: 'error',
+      }),
     );
   });
 
@@ -647,6 +679,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
         serviceHardware: {
+          getDeviceState: jest.fn().mockResolvedValue({ protocol: 'V2' }),
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
@@ -825,9 +858,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     expect(
       Array.from(
-        new Uint8Array(
-          uploadPortfolioPackage.mock.calls[0][0].packageBytes as ArrayBuffer,
-        ),
+        new Uint8Array(uploadPortfolioPackage.mock.calls[0][0].packageBytes),
       ),
     ).toEqual([2]);
     expect(updateTargetState).toHaveBeenCalledTimes(1);

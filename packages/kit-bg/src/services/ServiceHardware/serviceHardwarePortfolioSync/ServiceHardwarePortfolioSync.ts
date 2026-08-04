@@ -10,7 +10,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../../dbs/local/localDb';
@@ -208,7 +211,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       [device.connectId, device.usbConnectId, device.bleConnectId].filter(
         Boolean,
       ),
-    ) as string[];
+    );
     if (
       !device.connectId ||
       (eventPayload.deviceDbId && eventPayload.deviceDbId !== device.id) ||
@@ -933,6 +936,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           deviceConnectId,
           generation,
           retry: () => this.syncSettledPortfolio(eventPayload, generation),
+          targetKey,
+        });
+        return;
+      }
+
+      await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        () =>
+          this.backgroundApi.serviceHardware.getDeviceState({
+            connectId: deviceConnectId,
+            hardwareCallContext:
+              EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+            params: { scope: 'runtime' },
+            silentMode: true,
+          }),
+        { deviceKey: targetKey },
+      );
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
           targetKey,
         });
         return;

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
-import type { ComponentProps, PropsWithChildren, ReactNode } from "react";
+import { useCallback, useEffect, useRef } from 'react';
+import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -12,15 +12,20 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from "react-native-reanimated";
-import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
+} from 'react-native-reanimated';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import type { IYStackProps } from "@onekeyhq/components";
-import { LinearGradient, SizableText, XStack, YStack } from "@onekeyhq/components";
+import type { IYStackProps } from '@onekeyhq/components';
+import {
+  LinearGradient,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
-import { makeSequencedFade } from "./setupMotion";
+import { makeSequencedFade } from './setupMotion';
 
-import type { ImageSourcePropType, LayoutChangeEvent } from "react-native";
+import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
 // The shared card shell for the device-setup UI (Figma: "SetupCard", the inner
 // half of "SetupStep" = SetupConnector + SetupCard). Pure presentation.
@@ -38,12 +43,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from "react-native";
 // Layered drop shadow + inner edge highlight for the elevated card (web).
 // Mirrors the popup shadow recipe used elsewhere in onboarding.
 export const SETUP_CARD_SHADOW =
-  "inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)";
+  'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
 // White sheen wash for elevated card surfaces: 12% → 0% white, laid over a
 // $gray3 base as a LinearGradient (the gradient direction is per-card).
 // Shared by the onboarding illustrations.
-export const BG_SHEEN = ["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0)"];
+export const BG_SHEEN = ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0)'];
 
 const CARD_RADIUS = 24;
 
@@ -87,7 +92,7 @@ export function SetupCardGlow({
   top = -233,
   opacity = 0.15,
 }: ISetupCardGlowProps) {
-  const glowId = `setup-card-glow-${color.replace("#", "")}-${size}`;
+  const glowId = `setup-card-glow-${color.replace('#', '')}-${size}`;
   return (
     <YStack
       position="absolute"
@@ -100,7 +105,15 @@ export function SetupCardGlow({
     >
       <Svg width="100%" height="100%">
         <Defs>
-          <RadialGradient id={glowId} cx="50%" cy="50%" rx="50%" ry="50%" fx="50%" fy="50%">
+          <RadialGradient
+            id={glowId}
+            cx="50%"
+            cy="50%"
+            rx="50%"
+            ry="50%"
+            fx="50%"
+            fy="50%"
+          >
             <Stop offset="0%" stopColor={color} stopOpacity={opacity} />
             <Stop offset="100%" stopColor={color} stopOpacity={0} />
           </RadialGradient>
@@ -121,7 +134,7 @@ const SCREEN_W = 24; // the inner device screen the glint sweeps across
 // so it reads as a delicate sheen washing across rather than a hard diagonal bar.
 const SHINE_W = 26;
 const SHINE_OVERHANG = 12; // extend above/below so the tilt covers the corners
-const SHINE_TILT = "20deg";
+const SHINE_TILT = '20deg';
 const SHINE_TRAVEL = 14; // px past each edge so the band fully clears the screen
 const SHINE_START = -(SHINE_W + SHINE_TRAVEL);
 const SHINE_END = SCREEN_W + SHINE_TRAVEL;
@@ -167,7 +180,11 @@ function SetupCardDeviceShine() {
     >
       <YStack flex={1} rotate={SHINE_TILT}>
         <LinearGradient
-          colors={["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0)"]}
+          colors={[
+            'rgba(255, 255, 255, 0)',
+            'rgba(255, 255, 255, 0.15)',
+            'rgba(255, 255, 255, 0)',
+          ]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={{ flex: 1 }}
@@ -194,7 +211,7 @@ function SetupCardDeviceFrame() {
       }}
       $platform-native={{
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: "$neutral5",
+        borderColor: '$neutral5',
       }}
       overflow="hidden"
     >
@@ -236,7 +253,10 @@ function SetupCardDeviceFrame() {
 
 // Open body slot with the card's standard horizontal padding so dropped-in
 // content lines up with the header/footer; every prop is overridable.
-export function SetupCardBody({ children, ...rest }: PropsWithChildren<IYStackProps>) {
+export function SetupCardBody({
+  children,
+  ...rest
+}: PropsWithChildren<IYStackProps>) {
   return (
     <YStack px="$5" pb="$6" {...rest}>
       {children}
@@ -247,7 +267,7 @@ export function SetupCardBody({ children, ...rest }: PropsWithChildren<IYStackPr
 export interface ISetupCardProps extends IYStackProps {
   // Header shows iff provided.
   title?: string;
-  titleColor?: ComponentProps<typeof SizableText>["color"];
+  titleColor?: ComponentProps<typeof SizableText>['color'];
   // Footer shows iff provided — a device thumbnail + a one-line instruction.
   instruction?: string;
   deviceImage?: ImageSourcePropType;
@@ -266,7 +286,7 @@ export interface ISetupCardProps extends IYStackProps {
 
 export function SetupCard({
   title,
-  titleColor = "$text",
+  titleColor = '$text',
   instruction,
   deviceImage,
   elevated,
@@ -338,7 +358,7 @@ export function SetupCard({
         $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
         $platform-native={{
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "$neutral5",
+          borderColor: '$neutral5',
         }}
         pointerEvents="none"
         style={surfaceStyle}
@@ -362,7 +382,11 @@ export function SetupCard({
           ) : null}
 
           {children ? (
-            <Animated.View key={contentKey} entering={CONTENT_ENTER} exiting={CONTENT_EXIT}>
+            <Animated.View
+              key={contentKey}
+              entering={CONTENT_ENTER}
+              exiting={CONTENT_EXIT}
+            >
               {children}
             </Animated.View>
           ) : null}

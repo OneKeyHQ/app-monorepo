@@ -34,11 +34,6 @@ import {
   LayoutHeaderTitle,
 } from '../components/Layout';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
-import PixelShimmer from '../components/PixelShimmer';
-
-// Neutral shimmer for the non-OneKey "use another device" card; OneKey device
-// cards fall back to PixelShimmer's brand-green default.
-const SHIMMER_NEUTRAL = ['#94A3B8', '#CBD5E1', '#A0AEC0'];
 
 export default function PickYourDevice() {
   const intl = useIntl();

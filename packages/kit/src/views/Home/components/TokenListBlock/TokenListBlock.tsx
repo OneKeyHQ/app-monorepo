@@ -1911,6 +1911,7 @@ function TokenListBlock({
     account?.indexedAccountId,
     accountName,
     device?.connectId,
+    device?.deviceType,
     device?.id,
     indexedAccount?.id,
     indexedAccount?.index,

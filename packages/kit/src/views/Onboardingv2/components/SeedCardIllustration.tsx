@@ -1,7 +1,7 @@
-import { memo, useEffect } from "react";
-import type { ComponentProps } from "react";
+import { memo, useEffect } from 'react';
+import type { ComponentProps } from 'react';
 
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -13,12 +13,19 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
-} from "react-native-reanimated";
-import Svg, { Defs, G, Path, Text as SvgText, TSpan, TextPath } from "react-native-svg";
+} from 'react-native-reanimated';
+import Svg, {
+  Defs,
+  G,
+  Path,
+  Text as SvgText,
+  TSpan,
+  TextPath,
+} from 'react-native-svg';
 
-import { LinearGradient, YStack } from "@onekeyhq/components";
+import { LinearGradient, YStack } from '@onekeyhq/components';
 
-import { BG_SHEEN, SETUP_CARD_SHADOW } from "./SetupCard";
+import { BG_SHEEN, SETUP_CARD_SHADOW } from './SetupCard';
 
 // The OneKey SeedCard product illustration (Figma "Stack", inside node
 // 24886:7911), drawn fully in code. Anatomy, straight off the Figma layers:
@@ -51,7 +58,7 @@ const BOX_RADIUS = 18;
 const SHEEN_FROM = { x: 0, y: 0 };
 const SHEEN_TO = { x: 1, y: 1 };
 
-const ENGRAVING_TINT = "#000000";
+const ENGRAVING_TINT = '#000000';
 const ENGRAVING_OPACITY = 0.5;
 // The engraving vector's offset within the 90×90 box (Figma: 4.72, 4.72).
 const ENGRAVING_OFFSET = 4.72;
@@ -59,9 +66,9 @@ const ENGRAVING_OFFSET = 4.72;
 // The OneKey monogram, verbatim from the Figma vector (coords are
 // vector-local; the wrapping <G> applies ENGRAVING_OFFSET).
 const MONOGRAM_O =
-  "M 40.28 36.978 C 43.962 36.978 46.947 39.958 46.947 43.634 C 46.947 47.31 43.962 50.29 40.28 50.29 C 36.598 50.29 33.614 47.31 33.614 43.634 C 33.614 39.958 36.598 36.978 40.28 36.978 Z M 40.28 40 C 38.27 40 36.64 41.627 36.64 43.634 C 36.64 45.642 38.27 47.269 40.28 47.269 C 42.29 47.269 43.92 45.642 43.92 43.634 C 43.92 41.627 42.29 40 40.28 40 Z";
+  'M 40.28 36.978 C 43.962 36.978 46.947 39.958 46.947 43.634 C 46.947 47.31 43.962 50.29 40.28 50.29 C 36.598 50.29 33.614 47.31 33.614 43.634 C 33.614 39.958 36.598 36.978 40.28 36.978 Z M 40.28 40 C 38.27 40 36.64 41.627 36.64 43.634 C 36.64 45.642 38.27 47.269 40.28 47.269 C 42.29 47.269 43.92 45.642 43.92 43.634 C 43.92 41.627 42.29 40 40.28 40 Z';
 const MONOGRAM_1 =
-  "M 42.179 35.741 L 38.554 35.741 L 38.554 29.22 L 35.307 29.22 L 36.333 26.124 L 42.179 26.124 L 42.179 35.741 Z";
+  'M 42.179 35.741 L 38.554 35.741 L 38.554 29.22 L 35.307 29.22 L 36.333 26.124 L 42.179 26.124 L 42.179 35.741 Z';
 
 // Micro-text ring: baseline sits 9 px in from the card edge, concentric with
 // the edge (radius 18 − 9). Clockwise, so glyphs face outward — upright on
@@ -70,9 +77,9 @@ const MONOGRAM_1 =
 // so two seams: runs near the top-left use the bottom-left-seam ring and
 // vice versa — no run ever crosses the seam of the ring it sits on.
 const RING_SEAM_TOP_LEFT =
-  "M 18 9 H 72 A 9 9 0 0 1 81 18 V 72 A 9 9 0 0 1 72 81 H 18 A 9 9 0 0 1 9 72 V 18 A 9 9 0 0 1 18 9";
+  'M 18 9 H 72 A 9 9 0 0 1 81 18 V 72 A 9 9 0 0 1 72 81 H 18 A 9 9 0 0 1 9 72 V 18 A 9 9 0 0 1 18 9';
 const RING_SEAM_BOTTOM_LEFT =
-  "M 9 72 V 18 A 9 9 0 0 1 18 9 H 72 A 9 9 0 0 1 81 18 V 72 A 9 9 0 0 1 72 81 H 18 A 9 9 0 0 1 9 72";
+  'M 9 72 V 18 A 9 9 0 0 1 18 9 H 72 A 9 9 0 0 1 81 18 V 72 A 9 9 0 0 1 72 81 H 18 A 9 9 0 0 1 9 72';
 
 // Two sizes, measured off the Figma render: the brand run ("OneKey
 // SeedCard") is ~1.2× the micro text. System fonts run wider than the
@@ -100,7 +107,9 @@ const WINDOW_WIDTH = 30;
 const WINDOW_LENGTH = BOX * 2; // covers the box at 45°
 // Window centre travel, projected on each axis: clear the far corners plus
 // the window's own width on both sides of the 90√2 diagonal.
-const WINDOW_TRAVEL = Math.ceil(((BOX * Math.SQRT2) / 2 + WINDOW_WIDTH) / Math.SQRT2);
+const WINDOW_TRAVEL = Math.ceil(
+  ((BOX * Math.SQRT2) / 2 + WINDOW_WIDTH) / Math.SQRT2,
+);
 // The window's offset from the card origin (it's centred on the card).
 const WINDOW_LEFT = (BOX - WINDOW_WIDTH) / 2;
 const WINDOW_TOP = (BOX - WINDOW_LENGTH) / 2;
@@ -118,7 +127,7 @@ function RingRun({
   startOffset: number;
   fontSize: number;
   // TextPath accepts its own TextChild tree, narrower than ReactNode.
-  children: ComponentProps<typeof TextPath>["children"];
+  children: ComponentProps<typeof TextPath>['children'];
 }) {
   return (
     <SvgText
@@ -148,7 +157,12 @@ function Engraving({ tint, idSuffix }: { tint: string; idSuffix: string }) {
         <Path id={ringBottomLeftSeam} d={RING_SEAM_BOTTOM_LEFT} />
       </Defs>
       <G x={ENGRAVING_OFFSET} y={ENGRAVING_OFFSET}>
-        <Path d={MONOGRAM_O} fillRule="evenodd" fill={tint} fillOpacity={ENGRAVING_OPACITY} />
+        <Path
+          d={MONOGRAM_O}
+          fillRule="evenodd"
+          fill={tint}
+          fillOpacity={ENGRAVING_OPACITY}
+        />
         <Path d={MONOGRAM_1} fill={tint} fillOpacity={ENGRAVING_OPACITY} />
       </G>
       <RingRun
@@ -160,7 +174,7 @@ function Engraving({ tint, idSuffix }: { tint: string; idSuffix: string }) {
         <TSpan fontWeight="bold">OneKey</TSpan>
         {/* NBSP: a plain leading space would be collapsed by the XML
             whitespace rules on web. */}
-        <TSpan>{"\u00A0SeedCard"}</TSpan>
+        <TSpan>{'\u00A0SeedCard'}</TSpan>
       </RingRun>
       <RingRun
         tint={tint}
@@ -230,10 +244,18 @@ function useLightSweep() {
       [0, 1, 1, 0],
       Extrapolation.CLAMP,
     ),
-    transform: [{ translateX: shift.value }, { translateY: shift.value }, { rotate: "45deg" }],
+    transform: [
+      { translateX: shift.value },
+      { translateY: shift.value },
+      { rotate: '45deg' },
+    ],
   }));
   const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: "-45deg" }, { translateX: -shift.value }, { translateY: -shift.value }],
+    transform: [
+      { rotate: '-45deg' },
+      { translateX: -shift.value },
+      { translateY: -shift.value },
+    ],
   }));
   return { windowStyle, contentStyle, reduceMotion };
 }
@@ -257,7 +279,7 @@ export const SeedCardIllustration = memo(() => {
       pointerEvents="none"
       $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
       $platform-ios={{
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.4,
         shadowRadius: 10,
@@ -271,7 +293,7 @@ export const SeedCardIllustration = memo(() => {
         overflow="hidden"
         $platform-native={{
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "$neutral5",
+          borderColor: '$neutral5',
         }}
       >
         <LinearGradient
@@ -313,4 +335,4 @@ export const SeedCardIllustration = memo(() => {
     </YStack>
   );
 });
-SeedCardIllustration.displayName = "SeedCardIllustration";
+SeedCardIllustration.displayName = 'SeedCardIllustration';

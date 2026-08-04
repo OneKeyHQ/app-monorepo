@@ -1,6 +1,6 @@
-import { memo, useEffect } from "react";
+import { memo, useEffect } from 'react';
 
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -12,12 +12,12 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
-} from "react-native-reanimated";
-import Svg, { G, Path } from "react-native-svg";
+} from 'react-native-reanimated';
+import Svg, { G, Path } from 'react-native-svg';
 
-import { LinearGradient, YStack } from "@onekeyhq/components";
+import { LinearGradient, YStack } from '@onekeyhq/components';
 
-import { BG_SHEEN, SETUP_CARD_SHADOW } from "./SetupCard";
+import { BG_SHEEN, SETUP_CARD_SHADOW } from './SetupCard';
 
 // The CheckAndUpdate step illustrations (Figma "Illustrations", node
 // 24951:25784), drawn fully in code — no more themed PNG assets. Every value
@@ -48,10 +48,10 @@ const GRADIENT_BOTTOM = { x: 0.5, y: 1 };
 
 // Base glyph fill per state (the embossed overlays never change).
 const TONE_FILLS = {
-  neutral: { color: "#000000", opacity: 0.5 },
-  success: { color: "#37FF35", opacity: 0.85 },
-  warning: { color: "#FFE62D", opacity: 0.98 },
-  critical: { color: "#FF4E54", opacity: 0.89 },
+  neutral: { color: '#000000', opacity: 0.5 },
+  success: { color: '#37FF35', opacity: 0.85 },
+  warning: { color: '#FFE62D', opacity: 0.98 },
+  critical: { color: '#FF4E54', opacity: 0.89 },
 } as const;
 
 type IGlyphFill = (typeof TONE_FILLS)[keyof typeof TONE_FILLS];
@@ -63,8 +63,8 @@ type IGlyphFill = (typeof TONE_FILLS)[keyof typeof TONE_FILLS];
 const BEAM_SIZE = Math.ceil(RING * Math.SQRT2);
 const BEAM_SWEEP_MS = 2000;
 const BEAM_STATIC_DEG = 134;
-const BEAM_PEAK = "rgba(255, 255, 255, 0.5)";
-const BEAM_TRANSPARENT = "rgba(255, 255, 255, 0)";
+const BEAM_PEAK = 'rgba(255, 255, 255, 0.5)';
+const BEAM_TRANSPARENT = 'rgba(255, 255, 255, 0)';
 
 // Recolor transition: reanimated can't tween an SVG fill (it's resolved in JS
 // render), so on tone change the whole glyph stack cross-fades — old and new
@@ -154,7 +154,7 @@ function BorderBeam() {
           start={GRADIENT_TOP}
           end={GRADIENT_BOTTOM}
           style={{
-            position: "absolute",
+            position: 'absolute',
             left: 0,
             right: 0,
             top: -(RING_INSET + RING_STROKE),
@@ -264,7 +264,7 @@ function FirmwareGlyph({ fill }: { fill: IGlyphFill }) {
   );
 }
 
-export type ICheckStepIllustrationKind = "genuine" | "firmware";
+export type ICheckStepIllustrationKind = 'genuine' | 'firmware';
 export type ICheckStepIllustrationTone = keyof typeof TONE_FILLS;
 
 export interface ICheckStepIllustrationProps {
@@ -291,7 +291,7 @@ export const CheckStepIllustration = memo(
         $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
         $platform-native={{
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "$neutral5",
+          borderColor: '$neutral5',
         }}
       >
         <LinearGradient
@@ -326,11 +326,15 @@ export const CheckStepIllustration = memo(
           pointerEvents="none"
         >
           <Animated.View key={tone} entering={TONE_ENTER} exiting={TONE_EXIT}>
-            {kind === "genuine" ? <GenuineGlyph fill={fill} /> : <FirmwareGlyph fill={fill} />}
+            {kind === 'genuine' ? (
+              <GenuineGlyph fill={fill} />
+            ) : (
+              <FirmwareGlyph fill={fill} />
+            )}
           </Animated.View>
         </YStack>
       </YStack>
     );
   },
 );
-CheckStepIllustration.displayName = "CheckStepIllustration";
+CheckStepIllustration.displayName = 'CheckStepIllustration';

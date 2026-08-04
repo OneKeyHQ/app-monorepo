@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import pRetry, { AbortError } from "p-retry";
-import { useIntl } from "react-intl";
-import { StyleSheet } from "react-native";
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import pRetry, { AbortError } from 'p-retry';
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { IPageScreenProps } from "@onekeyhq/components";
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
@@ -16,54 +16,62 @@ import {
   Theme,
   XStack,
   YStack,
-} from "@onekeyhq/components";
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from "@onekeyhq/components/src/utils/animationConstants";
-import { OneKeyLocalError } from "@onekeyhq/shared/src/errors";
-import { EAppEventBusNames, appEventBus } from "@onekeyhq/shared/src/eventBus/appEventBus";
-import { ETranslations } from "@onekeyhq/shared/src/locale";
-import { EOnboardingPagesV2 } from "@onekeyhq/shared/src/routes/onboardingv2";
-import type { IOnboardingParamListV2 } from "@onekeyhq/shared/src/routes/onboardingv2";
-import deviceUtils from "@onekeyhq/shared/src/utils/deviceUtils";
-import { EAccountSelectorSceneName } from "@onekeyhq/shared/types";
-import { EHardwareCallContext } from "@onekeyhq/shared/types/device";
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
-import backgroundApiProxy from "../../../background/instance/backgroundApiProxy";
-import { AccountSelectorProviderMirror } from "../../../components/AccountSelector";
-import useAppNavigation from "../../../hooks/useAppNavigation";
-import { useFirmwareUpdateActions } from "../../FirmwareUpdate/hooks/useFirmwareUpdateActions";
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import {
   CheckStepIllustration,
   type ICheckStepIllustrationTone,
-} from "../components/CheckStepIllustration";
-import { Confetti } from "../components/Confetti";
-import { OnboardingPage } from "../components/Layout";
-import { useConnectDeviceError, useDeviceConnect } from "../hooks/useDeviceConnect";
-import { usePrepareUSBConnectForFirmwareUpdate } from "../hooks/usePrepareUSBConnectForFirmwareUpdate";
-import { OnboardingTestIDs } from "../testIDs";
-import { getForceTransportType } from "../utils";
+} from '../components/CheckStepIllustration';
+import { Confetti } from '../components/Confetti';
+import { OnboardingPage } from '../components/Layout';
+import {
+  useConnectDeviceError,
+  useDeviceConnect,
+} from '../hooks/useDeviceConnect';
+import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
+import { OnboardingTestIDs } from '../testIDs';
+import { getForceTransportType } from '../utils';
 
-import type { Features, KnownDevice, SearchDevice } from "@onekeyfe/hd-core";
+import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {
-  Idle = "idle",
-  InProgress = "inProgress",
-  Warning = "warning",
-  Skipped = "skipped",
-  Success = "success",
-  Error = "error",
+  Idle = 'idle',
+  InProgress = 'inProgress',
+  Warning = 'warning',
+  Skipped = 'skipped',
+  Success = 'success',
+  Error = 'error',
 }
 
 enum ECheckAndUpdateStepId {
-  GenuineCheck = "genuine-check",
-  FirmwareCheck = "firmware-check",
+  GenuineCheck = 'genuine-check',
+  FirmwareCheck = 'firmware-check',
 }
 
 // Illustration glyph tint per step state (idle / in progress stay neutral).
-const STEP_STATE_TONE: Partial<Record<ECheckAndUpdateStepState, ICheckStepIllustrationTone>> = {
-  [ECheckAndUpdateStepState.Success]: "success",
-  [ECheckAndUpdateStepState.Warning]: "warning",
-  [ECheckAndUpdateStepState.Skipped]: "warning",
-  [ECheckAndUpdateStepState.Error]: "critical",
+const STEP_STATE_TONE: Partial<
+  Record<ECheckAndUpdateStepState, ICheckStepIllustrationTone>
+> = {
+  [ECheckAndUpdateStepState.Success]: 'success',
+  [ECheckAndUpdateStepState.Warning]: 'warning',
+  [ECheckAndUpdateStepState.Skipped]: 'warning',
+  [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
 // Watchdog budgets. Post-update rounds must outlast the reconnect loop in
@@ -75,7 +83,10 @@ const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
 
 function CheckAndUpdatePage({
   route: routeParams,
-}: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.CheckAndUpdate>) {
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
   const intl = useIntl();
   const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
@@ -129,16 +140,19 @@ function CheckAndUpdatePage({
   } = useDeviceConnect({
     setCurrentDevice,
   });
-  const { prepareUSBConnect, restoreOriginalTransport } = usePrepareUSBConnectForFirmwareUpdate();
+  const { prepareUSBConnect, restoreOriginalTransport } =
+    usePrepareUSBConnectForFirmwareUpdate();
   const ensureTransportType = useCallback(async () => {
     if (!tabValue) {
       return;
     }
     const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
     const confirmedConnectProtocol =
-      activeFeaturesProtocol === "V1" || activeFeaturesProtocol === "V2"
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
         ? activeFeaturesProtocol
-        : (getActiveDevice()?.connectProtocol ?? currentDevice?.connectProtocol ?? connectProtocol);
+        : (getActiveDevice()?.connectProtocol ??
+          currentDevice?.connectProtocol ??
+          connectProtocol);
     const forceTransportType = await getForceTransportType(tabValue, {
       connectProtocol: confirmedConnectProtocol,
     });
@@ -241,7 +255,11 @@ function CheckAndUpdatePage({
   // bg to cancel the in-flight device call — bg owns the SDK/device
   // resource; a main-side ref alone cannot stop it on split-runtime targets.
   const createStepTimeout = useCallback(
-    (isStale: () => boolean, getConnectId: () => string | undefined, timeoutMs: number) => {
+    (
+      isStale: () => boolean,
+      getConnectId: () => string | undefined,
+      timeoutMs: number,
+    ) => {
       const timeout = setTimeout(() => {
         if (isStale()) {
           // A newer round already took over; this watchdog is obsolete and
@@ -279,10 +297,12 @@ function CheckAndUpdatePage({
   // (its connectId may have changed after a firmware update) so DeviceSetup
   // and FinalizeWalletSetup talk to the right device.
   const toDeviceSetup = useCallback(() => {
-    const activeDevice = (getActiveDevice() ?? currentDevice ?? deviceData.device) as SearchDevice;
+    const activeDevice = (getActiveDevice() ??
+      currentDevice ??
+      deviceData.device) as SearchDevice;
     const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
     const confirmedConnectProtocol =
-      activeFeaturesProtocol === "V1" || activeFeaturesProtocol === "V2"
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
         ? activeFeaturesProtocol
         : (activeDevice.connectProtocol ?? connectProtocol);
     navigation.push(EOnboardingPagesV2.DeviceSetup, {
@@ -316,7 +336,7 @@ function CheckAndUpdatePage({
             if (isStale()) {
               // A newer round took over — stop touching the device from this
               // retired reconnect loop instead of burning its retry budget.
-              throw new AbortError("stale firmware check round");
+              throw new AbortError('stale firmware check round');
             }
             console.log(
               `Attempting to connect to device after firmware update (attempt ${attemptCount}/5)...`,
@@ -330,7 +350,7 @@ function CheckAndUpdatePage({
               },
             });
 
-            console.log("Device connection successful after firmware update");
+            console.log('Device connection successful after firmware update');
           },
           {
             retries: 10,
@@ -342,7 +362,10 @@ function CheckAndUpdatePage({
                 `Device connection attempt ${error.attemptNumber} failed:`,
                 error.message,
               );
-              if (error.attemptNumber < error.retriesLeft + error.attemptNumber) {
+              if (
+                error.attemptNumber <
+                error.retriesLeft + error.attemptNumber
+              ) {
                 console.log(`Retrying... (${error.retriesLeft} attempts left)`);
               }
             },
@@ -351,7 +374,7 @@ function CheckAndUpdatePage({
       } catch (error) {
         if (!isStale()) {
           console.error(
-            "Failed to connect to device after firmware update, all retries exhausted",
+            'Failed to connect to device after firmware update, all retries exhausted',
             error,
           );
         }
@@ -380,7 +403,10 @@ function CheckAndUpdatePage({
       let watchdogConnectId: string | undefined;
       const setDeviceNotFoundErrorMessageStep = () => {
         setSteps((prev) => {
-          if (isStale() || prev[1].state !== ECheckAndUpdateStepState.InProgress) {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
             return prev;
           }
           const newSteps = [...prev];
@@ -410,7 +436,8 @@ function CheckAndUpdatePage({
       });
       // A pending post-update reconnect upgrades ANY round — including a
       // manual Retry — to the patient path with its longer watchdog budget.
-      const checkAfterUpdate = params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
+      const checkAfterUpdate =
+        params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
       const cancelTimeout = createStepTimeout(
         isStale,
         () => watchdogConnectId,
@@ -418,7 +445,8 @@ function CheckAndUpdatePage({
       );
       try {
         await ensureTransportType();
-        const baseDevice = getActiveDevice() ?? currentDevice ?? deviceData.device;
+        const baseDevice =
+          getActiveDevice() ?? currentDevice ?? deviceData.device;
         if (!baseDevice?.connectId) {
           setDeviceNotFoundErrorMessageStep();
           return;
@@ -432,12 +460,11 @@ function CheckAndUpdatePage({
           setDeviceNotFoundErrorMessageStep();
           return;
         }
-        const compatibleConnectId = await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
-          {
+        const compatibleConnectId =
+          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
             connectId: latestDevice.connectId,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-          },
-        );
+          });
         watchdogConnectId = compatibleConnectId;
 
         // Wait for hardware to restart after firmware update
@@ -445,12 +472,15 @@ function CheckAndUpdatePage({
           await retryDeviceConnectionAfterUpdate(compatibleConnectId, isStale);
         }
 
-        const r = await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
-          connectId: compatibleConnectId,
-          skipCancel: true,
-          checkFirmwareHash: checkAfterUpdate,
-          firmwareType: undefined,
-        });
+        const r =
+          await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
+            {
+              connectId: compatibleConnectId,
+              skipCancel: true,
+              checkFirmwareHash: checkAfterUpdate,
+              firmwareType: undefined,
+            },
+          );
         if (isStale()) {
           // A newer retry owns the UI (and the refs feeding DeviceSetup);
           // this late result must not overwrite it.
@@ -500,7 +530,10 @@ function CheckAndUpdatePage({
         // specific Error (connect-error events) — only claim the failure
         // while the step is still in progress.
         setSteps((prev) => {
-          if (isStale() || prev[1].state !== ECheckAndUpdateStepState.InProgress) {
+          if (
+            isStale() ||
+            prev[1].state !== ECheckAndUpdateStepState.InProgress
+          ) {
             return prev;
           }
           const newSteps = [...prev];
@@ -534,15 +567,21 @@ function CheckAndUpdatePage({
   // Listen to firmware update completion event and record timestamp
   useEffect(() => {
     const handleFirmwareUpdateFinish = () => {
-      console.log("Firmware update finished, recording timestamp...");
+      console.log('Firmware update finished, recording timestamp...');
       firmwareUpdateFinishTimeRef.current = Date.now();
       pendingPostUpdateReconnectRef.current = true;
     };
 
-    appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, handleFirmwareUpdateFinish);
+    appEventBus.on(
+      EAppEventBusNames.FinishFirmwareUpdate,
+      handleFirmwareUpdateFinish,
+    );
 
     return () => {
-      appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, handleFirmwareUpdateFinish);
+      appEventBus.off(
+        EAppEventBusNames.FinishFirmwareUpdate,
+        handleFirmwareUpdateFinish,
+      );
     };
   }, []);
 
@@ -600,7 +639,7 @@ function CheckAndUpdatePage({
   );
 
   useEffect(() => {
-    const unsubscribe = reactNavigation.addListener("beforeRemove", () => {
+    const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
       // Clean up forceTransportType when leaving this page
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
     });
@@ -631,11 +670,15 @@ function CheckAndUpdatePage({
         }),
       ]);
       const latestDevice =
-        getActiveDevice() ?? currentDevice ?? (deviceData.device as SearchDevice | undefined);
+        getActiveDevice() ??
+        currentDevice ??
+        (deviceData.device as SearchDevice | undefined);
       setCurrentDevice(latestDevice);
-      console.log("verifyHardware", result);
+      console.log('verifyHardware', result);
       if (!result) {
-        throw new OneKeyLocalError(intl.formatMessage({ id: ETranslations.global_unknown_error }));
+        throw new OneKeyLocalError(
+          intl.formatMessage({ id: ETranslations.global_unknown_error }),
+        );
       }
       // Skipping (dev skip or "continue anyway" when the verify service is
       // unavailable) is not a verification pass — record it as Skipped so the
@@ -646,14 +689,17 @@ function CheckAndUpdatePage({
       } else if (result.verified) {
         genuineState = ECheckAndUpdateStepState.Success;
       }
-      const shouldContinueToFirmwareCheck = genuineState !== ECheckAndUpdateStepState.Error;
+      const shouldContinueToFirmwareCheck =
+        genuineState !== ECheckAndUpdateStepState.Error;
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
           state: genuineState,
           errorMessage:
-            genuineState === ECheckAndUpdateStepState.Error ? result.result?.message : undefined,
+            genuineState === ECheckAndUpdateStepState.Error
+              ? result.result?.message
+              : undefined,
         };
         if (shouldContinueToFirmwareCheck) {
           newSteps[1] = {
@@ -692,7 +738,9 @@ function CheckAndUpdatePage({
   ]);
 
   const handleRetry = useCallback(async () => {
-    const currentErrorStep = steps.find((step) => step.state === ECheckAndUpdateStepState.Error);
+    const currentErrorStep = steps.find(
+      (step) => step.state === ECheckAndUpdateStepState.Error,
+    );
     if (!currentErrorStep) {
       await handleVerifyHardware();
       return;
@@ -775,7 +823,9 @@ function CheckAndUpdatePage({
     // Skipping also cancels any pending focus-effect auto-recheck.
     firmwareUpdateFinishTimeRef.current = null;
     setSteps((prev) => {
-      const index = prev.findIndex((step) => step.state === ECheckAndUpdateStepState.Error);
+      const index = prev.findIndex(
+        (step) => step.state === ECheckAndUpdateStepState.Error,
+      );
       if (index === -1) {
         return prev;
       }
@@ -810,7 +860,7 @@ function CheckAndUpdatePage({
   } | null = null;
   if (!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle)) {
     bottomCta = {
-      key: "verify",
+      key: 'verify',
       testID: OnboardingTestIDs.checkAndUpdateVerifyBtn,
       onPress: handleVerifyHardware,
       label: intl.formatMessage(
@@ -820,7 +870,7 @@ function CheckAndUpdatePage({
     };
   } else if (isReady) {
     bottomCta = {
-      key: "continue",
+      key: 'continue',
       testID: OnboardingTestIDs.checkAndUpdateContinueToSetupBtn,
       onPress: toDeviceSetup,
       label: intl.formatMessage({ id: ETranslations.global_continue }),
@@ -836,7 +886,7 @@ function CheckAndUpdatePage({
       scrollable
       alignTop
       narrow
-      contentContainerProps={{ gap: "$10", pt: "$5" }}
+      contentContainerProps={{ gap: '$10', pt: '$5' }}
       foregroundLayer={celebrate ? <Confetti /> : null}
     >
       {steps.map((step, index) => {
@@ -851,7 +901,7 @@ function CheckAndUpdatePage({
         const isStepCollapsed = isStepSuccess || isStepSkipped;
         // Glyph tint per state; the border beam runs only while in progress.
         const illustrationTone: ICheckStepIllustrationTone =
-          (step.state && STEP_STATE_TONE[step.state]) || "neutral";
+          (step.state && STEP_STATE_TONE[step.state]) || 'neutral';
         let displayTitle = step.title;
         if (isStepSuccess) {
           displayTitle =
@@ -873,24 +923,28 @@ function CheckAndUpdatePage({
                   id: ETranslations.global_skip,
                 });
         }
-        const displayDescription = isStepCollapsed ? undefined : step.description;
+        const displayDescription = isStepCollapsed
+          ? undefined
+          : step.description;
         return (
           <YStack key={step.title}>
             {/* highlight background */}
             <AnimatePresence>
-              {step.state && !isStepCollapsed && step.state !== ECheckAndUpdateStepState.Idle ? (
+              {step.state &&
+              !isStepCollapsed &&
+              step.state !== ECheckAndUpdateStepState.Idle ? (
                 <YStack
                   animation="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   enterStyle={{
                     opacity: 0,
                     scale: 0.97,
-                    filter: "blur(4px)",
+                    filter: 'blur(4px)',
                   }}
                   exitStyle={{
                     opacity: 0,
                     scale: 0.97,
-                    filter: "blur(4px)",
+                    filter: 'blur(4px)',
                   }}
                   position="absolute"
                   left={-10}
@@ -908,11 +962,11 @@ function CheckAndUpdatePage({
                   borderCurve="continuous"
                   $platform-web={{
                     boxShadow:
-                      "inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)",
+                      'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)',
                   }}
                   $platform-native={{
                     borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: "$neutral5",
+                    borderColor: '$neutral5',
                   }}
                   zIndex={0}
                 />
@@ -930,7 +984,13 @@ function CheckAndUpdatePage({
                 overflow="hidden"
               >
                 {Array.from({ length: 20 }).map((_, i) => (
-                  <YStack key={i} w="100%" h="$1" bg="$border" borderRadius="$full" />
+                  <YStack
+                    key={i}
+                    w="100%"
+                    h="$1"
+                    bg="$border"
+                    borderRadius="$full"
+                  />
                 ))}
               </YStack>
             ) : null}
@@ -938,14 +998,20 @@ function CheckAndUpdatePage({
               {/* No corner state badge — the glyph tint + border beam already
                   carry the state. */}
               <CheckStepIllustration
-                kind={step.id === ECheckAndUpdateStepId.GenuineCheck ? "genuine" : "firmware"}
+                kind={
+                  step.id === ECheckAndUpdateStepId.GenuineCheck
+                    ? 'genuine'
+                    : 'firmware'
+                }
                 tone={illustrationTone}
                 beaming={step.state === ECheckAndUpdateStepState.InProgress}
               />
               <YStack gap="$1" flex={1} alignSelf="center">
                 <SizableText size="$headingSm">{displayTitle}</SizableText>
                 {displayDescription ? (
-                  <SizableText color="$textSubdued">{displayDescription}</SizableText>
+                  <SizableText color="$textSubdued">
+                    {displayDescription}
+                  </SizableText>
                 ) : null}
               </YStack>
             </XStack>
@@ -962,7 +1028,12 @@ function CheckAndUpdatePage({
                   borderTopColor="$borderSubdued"
                   alignItems="center"
                 >
-                  <SizableText size="$bodyMdMedium" color="$textInfo" flex={1} textAlign="left">
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textInfo"
+                    flex={1}
+                    textAlign="left"
+                  >
                     {intl.formatMessage({
                       id: ETranslations.hardware_status_update_available,
                     })}
@@ -1001,7 +1072,12 @@ function CheckAndUpdatePage({
                   borderTopColor="$borderSubdued"
                   alignItems="center"
                 >
-                  <SizableText size="$bodyMdMedium" color="$textCritical" flex={1} textAlign="left">
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textCritical"
+                    flex={1}
+                    textAlign="left"
+                  >
                     {step.errorMessage ??
                       intl.formatMessage({
                         id: ETranslations.genuine_check_interrupt,
@@ -1049,7 +1125,7 @@ function CheckAndUpdatePage({
             variant="primary"
             size="large"
             onPress={bottomCta.onPress}
-            $md={{ mt: "auto", mb: "$5" }}
+            $md={{ mt: 'auto', mb: '$5' }}
             enterStyle={{
               opacity: 0,
               scale: 0.97,
@@ -1070,7 +1146,10 @@ function CheckAndUpdatePage({
 export default function CheckAndUpdate({
   route,
   navigation,
-}: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.CheckAndUpdate>) {
+}: IPageScreenProps<
+  IOnboardingParamListV2,
+  EOnboardingPagesV2.CheckAndUpdate
+>) {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

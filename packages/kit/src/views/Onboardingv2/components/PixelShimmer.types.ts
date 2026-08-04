@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties } from 'react';
 
 export interface IPixelShimmerProps {
   /** Pixel color palette; every pixel picks one at random. */

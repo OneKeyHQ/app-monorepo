@@ -1,11 +1,11 @@
-import type { IModalFlowNavigatorConfig } from "@onekeyhq/components";
-import { LazyLoadPage } from "@onekeyhq/kit/src/components/LazyLoadPage";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import type { IOnboardingParamListV2 } from "@onekeyhq/shared/src/routes";
-import { EOnboardingPagesV2 } from "@onekeyhq/shared/src/routes";
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
-import { OnboardingPageFallback } from "../components/Layout";
-import { OnboardingLayoutFallback } from "../components/OnboardingLayout";
+import { OnboardingPageFallback } from '../components/Layout';
+import { OnboardingLayoutFallback } from '../components/OnboardingLayout';
 
 // Keep the Suspense fallback aligned with the page shell so lazy-loaded pages
 // do not briefly flash the legacy onboarding frame during navigation.
@@ -13,163 +13,163 @@ const pageFallback = <OnboardingPageFallback />;
 const legacyLayoutFallback = <OnboardingLayoutFallback />;
 
 const GetStarted = LazyLoadPage(
-  () => import("../pages/GetStarted"),
+  () => import('../pages/GetStarted'),
   undefined,
   false,
   pageFallback,
 );
 const CreateNewWallet = LazyLoadPage(
-  () => import("../pages/CreateNewWallet"),
+  () => import('../pages/CreateNewWallet'),
   undefined,
   false,
   pageFallback,
 );
 const CreateOrImportWallet = LazyLoadPage(
-  () => import("../pages/CreateOrImportWallet"),
+  () => import('../pages/CreateOrImportWallet'),
   undefined,
   false,
   pageFallback,
 );
 const FinalizeWalletSetup = LazyLoadPage(
-  () => import("../pages/FinalizeWalletSetup"),
+  () => import('../pages/FinalizeWalletSetup'),
   undefined,
   false,
   pageFallback,
 );
 const PickYourDevice = LazyLoadPage(
-  () => import("../pages/PickYourDevice"),
+  () => import('../pages/PickYourDevice'),
   undefined,
   false,
   pageFallback,
 );
 const ImportPhraseOrPrivateKey = LazyLoadPage(
-  () => import("../pages/ImportPhraseOrPrivateKey"),
+  () => import('../pages/ImportPhraseOrPrivateKey'),
   undefined,
   false,
   pageFallback,
 );
 const ImportWatchedAccount = LazyLoadPage(
-  () => import("../pages/ImportWatchedAccountV2"),
+  () => import('../pages/ImportWatchedAccountV2'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const BackupWalletReminder = LazyLoadPage(
-  () => import("../pages/BackupWalletReminder"),
+  () => import('../pages/BackupWalletReminder'),
   undefined,
   false,
   pageFallback,
 );
 const ShowRecoveryPhrase = LazyLoadPage(
-  () => import("../pages/ShowRecoveryPhrase"),
+  () => import('../pages/ShowRecoveryPhrase'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const VerifyRecoveryPhrase = LazyLoadPage(
-  () => import("../pages/VerifyRecoveryPhrase"),
+  () => import('../pages/VerifyRecoveryPhrase'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const SelectPrivateKeyNetwork = LazyLoadPage(
-  () => import("../pages/SelectPrivateKeyNetwork"),
+  () => import('../pages/SelectPrivateKeyNetwork'),
   undefined,
   false,
   pageFallback,
 );
 const ConnectYourDevice = LazyLoadPage(
-  () => import("../pages/ConnectYourDevice"),
+  () => import('../pages/ConnectYourDevice'),
   undefined,
   false,
   pageFallback,
 );
 const ConnectQRCode = LazyLoadPage(
-  () => import("../pages/ConnectQRCode"),
+  () => import('../pages/ConnectQRCode'),
   undefined,
   false,
   pageFallback,
 );
 const CheckAndUpdate = LazyLoadPage(
-  () => import("../pages/CheckAndUpdate"),
+  () => import('../pages/CheckAndUpdate'),
   undefined,
   false,
   pageFallback,
 );
 const DeviceSetup = LazyLoadPage(
-  () => import("../pages/DeviceSetup"),
+  () => import('../pages/DeviceSetup'),
   undefined,
   false,
   pageFallback,
 );
 const ICloudBackup = LazyLoadPage(
-  () => import("../pages/ICloudBackup"),
+  () => import('../pages/ICloudBackup'),
   undefined,
   false,
   pageFallback,
 );
 const ICloudBackupDetails = LazyLoadPage(
-  () => import("../pages/ICloudBackupDetails"),
+  () => import('../pages/ICloudBackupDetails'),
   undefined,
   false,
   pageFallback,
 );
 const ConnectWalletSelectNetworks = LazyLoadPage(
-  () => import("../pages/ConnectWalletSelectNetworks"),
+  () => import('../pages/ConnectWalletSelectNetworks'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const ConnectExternalWallet = LazyLoadPage(
-  () => import("../pages/ConnectExternalWallet"),
+  () => import('../pages/ConnectExternalWallet'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const ImportKeyTag = LazyLoadPage(
-  () => import("../pages/ImportKeyTag"),
+  () => import('../pages/ImportKeyTag'),
   undefined,
   false,
   legacyLayoutFallback,
 );
 const OneKeyIDLogin = LazyLoadPage(
-  () => import("../pages/OneKeyIDLoginPage"),
+  () => import('../pages/OneKeyIDLoginPage'),
   undefined,
   false,
   pageFallback,
 );
 const CreatePin = LazyLoadPage(
-  () => import("../pages/CreatePinPage"),
+  () => import('../pages/CreatePinPage'),
   undefined,
   false,
   pageFallback,
 );
 const ConfirmPin = LazyLoadPage(
-  () => import("../pages/ConfirmPinPage"),
+  () => import('../pages/ConfirmPinPage'),
   undefined,
   false,
   pageFallback,
 );
 const CreatePasscode = LazyLoadPage(
-  () => import("../pages/CreatePasscodePage"),
+  () => import('../pages/CreatePasscodePage'),
   undefined,
   false,
   pageFallback,
 );
 const VerifyPin = LazyLoadPage(
-  () => import("../pages/VerifyPinPage"),
+  () => import('../pages/VerifyPinPage'),
   undefined,
   false,
   pageFallback,
 );
 const ResetPinGuidePage = LazyLoadPage(
-  () => import("../pages/ResetPinGuidePage"),
+  () => import('../pages/ResetPinGuidePage'),
   undefined,
   false,
   pageFallback,
 );
 const NewPinCreated = LazyLoadPage(
-  () => import("../pages/NewPinCreatedPage"),
+  () => import('../pages/NewPinCreatedPage'),
   undefined,
   false,
   pageFallback,
@@ -192,19 +192,19 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
     options: hiddenHeaderOptions,
-    rewrite: "/get-started",
+    rewrite: '/get-started',
   },
   {
     name: EOnboardingPagesV2.CreateNewWallet,
     component: CreateNewWallet,
     options: hiddenHeaderOptions,
-    rewrite: "/create-new-wallet",
+    rewrite: '/create-new-wallet',
   },
   {
     name: EOnboardingPagesV2.CreateOrImportWallet,
     component: CreateOrImportWallet,
     options: hiddenHeaderOptions,
-    rewrite: "/create-or-import-wallet",
+    rewrite: '/create-or-import-wallet',
   },
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,

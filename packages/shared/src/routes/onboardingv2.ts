@@ -1,56 +1,59 @@
-import type { IKeylessWalletDetailsInfo } from "@onekeyhq/kit-bg/src/dbs/local/types";
+import type { IKeylessWalletDetailsInfo } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import type { EConnectDeviceChannel } from "../../types/connectDevice";
-import type { EHardwareVendor, IConnectYourDeviceItem } from "../../types/device";
-import type { EOAuthSocialLoginProvider } from "../consts/authConsts";
-import type { EKeylessFinalizeAction } from "../keylessWallet/keylessWalletConsts";
-import type { IDetectedNetworkGroupItem } from "../utils/networkDetectUtils";
-import type { EMnemonicType } from "../utils/secret";
-import type { EDeviceType, HardwareConnectProtocol } from "@onekeyfe/hd-shared";
+import type { EConnectDeviceChannel } from '../../types/connectDevice';
+import type {
+  EHardwareVendor,
+  IConnectYourDeviceItem,
+} from '../../types/device';
+import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
+import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
+import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
+import type { EMnemonicType } from '../utils/secret';
+import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
-  OnboardingV2 = "OnboardingV2",
+  OnboardingV2 = 'OnboardingV2',
 }
 
 export enum EOnboardingV2ImportPhraseOrPrivateKeyTab {
-  Phrase = "phrase",
-  PrivateKey = "privateKey",
+  Phrase = 'phrase',
+  PrivateKey = 'privateKey',
 }
 
 export enum EOnboardingV2OneKeyIDLoginMode {
-  KeylessCreateOrRestore = "KeylessCreateOrRestore",
-  KeylessResetPin = "KeylessResetPin",
-  KeylessVerifyPinOnly = "KeylessVerifyPinOnly",
+  KeylessCreateOrRestore = 'KeylessCreateOrRestore',
+  KeylessResetPin = 'KeylessResetPin',
+  KeylessVerifyPinOnly = 'KeylessVerifyPinOnly',
 }
 
 export enum EOnboardingPagesV2 {
-  GetStarted = "GetStarted",
-  CreateNewWallet = "CreateNewWallet",
-  CreateOrImportWallet = "CreateOrImportWallet",
-  FinalizeWalletSetup = "FinalizeWalletSetup",
-  PickYourDevice = "PickYourDevice",
-  ConnectYourDevice = "ConnectYourDevice",
-  ConnectQRCode = "ConnectQRCode",
-  CheckAndUpdate = "CheckAndUpdate",
-  DeviceSetup = "DeviceSetup",
-  ImportPhraseOrPrivateKey = "ImportPhraseOrPrivateKey",
-  ImportWatchedAccount = "ImportWatchedAccount",
-  BackupWalletReminder = "BackupWalletReminder",
-  ShowRecoveryPhrase = "ShowRecoveryPhrase",
-  VerifyRecoveryPhrase = "VerifyRecoveryPhrase",
-  SelectPrivateKeyNetwork = "SelectPrivateKeyNetwork",
-  ICloudBackup = "ICloudBackup",
-  ICloudBackupDetails = "ICloudBackupDetails",
-  ConnectWalletSelectNetworks = "ConnectWalletSelectNetworks",
-  ConnectExternalWallet = "ConnectExternalWallet",
-  ImportKeyTag = "ImportKeyTag",
-  OneKeyIDLogin = "OneKeyIDLogin",
-  CreatePin = "CreatePin",
-  ConfirmPin = "ConfirmPin",
-  VerifyPin = "VerifyPin",
-  ResetPinGuide = "ResetPinGuide",
-  NewPinCreated = "NewPinCreated",
-  CreatePasscode = "CreatePasscode",
+  GetStarted = 'GetStarted',
+  CreateNewWallet = 'CreateNewWallet',
+  CreateOrImportWallet = 'CreateOrImportWallet',
+  FinalizeWalletSetup = 'FinalizeWalletSetup',
+  PickYourDevice = 'PickYourDevice',
+  ConnectYourDevice = 'ConnectYourDevice',
+  ConnectQRCode = 'ConnectQRCode',
+  CheckAndUpdate = 'CheckAndUpdate',
+  DeviceSetup = 'DeviceSetup',
+  ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  ImportWatchedAccount = 'ImportWatchedAccount',
+  BackupWalletReminder = 'BackupWalletReminder',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  VerifyRecoveryPhrase = 'VerifyRecoveryPhrase',
+  SelectPrivateKeyNetwork = 'SelectPrivateKeyNetwork',
+  ICloudBackup = 'ICloudBackup',
+  ICloudBackupDetails = 'ICloudBackupDetails',
+  ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
+  ConnectExternalWallet = 'ConnectExternalWallet',
+  ImportKeyTag = 'ImportKeyTag',
+  OneKeyIDLogin = 'OneKeyIDLogin',
+  CreatePin = 'CreatePin',
+  ConfirmPin = 'ConfirmPin',
+  VerifyPin = 'VerifyPin',
+  ResetPinGuide = 'ResetPinGuide',
+  NewPinCreated = 'NewPinCreated',
+  CreatePasscode = 'CreatePasscode',
 }
 interface IVerifyRecoveryPhraseParams {
   mnemonic: string;
@@ -115,7 +118,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.SelectPrivateKeyNetwork]: {
     input: string;
     detectedNetworks: IDetectedNetworkGroupItem[];
-    importType: "privateKey" | "address" | "publicKey";
+    importType: 'privateKey' | 'address' | 'publicKey';
   };
   [EOnboardingPagesV2.ICloudBackup]: {
     hideRestoreButton?: boolean;
@@ -123,7 +126,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ICloudBackupDetails]: {
     backupTime: number;
     backupId?: string;
-    actionType: "backup" | "restore";
+    actionType: 'backup' | 'restore';
     hideRestoreButton?: boolean;
   };
   [EOnboardingPagesV2.ConnectWalletSelectNetworks]: {

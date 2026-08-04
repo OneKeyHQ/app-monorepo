@@ -1,13 +1,13 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
-import { YStack } from "@onekeyhq/components";
+import { YStack } from '@onekeyhq/components';
 
 // A one-shot celebratory confetti blast. This is a faithful reanimated-DOM port
 // of react-native-fast-confetti's PIConfetti motion model (golden-angle disc
@@ -22,7 +22,7 @@ import { YStack } from "@onekeyhq/components";
 // regardless of the page's narrow/animated content container.
 //
 // The values below mirror the reference demo's props 1:1.
-const COLORS = ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"];
+const COLORS = ['#a864fd', '#29cdff', '#78ff44', '#ff718d', '#fdff6a'];
 const COUNT = 200;
 const BLAST_RADIUS = 200;
 const BLAST_DURATION = 150;
@@ -38,8 +38,8 @@ const SIZE_VARIATION = 0.9;
 const JIGGLE_STOPS = [0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1];
 // Blast origin as a fraction of the full page: horizontal centre, upper area
 // (over the content). Tweak ANCHOR_TOP to move the burst up/down.
-const ANCHOR_LEFT = "50%" as const;
-const ANCHOR_TOP = "20%" as const;
+const ANCHOR_LEFT = '50%' as const;
+const ANCHOR_TOP = '20%' as const;
 
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
@@ -102,11 +102,16 @@ const ConfettiFlake = memo(function ConfettiFlake({
     // Extrapolation.IDENTITY.
     const delayedBlast = (b - config.delayBlast) / (1 - config.delayBlast);
     const jiggle = interpolate(f, JIGGLE_STOPS, config.jiggleValues);
-    const translateX = config.blastTargetX * delayedBlast + config.randomOffsetX * f + jiggle;
+    const translateX =
+      config.blastTargetX * delayedBlast + config.randomOffsetX * f + jiggle;
     const translateY =
-      config.blastTargetY * delayedBlast + FALL_DISTANCE * f + config.randomOffsetY * f;
-    const rotateZ = config.initialRotation + config.rotDir * config.maxRotationZ * f;
-    const rotateX = config.initialRotation + config.rotDir * config.maxRotationX * f;
+      config.blastTargetY * delayedBlast +
+      FALL_DISTANCE * f +
+      config.randomOffsetY * f;
+    const rotateZ =
+      config.initialRotation + config.rotDir * config.maxRotationZ * f;
+    const rotateX =
+      config.initialRotation + config.rotDir * config.maxRotationX * f;
     // |cos(rotateX)| fakes the 3D flip by oscillating the uniform scale, exactly
     // as PIConfetti does in its transform buffer.
     const oscillatingScale = Math.abs(Math.cos(rotateX));
@@ -126,7 +131,7 @@ const ConfettiFlake = memo(function ConfettiFlake({
     <Animated.View
       style={[
         {
-          position: "absolute",
+          position: 'absolute',
           left: ANCHOR_LEFT,
           top: ANCHOR_TOP,
           width: config.width,
@@ -163,7 +168,14 @@ function ConfettiOverlay() {
   // Fills the foregroundLayer (= the full page) so percentage-anchored flakes
   // resolve against the page, not the narrow content box.
   return (
-    <YStack position="absolute" top={0} left={0} right={0} bottom={0} pointerEvents="none">
+    <YStack
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      pointerEvents="none"
+    >
       {flakes.map((config, index) => (
         <ConfettiFlake
           // eslint-disable-next-line react/no-array-index-key

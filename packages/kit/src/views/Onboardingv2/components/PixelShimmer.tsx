@@ -1,4 +1,4 @@
-import type { IPixelShimmerProps } from "./PixelShimmer.types";
+import type { IPixelShimmerProps } from './PixelShimmer.types';
 
 // Native/default build: the pixel-shimmer hover effect is web + desktop only
 // (it needs a 2D canvas and pointer hover), so on native it renders nothing and
