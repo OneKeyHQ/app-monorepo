@@ -1060,11 +1060,13 @@ function SendAmountInputContainer() {
       }
       return backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
         networkId: privateSendNativeTokenNetworkId,
+        throwOnError: true,
       });
     },
     [privateSendNativeTokenNetworkId],
     {
       watchLoading: true,
+      undefinedResultIfError: true,
       undefinedResultIfReRun: true,
     },
   );
