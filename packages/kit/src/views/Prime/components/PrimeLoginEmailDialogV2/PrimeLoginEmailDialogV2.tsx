@@ -319,6 +319,9 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   size="large"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.email_address_example__desc,
+                  })}
                   flex={1}
                   disabled={disabled || isSubmitting}
                   onChangeText={(text) => text?.trim() ?? text}

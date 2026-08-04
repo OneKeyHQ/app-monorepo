@@ -242,6 +242,19 @@ class ServiceToken extends ServiceBase {
     } = params;
     const { networkId } = rest;
 
+    // All-network flows must fan out per real network before reaching this
+    // method; the wallet API always rejects the all-network mock id, so a
+    // direct request with it is a caller bug — drop it before the network layer.
+    if (networkUtils.isAllNetwork({ networkId })) {
+      defaultLogger.token.request.fetchAccountTokensBlockedAllNetworkRequest({
+        params,
+      });
+      return {
+        ...getEmptyTokenData(),
+        networkId,
+      };
+    }
+
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
     const currentNetworkId = isUrlAccount
