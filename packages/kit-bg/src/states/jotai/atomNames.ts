@@ -112,6 +112,8 @@ export enum EAtomNames {
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
   tradingModeAtom = 'tradingModeAtom',
+  // borrow
+  borrowSelectedMarketAtom = 'borrowSelectedMarketAtom',
   // spot
   spotActiveAssetAtom = 'spotActiveAssetAtom',
   spotActiveAssetCtxAtom = 'spotActiveAssetCtxAtom',

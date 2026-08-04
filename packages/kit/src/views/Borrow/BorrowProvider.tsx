@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EBorrowDataStatus } from './borrowDataStatus';
+import { useBorrowMarketMemory } from './hooks/useBorrowMarketMemory';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
@@ -53,6 +54,10 @@ type IBorrowContextValue = {
   setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  /** Persist an explicit market pick, so it is restored on the next visit. */
+  rememberMarket: (market: IBorrowMarketItem) => void;
+  /** Empty until storage hydrates, which off native happens after mount. */
+  rememberedMarketKey: string;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -98,7 +103,7 @@ export const BorrowProvider = ({
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
-    EBorrowDataStatus.Idle,
+    EBorrowDataStatus.Initializing,
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
@@ -116,6 +121,12 @@ export const BorrowProvider = ({
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
     setPendingTxsState(txs);
   }, []);
+
+  const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
+    markets,
+    market,
+    setMarket,
+  });
 
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
@@ -138,6 +149,8 @@ export const BorrowProvider = ({
       setMarkets,
       market,
       setMarket,
+      rememberMarket,
+      rememberedMarketKey,
       earnAccount,
       setEarnAccount,
       reserves,
@@ -153,6 +166,8 @@ export const BorrowProvider = ({
     [
       markets,
       market,
+      rememberMarket,
+      rememberedMarketKey,
       earnAccount,
       reserves,
       borrowDataStatus,
