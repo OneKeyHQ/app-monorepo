@@ -1503,11 +1503,20 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+  async fetchSwapNativeTokenConfig({
+    networkId,
+    throwOnError,
+  }: {
+    networkId: string;
+    throwOnError?: boolean;
+  }) {
     try {
       return await this.fetchSwapNativeTokenConfigMemo(networkId);
     } catch (e) {
       console.error(e);
+      if (throwOnError) {
+        throw e;
+      }
       return {
         networkId,
         reserveGas: 0,
