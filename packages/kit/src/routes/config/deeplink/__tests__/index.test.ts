@@ -53,6 +53,12 @@ jest.mock('../../../../views/Market/marketUtils', () => ({
   },
 }));
 
+jest.mock('../../../../views/Earn/earnUtils', () => ({
+  EarnNavigation: {
+    pushToEarnProtocolDetailsShare: jest.fn(),
+  },
+}));
+
 jest.mock('../../../../views/WebView/utils/webViewNavigation', () => ({
   openWebView: jest.fn(),
 }));
@@ -227,6 +233,59 @@ describe('stocks / perps universal links', () => {
       },
     });
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes earn detail universal link to EarnProtocolDetailsShare with vault', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekeytest.com/earn/ethereum/USDT/spark?vault=0xe2e7a17dff93280dec073c995595155283e3c372',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'ethereum',
+        symbol: 'USDT',
+        provider: 'spark',
+        vault: '0xe2e7a17dff93280dec073c995595155283e3c372',
+      },
+    );
+  });
+
+  it('routes earn detail universal link without vault', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/ethereum/USDC/spark',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'ethereum',
+        symbol: 'USDC',
+        provider: 'spark',
+        vault: undefined,
+      },
+    );
+  });
+
+  it('ignores incomplete earn universal link', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({ url: 'https://app.onekey.so/earn/ethereum' });
+    await flushAsyncTasks();
+
+    expect(
+      EarnNavigation.pushToEarnProtocolDetailsShare,
+    ).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('routes perps universal link to the web Perps tab when usePerpWeb is on', async () => {

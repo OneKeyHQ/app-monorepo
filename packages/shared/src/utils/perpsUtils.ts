@@ -664,6 +664,7 @@ function resolveBboOrderPrice({
   type,
   offsetTicks,
   szDecimals,
+  assetType = 'perp',
 }: {
   bid: BigNumber.Value;
   ask: BigNumber.Value;
@@ -671,6 +672,7 @@ function resolveBboOrderPrice({
   type: 'counterparty' | 'queue';
   offsetTicks: 0 | 5;
   szDecimals: number;
+  assetType?: 'perp' | 'spot';
 }): BigNumber | null {
   const useAsk =
     (side === 'long' && type === 'counterparty') ||
@@ -686,7 +688,9 @@ function resolveBboOrderPrice({
   }
 
   for (let index = 0; index < offsetTicks; index += 1) {
-    const nextPrice = getNextHlPrice(price, direction, szDecimals, 'perp');
+    // Spot ticks resolve against MAX_DECIMALS_SPOT (8); reusing the perp rule
+    // (6) makes low-priced spot ticks 100x too coarse.
+    const nextPrice = getNextHlPrice(price, direction, szDecimals, assetType);
     if (!nextPrice) {
       return null;
     }
@@ -2251,6 +2255,17 @@ function isSpotInstrument(coin?: string | null): boolean {
   return coin.startsWith('@') || coin.includes('/');
 }
 
+/**
+ * Hyperliquid denominates spot-buy fees in the BASE token (`feeToken` e.g.
+ * "MAX"), not USDC. Such a fee amount must never be rendered with a `$` or
+ * netted against the USDC-denominated `closedPnl` — a low-priced token fee of
+ * 12,319 base units is worth cents, not $12,319. A missing `feeToken` is
+ * treated as USDC to keep older cached fills behaving as before.
+ */
+function isUsdcDenominatedFee(feeToken: string | undefined): boolean {
+  return !feeToken || feeToken === 'USDC';
+}
+
 function isPredictionMarketInstrument(coin?: string | null): boolean {
   if (!coin) return false;
   return coin.startsWith('#');
@@ -2309,6 +2324,7 @@ export {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -2374,6 +2390,7 @@ export default {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,

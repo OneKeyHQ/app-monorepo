@@ -1,6 +1,8 @@
 export const EarnTestIDs = {
   // Main page
   earnPage: 'earn-page',
+  borrowEntryButton: 'earn-borrow-entry-button',
+  homeShortcut: (name: string) => `earn-home-shortcut-${name}`,
 
   // Tabs
   tabProtocols: 'earn-tab-protocols',
@@ -10,13 +12,44 @@ export const EarnTestIDs = {
   // Protocol list
   protocolItem: (name: string) => `earn-protocol-${name}`,
   protocolStakeButton: (name: string) => `earn-protocol-stake-${name}`,
+  protocolNetworkFilter: 'earn-protocol-network-filter',
+  protocolSort: 'earn-protocol-sort',
+  protocolSortOption: (key: string, direction: string) =>
+    `earn-protocol-sort-${key}-${direction}`,
 
   // Portfolio
   portfolioOverview: 'earn-portfolio-overview',
+  portfolioEntry: 'earn-portfolio-entry',
   portfolioItem: (name: string) => `earn-portfolio-item-${name}`,
+
+  // Tokens / Protocols pages (OK-58505)
+  tokensSearchInput: 'earn-tokens-search-input',
+  tokensNetworkFilter: 'earn-tokens-network-filter',
+  tokensCategoryChip: (type: string) => `earn-tokens-category-chip-${type}`,
+  tokensSortControl: 'earn-tokens-sort-control',
+  tokensPageItem: (symbol: string) => `earn-tokens-page-item-${symbol}`,
+  fixedRateSearchInput: 'earn-fixed-rate-search-input',
+  fixedRateNetworkFilter: 'earn-fixed-rate-network-filter',
+  fixedRateSortControl: 'earn-fixed-rate-sort-control',
+  fixedRateItem: (symbol: string) => `earn-fixed-rate-item-${symbol}`,
+  allProtocolsSearchInput: 'earn-all-protocols-search-input',
+  allProtocolsNetworkFilter: 'earn-all-protocols-network-filter',
+  allProtocolsSortControl: 'earn-all-protocols-sort-control',
+  allProtocolsItem: (provider: string) => `earn-all-protocols-${provider}`,
+  protocolTokensNetworkFilter: 'earn-protocol-tokens-network-filter',
+  protocolTokensSortControl: 'earn-protocol-tokens-sort-control',
+  protocolTokensItem: (key: string) => `earn-protocol-tokens-${key}`,
 
   // Available assets
   assetItem: (symbol: string) => `earn-asset-${symbol}`,
+  flatAssetItem: (category: string, symbol: string) =>
+    `earn-flat-asset-${category}-${symbol}`,
+  flatAssetCategoryEntry: (category: string) =>
+    `earn-flat-asset-category-entry-${category}`,
+  flatAssetCategoryDialog: (category: string) =>
+    `earn-flat-asset-category-dialog-${category}`,
+  flatAssetDialogItem: (category: string, symbol: string) =>
+    `earn-flat-asset-dialog-${category}-${symbol}`,
   assetSearchInput: 'earn-asset-search-input',
   marketSelector: 'earn-market-selector',
 
@@ -29,6 +62,8 @@ export const EarnTestIDs = {
 
   // Banner
   banner: 'earn-banner',
+  bannerItem: (bannerId: string) => `earn-banner-${bannerId}`,
+  bannerButton: (bannerId: string) => `earn-banner-button-${bannerId}`,
 
   // FAQ
   faqSection: 'earn-faq-section',
@@ -45,5 +80,6 @@ export const EarnTestIDs = {
 
   // Network filter
   networkFilterResetButton: 'earn-network-filter-reset-button',
+  networkFilterAllCheckbox: 'earn-network-filter-checkbox-all',
   networkFilterCheckbox: (id: string) => `earn-network-filter-checkbox-${id}`,
 } as const;
