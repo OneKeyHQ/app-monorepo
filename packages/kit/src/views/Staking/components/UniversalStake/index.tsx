@@ -43,6 +43,7 @@ import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -197,12 +198,9 @@ function ProtocolSwitchTriggerRow({
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
-  const subtitle = [
-    currentProtocol?.provider.vaultName,
-    tvlText ? `TVL ${tvlText}` : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // Same layout as the quick-switcher dialog item (OK-58854): bottom-left
+  // keeps only vaultName, TVL moves under APY/APR on the right
+  const subtitle = currentProtocol?.provider.vaultName || '';
   const aprDisplay = getProtocolAprDisplay({
     protocol: currentProtocol,
     fallbackText: fallbackAprText,
@@ -211,15 +209,24 @@ function ProtocolSwitchTriggerRow({
   let aprElement = null;
 
   if (aprDisplay) {
-    aprElement = (
-      <SizableText
-        size="$headingLg"
-        color={aprDisplay.color}
-        textDecorationLine={aprDisplay.textDecorationLine}
-      >
-        {aprDisplay.text}
-      </SizableText>
-    );
+    // Strikethrough case (deprecated) keeps the original rendering; the
+    // regular case renders value + small APY/APR suffix
+    aprElement =
+      aprDisplay.textDecorationLine === 'line-through' ? (
+        <SizableText
+          size="$headingLg"
+          color={aprDisplay.color}
+          textDecorationLine={aprDisplay.textDecorationLine}
+        >
+          {aprDisplay.text}
+        </SizableText>
+      ) : (
+        <EarnAprSuffixText
+          text={aprDisplay.text}
+          size="$headingLg"
+          color={aprDisplay.color}
+        />
+      );
   } else if (isLoading) {
     aprElement = <Skeleton h="$5" w={72} borderRadius="$2" />;
   }
@@ -260,7 +267,14 @@ function ProtocolSwitchTriggerRow({
         </YStack>
       </XStack>
       <XStack alignItems="center" gap="$1" flexShrink={0}>
-        {aprElement}
+        <YStack alignItems="flex-end" gap="$0.5">
+          {aprElement}
+          {tvlText ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`TVL ${tvlText}`}
+            </SizableText>
+          ) : null}
+        </YStack>
         {showChevron ? (
           <Icon
             name="ChevronGrabberVerSolid"
