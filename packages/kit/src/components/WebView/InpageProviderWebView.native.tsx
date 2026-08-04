@@ -210,7 +210,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
         {progressLoading}
 
         <NativeWebView
-          cacheEnabled={cacheEnabled}
+          cacheEnabled={cacheEnabled ?? false}
           useSharedProcessPool={useSharedProcessPool}
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
