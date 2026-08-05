@@ -949,9 +949,15 @@ function CheckAndUpdatePage({
                   id: ETranslations.global_skip,
                 });
         }
-        const displayDescription = isStepCollapsed
-          ? undefined
-          : step.description;
+        const isFirmwareRecheckWaiting =
+          step.id === ECheckAndUpdateStepId.FirmwareCheck &&
+          isFirmwareRecheckPending;
+        let displayDescription = isStepCollapsed ? undefined : step.description;
+        if (isFirmwareRecheckWaiting) {
+          displayDescription = intl.formatMessage({
+            id: ETranslations.update_checking_device_if_no_restart,
+          });
+        }
         return (
           <YStack key={step.title}>
             {/* highlight background */}
@@ -1030,7 +1036,10 @@ function CheckAndUpdatePage({
                     : 'firmware'
                 }
                 tone={illustrationTone}
-                beaming={step.state === ECheckAndUpdateStepState.InProgress}
+                beaming={
+                  step.state === ECheckAndUpdateStepState.InProgress ||
+                  isFirmwareRecheckWaiting
+                }
               />
               <YStack gap="$1" flex={1} alignSelf="center">
                 <SizableText size="$headingSm">{displayTitle}</SizableText>

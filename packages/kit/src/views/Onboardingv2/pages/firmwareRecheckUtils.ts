@@ -12,7 +12,11 @@ export function createFirmwareRecheckTimer({
   onFire: () => void;
 }): IFirmwareRecheckTimer {
   let active = true;
-  const remainingDelay = Math.max(0, delayMs - (now() - finishTime));
+  const boundedDelayMs = Math.max(0, delayMs);
+  const remainingDelay = Math.min(
+    boundedDelayMs,
+    Math.max(0, boundedDelayMs - (now() - finishTime)),
+  );
   const timeoutId = setTimeout(() => {
     if (!active) {
       return;
