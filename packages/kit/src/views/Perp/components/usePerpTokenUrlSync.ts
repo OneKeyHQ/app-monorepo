@@ -53,7 +53,10 @@ function encodeCoinForUrl(params: {
   const dexPrefix = findDexPrefix(coin);
   if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
     const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
-    return `${dexPrefix}${symbol.toUpperCase()}`;
+    // Keep the separator: without it a main-dex symbol that happens to start
+    // with a registered prefix is indistinguishable from a sub-DEX token on
+    // decode. Legacy links that omit it stay readable via decodeCoinFromUrl.
+    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
   }
 
   return coin.toUpperCase();
