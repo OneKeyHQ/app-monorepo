@@ -20,6 +20,7 @@ const meta = {
         'classic1s',
         'classicpure',
         'pro',
+        'slate',
         'mini',
         'touch',
         'unknown',
@@ -40,9 +41,16 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {};
 
 // How the app calls it: the scenario is fixed here, the model arrives with
-// the connected device. The Classic family shares one replica, and a model
-// without one (mini) renders nothing rather than a placeholder.
-const ROUTED: IHardwareDeviceType[] = ['classic', 'classicpure', 'pro', 'mini'];
+// the connected device. The Classic family shares one replica, a model
+// without one (mini) renders nothing rather than a placeholder, and the
+// scene-less Slate stays a static shell whatever scenario is asked.
+const ROUTED: IHardwareDeviceType[] = [
+  'classic',
+  'classicpure',
+  'pro',
+  'slate',
+  'mini',
+];
 
 export const ByDeviceType: Story = {
   render: () => (
@@ -75,6 +83,11 @@ export const Sizes: Story = {
         <HardwareDevice deviceType="pro" width={80} />
         <HardwareDevice deviceType="pro" width={160} />
         <HardwareDevice deviceType="pro" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="slate" width={80} />
+        <HardwareDevice deviceType="slate" width={160} />
+        <HardwareDevice deviceType="slate" width={240} />
       </XStack>
     </YStack>
   ),
