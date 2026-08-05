@@ -3,6 +3,7 @@ const COMMISSION_RATE_SUBJECT_ORDER: Record<string, number> = {
   Perp: 1,
   Onchain: 2,
   Earn: 3,
+  Swap: 4,
 };
 
 export function shouldShowInviteeDiscount(discount?: number) {
