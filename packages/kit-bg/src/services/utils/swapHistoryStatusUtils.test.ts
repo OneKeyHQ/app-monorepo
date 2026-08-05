@@ -178,4 +178,29 @@ describe('swapHistoryStatusUtils', () => {
       }),
     ).toBe(true);
   });
+
+  it.each([
+    ESwapTxHistoryStatus.SUCCESS,
+    ESwapTxHistoryStatus.PARTIALLY_FILLED,
+  ])(
+    'emits a terminal %s update after cross-chain status was already refreshed',
+    (status) => {
+      const previousSwapTxHistory = createHistory({
+        crossChainStatus: ESwapCrossChainStatus.TO_SUCCESS,
+      });
+      expect(
+        shouldEmitSwapHistoryBalanceUpdate({
+          previousSwapTxHistory,
+          swapTxHistory: {
+            ...previousSwapTxHistory,
+            status,
+          },
+          txStatusRes: createStatusResponse({
+            state: status,
+            crossChainStatus: ESwapCrossChainStatus.TO_SUCCESS,
+          }),
+        }),
+      ).toBe(true);
+    },
+  );
 });
