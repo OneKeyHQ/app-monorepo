@@ -71,6 +71,7 @@ export function getDeviceStateSnapshotFromEvent({
             currentState,
             incomingState: event.state,
             changedKeys: event.changedKeys ?? ['*'],
+            source: event.source,
           }),
         }
       : undefined;
@@ -82,6 +83,7 @@ export function getDeviceStateSnapshotFromEvent({
             currentState,
             incomingState: event.state,
             changedKeys: event.changedKeys ?? ['*'],
+            source: event.source,
           }),
         }
       : undefined;
@@ -94,6 +96,7 @@ export function getDeviceStateSnapshotFromEvent({
       currentState,
       incomingState: event.state,
       changedKeys: event.changedKeys ?? ['*'],
+      source: event.source,
     }),
   };
 }

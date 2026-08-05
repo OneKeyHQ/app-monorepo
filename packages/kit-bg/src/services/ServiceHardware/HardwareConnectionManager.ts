@@ -76,6 +76,25 @@ export class HardwareConnectionManager {
     }
   }
 
+  async getTransportTypeForChannel({
+    transportType,
+    connectProtocol,
+  }: {
+    transportType: 'usb' | 'ble';
+    connectProtocol?: HardwareConnectProtocol;
+  }): Promise<EHardwareTransportType> {
+    if (transportType === 'ble') {
+      return platformEnv.isSupportDesktopBle
+        ? EHardwareTransportType.DesktopWebBle
+        : EHardwareTransportType.BLE;
+    }
+
+    const mode = await this.getDesktopUsbSetting(connectProtocol);
+    return mode === 'bridge'
+      ? EHardwareTransportType.Bridge
+      : EHardwareTransportType.WEBUSB;
+  }
+
   private async requestBluetoothPermission(): Promise<boolean> {
     try {
       // use servicePromise to wait for user to grant permission
@@ -120,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -130,22 +149,23 @@ export class HardwareConnectionManager {
         const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
           (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
         );
-        return isOneKey;
+        // SDK 的 WebUSB transport 以 serialNumber 作为设备 path；没有
+        // serialNumber 的授权设备虽然能出现在 navigator.usb.getDevices()
+        // 结果中，但随后会被 SDK 枚举过滤掉，不能当作可连接的 USB 设备。
+        const hasSerialNumber =
+          typeof dev?.serialNumber === 'string' && dev.serialNumber.length > 0;
+        return isOneKey && hasSerialNumber;
       });
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return onekeyDevices.length > 0;
-      }
-      return onekeyDevices.some(
-        (device) =>
-          device.serialNumber?.trim().toLowerCase() === normalizedConnectId,
-      );
+      // USB 授权列表表示的是“当前可用的 USB 设备”，不能用 BLE UUID 或
+      // 数据库中的历史 serialNumber 做精确过滤。两者不是同一类标识，
+      // 精确匹配失败会把实际可用的 USB 错误降级到 BLE。
+      return onekeyDevices.length > 0;
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -163,15 +183,9 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return devices.length > 0;
-      }
-      return devices.some(
-        (device) =>
-          typeof device?.path === 'string' &&
-          device.path.trim().toLowerCase() === normalizedConnectId,
-      );
+      // Bridge enumerate 返回的 path 也不保证等于 SDK 的 connectId；
+      // 只要枚举到设备，就按 x 分支的 USB 优先策略使用当前配置的 USB 传输。
+      return devices.length > 0;
     } catch (_error) {
       return false;
     }
@@ -429,11 +443,27 @@ export class HardwareConnectionManager {
       normalizer: (args) =>
         JSON.stringify([
           args[0].hardwareCallContext || 'default',
-          args[0].connectId?.trim().toLowerCase() || '',
+          // 同一个业务调用可能先用 USB serial 做选择，随后再用 BLE UUID
+          // 初始化 SDK。传输探测不能因为这两个“不同类型的 ID”而重新跑一遍，
+          // 否则 USB 列表瞬时变化时会在一次调用中发生 USB/BLE 路由漂移。
+          Boolean(args[0].connectId?.startsWith('MI')),
           args[0].connectProtocol || '',
         ]),
     },
   );
+
+  async resolveTransportType(params: {
+    connectId?: string;
+    connectProtocol?: HardwareConnectProtocol;
+    hardwareCallContext?: IHardwareCallContext;
+  }): Promise<{
+    shouldSwitch: boolean;
+    targetType: EHardwareTransportType;
+  }> {
+    const result = await this.shouldSwitchTransportType(params);
+    await this.setCurrentTransportType(result.targetType);
+    return result;
+  }
 
   async getCurrentTransportType(): Promise<EHardwareTransportType> {
     const currentTransportType =
@@ -441,18 +471,26 @@ export class HardwareConnectionManager {
     return this.actualTransportType || currentTransportType;
   }
 
-  setCurrentTransportType(transportType: EHardwareTransportType): void {
+  async setCurrentTransportType(
+    transportType: EHardwareTransportType,
+  ): Promise<void> {
     // Only clear cache when transport type actually changes
     if (this.actualTransportType !== transportType) {
-      void this.backgroundApi.serviceSetting.setHardwareTransportType(
-        transportType,
-      );
+      // 先更新运行时状态，避免持久化期间的并发调用继续使用旧传输。
       this.actualTransportType = transportType;
       // Clear cache when transport type changes to ensure fresh detection
       try {
         void this.shouldSwitchTransportType.clear();
       } catch {
         // Ignore cache clear errors
+      }
+      if (
+        typeof this.backgroundApi.serviceSetting?.setHardwareTransportType ===
+        'function'
+      ) {
+        await this.backgroundApi.serviceSetting.setHardwareTransportType(
+          transportType,
+        );
       }
     }
   }

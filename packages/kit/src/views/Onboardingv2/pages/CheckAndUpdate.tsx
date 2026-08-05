@@ -471,11 +471,12 @@ function CheckAndUpdatePage({
           setDeviceNotFoundErrorMessageStep();
           return;
         }
-        const compatibleConnectId =
-          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+        const resolvedTransport =
+          await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId: latestDevice.connectId,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+        const compatibleConnectId = resolvedTransport.connectId;
         watchdogConnectId = compatibleConnectId;
 
         // Wait for hardware to restart after firmware update
@@ -490,6 +491,7 @@ function CheckAndUpdatePage({
               skipCancel: true,
               checkFirmwareHash: checkAfterUpdate,
               firmwareType: undefined,
+              resolvedTransportType: resolvedTransport.transportType,
             },
           );
         if (isStale()) {

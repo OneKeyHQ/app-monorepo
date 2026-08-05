@@ -2,6 +2,7 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import * as hardwareInstance from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -65,6 +66,12 @@ jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
   checkBLEState: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
+  CoreSDKLoader: jest.fn(async () => ({})),
+  getHardwareSDKInstance: jest.fn(),
+  resetHardwareSDKInstance: jest.fn(),
+}));
+
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
   __esModule: true,
   DEFAULT_T1_HOME_SCREEN_INFORMATION: {},
@@ -99,7 +106,9 @@ jest.mock('../../states/jotai/atoms', () => ({
   },
   hardwareUiStateAtom: {},
   hardwareUiStateCompletedAtom: {},
-  settingsPersistAtom: {},
+  settingsPersistAtom: {
+    get: jest.fn(async () => ({})),
+  },
 }));
 
 const mutablePlatformEnv = platformEnv as unknown as {
@@ -407,6 +416,37 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(connectDevice).toHaveBeenCalledWith({
       connectId: blePeripheralId,
       params: {},
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+  });
+
+  it('桌面 BLE 候选即使携带 features 也必须真实连接验证', async () => {
+    mutablePlatformEnv.isSupportDesktopBle = true;
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectDevice = jest
+      .spyOn(service, 'connectDevice')
+      .mockResolvedValue({ deviceId: 'PRO2_DEVICE_ID' } as Features);
+    const blePeripheralId = 'f7e440001d2c1c79509d55dfdc8201ff';
+
+    await service.connect({
+      device: {
+        connectId: blePeripheralId,
+        uuid: blePeripheralId,
+        deviceId: null,
+        deviceType: 'pro2',
+        name: 'Pro 2 0088',
+        commType: 'electron-ble',
+        features: { deviceId: 'PRO2_DEVICE_ID' },
+      } as SearchDevice,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+
+    expect(connectDevice).toHaveBeenCalledWith({
+      connectId: blePeripheralId,
+      params: {},
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
   });
 
@@ -437,6 +477,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(connectDevice).toHaveBeenCalledWith({
       connectId: blePeripheralId,
       params: { forceProtocolDetection: true },
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
   });
 
@@ -564,6 +605,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
       expect(connectDevice).toHaveBeenCalledWith({
         connectId,
         params: { connectProtocol },
+        hardwareTransportType: EHardwareTransportType.BLE,
       });
     },
   );
@@ -678,6 +720,46 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     await expect(
       service.getSDKInstance({ connectId: 'UNKNOWN_DEVICE' }),
     ).rejects.toThrow('Hardware connect protocol is unavailable');
+  });
+
+  it('桌面 BLE 初始化不执行 Bridge fallback', async () => {
+    const checkBridgeStatus = jest
+      .fn()
+      .mockRejectedValue(new Error('Bridge is unavailable'));
+    const switchTransport = jest.fn();
+    const sdkInstance = { checkBridgeStatus, switchTransport };
+    jest
+      .mocked(hardwareInstance.getHardwareSDKInstance)
+      .mockResolvedValue(sdkInstance as never);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.registerSdkEvents = jest.fn();
+    jest
+      .spyOn(service.connectionManager, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
+    jest
+      .spyOn(service.connectionManager, 'setCurrentTransportType')
+      .mockResolvedValue(undefined);
+
+    await service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+
+    expect(checkBridgeStatus).not.toHaveBeenCalled();
+    expect(switchTransport).not.toHaveBeenCalled();
   });
 
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {

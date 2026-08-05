@@ -51,6 +51,7 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -336,10 +337,12 @@ function useDeviceConnection({
       console.log(
         'ensureStopScan: Device scan stopped and all ongoing searches completed',
       );
+      return true;
     } catch (error) {
       console.error('ensureStopScan: Error while stopping scan:', error);
-      // Fallback: just stop scan without waiting
+      // 仅停止 UI 轮询不足以证明 Noble 已停止；本次不继续连接。
       deviceScanner.stopScan();
+      return false;
     }
   }, [deviceScanner]);
 
@@ -359,7 +362,12 @@ function useDeviceConnection({
       if (!item.device) {
         return;
       }
-      void ensureStopScan();
+      // Noble 不能同时稳定地执行设备枚举和定向连接。必须等当前扫描及其
+      // stopScanning 回调完成，再把已发现的 peripheral 交给连接流程。
+      const scanStopped = await ensureStopScan();
+      if (!scanStopped) {
+        return;
+      }
       if (onDeviceSelect) {
         await onDeviceSelect(item);
       }
@@ -1175,10 +1183,11 @@ function ConnectYourDevicePage({
           return;
         }
 
-        if (
-          item.device?.commType === 'electron-ble' ||
-          item.device?.commType === 'ble'
-        ) {
+        if (deviceUtils.isBluetoothSearchDevice(item.device)) {
+          const hardwareTransportType =
+            item.device.commType === 'electron-ble'
+              ? EHardwareTransportType.DesktopWebBle
+              : EHardwareTransportType.BLE;
           void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId,
           });
@@ -1187,8 +1196,12 @@ function ConnectYourDevicePage({
               connectId,
               params: {
                 forceProtocolDetection: true,
-                retryCount: 0,
+                // 首次定向扫描可能恰好落在设备广播间隔中，允许一次受控
+                // 重试；不要恢复 SDK 默认的五次重试，以免 onboarding 久等。
+                retryCount: 1,
+                timeout: BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS,
               },
+              hardwareTransportType,
             });
           detectedConnectProtocol =
             features.protocol === 'V1' || features.protocol === 'V2'

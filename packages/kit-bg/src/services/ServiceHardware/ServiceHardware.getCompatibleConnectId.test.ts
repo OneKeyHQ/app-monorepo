@@ -14,12 +14,14 @@ import {
 import type { IOneKeyDeviceFeaturesWithAppParams } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -81,6 +83,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getDeviceByQuery: jest.fn(),
+    updateDeviceConnectId: jest.fn(),
   },
 }));
 
@@ -146,6 +149,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
     mockedAxios.post.mockReset();
+    jest.mocked(hardwareForceTransportAtom.get).mockResolvedValue({
+      forceTransportType: undefined,
+    });
   });
 
   it.each([
@@ -239,6 +245,207 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
       { connectId: 'PRB09B0088A' },
     ]);
+  });
+
+  it('falls back to the persisted USB connectId for an offline background task', async () => {
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      }),
+    ).resolves.toBe(dbDevice.connectId);
+  });
+
+  it('returns the resolved BLE connectId after the firmware preflight', async () => {
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: 'f7e440001d2c1c79509d55dfdc8201ff',
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+    const withHardwareProcessing = jest.fn(
+      async (callback: () => Promise<unknown>) => callback(),
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+        serviceHardwareUI: { withHardwareProcessing },
+      } as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'getCompatibleConnectId')
+      .mockResolvedValue(dbDevice.bleConnectId as string);
+    const getFeaturesWithoutCache = jest
+      .spyOn(service, 'getFeaturesWithoutCache')
+      .mockResolvedValue({ success: true } as any);
+
+    await expect(
+      service.checkDeviceReachableForFirmwareUpdate({
+        connectId: dbDevice.usbConnectId as string,
+      }),
+    ).resolves.toBe(dbDevice.bleConnectId);
+    expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
+      connectId: dbDevice.bleConnectId,
+      params: {
+        retryCount: 1,
+        forceProtocolDetection: true,
+        timeout: 30_000,
+      },
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['USB-aliasing', 'PRB09B0088A'],
+  ])(
+    'pairs a %s BLE connectId instead of passing the USB serial to Noble',
+    async (_caseName, storedBleConnectId) => {
+      const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+      const dbDevice = {
+        id: 'db-pro2-device',
+        connectId: 'PRB09B0088A',
+        usbConnectId: 'PRB09B0088A',
+        bleConnectId: storedBleConnectId,
+        deviceId: 'PRO2_DEVICE_ID',
+        vendor: EHardwareVendor.onekey,
+        name: 'OneKey Pro 2',
+        features: '{}',
+        settingsRaw: '{}',
+        createdAt: 0,
+        updatedAt: 0,
+      } as IDBDevice;
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+      jest.mocked(hardwareForceTransportAtom.get).mockResolvedValue({
+        forceTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+
+      const showBluetoothDevicePairingDialog = jest.fn();
+      const setHardwareTransportType = jest.fn();
+      const createCallback = jest.fn(
+        ({ resolve }: { resolve: (value: string) => void }) => {
+          resolve(bleConnectId);
+          return 'ble-pairing-promise';
+        },
+      );
+      const service = new ServiceHardware({
+        backgroundApi: {
+          servicePromise: { createCallback },
+          serviceHardwareUI: { showBluetoothDevicePairingDialog },
+          serviceSetting: { setHardwareTransportType },
+        } as unknown as IBackgroundApi,
+      });
+      service.connectionManager.shouldSwitchTransportType = Object.assign(
+        jest.fn().mockResolvedValue({
+          shouldSwitch: false,
+          targetType: EHardwareTransportType.DesktopWebBle,
+        }),
+        {
+          clear: jest.fn(),
+          delete: jest.fn(),
+        },
+      ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+      await expect(
+        service.getCompatibleConnectId({
+          connectId: 'PRB09B0088A',
+          featuresDeviceId: dbDevice.deviceId,
+          hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        }),
+      ).resolves.toBe(bleConnectId);
+
+      expect(setHardwareTransportType).toHaveBeenCalledWith(
+        EHardwareTransportType.DesktopWebBle,
+      );
+
+      expect(showBluetoothDevicePairingDialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: dbDevice,
+          usbConnectId: 'PRB09B0088A',
+          promiseId: 'ble-pairing-promise',
+        }),
+      );
+    },
+  );
+
+  it('does not start BLE pairing for a no-dialog device details refresh', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'PRB09B0088A',
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+      }),
+    ).rejects.toThrow();
+
+    expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
   });
 
   it('falls back to deviceId without combining legacy features', async () => {
@@ -337,7 +544,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).resolves.toBe('BLE_ID');
   });
 
-  it('does not let an unrelated Pro 2 WebUSB device take over a Pro BLE call', async () => {
+  it('uses USB when any authorized OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -404,8 +611,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         }),
-      ).resolves.toBe('PRO_BLE_PERIPHERAL_ID');
-      expect(detectBluetoothAvailability).toHaveBeenCalledTimes(1);
+      ).resolves.toBe('PRB50B0127B');
+      expect(detectBluetoothAvailability).not.toHaveBeenCalled();
     } finally {
       if (originalNavigator) {
         Object.defineProperty(globalThis, 'navigator', originalNavigator);
@@ -415,7 +622,120 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('does not let an unrelated Bridge device take over a Pro BLE call', async () => {
+  it('falls back to BLE when navigator.usb only reports a serial-less device', async () => {
+    const originalNavigator = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        usb: {
+          getDevices: jest.fn().mockResolvedValue([
+            {
+              vendorId: 0x12_09,
+              productId: 0x4f_4c,
+              // Chromium 可以返回已授权但没有可用 serialNumber 的设备；
+              // 这种设备无法被 SDK WebUSB transport acquire。
+              serialNumber: '',
+            },
+          ]),
+        },
+      },
+    });
+
+    try {
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceDevSetting: {
+            getDevSetting: jest.fn().mockResolvedValue({
+              settings: { usbCommunicationMode: 'webusb' },
+            }),
+          },
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      const detectBluetoothAvailability = jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'PRO2_USB_ID',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toMatchObject({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+      expect(detectBluetoothAvailability).toHaveBeenCalled();
+    } finally {
+      if (originalNavigator) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      } else {
+        delete (globalThis as { navigator?: Navigator }).navigator;
+      }
+    }
+  });
+
+  it('keeps one transport decision when the same call changes from USB serial to BLE UUID', async () => {
+    const getDevices = jest
+      .fn()
+      .mockResolvedValue([
+        { vendorId: 0x12_09, productId: 0x4f_4c, serialNumber: 'USB_ID' },
+      ]);
+    const originalNavigator = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { usb: { getDevices } },
+    });
+
+    try {
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceDevSetting: {
+            getDevSetting: jest.fn().mockResolvedValue({
+              settings: { usbCommunicationMode: 'webusb' },
+            }),
+          },
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+        } as unknown as IBackgroundApi,
+      });
+
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'USB_ID',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'BLE_PERIPHERAL_UUID',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
+      expect(getDevices).toHaveBeenCalledTimes(1);
+    } finally {
+      if (originalNavigator) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      } else {
+        delete (globalThis as { navigator?: Navigator }).navigator;
+      }
+    }
+  });
+
+  it('uses Bridge when any Bridge device is enumerated', async () => {
     mockedAxios.post.mockResolvedValue({
       data: [{ path: 'UNRELATED_USB_ID' }],
     });
@@ -468,8 +788,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('PRO_BLE_PERIPHERAL_ID');
-    expect(detectBluetoothAvailability).toHaveBeenCalledTimes(1);
+    ).resolves.toBe('PRB50B0127B');
+    expect(detectBluetoothAvailability).not.toHaveBeenCalled();
   });
 
   it('switches Mini back to the configured USB transport after BLE was active', async () => {
@@ -489,7 +809,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         },
       } as unknown as IBackgroundApi,
     });
-    service.connectionManager.setCurrentTransportType(
+    await service.connectionManager.setCurrentTransportType(
       EHardwareTransportType.DesktopWebBle,
     );
 
@@ -643,7 +963,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
-  it('ignores an explicit protocol selection during Pro 2 discovery', async () => {
+  it('resolves transport once before Pro 2 discovery', async () => {
     const searchDevices = jest.fn().mockResolvedValue({
       success: true,
       payload: [],
@@ -654,16 +974,193 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     const getSDKInstance = jest.fn().mockResolvedValue({
       searchDevices,
     } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const prepareHardwareTransport = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
     service.getSDKInstance = getSDKInstance;
+    service.prepareHardwareTransport = prepareHardwareTransport;
 
     await expect(
       service.searchDevices({ connectProtocol: 'V2' }),
     ).resolves.toEqual({ success: true, payload: [] });
 
     expect(searchDevices).toHaveBeenCalledWith();
+    expect(prepareHardwareTransport).toHaveBeenCalledWith({
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
     expect(getSDKInstance).toHaveBeenCalledWith({
       connectId: undefined,
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
+  });
+
+  it('locks an explicit BLE discovery to the BLE SDK transport', async () => {
+    const sdkSearchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices: sdkSearchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const prepareHardwareTransport = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
+    service.getSDKInstance = getSDKInstance;
+    service.prepareHardwareTransport = prepareHardwareTransport;
+
+    await service.searchDevices({ transportType: 'ble' });
+
+    expect(prepareHardwareTransport).toHaveBeenCalledWith({
+      connectProtocol: undefined,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      requestedTransportType: 'ble',
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    );
+  });
+
+  it('rejects a matching USB result while repairing bleConnectId', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const searchDevices = jest
+      .spyOn(service, 'searchDevices')
+      .mockResolvedValue({
+        success: true,
+        payload: [
+          {
+            connectId: 'PRB09B0088A',
+            uuid: 'PRB09B0088A',
+            deviceId: 'PRO2_DEVICE_ID',
+            deviceType: 'pro2',
+            name: 'Pro 2 0088',
+            commType: 'webusb',
+          } as SearchDevice,
+        ],
+      });
+    const connect = jest.spyOn(service, 'connect');
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        service.repairBleConnectIdWithProgress({
+          connectId: 'PRB09B0088A',
+          featuresDeviceId: 'PRO2_DEVICE_ID',
+          features: {
+            bleName: 'Pro 2 0088',
+            deviceId: 'PRO2_DEVICE_ID',
+          } as IOneKeyDeviceFeaturesWithAppParams,
+        }),
+      ).rejects.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      transportType: 'ble',
+    });
+    expect(connect).not.toHaveBeenCalled();
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toHaveLength(0);
+  });
+
+  it('persists only the verified Noble peripheral ID as bleConnectId', async () => {
+    const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const bleDevice = {
+      connectId: bleConnectId,
+      uuid: bleConnectId,
+      deviceId: null,
+      deviceType: 'pro2',
+      name: 'Pro 2 0088',
+      commType: 'electron-ble',
+    } as SearchDevice;
+    jest.spyOn(service, 'searchDevices').mockResolvedValue({
+      success: true,
+      payload: [bleDevice],
+    });
+    const connect = jest.spyOn(service, 'connect').mockResolvedValue({
+      deviceId: 'PRO2_DEVICE_ID',
+    } as never);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro2-device',
+    } as IDBDevice);
+
+    await expect(
+      service.repairBleConnectIdWithProgress({
+        connectId: 'PRB09B0088A',
+        featuresDeviceId: 'PRO2_DEVICE_ID',
+        features: {
+          bleName: 'Pro 2 0088',
+          deviceId: 'PRO2_DEVICE_ID',
+        } as IOneKeyDeviceFeaturesWithAppParams,
+      }),
+    ).resolves.toBe(bleConnectId);
+
+    expect(connect).toHaveBeenCalledWith({
+      device: {
+        ...bleDevice,
+        connectId: bleConnectId,
+        deviceId: 'PRO2_DEVICE_ID',
+      },
+      forceProtocolDetection: true,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    expect(mockedLocalDb.updateDeviceConnectId.mock.calls).toEqual([
+      [
+        {
+          dbDeviceId: 'db-pro2-device',
+          bleConnectId,
+        },
+      ],
+    ]);
+  });
+
+  it('waits for the desktop Noble scan-stop callback', async () => {
+    let resolveStopScan: () => void = () => undefined;
+    const stopScan = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStopScan = resolve;
+        }),
+    );
+    const globalWithDesktopApi = globalThis as unknown as {
+      desktopApi: { nobleBle?: { stopScan: () => Promise<void> } } | undefined;
+    };
+    const originalDesktopApi = globalWithDesktopApi.desktopApi;
+    globalWithDesktopApi.desktopApi = { nobleBle: { stopScan } };
+
+    try {
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      const stopped = jest.fn();
+      const stopPromise = service.stopDeviceScan().then(stopped);
+
+      await Promise.resolve();
+      expect(stopScan).toHaveBeenCalledTimes(1);
+      expect(stopped).not.toHaveBeenCalled();
+
+      resolveStopScan();
+      await stopPromise;
+
+      expect(stopped).toHaveBeenCalledTimes(1);
+    } finally {
+      globalWithDesktopApi.desktopApi = originalDesktopApi;
+    }
   });
 });
 
@@ -691,8 +1188,8 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     });
 
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
-    service.getDeviceState = jest
-      .fn()
+    const getDeviceState = jest
+      .spyOn(service, 'getDeviceState')
       .mockResolvedValueOnce(lockedState)
       .mockResolvedValueOnce(unlockedState);
     const unlockDevice = jest
@@ -710,8 +1207,7 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     expect(unlockDevice).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(service.getDeviceState).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
   });
 
   it('forwards an explicit PIN type before rereading the canonical state', async () => {
@@ -737,8 +1233,8 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     });
 
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
-    service.getDeviceState = jest
-      .fn()
+    const getDeviceState = jest
+      .spyOn(service, 'getDeviceState')
       .mockResolvedValueOnce(lockedState)
       .mockResolvedValueOnce(unlockedState);
     const unlockDevice = jest
@@ -757,8 +1253,7 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
       connectId: 'PRO2_USB',
       pinType: DeviceSessionPinType.Any,
     });
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(service.getDeviceState).toHaveBeenCalledTimes(2);
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
   });
 
   it('does not request an unlock before the device wallet is initialized', async () => {
@@ -777,7 +1272,9 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     });
 
     service.getCompatibleConnectId = jest.fn().mockResolvedValue('PRO2_USB');
-    service.getDeviceState = jest.fn().mockResolvedValue(uninitializedState);
+    const getDeviceState = jest
+      .spyOn(service, 'getDeviceState')
+      .mockResolvedValue(uninitializedState);
     const unlockDevice = jest
       .spyOn(service, 'unlockDevice')
       .mockResolvedValue({} as never);
@@ -790,8 +1287,7 @@ describe('ServiceHardware.getDeviceStateWithUnlock', () => {
     ).rejects.toThrow('Device is not initialized');
 
     expect(unlockDevice).not.toHaveBeenCalled();
-    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
-    expect(service.getDeviceState).toHaveBeenCalledTimes(1);
+    expect(getDeviceState).toHaveBeenCalledTimes(1);
   });
 });
 

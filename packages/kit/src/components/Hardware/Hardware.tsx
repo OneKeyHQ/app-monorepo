@@ -28,7 +28,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 
@@ -519,24 +518,12 @@ export function CommonDeviceLoading({
   bleName?: string;
 }) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
-    async () => {
-      if (platformEnv.isNative) {
-        return 'bluetooth';
-      }
-      if (platformEnv.isSupportDesktopBle) {
-        if (hardwareTransportType === EHardwareTransportType.DesktopWebBle) {
-          return 'bluetooth';
-        }
-        return 'usb';
-      }
-      return 'usb';
-    },
-    [hardwareTransportType],
-    {
-      initResult: 'usb',
-    },
-  );
+  const communicationMethod =
+    platformEnv.isNative ||
+    (platformEnv.isSupportDesktopBle &&
+      hardwareTransportType === EHardwareTransportType.DesktopWebBle)
+      ? 'bluetooth'
+      : 'usb';
   return (
     <>
       <CommunicatingLottieView

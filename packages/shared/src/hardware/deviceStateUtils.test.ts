@@ -146,6 +146,53 @@ describe('deviceStateUtils', () => {
     expect(merged.protocolVersion).toBe(1);
   });
 
+  it('uses the complete SDK settings snapshot for a settings read', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.settings.brightness = 30;
+    currentState.settings.autoLockDelayMs = 60_000;
+    currentState.status.unlocked = false;
+
+    const incomingState = createState({
+      revision: 2,
+      updatedAt: 2,
+      unlocked: true,
+    });
+    incomingState.settings.brightness = 70;
+    incomingState.settings.autoLockDelayMs = 300_000;
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['settings.brightness'],
+      source: 'settings-read',
+    });
+
+    expect(merged.settings.brightness).toBe(70);
+    expect(merged.settings.autoLockDelayMs).toBe(300_000);
+    // settings-read 只对 settings 范围权威，不能覆盖其他缓存区段。
+    expect(merged.status.unlocked).toBe(false);
+  });
+
+  it('keeps sparse patch semantics for non-settings-read events', () => {
+    const currentState = createState({ revision: 1, updatedAt: 1 });
+    currentState.settings.brightness = 30;
+    currentState.settings.autoLockDelayMs = 60_000;
+
+    const incomingState = createState({ revision: 2, updatedAt: 2 });
+    incomingState.settings.brightness = 70;
+    incomingState.settings.autoLockDelayMs = 300_000;
+
+    const merged = mergeDeviceStateEvent({
+      currentState,
+      incomingState,
+      changedKeys: ['settings.brightness'],
+      source: 'settings-write',
+    });
+
+    expect(merged.settings.brightness).toBe(70);
+    expect(merged.settings.autoLockDelayMs).toBe(60_000);
+  });
+
   it('merges state when structuredClone is unavailable on Hermes', () => {
     const descriptor = Object.getOwnPropertyDescriptor(
       globalThis,

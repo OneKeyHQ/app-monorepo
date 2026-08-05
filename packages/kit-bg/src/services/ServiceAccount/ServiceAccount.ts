@@ -3702,14 +3702,14 @@ class ServiceAccount extends ServiceBase {
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
-    // Don't trust the global transport flag alone — use the picked device's
-    // actual connectionType (carried on `device.raw` for third-party devices;
-    // absent for OneKey HD, so they're unaffected).
+    // 全局 transport 只是默认值；创建时以用户实际选中的设备通道为准。
+    // OneKey 使用 commType，第三方设备使用 raw.connectionType。
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
+      deviceCommType: params.device.commType,
       isNative: !!platformEnv.isNative,
     });
 
@@ -5208,10 +5208,15 @@ class ServiceAccount extends ServiceBase {
       ? await simpleDb.botWallet.getMetadata(walletId)
       : undefined;
 
-    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-      walletId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-    });
+    const shouldSkipUnavailableHardwareCheck =
+      accountUtils.isHwWallet({ walletId }) &&
+      accountUtils.isWalletDeprecatedOrMocked(wallet);
+    if (!shouldSkipUnavailableHardwareCheck) {
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      });
+    }
 
     // OK-53556: Cascade-remove child Bot Wallets before the Keyless parent
     // so children don't become orphans and don't linger on other devices.

@@ -23,18 +23,24 @@ function buildState(
 }
 
 describe('walletCreationMode', () => {
-  it('Protocol V2 创建钱包前使用 Any 解锁并读取解锁后的状态', async () => {
-    const state = buildState({ unlocked: false });
-    const getDeviceState = jest.fn().mockResolvedValue(state);
-    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue(state);
+  it('Protocol V2 创建钱包前使用 Any 解锁并读取包含设备名称的设置状态', async () => {
+    const unlockedState = buildState({ unlocked: true });
+    const settingsState = {
+      ...unlockedState,
+      identity: { label: 'My Pro 2' },
+    } as IOneKeyDeviceState;
+    let resolveUnlock!: (state: IOneKeyDeviceState) => void;
+    const unlockPromise = new Promise<IOneKeyDeviceState>((resolve) => {
+      resolveUnlock = resolve;
+    });
+    const getDeviceState = jest.fn().mockResolvedValue(settingsState);
+    const getDeviceStateWithUnlock = jest.fn().mockReturnValue(unlockPromise);
 
-    await expect(
-      getWalletCreationDeviceState({
-        serviceHardware: { getDeviceState, getDeviceStateWithUnlock },
-        connectId: 'pro2-connect',
-        connectProtocol: 'V2',
-      }),
-    ).resolves.toBe(state);
+    const resultPromise = getWalletCreationDeviceState({
+      serviceHardware: { getDeviceState, getDeviceStateWithUnlock },
+      connectId: 'pro2-connect',
+      connectProtocol: 'V2',
+    });
 
     expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
       connectId: 'pro2-connect',
@@ -42,12 +48,24 @@ describe('walletCreationMode', () => {
       params: { connectProtocol: 'V2', scope: 'runtime' },
     });
     expect(getDeviceState).not.toHaveBeenCalled();
+
+    resolveUnlock(unlockedState);
+    await expect(resultPromise).resolves.toBe(settingsState);
+
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'pro2-connect',
+      params: { connectProtocol: 'V2', scope: 'settings' },
+    });
   });
 
-  it('Protocol V1 保留创建钱包前的原有解锁流程', async () => {
+  it('Protocol V1 直接使用 settings scope 读取完整状态', async () => {
     const state = buildState({ unlocked: true });
+    const settingsState = {
+      ...state,
+      identity: { label: 'My Classic' },
+    } as IOneKeyDeviceState;
     const getDeviceState = jest.fn();
-    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue(state);
+    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue(settingsState);
 
     await expect(
       getWalletCreationDeviceState({
@@ -55,11 +73,11 @@ describe('walletCreationMode', () => {
         connectId: 'classic-connect',
         connectProtocol: 'V1',
       }),
-    ).resolves.toBe(state);
+    ).resolves.toBe(settingsState);
 
     expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
       connectId: 'classic-connect',
-      params: { connectProtocol: 'V1', scope: 'runtime' },
+      params: { connectProtocol: 'V1', scope: 'settings' },
     });
     expect(getDeviceState).not.toHaveBeenCalled();
   });

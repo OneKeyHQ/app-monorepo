@@ -344,37 +344,6 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
-/**
- * Fix the updatingConnectId based on current transport type.
- * Used for scenarios where fallback to BLE is needed when USB is not available.
- *
- * NOTE: This function is NOT used in firmware update flow, because firmware
- * updates on desktop should always use USB for stability.
- *
- * @param updatingConnectId - The connectId from getUpdatingConnectId
- * @param currentTransportType - Current active transport type
- * @param device - Device info from database
- * @returns Fixed connectId based on current transport
- */
-function getFixedUpdatingConnectId({
-  updatingConnectId,
-  currentTransportType,
-  device,
-}: {
-  updatingConnectId: string | undefined;
-  currentTransportType: EHardwareTransportType;
-  device: IDBDevice | undefined;
-}) {
-  if (
-    platformEnv.isSupportDesktopBle &&
-    currentTransportType === EHardwareTransportType.DesktopWebBle &&
-    device?.connectId
-  ) {
-    return device?.connectId || updatingConnectId;
-  }
-  return updatingConnectId;
-}
-
 function checkInputPinOnSoftwareSupport(deviceType: IDeviceType) {
   return [
     EDeviceType.Classic,
@@ -683,9 +652,9 @@ function getRawDeviceId({
     : device.deviceId || usedFeatures?.deviceId || '';
 }
 
-function isBluetoothSearchDevice(
-  device: Pick<SearchDevice, 'commType'>,
-): boolean {
+function isBluetoothSearchDevice(device: {
+  commType?: SearchDevice['commType'] | null;
+}): boolean {
   return (
     device.commType === 'ble' ||
     device.commType === 'webble' ||
@@ -1009,7 +978,6 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
-  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   buildDeviceLabel,
   buildDeviceName,

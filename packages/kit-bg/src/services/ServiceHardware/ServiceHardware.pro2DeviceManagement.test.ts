@@ -904,6 +904,64 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     ]);
   });
 
+  it('rebinds firmware progress events after the SDK instance changes', async () => {
+    const createInstance = () => {
+      const listeners = new Map<
+        string,
+        (payload: unknown) => void | Promise<void>
+      >();
+      return {
+        listeners,
+        instance: {
+          on: jest.fn(
+            (
+              event: string,
+              listener: (payload: unknown) => void | Promise<void>,
+            ) => {
+              listeners.set(event, listener);
+            },
+          ),
+        },
+      };
+    };
+    const firstSdk = createInstance();
+    const replacementSdk = createInstance();
+    const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
+    setHardwareUiStateMock.mockClear();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+
+    await service.registerSdkEvents(firstSdk.instance as never);
+    await service.registerSdkEvents(replacementSdk.instance as never);
+    await replacementSdk.listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_PROGRESS,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        progress: 25,
+        progressType: 'transferData',
+      },
+    });
+
+    expect(replacementSdk.instance.on).toHaveBeenCalledWith(
+      UI_EVENT,
+      expect.any(Function),
+    );
+    const updater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
+    const state = typeof updater === 'function' ? updater(undefined) : updater;
+    expect(state).toMatchObject({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      connectId: 'PRO2_USB',
+      payload: {
+        firmwareProgress: 25,
+        firmwareProgressType: 'transferData',
+      },
+    });
+  });
+
   it('forwards device transfer progress to the hardware UI state', async () => {
     const listeners = new Map<
       string,

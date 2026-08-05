@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EHardwareTransportType } from '../../types';
+import { OneKeyLocalError } from '../errors';
 
 import { createConfigFetcher } from './configFetcher';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
@@ -126,7 +127,10 @@ const createHardwareSDKInstance = async (params: {
     settings.preRelease = params.isPreRelease;
 
     try {
-      await HardwareSDK.init(settings, HardwareLowLevelSDK);
+      const initialized = await HardwareSDK.init(settings, HardwareLowLevelSDK);
+      if (!initialized) {
+        throw new OneKeyLocalError('HardwareSDK initialization failed');
+      }
       // debugLogger.hardwareSDK.info('HardwareSDK initialized success');
       console.log('HardwareSDK initialized success');
       resolve(HardwareSDK);

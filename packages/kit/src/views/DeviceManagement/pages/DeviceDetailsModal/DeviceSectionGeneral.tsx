@@ -10,7 +10,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStatefulAction } from '@onekeyhq/kit/src/hooks/useStatefulAction';
 import {
-  canEditPro2DeviceWideSettings,
   resolveDeviceWithCurrentType,
   useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
@@ -20,7 +19,6 @@ import {
   useDeviceHapticFeedbackAtom,
   useDeviceLanguageAtom,
   useDeviceMetaStaticAtom,
-  useDeviceSettingsAccessibleAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -352,11 +350,7 @@ export function AutoShutDownListItem({
   );
 }
 
-export function HapticFeedbackListItem({
-  disabled: settingsDisabled,
-}: {
-  disabled?: boolean;
-}) {
+export function HapticFeedbackListItem() {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
   const [hapticFeedback] = useDeviceHapticFeedbackAtom();
@@ -379,14 +373,12 @@ export function HapticFeedbackListItem({
       value={hapticFeedback ?? false}
       onAction={onUpdateHapticFeedback}
     >
-      {({ value, disabled: actionDisabled, onChange }) => (
+      {({ value, disabled, onChange }) => (
         <Switch
           size="small"
           value={value}
           onChange={onChange}
-          disabled={
-            settingsDisabled || hapticFeedback === undefined || actionDisabled
-          }
+          disabled={disabled}
           testID={DeviceManagementTestIDs.hapticFeedbackSwitch}
         />
       )}
@@ -394,14 +386,13 @@ export function HapticFeedbackListItem({
   );
 }
 
-function Pro2BrightnessListItem({ disabled }: { disabled?: boolean }) {
+function Pro2BrightnessListItem() {
   const actions = useDeviceDetailsActions();
   const [brightness] = useDeviceBrightnessAtom();
 
   return (
     <DeviceBrightnessSlider
       value={brightness ?? 50}
-      disabled={disabled || brightness === undefined}
       onCommit={actions.updateBrightness}
     />
   );
@@ -414,7 +405,6 @@ function DeviceSectionGeneral() {
 
   const [deviceMeta] = useDeviceMetaStaticAtom();
   const [deviceType] = useDeviceTypeAtom();
-  const [deviceSettingsAccessible] = useDeviceSettingsAccessibleAtom();
   const [device] = useDeviceAtom();
   const isTrezor = device?.vendor === EHardwareVendor.trezor;
   const settingsProtocol = useMemo(() => {
@@ -428,12 +418,6 @@ function DeviceSectionGeneral() {
     }
     return undefined;
   }, [device?.connectProtocol, device?.deviceStateInfo?.protocol]);
-  const generalSettingsDisabled =
-    deviceType === EDeviceType.Pro2
-      ? !canEditPro2DeviceWideSettings({
-          unlocked: Boolean(deviceSettingsAccessible),
-        })
-      : !deviceSettingsAccessible;
   const trezorFeatures = useMemo(
     () => (device?.featuresInfo ?? {}) as Record<string, unknown>,
     [device?.featuresInfo],
@@ -626,7 +610,7 @@ function DeviceSectionGeneral() {
 
   const brightnessItem =
     deviceType === EDeviceType.Pro2 ? (
-      <Pro2BrightnessListItem disabled={generalSettingsDisabled} />
+      <Pro2BrightnessListItem />
     ) : (
       <ListItem
         key="changeBrightness"
@@ -649,10 +633,7 @@ function DeviceSectionGeneral() {
       })}
     >
       {showLanguage ? (
-        <LanguageListItem
-          languageOptions={languageOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <LanguageListItem languageOptions={languageOptions} />
       ) : null}
       {showWallpaper ? (
         <ListItem
@@ -668,20 +649,12 @@ function DeviceSectionGeneral() {
       ) : null}
       {showBrightness ? brightnessItem : null}
       {showAutoLock ? (
-        <AutoLockListItem
-          autoLockOptions={autoLockOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <AutoLockListItem autoLockOptions={autoLockOptions} />
       ) : null}
       {showAutoShutDown ? (
-        <AutoShutDownListItem
-          autoShutDownOptions={autoShutDownOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <AutoShutDownListItem autoShutDownOptions={autoShutDownOptions} />
       ) : null}
-      {showHapticFeedback ? (
-        <HapticFeedbackListItem disabled={generalSettingsDisabled} />
-      ) : null}
+      {showHapticFeedback ? <HapticFeedbackListItem /> : null}
     </ListItemGroup>
   );
 }

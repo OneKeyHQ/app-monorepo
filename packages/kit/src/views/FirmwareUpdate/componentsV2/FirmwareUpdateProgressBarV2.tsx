@@ -48,6 +48,7 @@ import {
   PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
   calculateProgressInRange,
   getNextEstimatedFirmwareProgress,
+  normalizeFirmwareUpdateProgressType,
 } from './firmwareUpdateProgressUtils';
 
 interface IFirmwareUpdateVersionInfo {
@@ -266,6 +267,7 @@ export function FirmwareUpdateProgressBarV2({
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
+      const normalizedType = normalizeFirmwareUpdateProgressType(type);
       const progressConfig: IProgressConfigItem[] = [
         {
           type: ['checking'],
@@ -369,7 +371,9 @@ export function FirmwareUpdateProgressBarV2({
         },
       ];
 
-      const index = progressConfig.findIndex((c) => c.type.includes(type));
+      const index = progressConfig.findIndex((c) =>
+        c.type.includes(normalizedType),
+      );
       if (index >= 0) {
         const item = progressConfig[index];
         const itemProgress = item.progress();
@@ -381,7 +385,7 @@ export function FirmwareUpdateProgressBarV2({
             newProgress,
             itemProgress,
             currentProgress,
-            type,
+            type: normalizedType,
           });
           progressRef.current = newProgress;
           return newProgress;
