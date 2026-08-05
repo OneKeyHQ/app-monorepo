@@ -98,11 +98,14 @@ export const ShareImageGenerator = forwardRef<
       const pnlBn = new BigNumber(pnl || '0');
       const isProfit = pnlBn.isGreaterThan(0);
       const pnlColor = isProfit ? colors.long : colors.short;
-      // Same reasoning as ShareContentRenderer: prefer the dex-scoped file so a
-      // sub-DEX asset does not borrow the main DEX icon of the same symbol.
+      // Same reasoning as ShareContentRenderer: prefer the dex-scoped file for
+      // perps, but keep spot on the resolved display name — its raw coin form
+      // would produce a broken path.
       const tokenImage =
         tokenImageUrl ||
-        getHyperliquidTokenImageUris(token || tokenDisplayName)[0];
+        getHyperliquidTokenImageUris(
+          mode !== 'spot' && token ? token : tokenDisplayName,
+        )[0];
       const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
       const pnlFontSize =
         pnlDisplayText.length > 6
