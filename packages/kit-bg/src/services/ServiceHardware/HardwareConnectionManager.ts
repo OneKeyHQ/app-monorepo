@@ -139,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -149,23 +149,27 @@ export class HardwareConnectionManager {
         const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
           (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
         );
-        // SDK 的 WebUSB transport 以 serialNumber 作为设备 path；没有
-        // serialNumber 的授权设备虽然能出现在 navigator.usb.getDevices()
-        // 结果中，但随后会被 SDK 枚举过滤掉，不能当作可连接的 USB 设备。
+        // The SDK uses serialNumber as the WebUSB device path. Authorized
+        // devices without one cannot be acquired by the transport.
         const hasSerialNumber =
-          typeof dev?.serialNumber === 'string' && dev.serialNumber.length > 0;
+          typeof dev?.serialNumber === 'string' &&
+          dev.serialNumber.trim().length > 0;
         return isOneKey && hasSerialNumber;
       });
-      // USB 授权列表表示的是“当前可用的 USB 设备”，不能用 BLE UUID 或
-      // 数据库中的历史 serialNumber 做精确过滤。两者不是同一类标识，
-      // 精确匹配失败会把实际可用的 USB 错误降级到 BLE。
-      return onekeyDevices.length > 0;
+      const normalizedConnectId = connectId?.trim().toLowerCase();
+      if (!normalizedConnectId) {
+        return onekeyDevices.length > 0;
+      }
+      return onekeyDevices.some(
+        (device) =>
+          device.serialNumber?.trim().toLowerCase() === normalizedConnectId,
+      );
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -183,9 +187,15 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      // Bridge enumerate 返回的 path 也不保证等于 SDK 的 connectId；
-      // 只要枚举到设备，就按 x 分支的 USB 优先策略使用当前配置的 USB 传输。
-      return devices.length > 0;
+      const normalizedConnectId = connectId?.trim().toLowerCase();
+      if (!normalizedConnectId) {
+        return devices.length > 0;
+      }
+      return devices.some(
+        (device) =>
+          typeof device?.path === 'string' &&
+          device.path.trim().toLowerCase() === normalizedConnectId,
+      );
     } catch (_error) {
       return false;
     }

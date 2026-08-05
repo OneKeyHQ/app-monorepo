@@ -3957,10 +3957,12 @@ class ServiceHardware extends ServiceBase {
         return connectId;
       }
       if (device && !persistedDesktopBleConnectId) {
+        if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
+          return device.usbConnectId || device.connectId || connectId;
+        }
         if (
-          hardwareCallContext === EHardwareCallContext.SILENT_CALL ||
           hardwareCallContext ===
-            EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
         ) {
           throw new deviceErrors.DeviceNotFound({
             payload: {

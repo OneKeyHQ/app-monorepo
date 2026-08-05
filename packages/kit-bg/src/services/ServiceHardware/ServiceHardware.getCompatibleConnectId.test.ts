@@ -448,6 +448,48 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
   });
 
+  it('falls back to the persisted USB connectId for a silent cleanup', async () => {
+    const dbDevice = {
+      id: 'db-pro2-device',
+      connectId: 'PRB09B0088A',
+      usbConnectId: 'PRB09B0088A',
+      bleConnectId: undefined,
+      deviceId: 'PRO2_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro 2',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+    const showBluetoothDevicePairingDialog = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { showBluetoothDevicePairingDialog },
+      } as unknown as IBackgroundApi,
+    });
+    service.connectionManager.shouldSwitchTransportType = Object.assign(
+      jest.fn().mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      }),
+      {
+        clear: jest.fn(),
+        delete: jest.fn(),
+      },
+    ) as typeof service.connectionManager.shouldSwitchTransportType;
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      }),
+    ).resolves.toBe(dbDevice.usbConnectId);
+
+    expect(showBluetoothDevicePairingDialog).not.toHaveBeenCalled();
+  });
+
   it('falls back to deviceId without combining legacy features', async () => {
     const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
     const device = {
@@ -544,7 +586,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ).resolves.toBe('BLE_ID');
   });
 
-  it('uses USB when any authorized OneKey WebUSB device is available', async () => {
+  it('uses USB when the target OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -557,7 +599,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             {
               vendorId: 0x12_09,
               productId: 0x4f_4c,
-              serialNumber: 'PRO2_USB_ID',
+              serialNumber: 'PRB50B0127B',
             },
           ]),
         },
@@ -597,15 +639,6 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         .mockResolvedValue(true);
 
       await expect(
-        service.connectionManager.shouldSwitchTransportType({
-          connectId: 'PRO2_USB_ID',
-          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-        }),
-      ).resolves.toMatchObject({
-        targetType: EHardwareTransportType.WEBUSB,
-      });
-
-      await expect(
         service.getCompatibleConnectId({
           connectId: 'PRB50B0127B',
           featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
@@ -613,6 +646,75 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         }),
       ).resolves.toBe('PRB50B0127B');
       expect(detectBluetoothAvailability).not.toHaveBeenCalled();
+    } finally {
+      if (originalNavigator) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      } else {
+        delete (globalThis as { navigator?: Navigator }).navigator;
+      }
+    }
+  });
+
+  it('keeps BLE when WebUSB only reports an unrelated OneKey device', async () => {
+    const originalNavigator = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        usb: {
+          getDevices: jest.fn().mockResolvedValue([
+            {
+              vendorId: 0x12_09,
+              productId: 0x4f_4c,
+              serialNumber: 'UNRELATED_USB_ID',
+            },
+          ]),
+        },
+      },
+    });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro-device',
+      connectId: 'PRB50B0127B',
+      usbConnectId: 'PRB50B0127B',
+      bleConnectId: 'PRO_BLE_PERIPHERAL_ID',
+      deviceId: 'PRO_FEATURES_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    try {
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceDevSetting: {
+            getDevSetting: jest.fn().mockResolvedValue({
+              settings: { usbCommunicationMode: 'webusb' },
+            }),
+          },
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      const detectBluetoothAvailability = jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+
+      await expect(
+        service.getCompatibleConnectId({
+          connectId: 'PRB50B0127B',
+          featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toBe('PRO_BLE_PERIPHERAL_ID');
+      expect(detectBluetoothAvailability).toHaveBeenCalled();
     } finally {
       if (originalNavigator) {
         Object.defineProperty(globalThis, 'navigator', originalNavigator);
@@ -735,7 +837,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses Bridge when any Bridge device is enumerated', async () => {
+  it('keeps BLE when Bridge only enumerates an unrelated device', async () => {
     mockedAxios.post.mockResolvedValue({
       data: [{ path: 'UNRELATED_USB_ID' }],
     });
@@ -773,23 +875,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       .mockResolvedValue(true);
 
     await expect(
-      service.connectionManager.shouldSwitchTransportType({
-        connectId: 'UNRELATED_USB_ID',
-        connectProtocol: 'V1',
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      }),
-    ).resolves.toMatchObject({
-      targetType: EHardwareTransportType.Bridge,
-    });
-
-    await expect(
       service.getCompatibleConnectId({
         connectId: 'PRB50B0127B',
         featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('PRB50B0127B');
-    expect(detectBluetoothAvailability).not.toHaveBeenCalled();
+    ).resolves.toBe('PRO_BLE_PERIPHERAL_ID');
+    expect(detectBluetoothAvailability).toHaveBeenCalled();
   });
 
   it('switches Mini back to the configured USB transport after BLE was active', async () => {
