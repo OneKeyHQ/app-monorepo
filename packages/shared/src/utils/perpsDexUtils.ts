@@ -70,6 +70,25 @@ export function isPerpsUniverseCacheComplete(
   return (universesByDex[0]?.length ?? 0) > 0;
 }
 
+// Universal search returns the bare symbol plus the dex it belongs to, where
+// `perps` means the main DEX and anything else is the sub-DEX prefix itself
+// (e.g. `xyz`, `para`). Returns undefined for a dex we do not support, so
+// callers can skip the result instead of pointing it at the wrong market.
+export function buildCoinFromSearchAssetType({
+  assetType,
+  name,
+}: {
+  assetType: string | undefined;
+  name: string;
+}): string | undefined {
+  if (!name) return undefined;
+  if (assetType === 'perps') return name;
+  const prefix = assetType?.toLowerCase();
+  if (!prefix) return undefined;
+  const isRegistered = SUB_DEX_LIST.some((item) => item.prefix === prefix);
+  return isRegistered ? `${prefix}${DEX_SEPARATOR}${name}` : undefined;
+}
+
 // TV lowercases everything; HL keys perps as `BTC`, spot as `@N`, and sub-DEX
 // as `<prefix>:<TICKER>` with a lowercase prefix.
 export function normalizeDexCoin(coin: string): string {

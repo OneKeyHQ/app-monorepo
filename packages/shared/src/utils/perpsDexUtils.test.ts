@@ -1,6 +1,7 @@
 import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
+  buildCoinFromSearchAssetType,
   getDexAssetIdOffset,
   getDexIndexByAssetId,
   getDexIndexByCoin,
@@ -95,6 +96,40 @@ describe('perpsDexUtils', () => {
 
   it('does not rewrite an unregistered prefix', () => {
     expect(normalizeDexCoin('unsupported:tsla')).toBe('UNSUPPORTED:TSLA');
+  });
+
+  // The search API sends the dex prefix verbatim in `assetType` ('perps' for
+  // the main DEX), so the client must not assume every non-main result is xyz.
+  describe('buildCoinFromSearchAssetType', () => {
+    it('keeps the bare symbol for a main dex result', () => {
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'perps', name: 'BTC' }),
+      ).toBe('BTC');
+    });
+
+    it('uses the returned prefix instead of assuming xyz', () => {
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'xyz', name: 'NVDA' }),
+      ).toBe('xyz:NVDA');
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'para', name: 'UNITREE' }),
+      ).toBe('para:UNITREE');
+    });
+
+    it('rejects a dex the client does not support', () => {
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'flx', name: 'TSLA' }),
+      ).toBeUndefined();
+    });
+
+    it('rejects a missing assetType or name', () => {
+      expect(
+        buildCoinFromSearchAssetType({ assetType: undefined, name: 'BTC' }),
+      ).toBeUndefined();
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'perps', name: '' }),
+      ).toBeUndefined();
+    });
   });
 
   describe('isPerpsUniverseCacheComplete', () => {

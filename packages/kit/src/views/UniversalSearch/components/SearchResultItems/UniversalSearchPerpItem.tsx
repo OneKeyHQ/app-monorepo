@@ -22,7 +22,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { XYZ_DEX_PREFIX } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
 
 import { MarketPerpsStarV2 } from '../../../Market/components/MarketStarV2';
@@ -46,16 +46,21 @@ export function UniversalSearchPerpItem({
     item.payload;
 
   const isPerpsType = assetType === 'perps';
-  // For perps type, coin is just name; for xyz type, coin needs prefix.
-  // TODO(server): assetType is still binary ('perps' | xyz). When search starts
-  // returning para results, it must send the dex prefix so this stops assuming xyz.
+  // `assetType` carries the dex prefix verbatim ('perps' for the main DEX), so
+  // it must drive the coin — assuming every non-main result is xyz would send
+  // `xyz:UNITREE` for a para asset and leave the instrument unresolvable.
   const coin = useMemo(
-    () => (isPerpsType ? name : `${XYZ_DEX_PREFIX}${name}`),
-    [isPerpsType, name],
+    () => buildCoinFromSearchAssetType({ assetType, name }) ?? '',
+    [assetType, name],
   );
-  const tag = isPerpsType ? `${maxLeverage}X` : 'xyz';
+  const tag = isPerpsType ? `${maxLeverage}X` : assetType;
 
   const handlePress = useCallback(() => {
+    // An unsupported dex resolves to no coin; opening Perps with an empty coin
+    // would fall through to that dex's first ticker.
+    if (!coin) {
+      return;
+    }
     defaultLogger.universalSearch.search.universalSearchClick({
       searchText: getSearchInput(),
       type: item.type,
