@@ -124,7 +124,7 @@ function formatTradingViewNativePriceChangeValue(value: number) {
   }
 
   if (Math.abs(value) >= 1e-6) {
-    return formatTradingViewNativePriceTick(value);
+    return Number(value.toPrecision(6)).toString();
   }
 
   const preciseValue = value.toPrecision(6);
