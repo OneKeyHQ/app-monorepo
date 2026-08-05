@@ -1288,17 +1288,21 @@ function AutoPauseSubscriptions() {
   );
 
   const isFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
+  // BG confirmed a liveness recovery while the focus derivation still read
+  // blurred; unlock/app-resume then treat Perp as focused until a real edge.
+  const recoveredWhileBlurredRef = useRef(false);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
     const nextFocused = resolvePerpRouteFocused(isFocus);
     const isFocusPrev = isFocusedRef.current;
     isFocusedRef.current = nextFocused;
     if (isFocusPrev !== nextFocused) {
+      recoveredWhileBlurredRef.current = false;
       void onFocusHandler({ isFocus: isFocusedRef.current });
     }
   });
 
   const handleAppActiveFromBackground = useCallback(() => {
-    if (isFocusedRef.current) {
+    if (isFocusedRef.current || recoveredWhileBlurredRef.current) {
       // Native doesn't set lastFocusStateRef to false on background,
       // so reset it here to prevent dedup guard from blocking resume
       lastFocusStateRef.current = false;
@@ -1319,14 +1323,45 @@ function AutoPauseSubscriptions() {
   // handled by useHandleAppStateActive.
 
   const [isLocked] = useAppIsLockedAtom();
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
 
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
     } else {
-      void onFocusHandler({ isFocus: isFocusedRef.current });
+      void onFocusHandler({
+        isFocus: isFocusedRef.current || recoveredWhileBlurredRef.current,
+      });
     }
   }, [isLocked, onFocusHandler]);
+
+  useEffect(() => {
+    // Drop the pending pause timer so it cannot tear the recovery down, and
+    // update the dedup state so the next real blur/lock disable gets through.
+    const handleRecovered = () => {
+      // The announce and the lock disable cross the bridge unordered; a lock
+      // already in effect outranks it, so keep its freshly armed pause timer.
+      if (isLockedRef.current) {
+        return;
+      }
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+      lastFocusStateRef.current = true;
+      if (!isFocusedRef.current) {
+        recoveredWhileBlurredRef.current = true;
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.PerpsSubscriptionsRecovered,
+      handleRecovered,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PerpsSubscriptionsRecovered,
+        handleRecovered,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     return () => {

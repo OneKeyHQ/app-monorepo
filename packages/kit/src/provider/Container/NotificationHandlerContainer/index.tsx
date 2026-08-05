@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import { tradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  appIsLocked,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,12 +18,14 @@ import {
   ETabRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   type INotificationPageNavigationEvent,
   navigateToNotificationDetailByLocalParams,
   registerNotificationPageNavigationProcessor,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationViewDialogActionType,
@@ -41,6 +46,7 @@ import {
   NotificationHandlerDiscoveryProvider,
   useNotificationDappNavigation,
 } from './NotificationDappNavigation';
+import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -157,29 +163,50 @@ function BaseNotificationHandlerContainer() {
           });
           // Start the reconnect now so it overlaps the ~350ms of
           // popToMainRoute + wait, rather than waiting for route focus.
-          void backgroundApiProxy.serviceHyperliquidSubscription
-            .resumeSubscriptions()
-            .catch((error) => {
-              defaultLogger.perp.hyperliquid.coldStartInitializationError({
-                type: 'prewarm_subscriptions',
-                coin: perpToken,
-                error,
+          // Never while locked: resumeSubscriptions enables the handler
+          // unconditionally, and the user has to unlock before anything
+          // renders anyway — unlock recovery resumes on its own.
+          const isAppLocked = await appIsLocked.get();
+          if (!isAppLocked) {
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .resumeSubscriptions()
+              .catch((error) => {
+                defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                  type: 'prewarm_subscriptions',
+                  coin: perpToken,
+                  error,
+                });
               });
-            });
+          }
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }
       }
 
-      navigateToNotificationDetailByLocalParams({
-        payload: payloadObj,
-        localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
-      }).catch((error) => {
+      try {
+        await navigateToNotificationDetailByLocalParams({
+          payload: payloadObj,
+          localParams,
+          getEarnAccount: (props) =>
+            backgroundApiProxy.serviceStaking.getEarnAccount(props),
+        });
+        await timerUtils.wait(0);
+        if (isPerpNavigation) {
+          await recoverPerpsSubscriptionsAfterNavigation({
+            isAppVisible: getCurrentVisibilityState,
+            isAppLocked: () => appIsLocked.get(),
+            readDisabledCount: () =>
+              backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
+        }
+      } catch (error) {
         console.error(error);
         showFallbackUpdateDialog(null);
-      });
+      }
     };
     const handleShowNotificationInWebViewOverlay = (
       params: IWebViewPageParams,
