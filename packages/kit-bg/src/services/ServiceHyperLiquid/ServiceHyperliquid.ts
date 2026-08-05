@@ -157,7 +157,10 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
-import { selectPerpMetasByDex } from './utils/perpMetaSelection';
+import {
+  mergePerpDexSlots,
+  selectPerpMetasByDex,
+} from './utils/perpMetaSelection';
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
@@ -1402,17 +1405,34 @@ export default class ServiceHyperliquid extends ServiceBase {
     });
     const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
     if (perpMetaByDex.length) {
-      const universes = perpMetaByDex.map((meta, dexIndex) =>
-        (meta?.universe || []).map((item, index) => ({
-          ...item,
-          assetId: toAssetId({ dexIndex, index }),
-        })),
-      );
-      const marginTablesMapList = perpMetaByDex.map((meta) =>
-        meta?.marginTables?.reduce((acc, item) => {
-          acc[item[0]] = item[1];
-          return acc;
-        }, {} as IMarginTableMap),
+      const {
+        universesByDex: prevUniversesByDex,
+        marginTablesMapByDex: prevMarginTablesMapByDex,
+      } = await this.getTradingUniverse();
+      const universes = mergePerpDexSlots(
+        perpMetaByDex.map((meta, dexIndex) => {
+          const universe = meta?.universe;
+          if (!universe?.length) {
+            return undefined;
+          }
+          return universe.map((item, index) => ({
+            ...item,
+            assetId: toAssetId({ dexIndex, index }),
+          }));
+        }),
+        prevUniversesByDex,
+      ).map((items) => items ?? []);
+      const marginTablesMapList = mergePerpDexSlots(
+        perpMetaByDex.map((meta) => {
+          if (!meta?.marginTables?.length) {
+            return undefined;
+          }
+          return meta.marginTables.reduce((acc, item) => {
+            acc[item[0]] = item[1];
+            return acc;
+          }, {} as IMarginTableMap);
+        }),
+        prevMarginTablesMapByDex,
       );
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,

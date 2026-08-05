@@ -1,4 +1,4 @@
-import { selectPerpMetasByDex } from './perpMetaSelection';
+import { mergePerpDexSlots, selectPerpMetasByDex } from './perpMetaSelection';
 
 function buildMeta(firstCoin: string) {
   return { universe: [{ name: firstCoin }] };
@@ -54,5 +54,35 @@ describe('perpMetaSelection', () => {
 
     expect(shifted[1]?.universe[0].name).toBe('xyz:XYZ100');
     expect(shifted[2]).toBeUndefined();
+  });
+});
+
+describe('mergePerpDexSlots', () => {
+  // A main-only response used to flatten both sub-dex slots to empty while the
+  // padded length still made the cache look complete, so `xyz:NVDA` stopped
+  // resolving until some later refresh happened to succeed.
+  it('keeps the previous slot for a dex the response omitted', () => {
+    const merged = mergePerpDexSlots(
+      [['BTC'], undefined, undefined],
+      [['BTC'], ['xyz:NVDA'], ['para:UNITREE']],
+    );
+
+    expect(merged).toEqual([['BTC'], ['xyz:NVDA'], ['para:UNITREE']]);
+  });
+
+  it('lets a present slot overwrite the previous one', () => {
+    const merged = mergePerpDexSlots(
+      [['BTC', 'ETH'], ['xyz:AAPL'], undefined],
+      [['BTC'], ['xyz:NVDA'], ['para:UNITREE']],
+    );
+
+    expect(merged).toEqual([['BTC', 'ETH'], ['xyz:AAPL'], ['para:UNITREE']]);
+  });
+
+  it('leaves a slot undefined when there is nothing to fall back to', () => {
+    expect(mergePerpDexSlots([['BTC'], undefined], undefined)).toEqual([
+      ['BTC'],
+      undefined,
+    ]);
   });
 });

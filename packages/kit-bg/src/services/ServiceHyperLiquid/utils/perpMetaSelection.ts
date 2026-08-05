@@ -1,3 +1,4 @@
+import { markPerpsColdStartPerf } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   DEX_SEPARATOR,
   SUB_DEX_LIST,
@@ -24,9 +25,26 @@ export function selectPerpMetasByDex<T extends IPerpMetaLike>(
         firstName &&
         !firstName.startsWith(`${item.prefix}${DEX_SEPARATOR}`)
       ) {
+        // Losing a whole dex is otherwise invisible until users report it.
+        markPerpsColdStartPerf('service_perp_meta_dex_prefix_mismatch', {
+          prefix: item.prefix,
+          hlDexIndex: item.hlDexIndex,
+          firstName,
+        });
         return undefined;
       }
       return meta;
     }),
   ];
+}
+
+// `selectPerpMetasByDex` pads every registered dex into a slot, so a dex the
+// server skipped arrives as `undefined`. Persisting that as empty would destroy
+// the last good data while still leaving a full-length — and therefore
+// apparently complete — cache behind.
+export function mergePerpDexSlots<T>(
+  nextByDex: (T | undefined)[],
+  previousByDex: readonly (T | undefined)[] | undefined,
+): (T | undefined)[] {
+  return nextByDex.map((value, dexIndex) => value ?? previousByDex?.[dexIndex]);
 }
