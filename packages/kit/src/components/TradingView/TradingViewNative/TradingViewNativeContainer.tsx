@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { hasTradingViewNativeVolume } from './utils/chartLayout';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 import type { ITradingViewNativeProps } from './types';
@@ -79,6 +80,10 @@ export const TradingViewNativeContainer = memo(
       onRealtimePoint: handleRealtimePoint,
       source,
     });
+    const hasVolume = useMemo(
+      () => hasTradingViewNativeVolume(points),
+      [points],
+    );
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
     const latestPriceTimestamp = latestPoint?.t;
@@ -236,6 +241,7 @@ export const TradingViewNativeContainer = memo(
             candleIntervalSeconds={candleIntervalSeconds}
             chartType={chartType}
             chartPictureVersion={chartPictureVersion}
+            hasVolume={hasVolume}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
