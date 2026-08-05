@@ -3584,11 +3584,6 @@ class ServiceAccount extends ServiceBase {
     if (wallet.deprecated) {
       throw new DeviceNotSame();
     }
-    if (accountUtils.isWalletDeprecatedOrMocked(wallet)) {
-      throw new OneKeyLocalError(
-        'Hardware wallet is unavailable after device reset',
-      );
-    }
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
     const storedConnectProtocol =

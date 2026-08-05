@@ -48,6 +48,8 @@ import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBCon
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
+import { createFirmwareRecheckTimer } from './firmwareRecheckUtils';
+
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {
@@ -103,11 +105,19 @@ function CheckAndUpdatePage({
   // update: consumed when the scheduled recheck fires (or cleared by an
   // explicit user Skip). Only drives scheduling/delay math.
   const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
   // Carries the "device may still be rebooting" fact separately: set on
   // FinishFirmwareUpdate, cleared only when a check COMPLETES successfully.
   // While set, every round — including a manual Retry — upgrades to the
   // patient reconnect path and the longer watchdog budget.
   const pendingPostUpdateReconnectRef = useRef(false);
+  const [isFirmwareRecheckPending, setIsFirmwareRecheckPending] =
+    useState(false);
+
+  const cancelFirmwareRecheck = useCallback(() => {
+    firmwareRecheckCancelRef.current?.();
+    firmwareRecheckCancelRef.current = null;
+  }, []);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -438,6 +448,7 @@ function CheckAndUpdatePage({
       // manual Retry — to the patient path with its longer watchdog budget.
       const checkAfterUpdate =
         params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
+      setIsFirmwareRecheckPending(false);
       const cancelTimeout = createStepTimeout(
         isStale,
         () => watchdogConnectId,
@@ -609,27 +620,44 @@ function CheckAndUpdatePage({
         return;
       }
 
-      const elapsed = Date.now() - finishTime;
-      const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
-
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
       // Keep the previous state during this cancellable window so a blur can
       // safely reschedule the check on the next focus. The check owns the
       // InProgress transition when it actually starts.
-      const timeoutId = setTimeout(() => {
-        // One-shot: consume the timestamp when the recheck actually fires.
-        // The patient-path upgrade for later rounds is carried by
-        // pendingPostUpdateReconnectRef instead.
-        firmwareUpdateFinishTimeRef.current = null;
-        void checkFirmwareUpdate({
-          checkAfterUpdate: true,
-        });
-      }, remainingDelay);
+      cancelFirmwareRecheck();
+      setIsFirmwareRecheckPending(true);
+      const cancel = createFirmwareRecheckTimer({
+        finishTime,
+        delayMs: FIRMWARE_RECHECK_DELAY,
+        onFire: () => {
+          firmwareRecheckCancelRef.current = null;
+          setIsFirmwareRecheckPending(false);
+          // A user decision may be made between scheduling and firing.
+          if (
+            firmwareStepStateRef.current === ECheckAndUpdateStepState.Skipped ||
+            firmwareStepStateRef.current === ECheckAndUpdateStepState.Success
+          ) {
+            firmwareUpdateFinishTimeRef.current = null;
+            return;
+          }
+          // One-shot: consume the timestamp when the recheck actually fires.
+          // The patient-path upgrade for later rounds is carried by
+          // pendingPostUpdateReconnectRef instead.
+          firmwareUpdateFinishTimeRef.current = null;
+          void checkFirmwareUpdate({
+            checkAfterUpdate: true,
+          });
+        },
+      });
+      firmwareRecheckCancelRef.current = cancel;
 
       return () => {
-        clearTimeout(timeoutId);
+        cancel();
+        if (firmwareRecheckCancelRef.current === cancel) {
+          firmwareRecheckCancelRef.current = null;
+        }
       };
-    }, [checkFirmwareUpdate, restoreOriginalTransport]),
+    }, [cancelFirmwareRecheck, checkFirmwareUpdate, restoreOriginalTransport]),
   );
 
   useEffect(() => {
@@ -775,6 +803,8 @@ function CheckAndUpdatePage({
               // Declining the optional update is recorded honestly as
               // Skipped — the flow continues, but without success visuals.
               // Skipping also cancels any pending focus-effect auto-recheck.
+              cancelFirmwareRecheck();
+              setIsFirmwareRecheckPending(false);
               firmwareUpdateFinishTimeRef.current = null;
               setSteps((prev) => {
                 const newSteps = [...prev];
@@ -790,7 +820,7 @@ function CheckAndUpdatePage({
         </Theme>
       ),
     });
-  }, [intl]);
+  }, [cancelFirmwareRecheck, intl]);
 
   useConnectDeviceError(
     useCallback(
@@ -815,6 +845,8 @@ function CheckAndUpdatePage({
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
     // Skipping also cancels any pending focus-effect auto-recheck.
+    cancelFirmwareRecheck();
+    setIsFirmwareRecheckPending(false);
     firmwareUpdateFinishTimeRef.current = null;
     setSteps((prev) => {
       const index = prev.findIndex(
@@ -841,7 +873,7 @@ function CheckAndUpdatePage({
         void checkFirmwareUpdate();
       }
     }, 150);
-  }, [checkFirmwareUpdate]);
+  }, [cancelFirmwareRecheck, checkFirmwareUpdate]);
 
   // Primary CTA at the foot of the flow. The two states are mutually exclusive
   // (all-idle → verify the device; ready → continue to setup), so the single
@@ -1012,7 +1044,8 @@ function CheckAndUpdatePage({
             <HeightTransition initialHeight={0}>
               {/* update */}
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
-              step.state === ECheckAndUpdateStepState.Warning ? (
+              step.state === ECheckAndUpdateStepState.Warning &&
+              !isFirmwareRecheckPending ? (
                 <XStack
                   gap="$2"
                   mt="$4"

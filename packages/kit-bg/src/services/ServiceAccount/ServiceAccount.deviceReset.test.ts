@@ -187,4 +187,27 @@ describe('ServiceAccount device reset isolation', () => {
     await expectDeviceResetChinesePrompt(error);
     expect(getWalletDevice).not.toHaveBeenCalled();
   });
+
+  it('允许使用 mocked 标准钱包作为隐藏钱包创建占位记录', async () => {
+    const service = new ServiceAccount({
+      backgroundApi: {},
+    });
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-wallet-1',
+      deprecated: false,
+      isMocked: true,
+      associatedDevice: 'db-device-1',
+    });
+    const getWalletDevice = jest
+      .fn()
+      .mockRejectedValue(new Error('reached device lookup'));
+    service.getWalletDevice = getWalletDevice;
+
+    const error = await service
+      .createHWHiddenWallet({ walletId: 'hw-wallet-1' })
+      .catch((e: unknown) => e);
+
+    expect(error).toEqual(new Error('reached device lookup'));
+    expect(getWalletDevice).toHaveBeenCalledWith({ walletId: 'hw-wallet-1' });
+  });
 });
