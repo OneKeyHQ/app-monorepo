@@ -7,7 +7,6 @@ import {
   Accordion,
   Button,
   Dialog,
-  Icon,
   InteractiveIcon,
   SizableText,
   Skeleton,
@@ -16,10 +15,7 @@ import {
   useClipboard,
   useDialogInstance,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -105,7 +101,7 @@ function TokenRatioDialogContent() {
           id: ETranslations.trade_stocks_token_to_share_ratio_description,
         })}
       </SizableText>
-      <Accordion type="multiple">
+      <Accordion type="multiple" gap="$4">
         {TOKEN_RATIO_FAQ_ITEMS.map(({ question, answer }) => (
           <Accordion.Item key={question} value={question}>
             <Accordion.Trigger
@@ -116,7 +112,6 @@ function TokenRatioDialogContent() {
               borderWidth={0}
               bg="$transparent"
               p={0}
-              py="$2"
               m={0}
               cursor="pointer"
             >
@@ -124,23 +119,15 @@ function TokenRatioDialogContent() {
                 <>
                   <SizableText
                     flex={1}
-                    pr="$3"
+                    textAlign="left"
                     size="$bodyMdMedium"
                     color="$text"
                   >
                     {intl.formatMessage({ id: question })}
                   </SizableText>
-                  <YStack
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_TRANSFORM}
-                    rotate={open ? '180deg' : '0deg'}
-                  >
-                    <Icon
-                      name={open ? 'MinusLargeOutline' : 'PlusLargeOutline'}
-                      size="$5"
-                      color="$iconSubdued"
-                    />
-                  </YStack>
+                  <SizableText size="$bodyMdMedium" color="$text">
+                    {open ? '−' : '+'}
+                  </SizableText>
                 </>
               )}
             </Accordion.Trigger>
@@ -148,8 +135,7 @@ function TokenRatioDialogContent() {
               <Accordion.Content
                 unstyled
                 p={0}
-                pb="$2"
-                pr="$8"
+                pt="$2"
                 animation="100ms"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
@@ -165,8 +151,12 @@ function TokenRatioDialogContent() {
       </Accordion>
       <Button
         testID={SwapTestIDs.stockTokenRatioDialogClose}
-        size="large"
-        variant="primary"
+        w="100%"
+        size="small"
+        variant="accent"
+        borderWidth={0}
+        borderRadius="$3"
+        py="$3"
         onPress={handleClose}
       >
         {intl.formatMessage({ id: ETranslations.global_got_it })}
@@ -252,6 +242,7 @@ export function SwapStockTokenDetails({
       },
       floatingPanelProps: {
         width: 420,
+        borderRadius: '$5',
       },
       renderContent: <TokenRatioDialogContent />,
     });
