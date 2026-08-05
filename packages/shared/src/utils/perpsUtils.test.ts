@@ -26,6 +26,7 @@ import {
   formatSpotPriceToValid,
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
   getOrderBookSizeDisplaySymbol,
@@ -735,5 +736,26 @@ describe('isHyperLiquidAbstractionModeEnabled', () => {
       ),
     ).toBe(false);
     expect(isHyperLiquidAbstractionModeEnabled(undefined)).toBe(false);
+  });
+});
+
+describe('getHyperliquidTokenImageUris', () => {
+  // Images are keyed by bare symbol, so a symbol on both the main DEX and a
+  // sub-DEX collides (para:STX is Seagate, STX is Stacks).
+  it('prefers the prefixed file for sub dex coins and falls back to the bare one', () => {
+    expect(getHyperliquidTokenImageUris('para:STX')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/paraSTX.png',
+      'https://uni.onekey-asset.com/static/hyperliquid/STX.png',
+    ]);
+    expect(getHyperliquidTokenImageUris('xyz:NVDA')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/xyzNVDA.png',
+      'https://uni.onekey-asset.com/static/hyperliquid/NVDA.png',
+    ]);
+  });
+
+  it('keeps a single source for main dex coins', () => {
+    expect(getHyperliquidTokenImageUris('BTC')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/BTC.png',
+    ]);
   });
 });

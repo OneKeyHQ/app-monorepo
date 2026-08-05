@@ -49,6 +49,7 @@ import {
   formatSpotPairDisplayName,
   formatSpotPriceToValid,
   formatWithPrecision,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -373,9 +374,13 @@ const TokenInfoCellDesktop = memo(() => {
             <Token
               size="sm"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(
-                isSpot ? token.name : token.displayName,
-              )}
+              {...(isSpot
+                ? {
+                    tokenImageUri: getHyperliquidTokenImageUrl(token.name),
+                  }
+                : {
+                    tokenImageUris: getHyperliquidTokenImageUris(token.name),
+                  })}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack flex={1} minWidth={0}>
@@ -855,15 +860,19 @@ const TokenImageMobile = memo(() => {
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(
-              isSpot ? token.name : token.displayName,
-            )}
+            {...(isSpot
+              ? {
+                  tokenImageUri: getHyperliquidTokenImageUrl(token.name),
+                }
+              : {
+                  tokenImageUris: getHyperliquidTokenImageUris(token.name),
+                })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.name, isSpot, pairCoin],
+    [token.name, isSpot, pairCoin],
   );
   return content;
 });
