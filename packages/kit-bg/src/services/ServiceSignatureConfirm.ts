@@ -357,9 +357,9 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     const shouldUseLocalTxDisplay = Boolean(
       parsedTx &&
-        (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
-        parsedTx.type === EParseTxType.Unknown &&
-        !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
+      (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
+      parsedTx.type === EParseTxType.Unknown &&
+      !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
     );
     // Unknown staking transactions keep the established local action display,
     // while simulation data remains server-owned and cannot be rebuilt.
