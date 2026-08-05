@@ -33,8 +33,8 @@ export function confirmClearOneKeyIdCache({
         id: ETranslations.global_cancel,
       }),
       onConfirm: async ({ close }) => {
-        await close?.();
         safeResolve(true);
+        await close?.();
       },
       onCancel: () => safeResolve(false),
       onClose: () => safeResolve(false),

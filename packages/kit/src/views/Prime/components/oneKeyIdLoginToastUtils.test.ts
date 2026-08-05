@@ -1,5 +1,8 @@
 import { Toast } from '@onekeyhq/components';
-import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import {
+  getOneKeyIdAuthFailureServerParams,
+  getSanitizedErrorLogText,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import {
   logOneKeyIdLoginFailureReason,
@@ -77,6 +80,21 @@ describe('scrubSensitiveErrorMessageText', () => {
     ).toBe('{"refresh_token":"[redacted]","access_token": "[redacted]"}');
   });
 
+  test('redacts alternate credential labels and unlabeled opaque values', () => {
+    expect(
+      scrubSensitiveErrorMessageText(
+        '{"refreshToken":"opaque-secret","session_id":"session-secret","cookie":"auth=secret"}',
+      ),
+    ).toBe(
+      '{"refreshToken":"[redacted]","session_id":"[redacted]","cookie":"[redacted]"}',
+    );
+    expect(
+      scrubSensitiveErrorMessageText(
+        'request failed with AbCdEfGhIjKlMnOpQrStUvWxYz123456',
+      ),
+    ).toBe('request failed with [credential]');
+  });
+
   test('keeps error-code params readable', () => {
     expect(
       scrubSensitiveErrorMessageText('rejected with code=otp_expired'),
@@ -118,6 +136,25 @@ describe('scrubSensitiveErrorMessageText', () => {
     expect(getSanitizedErrorLogText(error)).toContain(
       'cause=request for [email] failed with access_token=[redacted]',
     );
+  });
+
+  test('keeps free-form reasons out of server telemetry', () => {
+    const secret = 'AbCdEfGhIjKlMnOpQrStUvWxYz123456';
+    const params = getOneKeyIdAuthFailureServerParams({
+      source: 'throwSite',
+      reason: `ServicePrime.apiOAuthLogin: OneKey ID is already logged in. name=OneKeyLocalError message=${secret} code=auth_conflict status=409 requestId=req-1 cause=refreshToken:${secret}`,
+    });
+
+    expect(params).toEqual({
+      source: 'throwSite',
+      category: 'alreadyLoggedIn',
+      errorName: 'OneKeyLocalError',
+      errorCode: 'auth_conflict',
+      httpStatusCode: 409,
+      requestId: 'req-1',
+    });
+    expect(JSON.stringify(params)).not.toContain(secret);
+    expect(params).not.toHaveProperty('reason');
   });
 });
 

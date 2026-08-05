@@ -27,7 +27,9 @@ describe('confirmClearOneKeyIdCache', () => {
   it('describes the destructive logout and resolves true after confirmation', async () => {
     const resultPromise = confirmClearOneKeyIdCache({ intl: createIntl() });
     const config = mockedDialogShow.mock.calls[0][0];
-    const close = jest.fn(async () => undefined);
+    const close = jest.fn(async () => {
+      (config.onClose as () => void)();
+    });
 
     expect(config).toEqual(
       expect.objectContaining({
