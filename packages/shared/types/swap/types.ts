@@ -104,8 +104,35 @@ export enum ESwapSource {
 export enum ESwapAnalyticsCategory {
   SWAP = 'Swap',
   BRIDGE = 'Bridge',
+  PRO = 'Pro',
   LIMIT = 'Limit',
   STOCK = 'Stock',
+}
+
+export enum ESwapTradeSource {
+  SWAP_BRIDGE = 'swapBridge',
+  SWAP_PRO = 'swapPro',
+  MARKET_DEX = 'marketDex',
+  STOCK = 'stock',
+  UNKNOWN = 'unknown',
+}
+
+export enum ESwapProAnalyticsEnterFrom {
+  TRADE_TAB = 'tradeTab',
+  MARKET_DETAIL = 'marketDetail',
+  DEFAULT = 'default',
+}
+
+export enum ESwapProAnalyticsTab {
+  POSITIONS = 'positions',
+  OPEN_ORDERS = 'openOrders',
+  ORDER_HISTORY = 'orderHistory',
+}
+
+export enum ESwapProAnalyticsTokenSelectFrom {
+  POSITIONS = 'positions',
+  TOKEN_LIST = 'tokenList',
+  SEARCH = 'search',
 }
 
 export enum ESwapAnalyticsEnterFrom {
@@ -859,6 +886,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
+  tradeSource: ESwapTradeSource;
   toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;

@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
@@ -36,7 +37,10 @@ import type {
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProAnalyticsTokenSelectFrom,
+  ESwapProTradeType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   type IEstimateMarketPresetPriorityFeeFiatValues,
@@ -191,6 +195,13 @@ const SwapProContainer = ({
 
   const onTokenPressCallback = useCallback(
     (token: ISwapToken) => {
+      if (!token.isStock) {
+        defaultLogger.swap.swapPro.swapProTokenSwitch({
+          selectFrom: ESwapProAnalyticsTokenSelectFrom.POSITIONS,
+          tokenSymbol: token.symbol,
+          network: token.networkId,
+        });
+      }
       onTokenPress(token);
       scrollViewRef.current?.scrollTo({
         y: 0,

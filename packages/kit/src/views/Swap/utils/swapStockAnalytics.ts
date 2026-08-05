@@ -10,6 +10,7 @@ import {
   ESwapDirectionType,
   ESwapSource,
   ESwapTabSwitchType,
+  ESwapTradeSource,
 } from '@onekeyhq/shared/types/swap/types';
 
 type IStockAnalyticsToken = Partial<ISwapTokenBase> | undefined;
@@ -26,17 +27,40 @@ export const SWAP_STOCK_ANALYTICS_TRADE_SIDE_SELL = 'Sell';
 
 export function getSwapAnalyticsCategoryFromSwapType(
   swapType?: ESwapTabSwitchType,
+  isSwapPro = false,
 ) {
   if (swapType === ESwapTabSwitchType.BRIDGE) {
     return ESwapAnalyticsCategory.BRIDGE;
   }
   if (swapType === ESwapTabSwitchType.LIMIT) {
+    if (isSwapPro) {
+      return ESwapAnalyticsCategory.PRO;
+    }
     return ESwapAnalyticsCategory.LIMIT;
   }
   if (swapType === ESwapTabSwitchType.STOCK) {
     return ESwapAnalyticsCategory.STOCK;
   }
   return ESwapAnalyticsCategory.SWAP;
+}
+
+export function getSwapTradeSource({
+  protocol,
+  isSwapPro,
+}: {
+  protocol?: EProtocolOfExchange;
+  isSwapPro: boolean;
+}) {
+  if (protocol === EProtocolOfExchange.STOCK) {
+    return ESwapTradeSource.STOCK;
+  }
+  if (protocol === EProtocolOfExchange.PRIVATE_SEND) {
+    return ESwapTradeSource.UNKNOWN;
+  }
+  if (isSwapPro) {
+    return ESwapTradeSource.SWAP_PRO;
+  }
+  return ESwapTradeSource.SWAP_BRIDGE;
 }
 
 export function getSwapAnalyticsCategory({

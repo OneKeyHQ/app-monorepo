@@ -87,6 +87,7 @@ import {
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
   EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -933,6 +934,7 @@ export function useSpeedSwapActions(props: {
             accountId: netAccountRes.result.id,
             protocol: EProtocolOfExchange.SWAP,
             kind: ESwapQuoteKind.SELL,
+            tradeSource: ESwapTradeSource.MARKET_DEX,
           });
 
         if (!buildRes) {
@@ -2359,6 +2361,7 @@ export function useSpeedSwapActions(props: {
             accountId: snapshot.accountId,
             protocol: signedQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
             kind: signedQuoteResult.kind ?? ESwapQuoteKind.SELL,
+            tradeSource: ESwapTradeSource.MARKET_DEX,
           });
 
         if (!buildRes) {
