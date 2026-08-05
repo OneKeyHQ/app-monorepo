@@ -145,6 +145,7 @@ import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
+  mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
@@ -2886,15 +2887,19 @@ export default class ServiceSwap extends ServiceBase {
               txStatusRes.chainFlipExplorerUrl ??
               currentSwapTxHistory.swapInfo?.chainFlipExplorerUrl,
           },
-          swapOrderHash:
-            txStatusRes.swapOrderHash ?? currentSwapTxHistory.swapOrderHash,
+          swapOrderHash: mergeSwapOrderHash(
+            currentSwapTxHistory.swapOrderHash,
+            txStatusRes.swapOrderHash,
+          ),
           crossChainStatus:
             txStatusRes.crossChainStatus ??
             currentSwapTxHistory?.crossChainStatus,
           txInfo: {
             ...currentSwapTxHistory.txInfo,
             txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
-            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+            receiverTransactionId:
+              txStatusRes.crossChainReceiveTxHash ||
+              currentSwapTxHistory.txInfo.receiverTransactionId,
             gasFeeInNative: txStatusRes.gasFee
               ? txStatusRes.gasFee
               : currentSwapTxHistory.txInfo.gasFeeInNative,

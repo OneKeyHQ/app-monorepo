@@ -1,6 +1,7 @@
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchSwapTxHistoryStatusResponse,
+  ISwapOrderHash,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -85,6 +86,59 @@ function shouldTrackPrivateSendStatusChange({
   );
 }
 
+function shouldTrackSwapOrderHashChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  const incoming = txStatusRes.swapOrderHash;
+  if (!incoming) {
+    return false;
+  }
+  return (
+    (Boolean(incoming.fromTxHash) &&
+      incoming.fromTxHash !== swapTxHistory.swapOrderHash?.fromTxHash) ||
+    (Boolean(incoming.bridgeHash) &&
+      incoming.bridgeHash !== swapTxHistory.swapOrderHash?.bridgeHash) ||
+    (Boolean(incoming.toTxHash) &&
+      incoming.toTxHash !== swapTxHistory.swapOrderHash?.toTxHash) ||
+    (Boolean(incoming.refundHash) &&
+      incoming.refundHash !== swapTxHistory.swapOrderHash?.refundHash)
+  );
+}
+
+function shouldTrackReceiverTransactionIdChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  return Boolean(
+    txStatusRes.crossChainReceiveTxHash &&
+    txStatusRes.crossChainReceiveTxHash !==
+      swapTxHistory.txInfo.receiverTransactionId,
+  );
+}
+
+export function mergeSwapOrderHash(
+  current?: ISwapOrderHash,
+  incoming?: ISwapOrderHash,
+): ISwapOrderHash | undefined {
+  if (!incoming) {
+    return current;
+  }
+  const merged: ISwapOrderHash = {
+    fromTxHash: incoming.fromTxHash || current?.fromTxHash,
+    bridgeHash: incoming.bridgeHash || current?.bridgeHash,
+    toTxHash: incoming.toTxHash || current?.toTxHash,
+    refundHash: incoming.refundHash || current?.refundHash,
+  };
+  return Object.values(merged).some(Boolean) ? merged : undefined;
+}
+
 export function shouldUpdateSwapHistoryAfterTxState({
   swapTxHistory,
   txStatusRes,
@@ -96,7 +150,9 @@ export function shouldUpdateSwapHistoryAfterTxState({
     txStatusRes.state !== swapTxHistory.status ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
     shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
-    shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes })
+    shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes }) ||
+    shouldTrackSwapOrderHashChange({ swapTxHistory, txStatusRes }) ||
+    shouldTrackReceiverTransactionIdChange({ swapTxHistory, txStatusRes })
   );
 }
 
