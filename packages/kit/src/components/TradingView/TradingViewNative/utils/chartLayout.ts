@@ -13,6 +13,7 @@ import {
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
+  TRADING_VIEW_NATIVE_TIME_AXIS_TARGET_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
@@ -83,6 +84,7 @@ export interface ITradingViewNativeChartLayout {
 
 interface ITimeAxisInterval {
   approximateSeconds: number;
+  minimumRealizableSeconds: number;
   step: number;
   unit: ITradingViewNativeTimeAxisUnit;
 }
@@ -98,28 +100,70 @@ const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 const MAX_TO_FIXED_FRACTION_DIGITS = 100;
+
+function createTimeAxisInterval(
+  unit: ITradingViewNativeTimeAxisUnit,
+  step: number,
+  approximateSeconds: number,
+  minimumRealizableSeconds = approximateSeconds,
+): ITimeAxisInterval {
+  return {
+    approximateSeconds,
+    minimumRealizableSeconds,
+    step,
+    unit,
+  };
+}
+
+// Calendar buckets can be shorter than their nominal duration around DST
+// transitions and short months, so eligibility uses the shortest cadence.
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
-  { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
-  { approximateSeconds: 5 * SECONDS_PER_MINUTE, step: 5, unit: 'minute' },
-  { approximateSeconds: 15 * SECONDS_PER_MINUTE, step: 15, unit: 'minute' },
-  { approximateSeconds: 30 * SECONDS_PER_MINUTE, step: 30, unit: 'minute' },
-  { approximateSeconds: SECONDS_PER_HOUR, step: 1, unit: 'hour' },
-  { approximateSeconds: 2 * SECONDS_PER_HOUR, step: 2, unit: 'hour' },
-  { approximateSeconds: 4 * SECONDS_PER_HOUR, step: 4, unit: 'hour' },
-  { approximateSeconds: 6 * SECONDS_PER_HOUR, step: 6, unit: 'hour' },
-  { approximateSeconds: 12 * SECONDS_PER_HOUR, step: 12, unit: 'hour' },
-  { approximateSeconds: SECONDS_PER_DAY, step: 1, unit: 'day' },
-  { approximateSeconds: 2 * SECONDS_PER_DAY, step: 2, unit: 'day' },
-  { approximateSeconds: 7 * SECONDS_PER_DAY, step: 7, unit: 'day' },
-  { approximateSeconds: 14 * SECONDS_PER_DAY, step: 14, unit: 'day' },
-  { approximateSeconds: 30 * SECONDS_PER_DAY, step: 1, unit: 'month' },
-  { approximateSeconds: 60 * SECONDS_PER_DAY, step: 2, unit: 'month' },
-  { approximateSeconds: 90 * SECONDS_PER_DAY, step: 3, unit: 'month' },
-  { approximateSeconds: 180 * SECONDS_PER_DAY, step: 6, unit: 'month' },
-  { approximateSeconds: 365 * SECONDS_PER_DAY, step: 1, unit: 'year' },
-  { approximateSeconds: 2 * 365 * SECONDS_PER_DAY, step: 2, unit: 'year' },
-  { approximateSeconds: 5 * 365 * SECONDS_PER_DAY, step: 5, unit: 'year' },
-  { approximateSeconds: 10 * 365 * SECONDS_PER_DAY, step: 10, unit: 'year' },
+  createTimeAxisInterval('minute', 1, SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 5, 5 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 15, 15 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 30, 30 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('hour', 1, SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 2, 2 * SECONDS_PER_HOUR, SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 4, 4 * SECONDS_PER_HOUR, 3 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 6, 6 * SECONDS_PER_HOUR, 5 * SECONDS_PER_HOUR),
+  createTimeAxisInterval(
+    'hour',
+    12,
+    12 * SECONDS_PER_HOUR,
+    11 * SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval('day', 1, SECONDS_PER_DAY, 23 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 2, 2 * SECONDS_PER_DAY, 47 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 7, 7 * SECONDS_PER_DAY, 167 * SECONDS_PER_HOUR),
+  createTimeAxisInterval(
+    'day',
+    14,
+    14 * SECONDS_PER_DAY,
+    335 * SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    1,
+    30 * SECONDS_PER_DAY,
+    28 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    2,
+    60 * SECONDS_PER_DAY,
+    59 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    3,
+    90 * SECONDS_PER_DAY,
+    90 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval('month', 6, 180 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 1, 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 2, 2 * 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 5, 5 * 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 10, 10 * 365 * SECONDS_PER_DAY),
 ];
 
 function formatTradingViewNativeSubscript(value: number) {
@@ -638,11 +682,12 @@ function getClosestTimeAxisInterval({
 
   const firstEligibleInterval =
     TIME_AXIS_INTERVALS.find(
-      ({ approximateSeconds }) => approximateSeconds >= minimumSeconds,
+      ({ minimumRealizableSeconds }) =>
+        minimumRealizableSeconds >= minimumSeconds,
     ) ?? TIME_AXIS_INTERVALS[TIME_AXIS_INTERVALS.length - 1];
 
   return TIME_AXIS_INTERVALS.reduce((closestInterval, currentInterval) => {
-    if (currentInterval.approximateSeconds < minimumSeconds) {
+    if (currentInterval.minimumRealizableSeconds < minimumSeconds) {
       return closestInterval;
     }
 
@@ -713,22 +758,24 @@ export function getTradingViewNativeTimeAxisLayout({
     0,
   );
   const maxTickCount = Math.max(
-    Math.floor(chartWidth / TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING),
+    Math.floor(chartWidth / TRADING_VIEW_NATIVE_TIME_AXIS_TARGET_TICK_SPACING),
     2,
   );
   const targetInterval = visibleDuration / maxTickCount;
+  const normalizedMinimumIndexSpacing = Math.max(
+    Math.ceil(minimumIndexSpacing),
+    1,
+  );
+  // Select a drawable interval first so viewport changes cannot shift the
+  // phase of a finer tick set during collision filtering.
   const minimumInterval =
     candleIntervalSeconds > 0 && Number.isFinite(candleIntervalSeconds)
-      ? candleIntervalSeconds
+      ? candleIntervalSeconds * normalizedMinimumIndexSpacing
       : 0;
   const interval = getClosestTimeAxisInterval({
     minimumSeconds: minimumInterval,
     targetSeconds: targetInterval,
   });
-  const normalizedMinimumIndexSpacing = Math.max(
-    Math.ceil(minimumIndexSpacing),
-    1,
-  );
   // Align an expanded window so nearby viewport updates keep the same
   // tick anchors without rebuilding candidates for the full history.
   const tickWindowPadding = normalizedMinimumIndexSpacing * 2;
