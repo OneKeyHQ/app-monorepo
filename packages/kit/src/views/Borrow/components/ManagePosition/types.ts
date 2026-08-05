@@ -184,6 +184,7 @@ export interface IManagePositionActions {
 export interface IManagePositionActionResult {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
   checkAmountLoading: boolean;

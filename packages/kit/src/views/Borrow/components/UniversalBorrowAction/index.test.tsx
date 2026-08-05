@@ -27,6 +27,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 
 import {
   resolveBorrowCheckAmountStateForRequest,
+  resolveBorrowTransactionConfirmationStateForRequest,
   useUniversalBorrowAction,
 } from '.';
 
@@ -174,6 +175,44 @@ describe('useUniversalBorrowAction', () => {
       checkAmountLoading: true,
       checkAmountResult: undefined,
       riskOfLiquidationAlert: undefined,
+    });
+  });
+
+  it('keeps confirmation content only while the request stays in the same scope', () => {
+    const currentConfirmation = { canBeCollateral: true };
+    const currentState = {
+      requestKey: 'reserve-a:1',
+      scopeKey: 'reserve-a',
+      transactionConfirmation: currentConfirmation,
+      transactionConfirmationLoading: false,
+    };
+
+    expect(
+      resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: 'reserve-a:2',
+        scopeKey: 'reserve-a',
+        shouldFetch: true,
+        state: currentState,
+      }),
+    ).toEqual({
+      requestKey: 'reserve-a:2',
+      scopeKey: 'reserve-a',
+      transactionConfirmation: currentConfirmation,
+      transactionConfirmationLoading: true,
+    });
+
+    expect(
+      resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: 'reserve-b:1',
+        scopeKey: 'reserve-b',
+        shouldFetch: true,
+        state: currentState,
+      }),
+    ).toEqual({
+      requestKey: 'reserve-b:1',
+      scopeKey: 'reserve-b',
+      transactionConfirmation: undefined,
+      transactionConfirmationLoading: true,
     });
   });
 });
