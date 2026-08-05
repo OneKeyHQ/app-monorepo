@@ -181,8 +181,8 @@ export function shouldEmitSwapHistoryBalanceUpdate({
 }) {
   const reachedSuccessfulTerminalState =
     previousSwapTxHistory.status !== swapTxHistory.status &&
-    (swapTxHistory.status === ESwapTxHistoryStatus.SUCCESS ||
-      swapTxHistory.status === ESwapTxHistoryStatus.PARTIALLY_FILLED);
+    (txStatusRes.state === ESwapTxHistoryStatus.SUCCESS ||
+      txStatusRes.state === ESwapTxHistoryStatus.PARTIALLY_FILLED);
 
   const crossChainStatusShouldRefresh = swapTxHistory.crossChainStatus
     ? previousSwapTxHistory.crossChainStatus !==

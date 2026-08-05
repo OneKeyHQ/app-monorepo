@@ -203,4 +203,22 @@ describe('swapHistoryStatusUtils', () => {
       ).toBe(true);
     },
   );
+
+  it('emits a balance update when a successful response is normalized to canceled', () => {
+    const previousSwapTxHistory = createHistory({
+      status: ESwapTxHistoryStatus.CANCELING,
+    });
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        previousSwapTxHistory,
+        swapTxHistory: {
+          ...previousSwapTxHistory,
+          status: ESwapTxHistoryStatus.CANCELED,
+        },
+        txStatusRes: createStatusResponse({
+          state: ESwapTxHistoryStatus.SUCCESS,
+        }),
+      }),
+    ).toBe(true);
+  });
 });
