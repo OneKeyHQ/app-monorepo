@@ -28,6 +28,10 @@ import {
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
+  markOneKeyIdFailureServerLogged,
+  wasOneKeyIdFailureServerLogged,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -43,6 +47,7 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
@@ -102,6 +107,7 @@ import {
   readAuthTokenAllowingRetryableAuthError,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
+  revokeAuthSessionTokenOnServerBestEffort,
   runExclusiveOnAuthSessionSlot,
 } from './primeAuthSessionAccess';
 
@@ -312,18 +318,7 @@ const keylessOAuthSessionRollbackRegistry = new Map<
 const KEYLESS_OAUTH_SESSION_ROLLBACK_TTL_MS = 5 * 60 * 1000;
 
 function getSanitizedAuthErrorLog(error: unknown): string {
-  const safeError = error as {
-    message?: unknown;
-    code?: unknown;
-    status?: unknown;
-    httpStatusCode?: unknown;
-    requestId?: unknown;
-  };
-  return `message=${String(safeError?.message || 'unknown')} code=${String(
-    safeError?.code || '',
-  )} status=${String(
-    safeError?.status || safeError?.httpStatusCode || '',
-  )} requestId=${String(safeError?.requestId || '')}`;
+  return getSanitizedErrorLogText(error);
 }
 
 async function withIdentityNetworkTimeout<T>(
@@ -1253,54 +1248,73 @@ class ServicePrime extends ServiceBase {
     email: string;
     otp: string;
   }): Promise<{ success: true }> {
-    return this.loginMutex.runExclusive(async () => {
-      await this.assertOneKeyIdLoggedOutForInteractiveLogin(
-        'ServicePrime.apiEmailOtpLogin',
-      );
-      allowAuthSessionStorageWritesBySessionSource(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      const client = await getSupabaseClientBySessionSource(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      let response: AuthResponse | undefined;
-      if (email.endsWith('@privy.io')) {
-        try {
-          const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
-          if (phoneOtpData?.phone && phoneOtpData?.otp) {
-            response = await client.auth.verifyOtp({
-              phone: phoneOtpData.phone,
-              token: phoneOtpData.otp,
-              type: 'sms',
+    try {
+      return await this.loginMutex.runExclusive(async () => {
+        await this.assertOneKeyIdLoggedOutForInteractiveLogin(
+          'ServicePrime.apiEmailOtpLogin',
+        );
+        allowAuthSessionStorageWritesBySessionSource(
+          EPrimeAuthSessionSource.LegacyEmailSupabase,
+        );
+        const client = await getSupabaseClientBySessionSource(
+          EPrimeAuthSessionSource.LegacyEmailSupabase,
+        );
+        let response: AuthResponse | undefined;
+        if (email.endsWith('@privy.io')) {
+          try {
+            const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
+            if (phoneOtpData?.phone && phoneOtpData?.otp) {
+              response = await client.auth.verifyOtp({
+                phone: phoneOtpData.phone,
+                token: phoneOtpData.otp,
+                type: 'sms',
+              });
+            }
+          } catch (error) {
+            defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+              reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
+                error,
+              )}`,
             });
           }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error || 'unknown');
-          defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
-            reason: `ServicePrime.apiEmailOtpLogin: phone OTP exchange failed: ${message}`,
-          });
         }
-      }
 
-      response ??= await client.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
+        response ??= await client.auth.verifyOtp({
+          email,
+          token: otp,
+          type: 'email',
+        });
+        if (response.error) {
+          const error = new OneKeyLocalError(response.error.message);
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
+              response.error,
+            )}`,
+          });
+          markOneKeyIdFailureServerLogged(error);
+          throw error;
+        }
+        const accessToken = response.data.session?.access_token;
+        if (!accessToken) {
+          // TODO: i18n
+          throw new OneKeyLocalError(
+            'OneKey ID login failed: access token not found',
+          );
+        }
+        await this.apiLoginWithPersistedLegacySession({ accessToken });
+        return { success: true };
       });
-      if (response.error) {
-        throw new OneKeyLocalError(response.error.message);
+    } catch (error) {
+      if (!wasOneKeyIdFailureServerLogged(error)) {
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
+            error,
+          )}`,
+        });
+        markOneKeyIdFailureServerLogged(error);
       }
-      const accessToken = response.data.session?.access_token;
-      if (!accessToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'OneKey ID login failed: access token not found',
-        );
-      }
-      await this.apiLoginWithPersistedLegacySession({ accessToken });
-      return { success: true };
-    });
+      throw error;
+    }
   }
 
   // Guard shared by every flow that POSTs a keyless-realm login/bind and then
@@ -1487,6 +1501,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async apiOAuthLogin({
     accessToken,
   }: {
@@ -1579,15 +1594,32 @@ class ServicePrime extends ServiceBase {
   private async assertOneKeyIdLoggedOutForInteractiveLogin(
     callerName: string,
   ): Promise<void> {
+    const incompleteLogoutRepair =
+      await this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock();
+    if (incompleteLogoutRepair === 'stateChanged') {
+      const error = new OneKeyLocalError(
+        `${callerName}: OneKey ID auth state changed during recovery. Please try again.`,
+      );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: getSanitizedAuthErrorLog(error),
+      });
+      markOneKeyIdFailureServerLogged(error);
+      throw error;
+    }
     const [user, source, authState] = await Promise.all([
       primePersistAtom.get(),
       this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
       this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
     ]);
     if (user.isLoggedIn !== user.isLoggedInOnServer) {
-      throw new OneKeyLocalError(
+      const error = new OneKeyLocalError(
         `${callerName}: OneKey ID login projection is inconsistent.`,
       );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: getSanitizedAuthErrorLog(error),
+      });
+      markOneKeyIdFailureServerLogged(error);
+      throw error;
     }
     if (
       user.isLoggedIn ||
@@ -1595,9 +1627,14 @@ class ServicePrime extends ServiceBase {
       source ||
       authState === 'loggedIn'
     ) {
-      throw new OneKeyLocalError(
+      const error = new OneKeyLocalError(
         `${callerName}: OneKey ID is already logged in. Sign out before switching accounts.`,
       );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: getSanitizedAuthErrorLog(error),
+      });
+      markOneKeyIdFailureServerLogged(error);
+      throw error;
     }
   }
 
@@ -1812,6 +1849,139 @@ class ServicePrime extends ServiceBase {
     }
   }
 
+  private async repairIncompleteLocalOneKeyIdLogout(): Promise<
+    'notNeeded' | 'repaired' | 'stateChanged'
+  > {
+    return identityLifecycleMutex.runExclusive(() =>
+      this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock(),
+    );
+  }
+
+  /**
+   * The caller must hold identityLifecycleMutex. Existing lifecycle
+   * reservations are reused; standalone repairs reserve their commit so
+   * invalid-token cleanup and other observers cannot start a competing flow.
+   */
+  private async repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock(): Promise<
+    'notNeeded' | 'repaired' | 'stateChanged'
+  > {
+    const activeOperationId = getActiveIdentityLifecycleOperationId();
+    if (activeOperationId) {
+      return this.commitIncompleteLocalOneKeyIdLogoutRepair();
+    }
+    const operationId = `repairIncompleteOneKeyIdLogout:${stringUtils.generateUUID()}`;
+    beginIdentityLifecycleReservation(operationId);
+    try {
+      return await this.commitIncompleteLocalOneKeyIdLogoutRepair();
+    } finally {
+      endIdentityLifecycleReservation(operationId);
+    }
+  }
+
+  private async commitIncompleteLocalOneKeyIdLogoutRepair(): Promise<
+    'notNeeded' | 'repaired' | 'stateChanged'
+  > {
+    const [
+      currentUser,
+      authSessionSource,
+      oneKeyIdAuthState,
+      authStateGeneration,
+      identityLifecycleRevision,
+    ] = await Promise.all([
+      primePersistAtom.get(),
+      this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+      this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+      this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+      this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+    ]);
+    const hasLoggedInFlags = Boolean(
+      currentUser.isLoggedIn && currentUser.isLoggedInOnServer,
+    );
+    const isCurrentLoggedInProjection = Boolean(
+      hasLoggedInFlags &&
+      currentUser.onekeyUserId &&
+      authSessionSource &&
+      oneKeyIdAuthState === 'loggedIn',
+    );
+    const isPreUpgradeLoggedInProjection = Boolean(
+      hasLoggedInFlags &&
+      currentUser.onekeyUserId &&
+      !authSessionSource &&
+      oneKeyIdAuthState === undefined &&
+      authStateGeneration === 0,
+    );
+    const isFullyLoggedOut = Boolean(
+      !currentUser.isLoggedIn &&
+      !currentUser.isLoggedInOnServer &&
+      !currentUser.onekeyUserId &&
+      !authSessionSource &&
+      oneKeyIdAuthState === 'loggedOut',
+    );
+    if (
+      isCurrentLoggedInProjection ||
+      isPreUpgradeLoggedInProjection ||
+      isFullyLoggedOut
+    ) {
+      return 'notNeeded';
+    }
+
+    let repairType:
+      | 'legacyLoggedOutWithoutTombstone'
+      | 'invalidLoggedInProjection'
+      | 'incompleteLogoutProjection';
+    if (
+      !currentUser.isLoggedIn &&
+      !currentUser.isLoggedInOnServer &&
+      !currentUser.onekeyUserId &&
+      !authSessionSource &&
+      oneKeyIdAuthState === undefined &&
+      authStateGeneration === 0
+    ) {
+      repairType = 'legacyLoggedOutWithoutTombstone';
+    } else if (hasLoggedInFlags) {
+      repairType = 'invalidLoggedInProjection';
+    } else {
+      repairType = 'incompleteLogoutProjection';
+    }
+    defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+      stage: 'candidateDetected',
+      status: 'started',
+      repairType,
+    });
+
+    // Treat every partial projection as an interrupted local logout. The
+    // compare-and-set commit rechecks the revision and full projection before
+    // writing the logged-out tombstone, so a concurrent login always wins.
+    // Session slots stay intact here because an incomplete projection cannot
+    // prove their ownership; the normal identity-exit journal clears owned
+    // slots, while a later successful login safely replaces its Keyless slot.
+    try {
+      const result = await this.commitExplicitLocalOneKeyIdLogout({
+        expectedIdentityLifecycleRevision: identityLifecycleRevision,
+        expectedProjection: {
+          authSessionSource,
+          oneKeyIdAuthState,
+          isLoggedIn: currentUser.isLoggedIn,
+          isLoggedInOnServer: currentUser.isLoggedInOnServer,
+          onekeyUserId: currentUser.onekeyUserId,
+        },
+      });
+      defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+        stage: 'stateCommit',
+        status: result.status === 'committed' ? 'succeeded' : 'stateChanged',
+        repairType,
+      });
+      return result.status === 'committed' ? 'repaired' : 'stateChanged';
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdAuthStateRepair({
+        stage: 'stateCommit',
+        status: 'failed',
+        repairType,
+      });
+      throw error;
+    }
+  }
+
   private async persistKeylessOAuthSessionWithinReservation({
     accessToken,
     refreshToken,
@@ -1835,6 +2005,14 @@ class ServicePrime extends ServiceBase {
       );
     }
     const { sessionTokenSub, supabaseSessionId } = sessionIdentity.identity;
+
+    const incompleteLogoutRepair =
+      await this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock();
+    if (incompleteLogoutRepair === 'stateChanged') {
+      throw new OneKeyLocalError(
+        'Failed to persist Keyless OAuth session: OneKey ID auth state changed during recovery.',
+      );
+    }
 
     const [currentOneKeyIdUser, activeOneKeyIdSource, oneKeyIdAuthState] =
       await Promise.all([
@@ -1865,7 +2043,7 @@ class ServicePrime extends ServiceBase {
       (activeOneKeyIdSource || oneKeyIdAuthState === 'loggedIn')
     ) {
       throw new OneKeyLocalError(
-        'Failed to persist Keyless OAuth session: OneKey ID auth state is inconsistent.',
+        'Failed to persist Keyless OAuth session: OneKey ID auth state is inconsistent after recovery.',
       );
     }
     if (
@@ -2358,10 +2536,11 @@ class ServicePrime extends ServiceBase {
             { onekeyUserId },
           );
       } catch (error) {
-        console.error(
-          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt upgrade state read failed:',
-          getSanitizedAuthErrorLog(error),
-        );
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt upgrade state read failed: ${getSanitizedAuthErrorLog(
+            error,
+          )}`,
+        });
         return { status: 'retryable' };
       }
 
@@ -2387,10 +2566,11 @@ class ServicePrime extends ServiceBase {
             return { status: 'skip' };
           }
         } catch (error) {
-          console.error(
-            'ServicePrime.claimOneKeyIdOAuthBindPrompt: OneKey ID refresh failed:',
-            getSanitizedAuthErrorLog(error),
-          );
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt OneKey ID refresh failed: ${getSanitizedAuthErrorLog(
+              error,
+            )}`,
+          });
           return { status: 'retryable' };
         }
       }
@@ -2420,10 +2600,11 @@ class ServicePrime extends ServiceBase {
             }
           }
         } catch (error) {
-          console.error(
-            'ServicePrime.claimOneKeyIdOAuthBindPrompt: credential upgrade failed:',
-            getSanitizedAuthErrorLog(error),
-          );
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt credential upgrade failed: ${getSanitizedAuthErrorLog(
+              error,
+            )}`,
+          });
           return { status: 'retryable' };
         }
       }
@@ -2436,10 +2617,11 @@ class ServicePrime extends ServiceBase {
       try {
         bindRequired = await this.isLegacyOneKeyIdOAuthBindRequired();
       } catch (error) {
-        console.error(
-          'ServicePrime.claimOneKeyIdOAuthBindPrompt: bind required check failed:',
-          getSanitizedAuthErrorLog(error),
-        );
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt bind requirement check failed: ${getSanitizedAuthErrorLog(
+            error,
+          )}`,
+        });
         return { status: 'retryable' };
       }
 
@@ -2450,10 +2632,11 @@ class ServicePrime extends ServiceBase {
           );
           return { status: 'skip' };
         } catch (error) {
-          console.error(
-            'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt state write failed:',
-            getSanitizedAuthErrorLog(error),
-          );
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt state write failed: ${getSanitizedAuthErrorLog(
+              error,
+            )}`,
+          });
           return { status: 'retryable' };
         }
       }
@@ -2472,10 +2655,11 @@ class ServicePrime extends ServiceBase {
           );
         return claimed ? { status: 'claimed', claimId } : { status: 'skip' };
       } catch (error) {
-        console.error(
-          'ServicePrime.claimOneKeyIdOAuthBindPrompt: prompt claim failed:',
-          getSanitizedAuthErrorLog(error),
-        );
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt claim failed: ${getSanitizedAuthErrorLog(
+            error,
+          )}`,
+        });
         return { status: 'retryable' };
       }
     });
@@ -3136,6 +3320,75 @@ class ServicePrime extends ServiceBase {
     return commit;
   }
 
+  @backgroundMethod()
+  async clearOneKeyIdLocalAuthCache(): Promise<{ revision: number }> {
+    return identityLifecycleMutex.runExclusive(async () => {
+      const operationId = `clearOneKeyIdCache:${stringUtils.generateUUID()}`;
+      beginIdentityLifecycleReservation(operationId);
+      try {
+        const sessionSnapshots = await Promise.all(
+          [
+            EPrimeAuthSessionSource.LegacyEmailSupabase,
+            EPrimeAuthSessionSource.KeylessOAuth,
+          ].map(async (authSessionSource) => ({
+            authSessionSource,
+            slot: await readPersistedAccessTokenBySessionSourceStrict(
+              authSessionSource,
+            ),
+          })),
+        );
+        const corruptSessionSource = sessionSnapshots.find(
+          ({ slot }) => slot.status === 'corrupt',
+        )?.authSessionSource;
+        if (corruptSessionSource) {
+          throw new OneKeyLocalError(
+            `${corruptSessionSource} session slot is corrupt; refusing to clear it before the server session can be revoked.`,
+          );
+        }
+        await Promise.all(
+          sessionSnapshots.flatMap(({ authSessionSource, slot }) =>
+            slot.status === 'ok'
+              ? [
+                  this.logoutPrimeServerSessionBestEffort({
+                    accessToken: slot.accessToken,
+                    callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+                  }),
+                  revokeAuthSessionTokenOnServerBestEffort({
+                    authSessionSource,
+                    accessToken: slot.accessToken,
+                  }),
+                ]
+              : [],
+          ),
+        );
+        // Reset the OneKey ID session and the current shared KeylessOAuth
+        // session with their correlation metadata. Legacy per-owner Keyless
+        // OAuth tokens, wallet rows, and mnemonic credential storage are
+        // deliberately outside this OneKey ID recovery boundary.
+        await clearAllSupabaseAuthSessions();
+        const revision = await this.authStateWriteMutex.runExclusive(
+          async () => {
+            const nextRevision =
+              await this.backgroundApi.simpleDb.prime.clearAllIdentityAuthMetadataAndBumpRevision();
+            await this.setPrimePersistAtomNotLoggedIn();
+            return nextRevision;
+          },
+        );
+        appEventBus.emit(
+          EAppEventBusNames.KeylessAuthSessionCleared,
+          undefined,
+        );
+        appEventBus.emit(EAppEventBusNames.IdentityLifecycleCommitted, {
+          revision,
+          oneKeyIdState: 'loggedOut',
+        });
+        return { revision };
+      } finally {
+        endIdentityLifecycleReservation(operationId);
+      }
+    });
+  }
+
   async logoutPrimeServerSessionBestEffort({
     accessToken,
     callerName,
@@ -3623,6 +3876,13 @@ class ServicePrime extends ServiceBase {
     retryScheduled?: boolean;
     recoveredLegacyServerUserInfo?: IPrimeServerUserInfoWithProfile;
   }> {
+    const incompleteLogoutRepair =
+      await this.repairIncompleteLocalOneKeyIdLogout();
+    if (incompleteLogoutRepair === 'repaired') {
+      this.resetSourceLessOneKeyIdRecoveryRetry();
+      return { cleared: true };
+    }
+
     const [oneKeyIdAuthState, authSessionSource] = await Promise.all([
       this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
       this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
@@ -3761,7 +4021,24 @@ class ServicePrime extends ServiceBase {
         const authSessionSource =
           await this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource();
         if (authSessionSource === EPrimeAuthSessionSource.KeylessOAuth) {
-          await this.apiOAuthLogin({ accessToken });
+          await this.loginMutex.runExclusive(async () => {
+            const [lockedAuthSessionSource, currentUser] = await Promise.all([
+              this.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource(),
+              primePersistAtom.get(),
+            ]);
+            if (
+              lockedAuthSessionSource !== EPrimeAuthSessionSource.KeylessOAuth
+            ) {
+              throw new OneKeyLocalError(
+                'ServicePrime.apiLogoutPrimeUserDevice: auth session changed before refresh.',
+              );
+            }
+            await this.apiOAuthLoginWithPersistedSession({
+              accessToken,
+              callerName: 'ServicePrime.apiLogoutPrimeUserDevice',
+              expectedOneKeyUserId: currentUser.onekeyUserId,
+            });
+          });
         } else {
           await this.apiLogin({ accessToken });
         }
@@ -4517,10 +4794,11 @@ class ServicePrime extends ServiceBase {
       );
       return result?.data?.data;
     } catch (error) {
-      console.error(
-        'ServicePrime.apiSendPrimeEmailVerificationCode failed:',
-        getSanitizedAuthErrorLog(error),
-      );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `ServicePrime.apiSendEmailVerificationCode failed and returned legacy fallback success: ${getSanitizedAuthErrorLog(
+          error,
+        )}`,
+      });
     }
 
     return { success: true };
@@ -4550,10 +4828,11 @@ class ServicePrime extends ServiceBase {
       });
       return result?.data?.data;
     } catch (error) {
-      console.error(
-        'ServicePrime.apiPrimeLogin failed:',
-        getSanitizedAuthErrorLog(error),
-      );
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `ServicePrime.apiPrimeLogin failed and returned legacy fallback failure: ${getSanitizedAuthErrorLog(
+          error,
+        )}`,
+      });
     }
     return { success: false };
   }

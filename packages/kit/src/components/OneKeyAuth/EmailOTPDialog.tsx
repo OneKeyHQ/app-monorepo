@@ -13,7 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
-import { getSanitizedAuthErrorText } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -53,11 +56,13 @@ export function EmailOTPDialog(props: {
     }
     didRequestInitialCodeRef.current = true;
     void sendCode().catch((error) => {
+      logOneKeyIdLoginFailureReason(
+        `Email verification code request failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
       if (isMountedRef.current) {
-        console.error(
-          'Email verification code request failed:',
-          getSanitizedAuthErrorText(error),
-        );
         setCountdown(0);
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
         if (retryAfterSeconds !== undefined) {
@@ -86,11 +91,13 @@ export function EmailOTPDialog(props: {
       }
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
+      logOneKeyIdLoginFailureReason(
+        `Email verification code resend failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
       if (isMountedRef.current) {
-        console.error(
-          'Email verification code resend failed:',
-          getSanitizedAuthErrorText(error),
-        );
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
         setCountdown(retryAfterSeconds ?? 0);
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
@@ -135,9 +142,11 @@ export function EmailOTPDialog(props: {
       setIsConfirming(true);
       await onConfirm(verificationCode);
     } catch (error) {
-      console.error(
-        'Email verification code confirmation failed:',
-        getSanitizedAuthErrorText(error),
+      logOneKeyIdLoginFailureReason(
+        `Email verification code confirmation failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
       );
       // Not every consume failure means the code was wrong — a transient
       // network failure or an expired OneKey ID login must not be rendered

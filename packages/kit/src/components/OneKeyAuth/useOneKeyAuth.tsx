@@ -7,6 +7,10 @@ import { Dialog, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { useSupabaseAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/useSupabaseAuth';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -230,9 +234,11 @@ export function useOneKeyAuth() {
         // Keep the read failure distinct from a definitive no-wallet result.
         // OAuth clicks retry the probe and can offer confirmed Keyless removal
         // once the wallet row is readable again.
-        console.error(
-          'useOneKeyAuth.loginOneKeyId: prepareOneKeyIdLoginWithLocalKeyless failed, preserving local Keyless auth:',
-          localKeylessLoginPrepareErrorMessage,
+        logOneKeyIdLoginFailureReason(
+          `useOneKeyAuth local Keyless login preparation failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
         );
         localKeylessLoginPrepareResult = {
           status:

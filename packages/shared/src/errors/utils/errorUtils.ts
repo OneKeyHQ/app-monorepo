@@ -55,6 +55,47 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
   );
 }
 
+type IOneKeyIdFailureServerLogData = Record<string, unknown> & {
+  $$oneKeyIdFailureServerLogged?: boolean;
+};
+
+function getOneKeyIdFailureServerLogData(
+  error: unknown,
+): IOneKeyIdFailureServerLogData | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+  const data = (error as IOneKeyError).data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return undefined;
+  }
+  return data as IOneKeyIdFailureServerLogData;
+}
+
+export function markOneKeyIdFailureServerLogged(error: unknown): void {
+  if (!error || typeof error !== 'object') {
+    return;
+  }
+  try {
+    const oneKeyError = error as IOneKeyError;
+    const data = getOneKeyIdFailureServerLogData(error);
+    if (oneKeyError.data !== undefined && !data) {
+      return;
+    }
+    oneKeyError.data = {
+      ...data,
+      $$oneKeyIdFailureServerLogged: true,
+    };
+  } catch {
+    // Some third-party errors are frozen. Same-runtime callers keep a WeakSet fallback.
+  }
+}
+
+export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
+  const data = getOneKeyIdFailureServerLogData(error);
+  return data?.$$oneKeyIdFailureServerLogged === true;
+}
+
 // 生成 jsdoc 文档, 包含一个 example
 export function safeConsoleLogError(error: Error | unknown) {
   if (platformEnv.isNativeAndroid) {

@@ -296,6 +296,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
@@ -349,6 +350,11 @@ class ServiceSetting extends ServiceBase {
     if (values.serverNetworks) {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
       await this.backgroundApi.simpleDb.recentNetworks.clearRawData();
+    }
+    // This is an account-level logout and intentionally runs after the pure
+    // cache operations so a failure cannot prevent the selected cache clears.
+    if (values.oneKeyId) {
+      await this.backgroundApi.servicePrime.clearOneKeyIdLocalAuthCache();
     }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
