@@ -3465,8 +3465,11 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       'Invalid verification code',
     );
     expect(
-      (error as { $$oneKeyIdFailureServerLogged?: boolean })
-        .$$oneKeyIdFailureServerLogged,
+      (
+        error as {
+          data?: { $$oneKeyIdFailureServerLogged?: boolean };
+        }
+      ).data?.$$oneKeyIdFailureServerLogged,
     ).toBe(true);
 
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
@@ -3498,8 +3501,11 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       'Prime login commit failed',
     );
     expect(
-      (error as { $$oneKeyIdFailureServerLogged?: boolean })
-        .$$oneKeyIdFailureServerLogged,
+      (
+        error as {
+          data?: { $$oneKeyIdFailureServerLogged?: boolean };
+        }
+      ).data?.$$oneKeyIdFailureServerLogged,
     ).toBe(true);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({

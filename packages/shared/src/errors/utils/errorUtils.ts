@@ -38,7 +38,6 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       code: e.code,
       message: e.message,
       autoToast: e.autoToast,
-      $$oneKeyIdFailureServerLogged: e.$$oneKeyIdFailureServerLogged,
       requestId: e.requestId,
       httpStatusCode: e.httpStatusCode,
       data: e.data,
@@ -56,23 +55,45 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
   );
 }
 
+type IOneKeyIdFailureServerLogData = Record<string, unknown> & {
+  $$oneKeyIdFailureServerLogged?: boolean;
+};
+
+function getOneKeyIdFailureServerLogData(
+  error: unknown,
+): IOneKeyIdFailureServerLogData | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+  const data = (error as IOneKeyError).data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return undefined;
+  }
+  return data as IOneKeyIdFailureServerLogData;
+}
+
 export function markOneKeyIdFailureServerLogged(error: unknown): void {
   if (!error || typeof error !== 'object') {
     return;
   }
   try {
-    (error as IOneKeyError).$$oneKeyIdFailureServerLogged = true;
+    const oneKeyError = error as IOneKeyError;
+    const data = getOneKeyIdFailureServerLogData(error);
+    if (oneKeyError.data !== undefined && !data) {
+      return;
+    }
+    oneKeyError.data = {
+      ...data,
+      $$oneKeyIdFailureServerLogged: true,
+    };
   } catch {
     // Some third-party errors are frozen. Same-runtime callers keep a WeakSet fallback.
   }
 }
 
 export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    (error as IOneKeyError).$$oneKeyIdFailureServerLogged === true,
-  );
+  const data = getOneKeyIdFailureServerLogData(error);
+  return data?.$$oneKeyIdFailureServerLogged === true;
 }
 
 // 生成 jsdoc 文档, 包含一个 example

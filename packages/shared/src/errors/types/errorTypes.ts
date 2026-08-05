@@ -98,8 +98,6 @@ export interface IOneKeyError<
     ErrorToastGallery.tsx
   */
   autoToast?: boolean; // TODO move to $$config: { autoToast, reconnect }
-  // Internal diagnostic ownership marker serialized across main/bg RPC.
-  $$oneKeyIdFailureServerLogged?: boolean;
   // ---- hardwareError props
   payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
   reconnect?: boolean;
