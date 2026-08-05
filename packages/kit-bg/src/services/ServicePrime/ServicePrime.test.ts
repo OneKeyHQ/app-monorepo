@@ -2040,20 +2040,26 @@ describe('ServicePrime.clearAllIdentityAuthForExplicitOperation', () => {
     simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision.mockResolvedValue(
       8,
     );
-    mockReadPersistedAccessTokenBySessionSource
-      .mockResolvedValueOnce('legacy-access-token')
-      .mockResolvedValueOnce('keyless-access-token');
+    mockReadPersistedAccessTokenBySessionSourceStrict
+      .mockResolvedValueOnce({
+        status: 'ok',
+        accessToken: 'legacy-access-token',
+      })
+      .mockResolvedValueOnce({
+        status: 'ok',
+        accessToken: 'keyless-access-token',
+      });
 
     await expect(service.clearOneKeyIdLocalAuthCache()).resolves.toEqual({
       revision: 8,
     });
 
-    expect(mockReadPersistedAccessTokenBySessionSource).toHaveBeenCalledWith(
-      EPrimeAuthSessionSource.LegacyEmailSupabase,
-    );
-    expect(mockReadPersistedAccessTokenBySessionSource).toHaveBeenCalledWith(
-      EPrimeAuthSessionSource.KeylessOAuth,
-    );
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledWith(EPrimeAuthSessionSource.LegacyEmailSupabase);
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledWith(EPrimeAuthSessionSource.KeylessOAuth);
     expect(logoutPrimeServerSessionBestEffort).toHaveBeenCalledWith({
       accessToken: 'legacy-access-token',
       callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
@@ -2089,6 +2095,47 @@ describe('ServicePrime.clearAllIdentityAuthForExplicitOperation', () => {
     expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
     expect(
       backgroundApi.serviceKeylessWallet.cleanupKeylessWalletCredentialStorage,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves local sessions when a strict token read fails transiently', async () => {
+    const { service, simpleDbPrime } = createService();
+    const readError = new OneKeyLocalError('secure storage unavailable');
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockRejectedValueOnce(
+      readError,
+    );
+
+    await expect(service.clearOneKeyIdLocalAuthCache()).rejects.toBe(readError);
+
+    expect(logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(mockClearAllSupabaseAuthSessions).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves local sessions when a persisted session slot is corrupt', async () => {
+    const { service, simpleDbPrime } = createService();
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'corrupt',
+    });
+
+    await expect(service.clearOneKeyIdLocalAuthCache()).rejects.toThrow(
+      'session slot is corrupt',
+    );
+
+    expect(logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(mockClearAllSupabaseAuthSessions).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
     ).not.toHaveBeenCalled();
   });
 });

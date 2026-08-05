@@ -101,7 +101,6 @@ import {
   getSupabaseClientBySessionSource,
   persistKeylessAuthSession,
   readAuthTokenAllowingRetryableAuthError,
-  readPersistedAccessTokenBySessionSource,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
   revokeAuthSessionTokenOnServerBestEffort,
@@ -3312,21 +3311,30 @@ class ServicePrime extends ServiceBase {
             EPrimeAuthSessionSource.KeylessOAuth,
           ].map(async (authSessionSource) => ({
             authSessionSource,
-            accessToken:
-              await readPersistedAccessTokenBySessionSource(authSessionSource),
+            slot: await readPersistedAccessTokenBySessionSourceStrict(
+              authSessionSource,
+            ),
           })),
         );
+        const corruptSessionSource = sessionSnapshots.find(
+          ({ slot }) => slot.status === 'corrupt',
+        )?.authSessionSource;
+        if (corruptSessionSource) {
+          throw new OneKeyLocalError(
+            `${corruptSessionSource} session slot is corrupt; refusing to clear it before the server session can be revoked.`,
+          );
+        }
         await Promise.all(
-          sessionSnapshots.flatMap(({ authSessionSource, accessToken }) =>
-            accessToken
+          sessionSnapshots.flatMap(({ authSessionSource, slot }) =>
+            slot.status === 'ok'
               ? [
                   this.logoutPrimeServerSessionBestEffort({
-                    accessToken,
+                    accessToken: slot.accessToken,
                     callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
                   }),
                   revokeAuthSessionTokenOnServerBestEffort({
                     authSessionSource,
-                    accessToken,
+                    accessToken: slot.accessToken,
                   }),
                 ]
               : [],
