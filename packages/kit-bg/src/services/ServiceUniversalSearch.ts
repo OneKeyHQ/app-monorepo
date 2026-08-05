@@ -1231,21 +1231,17 @@ class ServiceUniversalSearch extends ServiceBase {
   // prove an asset is gone, and filtering against it would empty the results.
   private async getTradablePerpCoinSet(): Promise<Set<string> | undefined> {
     try {
-      let { universesByDex, updatedAt } =
+      const { universesByDex, updatedAt } =
         await this.backgroundApi.simpleDb.perp.getTradingUniverse();
 
-      if (!isPerpsUniverseCacheComplete(universesByDex)) {
-        // Nothing usable — a user who never opened Perps has no universe at
-        // all, so wait for one rather than serving delisted rows.
-        await this.backgroundApi.serviceHyperliquid.refreshTradingMeta();
-        ({ universesByDex, updatedAt } =
-          await this.backgroundApi.simpleDb.perp.getTradingUniverse());
-      } else if (
+      // Never await the refresh: universalSearch resolves only once every
+      // search type settles, so blocking here would delay address, dapp and
+      // token results for a user who is not searching perps at all.
+      if (
+        !isPerpsUniverseCacheComplete(universesByDex) ||
         !updatedAt ||
         Date.now() - updatedAt > PERPS_UNIVERSE_SEARCH_MAX_AGE_MS
       ) {
-        // Stale but complete: filtering on it still removes almost everything
-        // delisted, so refresh in the background rather than delaying search.
         void this.backgroundApi.serviceHyperliquid
           .refreshTradingMeta()
           .catch(() => undefined);
