@@ -26,6 +26,7 @@ export enum EModalSwapRoutes {
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
   SwapKLine = 'SwapKLine',
+  SwapInviteeReward = 'SwapInviteeReward',
   LimitOrderDetail = 'LimitOrderDetail',
   SwapProMarketDetail = 'SwapProMarketDetail',
 }
@@ -83,6 +84,11 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapKLine]: {
     storeName: EJotaiContextStoreNames;
+  };
+  [EModalSwapRoutes.SwapInviteeReward]: {
+    accountId?: string;
+    currentEvmAddress?: string;
+    indexedAccountId?: string;
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;

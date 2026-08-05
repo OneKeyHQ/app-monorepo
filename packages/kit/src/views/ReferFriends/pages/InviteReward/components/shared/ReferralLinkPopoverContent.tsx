@@ -108,6 +108,12 @@ const REFERRAL_LINKS = [
     descId: ETranslations.referral_link_perps_desc,
     useWebAppUrl: true,
   },
+  {
+    pathSuffix: '/app/swap',
+    titleId: ETranslations.swap_referral_link__title,
+    descId: ETranslations.swap_referral_link__desc,
+    useWebAppUrl: true,
+  },
 ];
 
 function extractInviteCode(url: string): string | undefined {

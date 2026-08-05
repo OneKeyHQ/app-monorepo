@@ -39,6 +39,10 @@ const PerpsReward = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/PerpsReward'),
 );
 
+const SwapReward = LazyLoadPage(
+  () => import('../../../views/ReferFriends/pages/SwapReward'),
+);
+
 const RewardDistributionHistory = LazyLoadPage(
   () => import('../../../views/ReferFriends/pages/RewardDistributionHistory'),
 );
@@ -85,6 +89,12 @@ export const referFriendsRouters: ITabSubNavigatorConfig<
     name: ETabReferFriendsRoutes.TabPerpsReward,
     rewrite: '/perps-reward',
     component: PerpsReward,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabReferFriendsRoutes.TabSwapReward,
+    rewrite: '/swap-reward',
+    component: SwapReward,
     headerShown: !platformEnv.isNative,
   },
   {
