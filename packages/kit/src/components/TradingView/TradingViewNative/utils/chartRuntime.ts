@@ -1,6 +1,6 @@
 import {
+  TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
-  TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
 } from '../chartConstants';
 
@@ -62,10 +62,10 @@ export type ITradingViewNativeChartRuntimeEvent =
       type: 'zoomed';
     }
   | {
+      chartWidth: number;
       height: number;
       pointCount: number;
       type: 'crosshairMoved';
-      width: number;
       x: number;
       y: number;
     }
@@ -167,7 +167,7 @@ export function reduceTradingViewNativeChartRuntime(
     }
     case 'crosshairMoved': {
       const priceAxisX = Math.max(
-        event.width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
+        TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + event.chartWidth,
         0,
       );
       const pointIndex = getTradingViewNativePointIndexAtX({
