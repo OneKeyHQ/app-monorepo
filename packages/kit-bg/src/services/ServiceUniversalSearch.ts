@@ -1229,25 +1229,16 @@ class ServiceUniversalSearch extends ServiceBase {
 
   // Undefined when the universe is not fully cached: an incomplete cache cannot
   // prove an asset is gone, and filtering against it would empty the results.
-  private async getTradablePerpCoinSet(): Promise<Set<string> | undefined> {
+  private async readTradablePerpCoinSet(): Promise<Set<string> | undefined> {
     try {
       const { universesByDex, updatedAt } =
         await this.backgroundApi.simpleDb.perp.getTradingUniverse();
-
-      // Never await the refresh: universalSearch resolves only once every
-      // search type settles, so blocking here would delay address, dapp and
-      // token results for a user who is not searching perps at all.
-      if (
-        !isPerpsUniverseCacheComplete(universesByDex) ||
-        !updatedAt ||
-        Date.now() - updatedAt > PERPS_UNIVERSE_SEARCH_MAX_AGE_MS
-      ) {
-        void this.backgroundApi.serviceHyperliquid
-          .refreshTradingMeta()
-          .catch(() => undefined);
-      }
-
       if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        return undefined;
+      }
+      const isStale =
+        !updatedAt || Date.now() - updatedAt > PERPS_UNIVERSE_SEARCH_MAX_AGE_MS;
+      if (isStale) {
         return undefined;
       }
       const coins = new Set<string>();
@@ -1267,6 +1258,17 @@ class ServiceUniversalSearch extends ServiceBase {
   private universalSearchOfPerpCached = memoizee(
     async (input: string): Promise<IUniversalSearchPerpResult> => {
       try {
+        // Kick the refresh off before the request so both are in flight at
+        // once: a missing or stale universe is only awaited below, and only
+        // when there are perp rows that actually need filtering.
+        const cachedCoins = await this.readTradablePerpCoinSet();
+        const refreshPromise = cachedCoins
+          ? undefined
+          : this.backgroundApi.serviceHyperliquid
+              .refreshTradingMeta()
+              .then(() => true)
+              .catch(() => false);
+
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         const response = await client.get<{
           data: Array<{
@@ -1282,10 +1284,16 @@ class ServiceUniversalSearch extends ServiceBase {
           params: { query: input },
         });
 
-        const tradableCoins = await this.getTradablePerpCoinSet();
+        const rawAssets = response?.data?.data;
+        // Only wait on the refresh when there is something to filter: a query
+        // that matches no perp asset needs no universe at all.
+        const tradableCoins =
+          rawAssets?.length && (await refreshPromise)
+            ? await this.readTradablePerpCoinSet()
+            : cachedCoins;
 
         const items: IUniversalSearchPerpResult['items'] =
-          response?.data?.data
+          rawAssets
             ?.filter((asset) => {
               // The search index still carries delisted assets — `xyz:UNITREE`
               // survives there after moving to `para`, so the same ticker would
