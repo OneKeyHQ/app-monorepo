@@ -35,6 +35,7 @@ import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transien
 import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
+  wasOneKeyIdFailureServerLogged,
 } from '../oneKeyIdLoginToastUtils';
 import { DevOTPAutoFill } from '../PrimeDevUtils/DevOTPAutoFill';
 
@@ -217,9 +218,17 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           email,
         });
       } catch (error) {
-        // apiEmailOtpLogin owns both local and server diagnostics for this
-        // failure. Logging again here would duplicate the server event after
-        // the error crosses the background/main runtime boundary.
+        // Background-owned failures carry a serialized marker across RPC.
+        // Bridge/call failures that never reached the background still need
+        // one UI-side diagnostic event.
+        if (!wasOneKeyIdFailureServerLogged(error)) {
+          logOneKeyIdLoginFailureReason(
+            `Prime email OTP login failed before background diagnostics: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
+        }
         defaultLogger.referral.page.signupOneKeyIDResult(false);
         if (!isMountedRef.current) {
           return;

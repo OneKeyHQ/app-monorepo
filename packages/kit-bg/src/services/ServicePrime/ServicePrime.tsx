@@ -28,6 +28,10 @@ import {
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
+  markOneKeyIdFailureServerLogged,
+  wasOneKeyIdFailureServerLogged,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -1244,59 +1248,73 @@ class ServicePrime extends ServiceBase {
     email: string;
     otp: string;
   }): Promise<{ success: true }> {
-    return this.loginMutex.runExclusive(async () => {
-      await this.assertOneKeyIdLoggedOutForInteractiveLogin(
-        'ServicePrime.apiEmailOtpLogin',
-      );
-      allowAuthSessionStorageWritesBySessionSource(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      const client = await getSupabaseClientBySessionSource(
-        EPrimeAuthSessionSource.LegacyEmailSupabase,
-      );
-      let response: AuthResponse | undefined;
-      if (email.endsWith('@privy.io')) {
-        try {
-          const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
-          if (phoneOtpData?.phone && phoneOtpData?.otp) {
-            response = await client.auth.verifyOtp({
-              phone: phoneOtpData.phone,
-              token: phoneOtpData.otp,
-              type: 'sms',
+    try {
+      return await this.loginMutex.runExclusive(async () => {
+        await this.assertOneKeyIdLoggedOutForInteractiveLogin(
+          'ServicePrime.apiEmailOtpLogin',
+        );
+        allowAuthSessionStorageWritesBySessionSource(
+          EPrimeAuthSessionSource.LegacyEmailSupabase,
+        );
+        const client = await getSupabaseClientBySessionSource(
+          EPrimeAuthSessionSource.LegacyEmailSupabase,
+        );
+        let response: AuthResponse | undefined;
+        if (email.endsWith('@privy.io')) {
+          try {
+            const phoneOtpData = await this.apiFetchPhoneOtp({ email, otp });
+            if (phoneOtpData?.phone && phoneOtpData?.otp) {
+              response = await client.auth.verifyOtp({
+                phone: phoneOtpData.phone,
+                token: phoneOtpData.otp,
+                type: 'sms',
+              });
+            }
+          } catch (error) {
+            defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+              reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
+                error,
+              )}`,
             });
           }
-        } catch (error) {
+        }
+
+        response ??= await client.auth.verifyOtp({
+          email,
+          token: otp,
+          type: 'email',
+        });
+        if (response.error) {
+          const error = new OneKeyLocalError(response.error.message);
           defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-            reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
-              error,
+            reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
+              response.error,
             )}`,
           });
+          markOneKeyIdFailureServerLogged(error);
+          throw error;
         }
-      }
-
-      response ??= await client.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
+        const accessToken = response.data.session?.access_token;
+        if (!accessToken) {
+          // TODO: i18n
+          throw new OneKeyLocalError(
+            'OneKey ID login failed: access token not found',
+          );
+        }
+        await this.apiLoginWithPersistedLegacySession({ accessToken });
+        return { success: true };
       });
-      if (response.error) {
+    } catch (error) {
+      if (!wasOneKeyIdFailureServerLogged(error)) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
-            response.error,
+          reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
+            error,
           )}`,
         });
-        throw new OneKeyLocalError(response.error.message);
+        markOneKeyIdFailureServerLogged(error);
       }
-      const accessToken = response.data.session?.access_token;
-      if (!accessToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'OneKey ID login failed: access token not found',
-        );
-      }
-      await this.apiLoginWithPersistedLegacySession({ accessToken });
-      return { success: true };
-    });
+      throw error;
+    }
   }
 
   // Guard shared by every flow that POSTs a keyless-realm login/bind and then
@@ -1585,6 +1603,7 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
       });
+      markOneKeyIdFailureServerLogged(error);
       throw error;
     }
     const [user, source, authState] = await Promise.all([
@@ -1599,6 +1618,7 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
       });
+      markOneKeyIdFailureServerLogged(error);
       throw error;
     }
     if (
@@ -1613,6 +1633,7 @@ class ServicePrime extends ServiceBase {
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
       });
+      markOneKeyIdFailureServerLogged(error);
       throw error;
     }
   }

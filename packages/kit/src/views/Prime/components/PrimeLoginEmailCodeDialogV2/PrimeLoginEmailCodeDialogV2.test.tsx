@@ -6,6 +6,8 @@ import { Toast } from '@onekeyhq/components';
 import { createEmailOtpRateLimitError } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { markOneKeyIdFailureServerLogged } from '../oneKeyIdLoginToastUtils';
+
 import { PrimeLoginEmailCodeDialogV2 } from './PrimeLoginEmailCodeDialogV2';
 
 const mockCopyText = jest.fn();
@@ -285,9 +287,9 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   });
 
   test('does not duplicate the background server event for an OTP login failure', async () => {
-    const loginWithCode = jest
-      .fn()
-      .mockRejectedValue(new Error('Invalid verification code'));
+    const error = new Error('Invalid verification code');
+    markOneKeyIdFailureServerLogged(error);
+    const loginWithCode = jest.fn().mockRejectedValue(error);
 
     render(
       <PrimeLoginEmailCodeDialogV2
@@ -319,5 +321,40 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       ).toBeTruthy();
     });
     expect(mockOneKeyIdLoginFailedReason).not.toHaveBeenCalled();
+  });
+
+  test('records an OTP failure that did not reach background diagnostics', async () => {
+    const loginWithCode = jest
+      .fn()
+      .mockRejectedValue(new Error('Background bridge disconnected'));
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest.fn().mockResolvedValue(undefined)}
+        loginWithCode={loginWithCode}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('verification-code'), {
+      target: { value: '123456' },
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'confirm' })
+          .hasAttribute('disabled'),
+      ).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    await waitFor(() => {
+      expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledTimes(1);
+    });
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: expect.stringContaining(
+        'Prime email OTP login failed before background diagnostics',
+      ),
+    });
   });
 });

@@ -2,7 +2,11 @@ import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  markOneKeyIdFailureServerLogged as markOneKeyIdFailureServerLoggedSerializable,
+  toPlainErrorObject,
+  wasOneKeyIdFailureServerLogged as wasOneKeyIdFailureServerLoggedSerializable,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -22,14 +26,18 @@ const oneKeyIdFailureReasonLoggedErrors = new WeakSet<object>();
 export function markOneKeyIdFailureServerLogged(error: unknown) {
   if (error && typeof error === 'object') {
     oneKeyIdFailureServerLoggedErrors.add(error);
+    markOneKeyIdFailureServerLoggedSerializable(error);
   }
 }
 
-function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
+export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
-  return oneKeyIdFailureServerLoggedErrors.has(error);
+  return (
+    oneKeyIdFailureServerLoggedErrors.has(error) ||
+    wasOneKeyIdFailureServerLoggedSerializable(error)
+  );
 }
 
 // Extract a human-readable reason from any throwable — Error/OneKeyError via

@@ -38,6 +38,7 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       code: e.code,
       message: e.message,
       autoToast: e.autoToast,
+      $$oneKeyIdFailureServerLogged: e.$$oneKeyIdFailureServerLogged,
       requestId: e.requestId,
       httpStatusCode: e.httpStatusCode,
       data: e.data,
@@ -52,6 +53,25 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
     },
     isUndefined,
+  );
+}
+
+export function markOneKeyIdFailureServerLogged(error: unknown): void {
+  if (!error || typeof error !== 'object') {
+    return;
+  }
+  try {
+    (error as IOneKeyError).$$oneKeyIdFailureServerLogged = true;
+  } catch {
+    // Some third-party errors are frozen. Same-runtime callers keep a WeakSet fallback.
+  }
+}
+
+export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    (error as IOneKeyError).$$oneKeyIdFailureServerLogged === true,
   );
 }
 

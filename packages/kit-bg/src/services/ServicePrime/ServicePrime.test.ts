@@ -3453,18 +3453,57 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       },
     });
 
-    await expect(
-      service.apiEmailOtpLogin({
+    const error = await service
+      .apiEmailOtpLogin({
         email: 'next@example.com',
         otp: '111111',
-      }),
-    ).rejects.toThrow('Invalid verification code');
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as { message?: string }).message).toBe(
+      'Invalid verification code',
+    );
+    expect(
+      (error as { $$oneKeyIdFailureServerLogged?: boolean })
+        .$$oneKeyIdFailureServerLogged,
+    ).toBe(true);
 
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining(
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
+    });
+  });
+
+  it('records a post-verification login failure once and marks it for the UI runtime', async () => {
+    const { service } = createService();
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => {
+      throw new OneKeyLocalError('Prime login commit failed');
+    });
+
+    const error = await service
+      .apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect((error as { message?: string }).message).toBe(
+      'Prime login commit failed',
+    );
+    expect(
+      (error as { $$oneKeyIdFailureServerLogged?: boolean })
+        .$$oneKeyIdFailureServerLogged,
+    ).toBe(true);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
+      reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
     });
   });
 
