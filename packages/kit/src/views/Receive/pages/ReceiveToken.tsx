@@ -112,6 +112,13 @@ function ReceiveToken() {
     });
   }, [accountId, networkId]);
 
+  // Server overrides for the arrival ETA and protocol-standard label.
+  // Resolves to undefined on fetch failure so the bundled defaults apply.
+  const { result: receiveArrivalConfig } = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getReceiveArrivalConfig(),
+    [],
+  );
+
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
@@ -553,8 +560,15 @@ function ReceiveToken() {
       networkId,
       isTestnet: network?.isTestnet,
       isCustomNetwork: network?.isCustomNetwork,
+      override: receiveArrivalConfig,
     });
-  }, [intl.locale, networkId, network?.isTestnet, network?.isCustomNetwork]);
+  }, [
+    intl.locale,
+    networkId,
+    network?.isTestnet,
+    network?.isCustomNetwork,
+    receiveArrivalConfig,
+  ]);
 
   const pageTitleText = useMemo(
     () =>
@@ -573,8 +587,15 @@ function ReceiveToken() {
         networkId,
         isTestnet: network?.isTestnet,
         isCustomNetwork: network?.isCustomNetwork,
+        override: { byNetworkId: receiveArrivalConfig?.standardByNetworkId },
       }),
-    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+    [
+      network?.name,
+      networkId,
+      network?.isTestnet,
+      network?.isCustomNetwork,
+      receiveArrivalConfig?.standardByNetworkId,
+    ],
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
