@@ -878,8 +878,13 @@ const SwapHistoryDetailModal = () => {
     () => (txHistory ? getSwapHistoryTransactionIdRows(txHistory) : []),
     [txHistory],
   );
+  const hasProviderExplorer = Boolean(
+    (txHistory?.swapInfo.socketBridgeScanUrl && txHistory.txInfo.txId) ||
+    txHistory?.swapInfo.chainFlipExplorerUrl,
+  );
   const shouldShowStatusExplorer =
-    transactionIdRows.length === 1 && !transactionIdRows[0].showExplorer;
+    hasProviderExplorer ||
+    (transactionIdRows.length === 1 && !transactionIdRows[0].showExplorer);
   const [longPendingWarningNow, setLongPendingWarningNow] = useState(() =>
     Date.now(),
   );

@@ -141,6 +141,36 @@ describe('getSwapHistoryTransactionIdRows', () => {
     ]);
   });
 
+  it('falls back to legacy transaction IDs when structured hashes are empty', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          fromNetworkId: 'evm--56',
+          toNetworkId: 'evm--1',
+          receiverTransactionId: '0xtarget',
+          swapOrderHash: {
+            fromTxHash: '',
+            toTxHash: '',
+          },
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'source',
+        transactionId: '0xsource',
+        networkId: 'evm--56',
+        showExplorer: true,
+      },
+      {
+        kind: 'target',
+        transactionId: '0xtarget',
+        networkId: 'evm--1',
+        showExplorer: true,
+        showPendingNote: false,
+      },
+    ]);
+  });
+
   it('falls back to one transaction row when only the target hash exists', () => {
     expect(
       getSwapHistoryTransactionIdRows(

@@ -147,6 +147,7 @@ import {
   isSwapTxHistoryStatusTerminal,
   mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
+  shouldShowSwapHistoryStatusToast,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
 
@@ -2867,7 +2868,6 @@ export default class ServiceSwap extends ServiceBase {
         })
       ) {
         const rawStatus = txStatusRes.state;
-        const previousStateDetail = previousSwapTxHistory.stateDetail;
         const shouldPreserveExistingExtraStatus =
           fetchResult?.shouldPreserveExistingExtraStatus &&
           !isSwapTxHistoryStatusTerminal(rawStatus);
@@ -2915,7 +2915,11 @@ export default class ServiceSwap extends ServiceBase {
           },
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory, {
-          shouldShowToast,
+          shouldShowToast: shouldShowSwapHistoryStatusToast({
+            previousSwapTxHistory,
+            swapTxHistory: currentSwapTxHistory,
+            shouldShowToast,
+          }),
         });
         const finalStatus = currentSwapTxHistory.status;
         trackPrivateSendOrderFinalStatusIfNeeded({
@@ -2932,8 +2936,8 @@ export default class ServiceSwap extends ServiceBase {
         if (
           shouldEmitSwapHistoryBalanceUpdate({
             swapTxHistory: currentSwapTxHistory,
+            previousSwapTxHistory,
             txStatusRes,
-            previousStateDetail,
           })
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {

@@ -67,12 +67,12 @@ export function getSwapHistoryTransactionIdRows(
   item: ISwapTxHistory,
 ): ISwapHistoryTransactionIdRow[] {
   const { fromNetworkId, toNetworkId } = getNetworkIds(item);
-  const sourceTransactionId = getTransactionId(
-    item.swapOrderHash?.fromTxHash ?? item.txInfo.txId,
-  );
-  const targetTransactionId = getTransactionId(
-    item.swapOrderHash?.toTxHash ?? item.txInfo.receiverTransactionId,
-  );
+  const sourceTransactionId =
+    getTransactionId(item.swapOrderHash?.fromTxHash) ??
+    getTransactionId(item.txInfo.txId);
+  const targetTransactionId =
+    getTransactionId(item.swapOrderHash?.toTxHash) ??
+    getTransactionId(item.txInfo.receiverTransactionId);
   const refundTransactionId = getTransactionId(item.swapOrderHash?.refundHash);
 
   const isStandardSwapHistory =

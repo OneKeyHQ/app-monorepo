@@ -2,22 +2,32 @@ import type {
   IFetchSwapTxHistoryStatusResponse,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   mergeSwapOrderHash,
+  shouldEmitSwapHistoryBalanceUpdate,
+  shouldShowSwapHistoryStatusToast,
   shouldUpdateSwapHistoryAfterTxState,
 } from './swapHistoryStatusUtils';
 
 function createHistory({
   receiverTransactionId,
   swapOrderHash,
+  status = ESwapTxHistoryStatus.PENDING,
+  crossChainStatus,
 }: {
   receiverTransactionId?: string;
   swapOrderHash?: ISwapTxHistory['swapOrderHash'];
+  status?: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
 } = {}): ISwapTxHistory {
   return {
-    status: ESwapTxHistoryStatus.PENDING,
+    status,
+    crossChainStatus,
     swapOrderHash,
     txInfo: {
       txId: '0xsource',
@@ -102,5 +112,70 @@ describe('swapHistoryStatusUtils', () => {
       toTxHash: '0xtarget',
       refundHash: '0xrefund',
     });
+  });
+
+  it('does not emit a balance update when only hashes change', () => {
+    const history = createHistory({
+      crossChainStatus: ESwapCrossChainStatus.FROM_SUCCESS,
+    });
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        previousSwapTxHistory: history,
+        swapTxHistory: {
+          ...history,
+          swapOrderHash: { fromTxHash: '0xsource' },
+        },
+        txStatusRes: createStatusResponse({
+          crossChainStatus: ESwapCrossChainStatus.FROM_SUCCESS,
+          swapOrderHash: { fromTxHash: '0xsource' },
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('does not show a status toast when only hashes change', () => {
+    const previousSwapTxHistory = createHistory({
+      status: ESwapTxHistoryStatus.CANCELING,
+    });
+    expect(
+      shouldShowSwapHistoryStatusToast({
+        previousSwapTxHistory,
+        swapTxHistory: {
+          ...previousSwapTxHistory,
+          swapOrderHash: { fromTxHash: '0xsource' },
+        },
+        shouldShowToast: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('allows a status toast when the status changes', () => {
+    const previousSwapTxHistory = createHistory();
+    expect(
+      shouldShowSwapHistoryStatusToast({
+        previousSwapTxHistory,
+        swapTxHistory: {
+          ...previousSwapTxHistory,
+          status: ESwapTxHistoryStatus.SUCCESS,
+        },
+        shouldShowToast: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('emits a balance update when cross-chain status reaches a refresh state', () => {
+    const previousSwapTxHistory = createHistory();
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        previousSwapTxHistory,
+        swapTxHistory: {
+          ...previousSwapTxHistory,
+          crossChainStatus: ESwapCrossChainStatus.FROM_SUCCESS,
+        },
+        txStatusRes: createStatusResponse({
+          crossChainStatus: ESwapCrossChainStatus.FROM_SUCCESS,
+        }),
+      }),
+    ).toBe(true);
   });
 });

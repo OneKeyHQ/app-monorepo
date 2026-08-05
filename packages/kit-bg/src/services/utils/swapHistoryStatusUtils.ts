@@ -156,22 +156,39 @@ export function shouldUpdateSwapHistoryAfterTxState({
   );
 }
 
+export function shouldShowSwapHistoryStatusToast({
+  previousSwapTxHistory,
+  swapTxHistory,
+  shouldShowToast,
+}: {
+  previousSwapTxHistory: ISwapTxHistory;
+  swapTxHistory: ISwapTxHistory;
+  shouldShowToast: boolean;
+}) {
+  return (
+    shouldShowToast && previousSwapTxHistory.status !== swapTxHistory.status
+  );
+}
+
 export function shouldEmitSwapHistoryBalanceUpdate({
   swapTxHistory,
+  previousSwapTxHistory,
   txStatusRes,
-  previousStateDetail,
 }: {
   swapTxHistory: ISwapTxHistory;
+  previousSwapTxHistory: ISwapTxHistory;
   txStatusRes: IFetchSwapTxHistoryStatusResponse;
-  previousStateDetail?: string;
 }) {
   const finalStateWithoutCrossChainStatus =
     !swapTxHistory.crossChainStatus &&
+    previousSwapTxHistory.status !== swapTxHistory.status &&
     (txStatusRes.state === ESwapTxHistoryStatus.SUCCESS ||
       txStatusRes.state === ESwapTxHistoryStatus.PARTIALLY_FILLED);
 
   const crossChainStatusShouldRefresh = swapTxHistory.crossChainStatus
-    ? BALANCE_REFRESH_CROSS_CHAIN_STATUSES.has(swapTxHistory.crossChainStatus)
+    ? previousSwapTxHistory.crossChainStatus !==
+        swapTxHistory.crossChainStatus &&
+      BALANCE_REFRESH_CROSS_CHAIN_STATUSES.has(swapTxHistory.crossChainStatus)
     : false;
 
   if (crossChainStatusShouldRefresh || finalStateWithoutCrossChainStatus) {
@@ -183,6 +200,7 @@ export function shouldEmitSwapHistoryBalanceUpdate({
   }
 
   const nextStateDetail = txStatusRes.stateDetail;
+  const previousStateDetail = previousSwapTxHistory.stateDetail;
   if (!nextStateDetail || previousStateDetail === nextStateDetail) {
     return false;
   }
