@@ -800,9 +800,13 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
+    const nextHardwareTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType,
+      hardwareTransportType: nextHardwareTransportType,
     }));
   }
 
@@ -810,7 +814,9 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return hardwareTransportType;
+      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     }
     return deviceUtils.getDefaultHardwareTransportType();
   }

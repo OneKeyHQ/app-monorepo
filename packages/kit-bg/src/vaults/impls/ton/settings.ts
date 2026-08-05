@@ -64,6 +64,7 @@ const settings: IVaultSettings = {
   supportedDeviceTypes: [
     EDeviceType.Touch,
     EDeviceType.Pro,
+    EDeviceType.Pro2,
     EDeviceType.Classic1s,
     EDeviceType.ClassicPure,
   ],

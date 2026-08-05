@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -24,8 +25,10 @@ import {
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateResultVerifyAtom,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
+  useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -34,9 +37,18 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+import { isPro2SafeOSFirmwareUpdate } from '../utils';
+
+import {
+  PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
+  PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
+  calculateProgressInRange,
+  getNextEstimatedFirmwareProgress,
+} from './firmwareUpdateProgressUtils';
 
 interface IFirmwareUpdateVersionInfo {
   fromVersion: string;
@@ -67,23 +79,6 @@ type IProgressConfigItem = {
 };
 
 const checkingMaxProgress = 10;
-
-const calculateProgressInRange = ({
-  startAt,
-  maxAt,
-  currentProgress,
-}: {
-  startAt: number;
-  maxAt: number;
-  currentProgress: number | null | undefined;
-}) => {
-  let newProgress =
-    startAt + (currentProgress ?? 0) * ((maxAt - startAt) / 100);
-  if (newProgress >= maxAt) {
-    newProgress = maxAt;
-  }
-  return newProgress;
-};
 
 function FirmwareUpdateVersionItem({
   title,
@@ -236,6 +231,8 @@ export function FirmwareUpdateProgressBarV2({
   const intl = useIntl();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
+  const [completedState] = useHardwareUiStateCompletedAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
   const [progress, setProgress] = useState(1);
   const [isDoneInternal, setIsDoneInternal] = useState(!!isDone);
 
@@ -250,8 +247,18 @@ export function FirmwareUpdateProgressBarV2({
   );
   const [desc, setDesc] = useState(defaultDesc());
 
-  const firmwareProgress = state?.payload?.firmwareProgress;
-  const firmwareProgressType = state?.payload?.firmwareProgressType;
+  // The active state may be cleared when the confirmation dialog closes.
+  // Use the latest completed event so the firmware page can still consume it.
+  let progressState;
+  if (state?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+    progressState = state;
+  } else if (
+    completedState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS
+  ) {
+    progressState = completedState;
+  }
+  const firmwareProgress = progressState?.payload?.firmwareProgress;
+  const firmwareProgressType = progressState?.payload?.firmwareProgressType;
   const firmwareTipMessage = state?.payload?.firmwareTipData?.message;
 
   const firmwareProgressRef = useRef(firmwareProgress);
@@ -298,14 +305,17 @@ export function FirmwareUpdateProgressBarV2({
         {
           type: [EFirmwareUpdateTipMessages.SwitchFirmwareReconnectDevice],
           progress: () => progressRef.current,
-          progressMax: () => 99,
+          progressMax: () => PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
           desc: () =>
             intl.formatMessage({
-              id: ETranslations.firmware_update_switch_firmware_reconnect_device,
+              id: isPro2SafeOSFirmwareUpdate(result)
+                ? ETranslations.update_keep_usb_connected_and_app_active
+                : ETranslations.firmware_update_switch_firmware_reconnect_device,
             }),
         },
         {
           type: [EFirmwareUpdateTipMessages.StartTransferData],
+          progressMax: () => 50,
           progress: () =>
             calculateProgressInRange({
               startAt: 12,
@@ -318,13 +328,23 @@ export function FirmwareUpdateProgressBarV2({
             }),
         },
         {
-          type: ['installing'],
+          type: [EFirmwareUpdateTipMessages.ConfirmOnDevice],
+          progress: () => progressRef.current,
+          progressMax: () => progressRef.current,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.global_confirm_on_device,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.FirmwareUpdating, 'installing'],
           progress: () =>
             calculateProgressInRange({
               startAt: 50,
               maxAt: 90,
               currentProgress: firmwareProgressRef.current,
             }),
+          progressMax: () => PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
           desc: () => {
             return intl.formatMessage({
               id: ETranslations.update_installing,
@@ -377,7 +397,7 @@ export function FirmwareUpdateProgressBarV2({
         }
       }
     },
-    [intl],
+    [intl, result],
   );
 
   const updateProgressRef = useRef(updateProgress);
@@ -422,6 +442,36 @@ export function FirmwareUpdateProgressBarV2({
     }
   }, [firmwareProgress, firmwareProgressType]);
 
+  const shouldEstimatePro2Progress =
+    result?.deviceType === EDeviceType.Pro2 &&
+    stepInfo.step === EFirmwareUpdateSteps.installing &&
+    firmwareProgressType === 'installingFirmware' &&
+    lastFirmwareTipMessage !==
+      EFirmwareUpdateTipMessages.FirmwareUpdateCompleted &&
+    !retryInfo &&
+    !isDone;
+
+  useEffect(() => {
+    if (!shouldEstimatePro2Progress) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setProgress((currentProgress) => {
+        const nextProgress = getNextEstimatedFirmwareProgress({
+          currentProgress,
+          maxProgress: progressMaxRef.current,
+        });
+        progressRef.current = nextProgress;
+        return nextProgress;
+      });
+    }, 2000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [shouldEstimatePro2Progress]);
+
   useEffect(() => {
     console.log('FirmwareUpdateProgressBar: =>>>> result: ', result);
   }, [result]);
@@ -442,22 +492,26 @@ export function FirmwareUpdateProgressBarV2({
     if (!result?.updateInfos) return [];
 
     const versions: IFirmwareUpdateVersions[] = [];
+    const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
+    const firmwareInfo = result.updateInfos.firmware;
 
-    if (result.updateInfos.firmware?.hasUpgrade) {
+    if (firmwareInfo?.hasUpgrade || isPro2SafeOSUpdate) {
       versions.push({
-        type: 'Firmware',
+        type: isPro2SafeOSUpdate ? 'SafeOS' : 'Firmware',
         info: {
-          title: intl.formatMessage({ id: ETranslations.global_firmware }),
-          fromVersion: result.updateInfos.firmware.fromVersion ?? '',
-          toVersion: result.updateInfos.firmware.toVersion ?? '',
+          title: isPro2SafeOSUpdate
+            ? 'SafeOS'
+            : intl.formatMessage({ id: ETranslations.global_firmware }),
+          fromVersion: firmwareInfo?.fromVersion ?? '',
+          toVersion: firmwareInfo?.toVersion ?? '',
           verifyVersion: resultVerifyVersions?.finalFirmwareVersion,
           hasUpgrade: true,
-          githubReleaseUrl: result.updateInfos.firmware.githubReleaseUrl,
+          githubReleaseUrl: firmwareInfo?.githubReleaseUrl,
         },
       });
     }
 
-    if (result.updateInfos.bootloader?.hasUpgrade) {
+    if (result.updateInfos.bootloader?.hasUpgrade && !isPro2SafeOSUpdate) {
       versions.push({
         type: 'Bootloader',
         info: {
@@ -471,7 +525,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     }
 
-    if (result.updateInfos.ble?.hasUpgrade) {
+    if (result.updateInfos.ble?.hasUpgrade && !isPro2SafeOSUpdate) {
       versions.push({
         type: 'Bluetooth',
         info: {

@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
@@ -212,6 +213,8 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
+  pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -238,6 +241,8 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    pro2ForceUpdateTargets: [],
+    pro2ForceUpdateOnceTargets: [],
   },
 });
 

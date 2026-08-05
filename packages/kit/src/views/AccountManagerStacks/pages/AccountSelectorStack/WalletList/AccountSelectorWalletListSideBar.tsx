@@ -35,7 +35,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { shouldShowCreateHiddenWalletSidebarButtonForWallet } from '../../../components/WalletEdit/WalletEditButtonUtils';
+import {
+  resolveWalletPassphraseProtection,
+  shouldShowCreateHiddenWalletSidebarButtonForWallet,
+} from '../../../components/WalletEdit/WalletEditButtonUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
@@ -117,8 +120,10 @@ export function AccountSelectorWalletListSideBar({
         trailing: true,
       },
     );
+    appEventBus.on(EAppEventBusNames.HardwareDeviceStateUpdate, fn);
     appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     return () => {
+      appEventBus.off(EAppEventBusNames.HardwareDeviceStateUpdate, fn);
       appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     };
   }, []);
@@ -131,7 +136,7 @@ export function AccountSelectorWalletListSideBar({
   //   - Wallet/Account CRUD funnels through WalletUpdate / AccountUpdate
   //     (see ServiceAccount emits) — listeners below call reloadWallets,
   //     which runs the fetcher and overwrites this slot via usePromiseResult.
-  //   - HardwareFeaturesUpdate / passphrase toggle flow through
+  //   - OneKey state / third-party features / passphrase toggle flow through
   //     reloadWalletsHook -> useEffect refetch -> same overwrite path.
   //   - Bulk wipes (ServiceApp.resetApp, ServiceE2E.clearWalletsAndAccounts)
   //     clear the cold-start cache in the bg service before emitting the
@@ -284,6 +289,7 @@ export function AccountSelectorWalletListSideBar({
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
       noop(reloadWalletsHook);
       if (!wallet) return false;
+      const deviceInfo = wallet.associatedDeviceInfo;
       return shouldShowCreateHiddenWalletSidebarButtonForWallet({
         isEditableRouteParams: !!isEditableRouteParams,
         showAddHiddenInWalletSidebar: settings.showAddHiddenInWalletSidebar,
@@ -296,11 +302,12 @@ export function AccountSelectorWalletListSideBar({
         isQrWallet: accountUtils.isQrWallet({
           walletId: wallet.id,
         }),
-        hasPassphraseProtection:
-          wallet.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
-          true,
+        hasPassphraseProtection: resolveWalletPassphraseProtection({
+          deviceState: deviceInfo?.deviceStateInfo,
+          features: deviceInfo?.featuresInfo,
+        }),
         hiddenWalletsLength: wallet.hiddenWallets?.length ?? 0,
-        vendor: wallet.associatedDeviceInfo?.vendor,
+        vendor: deviceInfo?.vendor,
       });
     },
     [

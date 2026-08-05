@@ -1,7 +1,47 @@
+import { Semaphore } from 'async-mutex';
+
 import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
+
+export type IOneKeyHardwareOperationLease = {
+  readonly deviceKey: string | undefined;
+  readonly owner: symbol;
+};
 
 export class HardwareProcessingManager {
   private cancelCallbacks: Map<string, () => void> = new Map();
+
+  private oneKeyOperationSemaphore = new Semaphore(1);
+
+  private activeOneKeyOperationLease: IOneKeyHardwareOperationLease | undefined;
+
+  runExclusiveOneKeyOperation<T>({
+    deviceKey,
+    lease,
+    operation,
+  }: {
+    deviceKey?: string;
+    lease?: IOneKeyHardwareOperationLease;
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
+  }): Promise<T> {
+    if (lease && lease === this.activeOneKeyOperationLease) {
+      return operation(lease);
+    }
+
+    return this.oneKeyOperationSemaphore.runExclusive(async () => {
+      const acquiredLease: IOneKeyHardwareOperationLease = Object.freeze({
+        deviceKey,
+        owner: Symbol('onekey-hardware-operation'),
+      });
+      this.activeOneKeyOperationLease = acquiredLease;
+      try {
+        return await operation(acquiredLease);
+      } finally {
+        if (this.activeOneKeyOperationLease === acquiredLease) {
+          this.activeOneKeyOperationLease = undefined;
+        }
+      }
+    });
+  }
 
   registerCancelCallback(connectId: string, callback: () => void) {
     this.cancelCallbacks.set(connectId, callback);

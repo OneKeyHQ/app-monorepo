@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { type RouteProp, useRoute } from '@react-navigation/core';
-import { get, isString } from 'lodash';
+import { get } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -73,6 +73,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -92,6 +93,7 @@ import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
   type IOneKeyDeviceFeatures,
+  type IOneKeyDeviceState,
 } from '@onekeyhq/shared/types/device';
 
 import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
@@ -99,6 +101,12 @@ import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmw
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from './SelectAddWalletTypeDialog';
+import {
+  EHardwareWalletCreationMode,
+  getWalletCreationDeviceState,
+  resolveAutomaticWalletCreationMode,
+  shouldCheckExistingStandardWallet,
+} from './walletCreationMode';
 
 import type { Features, IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -146,10 +154,9 @@ async function getForceTransportType(
       if (platformEnv.isNative) return EHardwareTransportType.BLE;
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
-        const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
-        if (usbCommunicationMode === 'bridge')
-          return EHardwareTransportType.Bridge;
-        return EHardwareTransportType.WEBUSB;
+        return deviceUtils.getDesktopUsbTransportType({
+          usbCommunicationMode: dev?.settings?.usbCommunicationMode,
+        });
       }
       // For web/extension, use system setting transport type
       const currentTransportType =
@@ -530,18 +537,11 @@ function useDeviceConnection({
 
         // Only set search results if tabValue hasn't changed
         if (currentTabValueRef.current === tabValue) {
-          if (tabValue === EConnectDeviceChannel.bluetooth) {
-            const isUsbData = sortedDevices.some((device) =>
-              // @ts-expect-error
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              isString(device.features?.device_id),
-            );
-            if (isUsbData) {
-              setSearchedDevices([]);
-              return;
-            }
-          }
-          setSearchedDevices(sortedDevices);
+          setSearchedDevices(
+            tabValue === EConnectDeviceChannel.bluetooth
+              ? sortedDevices.filter(deviceUtils.isBluetoothSearchDevice)
+              : sortedDevices,
+          );
         } else {
           console.log('🔍 Ignoring search results - tab changed during search');
         }
@@ -1326,6 +1326,7 @@ export function ConnectYourDevicePage() {
     try {
       return await backgroundApiProxy.serviceHardware.connect({
         device,
+        forceProtocolDetection: true,
       });
     } catch (error: any) {
       if (error instanceof OneKeyHardwareError) {
@@ -1346,16 +1347,6 @@ export function ConnectYourDevicePage() {
     }
   }, []);
 
-  const extractDeviceState = useCallback(
-    (features: IOneKeyDeviceFeatures) => ({
-      unlockedAttachPin: features.unlocked_attach_pin,
-      unlocked: features.unlocked,
-      passphraseEnabled: Boolean(features.passphrase_protection),
-      deviceId: features.device_id,
-    }),
-    [],
-  );
-
   const closeDialogAndReturn = useCallback(
     async (device: SearchDevice, options: { skipDelayClose?: boolean }) => {
       setIsChecking(false);
@@ -1368,62 +1359,35 @@ export function ConnectYourDevicePage() {
     [],
   );
 
-  type IWalletCreationStrategy = {
-    createHiddenWalletOnly: boolean;
-    createStandardWalletOnly: boolean;
-  };
-
   const determineWalletCreationStrategy = useCallback(
     async (
-      deviceState: ReturnType<typeof extractDeviceState>,
+      deviceState: IOneKeyDeviceState,
       device: SearchDevice,
-    ): Promise<IWalletCreationStrategy | null> => {
-      if (!deviceState.unlocked) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
-      }
-
-      if (deviceState.unlockedAttachPin) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      const existsStandardWallet =
-        await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
-          connectId: device.connectId ?? '',
-          deviceId: deviceState.deviceId ?? '',
-        });
-
-      if (existsStandardWallet) {
-        return {
-          createHiddenWalletOnly: deviceState.passphraseEnabled,
-          createStandardWalletOnly: !deviceState.passphraseEnabled,
-        };
-      }
-
-      if (!deviceState.passphraseEnabled) {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+    ): Promise<EHardwareWalletCreationMode | null> => {
+      const existsStandardWallet = shouldCheckExistingStandardWallet(
+        deviceState,
+      )
+        ? await backgroundApiProxy.serviceAccount.existsHwStandardWallet({
+            connectId: device.connectId ?? '',
+            deviceId:
+              deviceState.identity.deviceId ??
+              deviceUtils.getRawDeviceId({ device }),
+          })
+        : false;
+      const automaticMode = resolveAutomaticWalletCreationMode({
+        state: deviceState,
+        existsStandardWallet,
+      });
+      if (automaticMode) {
+        return automaticMode;
       }
 
       const walletType = await showSelectAddWalletTypeDialog();
       if (walletType === 'Standard') {
-        return {
-          createHiddenWalletOnly: false,
-          createStandardWalletOnly: true,
-        };
+        return EHardwareWalletCreationMode.Standard;
       }
       if (walletType === 'Hidden') {
-        return {
-          createHiddenWalletOnly: true,
-          createStandardWalletOnly: false,
-        };
+        return EHardwareWalletCreationMode.Hidden;
       }
 
       return null;
@@ -1434,10 +1398,10 @@ export function ConnectYourDevicePage() {
   const createHwWallet = useCallback(
     async (
       device: SearchDevice,
-      strategy: IWalletCreationStrategy,
+      walletMode: EHardwareWalletCreationMode,
       features: IOneKeyDeviceFeatures,
       isFirmwareVerified?: boolean,
-      deviceState?: ReturnType<typeof extractDeviceState>,
+      deviceState?: IOneKeyDeviceState,
     ) => {
       try {
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
@@ -1446,11 +1410,12 @@ export function ConnectYourDevicePage() {
           device,
           hideCheckingDeviceLoading: true,
           features,
+          deviceState,
           isFirmwareVerified,
           defaultIsTemp: true,
-          isAttachPinMode: deviceState?.unlockedAttachPin,
+          isAttachPinMode: deviceState?.status.unlockedAttachPin ?? undefined,
         };
-        if (strategy.createStandardWalletOnly) {
+        if (walletMode === EHardwareWalletCreationMode.Standard) {
           await actions.current.createHWWalletWithoutHidden(params);
         } else {
           await actions.current.createHWWalletWithHidden(params);
@@ -1466,7 +1431,7 @@ export function ConnectYourDevicePage() {
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: features.device_id || device.deviceId || '',
+          deviceId: deviceUtils.getRawDeviceId({ device, features }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
@@ -1495,6 +1460,7 @@ export function ConnectYourDevicePage() {
   const selectAddWalletType = useCallback(
     async ({
       device,
+      features: connectedFeatures,
       isFirmwareVerified,
     }: {
       device: SearchDevice;
@@ -1508,24 +1474,30 @@ export function ConnectYourDevicePage() {
       });
 
       let features: IOneKeyDeviceFeatures | undefined;
+      let deviceState: IOneKeyDeviceState;
 
       try {
-        features =
-          await backgroundApiProxy.serviceHardware.getFeaturesWithUnlock({
-            connectId: device.connectId ?? '',
-          });
+        const connectProtocol =
+          connectedFeatures.protocol === 'V1' ||
+          connectedFeatures.protocol === 'V2'
+            ? connectedFeatures.protocol
+            : undefined;
+        deviceState = await getWalletCreationDeviceState({
+          serviceHardware: backgroundApiProxy.serviceHardware,
+          connectId: device.connectId ?? '',
+          connectProtocol,
+        });
+        features = projectLegacyDeviceFeaturesFromState(deviceState);
       } catch (_error) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         return;
       }
 
-      const deviceState = extractDeviceState(features);
       const strategy = await determineWalletCreationStrategy(
         deviceState,
         device,
       );
 
-      console.log('Current hardware wallet State', deviceState, strategy);
       if (!strategy) {
         await closeDialogAndReturn(device, { skipDelayClose: true });
         return;
@@ -1539,12 +1511,7 @@ export function ConnectYourDevicePage() {
         deviceState,
       );
     },
-    [
-      extractDeviceState,
-      determineWalletCreationStrategy,
-      createHwWallet,
-      closeDialogAndReturn,
-    ],
+    [determineWalletCreationStrategy, createHwWallet, closeDialogAndReturn],
   );
 
   // Shared device connection handler
@@ -1600,13 +1567,8 @@ export function ConnectYourDevicePage() {
           return;
         }
 
-        // Set global transport type based on selected channel before connecting
-        let forceTransportType: EHardwareTransportType | undefined;
-        if (tabValue === EConnectDeviceChannel.bluetooth) {
-          forceTransportType = EHardwareTransportType.DesktopWebBle;
-        } else {
-          forceTransportType = await getForceTransportType(tabValue);
-        }
+        // Select transport for the current platform; native Bluetooth requires BLE.
+        const forceTransportType = await getForceTransportType(tabValue);
         if (forceTransportType) {
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType,
@@ -1665,7 +1627,7 @@ export function ConnectYourDevicePage() {
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...device,
-              deviceId: device.deviceId || features.device_id,
+              deviceId: deviceUtils.getRawDeviceId({ device, features }),
             },
           });
 

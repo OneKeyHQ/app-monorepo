@@ -48,6 +48,8 @@ import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBCon
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
+import { createFirmwareRecheckTimer } from './firmwareRecheckUtils';
+
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 enum ECheckAndUpdateStepState {
@@ -88,8 +90,7 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
-  const { deviceData, tabValue } = routeParams?.params || {};
-  console.log('deviceData', deviceData);
+  const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -104,11 +105,19 @@ function CheckAndUpdatePage({
   // update: consumed when the scheduled recheck fires (or cleared by an
   // explicit user Skip). Only drives scheduling/delay math.
   const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
   // Carries the "device may still be rebooting" fact separately: set on
   // FinishFirmwareUpdate, cleared only when a check COMPLETES successfully.
   // While set, every round — including a manual Retry — upgrades to the
   // patient reconnect path and the longer watchdog budget.
   const pendingPostUpdateReconnectRef = useRef(false);
+  const [isFirmwareRecheckPending, setIsFirmwareRecheckPending] =
+    useState(false);
+
+  const cancelFirmwareRecheck = useCallback(() => {
+    firmwareRecheckCancelRef.current?.();
+    firmwareRecheckCancelRef.current = null;
+  }, []);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -129,13 +138,14 @@ function CheckAndUpdatePage({
     if (!deviceType) {
       return deviceLabel;
     }
-    return deviceUtils.getDeviceModelNameByType(deviceType) || deviceLabel;
+    return deviceUtils.getDefaultDeviceLabel(deviceType) || deviceLabel;
   }, [currentDevice, deviceLabel]);
 
   const {
     verifyHardware,
     ensureActiveConnection,
     getActiveDevice,
+    getActiveDeviceFeatures,
     ensureStopScan,
   } = useDeviceConnect({
     setCurrentDevice,
@@ -146,13 +156,28 @@ function CheckAndUpdatePage({
     if (!tabValue) {
       return;
     }
-    const forceTransportType = await getForceTransportType(tabValue);
+    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const confirmedConnectProtocol =
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
+        ? activeFeaturesProtocol
+        : (getActiveDevice()?.connectProtocol ??
+          currentDevice?.connectProtocol ??
+          connectProtocol);
+    const forceTransportType = await getForceTransportType(tabValue, {
+      connectProtocol: confirmedConnectProtocol,
+    });
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
       });
     }
-  }, [tabValue]);
+  }, [
+    connectProtocol,
+    currentDevice?.connectProtocol,
+    getActiveDevice,
+    getActiveDeviceFeatures,
+    tabValue,
+  ]);
 
   const [steps, setSteps] = useState<
     {
@@ -282,17 +307,35 @@ function CheckAndUpdatePage({
   // (its connectId may have changed after a firmware update) so DeviceSetup
   // and FinalizeWalletSetup talk to the right device.
   const toDeviceSetup = useCallback(() => {
+    const activeDevice = (getActiveDevice() ??
+      currentDevice ??
+      deviceData.device) as SearchDevice;
+    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const confirmedConnectProtocol =
+      activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
+        ? activeFeaturesProtocol
+        : (activeDevice.connectProtocol ?? connectProtocol);
     navigation.push(EOnboardingPagesV2.DeviceSetup, {
+      connectProtocol: confirmedConnectProtocol,
       deviceData: {
         ...deviceData,
-        device: (getActiveDevice() ??
-          currentDevice ??
-          deviceData.device) as SearchDevice,
+        device: {
+          ...activeDevice,
+          connectProtocol: confirmedConnectProtocol,
+        },
       },
       tabValue,
       isFirmwareVerified: isFirmwareVerifiedRef.current,
     });
-  }, [navigation, deviceData, getActiveDevice, currentDevice, tabValue]);
+  }, [
+    connectProtocol,
+    navigation,
+    deviceData,
+    getActiveDevice,
+    getActiveDeviceFeatures,
+    currentDevice,
+    tabValue,
+  ]);
 
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(
@@ -405,6 +448,7 @@ function CheckAndUpdatePage({
       // manual Retry — to the patient path with its longer watchdog budget.
       const checkAfterUpdate =
         params?.checkAfterUpdate || pendingPostUpdateReconnectRef.current;
+      setIsFirmwareRecheckPending(false);
       const cancelTimeout = createStepTimeout(
         isStale,
         () => watchdogConnectId,
@@ -444,6 +488,7 @@ function CheckAndUpdatePage({
             {
               connectId: compatibleConnectId,
               skipCancel: true,
+              checkFirmwareHash: checkAfterUpdate,
               firmwareType: undefined,
             },
           );
@@ -575,33 +620,44 @@ function CheckAndUpdatePage({
         return;
       }
 
-      const elapsed = Date.now() - finishTime;
-      const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
-
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[1] = {
-          ...newSteps[1],
-          state: ECheckAndUpdateStepState.InProgress,
-        };
-        return newSteps;
-      });
-
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
-      const timeoutId = setTimeout(() => {
-        // One-shot: consume the timestamp when the recheck actually fires.
-        // The patient-path upgrade for later rounds is carried by
-        // pendingPostUpdateReconnectRef instead.
-        firmwareUpdateFinishTimeRef.current = null;
-        void checkFirmwareUpdate({
-          checkAfterUpdate: true,
-        });
-      }, remainingDelay);
+      // Keep the previous state during this cancellable window so a blur can
+      // safely reschedule the check on the next focus. The check owns the
+      // InProgress transition when it actually starts.
+      cancelFirmwareRecheck();
+      setIsFirmwareRecheckPending(true);
+      const cancel = createFirmwareRecheckTimer({
+        finishTime,
+        delayMs: FIRMWARE_RECHECK_DELAY,
+        onFire: () => {
+          firmwareRecheckCancelRef.current = null;
+          setIsFirmwareRecheckPending(false);
+          // A user decision may be made between scheduling and firing.
+          if (
+            firmwareStepStateRef.current === ECheckAndUpdateStepState.Skipped ||
+            firmwareStepStateRef.current === ECheckAndUpdateStepState.Success
+          ) {
+            firmwareUpdateFinishTimeRef.current = null;
+            return;
+          }
+          // One-shot: consume the timestamp when the recheck actually fires.
+          // The patient-path upgrade for later rounds is carried by
+          // pendingPostUpdateReconnectRef instead.
+          firmwareUpdateFinishTimeRef.current = null;
+          void checkFirmwareUpdate({
+            checkAfterUpdate: true,
+          });
+        },
+      });
+      firmwareRecheckCancelRef.current = cancel;
 
       return () => {
-        clearTimeout(timeoutId);
+        cancel();
+        if (firmwareRecheckCancelRef.current === cancel) {
+          firmwareRecheckCancelRef.current = null;
+        }
       };
-    }, [checkFirmwareUpdate, restoreOriginalTransport]),
+    }, [cancelFirmwareRecheck, checkFirmwareUpdate, restoreOriginalTransport]),
   );
 
   useEffect(() => {
@@ -650,10 +706,10 @@ function CheckAndUpdatePage({
       // unavailable) is not a verification pass — record it as Skipped so the
       // step doesn't claim the device is genuine.
       let genuineState = ECheckAndUpdateStepState.Error;
-      if (result.verified) {
-        genuineState = ECheckAndUpdateStepState.Success;
-      } else if (result.skipVerification) {
+      if (result.skipVerification) {
         genuineState = ECheckAndUpdateStepState.Skipped;
+      } else if (result.verified) {
+        genuineState = ECheckAndUpdateStepState.Success;
       }
       const shouldContinueToFirmwareCheck =
         genuineState !== ECheckAndUpdateStepState.Error;
@@ -747,6 +803,8 @@ function CheckAndUpdatePage({
               // Declining the optional update is recorded honestly as
               // Skipped — the flow continues, but without success visuals.
               // Skipping also cancels any pending focus-effect auto-recheck.
+              cancelFirmwareRecheck();
+              setIsFirmwareRecheckPending(false);
               firmwareUpdateFinishTimeRef.current = null;
               setSteps((prev) => {
                 const newSteps = [...prev];
@@ -762,7 +820,7 @@ function CheckAndUpdatePage({
         </Theme>
       ),
     });
-  }, [intl]);
+  }, [cancelFirmwareRecheck, intl]);
 
   useConnectDeviceError(
     useCallback(
@@ -787,6 +845,8 @@ function CheckAndUpdatePage({
   const handleSkipCurrentStep = useCallback(() => {
     let currentStepId: ECheckAndUpdateStepId | undefined;
     // Skipping also cancels any pending focus-effect auto-recheck.
+    cancelFirmwareRecheck();
+    setIsFirmwareRecheckPending(false);
     firmwareUpdateFinishTimeRef.current = null;
     setSteps((prev) => {
       const index = prev.findIndex(
@@ -813,7 +873,7 @@ function CheckAndUpdatePage({
         void checkFirmwareUpdate();
       }
     }, 150);
-  }, [checkFirmwareUpdate]);
+  }, [cancelFirmwareRecheck, checkFirmwareUpdate]);
 
   // Primary CTA at the foot of the flow. The two states are mutually exclusive
   // (all-idle → verify the device; ready → continue to setup), so the single
@@ -883,15 +943,21 @@ function CheckAndUpdatePage({
           displayTitle =
             step.id === ECheckAndUpdateStepId.GenuineCheck
               ? intl.formatMessage({
-                  id: ETranslations.genuine_check_skipped_title,
+                  id: ETranslations.global_skip,
                 })
               : intl.formatMessage({
-                  id: ETranslations.firmware_check_skipped_title,
+                  id: ETranslations.global_skip,
                 });
         }
-        const displayDescription = isStepCollapsed
-          ? undefined
-          : step.description;
+        const isFirmwareRecheckWaiting =
+          step.id === ECheckAndUpdateStepId.FirmwareCheck &&
+          isFirmwareRecheckPending;
+        let displayDescription = isStepCollapsed ? undefined : step.description;
+        if (isFirmwareRecheckWaiting) {
+          displayDescription = intl.formatMessage({
+            id: ETranslations.update_checking_device_if_no_restart,
+          });
+        }
         return (
           <YStack key={step.title}>
             {/* highlight background */}
@@ -970,7 +1036,10 @@ function CheckAndUpdatePage({
                     : 'firmware'
                 }
                 tone={illustrationTone}
-                beaming={step.state === ECheckAndUpdateStepState.InProgress}
+                beaming={
+                  step.state === ECheckAndUpdateStepState.InProgress ||
+                  isFirmwareRecheckWaiting
+                }
               />
               <YStack gap="$1" flex={1} alignSelf="center">
                 <SizableText size="$headingSm">{displayTitle}</SizableText>
@@ -984,7 +1053,8 @@ function CheckAndUpdatePage({
             <HeightTransition initialHeight={0}>
               {/* update */}
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
-              step.state === ECheckAndUpdateStepState.Warning ? (
+              step.state === ECheckAndUpdateStepState.Warning &&
+              !isFirmwareRecheckPending ? (
                 <XStack
                   gap="$2"
                   mt="$4"

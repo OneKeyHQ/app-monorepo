@@ -1100,20 +1100,37 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getSupportExportAccountKeyNetworks({
     exportType,
+    walletId,
   }: {
     exportType: 'privateKey' | 'publicKey' | 'mnemonic';
+    walletId?: string;
   }): Promise<
     {
       network: IServerNetwork;
     }[]
   > {
+    let networksInfo: { network: IServerNetwork }[];
     if (exportType === 'privateKey') {
-      return this.getSupportExportPrivateKeyNetworks();
+      networksInfo = await this.getSupportExportPrivateKeyNetworks();
+    } else if (exportType === 'publicKey') {
+      networksInfo = await this.getSupportExportPublicKeyNetworks();
+    } else {
+      throw new OneKeyLocalError('Not implemented');
     }
-    if (exportType === 'publicKey') {
-      return this.getSupportExportPublicKeyNetworks();
+
+    if (!walletId) {
+      return networksInfo;
     }
-    throw new OneKeyLocalError('Not implemented');
+
+    const { networkIdsCompatible } =
+      await this.getNetworkIdsCompatibleWithWalletId({
+        walletId,
+        networkIds: networksInfo.map((item) => item.network.id),
+      });
+    const compatibleNetworkIds = new Set(networkIdsCompatible);
+    return networksInfo.filter((item) =>
+      compatibleNetworkIds.has(item.network.id),
+    );
   }
 
   @backgroundMethod()

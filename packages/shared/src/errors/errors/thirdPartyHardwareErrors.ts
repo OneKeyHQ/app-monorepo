@@ -15,6 +15,8 @@ import { OneKeyHardwareError } from './hardwareErrors';
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
+  ThirdPartyHwErrorCode.NetworkError;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
   ThirdPartyHwErrorCode.DevicePathForbidden;
 export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
@@ -112,7 +114,7 @@ export class ThirdPartyNetworkError extends ThirdPartyHardwareError {
     this.vendor = props?.vendor;
   }
 
-  override code = ThirdPartyHwErrorCode.NetworkError;
+  override code = THIRD_PARTY_HW_NETWORK_ERROR_CODE;
 }
 
 export class ThirdPartyUserRejected extends ThirdPartyHardwareError {

@@ -1,8 +1,13 @@
-import { EDeviceType, ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  type HardwareConnectProtocol,
+  ONEKEY_WEBUSB_FILTER,
+} from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -52,14 +57,22 @@ export class HardwareConnectionManager {
     HardwareConnectionManager.instance = null;
   }
 
-  private async getDesktopUsbSetting(): Promise<
-    'webusb' | 'bridge' | undefined
-  > {
+  private async getDesktopUsbSetting(
+    connectProtocol?: HardwareConnectProtocol,
+  ): Promise<'webusb' | 'bridge' | undefined> {
     try {
       const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
-      return dev?.settings?.usbCommunicationMode;
+      return deviceUtils.getDesktopUsbTransportType({
+        usbCommunicationMode: dev?.settings?.usbCommunicationMode,
+        connectProtocol,
+      }) === EHardwareTransportType.Bridge
+        ? 'bridge'
+        : 'webusb';
     } catch {
-      return undefined;
+      return deviceUtils.getDesktopUsbTransportType({ connectProtocol }) ===
+        EHardwareTransportType.Bridge
+        ? 'bridge'
+        : 'webusb';
     }
   }
 
@@ -107,7 +120,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(): Promise<boolean> {
+  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -119,13 +132,20 @@ export class HardwareConnectionManager {
         );
         return isOneKey;
       });
-      return onekeyDevices.length > 0;
+      const normalizedConnectId = connectId?.trim().toLowerCase();
+      if (!normalizedConnectId) {
+        return onekeyDevices.length > 0;
+      }
+      return onekeyDevices.some(
+        (device) =>
+          device.serialNumber?.trim().toLowerCase() === normalizedConnectId,
+      );
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -139,22 +159,35 @@ export class HardwareConnectionManager {
         },
       );
 
-      const devices = response.data as unknown[];
-      const isAvailable = Array.isArray(devices) && devices.length > 0;
-      return isAvailable;
+      const devices = response.data as Array<{ path?: unknown }>;
+      if (!Array.isArray(devices)) {
+        return false;
+      }
+      const normalizedConnectId = connectId?.trim().toLowerCase();
+      if (!normalizedConnectId) {
+        return devices.length > 0;
+      }
+      return devices.some(
+        (device) =>
+          typeof device?.path === 'string' &&
+          device.path.trim().toLowerCase() === normalizedConnectId,
+      );
     } catch (_error) {
       return false;
     }
   }
 
   // Checking USB availability based on DevSetting
-  async detectUSBDeviceAvailability(): Promise<boolean> {
+  async detectUSBDeviceAvailability(
+    connectId?: string,
+    connectProtocol?: HardwareConnectProtocol,
+  ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
-    const mode = await this.getDesktopUsbSetting();
+    const mode = await this.getDesktopUsbSetting(connectProtocol);
     if (mode === 'bridge') {
-      return this.detectBridgeAvailability();
+      return this.detectBridgeAvailability(connectId);
     }
-    return this.detectWebUSBAvailability();
+    return this.detectWebUSBAvailability(connectId);
   }
 
   // Trezor-scoped USB presence. detectUSBDeviceAvailability answers "is any
@@ -284,14 +317,19 @@ export class HardwareConnectionManager {
 
   async determineOptimalTransportType(
     hardwareCallContext?: IHardwareCallContext,
+    connectId?: string,
+    connectProtocol?: HardwareConnectProtocol,
   ): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
     if (platformEnv.isSupportDesktopBle) {
-      const mode = await this.getDesktopUsbSetting();
-      const webUsbAvailable = await this.detectUSBDeviceAvailability();
-      if (webUsbAvailable) {
+      const mode = await this.getDesktopUsbSetting(connectProtocol);
+      const usbAvailable = await this.detectUSBDeviceAvailability(
+        connectId,
+        connectProtocol,
+      );
+      if (usbAvailable) {
         return mode === 'bridge'
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
@@ -315,9 +353,11 @@ export class HardwareConnectionManager {
   shouldSwitchTransportType = memoizee(
     async ({
       connectId,
+      connectProtocol,
       hardwareCallContext,
     }: {
       connectId?: string;
+      connectProtocol?: HardwareConnectProtocol;
       hardwareCallContext?: IHardwareCallContext;
     }): Promise<{
       shouldSwitch: boolean;
@@ -331,24 +371,30 @@ export class HardwareConnectionManager {
 
       // If a specific transport type is forced (e.g., for onboarding), use it directly
       if (forceTransportType) {
-        const shouldSwitch = this.actualTransportType !== forceTransportType;
+        const targetType =
+          deviceUtils.normalizeHardwareTransportTypeForPlatform({
+            transportType: forceTransportType,
+            connectProtocol,
+          });
+        const shouldSwitch = this.actualTransportType !== targetType;
         return {
           shouldSwitch,
-          targetType: forceTransportType,
+          targetType,
         };
       }
 
       // quick detect mini device
       const isMiniDevice = connectId && connectId.startsWith('MI');
-      // mini device should always use bridge transport type
+      // Mini does not support BLE, so it must always use the configured USB transport.
       if (isMiniDevice) {
-        const usbSetting = await this.getDesktopUsbSetting();
+        const usbSetting = await this.getDesktopUsbSetting(connectProtocol);
+        const targetType =
+          usbSetting === 'webusb'
+            ? EHardwareTransportType.WEBUSB
+            : EHardwareTransportType.Bridge;
         return {
-          shouldSwitch: false,
-          targetType:
-            usbSetting === 'webusb'
-              ? EHardwareTransportType.WEBUSB
-              : EHardwareTransportType.Bridge,
+          shouldSwitch: this.actualTransportType !== targetType,
+          targetType,
         };
       }
 
@@ -356,6 +402,7 @@ export class HardwareConnectionManager {
       if (
         [
           EHardwareCallContext.BACKGROUND_TASK,
+          EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
           EHardwareCallContext.SDK_INITIALIZATION,
           EHardwareCallContext.SILENT_CALL,
         ].includes(hardwareCallContext || EHardwareCallContext.USER_INTERACTION)
@@ -372,8 +419,11 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType =
-        await this.determineOptimalTransportType(hardwareCallContext);
+      const optimalType = await this.determineOptimalTransportType(
+        hardwareCallContext,
+        connectId,
+        connectProtocol,
+      );
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(
@@ -392,7 +442,12 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) => args[0].hardwareCallContext || 'default',
+      normalizer: (args) =>
+        JSON.stringify([
+          args[0].hardwareCallContext || 'default',
+          args[0].connectId?.trim().toLowerCase() || '',
+          args[0].connectProtocol || '',
+        ]),
     },
   );
 

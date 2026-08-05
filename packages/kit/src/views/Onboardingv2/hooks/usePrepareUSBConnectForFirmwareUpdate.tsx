@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -7,7 +8,7 @@ import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -35,9 +36,28 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures | undefined;
     }): Promise<IUSBConnectPrepareResult | null> => {
+      const connectProtocol =
+        device.deviceType === EDeviceType.Pro2 ? 'V2' : undefined;
+      let connectIdToUse = device.connectId;
+      if (platformEnv.isDesktop && features) {
+        try {
+          const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
+            features,
+          });
+          if (!isNil(usbConnectId)) {
+            connectIdToUse = usbConnectId;
+          }
+        } catch (error) {
+          console.error('Failed to build USB connectId:', error);
+        }
+      }
+
       // Step 1: Check if USB device is available
       const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability({
+          connectId: connectIdToUse ?? undefined,
+          connectProtocol,
+        });
 
       if (!isUSBDeviceAvailable) {
         Dialog.show({
@@ -59,32 +79,13 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       // Step 2: For Desktop, switch to USB transport type
       if (platformEnv.isDesktop) {
         const desktopForceUSBTransportType =
-          await getDesktopForceUSBTransportType();
+          await getDesktopForceUSBTransportType({ connectProtocol });
         if (desktopForceUSBTransportType) {
           globalOriginalTransport =
             await backgroundApiProxy.serviceHardware.getCurrentForceTransportType();
           await backgroundApiProxy.serviceHardware.setForceTransportType({
             forceTransportType: desktopForceUSBTransportType,
           });
-        }
-      }
-
-      // Step 3: Build USB connectId from BLE connection if needed
-      let connectIdToUse = device.connectId;
-      if (
-        platformEnv.isDesktop &&
-        globalOriginalTransport === EHardwareTransportType.DesktopWebBle &&
-        features
-      ) {
-        try {
-          const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
-            features,
-          });
-          if (!isNil(usbConnectId)) {
-            connectIdToUse = usbConnectId;
-          }
-        } catch (error) {
-          console.error('Failed to build USB connectId:', error);
         }
       }
 

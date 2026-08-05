@@ -29,6 +29,7 @@ export function HomeSupportedWallet({
     [EDeviceType.Mini]: 'Mini',
     [EDeviceType.Touch]: 'Touch',
     [EDeviceType.Pro]: 'Pro',
+    [EDeviceType.Pro2]: 'Pro 2',
     [EDeviceType.Unknown]: '',
     'watching': intl.formatMessage({
       id: ETranslations.faq_watched_account,

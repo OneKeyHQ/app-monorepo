@@ -50,13 +50,16 @@ function ResetDetectTimeCheck() {
 }
 
 function BootloaderModeUpdateButton() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const connectId = activeAccount.device?.connectId;
   const [retryInfo] = useFirmwareUpdateRetryAtom();
   const actions = useFirmwareUpdateActions();
   return (
     <Button
       onPress={() => {
-        actions.showBootloaderMode({ connectId: undefined });
+        actions.showBootloaderMode({ connectId });
         console.log({
+          connectId,
           retryInfo,
         });
       }}

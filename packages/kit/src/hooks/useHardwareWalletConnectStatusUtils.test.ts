@@ -86,11 +86,35 @@ describe('hardware wallet connect status utils', () => {
 
     expect(getWalletHardwareConnectionKeys(wallet)).toEqual([
       'onekey-device-id',
+      'onekey-connect-id',
     ]);
     expect(
       isWalletConnectedByHardwareStatus({
         wallet,
         connectedDeviceKeys: new Set(['onekey-device-id']),
+      }),
+    ).toBe(true);
+  });
+
+  it('matches OneKey Pro 2 wallets by the USB serial identity', () => {
+    const wallet = {
+      associatedDeviceInfo: {
+        vendor: EHardwareVendor.onekey,
+        deviceId: 'pro2-wallet-device-id',
+        uuid: 'pro2-serial-number',
+        connectId: 'pro2-serial-number',
+        usbConnectId: 'pro2-serial-number',
+      },
+    };
+
+    expect(getWalletHardwareConnectionKeys(wallet)).toEqual([
+      'pro2-wallet-device-id',
+      'pro2-serial-number',
+    ]);
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet,
+        connectedDeviceKeys: new Set(['pro2-serial-number']),
       }),
     ).toBe(true);
   });

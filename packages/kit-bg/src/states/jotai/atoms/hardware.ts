@@ -19,6 +19,11 @@ import { globalAtom } from '../utils';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
+export type IHardwareUiResponseCorrelation = {
+  interactionId: string;
+  deviceId: string;
+};
+
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;
@@ -29,8 +34,13 @@ export type IHardwareUiPayload = {
   deviceMode: EOneKeyDeviceMode;
   isBootloaderMode?: boolean;
   // request passphrase
-  passphraseState?: string; // use passphrase, REQUEST_PASSPHRASE_ON_DEVICE only
-  existsAttachPinUser?: boolean; // use attach pin, REQUEST_PASSPHRASE_ON_DEVICE only
+  passphraseState?: string; // Wallet identity used to verify a passphrase recovery request.
+  existsAttachPinUser?: boolean; // Show the existing Attach PIN entry during wallet selection.
+  deviceOnly?: boolean;
+  source?: 'wallet-session-coordinator';
+  reason?: 'open-wallet' | 'session-recovery';
+  expectedPassphraseState?: string;
+  uiResponseCorrelation?: IHardwareUiResponseCorrelation;
   // firmware update tip
   firmwareTipData?: {
     message: EFirmwareUpdateTipMessages | string;
@@ -38,6 +48,14 @@ export type IHardwareUiPayload = {
   // firmware update progress
   firmwareProgress?: number;
   firmwareProgressType?: 'transferData' | 'installingFirmware';
+  // generic device data transfer progress
+  deviceProgress?: {
+    progress?: number;
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    elapsedMs?: number;
+  };
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';
