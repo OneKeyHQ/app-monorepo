@@ -612,16 +612,10 @@ function CheckAndUpdatePage({
       const elapsed = Date.now() - finishTime;
       const remainingDelay = Math.max(0, FIRMWARE_RECHECK_DELAY - elapsed);
 
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[1] = {
-          ...newSteps[1],
-          state: ECheckAndUpdateStepState.InProgress,
-        };
-        return newSteps;
-      });
-
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
+      // Keep the previous state during this cancellable window so a blur can
+      // safely reschedule the check on the next focus. The check owns the
+      // InProgress transition when it actually starts.
       const timeoutId = setTimeout(() => {
         // One-shot: consume the timestamp when the recheck actually fires.
         // The patient-path upgrade for later rounds is carried by

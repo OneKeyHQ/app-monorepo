@@ -342,6 +342,73 @@ describe('DeviceSettingsManager device adapters', () => {
     expect(completed).toBe(true);
   });
 
+  test.each([
+    [
+      'setPassphraseEnabled',
+      { passphraseEnabled: true },
+      { passphrase_protection: true },
+    ],
+    [
+      'setAutoLockDelayMs',
+      { autoLockDelayMs: 120_000 },
+      { auto_lock_delay_ms: 120_000 },
+    ],
+    [
+      'setAutoShutDownDelayMs',
+      { autoShutdownDelayMs: 300_000 },
+      { auto_shutdown_delay_ms: 300_000 },
+    ],
+    ['setLanguage', { language: 'en-US' }, { language: 'en-US' }],
+  ] as const)(
+    'persists legacy OneKey %s settings without waiting for Pro2 state events',
+    async (methodName, params, preciseUpdateFields) => {
+      const device = buildDevice(EDeviceType.Pro);
+      device.featuresInfo = {
+        device_id: 'LEGACY_DEVICE_ID',
+      } as never;
+      const waitForDeviceStateSync = jest.fn(async () => undefined);
+      const deviceSettings = jest.fn(async () => ({
+        success: true as const,
+        payload: { message: 'Success' },
+      }));
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(device);
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      jest.mocked(localDb.updateDevice).mockClear();
+      const manager = new DeviceSettingsManager({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId: jest.fn(async () => device.connectId),
+            waitForDeviceStateSync,
+          },
+          serviceHardwareUI: {
+            withHardwareProcessing: jest.fn(
+              async (action: () => Promise<unknown>) => action(),
+            ),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      jest.spyOn(manager, 'getSDKInstance').mockResolvedValue({
+        deviceSettings,
+      } as unknown as CoreApi);
+
+      const method = manager[methodName] as (
+        input: typeof params & { connectId: string },
+      ) => Promise<unknown>;
+      await method.call(manager, {
+        connectId: device.connectId,
+        ...params,
+      });
+
+      // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+      expect(localDb.updateDevice).toHaveBeenCalledWith({
+        features: device.featuresInfo,
+        preciseUpdateFields,
+      });
+      expect(waitForDeviceStateSync).not.toHaveBeenCalled();
+    },
+  );
+
   test('opens the Protocol V1 brightness page without a V2 brightness value', async () => {
     const deviceSettings = jest.fn(async () => ({
       success: true as const,

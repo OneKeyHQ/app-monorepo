@@ -679,7 +679,7 @@ function getRawDeviceId({
   const knownDevice = device as KnownDevice | undefined;
   const usedFeatures = features || knownDevice?.features;
   return isThirdParty
-    ? usedFeatures?.deviceId || device.deviceId || ''
+    ? usedFeatures?.device_id || usedFeatures?.deviceId || device.deviceId || ''
     : device.deviceId || usedFeatures?.deviceId || '';
 }
 

@@ -167,4 +167,24 @@ describe('ServiceAccount device reset isolation', () => {
 
     await expectDeviceResetChinesePrompt(error);
   });
+
+  it('在创建隐藏钱包前拒绝已被设备重置标记为 deprecated 的钱包', async () => {
+    const service = new ServiceAccount({
+      backgroundApi: {},
+    });
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-wallet-1',
+      deprecated: true,
+      associatedDevice: 'db-device-1',
+    });
+    const getWalletDevice = jest.fn();
+    service.getWalletDevice = getWalletDevice;
+
+    const error = await service
+      .createHWHiddenWallet({ walletId: 'hw-wallet-1' })
+      .catch((e: unknown) => e);
+
+    await expectDeviceResetChinesePrompt(error);
+    expect(getWalletDevice).not.toHaveBeenCalled();
+  });
 });

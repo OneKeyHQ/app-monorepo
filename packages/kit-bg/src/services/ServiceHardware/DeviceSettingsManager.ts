@@ -130,6 +130,7 @@ type IWithDeviceProcessingParams = {
   hardwareCallContext?: EHardwareCallContext;
   dbDevice?: IDBDevice;
   params?: IWithHardwareProcessingControlParams;
+  preciseUpdateFields?: Partial<IOneKeyDeviceFeatures>;
 };
 
 type ITrezorDeviceSettingsAction = (params: {
@@ -281,6 +282,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     debugMethodName,
     action,
     params,
+    preciseUpdateFields,
   }: IWithDeviceProcessingParams & {
     action: (
       hardwareSDK: CoreApi,
@@ -321,6 +323,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               device.deviceStateInfo?.identity.serialNo,
               device.deviceStateInfo?.identity.deviceId,
             ],
+          });
+        } else if (preciseUpdateFields && device.featuresInfo) {
+          await localDb.updateDevice({
+            features: device.featuresInfo,
+            preciseUpdateFields,
           });
         }
         return result;
@@ -515,6 +522,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       walletId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setDeviceLabel',
+      preciseUpdateFields: { label },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, { label }),
     });
@@ -672,6 +680,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setPassphraseEnabled',
+      preciseUpdateFields: {
+        passphrase_protection: passphraseEnabled,
+      },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, {
           usePassphrase: passphraseEnabled,
@@ -710,6 +721,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoLockDelayMs',
+      preciseUpdateFields: {
+        auto_lock_delay_ms: autoLockDelayMs,
+      },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, {
           autoLockDelayMs,
@@ -738,6 +752,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoShutDownDelayMs',
+      preciseUpdateFields: {
+        auto_shutdown_delay_ms: autoShutdownDelayMs,
+      },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, {
           autoShutdownDelayMs,
@@ -776,6 +793,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setLanguage',
+      preciseUpdateFields: {
+        language,
+      },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, {
           language,
@@ -862,6 +882,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setHapticFeedback',
+      preciseUpdateFields: {
+        haptic_feedback: hapticFeedback,
+      },
       action: async (sdk, compatibleConnectId) =>
         sdk.deviceSettings(compatibleConnectId, {
           hapticFeedback,

@@ -10157,6 +10157,7 @@ __metadata:
     fflate: "npm:0.8.2"
     idb: "npm:^7.1.1"
     ipaddr.js: "npm:^2.3.0"
+    jpeg-js: "npm:^0.4.4"
     miscreant: "npm:^0.3.2"
   languageName: unknown
   linkType: soft
