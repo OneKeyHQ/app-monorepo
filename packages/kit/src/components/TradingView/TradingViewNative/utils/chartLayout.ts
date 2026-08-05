@@ -94,6 +94,8 @@ const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
 const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
+  10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 const MAX_TO_FIXED_FRACTION_DIGITS = 100;
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
@@ -256,6 +258,14 @@ function getTradingViewNativeLongerPriceAxisLabel(
     : currentLabel;
 }
 
+function getTradingViewNativePlainDecimalPriceAxisLabel(isNegative: boolean) {
+  'worklet';
+
+  return `${isNegative ? '-' : ''}0.${'0'.repeat(
+    PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD,
+  )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`;
+}
+
 export function getTradingViewNativePriceAxisLabel(
   points: IMarketTokenKLineDataPoint[],
 ) {
@@ -266,7 +276,7 @@ export function getTradingViewNativePriceAxisLabel(
   let smallestPositiveSubOnePrice = Number.POSITIVE_INFINITY;
   let smallestNegativeSubOnePrice = Number.NEGATIVE_INFINITY;
   let hasFinitePrice = false;
-  // Only magnitude boundaries and the sign can change the formatted label width.
+  // Collect numeric boundaries here and format only constant-count candidates.
   for (const point of points) {
     for (let priceIndex = 0; priceIndex < 4; priceIndex += 1) {
       let price = point.o;
@@ -324,6 +334,28 @@ export function getTradingViewNativePriceAxisLabel(
       longestLabel,
       smallestNegativeSubOnePrice,
     );
+  }
+
+  // Ticks and crosshair prices interpolate between extrema. Include the
+  // longest plain-decimal regime only when the continuous range can reach it.
+  if (
+    smallestPositiveSubOnePrice < PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE &&
+    largestNonNegativePrice >= PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE
+  ) {
+    const candidateLabel =
+      getTradingViewNativePlainDecimalPriceAxisLabel(false);
+    if (candidateLabel.length > longestLabel.length) {
+      longestLabel = candidateLabel;
+    }
+  }
+  if (
+    smallestNegativeSubOnePrice > -PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE &&
+    largestNegativePrice <= -PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE
+  ) {
+    const candidateLabel = getTradingViewNativePlainDecimalPriceAxisLabel(true);
+    if (candidateLabel.length > longestLabel.length) {
+      longestLabel = candidateLabel;
+    }
   }
   return longestLabel;
 }

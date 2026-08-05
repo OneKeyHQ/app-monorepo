@@ -171,6 +171,86 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
+  it('covers the plain-decimal label regime only when the price range reaches it', () => {
+    const crossingPoints = buildPoints({
+      count: 1,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    crossingPoints[0] = {
+      ...crossingPoints[0],
+      c: 0.1,
+      h: 0.1,
+      l: 0.000_000_5,
+      o: 0.000_056_78,
+    };
+    expect(getTradingViewNativePriceAxisLabel(crossingPoints)).toBe(
+      '0.00008888',
+    );
+
+    const negativeCrossingPoints = crossingPoints.map((point) => ({
+      ...point,
+      c: -0.000_056_78,
+      h: -0.000_000_5,
+      l: -0.1,
+      o: -0.1,
+    }));
+    expect(getTradingViewNativePriceAxisLabel(negativeCrossingPoints)).toBe(
+      '-0.00008888',
+    );
+
+    const compactOnlyPoints = crossingPoints.map((point) => ({
+      ...point,
+      c: 0.000_009,
+      h: 0.000_009,
+      l: 0.000_000_5,
+      o: 0.000_008,
+    }));
+    expect(getTradingViewNativePriceAxisLabel(compactOnlyPoints)).toBe(
+      '0.0₅8888',
+    );
+  });
+
+  it('reserves enough width for price ticks interpolated across the compaction threshold', () => {
+    const points = buildPoints({
+      count: 1,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    points[0] = {
+      ...points[0],
+      c: 0.0005,
+      h: 0.0005,
+      l: 0.000_002_547,
+      o: 0.0005,
+    };
+    const widestPriceLabel = getTradingViewNativePriceAxisLabel(points);
+    const layout = getTradingViewNativeChartLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      hasVolume: false,
+      height: 300,
+      minimumTimeTickIndexSpacing: 1,
+      points,
+      priceAxisWidth: getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth:
+          getTradingViewNativeCurrentPriceLabel(points).length * 6,
+        widestPriceLabelWidth: widestPriceLabel.length * 6,
+      }),
+      visiblePointRange: { endIndex: 1, startIndex: 0 },
+      width: 402,
+    });
+    const tickLabels =
+      layout?.priceTicks.map(({ price }) =>
+        formatTradingViewNativePriceTick(price),
+      ) ?? [];
+
+    expect(widestPriceLabel).toBe('0.00008888');
+    expect(tickLabels).toContain('0.00008546');
+    expect(
+      tickLabels.every((label) => label.length <= widestPriceLabel.length),
+    ).toBe(true);
+  });
+
   it('formats crosshair time labels for intraday and daily candles', () => {
     const timestamp = getLocalTimestamp(2025, 0, 15, 13, 5);
     expect(
