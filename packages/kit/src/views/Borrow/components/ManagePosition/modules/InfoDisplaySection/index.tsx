@@ -5,6 +5,7 @@ import { Divider, YStack } from '@onekeyhq/components';
 import { useManagePositionContext } from '../../ManagePositionContext';
 
 import { ApyInfo } from './ApyInfo';
+import { BorrowInfoSectionSkeleton } from './BorrowInfoSectionSkeleton';
 import { CollateralInfo } from './CollateralInfo';
 import { FeeInfo } from './FeeInfo';
 import { HealthFactorInfo } from './HealthFactorInfo';
@@ -27,13 +28,18 @@ export function InfoDisplaySection({
     networkId,
     showApyDetail: showApyDetailState,
   } = state;
-  const { transactionConfirmation } = actionResult;
+  const { transactionConfirmation, transactionConfirmationLoading } =
+    actionResult;
 
   const showApyDetail = showApyDetailProp ?? showApyDetailState;
 
   // Supply always renders info section (no isDisabled check in original code)
   // Other actions check isDisabled
   if (action !== 'supply' && isDisabled) return null;
+
+  if (!transactionConfirmation && transactionConfirmationLoading) {
+    return <BorrowInfoSectionSkeleton action={action} />;
+  }
 
   // Check what info items are available
   const hasHealthFactor = !!transactionConfirmation?.healthFactor;
