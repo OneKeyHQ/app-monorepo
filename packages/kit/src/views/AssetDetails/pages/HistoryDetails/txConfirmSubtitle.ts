@@ -38,15 +38,14 @@ export function getTxConfirmSubtitle({
   // Low-fee / long-tail tx stuck for a while: drop the (now-misleading) ETA
   // and nudge the user to speed it up — but never nudge toward an action
   // that is not offered; fall back to the neutral waiting copy instead.
-  // While the capability is still unknown (undefined), skip the conclusion
-  // and keep the ETA/waiting copy so the subtitle settles in one step once
-  // the async check resolves, instead of flashing between conclusions.
+  // Only an affirmed capability unlocks the nudge: undefined (check still
+  // in flight, or the check errored and will never resolve) must keep the
+  // neutral copy rather than resurrect the deliberately-dropped ETA.
   if (
-    canSpeedUp !== undefined &&
     broadcastTimeMs &&
     nowMs - broadcastTimeMs > TX_CONFIRM_SLOW_THRESHOLD_MS
   ) {
-    return canSpeedUp
+    return canSpeedUp === true
       ? { id: ETranslations.tx_confirm_slow__desc }
       : { id: ETranslations.tx_confirm_waiting__desc };
   }

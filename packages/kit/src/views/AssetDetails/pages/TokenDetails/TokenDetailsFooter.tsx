@@ -24,7 +24,6 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import {
   buildTokenDetailsMarketNavigationTarget,
-  isTokenDetailsMarketMetadataForToken,
   shouldHideTokenDetailsMarketFooter,
 } from './tokenDetailsMarketNavigation';
 
@@ -49,6 +48,11 @@ function TokenDetailsFooter(props: {
   const { tokenMetadata } = useTokenDetailsContext();
   const navigation = useAppNavigation();
 
+  // The builder is the single matching authority: its detail target strict-
+  // matches metadata ownership internally, and its chart target is built from
+  // the current tab's props alone — stale metadata can never yield a wrong
+  // destination, so press/chevron follow the target directly and stay stable
+  // across tab switches.
   const marketNavigationTarget = useMemo(
     () =>
       buildTokenDetailsMarketNavigationTarget({
@@ -69,18 +73,6 @@ function TokenDetailsFooter(props: {
       tokenImageUri,
       tokenMetadata,
     ],
-  );
-  // Press must follow the same strict matching as the navigation target:
-  // stale metadata from a previous tab may still be on screen
-  // (stale-while-revalidate), and tapping during that window would navigate
-  // to a target computed from the other tab's metadata.
-  const canPressMarket = Boolean(
-    marketNavigationTarget &&
-    isTokenDetailsMarketMetadataForToken({
-      networkId,
-      tokenAddress,
-      tokenMetadata,
-    }),
   );
   const handleMarketPress = useCallback(() => {
     if (marketNavigationTarget?.type === 'detail') {
@@ -134,8 +126,8 @@ function TokenDetailsFooter(props: {
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
         userSelect="none"
-        onPress={canPressMarket ? handleMarketPress : undefined}
-        {...(canPressMarket ? listItemPressStyle : null)}
+        onPress={marketNavigationTarget ? handleMarketPress : undefined}
+        {...(marketNavigationTarget ? listItemPressStyle : null)}
       >
         <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
@@ -158,7 +150,7 @@ function TokenDetailsFooter(props: {
           >
             {tokenMetadata.priceChange24h}
           </NumberSizeableText>
-          {canPressMarket ? (
+          {marketNavigationTarget ? (
             <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
           ) : null}
         </XStack>
