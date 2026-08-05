@@ -19,5 +19,8 @@ export interface IReceiveArrivalConfigDBStruct {
 export class SimpleDbEntityReceiveArrivalConfig extends SimpleDbEntityBase<IReceiveArrivalConfigDBStruct> {
   entityName = 'receiveArrivalConfig';
 
-  override enableCache = false;
+  // Tiny payload with a single writer; the memory cache keeps repeat
+  // getRawData() reads off the storage bridge and shortens the window
+  // before the receive header can render the server ETA.
+  override enableCache = true;
 }

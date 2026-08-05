@@ -1818,22 +1818,26 @@ class ServiceNetwork extends ServiceBase {
   // config (OK-57462 hard requirement).
   @backgroundMethod()
   async getReceiveArrivalConfig(): Promise<IReceiveArrivalConfig | undefined> {
-    const rawData =
-      await this.backgroundApi.simpleDb.receiveArrivalConfig.getRawData();
-    const cached = rawData?.config;
-    const syncedAt = rawData?.syncedAt ?? 0;
-    const isFresh =
-      Date.now() - syncedAt < timerUtils.getTimeDurationMs({ hour: 1 });
-    if (cached && isFresh) {
-      return cached;
+    try {
+      const rawData =
+        await this.backgroundApi.simpleDb.receiveArrivalConfig.getRawData();
+      const cached = rawData?.config;
+      const syncedAt = rawData?.syncedAt ?? 0;
+      const isFresh =
+        Date.now() - syncedAt < timerUtils.getTimeDurationMs({ hour: 1 });
+      if (cached && isFresh) {
+        return cached;
+      }
+      const refreshPromise = this._fetchAndCacheReceiveArrivalConfig();
+      if (cached) {
+        // Stale-while-revalidate: serve the stale copy immediately, let the
+        // refresh land silently for the next open.
+        return cached;
+      }
+      return await refreshPromise;
+    } catch {
+      return undefined;
     }
-    const refreshPromise = this._fetchAndCacheReceiveArrivalConfig();
-    if (cached) {
-      // Stale-while-revalidate: serve the stale copy immediately, let the
-      // refresh land silently for the next open.
-      return cached;
-    }
-    return refreshPromise;
   }
 
   _fetchAndCacheReceiveArrivalConfig(): Promise<
