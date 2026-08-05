@@ -14,8 +14,9 @@ export interface ITxConfirmSubtitleParams {
   // Whether the speed-up UI is actually offered for this tx (replaceTxEnabled
   // chain + canAccelerateTx). Chains like Solana/Tron have no accelerate
   // mechanism, and even EVM/BTC hide the action for non-earliest nonces,
-  // server-only history, or watch-only accounts.
-  canSpeedUp: boolean;
+  // server-only history, or watch-only accounts. `undefined` means the async
+  // capability check has not resolved yet — treat it as "unknown", not "no".
+  canSpeedUp: boolean | undefined;
 }
 
 export interface ITxConfirmSubtitle {
@@ -37,7 +38,11 @@ export function getTxConfirmSubtitle({
   // Low-fee / long-tail tx stuck for a while: drop the (now-misleading) ETA
   // and nudge the user to speed it up — but never nudge toward an action
   // that is not offered; fall back to the neutral waiting copy instead.
+  // While the capability is still unknown (undefined), skip the conclusion
+  // and keep the ETA/waiting copy so the subtitle settles in one step once
+  // the async check resolves, instead of flashing between conclusions.
   if (
+    canSpeedUp !== undefined &&
     broadcastTimeMs &&
     nowMs - broadcastTimeMs > TX_CONFIRM_SLOW_THRESHOLD_MS
   ) {

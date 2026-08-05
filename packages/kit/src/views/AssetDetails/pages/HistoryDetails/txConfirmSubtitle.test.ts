@@ -55,6 +55,35 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
     ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
   });
 
+  it('draws no conclusion past the threshold while capability is unresolved', () => {
+    // canSpeedUp === undefined means the async check has not resolved yet;
+    // stay on the neutral waiting copy instead of flashing slow/waiting.
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: undefined,
+        confirmationETABlocks: undefined,
+        broadcastTimeMs: NOW - 31 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: undefined,
+      }),
+    ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
+  });
+
+  it('keeps the ETA past the threshold while capability is unresolved', () => {
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: 300,
+        confirmationETABlocks: undefined,
+        broadcastTimeMs: NOW - 45 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: undefined,
+      }),
+    ).toEqual({
+      id: ETranslations.tx_confirm_eta_minutes__desc,
+      values: { minutes: 5 },
+    });
+  });
+
   it('does not flag "slow" exactly at the threshold (strict greater-than)', () => {
     // 30min elapsed is not yet slow; with no ETA truth it falls back to waiting.
     expect(

@@ -1043,9 +1043,11 @@ function HistoryDetails() {
           confirmationETABlocks: txDetails?.confirmationETABlocks,
           broadcastTimeMs,
           nowMs: Date.now(),
-          // Mirror the speed-up action's own visibility condition so the copy
-          // never suggests an action the page does not offer.
-          canSpeedUp: Boolean(canReplaceTx || checkSpeedUpStateEnabled),
+          // Mirror only the real speed-up entry (renderReplaceButtons requires
+          // canReplaceTx); the "Order inquiry" button is not an accelerate
+          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+          // Stays undefined until the async capability check resolves.
+          canSpeedUp: canReplaceTx,
         })
       : null;
 
@@ -1088,7 +1090,6 @@ function HistoryDetails() {
     txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
     canReplaceTx,
-    checkSpeedUpStateEnabled,
   ]);
 
   const renderTxFlow = useCallback(() => {

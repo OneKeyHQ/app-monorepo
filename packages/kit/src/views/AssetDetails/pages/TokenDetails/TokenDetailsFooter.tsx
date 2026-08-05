@@ -9,7 +9,6 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
-  Skeleton,
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -25,6 +24,7 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import {
   buildTokenDetailsMarketNavigationTarget,
+  isTokenDetailsMarketMetadataForToken,
   shouldHideTokenDetailsMarketFooter,
 } from './tokenDetailsMarketNavigation';
 
@@ -70,6 +70,18 @@ function TokenDetailsFooter(props: {
       tokenMetadata,
     ],
   );
+  // Press must follow the same strict matching as the navigation target:
+  // stale metadata from a previous tab may still be on screen
+  // (stale-while-revalidate), and tapping during that window would navigate
+  // to a target computed from the other tab's metadata.
+  const canPressMarket = Boolean(
+    marketNavigationTarget &&
+    isTokenDetailsMarketMetadataForToken({
+      networkId,
+      tokenAddress,
+      tokenMetadata,
+    }),
+  );
   const handleMarketPress = useCallback(() => {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
@@ -104,8 +116,9 @@ function TokenDetailsFooter(props: {
 
   // Metadata for a previously active tab is the same asset — keep rendering
   // it while the new tab's fetch is in flight so the footer never
-  // unmounts/remounts (flashes) on tab switches.
-  if (shouldHideTokenDetailsMarketFooter({ tokenMetadata })) {
+  // unmounts/remounts (flashes) on tab switches. The explicit !tokenMetadata
+  // check narrows the type for the render below.
+  if (!tokenMetadata || shouldHideTokenDetailsMarketFooter({ tokenMetadata })) {
     return null;
   }
 
@@ -121,38 +134,34 @@ function TokenDetailsFooter(props: {
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
         userSelect="none"
-        onPress={marketNavigationTarget ? handleMarketPress : undefined}
-        {...(marketNavigationTarget ? listItemPressStyle : null)}
+        onPress={canPressMarket ? handleMarketPress : undefined}
+        {...(canPressMarket ? listItemPressStyle : null)}
       >
         <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        {tokenMetadata ? (
-          <XStack alignItems="center" gap="$2">
-            <Currency
-              size="$bodyMd"
-              formatter="price"
-              sourceCurrency={tokenMetadata.currency}
-            >
-              {tokenMetadata.price}
-            </Currency>
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-              color={priceChangeColor}
-            >
-              {tokenMetadata.priceChange24h}
-            </NumberSizeableText>
-            {marketNavigationTarget ? (
-              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-            ) : null}
-          </XStack>
-        ) : (
-          <Skeleton.BodyMd />
-        )}
+        <XStack alignItems="center" gap="$2">
+          <Currency
+            size="$bodyMd"
+            formatter="price"
+            sourceCurrency={tokenMetadata.currency}
+          >
+            {tokenMetadata.price}
+          </Currency>
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+            color={priceChangeColor}
+          >
+            {tokenMetadata.priceChange24h}
+          </NumberSizeableText>
+          {canPressMarket ? (
+            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+          ) : null}
+        </XStack>
       </XStack>
     </Page.Footer>
   );
