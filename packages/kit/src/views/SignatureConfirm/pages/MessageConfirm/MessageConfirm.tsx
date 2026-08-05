@@ -259,6 +259,7 @@ function MessageConfirm() {
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
         <MessageConfirmExtraInfo
+          accountId={accountId}
           networkId={networkId}
           unsignedMessage={unsignedMessage}
         />

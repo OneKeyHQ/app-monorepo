@@ -8,6 +8,7 @@ import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import MessageExtraInfoSol from './MessageExtraInfoSol';
 
 type IProps = {
+  accountId: string;
   networkId: string;
   unsignedMessage: IUnsignedMessage;
 };
@@ -15,6 +16,8 @@ type IProps = {
 export function getMessageExtraInfo({ impl }: { impl: string }) {
   let component:
     | ((props: {
+        accountId: string;
+        networkId: string;
         unsignedMessage: IUnsignedMessage;
         style?: IStackProps;
       }) => React.ReactNode | null)
@@ -36,12 +39,18 @@ export function getMessageExtraInfo({ impl }: { impl: string }) {
  * message viewers, which only derive the displayed string.
  */
 function MessageConfirmExtraInfo(props: IProps) {
-  const { networkId, unsignedMessage } = props;
+  const { accountId, networkId, unsignedMessage } = props;
   const { network } = useAccountData({ networkId });
   const MessageExtraInfo = getMessageExtraInfo({ impl: network?.impl ?? '' });
 
   if (MessageExtraInfo) {
-    return <MessageExtraInfo unsignedMessage={unsignedMessage} />;
+    return (
+      <MessageExtraInfo
+        accountId={accountId}
+        networkId={networkId}
+        unsignedMessage={unsignedMessage}
+      />
+    );
   }
 
   return null;

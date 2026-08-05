@@ -292,6 +292,7 @@ function SignMessageModal() {
             )}
             <DAppSignMessageContent unsignedMessage={unsignedMessage} />
             <MessageConfirmExtraInfo
+              accountId={accountId}
               networkId={networkId}
               unsignedMessage={unsignedMessage}
             />
