@@ -62,41 +62,65 @@ async function coreInit({
   return coreInstance;
 }
 
-let signClient: IWalletConnectSignClient | undefined;
+// Client getters cache the in-flight init promise (single-flight): e.g.
+// bootstrap session restore and a Pay request arriving via proxy can call
+// concurrently, and a plain instance check before the first await would let
+// both create a Core/WalletKit pair sharing the same storage prefix —
+// duplicate relay connections, listeners and storage races. A failed init
+// clears the cached promise so a later call can retry.
+let signClientPromise: Promise<IWalletConnectSignClient> | undefined;
+async function initDappSideClient(): Promise<IWalletConnectSignClient> {
+  const core = await coreInit({
+    storage: getSharedStorage(),
+    customStoragePrefix: DAPP_STORAGE_PREFIX,
+  });
+  const { default: SignClient } = await import('@walletconnect/sign-client');
+  return SignClient.init({
+    ...sharedOptions,
+    core,
+    metadata: WALLET_CONNECT_CLIENT_META,
+    storage: getSharedStorage(),
+    customStoragePrefix: DAPP_STORAGE_PREFIX,
+  });
+}
 async function getDappSideClient(): Promise<IWalletConnectSignClient> {
-  if (!signClient) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
+  if (!signClientPromise) {
+    const initPromise = initDappSideClient();
+    initPromise.catch(() => {
+      if (signClientPromise === initPromise) {
+        signClientPromise = undefined;
+      }
     });
-    const { default: SignClient } = await import('@walletconnect/sign-client');
-    signClient = await SignClient.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-      storage: getSharedStorage(),
-      customStoragePrefix: DAPP_STORAGE_PREFIX,
-    });
+    signClientPromise = initPromise;
   }
-  return signClient;
+  return signClientPromise;
 }
 
-let web3Wallet: IWalletConnectWeb3Wallet | undefined;
+let web3WalletPromise: Promise<IWalletConnectWeb3Wallet> | undefined;
+async function initWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
+  const core = await coreInit({
+    storage: getSharedStorage(),
+    customStoragePrefix: WALLET_STORAGE_PREFIX,
+  });
+  const { WalletKit } = await import('@reown/walletkit');
+  return WalletKit.init({
+    ...sharedOptions,
+    core,
+    metadata: WALLET_CONNECT_CLIENT_META,
+    payConfig: getWalletConnectPayConfig(),
+  });
+}
 async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
-  if (!web3Wallet) {
-    const core = await coreInit({
-      storage: getSharedStorage(),
-      customStoragePrefix: WALLET_STORAGE_PREFIX,
+  if (!web3WalletPromise) {
+    const initPromise = initWalletSideClient();
+    initPromise.catch(() => {
+      if (web3WalletPromise === initPromise) {
+        web3WalletPromise = undefined;
+      }
     });
-    const { WalletKit } = await import('@reown/walletkit');
-    web3Wallet = await WalletKit.init({
-      ...sharedOptions,
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-      payConfig: getWalletConnectPayConfig(),
-    });
+    web3WalletPromise = initPromise;
   }
-  return web3Wallet;
+  return web3WalletPromise;
 }
 
 // @walletconnect/utils statically drags ox/@msgpack (and more) into the
