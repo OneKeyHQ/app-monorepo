@@ -460,9 +460,12 @@ export function UnifoldSourceSelector({
             dashThickness={0.5}
             textAlign="right"
             flexShrink={0}
-            tooltip={intl.formatMessage({
-              id: ETranslations.perp_unifold_minimum_deposit_network__desc,
-            })}
+            tooltip={intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_minimum_deposit_network__desc,
+              },
+              { amount: `$${minUsd}` },
+            )}
             tooltipTitle={intl.formatMessage({
               id: ETranslations.perp_unifold_minimum_deposit__title,
             })}

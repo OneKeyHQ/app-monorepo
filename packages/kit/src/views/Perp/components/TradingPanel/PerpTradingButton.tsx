@@ -110,7 +110,7 @@ export function PerpTradingButton({
     perpsAccountLoading.selectAccountLoading,
   ]);
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');

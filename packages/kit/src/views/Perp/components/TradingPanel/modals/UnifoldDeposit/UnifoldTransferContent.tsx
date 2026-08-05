@@ -1,6 +1,7 @@
 // cspell: words unifold Unifold hypercore Hypercore
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -34,9 +35,15 @@ import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  TPerpDepositAddressSelectionSource,
+  TPerpDepositEntrySource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
 import { parseUnifoldExecutionCreatedAtMs } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import type {
@@ -327,6 +334,8 @@ export const UnifoldTransferContent = forwardRef<
     onSourceSelectorUnavailable?: () => void;
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
+    analyticsEntrySource?: TPerpDepositEntrySource;
+    trackDefaultSourceSelection?: boolean;
   }
 >(
   (
@@ -344,10 +353,13 @@ export const UnifoldTransferContent = forwardRef<
       onSourceSelectorUnavailable,
       onOpenMobileTokenSelector,
       onOpenMobileChainSelector,
+      analyticsEntrySource,
+      trackDefaultSourceSelection = false,
     },
     ref,
   ) => {
     const intl = useIntl();
+    const [activePerpsAccount] = usePerpsActiveAccountAtom();
     const {
       recipientAddress,
       isLiveAccountAligned,
@@ -375,7 +387,78 @@ export const UnifoldTransferContent = forwardRef<
     );
     const [historyCardNow, setHistoryCardNow] = useState(() => Date.now());
 
-    useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
+    const lastTrackedSourceRef = useRef<string | null>(null);
+    const trackSourceSelection = useCallback(
+      (
+        asset: IUnifoldSupportedAsset,
+        chain: IUnifoldSupportedAssetChain,
+        selectionSource: TPerpDepositAddressSelectionSource,
+      ) => {
+        if (!analyticsEntrySource) {
+          return;
+        }
+        const sourceKey = [asset.symbol, chain.chain_type, chain.chain_id].join(
+          ':',
+        );
+        if (lastTrackedSourceRef.current === sourceKey) {
+          return;
+        }
+        lastTrackedSourceRef.current = sourceKey;
+        defaultLogger.perp.deposit.perpDepositAddressSourceSelect({
+          entrySource: analyticsEntrySource,
+          walletType: activePerpsAccount.walletType ?? 'unknown',
+          sourceTokenSymbol: asset.symbol,
+          sourceChainType: chain.chain_type,
+          sourceChainId: chain.chain_id,
+          sourceChainName: chain.chain_name,
+          selectionSource,
+        });
+      },
+      [activePerpsAccount.walletType, analyticsEntrySource],
+    );
+
+    const handleSelectToken = useCallback(
+      (asset: IUnifoldSupportedAsset) => {
+        const chain =
+          asset.chains.find(
+            (item) => item.chain_id === selection?.chain.chain_id,
+          ) ?? asset.chains[0];
+        selectToken(asset);
+        if (chain) {
+          trackSourceSelection(asset, chain, 'user');
+        }
+      },
+      [selectToken, selection?.chain.chain_id, trackSourceSelection],
+    );
+
+    const handleSelectChain = useCallback(
+      (chain: IUnifoldSupportedAssetChain) => {
+        selectChain(chain);
+        if (selection?.asset) {
+          trackSourceSelection(selection.asset, chain, 'user');
+        }
+      },
+      [selectChain, selection?.asset, trackSourceSelection],
+    );
+
+    const handleSelectSource = useCallback(
+      (asset: IUnifoldSupportedAsset, chain: IUnifoldSupportedAssetChain) => {
+        selectSource(asset, chain);
+        trackSourceSelection(asset, chain, 'user');
+      },
+      [selectSource, trackSourceSelection],
+    );
+
+    useImperativeHandle(ref, () => ({ selectSource: handleSelectSource }), [
+      handleSelectSource,
+    ]);
+
+    useEffect(() => {
+      if (!trackDefaultSourceSelection || !selection) {
+        return;
+      }
+      trackSourceSelection(selection.asset, selection.chain, 'default');
+    }, [selection, trackDefaultSourceSelection, trackSourceSelection]);
 
     useEffect(() => {
       if (!supportedAssets || !selection) {
@@ -431,16 +514,17 @@ export const UnifoldTransferContent = forwardRef<
         onSourceSelectorResultHandled?.();
         return;
       }
-      selectToken(asset);
       if (chain) {
-        selectChain(chain);
+        handleSelectSource(asset, chain);
+      } else {
+        handleSelectToken(asset);
       }
       onSourceSelectorResultHandled?.();
     }, [
+      handleSelectSource,
+      handleSelectToken,
       intl,
       onSourceSelectorResultHandled,
-      selectChain,
-      selectToken,
       sourceSelectorResult,
       supportedAssets,
     ]);
@@ -664,8 +748,8 @@ export const UnifoldTransferContent = forwardRef<
           assets={supportedAssets}
           selection={displaySelection}
           loading={Boolean(assetsLoading && !selection)}
-          onSelectToken={selectToken}
-          onSelectChain={selectChain}
+          onSelectToken={handleSelectToken}
+          onSelectChain={handleSelectChain}
           onOpenMobileTokenSelector={onOpenMobileTokenSelector}
           onOpenMobileChainSelector={onOpenMobileChainSelector}
         />

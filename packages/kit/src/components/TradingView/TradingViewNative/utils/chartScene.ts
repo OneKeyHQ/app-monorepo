@@ -168,6 +168,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
+  hasVolume: boolean;
   height: number;
   measureTextWidth: (
     text: string,
@@ -305,6 +306,7 @@ export function buildTradingViewNativeChartScene({
   candleIntervalSeconds,
   chartType,
   crosshair,
+  hasVolume,
   height,
   measureTextWidth,
   points,
@@ -361,6 +363,7 @@ export function buildTradingViewNativeChartScene({
   const layout = getTradingViewNativeChartLayout({
     candleIntervalSeconds,
     chartType,
+    hasVolume,
     height,
     minimumTimeTickIndexSpacing:
       getTradingViewNativeTimeTickMinimumIndexSpacing(
@@ -707,14 +710,16 @@ export function buildTradingViewNativeChartScene({
       top: PRICE_LEGEND_TOP,
     }),
   );
-  appendLegendRows(
-    getTradingViewNativeChartLegendRowLayouts({
-      items: [legend.volumeItem],
-      maxX: priceAxisX,
-      measureTextWidth: measureLegendTextWidth,
-      top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
-    }),
-  );
+  if (hasVolume) {
+    appendLegendRows(
+      getTradingViewNativeChartLegendRowLayouts({
+        items: [legend.volumeItem],
+        maxX: priceAxisX,
+        measureTextWidth: measureLegendTextWidth,
+        top: volumeTop + VOLUME_LEGEND_TOP_PADDING,
+      }),
+    );
+  }
 
   const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
     labelHeight: CURRENT_PRICE_LABEL_HEIGHT,

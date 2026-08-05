@@ -282,7 +282,7 @@ function PerpPortfolioContentComponent({
   const intl = useIntl();
   const theme = useTheme();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('portfolio');
   const portfolioPalette = useMemo(
     () => ({
       positive: theme.bgAccent?.val ?? '#31E72F',

@@ -143,6 +143,33 @@ describe('TradingViewNativeContainer', () => {
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the volume section only when loaded candles contain volume', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [
+      { c: 100, h: 101, l: 99, o: 100, t: 1000, v: 0 },
+      { c: 101, h: 102, l: 100, o: 100, t: 2000, v: 0 },
+    ];
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const { rerender } = render(<TradingViewNativeContainer source={source} />);
+
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hasVolume: false }),
+    );
+
+    mockPoints = [...mockPoints, { ...mockPoints[1], t: 3000, v: 1 }];
+    rerender(<TradingViewNativeContainer source={{ ...source }} />);
+
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hasVolume: true }),
+    );
+  });
+
   it('forwards controlled fullscreen props to chart controls', () => {
     const handleFullscreenChange = jest.fn();
     const fullscreenHeader = <div>Token info</div>;

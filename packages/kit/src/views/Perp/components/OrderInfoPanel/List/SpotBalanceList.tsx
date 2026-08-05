@@ -106,7 +106,7 @@ function SpotBalanceList({
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('balance');
   const { spotUniverses, universeByBaseName, tokenContractMap } =
     useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
