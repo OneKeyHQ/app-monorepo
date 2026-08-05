@@ -48,6 +48,19 @@ export function buildPerpDepositOrderStatusRequestParams(params: {
   };
 }
 
+export function buildPerpDepositQuoteRequestParams(params: {
+  fromNetworkId: string;
+  fromTokenAmount: string;
+  fromTokenAddress: string;
+  userAddress: string;
+  receivingAddress: string;
+}) {
+  return {
+    ...params,
+    tradeSource: 'perps' as const,
+  };
+}
+
 export function buildSwapRequestErrorToastPayload(error?: {
   message?: string;
   requestId?: string;

@@ -2,10 +2,32 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildPerpDepositQuoteRequestParams,
   buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
+
+describe('buildPerpDepositQuoteRequestParams', () => {
+  it('marks Perps deposit quotes with their trade source', () => {
+    expect(
+      buildPerpDepositQuoteRequestParams({
+        fromNetworkId: 'evm--1',
+        fromTokenAmount: '10',
+        fromTokenAddress: '0xtoken',
+        userAddress: '0xuser',
+        receivingAddress: '0xreceiver',
+      }),
+    ).toEqual({
+      fromNetworkId: 'evm--1',
+      fromTokenAmount: '10',
+      fromTokenAddress: '0xtoken',
+      userAddress: '0xuser',
+      receivingAddress: '0xreceiver',
+      tradeSource: 'perps',
+    });
+  });
+});
 
 describe('shouldAttachSwapReferralBuildTxParams', () => {
   it('enables attribution for Swap and Bridge builds', () => {

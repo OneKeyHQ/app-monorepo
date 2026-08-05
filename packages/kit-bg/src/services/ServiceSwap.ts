@@ -135,6 +135,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildPerpDepositQuoteRequestParams,
   buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
   normalizeSwapTokenListCurrency,
@@ -3442,13 +3443,13 @@ export default class ServiceSwap extends ServiceBase {
             }
           : {}),
       };
-      const fetchParams = {
+      const fetchParams = buildPerpDepositQuoteRequestParams({
         fromNetworkId: params.fromNetworkId,
         fromTokenAmount: params.fromTokenAmount,
         fromTokenAddress: params.fromTokenAddress,
         userAddress: params.userAddress,
         receivingAddress: params.receivingAddress,
-      };
+      });
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(
         '/swap/v1/perp-deposit-quote',
