@@ -172,6 +172,7 @@ import {
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
+import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
   isCurrentStockMarketClosedQuoteEventError,
@@ -2323,6 +2324,11 @@ function StockMarketContextPanel({
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid tokenDetail={tokenDetail} />
+      <SwapStockTokenDetails
+        tokenDetail={tokenDetail}
+        networkId={networkId}
+        loading={marketPanelLoading}
+      />
     </YStack>
   );
 }
