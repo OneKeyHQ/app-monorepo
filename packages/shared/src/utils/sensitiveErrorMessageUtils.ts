@@ -8,8 +8,13 @@ export function scrubSensitiveErrorMessageText(text: string): string {
   scrubbed = scrubbed.replace(/\bBearer\s+[\w.~+/-]+=*/gi, 'Bearer [token]');
   scrubbed = scrubbed.replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/gi, '$1');
   scrubbed = scrubbed.replace(
-    /\b(token|access_token|refresh_token|id_token)=[^&\s#]+/gi,
-    '$1=[redacted]',
+    /((?:["']?(?:token|access_token|refresh_token|id_token)["']?)\s*[:=]\s*)("[^"]*"|'[^']*'|[^&,\s#}\]]+)/gi,
+    (_match, prefix: string, value: string) => {
+      const quote = value[0];
+      return quote === '"' || quote === "'"
+        ? `${prefix}${quote}[redacted]${quote}`
+        : `${prefix}[redacted]`;
+    },
   );
   scrubbed = scrubbed.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]');
   if (scrubbed.length > MAX_SANITIZED_ERROR_MESSAGE_LENGTH) {

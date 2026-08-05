@@ -1576,7 +1576,7 @@ class ServicePrime extends ServiceBase {
     callerName: string,
   ): Promise<void> {
     const incompleteLogoutRepair =
-      await this.repairIncompleteLocalOneKeyIdLogout();
+      await this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock();
     if (incompleteLogoutRepair === 'stateChanged') {
       const error = new OneKeyLocalError(
         `${callerName}: OneKey ID auth state changed during recovery. Please try again.`,
@@ -1830,6 +1830,35 @@ class ServicePrime extends ServiceBase {
   private async repairIncompleteLocalOneKeyIdLogout(): Promise<
     'notNeeded' | 'repaired' | 'stateChanged'
   > {
+    return identityLifecycleMutex.runExclusive(() =>
+      this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock(),
+    );
+  }
+
+  /**
+   * The caller must hold identityLifecycleMutex. Existing lifecycle
+   * reservations are reused; standalone repairs reserve their commit so
+   * invalid-token cleanup and other observers cannot start a competing flow.
+   */
+  private async repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock(): Promise<
+    'notNeeded' | 'repaired' | 'stateChanged'
+  > {
+    const activeOperationId = getActiveIdentityLifecycleOperationId();
+    if (activeOperationId) {
+      return this.commitIncompleteLocalOneKeyIdLogoutRepair();
+    }
+    const operationId = `repairIncompleteOneKeyIdLogout:${stringUtils.generateUUID()}`;
+    beginIdentityLifecycleReservation(operationId);
+    try {
+      return await this.commitIncompleteLocalOneKeyIdLogoutRepair();
+    } finally {
+      endIdentityLifecycleReservation(operationId);
+    }
+  }
+
+  private async commitIncompleteLocalOneKeyIdLogoutRepair(): Promise<
+    'notNeeded' | 'repaired' | 'stateChanged'
+  > {
     const [
       currentUser,
       authSessionSource,
@@ -1956,7 +1985,7 @@ class ServicePrime extends ServiceBase {
     const { sessionTokenSub, supabaseSessionId } = sessionIdentity.identity;
 
     const incompleteLogoutRepair =
-      await this.repairIncompleteLocalOneKeyIdLogout();
+      await this.repairIncompleteLocalOneKeyIdLogoutUnderLifecycleLock();
     if (incompleteLogoutRepair === 'stateChanged') {
       throw new OneKeyLocalError(
         'Failed to persist Keyless OAuth session: OneKey ID auth state changed during recovery.',

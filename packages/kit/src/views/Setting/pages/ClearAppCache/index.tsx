@@ -18,6 +18,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
+import { confirmClearOneKeyIdCache } from './confirmClearOneKeyIdCache';
+
 export default function ClearAppCache() {
   const intl = useIntl();
   const form = useForm({
@@ -99,9 +101,9 @@ export default function ClearAppCache() {
                 <Form.Field name="oneKeyId">
                   <Checkbox
                     testID={SettingTestIDs.clearAppCacheOneKeyIdCheckbox}
-                    label={`OneKey ID ${intl.formatMessage({
-                      id: ETranslations.settings_data,
-                    })}`}
+                    label={intl.formatMessage({
+                      id: ETranslations.prime_onekeyid_log_out,
+                    })}
                   />
                 </Form.Field>
               )}
@@ -177,6 +179,12 @@ export default function ClearAppCache() {
         onCancel={(close) => close()}
         onConfirm={async (close) => {
           if (values) {
+            if (
+              values.oneKeyId &&
+              !(await confirmClearOneKeyIdCache({ intl }))
+            ) {
+              return;
+            }
             await backgroundApiProxy.serviceSetting.clearCacheOnApp(values);
             // The expo-image disk cache (token logos, NFT full-res images, dApp
             // favicons, DeFi/market icons) is the largest on-disk contributor and

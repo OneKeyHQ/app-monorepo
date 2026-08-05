@@ -64,6 +64,19 @@ describe('scrubSensitiveErrorMessageText', () => {
     ).toBe('body was access_token=[redacted]&refresh_token=[redacted]');
   });
 
+  test('redacts colon-delimited and JSON token values', () => {
+    expect(
+      scrubSensitiveErrorMessageText(
+        'refresh_token: opaque-secret access_token: another-secret',
+      ),
+    ).toBe('refresh_token: [redacted] access_token: [redacted]');
+    expect(
+      scrubSensitiveErrorMessageText(
+        '{"refresh_token":"opaque-secret","access_token": "another-secret"}',
+      ),
+    ).toBe('{"refresh_token":"[redacted]","access_token": "[redacted]"}');
+  });
+
   test('keeps error-code params readable', () => {
     expect(
       scrubSensitiveErrorMessageText('rejected with code=otp_expired'),

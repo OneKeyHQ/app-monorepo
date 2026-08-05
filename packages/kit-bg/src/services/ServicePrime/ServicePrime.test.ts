@@ -286,6 +286,7 @@ const {
   getActiveIdentityLifecycleOperationId,
   identityLifecycleMutex,
   isIdentityRecoveryReady,
+  markIdentityRecoveryReady,
   resetIdentityRecoveryStateForTest,
 } = require('../ServiceIdentityExit/identityLifecycleMutex');
 
@@ -2645,6 +2646,60 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
     ).not.toHaveBeenCalled();
     expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('waits for identity recovery before repairing an incomplete logout', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    resetIdentityRecoveryStateForTest('pending');
+
+    const resultPromise = service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'startup',
+    });
+    await Promise.resolve();
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+
+    markIdentityRecoveryReady();
+    await expect(resultPromise).resolves.toEqual({ cleared: true });
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed without mutating state when identity recovery failed', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    resetIdentityRecoveryStateForTest('failed');
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).rejects.toThrow('Identity recovery did not complete');
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('reserves the identity lifecycle while committing a standalone repair', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockImplementation(
+      async () => {
+        expect(getActiveIdentityLifecycleOperationId()).toMatch(
+          /^repairIncompleteOneKeyIdLogout:/,
+        );
+      },
+    );
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
   });
 
   it('migrates a v6.5.0 logged-out projection before a stale legacy session can be restored', async () => {
