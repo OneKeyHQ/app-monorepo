@@ -117,7 +117,10 @@ function buildLocalDecodedTx(): IDecodedTx {
   };
 }
 
-function buildUnsignedTx(tags: string[] = []): IUnsignedTxPro {
+function buildUnsignedTx(
+  tags: string[] = [],
+  hasPermit2ApproveInfo = false,
+): IUnsignedTxPro {
   return {
     encodedTx: {},
     stakingInfo: {
@@ -125,6 +128,19 @@ function buildUnsignedTx(tags: string[] = []): IUnsignedTxPro {
       label: EEarnLabels.Stake,
       tags,
     },
+    ...(hasPermit2ApproveInfo
+      ? {
+          approveInfo: {
+            owner: accountAddress,
+            spender: contractAddress,
+            amount: '1',
+            permit2Info: {
+              permit2Address: '0xpermit2',
+              expirationSeconds: '0',
+            },
+          },
+        }
+      : {}),
   };
 }
 
@@ -187,6 +203,32 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       expect.objectContaining({ address: '0xserver-contract' }),
     );
     expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
+  });
+
+  it('does not duplicate server simulation when staking and Permit2 fallbacks overlap', async () => {
+    const simulation: IDisplayComponentSimulation = {
+      type: EParseTxComponentType.Simulation,
+      label: 'Simulation',
+      assets: [],
+    };
+    const parsedTx = buildParsedTx({
+      components: [simulation],
+      alerts: ['Server risk alert'],
+    });
+
+    const decodedTx = await buildService(parsedTx).buildDecodedTx({
+      networkId,
+      accountId,
+      accountAddress,
+      unsignedTx: buildUnsignedTx([], true),
+    });
+
+    expect(
+      decodedTx.txDisplay?.components.filter(
+        (component) => component.type === EParseTxComponentType.Simulation,
+      ),
+    ).toEqual([simulation]);
+    expect(decodedTx.txDisplay?.alerts).toEqual(['Server risk alert']);
   });
 
   it('keeps the full server display for Borrow transactions', async () => {

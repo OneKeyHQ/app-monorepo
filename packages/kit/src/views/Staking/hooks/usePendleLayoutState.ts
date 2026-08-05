@@ -79,6 +79,9 @@ export function usePendleLayoutState({
   const hasLegacySummaryContent =
     !!transactionConfirmation?.title ||
     !!transactionConfirmation?.tooltip ||
+    // The available-liquidity row is rendered inside the summary branch, so it
+    // must keep that branch visible when it is the only server-provided row.
+    !!transactionConfirmation?.availableLiquidity ||
     (transactionConfirmation?.rewards?.length ?? 0) > 0;
   const hasSummarySection =
     showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent;

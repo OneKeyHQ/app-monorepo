@@ -1625,6 +1625,9 @@ export interface IEarnProvider {
 export type IEarnTransactionTip = {
   type: string;
   text: IEarnText;
+  // Optional second line rendered below `text` (e.g. Spark liquidity-request
+  // banner: title on `text`, subtitle on `description`).
+  description?: IEarnText;
   button?: IEarnActionIcon;
 };
 
@@ -1640,6 +1643,14 @@ export interface IStakeTransactionConfirmation {
     tooltip?: IEarnTooltip;
   }>;
   receive?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
+  // Server-driven "Available liquidity" row. Instant withdrawals can be capped
+  // by a flash-pool balance, while larger amounts use the queued path. Rendered
+  // like `receive` when present.
+  availableLiquidity?: {
     title: IEarnText;
     description: IEarnText;
     tooltip?: IEarnTooltip;
