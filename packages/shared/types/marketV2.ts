@@ -203,6 +203,7 @@ export interface IMarketStockInfo {
   sharesOutstanding?: string;
   underlyingAssetTicker?: string;
   underlyingAssetName?: string;
+  tokenToAssetRatio?: string;
 }
 
 export interface IMarketStockDetail {
