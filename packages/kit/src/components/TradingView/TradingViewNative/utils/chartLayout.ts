@@ -84,6 +84,7 @@ export interface ITradingViewNativeChartLayout {
 
 interface ITimeAxisInterval {
   approximateSeconds: number;
+  minimumRealizableSeconds: number;
   step: number;
   unit: ITradingViewNativeTimeAxisUnit;
 }
@@ -99,28 +100,70 @@ const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 const MAX_TO_FIXED_FRACTION_DIGITS = 100;
+
+function createTimeAxisInterval(
+  unit: ITradingViewNativeTimeAxisUnit,
+  step: number,
+  approximateSeconds: number,
+  minimumRealizableSeconds = approximateSeconds,
+): ITimeAxisInterval {
+  return {
+    approximateSeconds,
+    minimumRealizableSeconds,
+    step,
+    unit,
+  };
+}
+
+// Calendar buckets can be shorter than their nominal duration around DST
+// transitions and short months, so eligibility uses the shortest cadence.
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
-  { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
-  { approximateSeconds: 5 * SECONDS_PER_MINUTE, step: 5, unit: 'minute' },
-  { approximateSeconds: 15 * SECONDS_PER_MINUTE, step: 15, unit: 'minute' },
-  { approximateSeconds: 30 * SECONDS_PER_MINUTE, step: 30, unit: 'minute' },
-  { approximateSeconds: SECONDS_PER_HOUR, step: 1, unit: 'hour' },
-  { approximateSeconds: 2 * SECONDS_PER_HOUR, step: 2, unit: 'hour' },
-  { approximateSeconds: 4 * SECONDS_PER_HOUR, step: 4, unit: 'hour' },
-  { approximateSeconds: 6 * SECONDS_PER_HOUR, step: 6, unit: 'hour' },
-  { approximateSeconds: 12 * SECONDS_PER_HOUR, step: 12, unit: 'hour' },
-  { approximateSeconds: SECONDS_PER_DAY, step: 1, unit: 'day' },
-  { approximateSeconds: 2 * SECONDS_PER_DAY, step: 2, unit: 'day' },
-  { approximateSeconds: 7 * SECONDS_PER_DAY, step: 7, unit: 'day' },
-  { approximateSeconds: 14 * SECONDS_PER_DAY, step: 14, unit: 'day' },
-  { approximateSeconds: 30 * SECONDS_PER_DAY, step: 1, unit: 'month' },
-  { approximateSeconds: 60 * SECONDS_PER_DAY, step: 2, unit: 'month' },
-  { approximateSeconds: 90 * SECONDS_PER_DAY, step: 3, unit: 'month' },
-  { approximateSeconds: 180 * SECONDS_PER_DAY, step: 6, unit: 'month' },
-  { approximateSeconds: 365 * SECONDS_PER_DAY, step: 1, unit: 'year' },
-  { approximateSeconds: 2 * 365 * SECONDS_PER_DAY, step: 2, unit: 'year' },
-  { approximateSeconds: 5 * 365 * SECONDS_PER_DAY, step: 5, unit: 'year' },
-  { approximateSeconds: 10 * 365 * SECONDS_PER_DAY, step: 10, unit: 'year' },
+  createTimeAxisInterval('minute', 1, SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 5, 5 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 15, 15 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('minute', 30, 30 * SECONDS_PER_MINUTE),
+  createTimeAxisInterval('hour', 1, SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 2, 2 * SECONDS_PER_HOUR, SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 4, 4 * SECONDS_PER_HOUR, 3 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('hour', 6, 6 * SECONDS_PER_HOUR, 5 * SECONDS_PER_HOUR),
+  createTimeAxisInterval(
+    'hour',
+    12,
+    12 * SECONDS_PER_HOUR,
+    11 * SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval('day', 1, SECONDS_PER_DAY, 23 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 2, 2 * SECONDS_PER_DAY, 47 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 7, 7 * SECONDS_PER_DAY, 167 * SECONDS_PER_HOUR),
+  createTimeAxisInterval(
+    'day',
+    14,
+    14 * SECONDS_PER_DAY,
+    335 * SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    1,
+    30 * SECONDS_PER_DAY,
+    28 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    2,
+    60 * SECONDS_PER_DAY,
+    59 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval(
+    'month',
+    3,
+    90 * SECONDS_PER_DAY,
+    90 * SECONDS_PER_DAY - SECONDS_PER_HOUR,
+  ),
+  createTimeAxisInterval('month', 6, 180 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 1, 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 2, 2 * 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 5, 5 * 365 * SECONDS_PER_DAY),
+  createTimeAxisInterval('year', 10, 10 * 365 * SECONDS_PER_DAY),
 ];
 
 function formatTradingViewNativeSubscript(value: number) {
@@ -562,7 +605,7 @@ export function formatTradingViewNativeCrosshairTime(
 
 function formatTradingViewNativeTimeTick(
   timestamp: number,
-  interval: ITimeAxisInterval,
+  unit: ITradingViewNativeTimeAxisUnit,
   previousTimestamp?: number,
 ) {
   'worklet';
@@ -571,17 +614,8 @@ function formatTradingViewNativeTimeTick(
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
   const day = padTimeAxisValue(date.getDate());
-  const { step, unit } = interval;
-  let alignedHour = date.getHours();
-  let alignedMinute = date.getMinutes();
-  if (unit === 'minute') {
-    alignedMinute = Math.floor(alignedMinute / step) * step;
-  } else if (unit === 'hour') {
-    alignedHour = Math.floor(alignedHour / step) * step;
-    alignedMinute = 0;
-  }
-  const hour = padTimeAxisValue(alignedHour);
-  const minute = padTimeAxisValue(alignedMinute);
+  const hour = padTimeAxisValue(date.getHours());
+  const minute = padTimeAxisValue(date.getMinutes());
 
   if (unit === 'minute' || unit === 'hour') {
     const previousDate =
@@ -648,11 +682,12 @@ function getClosestTimeAxisInterval({
 
   const firstEligibleInterval =
     TIME_AXIS_INTERVALS.find(
-      ({ approximateSeconds }) => approximateSeconds >= minimumSeconds,
+      ({ minimumRealizableSeconds }) =>
+        minimumRealizableSeconds >= minimumSeconds,
     ) ?? TIME_AXIS_INTERVALS[TIME_AXIS_INTERVALS.length - 1];
 
   return TIME_AXIS_INTERVALS.reduce((closestInterval, currentInterval) => {
-    if (currentInterval.approximateSeconds < minimumSeconds) {
+    if (currentInterval.minimumRealizableSeconds < minimumSeconds) {
       return closestInterval;
     }
 
@@ -779,7 +814,7 @@ export function getTradingViewNativeTimeAxisLayout({
             index,
             label: formatTradingViewNativeTimeTick(
               timestamp,
-              interval,
+              interval.unit,
               previousTick?.timestamp,
             ),
             timestamp,
