@@ -95,6 +95,18 @@ describe('scrubSensitiveErrorMessageText', () => {
     ).toBe('request failed with [credential]');
   });
 
+  test('keeps request UUIDs and URL paths readable', () => {
+    const requestId = '3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840';
+
+    expect(
+      scrubSensitiveErrorMessageText(
+        `requestId=${requestId} url=https://api.onekey.so/prime/v1/account/oauth/login`,
+      ),
+    ).toBe(
+      `requestId=${requestId} url=https://api.onekey.so/prime/v1/account/oauth/login`,
+    );
+  });
+
   test('keeps error-code params readable', () => {
     expect(
       scrubSensitiveErrorMessageText('rejected with code=otp_expired'),
@@ -140,9 +152,10 @@ describe('scrubSensitiveErrorMessageText', () => {
 
   test('keeps free-form reasons out of server telemetry', () => {
     const secret = 'AbCdEfGhIjKlMnOpQrStUvWxYz123456';
+    const requestId = '3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840';
     const params = getOneKeyIdAuthFailureServerParams({
       source: 'throwSite',
-      reason: `ServicePrime.apiOAuthLogin: OneKey ID is already logged in. name=OneKeyLocalError message=${secret} code=auth_conflict status=409 requestId=req-1 cause=refreshToken:${secret}`,
+      reason: `ServicePrime.apiOAuthLogin: OneKey ID is already logged in. name=OneKeyLocalError message=${secret} code=auth_conflict status=409 requestId=${requestId} cause=refreshToken:${secret}`,
     });
 
     expect(params).toEqual({
@@ -151,7 +164,7 @@ describe('scrubSensitiveErrorMessageText', () => {
       errorName: 'OneKeyLocalError',
       errorCode: 'auth_conflict',
       httpStatusCode: 409,
-      requestId: 'req-1',
+      requestId,
     });
     expect(JSON.stringify(params)).not.toContain(secret);
     expect(params).not.toHaveProperty('reason');

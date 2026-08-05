@@ -7,9 +7,10 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
       .spyOn(scene, '_emitLog')
       .mockImplementation(() => undefined);
     const secret = 'AbCdEfGhIjKlMnOpQrStUvWxYz123456';
+    const requestId = '3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840';
 
     scene.onekeyIdLoginFailedReason({
-      reason: `OneKey ID is already logged in name=OneKeyLocalError message=${secret} code=auth_conflict status=409 requestId=req-1`,
+      reason: `OneKey ID is already logged in name=OneKeyLocalError message=${secret} code=auth_conflict status=409 requestId=${requestId}`,
     });
 
     const localCall = emitLog.mock.calls.find(
@@ -22,7 +23,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
       {
         source: 'throwSite',
         reason:
-          'OneKey ID is already logged in name=OneKeyLocalError message=[credential] code=auth_conflict status=409 requestId=req-1',
+          'OneKey ID is already logged in name=OneKeyLocalError message=[credential] code=auth_conflict status=409 requestId=3f8a1c92-7d4e-4b16-9c0a-5e2b7f13a840',
       },
     ]);
     expect(localCall?.[2]).toEqual([
@@ -35,7 +36,7 @@ describe('PrimeSubscriptionScene OneKey ID auth failure logging', () => {
         errorName: 'OneKeyLocalError',
         errorCode: 'auth_conflict',
         httpStatusCode: 409,
-        requestId: 'req-1',
+        requestId,
       },
     ]);
     expect(serverCall?.[2]).toEqual([

@@ -1,4 +1,6 @@
 const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type IOneKeyIdAuthFailureLogSource =
   | 'sessionPersist'
@@ -32,8 +34,8 @@ export function scrubSensitiveErrorMessageText(text: string): string {
     },
   );
   scrubbed = scrubbed.replace(
-    /\b(?=[a-z0-9_~+/-]{24,}\b)(?=[a-z0-9_~+/-]*[a-z])(?=[a-z0-9_~+/-]*\d)[a-z0-9_~+/-]+\b/gi,
-    '[credential]',
+    /\b(?=[a-z0-9_~+-]{24,}\b)(?=[a-z0-9_~+-]*[a-z])(?=[a-z0-9_~+-]*\d)[a-z0-9_~+-]+\b/gi,
+    (value) => (UUID_PATTERN.test(value) ? value : '[credential]'),
   );
   scrubbed = scrubbed.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]');
   if (scrubbed.length > MAX_SANITIZED_ERROR_MESSAGE_LENGTH) {
