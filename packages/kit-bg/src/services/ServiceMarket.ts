@@ -179,10 +179,12 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTokenChart(
-    coingeckoId: string,
+    coingeckoId: string | undefined,
     days: string,
     options?: {
+      networkId?: string;
       requestCurrency?: string;
+      tokenAddress?: string;
     },
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -192,7 +194,9 @@ class ServiceMarket extends ServiceBase {
       params: {
         coingeckoId,
         days,
+        networkId: options?.networkId,
         points: !platformEnv.isNative || platformEnv.isNativeIOSPad ? 500 : 200,
+        tokenAddress: options?.tokenAddress,
       },
       ...(options?.requestCurrency
         ? {
