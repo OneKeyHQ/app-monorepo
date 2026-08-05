@@ -122,6 +122,7 @@ function HomeScreenImageItem({
 
   return (
     <XStack
+      testID={`hardware-wallpaper-${item.wallpaperType || 'custom'}-${item.id}`}
       position="relative"
       flexBasis={aspectRatioInfo.flexBasis}
       borderWidth={4}
@@ -617,7 +618,7 @@ export default function HardwareHomeScreenModal({
     if ([EDeviceType.Touch].includes(deviceType)) {
       canUpload = true;
     }
-    if ([EDeviceType.Pro].includes(deviceType)) {
+    if ([EDeviceType.Pro, EDeviceType.Pro2].includes(deviceType)) {
       canUpload = true;
     }
 
@@ -637,10 +638,10 @@ export default function HardwareHomeScreenModal({
     isLoadingError: boolean;
   }>(
     async () => {
-      const { getDeviceFirmwareVersion, getDeviceUUID } = await CoreSDKLoader();
+      const { getDeviceFirmwareVersion } = await CoreSDKLoader();
 
       const serialNumber = device?.featuresInfo
-        ? getDeviceUUID(device.featuresInfo)
+        ? (deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ?? '')
         : '';
 
       const firmwareVersion = device?.featuresInfo
@@ -768,7 +769,7 @@ export default function HardwareHomeScreenModal({
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_wallpaper })}
       />
-      <Page.Body px="$4">
+      <Page.Body px="$4" testID="hardware-wallpaper-page">
         <YStack gap="$2" py="$2">
           <WallpaperCustomCategorySection
             device={device}
@@ -790,6 +791,7 @@ export default function HardwareHomeScreenModal({
         confirmButtonProps={{
           disabled: !selectedItem || isUploadLoading,
           loading: isUploadLoading,
+          testID: 'hardware-wallpaper-apply-button',
         }}
         onConfirm={async (_close) => {
           try {

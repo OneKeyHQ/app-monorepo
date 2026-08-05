@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareVendor,
@@ -10,9 +11,12 @@ import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateRetryAtom,
   firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
-import ServiceFirmwareUpdate from './ServiceFirmwareUpdate';
+import ServiceFirmwareUpdate, {
+  buildPro2TargetsToUpdate,
+} from './ServiceFirmwareUpdate';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -38,6 +42,10 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
     emit: jest.fn(),
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
+  CoreSDKLoader: jest.fn(),
 }));
 
 jest.mock('../../dbs/local/localDb', () => ({
@@ -72,6 +80,9 @@ jest.mock('../../states/jotai/atoms', () => ({
   hardwareUiStateAtom: {
     set: jest.fn(),
   },
+  hardwareUiStateCompletedAtom: {
+    set: jest.fn(),
+  },
 }));
 
 jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
@@ -82,7 +93,6 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
-
 describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -120,6 +130,127 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       expect(getCompatibleConnectId).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('buildPro2TargetsToUpdate', () => {
+  it('uses SDK targets when no developer override is configured', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['app_v1', 'resource'],
+      }),
+    ).toEqual(['app_v1', 'resource']);
+  });
+
+  it('does not infer a resource update from an app update', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['app_v1'],
+      }),
+    ).toEqual(['app_v1']);
+  });
+
+  it('deduplicates SDK update targets', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['se01', 'se01', 'resource'],
+      }),
+    ).toEqual(['se01', 'resource']);
+  });
+
+  it('keeps boot resources independent from stable resources', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['resource', 'boot_resources'],
+      }),
+    ).toEqual(['resource', 'boot_resources']);
+  });
+
+  it('merges and deduplicates developer force targets after SDK targets', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['app_v1', 'resource'],
+        forceTargets: ['resource', 'se01'],
+      }),
+    ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('ServiceFirmwareUpdate Pro2 developer settings', () => {
+  it('clears one-time Pro2 targets with the other one-time overrides', async () => {
+    const updateFirmwareUpdateDevSettings = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: { updateFirmwareUpdateDevSettings },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.clearOnceUpdateDevSettings();
+
+    expect(updateFirmwareUpdateDevSettings).toHaveBeenCalledWith({
+      forceUpdateOnceFirmware: false,
+      forceUpdateOnceBle: false,
+      forceUpdateOnceBootloader: false,
+      pro2ForceUpdateOnceTargets: [],
+    });
+  });
+});
+
+describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('keeps an SDK-selected resource target on the incremental inventory path', async () => {
+    const firmwareUpdateV4 = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {},
+    });
+    const hardwareSDK = {
+      firmwareUpdateV4,
+      on: jest.fn(),
+      off: jest.fn(),
+    };
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest.fn().mockResolvedValue(hardwareSDK),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn(async (key: string) => {
+            if (key === 'forceUpdateResEvenSameVersion') {
+              return false;
+            }
+            return undefined;
+          }),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.updatingFirmwareV3({
+      connectId: 'PRO2_CONNECT_ID',
+      bleVersion: undefined,
+      firmwareVersion: undefined,
+      bootloaderVersion: undefined,
+      firmwareType: undefined,
+      isPro2Device: true,
+      pro2TargetsToUpdate: ['resource'],
+    });
+
+    expect(firmwareUpdateV4).toHaveBeenCalledTimes(1);
+    expect(firmwareUpdateV4.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        forcedUpdateRes: false,
+        targetsToUpdate: ['resource'],
+      }),
+    );
+  });
 });
 
 describe('ServiceFirmwareUpdate workflow tracking', () => {
@@ -361,6 +492,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
       expect.objectContaining({ retryCount: 1 }),
     );
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
   it('does not wait for attempt analytics before exposing retry state', async () => {

@@ -8,6 +8,7 @@
     "fflate": "0.8.2",
     "idb": "^7.1.1",
     "ipaddr.js": "^2.3.0",
+    "jpeg-js": "^0.4.4",
     "miscreant": "^0.3.2"
   },
   "scripts": {

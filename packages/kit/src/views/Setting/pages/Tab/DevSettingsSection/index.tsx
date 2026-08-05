@@ -1468,6 +1468,18 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
                       <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        searchKeywords="Pro2 firmware boot app coprocessor resource SE force update"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
                         icon="ActivityOutline"
                         title="App/Bundle Update Status"
                         subtitle="Update state, strategy, download progress, pending task"

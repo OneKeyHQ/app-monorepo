@@ -82,6 +82,7 @@ import type {
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
@@ -216,6 +217,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   };
   applyRestoreSyncPolicy?: boolean;
   hdCredentialCacheScopeId?: string;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 };
 
 export type IBatchBuildAccountsNormalFlowParams =
@@ -412,7 +414,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
     const flow = this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         let customNetworks: {
           networkId: string;
           deriveType: IAccountDeriveTypes;
@@ -461,6 +463,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             saveToCache: payload.saveToCache,
             loopMode: true,
             isAutoCreateMultiNetwork: payload.params.isAutoCreateMultiNetwork,
+            oneKeyOperationLease,
           });
         this.progressInfo = this.buildProgressInfo({
           indexes,
@@ -492,6 +495,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               hwRootFingerprintInfo,
               hdCredentialCacheScopeId,
+              oneKeyOperationLease,
             });
             result.accountsForCreate = result.accountsForCreate.concat(
               resp.accountsForCreate,
@@ -555,6 +559,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey,
     saveToCache,
     isVerifyAddressAction,
+    oneKeyOperationLease,
   }: {
     walletId: string;
     networkId: string;
@@ -563,6 +568,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     showOnOneKey?: boolean;
     saveToCache?: boolean;
     isVerifyAddressAction?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }) {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
@@ -579,7 +585,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const result =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
+        async (activeOneKeyOperationLease) => {
           const networksParams =
             await this.buildBatchCreateAccountsNetworksParams({
               walletId,
@@ -601,6 +607,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               showOnOneKey,
               saveToCache,
               isVerifyAddressAction,
+              oneKeyOperationLease: activeOneKeyOperationLease,
               // skipDeviceCancel: true,
             });
 
@@ -615,10 +622,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
             skipDeviceCancel: true,
             isVerifyAddressAction,
             hdCredentialCacheScopeId,
+            oneKeyOperationLease: activeOneKeyOperationLease,
           });
         },
         {
           deviceParams,
+          oneKeyOperationLease,
           skipDeviceCancel: true,
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();
@@ -975,6 +984,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     loopMode?: boolean;
     isAutoCreateMultiNetwork?: boolean;
     isVerifyAddressAction?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
     const hwAllNetworkPrepareAccountsResponse =
       new HardwareAllNetworkGetAddressResponse();
@@ -1096,6 +1106,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
             let allNetworkGetAddressResponse: IHwAllNetworkPrepareAccountsItem[] =
               [];
+            let usingSdkLoopMode = false;
             try {
               const thirdPartyAllNetworkGetAddress =
                 bindThirdPartyAllNetworkGetAddress(thirdPartyHw);
@@ -1127,6 +1138,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 !thirdPartyAllNetworkAdapter ||
                 !thirdPartyAllNetworkGetAddress
               ) {
+                usingSdkLoopMode = Boolean(
+                  params.loopMode && !platformEnv.isExtension,
+                );
                 const sdk =
                   await this.backgroundApi.serviceHardware.getSDKInstance({
                     connectId: deviceParams.dbDevice?.connectId,
@@ -1143,59 +1157,67 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
                 allNetworkGetAddressResponse = (await convertDeviceResponse(
                   async () => {
-                    const sdkPromiseResult =
-                      params.loopMode && !platformEnv.isExtension
-                        ? sdk.allNetworkGetAddressByLoop(
-                            compatibleConnectId,
-                            deviceParams.dbDevice?.deviceId || '',
-                            {
-                              ...deviceParams.deviceCommonParams,
-                              bundle: bundleParams,
-                              onLoopItemResponse: (data) => {
-                                if (hideCheckingDeviceLoading) {
-                                  void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
-                                    {
-                                      connectId: compatibleConnectId,
-                                    },
-                                  );
-                                }
-                                if (data) {
-                                  hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
-                                    data as IHwAllNetworkPrepareAccountsItem,
-                                  );
-                                }
-                              },
-                              onAllItemsResponse: (data, error) => {
-                                if (data === undefined && error) {
-                                  const hwError = convertDeviceError(
-                                    {
-                                      code: error.payload?.code,
-                                      error: error.payload?.error,
-                                    },
-                                    {},
-                                  );
-                                  hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
-                                    hwError ||
-                                      new OneKeyLocalError(
-                                        'Device communication interrupted, please try again later (386147)',
-                                      ),
-                                  );
-                                }
-                                appEventBus.emit(
-                                  EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
-                                  undefined,
+                    const sdkPromiseResult = usingSdkLoopMode
+                      ? sdk.allNetworkGetAddressByLoop(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
+                            onLoopItemResponse: (data) => {
+                              if (hideCheckingDeviceLoading) {
+                                void this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog(
+                                  {
+                                    connectId: compatibleConnectId,
+                                  },
                                 );
-                              },
+                              }
+                              if (data) {
+                                hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
+                                  data as IHwAllNetworkPrepareAccountsItem,
+                                );
+                              }
                             },
-                          )
-                        : sdk.allNetworkGetAddress(
-                            compatibleConnectId,
-                            deviceParams.dbDevice?.deviceId || '',
-                            {
-                              ...deviceParams.deviceCommonParams,
-                              bundle: bundleParams,
+                            onAllItemsResponse: (data, error) => {
+                              if (data === undefined && error) {
+                                const hwError = convertDeviceError(
+                                  {
+                                    code: error.payload?.code,
+                                    error: error.payload?.error,
+                                  },
+                                  {},
+                                );
+                                hwAllNetworkPrepareAccountsResponse.rejectAllResponse(
+                                  hwError ||
+                                    new OneKeyLocalError(
+                                      'Device communication interrupted, please try again later (386147)',
+                                    ),
+                                );
+                              } else {
+                                hwAllNetworkPrepareAccountsResponse.onSdkResponse(
+                                  {
+                                    items:
+                                      (data as IHwAllNetworkPrepareAccountsItem[]) ||
+                                      [],
+                                    completed: true,
+                                  },
+                                );
+                              }
+                              appEventBus.emit(
+                                EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
+                                undefined,
+                              );
                             },
-                          );
+                          },
+                        )
+                      : sdk.allNetworkGetAddress(
+                          compatibleConnectId,
+                          deviceParams.dbDevice?.deviceId || '',
+                          {
+                            ...deviceParams.deviceCommonParams,
+                            bundle: bundleParams,
+                          },
+                        );
 
                     const sdkAllNetworkGetAddressResponse =
                       await sdkPromiseResult;
@@ -1209,7 +1231,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   allNetworkGetAddressResponse,
                 );
             } catch (error) {
-              if (params.loopMode) {
+              if (usingSdkLoopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
                   undefined,
@@ -1217,7 +1239,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               }
               throw error;
             } finally {
-              if (!params.loopMode) {
+              if (!usingSdkLoopMode) {
                 appEventBus.emit(
                   EAppEventBusNames.SDKGetAllNetworkAddressesEnd,
                   undefined,
@@ -1227,14 +1249,16 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
             setTimeout(() => {
               const resolveSdkGetAllAddressResponse = () => {
-                for (const item of allNetworkGetAddressResponse) {
-                  hwAllNetworkPrepareAccountsResponse.onSdkItemCallResponse(
-                    item,
-                  );
-                }
+                hwAllNetworkPrepareAccountsResponse.onSdkResponse({
+                  items: allNetworkGetAddressResponse,
+                  completed: false,
+                });
               };
 
               resolveSdkGetAllAddressResponse();
+              if (!usingSdkLoopMode) {
+                hwAllNetworkPrepareAccountsResponse.completeSdkResponse();
+              }
 
               if (process.env.NODE_ENV !== 'production') {
                 // resolve by console call manually:
@@ -1253,6 +1277,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           skipCloseHardwareUiStateDialog:
             skipCloseHardwareUiStateDialog ?? false,
           hideCheckingDeviceLoading,
+          oneKeyOperationLease: params.oneKeyOperationLease,
         },
       );
     }
@@ -1292,7 +1317,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const networksParams: IBatchBuildAccountsBaseParams[] =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: params.walletId,
@@ -1348,6 +1373,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             indexes,
             networksParams,
             isAutoCreateMultiNetwork: params.isAutoCreateMultiNetwork,
+            oneKeyOperationLease,
           });
         await this.recordPrimeTransferImportBatchCreateTrace({
           event: 'done',
@@ -1383,6 +1409,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               indexedAccountNames: params.indexedAccountNames,
               hdCredentialCacheScopeId,
+              oneKeyOperationLease,
               // isAutoCreateMultiNetwork flows from ...params.
             });
             addedAccounts.push({
@@ -1663,6 +1690,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     applyRestoreSyncPolicy,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    oneKeyOperationLease,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1873,6 +1901,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               hdCredentialCacheScopeId,
               isAutoCreateMultiNetwork,
+              oneKeyOperationLease,
             });
           await this.recordPrimeTransferImportBatchCreateTrace({
             event: 'done',

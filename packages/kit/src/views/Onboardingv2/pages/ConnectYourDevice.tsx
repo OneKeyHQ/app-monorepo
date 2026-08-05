@@ -3,7 +3,7 @@ import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
-import { get, isString } from 'lodash';
+import { get } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
@@ -95,6 +95,7 @@ import {
 import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
@@ -208,6 +209,11 @@ function useDeviceConnection({
         forceTransportType,
       });
     }
+    const transportType =
+      forceTransportType === EHardwareTransportType.BLE ||
+      forceTransportType === EHardwareTransportType.DesktopWebBle
+        ? 'ble'
+        : 'usb';
 
     isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
@@ -292,18 +298,11 @@ function useDeviceConnection({
 
         // Only set search results if tabValue hasn't changed
         if (currentTabValueRef.current === tabValue) {
-          if (tabValue === EConnectDeviceChannel.bluetooth) {
-            const isUsbData = sortedDevices.some((device) =>
-              // @ts-expect-error
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              isString(device.features?.device_id),
-            );
-            if (isUsbData) {
-              setSearchedDevices([]);
-              return;
-            }
-          }
-          setSearchedDevices(sortedDevices);
+          setSearchedDevices(
+            tabValue === EConnectDeviceChannel.bluetooth
+              ? sortedDevices.filter(deviceUtils.isBluetoothSearchDevice)
+              : sortedDevices,
+          );
         } else {
           console.log('🔍 Ignoring search results - tab changed during search');
         }
@@ -315,6 +314,7 @@ function useDeviceConnection({
       undefined, // pollInterval
       undefined, // maxTryCount
       vendor,
+      { transportType },
     );
   }, [deviceScanner, intl, tabValue, vendor]);
 
@@ -544,12 +544,17 @@ function BluetoothCard({
 }
 
 function DeviceVideo({
-  themeVariant,
   deviceTypeItems,
+  themeVariant,
 }: {
-  themeVariant: 'light' | 'dark';
   deviceTypeItems: EDeviceType[];
+  themeVariant: 'light' | 'dark';
 }) {
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
+    [deviceTypeItems],
+  );
+
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -572,6 +577,9 @@ function DeviceVideo({
   }, [deviceTypeItems]);
 
   const videoSource = useMemo<ReactVideoSource>(() => {
+    if (isPro2) {
+      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+    }
     if (isMini) {
       return themeVariant === 'dark'
         ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
@@ -589,11 +597,8 @@ function DeviceVideo({
         ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
         : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
     }
-
-    return themeVariant === 'dark'
-      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
-      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
-  }, [isClassic, isMini, isTouch, themeVariant]);
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+  }, [isClassic, isMini, isPro2, isTouch, themeVariant]);
 
   return (
     <Video
@@ -638,9 +643,7 @@ function USBOrBLEConnectionIndicator({
     handleDeviceSelect,
   } = deviceConnection;
 
-  const isBLE = useMemo(() => {
-    return hardwareTransportType === EHardwareTransportType.BLE;
-  }, [hardwareTransportType]);
+  const isBLE = platformEnv.isNative;
 
   // USB/BLE specific logic only
   const checkBLEState = useCallback(async () => {
@@ -723,7 +726,13 @@ function USBOrBLEConnectionIndicator({
           });
         if (connectedDevice.device) {
           navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-            deviceData: connectedDevice,
+            deviceData: {
+              ...connectedDevice,
+              device: {
+                ...connectedDevice.device,
+                connectProtocol: undefined,
+              },
+            },
             tabValue,
           });
         }
@@ -732,7 +741,7 @@ function USBOrBLEConnectionIndicator({
       console.error('onConnectWebDevice error:', error);
       setIsChecking(false);
     }
-  }, [setIsChecking, tabValue, promptWebUsbDeviceAccess, navigation]);
+  }, [navigation, promptWebUsbDeviceAccess, setIsChecking, tabValue]);
 
   useEffect(() => {
     if (
@@ -1101,7 +1110,8 @@ function ConnectYourDevicePage({
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
     return deviceTypeItems.every(
-      (deviceType) => deviceType === EDeviceType.Pro,
+      (deviceType) =>
+        deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
     );
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
@@ -1146,6 +1156,8 @@ function ConnectYourDevicePage({
         return;
       }
       const connectId = item.device.connectId ?? '';
+      let detectedConnectProtocol: HardwareConnectProtocol | undefined;
+      let connectedDevice = item.device;
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
@@ -1170,17 +1182,30 @@ function ConnectYourDevicePage({
           void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
             connectId,
           });
-          await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-            connectId,
-            params: {
-              retryCount: 0,
-              onlyConnectBleDevice: true,
-            },
-          });
+          const features =
+            await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+              connectId,
+              params: {
+                forceProtocolDetection: true,
+                retryCount: 0,
+              },
+            });
+          detectedConnectProtocol =
+            features.protocol === 'V1' || features.protocol === 'V2'
+              ? features.protocol
+              : undefined;
+          connectedDevice = {
+            ...item.device,
+            connectProtocol: detectedConnectProtocol,
+          };
         }
         navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
-          deviceData: item,
+          deviceData: {
+            ...item,
+            device: connectedDevice,
+          },
           tabValue: innerTabValue,
+          connectProtocol: detectedConnectProtocol,
         });
       } catch (error) {
         if (error instanceof OneKeyHardwareError) {

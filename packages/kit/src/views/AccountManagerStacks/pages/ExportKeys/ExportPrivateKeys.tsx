@@ -127,6 +127,7 @@ function ExportPrivateKeysPage({
       await backgroundApiProxy.serviceNetwork.getSupportExportAccountKeyNetworks(
         {
           exportType,
+          walletId: indexedAccount?.walletId,
         },
       );
     return networksInfo.map((n) => n.network.id);
@@ -135,6 +136,7 @@ function ExportPrivateKeysPage({
     exportType,
     isImportedAccount,
     isWatchingAccount,
+    indexedAccount?.walletId,
   ]);
 
   const initialNetworkId = useMemo(() => {

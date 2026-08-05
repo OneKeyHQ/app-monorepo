@@ -101,6 +101,10 @@ function V4AccountNameSelector({
 export function RenameInputWithNameSelector({
   value,
   onChange,
+  hasError,
+  forceHasError,
+  validationErrorMessage,
+  validationErrorTestID,
   maxLength = 8000,
   description,
   indexedAccount,
@@ -111,6 +115,10 @@ export function RenameInputWithNameSelector({
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
+  hasError?: boolean;
+  forceHasError?: boolean;
+  validationErrorMessage?: string;
+  validationErrorTestID?: string;
   description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
@@ -139,6 +147,7 @@ export function RenameInputWithNameSelector({
       <Stack>
         <Input
           testID={inputTestID}
+          error={forceHasError ?? hasError}
           size="large"
           $gtMd={{ size: 'medium' }}
           maxLength={maxLength}
@@ -164,6 +173,14 @@ export function RenameInputWithNameSelector({
           />
         ) : null}
       </Stack>
+      {validationErrorMessage ? (
+        <Form.FieldDescription
+          color="$textCritical"
+          testID={validationErrorTestID}
+        >
+          {validationErrorMessage}
+        </Form.FieldDescription>
+      ) : null}
       <Form.FieldDescription>
         {intl.formatMessage({
           id: ETranslations.account_name_form_helper_text,

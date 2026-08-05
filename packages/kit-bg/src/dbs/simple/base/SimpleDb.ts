@@ -387,6 +387,15 @@ export class SimpleDb {
     return value;
   }
 
+  get hardwarePortfolioSync() {
+    const SimpleDbEntityHardwarePortfolioSync = (
+      require('../entity/SimpleDbEntityHardwarePortfolioSync') as unknown as typeof import('../entity/SimpleDbEntityHardwarePortfolioSync')
+    ).SimpleDbEntityHardwarePortfolioSync;
+    const value = new SimpleDbEntityHardwarePortfolioSync();
+    Object.defineProperty(this, 'hardwarePortfolioSync', { value });
+    return value;
+  }
+
   get appStatus() {
     const SimpleDbEntityAppStatus = (
       require('../entity/SimpleDbEntityAppStatus') as unknown as typeof import('../entity/SimpleDbEntityAppStatus')

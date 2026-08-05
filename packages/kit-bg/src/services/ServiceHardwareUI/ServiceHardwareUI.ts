@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,16 +32,24 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { HardwareProcessingManager } from './HardwareProcessingManager';
+import {
+  HardwareProcessingManager,
+  type IOneKeyHardwareOperationLease,
+} from './HardwareProcessingManager';
+import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
 import type { IDBDevice } from '../../dbs/local/types';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type {
+  IHardwareUiPayload,
+  IHardwareUiResponseCorrelation,
+} from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
@@ -54,6 +63,7 @@ export type IWithHardwareProcessingControlParams = {
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
   debugMethodName?: string;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
 } & IWithHardwareProcessingControlParams;
 
@@ -75,48 +85,64 @@ class ServiceHardwareUI extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
-    // When device features (including label) change, invalidate cache to avoid showing stale names.
+    // Clear cached dialogs after device state changes so labels cannot become stale.
+    appEventBus.on(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      this.onHardwareDeviceStateUpdate,
+    );
+    // Third-party hardware remains driven by each SDK's features events.
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
-      this.onHardwareFeaturesUpdate,
+      this.onThirdPartyHardwareFeaturesUpdate,
     );
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
 
-  private onHardwareFeaturesUpdate = async ({
-    deviceId,
-  }: {
-    deviceId: string;
-  }) => {
+  private onHardwareDeviceStateUpdate = async ({
+    connectId,
+    state,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate]) => {
     try {
       // Delete from cache first to avoid a race where a new interaction immediately reads stale cache.
-      for (const [connectId, cached] of this.deviceCacheByConnectId.entries()) {
-        if (cached?.id === deviceId) {
-          this.deviceCacheByConnectId.delete(connectId);
+      for (const [
+        cachedConnectId,
+        cached,
+      ] of this.deviceCacheByConnectId.entries()) {
+        if (
+          cached?.deviceId === state.identity.deviceId ||
+          cached?.uuid === state.identity.serialNo
+        ) {
+          this.deviceCacheByConnectId.delete(cachedConnectId);
         }
       }
-
-      const device = await localDb.getDevice(deviceId);
-      if (device?.connectId) {
-        this.deviceCacheByConnectId.delete(device.connectId);
-      } else {
-        // Conservative fallback: if connectId cannot be resolved, clear all cache to avoid stale UI.
-        this.deviceCacheByConnectId.clear();
-      }
+      if (connectId) this.deviceCacheByConnectId.delete(connectId);
     } catch {
       // Best-effort: this event is only for UI consistency. Clear cache on any error.
       this.deviceCacheByConnectId.clear();
     }
   };
 
+  private onThirdPartyHardwareFeaturesUpdate = async ({
+    deviceId,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareFeaturesUpdate]) => {
+    try {
+      const device = await localDb.getDevice(deviceId);
+      if (device?.connectId) {
+        this.deviceCacheByConnectId.delete(device.connectId);
+      } else {
+        this.deviceCacheByConnectId.clear();
+      }
+    } catch {
+      this.deviceCacheByConnectId.clear();
+    }
+  };
+
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
-    return (
-      await this.backgroundApi.serviceHardware.getSDKInstance({
-        connectId: undefined,
-      })
-    ).uiResponse(response);
+    return this.backgroundApi.serviceHardware.sendUiResponseToActiveSdk(
+      response,
+    );
   }
 
   @backgroundMethod()
@@ -255,64 +281,79 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPassphraseOnDeviceDialog() {
+  async showEnterPassphraseOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: '',
-        passphraseOnDevice: true,
-        attachPinOnDevice: false,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'device' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterAttachPinOnDeviceDialog() {
+  async showEnterAttachPinOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: '',
-        passphraseOnDevice: false,
-        attachPinOnDevice: true,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'attach-pin' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPinToDevice({ pin }: { pin: string }) {
+  async sendPinToDevice({
+    pin,
+    responseCorrelation,
+  }: {
+    pin: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: pin,
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
+  async sendPassphraseToDevice({
+    passphrase,
+    responseCorrelation,
+  }: {
+    passphrase: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: passphrase,
-        passphraseOnDevice: false,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'host', passphrase }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterPinOnDevice() {
+  async showEnterPinOnDevice({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+      ...responseCorrelation,
     });
   }
 
@@ -324,7 +365,9 @@ class ServiceHardwareUI extends ServiceBase {
     connectId: string;
     payload: IHardwareUiPayload | undefined;
   }) {
-    await this.showEnterPinOnDevice();
+    await this.showEnterPinOnDevice({
+      responseCorrelation: payload?.uiResponseCorrelation,
+    });
 
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
@@ -451,7 +494,61 @@ class ServiceHardwareUI extends ServiceBase {
     return this.processingNestedNum === 1;
   }
 
+  @backgroundMethod()
+  async isHardwareChannelBusy(_params?: { connectId?: string }) {
+    const [hardwareUiState, firmwareUpdateWorkflowRunning] = await Promise.all([
+      hardwareUiStateAtom.get(),
+      firmwareUpdateWorkflowRunningAtom.get(),
+    ]);
+    return (
+      this.processingNestedNum > 0 ||
+      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked() ||
+      firmwareUpdateWorkflowRunning ||
+      Boolean(hardwareUiState)
+    );
+  }
+
   async withHardwareProcessing<T>(
+    fn: (lease?: IOneKeyHardwareOperationLease) => Promise<T>,
+    params: IWithHardwareProcessingOptions,
+  ): Promise<T> {
+    const device = params.deviceParams?.dbDevice;
+    const isThirdPartyVendor = getVendorProfile(
+      device?.vendor ?? EHardwareVendor.onekey,
+    ).isThirdParty;
+    if (isThirdPartyVendor) {
+      return this.withHardwareProcessingInternal(() => fn(undefined), params);
+    }
+    // Keep operation-level serialization during the mixed-SDK rollout and for
+    // shared lifecycle work outside the correlated PIN/passphrase response path.
+    return this.runExclusiveOneKeyOperation(
+      (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
+      {
+        deviceKey:
+          device?.id || device?.deviceId || device?.uuid || device?.connectId,
+        lease: params.oneKeyOperationLease,
+      },
+    );
+  }
+
+  runExclusiveOneKeyOperation<T>(
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>,
+    {
+      deviceKey,
+      lease,
+    }: {
+      deviceKey?: string;
+      lease?: IOneKeyHardwareOperationLease;
+    } = {},
+  ) {
+    return this.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      deviceKey,
+      lease,
+      operation,
+    });
+  }
+
+  private async withHardwareProcessingInternal<T>(
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
@@ -478,7 +575,6 @@ class ServiceHardwareUI extends ServiceBase {
     const isThirdPartyVendor = getVendorProfile(
       device?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
-
     let deviceResetToHome = true;
     let isBusy = false;
     try {

@@ -404,6 +404,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceHardwarePortfolioSync() {
+    const Service =
+      require('../services/ServiceHardware/serviceHardwarePortfolioSync') as typeof import('../services/ServiceHardware/serviceHardwarePortfolioSync');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHardwarePortfolioSync', { value });
+    return value;
+  }
+
   get serviceKeylessCloudSync() {
     const Service =
       require('../services/ServiceKeylessCloudSync') as typeof import('../services/ServiceKeylessCloudSync');

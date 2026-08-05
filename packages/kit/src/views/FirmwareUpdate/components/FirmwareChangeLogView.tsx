@@ -39,11 +39,54 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
+import { isPro2SafeOSFirmwareUpdate } from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
+
+function FirmwareVersionOnlyProgressText({
+  fromVersion = '',
+  toVersion = '',
+  active,
+}: {
+  fromVersion?: string;
+  toVersion?: string;
+  active: boolean;
+}) {
+  const { versionValid, unknownMessage } = useFirmwareVersionValid();
+  const textColor = active ? '$text' : '$textSubdued';
+  const versionTextProps = {
+    size: '$bodyLgMedium',
+    minWidth: 0,
+    flexShrink: 1,
+    numberOfLines: 1,
+  } as const;
+  const fromVersionText = versionValid(fromVersion)
+    ? fromVersion
+    : unknownMessage;
+  const toVersionText = toVersion?.length > 0 ? toVersion : unknownMessage;
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$1.5"
+      minWidth={0}
+      flexShrink={1}
+      flexWrap="wrap"
+    >
+      <SizableText {...versionTextProps} color={textColor}>
+        {fromVersionText}
+      </SizableText>
+      <Icon name="ArrowRightSolid" size="$4" color={textColor} flexShrink={0} />
+      <SizableText {...versionTextProps} color={textColor}>
+        {toVersionText}
+      </SizableText>
+    </XStack>
+  );
+}
 
 function ChangeLogMarkdown({
   changelog,
@@ -73,9 +116,11 @@ function ChangeLogSection({
   title,
   updateInfo,
   accordionValue,
+  versionOnly,
 }: {
   title: string;
   accordionValue: string;
+  versionOnly?: boolean;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
@@ -125,14 +170,22 @@ function ChangeLogSection({
               >
                 {title}
               </SizableText>
-              <FirmwareVersionProgressText
-                fromVersion={updateInfo?.fromVersion}
-                fromFirmwareType={updateInfo?.fromFirmwareType}
-                toVersion={updateInfo?.toVersion}
-                toFirmwareType={updateInfo?.toFirmwareType}
-                githubReleaseUrl={updateInfo?.githubReleaseUrl}
-                active={open}
-              />
+              {versionOnly ? (
+                <FirmwareVersionOnlyProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  toVersion={updateInfo?.toVersion}
+                  active={open}
+                />
+              ) : (
+                <FirmwareVersionProgressText
+                  fromVersion={updateInfo?.fromVersion}
+                  fromFirmwareType={updateInfo?.fromFirmwareType}
+                  toVersion={updateInfo?.toVersion}
+                  toFirmwareType={updateInfo?.toFirmwareType}
+                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                  active={open}
+                />
+              )}
             </XStack>
             <Stack
               animation="quick"
@@ -174,12 +227,15 @@ export function FirmwareChangeLogContentView({
   result: ICheckAllFirmwareReleaseResult | undefined;
 } & IStackProps) {
   const intl = useIntl();
+  const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
   const defaultExpandedSections = useMemo(() => {
-    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
+    if (result?.updateInfos?.firmware?.hasUpgrade || isPro2SafeOSUpdate) {
+      return 'firmware';
+    }
     if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
     if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
     return undefined;
-  }, [result?.updateInfos]);
+  }, [isPro2SafeOSUpdate, result?.updateInfos]);
 
   return (
     <Stack {...rest}>
@@ -190,21 +246,26 @@ export function FirmwareChangeLogContentView({
         defaultValue={defaultExpandedSections}
         collapsible
       >
-        {result?.updateInfos?.firmware?.hasUpgrade ? (
+        {result?.updateInfos?.firmware?.hasUpgrade || isPro2SafeOSUpdate ? (
           <ChangeLogSection
-            title={intl.formatMessage({ id: ETranslations.global_firmware })}
+            title={
+              isPro2SafeOSUpdate
+                ? 'SafeOS'
+                : intl.formatMessage({ id: ETranslations.global_firmware })
+            }
             updateInfo={result?.updateInfos?.firmware}
             accordionValue="firmware"
+            versionOnly={isPro2SafeOSUpdate}
           />
         ) : null}
-        {result?.updateInfos?.bootloader?.hasUpgrade ? (
+        {result?.updateInfos?.bootloader?.hasUpgrade && !isPro2SafeOSUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bootloader })}
             updateInfo={result?.updateInfos?.bootloader}
             accordionValue="bootloader"
           />
         ) : null}
-        {result?.updateInfos?.ble?.hasUpgrade ? (
+        {result?.updateInfos?.ble?.hasUpgrade && !isPro2SafeOSUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
             updateInfo={result?.updateInfos?.ble}
