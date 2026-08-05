@@ -59,7 +59,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('holdings');
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 

@@ -165,6 +165,8 @@ export interface ISwapInitParams {
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;
+  closeModalAfterSwapBroadcast?: boolean;
+  onSwapBroadcast?: () => void | Promise<void>;
 }
 
 // token & network
@@ -879,6 +881,9 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  bindedAccountAddress?: string;
+  bindedNetworkId?: string;
+  rebateAddress?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;

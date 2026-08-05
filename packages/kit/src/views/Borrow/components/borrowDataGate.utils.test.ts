@@ -1,6 +1,7 @@
 import {
   getOwnedBorrowReservesResult,
   isCurrentBorrowReservesRequest,
+  shouldRefreshBorrowDataOnActivation,
 } from './borrowDataGate.utils';
 
 describe('isCurrentBorrowReservesRequest', () => {
@@ -63,5 +64,25 @@ describe('getOwnedBorrowReservesResult', () => {
         currentKey: null,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('shouldRefreshBorrowDataOnActivation', () => {
+  it('does not duplicate the hooks initial active fetch', () => {
+    expect(
+      shouldRefreshBorrowDataOnActivation({
+        isViewActive: true,
+        wasViewActive: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('refreshes after a real inactive-to-active transition', () => {
+    expect(
+      shouldRefreshBorrowDataOnActivation({
+        isViewActive: true,
+        wasViewActive: false,
+      }),
+    ).toBe(true);
   });
 });

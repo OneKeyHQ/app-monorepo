@@ -27,7 +27,7 @@ let mockFormData: {
 let mockMidPriceBN: BigNumber;
 let mockActiveTradeInstrument: {
   mode: 'perp' | 'spot';
-  universe?: { szDecimals: number };
+  universe?: { szDecimals?: number; baseSzDecimals?: number };
 };
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
@@ -242,17 +242,20 @@ describe('useOrderPrice BBO freshness refresh', () => {
     expect(result.current.isValid).toBe(false);
   });
 
-  it('ignores a stale BBO selection after switching to spot', () => {
+  // Spot BBO is first-class (OK-58582): the hook resolves it with spot
+  // szDecimals instead of stripping the mode; stale selections are cleared by
+  // the instrument-switch form reset, not here.
+  it('resolves the BBO price for spot instruments', () => {
     mockActiveTradeInstrument = {
       mode: 'spot',
-      universe: { szDecimals: 4 },
+      universe: { baseSzDecimals: 4 },
     };
     mockFormData.price = '99';
 
     const { result } = renderHook(() => useOrderPrice('long'));
 
     expect(result.current.error).toBeNull();
-    expect(result.current.price.toFixed()).toBe('99');
+    expect(result.current.price.toFixed()).toBe('101');
   });
 });
 

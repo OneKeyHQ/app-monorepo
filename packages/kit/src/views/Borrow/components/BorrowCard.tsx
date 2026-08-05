@@ -8,9 +8,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
-import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -20,8 +19,12 @@ import {
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -83,10 +86,7 @@ export const BorrowCard = () => {
     [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
   const borrowAssets = useMemo(
     () =>
       filterUnsupportedAaveNativeReserveAssets({
@@ -114,12 +114,12 @@ export const BorrowCard = () => {
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
-    const available = intl.formatMessage({
-      id: ETranslations.global_available,
+    const balance = intl.formatMessage({
+      id: ETranslations.global_balance,
     });
     return {
       asset,
-      available,
+      balance,
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       assetsToBorrow: intl.formatMessage({
@@ -128,8 +128,8 @@ export const BorrowCard = () => {
       noAssetsToBorrow: intl.formatMessage({
         id: ETranslations.defi_no_assets_to_borrow,
       }),
-      assetAvailable: `${asset} / ${available}`,
-      availableWithColon: `${available}:`,
+      assetBalance: `${asset} / ${balance}`,
+      balanceWithColon: `${balance}:`,
     };
   }, [intl]);
 
@@ -137,12 +137,12 @@ export const BorrowCard = () => {
   const mobileColumns = useMemo(
     () => [
       {
-        label: labels.assetAvailable,
+        label: labels.assetBalance,
         key: 'asset',
         render: (item: IBorrowAsset) => (
           <AssetWithAmountField
             token={item.token}
-            amountLabel={{ text: labels.availableWithColon }}
+            amountLabel={{ text: labels.balanceWithColon }}
             amount={item.available.title}
             amountDescription={item.available.description}
             platformBonusApy={item.platformBonusApy}
@@ -174,11 +174,12 @@ export const BorrowCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
-        label: labels.available,
+        label: labels.balance,
         align: 'flex-end' as const,
-        key: 'available',
+        key: 'balance',
         sortable: true,
         comparator: (a: IBorrowAsset, b: IBorrowAsset) => {
           const aFiatValue = new BigNumber(a.available?.fiatValue || '0');
@@ -192,6 +193,8 @@ export const BorrowCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.borrowApy,
@@ -200,6 +203,7 @@ export const BorrowCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       {
         label: '',
@@ -207,7 +211,7 @@ export const BorrowCard = () => {
         key: 'actions',
         render: (item: IBorrowAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: labels.borrow }} />}
+            actionLabel={labels.borrow}
             item={item}
             accountId={accountId}
             walletId={walletId}
@@ -216,8 +220,8 @@ export const BorrowCard = () => {
             disabled={item.borrowButton?.disabled}
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [handleManageBorrow, accountId, walletId, indexedAccountId, labels],
@@ -231,7 +235,7 @@ export const BorrowCard = () => {
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToBorrow}
-        defaultSortKey="available"
+        defaultSortKey="balance"
         defaultSortDirection="desc"
         listProps={borrowListProps}
       />

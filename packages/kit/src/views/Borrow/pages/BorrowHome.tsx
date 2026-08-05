@@ -1,35 +1,72 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
+  Empty,
   ScrollView,
-  SegmentControl,
+  Tabs,
   XStack,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
+import type { IBorrowToken } from '@onekeyhq/shared/types/staking';
 
+import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
+import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
+import {
+  EBorrowDataStatus,
+  isBorrowReservesPending,
+} from '../borrowDataStatus';
+import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
+import { BorrowNavigation } from '../borrowUtils';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
 import { BorrowedCard } from '../components/BorrowedCard';
-import { Markets } from '../components/Markets';
+import {
+  BORROW_MOBILE_ACTION_BAR_SCROLL_INSET,
+  BorrowMobileActionBar,
+} from '../components/BorrowMobileActionBar';
+import { BorrowMobileEmptyState } from '../components/BorrowMobileEmptyState';
+import { BorrowMobilePositions } from '../components/BorrowMobilePositions';
+import { BorrowMobileSummary } from '../components/BorrowMobileSummary';
+import { filterUnsupportedAaveNativeReserveAssets } from '../components/borrowRepayPosition.utils';
 import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
 import { useBorrowEModeStatus } from '../hooks/useBorrowEModeStatus';
+import { useBorrowOverviewData } from '../hooks/useBorrowOverviewData';
+import { useBorrowPositionEntries } from '../hooks/useBorrowPositionEntries';
 import { BorrowTestIDs } from '../testIDs';
 
 import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
 
-type IBorrowTab = 'supply' | 'borrow';
+const SUPPLY_COLUMN_FLEX = 1.15;
+const BORROW_COLUMN_FLEX = 1;
+
+type IBorrowSection = 'supply' | 'borrow';
+
+type IBorrowManageAsset = {
+  reserveAddress: string;
+  token: Pick<IBorrowToken, 'logoURI' | 'symbol'>;
+};
+
+const SECTION_TAB_BAR_CONTAINER_STYLE = {
+  testID: BorrowTestIDs.sectionTabs,
+  position: 'relative',
+  zIndex: 0,
+  bg: 'transparent',
+} as const;
 
 type IBorrowHomeProps = {
   header?: React.ReactNode;
@@ -37,6 +74,10 @@ type IBorrowHomeProps = {
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
+  onBorrowHistoryActionChange?: (
+    handler: (() => void) | null,
+    visible: boolean,
+  ) => void;
 };
 
 const BorrowPendingBridge = ({
@@ -73,44 +114,59 @@ const BorrowPendingBridge = ({
 };
 
 const BorrowHomeContent = memo(
-  ({ header, isActive = true }: IBorrowHomeProps) => {
-    const tabBarHeight = useScrollContentTabBarOffset();
-    const { gtMd, gtLg } = useMedia();
+  ({
+    header,
+    isActive = true,
+    onBorrowHistoryActionChange,
+  }: IBorrowHomeProps) => {
     const intl = useIntl();
-    const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
-    const [tabHeights, setTabHeights] = useState({ supply: 0, borrow: 0 });
-    const updateTabHeight = useCallback(
-      (tab: IBorrowTab, h: number) =>
-        setTabHeights((prev) =>
-          prev[tab] === h ? prev : { ...prev, [tab]: h },
-        ),
-      [],
-    );
-    const maxTabHeight = Math.max(tabHeights.supply, tabHeights.borrow);
-    const [healthFactorAlerts, setHealthFactorAlerts] = useState<
-      IBorrowAlert[] | undefined
-    >(undefined);
-    const { reserves, market, earnAccount, refreshAllBorrowData } =
-      useBorrowContext();
+    const tabBarHeight = useScrollContentTabBarOffset();
+    const { gtMd, gtXl } = useMedia();
+    const navigation = useAppNavigation();
+    const toOnBoardingPage = useToOnBoardingPage();
+    const [activeSection, setActiveSection] =
+      useState<IBorrowSection>('supply');
+    const {
+      reserves,
+      market,
+      markets,
+      earnAccount,
+      borrowDataStatus,
+      refreshAllBorrowData,
+    } = useBorrowContext();
+    const isReservesPending =
+      isBorrowReservesPending(borrowDataStatus) ||
+      (reserves.loading && !reserves.data);
+    const isReservesError =
+      !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
     const { activeAccount } = useActiveAccount({ num: 0 });
-    const eModeAccountId =
-      earnAccount.data?.accountId ?? earnAccount.data?.account?.id;
-    const { eModeStatus, isLoading: isEModeStatusLoading } =
-      useBorrowEModeStatus({
-        networkId: market?.networkId,
-        provider: market?.provider,
-        marketAddress: market?.marketAddress,
-        accountId: eModeAccountId,
-        enabled:
-          isActive &&
-          Boolean(
-            market?.networkId &&
-            market.provider &&
-            market.marketAddress &&
-            eModeAccountId,
-          ),
-      });
-    const resolvedEModeStatus = isEModeStatusLoading ? undefined : eModeStatus;
+    const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
+    const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
+    const {
+      eModeStatus,
+      isError: isEModeStatusError,
+      isInitialLoading: isEModeStatusInitialLoading,
+      refresh: refreshEModeStatus,
+    } = useBorrowEModeStatus({
+      networkId: market?.networkId,
+      provider: market?.provider,
+      marketAddress: market?.marketAddress,
+      accountId: earnAccountId,
+      enabled:
+        isActive &&
+        Boolean(
+          market?.networkId &&
+          market.provider &&
+          market.marketAddress &&
+          earnAccountId,
+        ),
+    });
+    const overviewData = useBorrowOverviewData({
+      isActive,
+      refreshEModeStatus,
+    });
+    const healthFactorAlerts = overviewData.healthFactorData?.alerts;
+    // Keep the actionable health-factor alert alongside the summary metric.
     const alerts = useMemo(
       () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
       [reserves.data?.alerts, healthFactorAlerts],
@@ -124,6 +180,20 @@ const BorrowHomeContent = memo(
         Boolean(walletId || accountId || indexedAccountId),
       [activeAccount.ready, walletId, accountId, indexedAccountId],
     );
+    const isAaveEModeProvider =
+      inferredEModeProvider?.toLowerCase() === EBorrowProviderEnum.Aave;
+    const isEModeInitialLoading =
+      !eModeStatus &&
+      !isEModeStatusError &&
+      isActive &&
+      isAaveEModeProvider &&
+      (!activeAccount.ready ||
+        (hasConnectedWallet &&
+          (earnAccount.loading ||
+            Boolean(earnAccountId && isEModeStatusInitialLoading))));
+    const isEModeError =
+      !eModeStatus && isActive && isAaveEModeProvider && isEModeStatusError;
+    const noConnectedWallet = activeAccount.ready && !hasConnectedWallet;
     const showNoAddressWarning = useMemo(
       () =>
         hasConnectedWallet &&
@@ -140,137 +210,306 @@ const BorrowHomeContent = memo(
         earnAccount.data?.accountAddress,
       ],
     );
-    const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
+    const hasAlerts = Boolean(alerts.length) || showNoAddressWarning;
 
     const refreshEarnAccount = earnAccount.refresh;
+    const refreshReserves = reserves.refresh;
     const handleCreateAddress = useCallback(async () => {
       await refreshEarnAccount();
       await refreshAllBorrowData();
     }, [refreshEarnAccount, refreshAllBorrowData]);
+    const handleRetryReserves = useCallback(() => {
+      void refreshReserves();
+    }, [refreshReserves]);
 
-    const tabOptions = useMemo(
+    const isMidWidth = gtMd && !gtXl;
+    const isPhone = !gtMd;
+
+    const sectionTabNames = useMemo(
       () => [
-        {
-          label: intl.formatMessage({ id: ETranslations.defi_supply }),
-          value: 'supply' as IBorrowTab,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_borrow }),
-          value: 'borrow' as IBorrowTab,
-        },
+        intl.formatMessage({ id: ETranslations.defi_supply }),
+        intl.formatMessage({ id: ETranslations.global_borrow }),
       ],
       [intl],
     );
+    const focusedSectionTab = useSharedValue(sectionTabNames[0]);
+    useEffect(() => {
+      focusedSectionTab.value =
+        activeSection === 'supply' ? sectionTabNames[0] : sectionTabNames[1];
+    }, [activeSection, focusedSectionTab, sectionTabNames]);
+    const handleSectionChange = useCallback(
+      (name: string) => {
+        focusedSectionTab.value = name;
+        setActiveSection(name === sectionTabNames[1] ? 'borrow' : 'supply');
+      },
+      [focusedSectionTab, sectionTabNames],
+    );
 
-    const isMidWidth = gtMd && !gtLg;
+    const supplyAssets = useMemo(
+      () =>
+        filterUnsupportedAaveNativeReserveAssets({
+          assets: reserves.data?.supply?.assets,
+          networkId: market?.networkId,
+          providerName: market?.provider,
+        }),
+      [market?.networkId, market?.provider, reserves.data?.supply?.assets],
+    );
+    const hasPositions = useBorrowPositionEntries().length > 0;
 
-    return (
-      <ScrollView
-        flex={1}
-        contentContainerStyle={{ paddingBottom: tabBarHeight }}
-      >
-        {header ? <YStack pb="$4">{header}</YStack> : null}
-        <YStack flex={1} px="$5" pb="$10">
-          <Markets />
-          <Overview
-            eModeStatus={eModeStatus}
-            showBottomSpacing={!hasAlerts}
-            isActive={isActive}
-            onHealthFactorAlertsChange={setHealthFactorAlerts}
+    const hasResolvedMarket = Boolean(
+      market?.networkId && market?.provider && market?.marketAddress,
+    );
+    const canOpenAssetList = Boolean(
+      activeAccount.ready &&
+      hasResolvedMarket &&
+      (noConnectedWallet || earnAccountId),
+    );
+
+    const openManagePosition = useCallback(
+      (asset: IBorrowManageAsset, type: EManagePositionType) => {
+        if (!market?.networkId || !market.provider || !market.marketAddress) {
+          return;
+        }
+        if (noConnectedWallet) {
+          void toOnBoardingPage();
+          return;
+        }
+        if (!earnAccountId) {
+          return;
+        }
+        BorrowNavigation.pushToBorrowManagePosition(navigation, {
+          accountId: earnAccountId,
+          indexedAccountId,
+          networkId: market.networkId,
+          provider: market.provider,
+          marketAddress: market.marketAddress,
+          reserveAddress: asset.reserveAddress,
+          symbol: asset.token.symbol,
+          providerLogoURI: market.logoURI,
+          logoURI: asset.token.logoURI,
+          type,
+        });
+      },
+      [
+        earnAccountId,
+        indexedAccountId,
+        market?.networkId,
+        market?.provider,
+        market?.marketAddress,
+        market?.logoURI,
+        navigation,
+        noConnectedWallet,
+        toOnBoardingPage,
+      ],
+    );
+
+    const openAssetList = useCallback(
+      (action: 'supply' | 'borrow') => {
+        if (!market?.networkId || !market.provider || !market.marketAddress) {
+          return;
+        }
+        if (noConnectedWallet) {
+          void toOnBoardingPage();
+          return;
+        }
+        if (!earnAccountId) {
+          return;
+        }
+        BorrowNavigation.pushToBorrowTokenSelect(navigation, {
+          accountId: earnAccountId,
+          indexedAccountId,
+          networkId: market.networkId,
+          provider: market.provider,
+          marketAddress: market.marketAddress,
+          action,
+          navigateOnSelect: {
+            screen: EModalStakingRoutes.BorrowManagePosition,
+            params: {
+              providerLogoURI: market.logoURI,
+              type:
+                action === 'supply'
+                  ? EManagePositionType.Supply
+                  : EManagePositionType.Borrow,
+            },
+          },
+        });
+      },
+      [
+        earnAccountId,
+        indexedAccountId,
+        market?.networkId,
+        market?.provider,
+        market?.marketAddress,
+        market?.logoURI,
+        navigation,
+        noConnectedWallet,
+        toOnBoardingPage,
+      ],
+    );
+    const handleOpenSupplyList = useCallback(
+      () => openAssetList('supply'),
+      [openAssetList],
+    );
+    const handleOpenBorrowList = useCallback(
+      () => openAssetList('borrow'),
+      [openAssetList],
+    );
+
+    const handleSupplyAsset = useCallback(
+      (asset: IBorrowManageAsset) => {
+        openManagePosition(asset, EManagePositionType.Supply);
+      },
+      [openManagePosition],
+    );
+
+    const renderCards = () => {
+      if (isReservesError) {
+        return (
+          <Empty
+            testID={BorrowTestIDs.reservesErrorState}
+            py="$16"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            })}
+            buttonProps={{
+              testID: BorrowTestIDs.reservesRetryBtn,
+              onPress: handleRetryReserves,
+              children: intl.formatMessage({
+                id: ETranslations.global_retry,
+              }),
+            }}
           />
-          {hasAlerts ? (
+        );
+      }
+
+      if (gtMd && !isMidWidth) {
+        return (
+          <XStack gap="$5" ai="flex-start">
             <YStack
-              {...(gtMd ? { my: '$7' } : { mt: '$2', mb: '$7' })}
-              gap="$3"
+              flex={SUPPLY_COLUMN_FLEX}
+              flexShrink={0}
+              flexBasis={0}
+              gap="$5"
             >
-              {showNoAddressWarning ? (
-                <NoAddressWarning
-                  accountId={accountId}
-                  networkId={market?.networkId ?? ''}
-                  indexedAccountId={indexedAccountId}
-                  onCreateAddress={handleCreateAddress}
-                />
-              ) : null}
-              <BorrowAlerts
-                alerts={alerts}
-                accountId={accountId || undefined}
-                walletId={walletId}
-                indexedAccountId={indexedAccountId}
-                marketNetworkId={market?.networkId}
-              />
+              <SuppliedCard eModeStatus={eModeStatus} />
+              <SupplyCard />
             </YStack>
-          ) : null}
-          {gtMd && !isMidWidth ? (
-            // Desktop layout - two equal-width columns with independent vertical flow
-            <XStack gap="$5" ai="flex-start">
-              <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                <SuppliedCard eModeStatus={resolvedEModeStatus} />
-                <SupplyCard />
-              </YStack>
-              <YStack flex={1} flexShrink={0} flexBasis={0} gap="$5">
-                <BorrowedCard />
-                <BorrowCard />
-              </YStack>
-            </XStack>
+            <YStack
+              flex={BORROW_COLUMN_FLEX}
+              flexShrink={0}
+              flexBasis={0}
+              gap="$5"
+            >
+              <BorrowedCard />
+              <BorrowCard />
+            </YStack>
+          </XStack>
+        );
+      }
+
+      if (isPhone) {
+        return (
+          <YStack flex={1} gap="$5">
+            {hasPositions || isReservesPending ? (
+              <BorrowMobilePositions eModeStatus={eModeStatus} />
+            ) : (
+              <BorrowMobileEmptyState
+                assets={supplyAssets}
+                isLoading={reserves.loading}
+                onPressAsset={handleSupplyAsset}
+              />
+            )}
+            <BorrowMobileSummary
+              isPositionTotalsLoading={isReservesPending}
+              overviewData={overviewData}
+              showPositionTotals={hasPositions}
+            />
+          </YStack>
+        );
+      }
+
+      return (
+        <YStack flex={1} gap="$5">
+          <Tabs.TabBar
+            tabNames={sectionTabNames}
+            focusedTab={focusedSectionTab}
+            onTabPress={handleSectionChange}
+            containerStyle={SECTION_TAB_BAR_CONTAINER_STYLE}
+          />
+          {activeSection === 'supply' ? (
+            <>
+              <SuppliedCard eModeStatus={eModeStatus} />
+              <SupplyCard />
+            </>
           ) : (
-            // Mobile layout - tabbed
-            // Both tabs stay mounted via position:absolute overlay so
-            // FlatList items are pre-rendered and switching is instant.
-            // minHeight = max(both tabs) prevents container from shrinking
-            // on tab switch, which would clamp scroll position to 0.
-            <YStack flex={1} gap="$5">
-              <SegmentControl
-                testID={BorrowTestIDs.segmentControl}
-                value={activeTab}
-                options={tabOptions}
-                onChange={(value) => {
-                  setActiveTab(value as IBorrowTab);
-                }}
-                fullWidth
-              />
-              <YStack
-                position="relative"
-                {...(maxTabHeight > 0 && { minHeight: maxTabHeight })}
-              >
-                <YStack
-                  gap="$5"
-                  onLayout={(e) =>
-                    updateTabHeight('supply', e.nativeEvent.layout.height)
-                  }
-                  {...(activeTab !== 'supply' && {
-                    position: 'absolute' as const,
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    opacity: 0,
-                    pointerEvents: 'none' as const,
-                  })}
-                >
-                  <SuppliedCard eModeStatus={resolvedEModeStatus} />
-                  <SupplyCard />
-                </YStack>
-                <YStack
-                  gap="$5"
-                  onLayout={(e) =>
-                    updateTabHeight('borrow', e.nativeEvent.layout.height)
-                  }
-                  {...(activeTab !== 'borrow' && {
-                    position: 'absolute' as const,
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    opacity: 0,
-                    pointerEvents: 'none' as const,
-                  })}
-                >
-                  <BorrowedCard />
-                  <BorrowCard />
-                </YStack>
-              </YStack>
-            </YStack>
+            <>
+              <BorrowedCard />
+              <BorrowCard />
+            </>
           )}
         </YStack>
-      </ScrollView>
+      );
+    };
+
+    return (
+      <YStack flex={1}>
+        <ScrollView
+          flex={1}
+          contentContainerStyle={{
+            paddingBottom:
+              (tabBarHeight ?? 0) +
+              (isPhone ? BORROW_MOBILE_ACTION_BAR_SCROLL_INSET : 0),
+          }}
+        >
+          {header ? <YStack pb="$4">{header}</YStack> : null}
+          <YStack flex={1} px="$5" pb="$10">
+            <Overview
+              eModeStatus={eModeStatus}
+              isEModeError={isEModeError}
+              isEModeLoading={isEModeInitialLoading}
+              overviewData={overviewData}
+              showBottomSpacing={!hasAlerts}
+              onBorrowHistoryActionChange={onBorrowHistoryActionChange}
+            />
+            {hasAlerts ? (
+              <YStack
+                {...(gtMd ? { my: '$7' } : { mt: '$2', mb: '$7' })}
+                gap="$3"
+              >
+                {showNoAddressWarning ? (
+                  <NoAddressWarning
+                    accountId={accountId}
+                    networkId={market?.networkId ?? ''}
+                    indexedAccountId={indexedAccountId}
+                    onCreateAddress={handleCreateAddress}
+                  />
+                ) : null}
+                <BorrowAlerts
+                  alerts={alerts}
+                  accountId={accountId || undefined}
+                  walletId={walletId}
+                  indexedAccountId={indexedAccountId}
+                  marketNetworkId={market?.networkId}
+                />
+              </YStack>
+            ) : null}
+            {renderCards()}
+          </YStack>
+        </ScrollView>
+        {isPhone ? (
+          <BorrowMobileActionBar
+            isActive={isActive}
+            disabled={!canOpenAssetList || isReservesError}
+            bottomOffset={tabBarHeight ?? 0}
+            onSupply={handleOpenSupplyList}
+            onBorrow={handleOpenBorrowList}
+          />
+        ) : null}
+      </YStack>
     );
   },
 );
@@ -284,6 +523,7 @@ const BorrowHomeCmp = memo(
     pendingTxs,
     onRegisterBorrowRefresh,
     onBorrowNetworksChange,
+    onBorrowHistoryActionChange,
   }: IBorrowHomeProps) => {
     return (
       <BorrowProvider>
@@ -295,7 +535,11 @@ const BorrowHomeCmp = memo(
           isActive={isActive}
           onBorrowNetworksChange={onBorrowNetworksChange}
         >
-          <BorrowHomeContent header={header} isActive={isActive} />
+          <BorrowHomeContent
+            header={header}
+            isActive={isActive}
+            onBorrowHistoryActionChange={onBorrowHistoryActionChange}
+          />
         </BorrowDataGate>
       </BorrowProvider>
     );

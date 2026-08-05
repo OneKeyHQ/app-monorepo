@@ -18,6 +18,7 @@ import {
   fetchFilteredTokenSelectorTokens,
   fetchTokenSelectorAccountTokens,
   filterTokenSelectorSearchTokensByBackendIndexedNetworks,
+  resolveIsSelectorAllNetworks,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
@@ -29,6 +30,7 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -44,6 +46,7 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { extractCrossNetworkSearchQuery } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
@@ -63,6 +66,7 @@ import { useAccountSelectorCreateAddress } from '../../../components/AccountSele
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar/NetworkAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { filterTokensByAccountNetworkCompatibility } from '../../../utils/tokenSelectorAccountCompatibility';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
@@ -364,6 +368,8 @@ function TokenSelector() {
     closeAfterSelect = true,
     onSelect,
     searchAll,
+    enableCrossNetworkSearch,
+    browseEmptyTitle,
     isAllNetworks,
     searchPlaceholder,
     footerTipText,
@@ -393,23 +399,69 @@ function TokenSelector() {
   const [searchKey, setSearchKey] = useState('');
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const isSelectorAllNetworks = isAllNetworks ?? network?.isAllNetworks;
+  // Derive all-networks mode synchronously from the networkId: `network` loads
+  // async, and falling back to `network?.isAllNetworks` let the mount-frame
+  // self-fetch run in single-network mode and POST the all-network mock id to
+  // the wallet API (entries like Receive don't pass the route param).
+  const isSelectorAllNetworks = resolveIsSelectorAllNetworks({
+    isAllNetworks,
+    networkId,
+  });
   const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
+  // `network` loads async, but the filter support check short-circuits on
+  // `isAllNetworks` alone, so probe with a synchronous stand-in in all-networks
+  // mode: otherwise `showLpTokensOnly` flips after mount and the normal
+  // self-fetch fires a full all-network fan-out before the filtered branch
+  // takes over and fires a second one.
+  let filterProbeNetwork:
+    | Pick<IServerNetwork, 'id' | 'isAllNetworks' | 'backendIndex'>
+    | undefined;
+  if (network) {
+    filterProbeNetwork = {
+      id: network.id,
+      isAllNetworks: isSelectorAllNetworks,
+      backendIndex: network.backendIndex,
+    };
+  } else if (isSelectorAllNetworks) {
+    filterProbeNetwork = {
+      id: networkId,
+      isAllNetworks: true,
+      backendIndex: undefined,
+    };
+  }
   const showTokenSelectorFilter =
     !!showDeFiTokenSwitch &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: network
-        ? {
-            id: network.id,
-            isAllNetworks: isSelectorAllNetworks,
-            backendIndex: network.backendIndex,
-          }
-        : undefined,
+      network: filterProbeNetwork,
       isDeFiEnabled,
     });
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
+  // Cross-network search (main Receive): under a single-network scope, search
+  // the backend across all networks and group results by network. Excluded for
+  // custom networks (their search goes through RPC contract lookup) and the LP
+  // filter (its backend results are network-scoped by design).
+  // `network` resolves asynchronously: require it before enabling, otherwise
+  // `!network?.isCustomNetwork` reads as true while it is still undefined and a
+  // custom network would dispatch an all-network search on a cold start.
+  const crossNetworkSearchEnabled =
+    !!enableCrossNetworkSearch &&
+    !!network &&
+    !isSelectorAllNetworks &&
+    !network.isCustomNetwork &&
+    !showLpTokensOnly;
+  // Others (imported / watch-only / external) accounts hold one credential on
+  // one impl, so cross-network results must be narrowed to the networks that
+  // credential can actually derive an address on. HD/HW accounts are unfiltered
+  // — they can create an account on any network.
+  const othersAccountForNetworkFilter =
+    crossNetworkSearchEnabled &&
+    account &&
+    accountId &&
+    accountUtils.isOthersAccount({ accountId })
+      ? account
+      : undefined;
   let tokenSelectorSearchFilterContext: ITokenSelectorSearchFilterContext =
     'all-token';
   if (showTokenSelectorFilter) {
@@ -581,7 +633,10 @@ function TokenSelector() {
       initialized: !!initialScopedTokenSelectorSnapshot,
     });
   const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
-  const [searchTokenState, setSearchTokenState] = useState({
+  const [searchTokenState, setSearchTokenState] = useState<{
+    isSearching: boolean;
+    hasError?: boolean;
+  }>({
     isSearching: false,
   });
   const [searchTokenList, setSearchTokenList] = useState<{
@@ -797,7 +852,16 @@ function TokenSelector() {
         }
       }
 
-      if (network?.isAllNetworks) {
+      // Cross-network rows (single-network scope, main Receive): the pressed
+      // token lives on a different network than the selector scope, so it must
+      // go through the same account-matching/creation path as All Networks —
+      // executing onSelect directly would fall back to the scope accountId.
+      const isCrossNetworkTokenPress =
+        crossNetworkSearchEnabled &&
+        !!token.networkId &&
+        token.networkId !== networkId;
+
+      if (network?.isAllNetworks || isCrossNetworkTokenPress) {
         let vaultSettings: IVaultSettings | undefined;
         if (token.networkId) {
           vaultSettings =
@@ -823,6 +887,25 @@ function TokenSelector() {
                   networkId: network?.id ?? '',
                 };
 
+            // `fetchAllNetworkAccounts` makes the service treat this as an
+            // all-network request, and without an indexedAccountId it derives
+            // one FROM the accountId — a path built for the all-networks mock
+            // id (`hd-1--0000/0`). Handing it a single-chain id parses the
+            // coin type as the index (`m/44'/60'/0'/0/0` -> `hd-1--44`), which
+            // is a valid-looking id, so it is accepted silently: normally it
+            // matches nothing and every cross-network press falls to
+            // createAddress, and if that index exists it resolves someone
+            // else's account. Pass the scope's own indexedAccountId so the
+            // service short-circuits before deriving. Others accounts have
+            // none and must keep taking the othersWalletAccountId branch,
+            // which passing this would disable.
+            const crossNetworkIndexedAccountId =
+              isCrossNetworkTokenPress &&
+              indexedAccountId &&
+              !accountUtils.isOthersAccount({ accountId: params.accountId })
+                ? indexedAccountId
+                : undefined;
+
             let deriveType;
 
             if (token.accountId && token.networkId) {
@@ -845,9 +928,15 @@ function TokenSelector() {
             const { accountsInfo } =
               await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
                 ...params,
+                indexedAccountId: crossNetworkIndexedAccountId,
                 includingNonExistingAccount: true,
                 deriveType,
                 excludeTestNetwork: false,
+                // A single-network accountId cannot be expanded to all-network
+                // accounts without this flag; without a match the flow would
+                // always fall through to createAddress and needlessly wake
+                // hardware wallets.
+                fetchAllNetworkAccounts: isCrossNetworkTokenPress,
               });
             accounts = accountsInfo;
           }
@@ -931,6 +1020,8 @@ function TokenSelector() {
     [
       network?.isAllNetworks,
       network?.id,
+      networkId,
+      crossNetworkSearchEnabled,
       closeAfterSelect,
       allAggregateTokenMap,
       selectorAggregateTokenListMap,
@@ -1009,6 +1100,11 @@ function TokenSelector() {
         accountId ?? '',
         networkId ?? '',
         tokenSelectorSearchFilterContext,
+        // Part of the identity: the gate flips when `network` resolves, and the
+        // two runs would otherwise share a context — letting the earlier
+        // (differently scoped) response pass isLatest() and overwrite the newer
+        // one if it lands after the abort.
+        crossNetworkSearchEnabled ? 'cross' : 'scoped',
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
@@ -1026,12 +1122,38 @@ function TokenSelector() {
             },
       );
       await backgroundApiProxy.serviceToken.abortSearchTokens();
+      let searchFailed = false;
       try {
+        // Cross-network search: the backend matches the keyword string as a
+        // whole, so combined queries ("usdt trx") first strip an exact network
+        // keyword and scope the request to that network; otherwise query the
+        // backend across all networks (the onekeyall response is a superset of
+        // the scoped one). Results are grouped by network locally.
+        // The network catalog is only needed for multi-word queries, so it is
+        // fetched here rather than on mount (getAllNetworks is memoized in the
+        // background service).
+        const crossNetworkQuery =
+          crossNetworkSearchEnabled && /\s/.test(keywords.trim())
+            ? extractCrossNetworkSearchQuery({
+                keywords,
+                networks: (
+                  await backgroundApiProxy.serviceNetwork.getAllNetworks()
+                ).networks,
+              })
+            : undefined;
         let result = await backgroundApiProxy.serviceToken.searchTokens({
           accountId,
-          networkId,
-          keywords,
+          networkId: crossNetworkSearchEnabled
+            ? (crossNetworkQuery?.networkId ?? getNetworkIdsMap().onekeyall)
+            : networkId,
+          keywords: crossNetworkQuery?.keywords ?? keywords,
         });
+        if (othersAccountForNetworkFilter) {
+          result = filterTokensByAccountNetworkCompatibility({
+            tokens: result,
+            account: othersAccountForNetworkFilter,
+          });
+        }
         if (showLpTokensOnly && isSelectorAllNetworks) {
           result =
             await filterTokenSelectorSearchTokensByBackendIndexedNetworks({
@@ -1063,24 +1185,33 @@ function TokenSelector() {
             searchKey: keywords,
             filterContext: tokenSelectorSearchFilterContext,
           });
+          searchFailed = true;
           console.log(e);
         }
       } finally {
         if (isLatest()) {
-          setSearchTokenState({ isSearching: false });
+          setSearchTokenState({ isSearching: false, hasError: searchFailed });
         }
       }
     },
     [
       accountId,
+      crossNetworkSearchEnabled,
       isSelectorAllNetworks,
       networkId,
+      othersAccountForNetworkFilter,
       showLpTokensOnly,
       showTokenSelectorFilter,
       tokenSelectorFilterParams,
       tokenSelectorSearchFilterContext,
     ],
   );
+
+  const retrySearchTokens = useCallback(() => {
+    if (searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
+      void searchTokensBySearchKey(searchKey);
+    }
+  }, [searchKey, searchTokensBySearchKey]);
 
   const applyNormalTokenSelectorSnapshot = useCallback(
     (snapshot: ITokenSelectorNormalViewSnapshot) => {
@@ -1804,6 +1935,9 @@ function TokenSelector() {
           tokenSelectorSearchKey={searchKey}
           tokenSelectorSearchTokenState={searchTokenState}
           tokenSelectorSearchTokenList={searchTokenList}
+          crossNetworkSearchEnabled={crossNetworkSearchEnabled}
+          onSearchTokensRetry={retrySearchTokens}
+          browseEmptyTitle={browseEmptyTitle}
           allAggregateTokenMap={allAggregateTokenMap}
           hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
           hideDeFiMarkedTokens={

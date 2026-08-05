@@ -424,7 +424,9 @@ export default class Vault extends VaultBase {
         encodedTx as IEncodedTxEvm,
       );
 
-      if (params.prevNonce && isNumber(params.prevNonce)) {
+      // prevNonce may legitimately be 0 (first tx of a fresh account), so a
+      // truthiness check would drop it and let the next tx reuse the same nonce.
+      if (isNumber(params.prevNonce) && !Number.isNaN(params.prevNonce)) {
         return this.updateUnsignedTx({
           unsignedTx,
           nonceInfo: {

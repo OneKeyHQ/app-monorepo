@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -38,6 +39,17 @@ interface IEarnPageContainerProps {
   disableMaxWidth?: boolean;
   showTabPageHeader?: boolean;
   showBodyTitle?: boolean;
+  // Native TabPageHeader has no centered slot; when enabled, the title is
+  // horizontally centered via an overlay and the left side keeps only the
+  // back button (OK-58881; the iOS 26 native nav bar centers by itself and is
+  // unaffected)
+  centerPageTitle?: boolean;
+  // Review feedback: full-list pages render a virtualized ListView that owns
+  // its own scrolling. In list mode the body renders children directly
+  // (no wrapping ScrollView) — nesting a virtualized list inside a ScrollView
+  // would mount every row and defeat virtualization. Callers must move
+  // refreshControl / bottom padding onto their ListView.
+  bodyListMode?: boolean;
 }
 
 export function EarnPageContainer({
@@ -55,20 +67,25 @@ export function EarnPageContainer({
   disableMaxWidth,
   showTabPageHeader = true,
   showBodyTitle = false,
+  centerPageTitle = false,
+  bodyListMode = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
+  const { top: safeAreaTop } = useSafeAreaInsets();
 
   const handleBack = useCallback(() => {
     navigation.pop();
   }, [navigation]);
+
+  const shouldCenterTitle = centerPageTitle && !!pageTitle;
 
   const customHeaderLeft = useMemo(() => {
     if (showBackButton) {
       return (
         <XStack gap="$3" ai="center">
           <NavBackButton onPress={handleBack} />
-          {pageTitle}
+          {shouldCenterTitle ? null : pageTitle}
         </XStack>
       );
     }
@@ -77,7 +94,7 @@ export function EarnPageContainer({
         {pageTitle}
       </XStack>
     ) : null;
-  }, [pageTitle, showBackButton, handleBack]);
+  }, [pageTitle, showBackButton, handleBack, shouldCenterTitle]);
 
   const showBreadcrumb = useMemo(
     () => breadcrumbProps && media.gtSm,
@@ -140,7 +157,23 @@ export function EarnPageContainer({
     [hasNativeHeaderRight, customHeaderRightItems],
   );
 
-  const body = (
+  // List mode: children (a virtualized list) own the scrolling. The iOS 26
+  // translucent native header inset becomes top padding here — the list is
+  // clipped at the bar's bottom edge instead of scrolling under the glass,
+  // which is visually equivalent since nothing scrolls behind it.
+  const body = bodyListMode ? (
+    <Page.Body>
+      <Page.Container
+        testID={EarnTestIDs.earnPage}
+        padded={false}
+        layout={disableMaxWidth ? 'full' : 'regular'}
+        flex={1}
+        {...(useNativeHeader ? { pt: nativeHeaderHeight } : {})}
+      >
+        {children}
+      </Page.Container>
+    </Page.Body>
+  ) : (
     <Page.Body>
       <ScrollView
         testID={EarnTestIDs.earnPage}
@@ -194,12 +227,34 @@ export function EarnPageContainer({
   return (
     <Page>
       {shouldShowTabPageHeader ? (
-        <TabPageHeader
-          sceneName={sceneName}
-          tabRoute={tabRoute}
-          customHeaderLeftItems={customHeaderLeft}
-          customHeaderRightItems={customHeaderRightItems}
-        />
+        <YStack position="relative">
+          <TabPageHeader
+            sceneName={sceneName}
+            tabRoute={tabRoute}
+            customHeaderLeftItems={customHeaderLeft}
+            customHeaderRightItems={customHeaderRightItems}
+          />
+          {shouldCenterTitle ? (
+            // Align with the MDHeader content row: the 44pt-high row below
+            // the safe-area margin (top || 8). The overlay covers only this
+            // row so the title centers on the same axis as the back button
+            // (OK-58881)
+            <XStack
+              position="absolute"
+              top={safeAreaTop || 8}
+              left={0}
+              right={0}
+              h={44}
+              ai="center"
+              jc="center"
+              pointerEvents="none"
+            >
+              <XStack ai="center" gap="$2">
+                {pageTitle}
+              </XStack>
+            </XStack>
+          ) : null}
+        </YStack>
       ) : (
         <YStack mx="$pagePadding" mt="$2" mb="$1">
           <Page.Header headerShown={false} />

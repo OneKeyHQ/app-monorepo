@@ -29,6 +29,7 @@ export interface ITableColumn<T> {
   minWidth?: number | string;
   maxWidth?: number | string;
   align?: 'flex-start' | 'center' | 'flex-end';
+  headerNumberOfLines?: number;
   // Sorting
   sortable?: boolean;
   sortKey?: string;
@@ -234,24 +235,37 @@ interface ISortButtonProps {
   iconName?: IKeyOfIcons;
   onPress?: IXStackProps['onPress'];
   align?: 'flex-start' | 'center' | 'flex-end';
+  numberOfLines?: number;
 }
 
 const SortButton = memo(
-  ({ label, iconName, onPress, align = 'flex-start' }: ISortButtonProps) => (
+  ({
+    label,
+    iconName,
+    onPress,
+    align = 'flex-start',
+    numberOfLines,
+  }: ISortButtonProps) => (
     <XStack
       role="button"
       ai="center"
       jc={align}
       gap="$1"
+      maxWidth="100%"
       cursor="pointer"
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"
       onPress={onPress}
     >
       {iconName ? (
-        <Icon name={iconName} color="$iconSubdued" size="$4.5" />
+        <Icon name={iconName} color="$iconSubdued" size="$4.5" flexShrink={0} />
       ) : null}
-      <SizableText size="$bodySmMedium" color="$textSubdued">
+      <SizableText
+        size="$bodySmMedium"
+        color="$textSubdued"
+        numberOfLines={numberOfLines}
+        flexShrink={1}
+      >
         {label}
       </SizableText>
     </XStack>
@@ -319,11 +333,17 @@ function TableListHeader<T>({
                 iconName={getSortIcon(column.sortKey ?? column.key)}
                 onPress={() => handleSort(column.sortKey ?? column.key)}
                 align={column.align ?? 'flex-start'}
+                numberOfLines={column.headerNumberOfLines}
               />
             );
           } else {
             content = (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={column.headerNumberOfLines}
+                maxWidth="100%"
+              >
                 {column.label}
               </SizableText>
             );

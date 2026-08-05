@@ -114,7 +114,7 @@ export function buildAddPositionMinimumAmountLabel({
 }): string {
   const fallback = `$${ADD_POSITION_MIN_ORDER_NOTIONAL}`;
   const priceBN = new BigNumber(price);
-  if (!priceBN.isFinite() || priceBN.lte(0) || sizeInputUnit === 'usd') {
+  if (!priceBN.isFinite() || priceBN.lte(0)) {
     return fallback;
   }
 
@@ -126,12 +126,18 @@ export function buildAddPositionMinimumAmountLabel({
     return `${minSize.toFixed(szDecimals)} ${symbol}`;
   }
 
+  const minimumOrderValue = minSize.multipliedBy(priceBN);
+  if (sizeInputUnit === 'usd') {
+    return `$${minimumOrderValue
+      .decimalPlaces(2, BigNumber.ROUND_UP)
+      .toFixed(2)}`;
+  }
+
   const leverageBN = new BigNumber(leverage);
   if (!leverageBN.isFinite() || leverageBN.lte(0)) {
     return fallback;
   }
-  return `$${minSize
-    .multipliedBy(priceBN)
+  return `$${minimumOrderValue
     .dividedBy(leverageBN)
     .decimalPlaces(2, BigNumber.ROUND_UP)
     .toFixed(2)}`;

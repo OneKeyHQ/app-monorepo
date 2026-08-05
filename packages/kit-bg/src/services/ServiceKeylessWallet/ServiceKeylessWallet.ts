@@ -185,6 +185,33 @@ type IKeylessAccessTokenWithoutPromptResult = {
   refreshToken?: string;
 };
 
+type IKeylessCredentialReadyForOneKeyIdBindResult =
+  | { status: 'noLocalKeyless'; hasLocalKeylessWallet: false }
+  | { status: 'ready'; hasLocalKeylessWallet: true }
+  | { status: 'requiresPasscode'; hasLocalKeylessWallet: true }
+  | {
+      status: 'retryableIndeterminate';
+      hasLocalKeylessWallet: true;
+    };
+
+type ILegacyKeylessOAuthMigrationResult =
+  | { status: 'migrated'; accessToken: string }
+  | { status: 'identityMismatch' }
+  | { status: 'unavailable' };
+
+type IContinueOneKeyIdLoginWithLocalKeylessResult =
+  | {
+      status: 'ready';
+      accessToken: string;
+      provider: EOAuthSocialLoginProvider;
+      walletId: string;
+    }
+  | {
+      status: 'retryable' | 'needOAuthLogin';
+      provider: EOAuthSocialLoginProvider;
+      walletId: string;
+    };
+
 type IKeylessWalletCreatedOnServerInfo = {
   isCreated: boolean;
   baseRevision: number;
@@ -259,6 +286,8 @@ class ServiceKeylessWallet extends ServiceBase {
   // cleanupLocalKeylessOAuthTokens — an in-flight exchange must not save a
   // rotated token back after the sweep and resurrect a retired credential).
   legacyKeylessOAuthTokenExchangeMutex = new Semaphore(1);
+
+  private legacyKeylessOAuthIdentityMismatchOwnerIds = new Set<string>();
 
   private passiveBackendShareV2MigrationPromise:
     | Promise<IKeylessBackendShareV2MigrationResult>
@@ -3227,6 +3256,7 @@ class ServiceKeylessWallet extends ServiceBase {
     refreshToken: string;
     password: string;
   }): Promise<void> {
+    this.legacyKeylessOAuthIdentityMismatchOwnerIds.delete(params.ownerId);
     const refreshTokenKey = accountUtils.buildKeylessRefreshTokenKey({
       ownerId: params.ownerId,
     });
@@ -3262,16 +3292,23 @@ class ServiceKeylessWallet extends ServiceBase {
   private async migrateLegacyKeylessOAuthSessionForLocalWallet(params: {
     keylessWallet: IDBWallet;
     ownerId: string;
-  }): Promise<string | null> {
+    password?: string;
+  }): Promise<ILegacyKeylessOAuthMigrationResult> {
     const { keylessWallet, ownerId } = params;
     if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
-      return null;
+      this.legacyKeylessOAuthIdentityMismatchOwnerIds.delete(ownerId);
+      return { status: 'unavailable' };
+    }
+    if (this.legacyKeylessOAuthIdentityMismatchOwnerIds.has(ownerId)) {
+      return { status: 'identityMismatch' };
     }
 
     // Verify before locking because password caching may start the competing
     // passive migration that consumes the same single-use token.
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const password =
+      params.password ??
+      (await this.backgroundApi.servicePassword.promptPasswordVerify())
+        .password;
 
     // Preserve the lifecycle → legacy-token lock order by committing the
     // identity session only after this token exchange lock is released.
@@ -3280,7 +3317,7 @@ class ServiceKeylessWallet extends ServiceBase {
         // Re-read under the lock because a competing migration may have
         // rotated or removed the token while this call waited.
         if (!(await this.hasLegacyKeylessOAuthRefreshToken({ ownerId }))) {
-          return null;
+          return { status: 'unavailable' as const };
         }
 
         let refreshToken: string | null = null;
@@ -3294,12 +3331,12 @@ class ServiceKeylessWallet extends ServiceBase {
             // A legacy token that cannot be decrypted must not trap every
             // future login attempt in the migration path.
             await this.removeLegacyKeylessOAuthTokens({ ownerId });
-            return null;
+            return { status: 'unavailable' as const };
           }
           throw error;
         }
         if (!refreshToken) {
-          return null;
+          return { status: 'unavailable' as const };
         }
 
         const refreshUrl = `${KEYLESS_SUPABASE_PROJECT_URL}/auth/v1/token?grant_type=refresh_token`;
@@ -3320,17 +3357,17 @@ class ServiceKeylessWallet extends ServiceBase {
           response.status === 408 ||
           response.status === 429
         ) {
-          return null;
+          return { status: 'unavailable' as const };
         }
         if (!response.ok) {
           if (await this.isDefinitiveGoTrueRefreshTokenRejection(response)) {
             // Drop definitively rejected tokens so the next attempt can use a
             // fresh OAuth login instead of repeating a doomed migration.
             await this.removeLegacyKeylessOAuthTokens({ ownerId });
-            return null;
+            return { status: 'unavailable' as const };
           }
           // An unknown non-OK response is not proof that the token is invalid.
-          return null;
+          return { status: 'unavailable' as const };
         }
 
         const refreshResult = (await response.json()) as {
@@ -3350,7 +3387,7 @@ class ServiceKeylessWallet extends ServiceBase {
           });
         }
         if (!accessToken || !nextRefreshToken) {
-          return null;
+          return { status: 'unavailable' as const };
         }
 
         const mismatchReason =
@@ -3359,14 +3396,19 @@ class ServiceKeylessWallet extends ServiceBase {
             token: accessToken,
           });
         if (mismatchReason) {
-          return null;
+          this.legacyKeylessOAuthIdentityMismatchOwnerIds.add(ownerId);
+          return { status: 'identityMismatch' as const };
         }
 
-        return { accessToken, refreshToken: nextRefreshToken };
+        return {
+          status: 'migrated' as const,
+          accessToken,
+          refreshToken: nextRefreshToken,
+        };
       });
 
-    if (!refreshedSession) {
-      return null;
+    if (refreshedSession.status !== 'migrated') {
+      return refreshedSession;
     }
 
     // The lifecycle commit rechecks wallet identity and cannot resurrect a
@@ -3397,7 +3439,96 @@ class ServiceKeylessWallet extends ServiceBase {
         error: `post-persist legacy token cleanup failed: ${String(error)}`,
       });
     }
-    return refreshedSession.accessToken;
+    return {
+      status: 'migrated',
+      accessToken: refreshedSession.accessToken,
+    };
+  }
+
+  /**
+   * Make the Keyless credential side of a legacy OneKey ID + Keyless upgrade
+   * ready before any bind reminder is shown. A valid modern Keyless session
+   * is reused. A pre-unification encrypted refresh-token blob is exchanged
+   * with the already-cached wallet password and installed into the dedicated
+   * Keyless session slot without changing the active OneKey ID auth source.
+   * A locked credential still allows the reminder; its button continues the
+   * migration interactively and prompts for the passcode. Unknown/transient
+   * outcomes keep the blob and defer the reminder.
+   */
+  @backgroundMethod()
+  async ensureKeylessCredentialReadyForOneKeyIdBind(): Promise<IKeylessCredentialReadyForOneKeyIdBindResult> {
+    const inspection = await this.inspectLocalKeylessWalletForOAuthInternal();
+    if (inspection.status === ELocalKeylessWalletOAuthState.Absent) {
+      return {
+        status: 'noLocalKeyless',
+        hasLocalKeylessWallet: false,
+      };
+    }
+    if (inspection.status === ELocalKeylessWalletOAuthState.DataUnavailable) {
+      return {
+        status: 'retryableIndeterminate',
+        hasLocalKeylessWallet: true,
+      };
+    }
+
+    try {
+      const activeAccessToken =
+        await this.getActiveKeylessOAuthAccessTokenMatchingLocalWallet({
+          keylessWallet: inspection.keylessWallet,
+        });
+      if (activeAccessToken) {
+        return { status: 'ready', hasLocalKeylessWallet: true };
+      }
+
+      const hasLegacyRefreshToken =
+        await this.hasLegacyKeylessOAuthRefreshToken({
+          ownerId: inspection.ownerId,
+        });
+      if (!hasLegacyRefreshToken) {
+        return { status: 'ready', hasLocalKeylessWallet: true };
+      }
+
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+      if (!password) {
+        return {
+          status: 'requiresPasscode',
+          hasLocalKeylessWallet: true,
+        };
+      }
+
+      const migration =
+        await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
+          keylessWallet: inspection.keylessWallet,
+          ownerId: inspection.ownerId,
+          password,
+        });
+      if (migration.status !== 'unavailable') {
+        return { status: 'ready', hasLocalKeylessWallet: true };
+      }
+
+      // A transient exchange keeps the rotated blob for a later retry. A
+      // definitive rejection/corruption removes it, after which the bind UI
+      // may continue with a fresh OAuth sign-in.
+      return (await this.hasLegacyKeylessOAuthRefreshToken({
+        ownerId: inspection.ownerId,
+      }))
+        ? {
+            status: 'retryableIndeterminate',
+            hasLocalKeylessWallet: true,
+          }
+        : { status: 'ready', hasLocalKeylessWallet: true };
+    } catch (error) {
+      defaultLogger.wallet.keyless.prepareOneKeyIdLoginWithLocalKeylessFailed({
+        error: `credential upgrade before OneKey ID bind failed: ${String(
+          error,
+        )}`,
+      });
+      return {
+        status: 'retryableIndeterminate',
+        hasLocalKeylessWallet: true,
+      };
+    }
   }
 
   @backgroundMethod()
@@ -3407,7 +3538,7 @@ class ServiceKeylessWallet extends ServiceBase {
     // NoLocalKeyless. A readable wallet with malformed identity fields returns
     // LocalKeylessDataUnavailable instead, allowing the UI to offer explicit,
     // confirmed removal before OAuth.
-    // - checkAndMarkShouldShowLocalKeylessUpgradeBindPrompt keys off
+    // - claimOneKeyIdOAuthBindPrompt keys off
     //   `status !== NoLocalKeyless` to mean "wallet confirmed exists"; it
     //   relies on the throw to skip its 24h throttle and retry later, instead
     //   of prompting (and throttling) on an unconfirmed wallet.
@@ -3483,11 +3614,7 @@ class ServiceKeylessWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async continueOneKeyIdLoginWithLocalKeyless(): Promise<{
-    accessToken: string;
-    provider: EOAuthSocialLoginProvider;
-    walletId: string;
-  }> {
+  async continueOneKeyIdLoginWithLocalKeyless(): Promise<IContinueOneKeyIdLoginWithLocalKeylessResult> {
     const context = await this.getLocalKeylessLoginContext();
     if (!context) {
       throw new OneKeyLocalError('Local Keyless wallet not found.');
@@ -3527,19 +3654,35 @@ class ServiceKeylessWallet extends ServiceBase {
           }
         }
       }
-      accessToken = await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
-        keylessWallet: context.keylessWallet,
-        ownerId: context.ownerId,
-      });
+      const migration =
+        await this.migrateLegacyKeylessOAuthSessionForLocalWallet({
+          keylessWallet: context.keylessWallet,
+          ownerId: context.ownerId,
+        });
+      accessToken =
+        migration.status === 'migrated' ? migration.accessToken : null;
       if (!accessToken) {
-        // TODO: i18n
-        throw new OneKeyLocalError(
-          'The local Keyless wallet session has expired. Please continue with your linked social account.',
-        );
+        if (migration.status === 'identityMismatch') {
+          return {
+            status: 'needOAuthLogin',
+            provider: context.provider,
+            walletId: context.keylessWallet.id,
+          };
+        }
+        const hasRetryableLegacyCredential =
+          await this.hasLegacyKeylessOAuthRefreshToken({
+            ownerId: context.ownerId,
+          });
+        return {
+          status: hasRetryableLegacyCredential ? 'retryable' : 'needOAuthLogin',
+          provider: context.provider,
+          walletId: context.keylessWallet.id,
+        };
       }
     }
 
     return {
+      status: 'ready',
       accessToken,
       provider: context.provider,
       walletId: context.keylessWallet.id,
@@ -3659,10 +3802,13 @@ class ServiceKeylessWallet extends ServiceBase {
       // KeylessOAuth): keep the pre-existing behavior — the legacy migration
       // below may overwrite it.
     }
-    return this.migrateLegacyKeylessOAuthSessionForLocalWallet({
-      keylessWallet: context.keylessWallet,
-      ownerId: context.ownerId,
-    });
+    const migration = await this.migrateLegacyKeylessOAuthSessionForLocalWallet(
+      {
+        keylessWallet: context.keylessWallet,
+        ownerId: context.ownerId,
+      },
+    );
+    return migration.status === 'migrated' ? migration.accessToken : null;
   }
 
   /**
@@ -3943,6 +4089,7 @@ class ServiceKeylessWallet extends ServiceBase {
     ownerId: string;
   }): Promise<void> {
     const { ownerId } = params;
+    this.legacyKeylessOAuthIdentityMismatchOwnerIds.delete(ownerId);
     await Promise.all([
       keylessStorageUtils.storageRemoveItem(
         accountUtils.buildKeylessRefreshTokenKey({ ownerId }),

@@ -17,6 +17,9 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EBorrowDataStatus } from './borrowDataStatus';
+import { getBorrowEarnAccountForNetwork } from './borrowEarnAccount';
+import { buildBorrowMarketKey } from './borrowMarketKey';
+import { useBorrowMarketMemory } from './hooks/useBorrowMarketMemory';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
@@ -27,6 +30,7 @@ export type IAsyncData<T> = {
   data: T;
   loading: boolean;
   refresh: () => Promise<void>;
+  ownerMarketKey?: string;
 };
 
 export type IBorrowEarnAccount = {
@@ -53,6 +57,10 @@ type IBorrowContextValue = {
   setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  /** Persist an explicit market pick, so it is restored on the next visit. */
+  rememberMarket: (market: IBorrowMarketItem) => void;
+  /** Empty until storage hydrates, which off native happens after mount. */
+  rememberedMarketKey: string;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -98,7 +106,7 @@ export const BorrowProvider = ({
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
-    EBorrowDataStatus.Idle,
+    EBorrowDataStatus.Initializing,
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
@@ -116,6 +124,48 @@ export const BorrowProvider = ({
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
     setPendingTxsState(txs);
   }, []);
+
+  const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
+    markets,
+    market,
+    setMarket,
+  });
+
+  const currentMarketKey = useMemo(
+    () => (market ? buildBorrowMarketKey(market) : undefined),
+    [market],
+  );
+  const scopedEarnAccount = useMemo(() => {
+    if (currentMarketKey && earnAccount.ownerMarketKey !== currentMarketKey) {
+      return {
+        ...earnAccount,
+        data: null,
+        loading: true,
+      };
+    }
+    if (
+      !market?.networkId ||
+      !earnAccount.data ||
+      getBorrowEarnAccountForNetwork(earnAccount.data, market.networkId)
+    ) {
+      return earnAccount;
+    }
+    return {
+      ...earnAccount,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, earnAccount, market?.networkId]);
+  const scopedReserves = useMemo(() => {
+    if (!currentMarketKey || reserves.ownerMarketKey === currentMarketKey) {
+      return reserves;
+    }
+    return {
+      ...reserves,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, reserves]);
 
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
@@ -138,9 +188,11 @@ export const BorrowProvider = ({
       setMarkets,
       market,
       setMarket,
-      earnAccount,
+      rememberMarket,
+      rememberedMarketKey,
+      earnAccount: scopedEarnAccount,
       setEarnAccount,
-      reserves,
+      reserves: scopedReserves,
       setReserves,
       borrowDataStatus,
       setBorrowDataStatus,
@@ -153,8 +205,10 @@ export const BorrowProvider = ({
     [
       markets,
       market,
-      earnAccount,
-      reserves,
+      rememberMarket,
+      rememberedMarketKey,
+      scopedEarnAccount,
+      scopedReserves,
       borrowDataStatus,
       swapConfig,
       pendingTxs,

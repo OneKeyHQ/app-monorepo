@@ -75,6 +75,7 @@ interface IChartSize {
 interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
+  hasVolume: boolean;
   panGesture: {
     startOffset: number;
     translationX: number;
@@ -95,6 +96,7 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
+  hasVolume: boolean;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -109,16 +111,19 @@ interface ITradingViewNativeChartProps {
 function getInitialRuntime({
   candleIntervalSeconds,
   chartType,
+  hasVolume,
   points,
 }: {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
+  hasVolume: boolean;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativeChartRuntime {
   return {
     ...createTradingViewNativeChartRuntimeState(),
     candleIntervalSeconds,
     chartType,
+    hasVolume,
     panGesture: {
       startOffset: 0,
       translationX: 0,
@@ -141,6 +146,7 @@ export const TradingViewNativeChart = memo(
     candleIntervalSeconds,
     chartType,
     chartPictureVersion,
+    hasVolume,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -154,7 +160,12 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const chartRuntime = useSharedValue(
-      getInitialRuntime({ candleIntervalSeconds, chartType, points }),
+      getInitialRuntime({
+        candleIntervalSeconds,
+        chartType,
+        hasVolume,
+        points,
+      }),
     );
     const decayOffset = useSharedValue(0);
     const previousLatestTimestampRef = useRef<number | undefined>(
@@ -171,7 +182,7 @@ export const TradingViewNativeChart = memo(
     const theme = useTheme();
     const themeName = useThemeName();
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
-    const background = theme.bgApp.val;
+    const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
@@ -202,6 +213,7 @@ export const TradingViewNativeChart = memo(
         candleIntervalSeconds: runtime.candleIntervalSeconds,
         chartType: runtime.chartType,
         crosshair: runtime.crosshair,
+        hasVolume: runtime.hasVolume,
         height: runtime.size.height,
         points: runtime.points,
         resources: resources.value,
@@ -321,6 +333,7 @@ export const TradingViewNativeChart = memo(
           ...nextRuntimeState,
           candleIntervalSeconds,
           chartType,
+          hasVolume,
           panGesture: {
             ...runtime.panGesture,
             startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
@@ -350,6 +363,7 @@ export const TradingViewNativeChart = memo(
       chartRuntime,
       chartSize,
       decayOffset,
+      hasVolume,
       points,
     ]);
 

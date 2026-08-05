@@ -432,6 +432,20 @@ describe('TradingViewNative chart viewport', () => {
     );
   });
 
+  it('keeps the right edge fixed when zooming without a focused anchor', () => {
+    const chartWidth = 100;
+    const viewport = getTradingViewNativeZoomedViewport({
+      anchorX: chartWidth,
+      chartWidth,
+      currentOffset: 24,
+      currentZoomScale: 1,
+      nextZoomScale: 2,
+      pointCount: 100,
+    });
+
+    expect(viewport).toEqual({ offset: 48, zoomScale: 2 });
+  });
+
   it('resolves timestamp and time-range targets to candle indices', () => {
     const points = [
       buildPoint(1, 2, 100),

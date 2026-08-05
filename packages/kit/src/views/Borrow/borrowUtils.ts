@@ -8,7 +8,9 @@ import {
   EModalRoutes,
   EModalStakingRoutes,
   ETabEarnRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
@@ -19,6 +21,18 @@ import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/
 export { getBorrowTxTitle } from './borrowTxTitle';
 
 export const BorrowNavigation = {
+  pushToBorrowHome(navigation: IAppNavigation) {
+    if (platformEnv.isNative) {
+      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+      return;
+    }
+
+    navigation.navigate(ETabRoutes.Earn, {
+      screen: ETabEarnRoutes.EarnHome,
+      params: { mode: 'borrow' },
+    });
+  },
+
   // Navigate from deep link (when user clicks a borrow share link)
   async pushToBorrowReserveDetailsFromDeeplink(
     navigation: IAppNavigation,
@@ -168,6 +182,16 @@ export const BorrowNavigation = {
         providerLogoURI: params.providerLogoURI,
         type: params.type,
       },
+    });
+  },
+
+  pushToBorrowTokenSelect(
+    navigation: IAppNavigation,
+    params: IModalStakingParamList[EModalStakingRoutes.BorrowTokenSelect],
+  ) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.BorrowTokenSelect,
+      params,
     });
   },
 
