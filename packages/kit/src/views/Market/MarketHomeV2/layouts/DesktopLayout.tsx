@@ -16,6 +16,7 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
+import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
@@ -163,12 +164,15 @@ export function DesktopLayout({
   // commit; the other two stay as empty placeholders until first press.
   const everActiveTabsRef = useRef<Set<string>>(new Set([activeTabName]));
   const [, bumpEverActive] = useState(0);
-  useEffect(() => {
-    if (!everActiveTabsRef.current.has(activeTabName)) {
-      everActiveTabsRef.current.add(activeTabName);
-      bumpEverActive((n) => n + 1);
+  const ensureTabActivated = useCallback((tabName: string) => {
+    if (!everActiveTabsRef.current.has(tabName)) {
+      everActiveTabsRef.current.add(tabName);
+      bumpEverActive((version) => version + 1);
     }
-  }, [activeTabName]);
+  }, []);
+  useEffect(() => {
+    ensureTabActivated(activeTabName);
+  }, [activeTabName, ensureTabActivated]);
   const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
 
   // Ref so renderTabBar can update activeTabName immediately on press
@@ -191,6 +195,7 @@ export function DesktopLayout({
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
+        ensureTabActivated(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -244,15 +249,16 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [getSpotCategoryIdByTabName, portalRefCallback],
+    [ensureTabActivated, getSpotCategoryIdByTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      ensureTabActivated(tabName);
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [ensureTabActivated, handleTabChange, setActiveTabName],
   );
 
   const listContainerProps = useMemo(() => {
@@ -300,7 +306,7 @@ export function DesktopLayout({
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
       <YStack px="$4" flex={1}>
         {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={null}>
+          <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
               tabIntegrated
               tabName={watchlistTabName}
