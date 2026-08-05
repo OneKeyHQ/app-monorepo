@@ -155,9 +155,7 @@ describe('resolvePerpMarketDetail', () => {
     ).toHaveLength(0);
   });
 
-  // `STX` is Stacks on the main DEX and Seagate on para. A bare-symbol entry
-  // must not shadow the dex-scoped one, otherwise the para market shows the
-  // crypto's details.
+  // `STX` is Stacks on the main DEX and Seagate on para.
   it('prefers a dex-scoped entry over a bare symbol of the same name', async () => {
     mockServiceHyperliquid.getPerpsAssetMetaMap.mockResolvedValue({
       STX: {
@@ -186,7 +184,6 @@ describe('resolvePerpMarketDetail', () => {
     expect(mockServiceMarket.fetchMarketTokenDetail.mock.calls).toHaveLength(0);
   });
 
-  // The main DEX asset of the same ticker must keep resolving to its own entry.
   it('still resolves the main dex symbol to the bare entry', async () => {
     mockServiceHyperliquid.getPerpsAssetMetaMap.mockResolvedValue({
       STX: {

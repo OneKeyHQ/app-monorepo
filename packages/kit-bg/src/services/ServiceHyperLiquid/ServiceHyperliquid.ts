@@ -1395,9 +1395,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshTradingMeta() {
-    // read-merge-write against the positional universe cache is not atomic, so
-    // concurrent callers could interleave and drop a slot another call just
-    // wrote. Independent main-runtime hooks do call this in parallel.
+    // read-merge-write on the positional cache is not atomic, and independent
+    // main-runtime hooks do call this in parallel.
     if (!this.refreshTradingMetaPromise) {
       this.refreshTradingMetaPromise = this._refreshTradingMeta().finally(
         () => {
@@ -2681,10 +2680,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
-      // Only seed from the first asset when no coin was requested. Substituting
-      // it for a coin that is genuinely absent would silently open a different
-      // market than the caller asked for: a search result routed to the wrong
-      // dex prefix would land on that dex's first ticker, order panel primed.
+      // Seed from the first asset only when no coin was requested — substituting
+      // it for an absent coin silently opens a different market.
       const selectedUniverse: IPerpsUniverse | undefined = newCoin
         ? dexUniverses?.find((item) => item.name === newCoin)
         : dexUniverses?.[0];
@@ -2700,8 +2697,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       // `universesByDex` is `[]` before anything is cached, so the old
       // `?.length === 0` test was never true and `assetId: -1` got committed
-      // as a resolved asset. An unresolvable coin takes the same path: leaving
-      // it unresolved is correct, opening someone else's market is not.
+      // as a resolved asset. An unresolvable coin takes the same path.
       if (!dexUniverses?.length || isCoinMissingFromDex) {
         // perpsActiveAssetAtom is persisted, so matching on coin alone would
         // hand back an `assetId: -1` left by an older build.

@@ -1161,10 +1161,8 @@ function PerpPortfolioContentComponent({
                 <Token
                   size="xxs"
                   tokenImageUris={
-                    // Only perps carry a dex prefix worth preserving. A spot
-                    // `mostTraded` is a raw fill coin (`@149`, `PURR/USDC`) and
-                    // must keep going through the resolved display name — the
-                    // slash would otherwise break the image path outright.
+                    // A spot `mostTraded` is a raw fill coin (`@149`,
+                    // `PURR/USDC`) whose slash breaks the image path.
                     fillsStats.mostTraded &&
                     !isSpotInstrument(fillsStats.mostTraded)
                       ? getHyperliquidTokenImageUris(fillsStats.mostTraded)

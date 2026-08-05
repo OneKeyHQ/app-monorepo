@@ -47,8 +47,7 @@ describe('perpsDexUtils', () => {
     expect(getDexIndexByAssetId(SPOT_ASSET_ID_OFFSET + 149)).toBe(-1);
   });
 
-  // Hyperliquid dex indexes are non-contiguous (xyz=1 ... para=8), so the
-  // registered offsets leave gaps that belong to dexs we do not support.
+  // Registered offsets leave gaps belonging to dexs we do not support.
   it('rejects an assetId belonging to an unregistered sub dex', () => {
     expect(getDexIndexByAssetId(150_000)).toBe(-1);
     expect(getDexIndexByAssetId(120_000)).toBe(-1);
@@ -98,8 +97,6 @@ describe('perpsDexUtils', () => {
     expect(normalizeDexCoin('unsupported:tsla')).toBe('UNSUPPORTED:TSLA');
   });
 
-  // The search API sends the dex prefix verbatim in `assetType` ('perps' for
-  // the main DEX), so the client must not assume every non-main result is xyz.
   describe('buildCoinFromSearchAssetType', () => {
     it('keeps the bare symbol for a main dex result', () => {
       expect(
@@ -137,21 +134,16 @@ describe('perpsDexUtils', () => {
       expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}]])).toBe(true);
     });
 
-    // The bug this guards: a cache written before `para` was registered has
-    // only two slots, still looks populated, and silently hides the new dex.
+    // A cache written before `para` was registered has two slots and still
+    // looks populated.
     it('rejects a cache written before a sub dex was registered', () => {
       expect(isPerpsUniverseCacheComplete([[{}], [{}]])).toBe(false);
     });
 
-    // A refresh that only returned the main dex used to leave the sub-dex slots
-    // empty, and the reverse — a main-dex fetch failure — must not read as
-    // complete either, since nothing else forces a retry on the home surfaces.
     it('rejects a cache whose main dex slot is empty', () => {
       expect(isPerpsUniverseCacheComplete([[], [{}], [{}]])).toBe(false);
     });
 
-    // `[main, xyz, []]` is what a response that omits one dex persists when no
-    // previous slot exists to preserve; accepting it would hide that dex.
     it('rejects a cache whose registered sub dex slot is empty', () => {
       expect(isPerpsUniverseCacheComplete([[{}], [{}], []])).toBe(false);
       expect(isPerpsUniverseCacheComplete([[{}], [], [{}]])).toBe(false);

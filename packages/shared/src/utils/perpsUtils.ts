@@ -2056,13 +2056,9 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
   return `https://uni.onekey-asset.com/static/hyperliquid/${normalizedSymbol}.png`;
 }
 
-// Images are keyed by bare symbol, so a symbol listed on both the main DEX and
-// a sub-DEX resolves to the same file — `para:STX` (Seagate) would render the
-// Stacks icon. Sub-DEX assets therefore prefer a `<prefix><SYMBOL>.png` variant
-// (no separator: it keeps the filename free of URL-encoded characters) and fall
-// back to the bare file, which stays correct for every symbol without a clash.
-// Ordering matters: once the prefixed images are published the first source
-// hits, so the fallback costs nothing steady-state.
+// Images are keyed by bare symbol, so `para:STX` (Seagate) would render the
+// Stacks icon. Sub-DEX assets prefer `<prefix><SYMBOL>.png` (no separator keeps
+// the filename URL-safe) and fall back to the bare file.
 function getHyperliquidTokenImageUris(coin: string): string[] {
   const { displayName, dexLabel } = parseDexCoin(coin);
   const bareUrl = getHyperliquidTokenImageUrl(displayName);

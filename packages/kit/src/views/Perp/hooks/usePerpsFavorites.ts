@@ -75,9 +75,8 @@ export function usePerpsFavorites(options?: {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      // If data is missing, or the cache predates a newly registered sub-DEX,
-      // force refresh from API. A short array is just as unusable as an empty
-      // one here: favorites on the missing dex would silently fail to resolve.
+      // Favorites on a missing dex silently fail to resolve, so a short cache is
+      // as unusable as an empty one.
       if (!isPerpsUniverseCacheComplete(universesByDex)) {
         try {
           await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
@@ -86,10 +85,9 @@ export function usePerpsFavorites(options?: {
           universesByDex = res.universesByDex;
         } catch {
           // Every existing user hits this branch on the first cold start after
-          // the release, so a rejection here would blank the favorites bar for
-          // the whole session (usePromiseResult neither retries nor re-runs).
-          // Serving the stale universe still resolves every pre-existing
-          // favorite; only the newly registered dex stays missing.
+          // the release, and usePromiseResult neither retries nor re-runs — a
+          // rejection would blank the bar for the whole session. The stale
+          // universe still resolves every pre-existing favorite.
         }
       }
 

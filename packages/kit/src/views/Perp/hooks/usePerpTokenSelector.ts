@@ -85,16 +85,14 @@ export function usePerpTokenSelector() {
       })
     ) {
       lastRefreshTradingMetaTime = now;
-      // Re-read after the refresh lands: the first refreshAllAssets() above
-      // serves the persisted universe, which is one dex short right after a
-      // release that registers a new sub-DEX. Without this the selector keeps
-      // showing the stale dex set for the whole session.
+      // The refreshAllAssets() above serves the persisted universe, which is one
+      // dex short right after a release registers a new sub-DEX.
       void backgroundApiProxy.serviceHyperliquid
         .refreshTradingMeta()
         .then(() => refreshAllAssets())
         .catch((error) => {
           // The throttle is claimed before the request, so a transient failure
-          // would otherwise pin the stale dex set for the full window.
+          // would pin the stale dex set for the full window.
           lastRefreshTradingMetaTime = 0;
           defaultLogger.perp.hyperliquid.coldStartInitializationError({
             type: 'refresh_trading_meta',

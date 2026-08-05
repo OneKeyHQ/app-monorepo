@@ -103,8 +103,8 @@ function addPerpsCoinLogoUri(uris: Set<string>, coin?: unknown) {
   if (typeof coin !== 'string' || !coin) {
     return;
   }
-  // Warm both sources a sub-DEX asset can resolve to, otherwise the prefixed
-  // file — the one actually rendered — is never prefetched.
+  // Warm both sources, otherwise the prefixed file — the one actually rendered
+  // — is never prefetched.
   getHyperliquidTokenImageUris(coin).forEach((uri) => addImageUri(uris, uri));
 }
 

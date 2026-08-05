@@ -63,10 +63,8 @@ export function ShareContentRenderer({
   const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
-  // `token` keeps the dex prefix; the display name does not, and a symbol
-  // listed on both the main DEX and a sub-DEX would otherwise share one file.
-  // Spot is the exception: its `token` is a raw fill coin (`@149`, `PURR/USDC`)
-  // that only the caller's display-name cascade can resolve into a valid path.
+  // `token` keeps the dex prefix the display name drops. Spot is the exception:
+  // its raw fill coin (`@149`, `PURR/USDC`) has no valid image path.
   const tokenImage =
     tokenImageUrl ||
     getHyperliquidTokenImageUris(

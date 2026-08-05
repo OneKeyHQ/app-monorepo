@@ -839,8 +839,7 @@ export function useTrayDataProvider() {
                         name: '',
                         icon:
                           coin.tokenImageUrl ||
-                          // The bare symbol collides between the main DEX and a
-                          // sub-DEX, so prefer the dex-scoped file when known.
+                          // The bare symbol collides across dexs.
                           getHyperliquidTokenImageUris(
                             item.perpsCoin || coin.name || displayName,
                           )[0],

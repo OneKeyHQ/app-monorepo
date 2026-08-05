@@ -115,8 +115,8 @@ export function buildPerpsAssetCtxsByDexFromAllDexsSnapshot(
   data?.ctxs?.forEach(([dexName, ctxList]) => {
     ctxMap.set(dexName, ctxList || []);
   });
-  // Slot order must follow SUB_DEX_LIST so every consumer's dexIndex stays valid
-  // even when the server omits a registered dex.
+  // Slot order follows SUB_DEX_LIST so a dexIndex stays valid even when the
+  // server omits a registered dex.
   return [
     ctxMap.get('') ?? ctxMap.get('perps') ?? [],
     ...SUB_DEX_LIST.map((item) => ctxMap.get(item.prefix) ?? []),

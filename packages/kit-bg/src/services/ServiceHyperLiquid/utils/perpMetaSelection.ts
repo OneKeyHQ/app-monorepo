@@ -9,9 +9,9 @@ interface IPerpMetaLike {
 }
 
 // `allPerpMetas()` is indexed by the hyperliquid perp dex index, so a sub-DEX
-// must be picked by that index — never by array position after a slice.
-// The prefix assertion turns a silent index shift on hyperliquid's side into an
-// empty slot instead of a whole dex of mislabelled assets.
+// must be picked by that index, never by position after a slice. The prefix
+// assertion turns an upstream index shift into an empty slot rather than a
+// whole dex of mislabelled assets.
 export function selectPerpMetasByDex<T extends IPerpMetaLike>(
   allMetas: (T | null | undefined)[],
 ): (T | undefined)[] {
@@ -25,7 +25,7 @@ export function selectPerpMetasByDex<T extends IPerpMetaLike>(
         firstName &&
         !firstName.startsWith(`${item.prefix}${DEX_SEPARATOR}`)
       ) {
-        // Losing a whole dex is otherwise invisible until users report it.
+        // Otherwise invisible until users report missing markets.
         markPerpsColdStartPerf('service_perp_meta_dex_prefix_mismatch', {
           prefix: item.prefix,
           hlDexIndex: item.hlDexIndex,
@@ -38,10 +38,8 @@ export function selectPerpMetasByDex<T extends IPerpMetaLike>(
   ];
 }
 
-// `selectPerpMetasByDex` pads every registered dex into a slot, so a dex the
-// server skipped arrives as `undefined`. Persisting that as empty would destroy
-// the last good data while still leaving a full-length — and therefore
-// apparently complete — cache behind.
+// A dex the server skipped arrives as `undefined`; persisting it as empty would
+// destroy the last good data behind a full-length, apparently complete cache.
 export function mergePerpDexSlots<T>(
   nextByDex: (T | undefined)[],
   previousByDex: readonly (T | undefined)[] | undefined,

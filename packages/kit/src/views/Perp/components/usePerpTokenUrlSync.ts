@@ -23,9 +23,8 @@ import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDi
 
 const SPOT_PAIR_SEPARATOR = '_';
 
-// Longest prefix first: a shorter registered prefix must not shadow a longer
-// one. Bare-prefix matching has to stay — encodeCoinForUrl emits separator-less
-// tokens like `xyzNVDA`.
+// Longest prefix first so a shorter one cannot shadow it. Bare-prefix matching
+// has to stay: legacy links omit the separator (`xyzNVDA`).
 function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
   return (
@@ -54,9 +53,8 @@ function encodeCoinForUrl(params: {
   const dexPrefix = findDexPrefix(coin);
   if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
     const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
-    // Keep the separator: without it a main-dex symbol that happens to start
-    // with a registered prefix is indistinguishable from a sub-DEX token on
-    // decode. Legacy links that omit it stay readable via decodeCoinFromUrl.
+    // Without the separator a main-dex symbol starting with a registered prefix
+    // is indistinguishable from a sub-DEX token on decode.
     return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
   }
 
@@ -65,9 +63,8 @@ function encodeCoinForUrl(params: {
 
 function decodeCoinFromUrl(urlToken: string): {
   coin: string;
-  // Links written before the separator was kept are ambiguous: a main-DEX
-  // symbol starting with a registered prefix parses as a sub-DEX coin. The
-  // caller must confirm such a guess against the universe before using it.
+  // Separator-free legacy links are ambiguous; the caller must confirm the
+  // guess against the universe.
   isAmbiguousLegacyGuess: boolean;
 } {
   if (!urlToken) return { coin: '', isAmbiguousLegacyGuess: false };
@@ -88,8 +85,7 @@ function decodeCoinFromUrl(urlToken: string): {
   return { coin: urlToken.toUpperCase(), isAmbiguousLegacyGuess: false };
 }
 
-// Only trust a prefix guessed from a separator-free legacy link when that coin
-// actually exists; otherwise the token was a main-DEX symbol all along.
+// A guessed prefix is only trustworthy once the coin is known to exist.
 async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
   const { coin, isAmbiguousLegacyGuess } = decodeCoinFromUrl(urlToken);
   if (!isAmbiguousLegacyGuess) {
@@ -98,11 +94,9 @@ async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
   try {
     const { universesByDex } =
       await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-    // An unloaded or incomplete cache proves nothing, and a cold start opening
-    // a shared link is exactly when it is empty. Keeping the syntactic guess
-    // stays self-healing: the persisted coin is still valid, so a later refresh
-    // resolves it. Downgrading it here would strand the user on a coin that can
-    // never resolve.
+    // An incomplete cache proves nothing, and a cold start opening a shared link
+    // is exactly when it is empty. Keeping the guess stays self-healing;
+    // downgrading it strands the user on a coin no refresh can resolve.
     if (!isPerpsUniverseCacheComplete(universesByDex)) {
       return coin;
     }

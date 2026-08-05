@@ -4,9 +4,7 @@ function buildMeta(firstCoin: string) {
   return { universe: [{ name: firstCoin }] };
 }
 
-// Hyperliquid returns one meta per perp dex index. Only slot 0 (main) and the
-// registered sub-dex slots matter here; the rest stand in for dexs we do not
-// support, so their names are placeholders.
+// One meta per perp dex index; unregistered slots use placeholder names.
 function buildAllMetas({
   slot8,
 }: {

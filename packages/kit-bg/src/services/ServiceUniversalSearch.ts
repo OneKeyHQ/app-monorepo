@@ -13,13 +13,13 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildCoinFromSearchAssetType,
   isPerpsUniverseCacheComplete,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -1223,9 +1223,8 @@ class ServiceUniversalSearch extends ServiceBase {
     return { items } as IUniversalSearchSingleResult;
   }
 
-  // Returns undefined when the universe is not fully cached: an incomplete
-  // cache cannot prove an asset is gone, and filtering against it would empty
-  // the result list instead of trimming it.
+  // Undefined when the universe is not fully cached: an incomplete cache cannot
+  // prove an asset is gone, and filtering against it would empty the results.
   private async getTradablePerpCoinSet(): Promise<Set<string> | undefined> {
     try {
       const { universesByDex } =
@@ -1270,10 +1269,9 @@ class ServiceUniversalSearch extends ServiceBase {
         const items: IUniversalSearchPerpResult['items'] =
           response?.data?.data
             ?.filter((asset) => {
-              // The search index still carries assets hyperliquid has delisted
-              // — `xyz:UNITREE` survives there after moving to `para`, so the
-              // same ticker would appear twice with one dead row. Drop anything
-              // the local universe no longer lists as tradable.
+              // The search index still carries delisted assets — `xyz:UNITREE`
+              // survives there after moving to `para`, so the same ticker would
+              // appear twice with one dead row.
               if (!tradableCoins) {
                 return true;
               }

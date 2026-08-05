@@ -98,9 +98,7 @@ export const ShareImageGenerator = forwardRef<
       const pnlBn = new BigNumber(pnl || '0');
       const isProfit = pnlBn.isGreaterThan(0);
       const pnlColor = isProfit ? colors.long : colors.short;
-      // Same reasoning as ShareContentRenderer: prefer the dex-scoped file for
-      // perps, but keep spot on the resolved display name — its raw coin form
-      // would produce a broken path.
+      // Same reasoning as ShareContentRenderer.
       const tokenImage =
         tokenImageUrl ||
         getHyperliquidTokenImageUris(

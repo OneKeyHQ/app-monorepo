@@ -740,8 +740,6 @@ describe('isHyperLiquidAbstractionModeEnabled', () => {
 });
 
 describe('getHyperliquidTokenImageUris', () => {
-  // Images are keyed by bare symbol, so a symbol on both the main DEX and a
-  // sub-DEX collides (para:STX is Seagate, STX is Stacks).
   it('prefers the prefixed file for sub dex coins and falls back to the bare one', () => {
     expect(getHyperliquidTokenImageUris('para:STX')).toEqual([
       'https://uni.onekey-asset.com/static/hyperliquid/paraSTX.png',
@@ -759,24 +757,18 @@ describe('getHyperliquidTokenImageUris', () => {
     ]);
   });
 
-  // Spot raw forms must not be mistaken for a dex prefix. Asserting the length
-  // alone is not enough — it passes while still producing an unusable path, so
-  // assert the URL itself: `@` and `/` both break the CDN key.
   it('does not treat spot raw coin forms as a sub dex', () => {
     expect(getHyperliquidTokenImageUris('@149')).toHaveLength(1);
     expect(getHyperliquidTokenImageUris('PURR/USDC')).toHaveLength(1);
     expect(getHyperliquidTokenImageUris('UETH')).toHaveLength(1);
   });
 
-  // Callers must resolve a spot display name first; this documents why passing
-  // the raw coin through is wrong rather than merely suboptimal.
   it('produces an unusable path for a raw spot coin, so callers must resolve it', () => {
     const [rawIdUri] = getHyperliquidTokenImageUris('@149');
     const [rawPairUri] = getHyperliquidTokenImageUris('PURR/USDC');
     expect(rawIdUri).toContain('@149');
     expect(rawPairUri).toContain('PURR/USDC');
 
-    // The resolved display name a caller is expected to pass instead.
     expect(getHyperliquidTokenImageUris('PURR')).toEqual([
       'https://uni.onekey-asset.com/static/hyperliquid/PURR.png',
     ]);

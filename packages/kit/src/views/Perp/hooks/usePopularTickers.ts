@@ -81,9 +81,8 @@ export function usePopularTickers(): IPopularTickerItem[] {
             await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
           universesByDex = res.universesByDex;
         } catch {
-          // Same reasoning as usePerpsFavorites: a rejection would leave the
-          // popular list empty for the whole session, while the stale universe
-          // still renders every dex the user already had.
+          // Same reasoning as usePerpsFavorites: a rejection empties the list
+          // for the whole session.
         }
       }
 

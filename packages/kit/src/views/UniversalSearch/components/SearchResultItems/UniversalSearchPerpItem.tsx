@@ -46,9 +46,8 @@ export function UniversalSearchPerpItem({
     item.payload;
 
   const isPerpsType = assetType === 'perps';
-  // `assetType` carries the dex prefix verbatim ('perps' for the main DEX), so
-  // it must drive the coin — assuming every non-main result is xyz would send
-  // `xyz:UNITREE` for a para asset and leave the instrument unresolvable.
+  // `assetType` is the dex prefix itself, so assuming xyz for every non-main
+  // result would send `xyz:UNITREE` for a para asset.
   const coin = useMemo(
     () => buildCoinFromSearchAssetType({ assetType, name }) ?? '',
     [assetType, name],
@@ -109,9 +108,8 @@ export function UniversalSearchPerpItem({
     universalSearchActions,
   ]);
 
-  // A dex this build does not know cannot be opened or favorited. Rendering the
-  // row anyway would give a silent no-op on tap, and the star would persist an
-  // empty `perpsCoin` that every such row then shares in the market watchlist.
+  // An unknown dex cannot be opened or favorited; rendering the row would give a
+  // silent no-op on tap and let the star persist an empty `perpsCoin`.
   if (!coin) {
     return null;
   }
