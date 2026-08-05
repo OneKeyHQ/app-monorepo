@@ -20,10 +20,10 @@ describe('TradingViewNative chart legend', () => {
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: 'O', value: '120' },
-        { label: 'H', value: '125' },
-        { label: 'L', value: '119.5' },
-        { label: 'C', value: '123.457' },
+        { label: 'O', value: '120.00' },
+        { label: 'H', value: '125.00' },
+        { label: 'L', value: '119.50' },
+        { label: 'C', value: '123.46' },
         { label: '', value: '+3.45679 (+2.88%)' },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
@@ -59,7 +59,7 @@ describe('TradingViewNative chart legend', () => {
     ).toEqual({
       isUp: false,
       priceItems: [
-        { label: 'Price', value: '9' },
+        { label: 'Price', value: '9.00' },
         { label: '', value: '-1 (-10%)' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
