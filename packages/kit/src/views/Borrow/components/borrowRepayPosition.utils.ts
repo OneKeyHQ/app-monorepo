@@ -71,6 +71,10 @@ export function getBorrowAssetByReserveAddress({
   );
 }
 
+// Networks whose Aave market ships a WrappedTokenGateway the backend serves
+// (native reserveAddress === '' rows + gateway deposit/withdraw/borrow/repay
+// builds). Keep in sync with server coverage: a network missing here hides
+// the user's existing native positions from withdraw/collateral flows.
 export function shouldUseAaveNativeGateway({
   networkId,
   providerName,
@@ -80,8 +84,9 @@ export function shouldUseAaveNativeGateway({
   providerName?: string;
   reserveAddress?: string;
 }) {
+  const networkIdsMap = getNetworkIdsMap();
   return (
-    networkId === getNetworkIdsMap().eth &&
+    (networkId === networkIdsMap.eth || networkId === networkIdsMap.base) &&
     providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
     reserveAddress === ''
   );

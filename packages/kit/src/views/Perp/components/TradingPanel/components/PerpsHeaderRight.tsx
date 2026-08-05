@@ -111,7 +111,7 @@ function DepositButton() {
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showPortfolio } = useShowPortfolio();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('header');
   const lastAccountValueRef = useRef<
     | {
         accountKey: string;

@@ -55,6 +55,12 @@ describe('parseReferralLandingUrl', () => {
       code: 'R7EKUT',
       page: 'perps',
     });
+    expect(
+      parseReferralLandingUrl('https://app.onekey.so/r/R7EKUT/app/swap'),
+    ).toEqual({
+      code: 'R7EKUT',
+      page: 'swap',
+    });
     expect(parseReferralLandingUrl('https://onekeytest.com/r/KJWFWE')).toEqual({
       code: 'KJWFWE',
       page: '',

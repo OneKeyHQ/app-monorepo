@@ -10,21 +10,26 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
 import {
-  filterUnsupportedAaveNativeReserveAssets,
   hasPositiveBorrowBalance,
+  isUnsupportedAaveNativeReserve,
 } from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
 } from './BorrowTableList';
@@ -126,18 +131,13 @@ export const BorrowedCard = () => {
     [navigation, market, gtMd, handleManageRepay, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
   const borrowedAssets = useMemo(
     () =>
-      filterUnsupportedAaveNativeReserveAssets({
-        assets: reserves.data?.borrowed?.assets,
-        networkId: market?.networkId,
-        providerName: market?.provider,
-      }).filter((asset) => hasPositiveBorrowBalance(asset.borrowedAmount)),
-    [market?.networkId, market?.provider, reserves.data?.borrowed?.assets],
+      (reserves.data?.borrowed?.assets ?? []).filter((asset) =>
+        hasPositiveBorrowBalance(asset.borrowedAmount),
+      ),
+    [reserves.data?.borrowed?.assets],
   );
 
   const labels = useMemo(() => {
@@ -199,6 +199,7 @@ export const BorrowedCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
         label: labels.borrowed,
@@ -211,6 +212,8 @@ export const BorrowedCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.borrowApy,
@@ -219,6 +222,7 @@ export const BorrowedCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       {
         label: '',
@@ -226,24 +230,27 @@ export const BorrowedCard = () => {
         key: 'actions',
         render: (item: IBorrowedAsset) => (
           <ActionField
-            buttonText={
-              <EarnText
-                text={{
-                  text: intl.formatMessage({ id: ETranslations.defi_repay }),
-                }}
-              />
-            }
+            actionLabel={intl.formatMessage({ id: ETranslations.defi_repay })}
             item={item}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
             onPress={() => handleManageRepay(item)}
             needAdditionButton={gtLg}
-            disabled={item.repayButton?.disabled}
+            disabled={
+              item.repayButton?.disabled ||
+              isUnsupportedAaveNativeReserve({
+                networkId: market?.networkId,
+                providerName: market?.provider,
+                reserveAddress: item.reserveAddress,
+              })
+            }
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: gtLg
+          ? BORROW_TABLE_ACTION_COLUMN_WIDTH
+          : BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [
@@ -254,6 +261,8 @@ export const BorrowedCard = () => {
       labels,
       intl,
       gtLg,
+      market?.networkId,
+      market?.provider,
     ],
   );
 
@@ -264,12 +273,10 @@ export const BorrowedCard = () => {
 
   const hasSupplied = useMemo(
     () =>
-      filterUnsupportedAaveNativeReserveAssets({
-        assets: reserves.data?.supplied?.assets,
-        networkId: market?.networkId,
-        providerName: market?.provider,
-      }).length > 0,
-    [market?.networkId, market?.provider, reserves.data?.supplied?.assets],
+      (reserves.data?.supplied?.assets ?? []).some((asset) =>
+        hasPositiveBorrowBalance(asset.suppliedAmount),
+      ),
+    [reserves.data?.supplied?.assets],
   );
 
   const emptyContent = useMemo(

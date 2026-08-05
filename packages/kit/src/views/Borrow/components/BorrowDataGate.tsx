@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -14,7 +14,15 @@ import {
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import {
+  EBorrowDataStatus,
+  deriveBorrowDataStatus,
+  isBorrowReservesPending,
+} from '../borrowDataStatus';
+import {
+  getBorrowEarnAccountForNetwork,
+  getBorrowEarnAccountId,
+} from '../borrowEarnAccount';
 import { buildBorrowMarketKey, useBorrowContext } from '../BorrowProvider';
 import { useBorrowMarkets } from '../hooks/useBorrowMarkets';
 import { useBorrowReserves } from '../hooks/useBorrowReserves';
@@ -22,6 +30,7 @@ import { useBorrowReserves } from '../hooks/useBorrowReserves';
 import {
   getOwnedBorrowReservesResult,
   isCurrentBorrowReservesRequest,
+  shouldRefreshBorrowDataOnActivation,
 } from './borrowDataGate.utils';
 
 const BORROW_POLLING_INTERVAL = 1 * 60 * 1000; // 1 minute
@@ -60,6 +69,7 @@ export const BorrowDataGate = ({
 
   const {
     market,
+    rememberedMarketKey,
     setMarkets,
     setMarket,
     setReserves,
@@ -81,10 +91,26 @@ export const BorrowDataGate = ({
       const refreshedCurrentMarket = availableMarkets.find(
         (item) => buildBorrowMarketKey(item) === currentMarketKey,
       );
+      if (refreshedCurrentMarket) {
+        return refreshedCurrentMarket;
+      }
+      // Land on the remembered market directly rather than let the restore
+      // correct it afterwards: that correction costs a discarded reserves
+      // request and a frame showing the wrong market. Only when nothing is
+      // selected yet — a refresh that drops the current market still falls
+      // back, and the user's own pick is never overridden.
+      if (!currentMarket && rememberedMarketKey) {
+        const rememberedMarket = availableMarkets.find(
+          (item) => buildBorrowMarketKey(item) === rememberedMarketKey,
+        );
+        if (rememberedMarket) {
+          return rememberedMarket;
+        }
+      }
 
-      return refreshedCurrentMarket ?? availableMarkets[0];
+      return availableMarkets[0];
     });
-  }, [availableMarkets, setMarket]);
+  }, [availableMarkets, rememberedMarketKey, setMarket]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
   const {
@@ -146,17 +172,25 @@ export const BorrowDataGate = ({
   const lastForceRefreshCounterRef = useRef(0);
   const wasActiveRef = useRef(isViewActive);
   const prevReservesDataRef = useRef<IBorrowReserveItem | null>(null);
+  const [reservesErrorOwnerKey, setReservesErrorOwnerKey] = useState<
+    string | null
+  >(null);
 
-  const accountId = earnAccountData?.accountId ?? earnAccountData?.account?.id;
+  const marketProvider = market?.provider;
+  const marketNetworkId = market?.networkId;
+  const marketAddress = market?.marketAddress;
+  const currentMarketKey = market ? buildBorrowMarketKey(market) : undefined;
+  const scopedEarnAccountData = getBorrowEarnAccountForNetwork(
+    earnAccountData,
+    marketNetworkId,
+  );
+  const accountId = getBorrowEarnAccountId(scopedEarnAccountData);
   const activeAccountId = activeAccount.account?.id;
   const activeIndexedAccountId = activeAccount.indexedAccount?.id;
   const hasAccountContext = Boolean(activeAccountId || activeIndexedAccountId);
   const shouldWaitForAccount =
     !activeAccount.ready ||
-    (hasAccountContext && earnAccountData === undefined);
-  const marketProvider = market?.provider;
-  const marketNetworkId = market?.networkId;
-  const marketAddress = market?.marketAddress;
+    (hasAccountContext && scopedEarnAccountData === undefined);
   const fetchKey = useMemo(
     () =>
       !isEmpty(market)
@@ -221,26 +255,34 @@ export const BorrowDataGate = ({
       const requestKey = fetchKey;
       const requestId = reservesRequestIdRef.current + 1;
       reservesRequestIdRef.current = requestId;
-      const result = await fetchReserves({
-        provider: marketProvider,
-        networkId: marketNetworkId,
-        marketAddress,
-        accountId,
-      });
-      if (
-        !isCurrentBorrowReservesRequest({
+      setReservesErrorOwnerKey(null);
+      const isCurrentRequest = () =>
+        isCurrentBorrowReservesRequest({
           requestKey,
           currentKey: prevFetchKeyRef.current,
           requestId,
           currentRequestId: reservesRequestIdRef.current,
-        })
-      ) {
-        return reservesResultRef.current;
+        });
+      try {
+        const result = await fetchReserves({
+          provider: marketProvider,
+          networkId: marketNetworkId,
+          marketAddress,
+          accountId,
+        });
+        if (!isCurrentRequest()) {
+          return reservesResultRef.current;
+        }
+        reservesResultRef.current = result;
+        reservesResultOwnerKeyRef.current = requestKey;
+        lastReservesUpdatedAtRef.current = Date.now();
+        return result;
+      } catch (error) {
+        if (isCurrentRequest()) {
+          setReservesErrorOwnerKey(requestKey);
+        }
+        throw error;
       }
-      reservesResultRef.current = result;
-      reservesResultOwnerKeyRef.current = requestKey;
-      lastReservesUpdatedAtRef.current = Date.now();
-      return result;
     },
     [
       fetchKey,
@@ -274,68 +316,76 @@ export const BorrowDataGate = ({
     };
   }, [refreshReserves]);
 
-  const dataStatus = useMemo(() => {
-    if (!isViewActive) return EBorrowDataStatus.Idle;
-    if (marketsLoading) {
-      if (!market) return EBorrowDataStatus.LoadingMarkets;
-      return EBorrowDataStatus.Refreshing;
-    }
-    if (!market || !fetchKey) return EBorrowDataStatus.Idle;
-    if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
-
-    if (reservesLoading) {
-      if (
-        !prevReservesDataRef.current ||
-        lastFetchKeyRef.current !== fetchKey
-      ) {
-        return EBorrowDataStatus.LoadingReserves;
-      }
-      return EBorrowDataStatus.Refreshing;
-    }
-
-    if (ownedReservesResult !== undefined) {
-      return EBorrowDataStatus.Ready;
-    }
-
-    return EBorrowDataStatus.Idle;
-  }, [
-    isViewActive,
-    marketsLoading,
-    market,
-    fetchKey,
-    shouldWaitForAccount,
-    reservesLoading,
-    ownedReservesResult,
-  ]);
+  const dataStatus = useMemo(
+    () =>
+      deriveBorrowDataStatus({
+        isViewActive,
+        wasViewActive: wasActiveRef.current,
+        hasCachedReserves: Boolean(prevReservesDataRef.current),
+        marketsLoading,
+        hasMarket: Boolean(market),
+        hasFetchKey: Boolean(fetchKey),
+        shouldWaitForAccount,
+        reservesLoading,
+        isCurrentFetchKey: lastFetchKeyRef.current === fetchKey,
+        hasOwnedReservesResult: ownedReservesResult !== undefined,
+        hasReservesError: reservesErrorOwnerKey === fetchKey,
+      }),
+    [
+      isViewActive,
+      marketsLoading,
+      market,
+      fetchKey,
+      shouldWaitForAccount,
+      reservesLoading,
+      ownedReservesResult,
+      reservesErrorOwnerKey,
+    ],
+  );
 
   useEffect(() => {
     isViewActiveRef.current = isViewActive;
-    if (isViewActive && !wasActiveRef.current) {
+    if (
+      shouldRefreshBorrowDataOnActivation({
+        isViewActive,
+        wasViewActive: wasActiveRef.current,
+      })
+    ) {
       void refetchMarkets();
       void refreshReserves();
     }
     wasActiveRef.current = isViewActive;
   }, [isViewActive, refetchMarkets, refreshReserves]);
 
-  useEffect(() => {
-    setBorrowDataStatus(dataStatus);
-  }, [dataStatus, setBorrowDataStatus]);
-
   // Sync earnAccount to Context using IAsyncData format
   useEffect(() => {
     setEarnAccount({
-      data: earnAccountData ?? null,
-      loading: earnAccountLoading ?? false,
+      data: scopedEarnAccountData ?? null,
+      loading:
+        Boolean(earnAccountLoading) ||
+        Boolean(
+          hasAccountContext &&
+          marketNetworkId &&
+          scopedEarnAccountData === undefined,
+        ),
       refresh: () => refreshAccount(),
+      ownerMarketKey: currentMarketKey,
     });
-  }, [earnAccountData, earnAccountLoading, refreshAccount, setEarnAccount]);
+  }, [
+    currentMarketKey,
+    earnAccountLoading,
+    hasAccountContext,
+    marketNetworkId,
+    refreshAccount,
+    scopedEarnAccountData,
+    setEarnAccount,
+  ]);
 
   // Sync reserves to Context using IAsyncData format
-  useEffect(() => {
-    const isLoading =
-      dataStatus === EBorrowDataStatus.LoadingMarkets ||
-      dataStatus === EBorrowDataStatus.WaitingForAccount ||
-      dataStatus === EBorrowDataStatus.LoadingReserves;
+  useLayoutEffect(() => {
+    setBorrowDataStatus(dataStatus);
+
+    const isLoading = isBorrowReservesPending(dataStatus);
 
     // Determine the data to set
     let dataToSet: IBorrowReserveItem | null = prevReservesDataRef.current;
@@ -361,12 +411,15 @@ export const BorrowDataGate = ({
       data: dataToSet,
       loading: isLoading,
       refresh: refreshReservesWithForce,
+      ownerMarketKey: currentMarketKey,
     });
   }, [
+    currentMarketKey,
     dataStatus,
     fetchKey,
     ownedReservesResult,
     refreshReservesWithForce,
+    setBorrowDataStatus,
     setReserves,
   ]);
 

@@ -199,7 +199,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceWalletConnectPay: ServiceWalletConnectPay;
   serviceNotification: ServiceNotification;
-  serviceIdentityExit: ServiceIdentityExit;
+  serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;

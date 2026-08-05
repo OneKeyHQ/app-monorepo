@@ -99,6 +99,7 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
+import { resolveStandardReferencePriceBN } from '../../../utils/tradingReferencePrice';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -516,12 +517,12 @@ function PerpTradingForm({
     priceSource: tradingPriceSource,
   });
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const enableTrading = useEnableTradingWithDepositFallback();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const isBBOActive = !isSpot && !!formData.bboPriceMode;
+  const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -913,12 +914,6 @@ function PerpTradingForm({
     });
   }, [formData.orderMode, isSpot, updateForm]);
 
-  useEffect(() => {
-    if (isSpot && formData.bboPriceMode) {
-      updateForm({ bboPriceMode: null });
-    }
-  }, [formData.bboPriceMode, isSpot, updateForm]);
-
   // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
@@ -937,10 +932,14 @@ function PerpTradingForm({
         lowerPrice: formData.scaleLowerPrice,
         upperPrice: formData.scaleUpperPrice,
       });
-    } else if (formData.type === 'limit' && formData.price) {
-      price = new BigNumber(formData.price);
-    } else if (formData.type === 'market') {
-      price = midPriceBN;
+    } else {
+      price = resolveStandardReferencePriceBN({
+        type: formData.type,
+        bboPriceMode: formData.bboPriceMode,
+        orderPriceBN,
+        formPrice: formData.price,
+        midPriceBN,
+      });
     }
     return [
       price,
@@ -951,6 +950,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
+    formData.bboPriceMode,
     formData.orderMode,
     formData.triggerOrderType,
     formData.triggerPrice,
@@ -959,6 +959,7 @@ function PerpTradingForm({
     formData.scaleUpperPrice,
     isSpot,
     midPriceBN,
+    orderPriceBN,
     sizeSzDecimals,
   ]);
 
@@ -2169,7 +2170,7 @@ function PerpTradingForm({
               />
             </YStack>
           )}
-          {formData.type === 'limit' && !isSpot ? (
+          {formData.type === 'limit' ? (
             <Badge
               testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
@@ -2890,7 +2891,7 @@ function PerpTradingForm({
               <YStack flex={1} flexBasis={0} minWidth={0}>
                 <LeverageAdjustModal isMobile={isMobile} />
               </YStack>
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={1.2} flexBasis={0} minWidth={0}>
                 <AccountModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
