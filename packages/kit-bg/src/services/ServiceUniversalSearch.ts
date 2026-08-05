@@ -51,6 +51,10 @@ import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
+const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
+
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1227,8 +1231,26 @@ class ServiceUniversalSearch extends ServiceBase {
   // prove an asset is gone, and filtering against it would empty the results.
   private async getTradablePerpCoinSet(): Promise<Set<string> | undefined> {
     try {
-      const { universesByDex } =
+      let { universesByDex, updatedAt } =
         await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        // Nothing usable — a user who never opened Perps has no universe at
+        // all, so wait for one rather than serving delisted rows.
+        await this.backgroundApi.serviceHyperliquid.refreshTradingMeta();
+        ({ universesByDex, updatedAt } =
+          await this.backgroundApi.simpleDb.perp.getTradingUniverse());
+      } else if (
+        !updatedAt ||
+        Date.now() - updatedAt > PERPS_UNIVERSE_SEARCH_MAX_AGE_MS
+      ) {
+        // Stale but complete: filtering on it still removes almost everything
+        // delisted, so refresh in the background rather than delaying search.
+        void this.backgroundApi.serviceHyperliquid
+          .refreshTradingMeta()
+          .catch(() => undefined);
+      }
+
       if (!isPerpsUniverseCacheComplete(universesByDex)) {
         return undefined;
       }
