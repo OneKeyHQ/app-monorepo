@@ -1395,6 +1395,22 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshTradingMeta() {
+    // read-merge-write against the positional universe cache is not atomic, so
+    // concurrent callers could interleave and drop a slot another call just
+    // wrote. Independent main-runtime hooks do call this in parallel.
+    if (!this.refreshTradingMetaPromise) {
+      this.refreshTradingMetaPromise = this._refreshTradingMeta().finally(
+        () => {
+          this.refreshTradingMetaPromise = undefined;
+        },
+      );
+    }
+    return this.refreshTradingMetaPromise;
+  }
+
+  private refreshTradingMetaPromise: Promise<void> | undefined = undefined;
+
+  private async _refreshTradingMeta() {
     const { infoClient } = hyperLiquidApiClients;
     markPerpsColdStartPerf('service_refresh_trading_meta_start');
 
@@ -2665,10 +2681,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
+      // Only seed from the first asset when no coin was requested. Substituting
+      // it for a coin that is genuinely absent would silently open a different
+      // market than the caller asked for: a search result routed to the wrong
+      // dex prefix would land on that dex's first ticker, order panel primed.
+      const selectedUniverse: IPerpsUniverse | undefined = newCoin
+        ? dexUniverses?.find((item) => item.name === newCoin)
+        : dexUniverses?.[0];
+      const isCoinMissingFromDex = Boolean(
+        newCoin && dexUniverses?.length && !selectedUniverse,
+      );
+      if (isCoinMissingFromDex) {
+        markPerpsColdStartPerf('service_change_active_asset_coin_not_found', {
+          coin: newCoin,
+          dexIndex: targetDexIndex,
+        });
+      }
+
       // `universesByDex` is `[]` before anything is cached, so the old
       // `?.length === 0` test was never true and `assetId: -1` got committed
-      // as a resolved asset.
-      if (!dexUniverses?.length) {
+      // as a resolved asset. An unresolvable coin takes the same path: leaving
+      // it unresolved is correct, opening someone else's market is not.
+      if (!dexUniverses?.length || isCoinMissingFromDex) {
         // perpsActiveAssetAtom is persisted, so matching on coin alone would
         // hand back an `assetId: -1` left by an older build.
         if (
@@ -2709,9 +2743,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return result;
       }
 
-      const selectedUniverse: IPerpsUniverse | undefined =
-        dexUniverses?.find((item) => item.name === newCoin) ||
-        dexUniverses?.[0];
       if (requestId !== this.activeAssetChangeRequestId) {
         const result = {
           coin: oldActiveAsset?.coin || newCoin || '',
@@ -2732,7 +2763,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           (token) => token.name === selectedUniverse?.name,
         ) ??
         -1;
-      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      const selectedMargin = isNil(selectedUniverse?.marginTableId)
+        ? undefined
+        : dexMarginTables?.[selectedUniverse.marginTableId];
       if (requestId !== this.activeAssetChangeRequestId) {
         const result = {
           coin: oldActiveAsset?.coin || newCoin || '',
