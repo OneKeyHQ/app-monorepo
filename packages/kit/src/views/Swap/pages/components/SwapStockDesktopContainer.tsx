@@ -1744,7 +1744,11 @@ function StockPriceChart({
         const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
           normalizedCoinGeckoId,
           days,
-          { requestCurrency: 'usd' },
+          {
+            networkId,
+            requestCurrency: 'usd',
+            tokenAddress,
+          },
         );
         return {
           scope: chartScope,
