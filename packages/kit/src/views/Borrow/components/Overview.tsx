@@ -152,9 +152,17 @@ export const Overview = ({
     showMobileHeaderHistoryAction,
   ]);
 
-  /* Both tools act on the numbers rather than on the market, so they travel
-     with net worth instead of sitting up on the market's line. */
-  const tools = (
+  const refreshButton = (
+    <IconButton
+      testID={BorrowTestIDs.overviewRefreshBtn}
+      icon="RefreshCcwOutline"
+      variant="tertiary"
+      loading={reserves.loading || isManualRefreshing}
+      onPress={handleRefreshPress}
+    />
+  );
+
+  const historyTools = (
     <XStack ai="center" gap="$3" flexShrink={0}>
       {gtMd && pendingCount > 0 ? (
         <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
@@ -187,13 +195,6 @@ export const Overview = ({
           )}
         </XStack>
       ) : null}
-      <IconButton
-        testID={BorrowTestIDs.overviewRefreshBtn}
-        icon="RefreshCcwOutline"
-        variant="tertiary"
-        loading={reserves.loading || isManualRefreshing}
-        onPress={handleRefreshPress}
-      />
     </XStack>
   );
 
@@ -217,7 +218,7 @@ export const Overview = ({
               {labels.netWorth}
             </SizableText>
             <XStack ai="center" jc="space-between" gap="$3">
-              <XStack minHeight={48} flexShrink={1}>
+              <XStack minHeight={48} ai="center" gap="$3" flexShrink={1}>
                 {isNetWorthLoading ? (
                   <Skeleton w={160} h={48} borderRadius="$2" />
                 ) : (
@@ -230,8 +231,9 @@ export const Overview = ({
                     flexShrink={1}
                   />
                 )}
+                {refreshButton}
               </XStack>
-              {tools}
+              {historyTools}
             </XStack>
             <XStack
               testID={BorrowTestIDs.overviewNetApy}
@@ -300,7 +302,7 @@ export const Overview = ({
               />
             </XStack>
             {/* Clears the metric cells' own $3 of top padding */}
-            <XStack pt="$3">{tools}</XStack>
+            <XStack pt="$3">{refreshButton}</XStack>
           </XStack>
           {/* E-Mode scopes the very numbers above it, so on phones it follows
               them as a full-width row rather than trailing the summary below
