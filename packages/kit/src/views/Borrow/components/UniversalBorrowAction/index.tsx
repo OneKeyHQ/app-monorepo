@@ -48,6 +48,50 @@ type IBorrowCheckAmountState = {
   riskOfLiquidationAlert?: boolean;
 };
 
+type IBorrowTransactionConfirmationState = {
+  requestKey: string;
+  transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationLoading: boolean;
+};
+
+function createEmptyBorrowTransactionConfirmationState({
+  requestKey,
+}: {
+  requestKey: string;
+}): IBorrowTransactionConfirmationState {
+  return {
+    requestKey,
+    transactionConfirmation: undefined,
+    transactionConfirmationLoading: false,
+  };
+}
+
+export function resolveBorrowTransactionConfirmationStateForRequest({
+  requestKey,
+  shouldFetch,
+  state,
+}: {
+  requestKey: string;
+  shouldFetch: boolean;
+  state: IBorrowTransactionConfirmationState;
+}): IBorrowTransactionConfirmationState {
+  if (!shouldFetch) {
+    return createEmptyBorrowTransactionConfirmationState({
+      requestKey,
+    });
+  }
+
+  if (state.requestKey !== requestKey) {
+    return {
+      requestKey,
+      transactionConfirmation: undefined,
+      transactionConfirmationLoading: true,
+    };
+  }
+
+  return state;
+}
+
 function createEmptyBorrowCheckAmountState({
   requestKey,
   loading = false,
@@ -108,11 +152,12 @@ export function useUniversalBorrowAction({
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
   >();
-  const [transactionConfirmation, setTransactionConfirmation] = useState<
-    IBorrowTransactionConfirmation | undefined
-  >();
-  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
-    useState(false);
+  const [transactionConfirmationState, setTransactionConfirmationState] =
+    useState<IBorrowTransactionConfirmationState>(() =>
+      createEmptyBorrowTransactionConfirmationState({
+        requestKey: '',
+      }),
+    );
   const [checkAmountState, setCheckAmountState] =
     useState<IBorrowCheckAmountState>(() =>
       createEmptyBorrowCheckAmountState({ requestKey: '' }),
@@ -139,6 +184,39 @@ export function useUniversalBorrowAction({
     }
     return amount;
   }, [amount]);
+
+  const shouldFetchTransactionConfirmation = isReady && !isDisabled;
+
+  const transactionConfirmationScopeKey = useMemo(
+    () =>
+      JSON.stringify([
+        accountId,
+        networkId,
+        provider,
+        marketAddress,
+        reserveAddress,
+        action,
+      ]),
+    [accountId, action, marketAddress, networkId, provider, reserveAddress],
+  );
+
+  const transactionConfirmationRequestKey = useMemo(
+    () =>
+      JSON.stringify([
+        transactionConfirmationScopeKey,
+        normalizedAmount,
+        isDisabled,
+        withdrawAll,
+        repayAll,
+      ]),
+    [
+      isDisabled,
+      normalizedAmount,
+      repayAll,
+      transactionConfirmationScopeKey,
+      withdrawAll,
+    ],
+  );
 
   const shouldCheckAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
@@ -215,20 +293,26 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (value: string, requestNonce: number) => {
+    async (value: string, requestNonce: number, requestKey: string) => {
       if (transactionConfirmationRequestNonceRef.current !== requestNonce) {
         return;
       }
       try {
         const resp = await fetchTransactionConfirmation(value);
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
-          setTransactionConfirmation(resp);
-          setTransactionConfirmationLoading(false);
+          setTransactionConfirmationState({
+            requestKey,
+            transactionConfirmation: resp,
+            transactionConfirmationLoading: false,
+          });
         }
       } catch {
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
-          setTransactionConfirmation(undefined);
-          setTransactionConfirmationLoading(false);
+          setTransactionConfirmationState(
+            createEmptyBorrowTransactionConfirmationState({
+              requestKey,
+            }),
+          );
         }
       }
     },
@@ -239,15 +323,23 @@ export function useUniversalBorrowAction({
     debouncedFetchTransactionConfirmation.cancel();
     transactionConfirmationRequestNonceRef.current += 1;
     const requestNonce = transactionConfirmationRequestNonceRef.current;
-    setTransactionConfirmation(undefined);
-    setTransactionConfirmationLoading(false);
+    setTransactionConfirmationState((currentState) =>
+      resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: transactionConfirmationRequestKey,
+        shouldFetch: shouldFetchTransactionConfirmation,
+        state: currentState,
+      }),
+    );
 
-    if (!isReady || isDisabled) {
+    if (!shouldFetchTransactionConfirmation) {
       return;
     }
 
-    setTransactionConfirmationLoading(true);
-    void debouncedFetchTransactionConfirmation(normalizedAmount, requestNonce);
+    void debouncedFetchTransactionConfirmation(
+      normalizedAmount,
+      requestNonce,
+      transactionConfirmationRequestKey,
+    );
     return () => {
       debouncedFetchTransactionConfirmation.cancel();
       transactionConfirmationRequestNonceRef.current += 1;
@@ -264,6 +356,8 @@ export function useUniversalBorrowAction({
     provider,
     repayAll,
     reserveAddress,
+    shouldFetchTransactionConfirmation,
+    transactionConfirmationRequestKey,
     withdrawAll,
   ]);
 
@@ -468,6 +562,13 @@ export function useUniversalBorrowAction({
     state: checkAmountState,
   });
 
+  const effectiveTransactionConfirmationState =
+    resolveBorrowTransactionConfirmationStateForRequest({
+      requestKey: transactionConfirmationRequestKey,
+      shouldFetch: shouldFetchTransactionConfirmation,
+      state: transactionConfirmationState,
+    });
+
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!effectiveCheckAmountState.checkAmountMessage,
     [amount, effectiveCheckAmountState.checkAmountMessage],
@@ -475,8 +576,10 @@ export function useUniversalBorrowAction({
 
   return {
     estimateFeeResp,
-    transactionConfirmation,
-    transactionConfirmationLoading,
+    transactionConfirmation:
+      effectiveTransactionConfirmationState.transactionConfirmation,
+    transactionConfirmationLoading:
+      effectiveTransactionConfirmationState.transactionConfirmationLoading,
     checkAmountMessage: effectiveCheckAmountState.checkAmountMessage,
     checkAmountAlerts: effectiveCheckAmountState.checkAmountAlerts,
     checkAmountLoading: effectiveCheckAmountState.checkAmountLoading,

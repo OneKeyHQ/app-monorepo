@@ -18,6 +18,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -88,10 +89,11 @@ export interface IManagePositionContentProps {
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
-// gray blocks, render the fixed chrome — the tab bar (real labels), the amount
-// input frame, and the token — immediately, and reserve skeletons only for the
-// values that depend on the (slow) getManagePage response. This keeps the
-// layout stable (no jump when data lands) and makes the wait feel smoother.
+// gray blocks, render the fixed chrome — the type switcher when applicable,
+// the amount input frame, and the token — immediately, and reserve skeletons
+// only for the values that depend on the (slow) getManagePage response. This
+// keeps the layout stable (no jump when data lands) and makes the wait feel
+// smoother.
 const ManageSectionShell = ({
   type,
   symbol,
@@ -140,40 +142,59 @@ const ManageSectionShell = ({
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
   const tabLabels = [primaryLabel, secondaryLabel];
   const activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
+  const hideTypeSwitch = [
+    EManagePositionType.Withdraw,
+    EManagePositionType.Repay,
+  ].includes(type);
+  const borrowAction = useMemo(() => {
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return hideTypeSwitch || activeIndex === 1 ? 'withdraw' : 'supply';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return hideTypeSwitch || activeIndex === 1 ? 'repay' : 'borrow';
+    }
+    return undefined;
+  }, [activeIndex, hideTypeSwitch, type]);
 
-  // The loaded layout has gap $1.5 between the tab bar and the content: in the
-  // details panel that comes from ManagePositionPart's <YStack gap="$1.5">
-  // wrapping the (fragment) NormalManageContent; in the modal there is no such
-  // wrapper. Reproduce that gap deterministically here (a single wrapping YStack
-  // means the parent gap can't apply to us), so the tab→input spacing matches
-  // the loaded state exactly and doesn't jump on load.
+  // When the type switcher is visible, the loaded layout has gap $1.5 between
+  // it and the content: in the details panel that comes from
+  // ManagePositionPart's <YStack gap="$1.5"> wrapping the (fragment)
+  // NormalManageContent; in the modal there is no such wrapper. Reproduce that
+  // gap deterministically here (a single wrapping YStack means the parent gap
+  // can't apply to us), so the tab→input spacing matches the loaded state
+  // exactly and doesn't jump on load.
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      {/* Real tab bar — fixed, renders immediately */}
-      <XStack px="$5">
-        {tabLabels.map((label, index) => {
-          const isFocused = index === activeIndex;
-          return (
-            <XStack
-              key={label}
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-            >
-              <SizableText
-                size="$headingMd"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
+      {hideTypeSwitch ? null : (
+        <XStack px="$5">
+          {tabLabels.map((label, index) => {
+            const isFocused = index === activeIndex;
+            return (
+              <XStack
+                key={label}
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={isFocused ? '$bgActive' : '$bg'}
+                borderRadius="$2"
+                borderCurve="continuous"
               >
-                {label}
-              </SizableText>
-            </XStack>
-          );
-        })}
-      </XStack>
+                <SizableText
+                  size="$headingMd"
+                  color={isFocused ? '$text' : '$textSubdued'}
+                  letterSpacing={-0.15}
+                >
+                  {label}
+                </SizableText>
+              </XStack>
+            );
+          })}
+        </XStack>
+      )}
 
       {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
           the layout is identical when real data lands. */}
@@ -255,7 +276,13 @@ const ManageSectionShell = ({
               </XStack>
             </YStack>
           </>
-        ) : (
+        ) : null}
+
+        {!hasProtocolSwitch && borrowAction ? (
+          <BorrowInfoSectionSkeleton action={borrowAction} />
+        ) : null}
+
+        {!hasProtocolSwitch && !borrowAction ? (
           /* Summary card — single bordered box (details entry): est. rewards +
              provider + trade/buy. Interior spacing mirrors the real card
              (Divider my $5, inner gap $5) so nothing shifts on load. */
@@ -305,7 +332,7 @@ const ManageSectionShell = ({
               </XStack>
             </YStack>
           </YStack>
-        )}
+        ) : null}
 
         {/* Inline action button only for the non-modal (details) layout. In the
             modal the real button sits in Page.Footer, so we render nothing here
