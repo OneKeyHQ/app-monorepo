@@ -178,11 +178,10 @@ describe('useUniversalBorrowAction', () => {
     });
   });
 
-  it('keeps confirmation content only while the request stays in the same scope', () => {
+  it('clears confirmation content when the request changes', () => {
     const currentConfirmation = { canBeCollateral: true };
     const currentState = {
       requestKey: 'reserve-a:1',
-      scopeKey: 'reserve-a',
       transactionConfirmation: currentConfirmation,
       transactionConfirmationLoading: false,
     };
@@ -190,27 +189,11 @@ describe('useUniversalBorrowAction', () => {
     expect(
       resolveBorrowTransactionConfirmationStateForRequest({
         requestKey: 'reserve-a:2',
-        scopeKey: 'reserve-a',
         shouldFetch: true,
         state: currentState,
       }),
     ).toEqual({
       requestKey: 'reserve-a:2',
-      scopeKey: 'reserve-a',
-      transactionConfirmation: currentConfirmation,
-      transactionConfirmationLoading: true,
-    });
-
-    expect(
-      resolveBorrowTransactionConfirmationStateForRequest({
-        requestKey: 'reserve-b:1',
-        scopeKey: 'reserve-b',
-        shouldFetch: true,
-        state: currentState,
-      }),
-    ).toEqual({
-      requestKey: 'reserve-b:1',
-      scopeKey: 'reserve-b',
       transactionConfirmation: undefined,
       transactionConfirmationLoading: true,
     });

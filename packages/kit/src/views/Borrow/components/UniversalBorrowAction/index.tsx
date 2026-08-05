@@ -50,21 +50,17 @@ type IBorrowCheckAmountState = {
 
 type IBorrowTransactionConfirmationState = {
   requestKey: string;
-  scopeKey: string;
   transactionConfirmation?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading: boolean;
 };
 
 function createEmptyBorrowTransactionConfirmationState({
   requestKey,
-  scopeKey,
 }: {
   requestKey: string;
-  scopeKey: string;
 }): IBorrowTransactionConfirmationState {
   return {
     requestKey,
-    scopeKey,
     transactionConfirmation: undefined,
     transactionConfirmationLoading: false,
   };
@@ -72,28 +68,23 @@ function createEmptyBorrowTransactionConfirmationState({
 
 export function resolveBorrowTransactionConfirmationStateForRequest({
   requestKey,
-  scopeKey,
   shouldFetch,
   state,
 }: {
   requestKey: string;
-  scopeKey: string;
   shouldFetch: boolean;
   state: IBorrowTransactionConfirmationState;
 }): IBorrowTransactionConfirmationState {
   if (!shouldFetch) {
     return createEmptyBorrowTransactionConfirmationState({
       requestKey,
-      scopeKey,
     });
   }
 
   if (state.requestKey !== requestKey) {
     return {
       requestKey,
-      scopeKey,
-      transactionConfirmation:
-        state.scopeKey === scopeKey ? state.transactionConfirmation : undefined,
+      transactionConfirmation: undefined,
       transactionConfirmationLoading: true,
     };
   }
@@ -165,7 +156,6 @@ export function useUniversalBorrowAction({
     useState<IBorrowTransactionConfirmationState>(() =>
       createEmptyBorrowTransactionConfirmationState({
         requestKey: '',
-        scopeKey: '',
       }),
     );
   const [checkAmountState, setCheckAmountState] =
@@ -303,12 +293,7 @@ export function useUniversalBorrowAction({
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
-    async (
-      value: string,
-      requestNonce: number,
-      requestKey: string,
-      scopeKey: string,
-    ) => {
+    async (value: string, requestNonce: number, requestKey: string) => {
       if (transactionConfirmationRequestNonceRef.current !== requestNonce) {
         return;
       }
@@ -317,7 +302,6 @@ export function useUniversalBorrowAction({
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
           setTransactionConfirmationState({
             requestKey,
-            scopeKey,
             transactionConfirmation: resp,
             transactionConfirmationLoading: false,
           });
@@ -327,7 +311,6 @@ export function useUniversalBorrowAction({
           setTransactionConfirmationState(
             createEmptyBorrowTransactionConfirmationState({
               requestKey,
-              scopeKey,
             }),
           );
         }
@@ -343,7 +326,6 @@ export function useUniversalBorrowAction({
     setTransactionConfirmationState((currentState) =>
       resolveBorrowTransactionConfirmationStateForRequest({
         requestKey: transactionConfirmationRequestKey,
-        scopeKey: transactionConfirmationScopeKey,
         shouldFetch: shouldFetchTransactionConfirmation,
         state: currentState,
       }),
@@ -357,7 +339,6 @@ export function useUniversalBorrowAction({
       normalizedAmount,
       requestNonce,
       transactionConfirmationRequestKey,
-      transactionConfirmationScopeKey,
     );
     return () => {
       debouncedFetchTransactionConfirmation.cancel();
@@ -377,7 +358,6 @@ export function useUniversalBorrowAction({
     reserveAddress,
     shouldFetchTransactionConfirmation,
     transactionConfirmationRequestKey,
-    transactionConfirmationScopeKey,
     withdrawAll,
   ]);
 
@@ -585,7 +565,6 @@ export function useUniversalBorrowAction({
   const effectiveTransactionConfirmationState =
     resolveBorrowTransactionConfirmationStateForRequest({
       requestKey: transactionConfirmationRequestKey,
-      scopeKey: transactionConfirmationScopeKey,
       shouldFetch: shouldFetchTransactionConfirmation,
       state: transactionConfirmationState,
     });
