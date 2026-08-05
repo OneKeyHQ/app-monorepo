@@ -4,8 +4,10 @@ import {
   TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
-  TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
   TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LABEL_GAP,
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
@@ -89,6 +91,9 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
+const PRICE_INTEGER_FRACTION_DIGITS = 2;
+const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
+const MAX_TO_FIXED_FRACTION_DIGITS = 100;
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
   { approximateSeconds: 5 * SECONDS_PER_MINUTE, step: 5, unit: 'minute' },
@@ -116,15 +121,141 @@ const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
 export function formatTradingViewNativePriceTick(price: number) {
   'worklet';
 
-  return Number(price.toPrecision(6)).toString();
+  if (!Number.isFinite(price)) {
+    return '--';
+  }
+
+  const absolutePrice = Math.abs(price);
+  if (absolutePrice === 0) {
+    return '0.00';
+  }
+  if (absolutePrice >= 1) {
+    return price.toFixed(PRICE_INTEGER_FRACTION_DIGITS);
+  }
+
+  const leadingZeroCount = Math.max(
+    -Math.floor(Math.log10(absolutePrice)) - 1,
+    0,
+  );
+  const fractionDigits = leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS;
+  if (fractionDigits > MAX_TO_FIXED_FRACTION_DIGITS) {
+    return Number(
+      price.toPrecision(PRICE_SIGNIFICANT_FRACTION_DIGITS),
+    ).toString();
+  }
+
+  const fixedPrice = price.toFixed(fractionDigits);
+  const decimalIndex = fixedPrice.indexOf('.');
+  let endIndex = fixedPrice.length;
+  while (endIndex > decimalIndex + 1 && fixedPrice[endIndex - 1] === '0') {
+    endIndex -= 1;
+  }
+  return fixedPrice.slice(
+    0,
+    endIndex === decimalIndex + 1 ? decimalIndex : endIndex,
+  );
 }
 
-export function getTradingViewNativeChartWidth(width: number) {
+function getTradingViewNativeWidestDigitLabel(label: string) {
   'worklet';
 
+  let widestLabel = '';
+  for (let index = 0; index < label.length; index += 1) {
+    const character = label[index];
+    const characterCode = label.charCodeAt(index);
+    widestLabel += characterCode >= 48 && characterCode <= 57 ? '8' : character;
+  }
+  return widestLabel;
+}
+
+export function getTradingViewNativePriceAxisLabel(
+  points: IMarketTokenKLineDataPoint[],
+) {
+  'worklet';
+
+  let longestLabel = '';
+  for (const point of points) {
+    const prices = [point.o, point.h, point.l, point.c];
+    for (const price of prices) {
+      if (Number.isFinite(price)) {
+        const absolutePrice = Math.abs(price);
+        let label = getTradingViewNativeWidestDigitLabel(
+          formatTradingViewNativePriceTick(price),
+        );
+        if (absolutePrice > 0 && absolutePrice < 1) {
+          // Reserve full precision for interpolated ticks even when source values trim trailing zeros.
+          const leadingZeroCount = Math.max(
+            -Math.floor(Math.log10(absolutePrice)) - 1,
+            0,
+          );
+          if (
+            leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS <=
+            MAX_TO_FIXED_FRACTION_DIGITS
+          ) {
+            label = `${price < 0 ? '-' : ''}0.${'0'.repeat(
+              leadingZeroCount,
+            )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`;
+          }
+        }
+        if (label.length > longestLabel.length) {
+          longestLabel = label;
+        }
+      }
+    }
+  }
+  return longestLabel || formatTradingViewNativePriceTick(0);
+}
+
+export function getTradingViewNativeCurrentPriceLabel(
+  points: IMarketTokenKLineDataPoint[],
+) {
+  'worklet';
+
+  const currentPrice = points[points.length - 1]?.c;
+  return typeof currentPrice === 'number' && Number.isFinite(currentPrice)
+    ? formatTradingViewNativePriceTick(currentPrice)
+    : '';
+}
+
+export function getTradingViewNativePriceAxisWidth({
+  currentPriceLabelWidth,
+  widestPriceLabelWidth,
+}: {
+  currentPriceLabelWidth: number;
+  widestPriceLabelWidth: number;
+}) {
+  'worklet';
+
+  const normalizedCurrentPriceLabelWidth = Number.isFinite(
+    currentPriceLabelWidth,
+  )
+    ? Math.max(Math.ceil(currentPriceLabelWidth), 0)
+    : 0;
+  const normalizedWidestPriceLabelWidth = Number.isFinite(widestPriceLabelWidth)
+    ? Math.max(Math.ceil(widestPriceLabelWidth), 0)
+    : 0;
+  return Math.max(
+    normalizedWidestPriceLabelWidth +
+      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
+    normalizedCurrentPriceLabelWidth +
+      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+      TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  );
+}
+
+export function getTradingViewNativeChartWidth(
+  width: number,
+  priceAxisWidth: number,
+) {
+  'worklet';
+
+  const normalizedPriceAxisWidth = Number.isFinite(priceAxisWidth)
+    ? Math.max(priceAxisWidth, 0)
+    : 0;
   return Math.max(
     width -
-      TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH -
+      normalizedPriceAxisWidth -
       TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
     0,
   );
@@ -504,6 +635,7 @@ export function getTradingViewNativeChartLayout({
   height,
   minimumTimeTickIndexSpacing,
   points,
+  priceAxisWidth,
   visiblePointRange,
   width,
 }: {
@@ -513,13 +645,14 @@ export function getTradingViewNativeChartLayout({
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
+  priceAxisWidth: number;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
 }): ITradingViewNativeChartLayout | null {
   'worklet';
 
-  const priceAxisX = width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH;
-  const chartWidth = getTradingViewNativeChartWidth(width);
+  const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
+  const priceAxisX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
   const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
   const contentHeight =
     timeAxisY -

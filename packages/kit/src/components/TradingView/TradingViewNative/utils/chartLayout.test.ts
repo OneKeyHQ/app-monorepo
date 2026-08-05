@@ -16,9 +16,12 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
+  getTradingViewNativePriceAxisLabel,
+  getTradingViewNativePriceAxisWidth,
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
@@ -61,9 +64,83 @@ function buildPoints({
 }
 
 describe('TradingViewNative chart layout', () => {
-  it('formats price ticks with six significant digits', () => {
-    expect(formatTradingViewNativePriceTick(123.456_789)).toBe('123.457');
-    expect(formatTradingViewNativePriceTick(1)).toBe('1');
+  it('formats price ticks with the shared price display precision', () => {
+    expect(formatTradingViewNativePriceTick(123.456_789)).toBe('123.46');
+    expect(formatTradingViewNativePriceTick(1)).toBe('1.00');
+    expect(formatTradingViewNativePriceTick(0)).toBe('0.00');
+    expect(formatTradingViewNativePriceTick(0.135_573)).toBe('0.1356');
+    expect(formatTradingViewNativePriceTick(0.004_542_83)).toBe('0.004543');
+    expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe(
+      '0.00004543',
+    );
+    expect(formatTradingViewNativePriceTick(Number.NaN)).toBe('--');
+  });
+
+  it('grows the price axis with the longest formatted price', () => {
+    const regularPoints = buildPoints({
+      count: 1,
+      startTimestamp: getLocalTimestamp(2025, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    regularPoints[0] = {
+      ...regularPoints[0],
+      c: 12.34,
+      h: 12.35,
+      l: 12.33,
+      o: 12.34,
+    };
+    const tinyPoints = regularPoints.map((point) => ({
+      ...point,
+      c: 0.000_045_428_3,
+      h: 0.000_045_5,
+      l: 0.000_045_4,
+      o: 0.000_045_45,
+    }));
+    const measureLabel = (label: string) => label.length * 6;
+    const regularAxisWidth = getTradingViewNativePriceAxisWidth({
+      currentPriceLabelWidth: measureLabel(
+        getTradingViewNativeCurrentPriceLabel(regularPoints),
+      ),
+      widestPriceLabelWidth: measureLabel(
+        getTradingViewNativePriceAxisLabel(regularPoints),
+      ),
+    });
+    const tinyAxisWidth = getTradingViewNativePriceAxisWidth({
+      currentPriceLabelWidth: measureLabel(
+        getTradingViewNativeCurrentPriceLabel(tinyPoints),
+      ),
+      widestPriceLabelWidth: measureLabel(
+        getTradingViewNativePriceAxisLabel(tinyPoints),
+      ),
+    });
+
+    expect(regularAxisWidth).toBe(46);
+    expect(tinyAxisWidth).toBe(76);
+    expect(tinyAxisWidth).toBeGreaterThan(regularAxisWidth);
+    expect(getTradingViewNativePriceAxisLabel(regularPoints)).toBe('88.88');
+
+    const subOnePoints = regularPoints.map((point) => ({
+      ...point,
+      c: 0.1,
+      h: 0.2,
+      l: 0.1,
+      o: 0.2,
+    }));
+    expect(getTradingViewNativePriceAxisLabel(subOnePoints)).toBe('0.8888');
+  });
+
+  it('reserves symmetric padding when the current price is the widest label', () => {
+    const label = formatTradingViewNativePriceTick(0.000_034_89);
+    const labelWidth = label.length * 6;
+
+    expect(label).toBe('0.00003489');
+    expect(
+      getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: labelWidth,
+        widestPriceLabelWidth: labelWidth,
+      }),
+    ).toBe(76);
+    expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
   it('formats crosshair time labels for intraday and daily candles', () => {
@@ -127,12 +204,19 @@ describe('TradingViewNative chart layout', () => {
     points[0] = { ...points[0], h: 2, l: 0.5, v: 3 };
     points[1] = { ...points[1], v: 10 };
     const width = 402;
+    const priceAxisWidth = getTradingViewNativePriceAxisWidth({
+      currentPriceLabelWidth:
+        getTradingViewNativeCurrentPriceLabel(points).length * 6,
+      widestPriceLabelWidth:
+        getTradingViewNativePriceAxisLabel(points).length * 6,
+    });
     const layout = getTradingViewNativeChartLayout({
       candleIntervalSeconds: SECONDS_PER_HOUR,
       hasVolume: true,
       height: 300,
       minimumTimeTickIndexSpacing: 1,
       points,
+      priceAxisWidth,
       visiblePointRange: { endIndex: points.length, startIndex: 0 },
       width,
     });
@@ -141,11 +225,11 @@ describe('TradingViewNative chart layout', () => {
     if (!layout) {
       return;
     }
-    expect(getTradingViewNativeChartWidth(width)).toBe(338);
+    expect(getTradingViewNativeChartWidth(width, priceAxisWidth)).toBe(358);
     expect(layout).toMatchObject({
       maxPrice: 2,
       maxVolume: 10,
-      priceAxisX: 338,
+      priceAxisX: 358,
       timeAxisY: 276,
       volumeBottom: 276,
       volumeTop: 225.6,
@@ -176,6 +260,10 @@ describe('TradingViewNative chart layout', () => {
       height: 300,
       minimumTimeTickIndexSpacing: 1,
       points,
+      priceAxisWidth: getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: 24,
+        widestPriceLabelWidth: 24,
+      }),
       visiblePointRange,
       width: 402,
     });
@@ -198,6 +286,7 @@ describe('TradingViewNative chart layout', () => {
       height: 300,
       minimumTimeTickIndexSpacing: 1,
       points,
+      priceAxisWidth: 44,
       visiblePointRange: { endIndex: points.length, startIndex: 0 },
       width: 402,
     });
@@ -239,6 +328,7 @@ describe('TradingViewNative chart layout', () => {
         height,
         minimumTimeTickIndexSpacing: 1,
         points,
+        priceAxisWidth: 44,
         visiblePointRange: { endIndex: points.length, startIndex: 0 },
         width: 402,
       }),
