@@ -467,6 +467,36 @@ const getUniversalLink = async () => {
     : ONEKEY_UNIVERSAL_LINK_HOST;
 };
 
+// Desktop cold start drains cached deep links synchronously at registration
+// time, before GlobalRootAppNavigationUpdate has assigned $rootAppNavigation;
+// a one-shot optional-chained pushModal would silently drop the payment link
+// with no way to retry. Keep the link alive and retry (same pattern as
+// processOneKeyAppUniversalLink) until root navigation exists.
+function openWalletConnectPayModal({
+  paymentLink,
+  times = 0,
+}: {
+  paymentLink: string;
+  times?: number;
+}) {
+  const navigation = appGlobals.$rootAppNavigation;
+  if (!navigation) {
+    if (times > 10) {
+      return;
+    }
+    setTimeout(() => {
+      openWalletConnectPayModal({ paymentLink, times: times + 1 });
+    }, 1500);
+    return;
+  }
+  navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
+    screen: EModalWalletConnectPayRoutes.PaymentOptions,
+    params: {
+      paymentLink,
+    },
+  });
+}
+
 async function processDeepLinkWalletConnect({
   url,
   parsedUrl,
@@ -555,15 +585,7 @@ async function processDeepLinkWalletConnect({
         uri: payLinkCandidate,
       }))
     ) {
-      appGlobals.$rootAppNavigation?.pushModal(
-        EModalRoutes.WalletConnectPayModal,
-        {
-          screen: EModalWalletConnectPayRoutes.PaymentOptions,
-          params: {
-            paymentLink: payLinkCandidate,
-          },
-        },
-      );
+      openWalletConnectPayModal({ paymentLink: payLinkCandidate });
       return {
         type: 'walletConnectPay',
         url,

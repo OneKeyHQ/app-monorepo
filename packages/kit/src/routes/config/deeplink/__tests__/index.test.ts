@@ -1,6 +1,8 @@
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
+  EModalRoutes,
+  EModalWalletConnectPayRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -37,6 +39,9 @@ jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
     },
     walletConnect: {
       connectToDapp: jest.fn(),
+    },
+    serviceWalletConnectPay: {
+      isPaymentLink: jest.fn(async () => false),
     },
   },
 }));
@@ -341,5 +346,94 @@ describe('stocks / perps universal links', () => {
 
     expect(navigate).not.toHaveBeenCalled();
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('walletconnect pay deep links', () => {
+  // oxlint-disable-next-line @cspell/spellchecker
+  const payUrl = 'wc:pay-1@2?relay-protocol=irn&symKey=abc';
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const mockedIsPaymentLink = (
+    jest.requireMock('../../../../background/instance/backgroundApiProxy') as {
+      default: {
+        serviceWalletConnectPay: { isPaymentLink: jest.Mock };
+      };
+    }
+  ).default.serviceWalletConnectPay.isPaymentLink;
+
+  // deep chains of awaits need more microtask turns than flushAsyncTasks runs
+  async function flushDeepAsyncTasks() {
+    for (let i = 0; i < 10; i += 1) {
+      await Promise.resolve();
+    }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedIsPaymentLink.mockResolvedValue(true);
+    appGlobals.$rootAppNavigation = undefined;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it('pushes the pay modal immediately when root navigation is ready', async () => {
+    const pushModal = jest.fn();
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.WalletConnectPayModal, {
+      screen: EModalWalletConnectPayRoutes.PaymentOptions,
+      params: { paymentLink: payUrl },
+    });
+  });
+
+  it('retries a cold-start pay link until root navigation is ready', async () => {
+    jest.useFakeTimers();
+    const pushModal = jest.fn();
+
+    // cold start: the link arrives before $rootAppNavigation is assigned
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+    expect(pushModal).not.toHaveBeenCalled();
+
+    // navigation becomes ready after the first retry interval elapses
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    jest.advanceTimersByTime(1500);
+    await flushDeepAsyncTasks();
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.WalletConnectPayModal, {
+      screen: EModalWalletConnectPayRoutes.PaymentOptions,
+      params: { paymentLink: payUrl },
+    });
+  });
+
+  it('gives up after the retry cap without navigation', async () => {
+    jest.useFakeTimers();
+    const pushModal = jest.fn();
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    // exhaust all retries with navigation still missing
+    for (let i = 0; i < 12; i += 1) {
+      jest.advanceTimersByTime(1500);
+      await flushDeepAsyncTasks();
+    }
+    appGlobals.$rootAppNavigation = {
+      pushModal,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    jest.advanceTimersByTime(1500);
+    await flushDeepAsyncTasks();
+
+    expect(pushModal).not.toHaveBeenCalled();
   });
 });
