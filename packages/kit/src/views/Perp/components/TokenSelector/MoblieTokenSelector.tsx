@@ -59,6 +59,7 @@ import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -270,7 +271,9 @@ const InitialRowsSnapshotRow = memo(
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(imageName)}
+            {...(mockedToken.spotUniverse
+              ? { tokenImageUri: getHyperliquidTokenImageUrl(imageName) }
+              : { tokenImageUris: getHyperliquidTokenImageUris(tokenName) })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>

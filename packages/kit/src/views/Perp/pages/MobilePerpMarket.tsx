@@ -28,7 +28,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -232,7 +235,12 @@ function MobilePerpCandlesStatic({
 
 function MobilePerpMarket() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const { baseName, displayName, mode } = useActiveTradeDisplay();
+  const {
+    baseName,
+    displayName,
+    coin: activeCoin,
+    mode,
+  } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
@@ -320,9 +328,13 @@ function MobilePerpMarket() {
           size="sm"
           borderRadius="$full"
           bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            baseName ? getHyperliquidTokenImageUrl(baseName) : undefined
-          }
+          {...(mode === 'spot'
+            ? {
+                tokenImageUri: baseName
+                  ? getHyperliquidTokenImageUrl(baseName)
+                  : undefined,
+              }
+            : { tokenImageUris: getHyperliquidTokenImageUris(activeCoin) })}
           fallbackIcon="CryptoCoinOutline"
         />
         <SizableText size="$headingLg">{pairLabel}</SizableText>
@@ -333,6 +345,7 @@ function MobilePerpMarket() {
       </XStack>
     );
   }, [
+    activeCoin,
     baseName,
     displayName,
     isSplitDetailActive,

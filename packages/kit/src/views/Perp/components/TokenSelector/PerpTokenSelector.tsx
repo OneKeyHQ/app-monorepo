@@ -59,6 +59,7 @@ import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getTokenSubtitle,
@@ -1337,7 +1338,12 @@ function BasePerpTokenSelector() {
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
   const isOpeningRef = useRef(false);
-  const { displayName, baseName, mode } = useActiveTradeDisplay();
+  const {
+    displayName,
+    baseName,
+    coin: activeCoin,
+    mode,
+  } = useActiveTradeDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
@@ -1420,7 +1426,11 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(baseName)}
+              {...(mode === 'spot'
+                ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
+                : {
+                    tokenImageUris: getHyperliquidTokenImageUris(activeCoin),
+                  })}
               fallbackIcon="CryptoCoinOutline"
             />
 
@@ -1469,6 +1479,7 @@ function BasePerpTokenSelector() {
       isOpen,
       isLoading,
       triggerLabel,
+      activeCoin,
       baseName,
       mode,
       builderFeeRate,

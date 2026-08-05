@@ -33,7 +33,7 @@ import {
   formatChartUsdPrice,
   formatPerpsCompactUsd,
   formatPerpsUsd,
-  getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   getPerpsValueColor,
   getSpotTokenDisplayName,
   isSpotInstrument,
@@ -1159,8 +1159,8 @@ function PerpPortfolioContentComponent({
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
-                  tokenImageUri={getHyperliquidTokenImageUrl(
-                    mostTradedTokenDisplayName,
+                  tokenImageUris={getHyperliquidTokenImageUris(
+                    fillsStats.mostTraded || mostTradedTokenDisplayName,
                   )}
                 />
                 <SizableText size="$headingSm" color="$text">

@@ -55,7 +55,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -839,9 +839,11 @@ export function useTrayDataProvider() {
                         name: '',
                         icon:
                           coin.tokenImageUrl ||
-                          getHyperliquidTokenImageUrl(
-                            parsedCoin.displayName || displayName,
-                          ),
+                          // The bare symbol collides between the main DEX and a
+                          // sub-DEX, so prefer the dex-scoped file when known.
+                          getHyperliquidTokenImageUris(
+                            item.perpsCoin || coin.name || displayName,
+                          )[0],
                         price: formatTrayUsdPrice(coin.markPrice),
                         change24h: coin.change24hPercent || 0,
                         type: 'perps',
