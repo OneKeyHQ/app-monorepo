@@ -383,6 +383,10 @@ function MobileTokenSelectorModal({
       const isSpotToken = isSpotInstrument(symbol);
       try {
         onLoadingChange(true);
+        const subscriptionRecoveryProof =
+          await actions.current.captureInstrumentSwitchSubscriptionProof({
+            source: 'token-selector',
+          });
         navigation.popStack();
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
@@ -392,11 +396,13 @@ function MobileTokenSelectorModal({
             mode: 'spot',
             coin: symbol,
             spotUniverse: universe,
+            subscriptionRecoveryProof,
           });
         } else {
           await actions.current.switchTradeInstrument({
             mode: 'perp',
             coin: symbol,
+            subscriptionRecoveryProof,
           });
         }
       } catch (error) {
