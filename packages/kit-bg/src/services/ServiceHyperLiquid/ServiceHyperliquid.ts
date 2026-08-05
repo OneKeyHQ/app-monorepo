@@ -2918,6 +2918,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   // of order cannot overwrite newer results with stale ones
   private perpsAccountStatusCheckSeq = 0;
 
+  private perpsAccountStatusChecksInFlight = 0;
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -3084,8 +3086,28 @@ export default class ServiceHyperliquid extends ServiceBase {
     return refreshedMode;
   }
 
+  startPerpsAccountStatusCheckIfIdle(): Promise<void> | undefined {
+    if (this.perpsAccountStatusChecksInFlight > 0) {
+      return undefined;
+    }
+    return this.checkPerpsAccountStatus();
+  }
+
   @backgroundMethod()
-  async checkPerpsAccountStatus({
+  async checkPerpsAccountStatus(
+    params: {
+      isEnableTradingTrigger?: boolean;
+    } = {},
+  ): Promise<void> {
+    this.perpsAccountStatusChecksInFlight += 1;
+    try {
+      await this._checkPerpsAccountStatus(params);
+    } finally {
+      this.perpsAccountStatusChecksInFlight -= 1;
+    }
+  }
+
+  private async _checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
   }: {
     isEnableTradingTrigger?: boolean;

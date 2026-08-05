@@ -79,7 +79,10 @@ function WalletBackupPreCheckContainerLazyCmp() {
     pendingEventsRef.current = [];
     replayTimerRef.current = setTimeout(() => {
       for (const payload of pendingEvents) {
-        appEventBus.emit(EAppEventBusNames.CheckWalletBackupStatus, payload);
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.CheckWalletBackupStatus,
+          payload,
+        });
       }
     }, 0);
     return () => {

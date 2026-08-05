@@ -253,6 +253,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private static readonly ORDER_BOOK_STRATEGY: 'fastL2Primary' | 'l2BookOnly' =
     'fastL2Primary';
 
+  private static readonly FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS = 10_000;
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
@@ -269,6 +271,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _fundedActivationRefreshPendingAddress: string | null = null;
 
+  private _fundedActivationRefreshLastAttempt:
+    | { address: string; timestamp: number }
+    | undefined;
+
   private _routeSubscriptionStateVersion = 0;
 
   private async _refreshActivationFromFundedState({
@@ -278,41 +284,66 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     eventAddress: string | null | undefined;
     balanceValues: Array<string | null | undefined>;
   }): Promise<void> {
-    const activeAccount = await perpsActiveAccountAtom.get();
-    const activeAddress = activeAccount?.accountAddress?.toLowerCase();
-
-    const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
     const normalizedEventAddress = eventAddress?.toLowerCase();
-    const activeStatusInfo =
-      activeAddress &&
-      statusInfo?.accountAddress?.toLowerCase() === activeAddress
-        ? statusInfo
-        : undefined;
     if (
-      activeStatusInfo?.details.activatedOk === true &&
-      this._fundedActivationRefreshPendingAddress === normalizedEventAddress
+      !normalizedEventAddress ||
+      this._fundedActivationRefreshInFlightAddress
     ) {
-      this._fundedActivationRefreshPendingAddress = null;
-    }
-    const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
-      activeAddress,
-      eventAddress: normalizedEventAddress,
-      activatedOk: activeStatusInfo?.details.activatedOk,
-      hasFundedBalance: hasPositivePerpsBalance(balanceValues),
-      refreshInFlight:
-        this._fundedActivationRefreshInFlightAddress === normalizedEventAddress,
-      refreshPending:
-        this._fundedActivationRefreshPendingAddress === normalizedEventAddress,
-    });
-
-    if (!shouldRefresh || !normalizedEventAddress) {
       return;
     }
 
-    this._fundedActivationRefreshPendingAddress = normalizedEventAddress;
+    // Claim synchronously before reading atoms so concurrent funded events
+    // cannot start overlapping activation checks.
     this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
     try {
-      await this.backgroundApi.serviceHyperliquid.checkPerpsAccountStatus();
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+      const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      const activeStatusInfo =
+        activeAddress &&
+        statusInfo?.accountAddress?.toLowerCase() === activeAddress
+          ? statusInfo
+          : undefined;
+      if (
+        activeStatusInfo?.details.activatedOk === true &&
+        this._fundedActivationRefreshPendingAddress === normalizedEventAddress
+      ) {
+        this._fundedActivationRefreshPendingAddress = null;
+      }
+      const now = Date.now();
+      const refreshCoolingDown = Boolean(
+        this._fundedActivationRefreshLastAttempt?.address ===
+          normalizedEventAddress &&
+        now - this._fundedActivationRefreshLastAttempt.timestamp <
+          ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS,
+      );
+      const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
+        activeAddress,
+        eventAddress: normalizedEventAddress,
+        activatedOk: activeStatusInfo?.details.activatedOk,
+        hasFundedBalance: hasPositivePerpsBalance(balanceValues),
+        refreshInFlight: false,
+        refreshPending:
+          this._fundedActivationRefreshPendingAddress ===
+          normalizedEventAddress,
+        refreshCoolingDown,
+      });
+
+      if (!shouldRefresh) {
+        return;
+      }
+
+      const statusCheck =
+        this.backgroundApi.serviceHyperliquid.startPerpsAccountStatusCheckIfIdle();
+      if (!statusCheck) {
+        return;
+      }
+      this._fundedActivationRefreshPendingAddress = normalizedEventAddress;
+      this._fundedActivationRefreshLastAttempt = {
+        address: normalizedEventAddress,
+        timestamp: now,
+      };
+      await statusCheck;
       const latestStatusInfo = await perpsActiveAccountStatusInfoAtom.get();
       if (
         latestStatusInfo?.accountAddress?.toLowerCase() ===
@@ -1513,6 +1544,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       ) {
         this._fundedActivationRefreshInFlightAddress = null;
         this._fundedActivationRefreshPendingAddress = null;
+        this._fundedActivationRefreshLastAttempt = undefined;
       }
       state.currentUser = params.currentUser;
     }

@@ -47,6 +47,7 @@ export function shouldRefreshPerpsActivationFromFundedState({
   hasFundedBalance,
   refreshInFlight,
   refreshPending,
+  refreshCoolingDown,
 }: {
   activeAddress: string | null | undefined;
   eventAddress: string | null | undefined;
@@ -54,6 +55,7 @@ export function shouldRefreshPerpsActivationFromFundedState({
   hasFundedBalance: boolean;
   refreshInFlight: boolean;
   refreshPending: boolean;
+  refreshCoolingDown: boolean;
 }): boolean {
   return Boolean(
     activeAddress &&
@@ -62,6 +64,7 @@ export function shouldRefreshPerpsActivationFromFundedState({
     activatedOk !== true &&
     (activatedOk === false || refreshPending) &&
     hasFundedBalance &&
-    !refreshInFlight,
+    !refreshInFlight &&
+    !refreshCoolingDown,
   );
 }

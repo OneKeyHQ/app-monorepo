@@ -25,9 +25,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  getPerpsAccountDisplaySnapshotEntry,
+  usePerpsAccountDisplayReadyAtom,
+  usePerpsAccountDisplaySnapshotAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,6 +49,7 @@ import {
 } from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { isPerpsAccountSelectionResolved } from '../utils/accountScopedData';
+import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
@@ -522,9 +527,46 @@ export function PerpOrderBook({
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [displayReady] = usePerpsAccountDisplayReadyAtom();
+  const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.indexedAccount?.id
+    : perpsActiveAccount?.indexedAccountId;
+  const snapshotLookupAccountId = selectedWalletAccount.ready
+    ? selectedWalletAccount.account?.id
+    : perpsActiveAccount?.accountId;
+  const snapshotLookupAccountAddress =
+    !selectedWalletAccount.ready ||
+    snapshotLookupIndexedAccountId ||
+    snapshotLookupAccountId
+      ? perpsActiveAccount?.accountAddress
+      : undefined;
+  const snapshotEntry = useMemo(
+    () =>
+      getPerpsAccountDisplaySnapshotEntry({
+        snapshot: displaySnapshot,
+        accountAddress: snapshotLookupAccountAddress,
+        indexedAccountId: snapshotLookupIndexedAccountId,
+        accountId: snapshotLookupAccountId,
+        deriveType:
+          selectedWalletAccount.deriveType ?? perpsActiveAccount.deriveType,
+      }),
+    [
+      displaySnapshot,
+      perpsActiveAccount.deriveType,
+      selectedWalletAccount.deriveType,
+      snapshotLookupAccountAddress,
+      snapshotLookupAccountId,
+      snapshotLookupIndexedAccountId,
+    ],
+  );
+  const isLiveStatusPending = Boolean(
+    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
+  );
   const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
     selectedWalletReady: selectedWalletAccount.ready,
     selectAccountLoading: perpsAccountLoading.selectAccountLoading,
@@ -538,8 +580,14 @@ export function PerpOrderBook({
     (!perpsActiveAccount?.accountAddress ||
       perpsAccountStatus.accountNotSupport) &&
     !perpsAccountStatus.canCreateAddress;
-  const shouldCompactOrderBookForFirstDeposit =
-    perpsAccountStatus.details?.activatedOk === false;
+  const shouldCompactOrderBookForFirstDeposit = Boolean(
+    !perpConfigCommon?.ipDisablePerp &&
+    shouldShowPerpsFirstDepositPrompt({
+      status: perpsAccountStatus,
+      isLiveStatusPending,
+      isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+    }),
+  );
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;

@@ -84,6 +84,7 @@ describe('shouldRefreshPerpsActivationFromFundedState', () => {
     hasFundedBalance: true,
     refreshInFlight: false,
     refreshPending: false,
+    refreshCoolingDown: false,
   };
 
   it('refreshes a still-unactivated account after a funded event', () => {
@@ -95,6 +96,7 @@ describe('shouldRefreshPerpsActivationFromFundedState', () => {
     ['activation already confirmed', { activatedOk: true }],
     ['zero balance event', { hasFundedBalance: false }],
     ['refresh already in flight', { refreshInFlight: true }],
+    ['refresh still cooling down', { refreshCoolingDown: true }],
   ])('does not refresh for %s', (_, override) => {
     expect(
       shouldRefreshPerpsActivationFromFundedState({
