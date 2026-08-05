@@ -263,6 +263,22 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response.payload?.signature;
           }
           if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            // Firmware only implements version 0 of the offchain message spec: its protobuf
+            // has no `required_signers` field and its version enum only has MESSAGE_VERSION_0.
+            // Signing a version 1 request here would silently produce version 0 bytes that the
+            // dapp cannot verify, after the user already approved on the device.
+            //
+            // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
+            // read below comes off the top level instead, where it never exists, so hardware
+            // has only ever signed the legacy version 0 form. Left as-is on purpose.
+            const offchainVersion = (
+              payload as { payload?: { version?: number } }
+            ).payload?.version;
+            if (offchainVersion === 1) {
+              throw new OneKeyLocalError(
+                'Hardware wallet does not support version 1 Solana offchain messages yet',
+              );
+            }
             const response = await HardwareSDK.solSignOffchainMessage(
               connectId,
               deviceId,

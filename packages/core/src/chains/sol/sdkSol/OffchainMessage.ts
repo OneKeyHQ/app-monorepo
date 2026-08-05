@@ -7,6 +7,7 @@ import { EOffChainMessageType } from '../types';
 
 import type {
   ICreateOffChainMessageOptions,
+  ICreateOffChainMessageV1Options,
   IOffChainMessageHeaderLegacy,
   IOffChainMessageHeaderStandard,
 } from '../types';
@@ -328,6 +329,90 @@ export class OffchainMessage {
 
   static createLegacySolanaOffchainMessage(message: string) {
     return this.createOffChainMessage({ message, isLegacy: true });
+  }
+
+  /** Byte-wise lexicographic order, matching `@solana/offchain-messages`. */
+  private static compareRequiredSigners(a: Uint8Array, b: Uint8Array): number {
+    if (a.length !== b.length) {
+      return a.length < b.length ? -1 : 1;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i] === b[i]) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      return a[i] < b[i] ? -1 : 1;
+    }
+    return 0;
+  }
+
+  /**
+   * Builds the bytes of a version 1 offchain message.
+   *
+   * Version 0 is a separate code path on purpose: v1 has no message format enum, no u16 length
+   * prefix and no application domain, and it requires the signer list to be unique and sorted.
+   */
+  static createOffChainMessageV1Bytes({
+    message,
+    requiredSigners,
+  }: ICreateOffChainMessageV1Options): Uint8Array {
+    if (message.length === 0) {
+      throw new OneKeyLocalError('Message cannot be empty');
+    }
+    if (!requiredSigners || requiredSigners.length === 0) {
+      throw new OneKeyLocalError('At least one required signer is required');
+    }
+    if (requiredSigners.length > 255) {
+      throw new OneKeyLocalError('At most 255 required signers are allowed');
+    }
+    for (const signer of requiredSigners) {
+      if (signer.length !== 32) {
+        throw new OneKeyLocalError('Each required signer must be 32 bytes');
+      }
+    }
+
+    const signers = requiredSigners
+      .map((signer) => Uint8Array.from(signer))
+      .sort(this.compareRequiredSigners);
+    for (let i = 1; i < signers.length; i += 1) {
+      if (this.compareRequiredSigners(signers[i - 1], signers[i]) === 0) {
+        throw new OneKeyLocalError('Required signers must be unique');
+      }
+    }
+
+    const { signingDomain } = this.createBasicHeader();
+    const contentBytes = new TextEncoder().encode(message);
+
+    const result = new Uint8Array(
+      signingDomain.length + 1 + 1 + signers.length * 32 + contentBytes.length,
+    );
+
+    let offset = 0;
+    result.set(signingDomain, offset);
+    offset += signingDomain.length;
+
+    result[offset] = 1; // version 1
+    offset += 1;
+
+    result[offset] = signers.length;
+    offset += 1;
+
+    for (const signer of signers) {
+      result.set(signer, offset);
+      offset += 32;
+    }
+
+    result.set(contentBytes, offset);
+
+    return result;
+  }
+
+  static createOffChainMessageV1(
+    options: ICreateOffChainMessageV1Options,
+  ): string {
+    return Buffer.from(this.createOffChainMessageV1Bytes(options)).toString(
+      'hex',
+    );
   }
 
   static detectOffChainMessageType(message: Uint8Array): {

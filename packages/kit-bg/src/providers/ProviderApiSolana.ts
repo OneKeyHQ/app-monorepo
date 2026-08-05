@@ -5,6 +5,7 @@ import bs58 from 'bs58';
 import { isArray } from 'lodash';
 import isString from 'lodash/isString';
 
+import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import {
   backgroundClass,
   providerApiMethod,
@@ -228,20 +229,81 @@ class ProviderApiSolana extends ProviderApiBase {
   @providerApiMethod()
   public async solSignOffchainMessage(
     request: IJsBridgeMessagePayload,
-    params: {
-      message: string;
-      version?: number;
-      applicationDomain?: string;
-    },
+    params:
+      | {
+          /** Version 0. `message` is base58 encoded bytes. */
+          version?: 0;
+          message: string;
+          applicationDomain?: string;
+        }
+      | {
+          /**
+           * Version 1 of the Solana offchain message spec.
+           * https://github.com/solana-foundation/SRFCs/discussions/3
+           * `message` is the UTF-8 body verbatim; the wallet builds the preamble.
+           */
+          version: 1;
+          message: string;
+          /** Base58 encoded 32-byte signer public keys. */
+          requiredSigners: string[];
+        },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { message, version, applicationDomain } = params;
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
 
-    console.log('solana signOffchainMessage', request, params);
+    if (params.version === 1) {
+      const { message, requiredSigners } = params;
+
+      if (!isArray(requiredSigners) || requiredSigners.length === 0) {
+        throw web3Errors.rpc.invalidParams(
+          'requiredSigners must be a non-empty array',
+        );
+      }
+      // Never trust the dapp. The spec requires requiredSigners to "contain the public key of
+      // `account`", so a missing address means the requirement cannot be verified and the
+      // request must be rejected rather than signed.
+      if (!address || !requiredSigners.includes(address)) {
+        throw web3Errors.rpc.invalidParams(
+          'requiredSigners must contain the public key of the connected account',
+        );
+      }
+
+      // Built here as well as on the signing path. Both go through the same encoder, so the
+      // bytes returned to the dapp are exactly the bytes that were signed.
+      const signedOffchainMessage = OffchainMessage.createOffChainMessageV1Bytes(
+        {
+          message,
+          requiredSigners: requiredSigners.map((signer) => bs58.decode(signer)),
+        },
+      );
+
+      const signature =
+        await this.backgroundApi.serviceDApp.openSignMessageModal({
+          request,
+          unsignedMessage: {
+            type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+            // UTF-8 body verbatim, not base58: version 1 leaves encoding to the wallet.
+            message,
+            payload: {
+              version: 1,
+              requiredSigners,
+            },
+          },
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        });
+
+      return {
+        signature,
+        publicKey: address ?? '',
+        signedOffchainMessage: bs58.encode(signedOffchainMessage),
+      };
+    }
+
+    const { message, version, applicationDomain } = params;
 
     const signature = await this.backgroundApi.serviceDApp.openSignMessageModal(
       {

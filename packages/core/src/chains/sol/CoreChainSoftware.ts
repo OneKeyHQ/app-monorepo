@@ -155,6 +155,22 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
       const { message, payload: messagePayload } = unsignedMsg;
+
+      // Version 0 and version 1 have incompatible wire formats, so dispatch explicitly.
+      // Anything that is not version 1 stays on the version 0 path it has always used.
+      if (messagePayload?.version === 1) {
+        const signedOffchainMessage = OffchainMessage.createOffChainMessageV1Bytes({
+          message,
+          requiredSigners: messagePayload.requiredSigners.map((signer_) =>
+            bs58.decode(signer_),
+          ),
+        });
+        const [signature] = await signer.sign(
+          Buffer.from(signedOffchainMessage),
+        );
+        return bs58.encode(signature);
+      }
+
       const offchainMessage = new OffchainMessage({
         version: messagePayload?.version,
         message: Buffer.from(message),

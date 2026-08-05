@@ -122,6 +122,110 @@ describe('OffchainMessage.createOffChainMessage', () => {
     });
   });
 
+  // Golden vectors produced by the reference implementation,
+  // `getOffchainMessageV1Encoder()` from `@solana/offchain-messages@7`.
+  describe('Version 1', () => {
+    const key = (fill: number) => new Uint8Array(32).fill(fill);
+
+    it('should match the reference encoder for a single signer', () => {
+      expect(
+        OffchainMessage.createOffChainMessageV1({
+          message: testMessage,
+          requiredSigners: [key(1)],
+        }),
+      ).toBe(
+        'ff736f6c616e61206f6666636861696e0101010101010101010101010101010101010101010101010101010101010101010148656c6c6f2c20536f6c616e6121',
+      );
+    });
+
+    it('should sort required signers lexicographically', () => {
+      const sorted = OffchainMessage.createOffChainMessageV1({
+        message: testMessage,
+        requiredSigners: [key(1), key(2)],
+      });
+      const unsorted = OffchainMessage.createOffChainMessageV1({
+        message: testMessage,
+        requiredSigners: [key(2), key(1)],
+      });
+
+      expect(sorted).toBe(unsorted);
+      expect(sorted).toBe(
+        'ff736f6c616e61206f6666636861696e01020101010101010101010101010101010101010101010101010101010101010101020202020202020202020202020202020202020202020202020202020202020248656c6c6f2c20536f6c616e6121',
+      );
+    });
+
+    it('should encode multi-byte UTF-8 content', () => {
+      expect(
+        OffchainMessage.createOffChainMessageV1({
+          message: '你好 🔑',
+          requiredSigners: [key(1)],
+        }),
+      ).toBe(
+        'ff736f6c616e61206f6666636861696e01010101010101010101010101010101010101010101010101010101010101010101e4bda0e5a5bd20f09f9491',
+      );
+    });
+
+    it('should encode three unsorted signers in order', () => {
+      expect(
+        OffchainMessage.createOffChainMessageV1({
+          message: 'multi',
+          requiredSigners: [key(3), key(1), key(2)],
+        }),
+      ).toBe(
+        'ff736f6c616e61206f6666636861696e01030101010101010101010101010101010101010101010101010101010101010101020202020202020202020202020202020202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303036d756c7469',
+      );
+    });
+
+    it('should not carry version 0 fields', () => {
+      const bytes = OffchainMessage.createOffChainMessageV1Bytes({
+        message: testMessage,
+        requiredSigners: [key(1)],
+      });
+
+      // 16 signing domain + 1 version + 1 signer count + 32 signer + content.
+      // No application domain (32), no message format (1), no u16 length prefix.
+      expect(bytes.length).toBe(16 + 1 + 1 + 32 + testMessage.length);
+      expect(bytes[16]).toBe(1); // version byte
+      expect(bytes[17]).toBe(1); // signer count
+    });
+
+    it('should reject an empty message', () => {
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1({
+          message: '',
+          requiredSigners: [key(1)],
+        }),
+      ).toThrow('Message cannot be empty');
+    });
+
+    it('should reject an empty signer list', () => {
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1({
+          message: testMessage,
+          requiredSigners: [],
+        }),
+      ).toThrow('At least one required signer is required');
+    });
+
+    it('should reject duplicate signers', () => {
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1({
+          message: testMessage,
+          requiredSigners: [key(1), key(1)],
+        }),
+      ).toThrow('Required signers must be unique');
+    });
+
+    it('should reject a signer that is not 32 bytes', () => {
+      expect(() =>
+        OffchainMessage.createOffChainMessageV1({
+          message: testMessage,
+          requiredSigners: [new Uint8Array(31).fill(1)],
+        }),
+      ).toThrow('Each required signer must be 32 bytes');
+    });
+  });
+
   describe('Error Cases', () => {
     it('should throw on empty message', () => {
       expect(() =>

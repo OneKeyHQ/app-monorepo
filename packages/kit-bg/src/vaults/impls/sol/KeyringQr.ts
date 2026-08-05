@@ -270,6 +270,20 @@ export class KeyringQr extends KeyringQrBase {
           let signData = Buffer.from(payload.message).toString('hex');
 
           if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            // The air-gap data types only cover version 0 (Off_Chain_Message_Legacy /
+            // Off_Chain_Message_Standard). Signing a version 1 request here would silently
+            // produce version 0 bytes the dapp cannot verify.
+            //
+            // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
+            // read below comes off the top level instead, where it never exists.
+            const offchainVersion = (
+              payload as { payload?: { version?: number } }
+            ).payload?.version;
+            if (offchainVersion === 1) {
+              throw new OneKeyLocalError(
+                'QR wallet does not support version 1 Solana offchain messages yet',
+              );
+            }
             const format = OffchainMessage.guessMessageFormat(
               Buffer.from(payload.message),
             );
