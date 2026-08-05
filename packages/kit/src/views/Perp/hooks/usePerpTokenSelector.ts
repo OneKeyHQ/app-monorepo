@@ -92,7 +92,15 @@ export function usePerpTokenSelector() {
       void backgroundApiProxy.serviceHyperliquid
         .refreshTradingMeta()
         .then(() => refreshAllAssets())
-        .catch(() => undefined);
+        .catch((error) => {
+          // The throttle is claimed before the request, so a transient failure
+          // would otherwise pin the stale dex set for the full window.
+          lastRefreshTradingMetaTime = 0;
+          defaultLogger.perp.hyperliquid.coldStartInitializationError({
+            type: 'refresh_trading_meta',
+            error,
+          });
+        });
     }
     return () => {};
   }, [actions, refreshAllAssets]);
