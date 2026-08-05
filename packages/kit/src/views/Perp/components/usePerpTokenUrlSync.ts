@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import {
@@ -97,7 +98,15 @@ async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
   try {
     const { universesByDex } =
       await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-    const exists = universesByDex?.some((assets) =>
+    // An unloaded or incomplete cache proves nothing, and a cold start opening
+    // a shared link is exactly when it is empty. Keeping the syntactic guess
+    // stays self-healing: the persisted coin is still valid, so a later refresh
+    // resolves it. Downgrading it here would strand the user on a coin that can
+    // never resolve.
+    if (!isPerpsUniverseCacheComplete(universesByDex)) {
+      return coin;
+    }
+    const exists = universesByDex.some((assets) =>
       assets?.some((asset) => asset.name === coin),
     );
     return exists ? coin : urlToken.toUpperCase();
