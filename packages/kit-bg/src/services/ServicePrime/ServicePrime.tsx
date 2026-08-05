@@ -101,8 +101,10 @@ import {
   getSupabaseClientBySessionSource,
   persistKeylessAuthSession,
   readAuthTokenAllowingRetryableAuthError,
+  readPersistedAccessTokenBySessionSource,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
+  revokeAuthSessionTokenOnServerBestEffort,
   runExclusiveOnAuthSessionSlot,
 } from './primeAuthSessionAccess';
 
@@ -3304,6 +3306,32 @@ class ServicePrime extends ServiceBase {
       const operationId = `clearOneKeyIdCache:${stringUtils.generateUUID()}`;
       beginIdentityLifecycleReservation(operationId);
       try {
+        const sessionSnapshots = await Promise.all(
+          [
+            EPrimeAuthSessionSource.LegacyEmailSupabase,
+            EPrimeAuthSessionSource.KeylessOAuth,
+          ].map(async (authSessionSource) => ({
+            authSessionSource,
+            accessToken:
+              await readPersistedAccessTokenBySessionSource(authSessionSource),
+          })),
+        );
+        await Promise.all(
+          sessionSnapshots.flatMap(({ authSessionSource, accessToken }) =>
+            accessToken
+              ? [
+                  this.logoutPrimeServerSessionBestEffort({
+                    accessToken,
+                    callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+                  }),
+                  revokeAuthSessionTokenOnServerBestEffort({
+                    authSessionSource,
+                    accessToken,
+                  }),
+                ]
+              : [],
+          ),
+        );
         // Reset the OneKey ID session and the current shared KeylessOAuth
         // session with their correlation metadata. Legacy per-owner Keyless
         // OAuth tokens, wallet rows, and mnemonic credential storage are

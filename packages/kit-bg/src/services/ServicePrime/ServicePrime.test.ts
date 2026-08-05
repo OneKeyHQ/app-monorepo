@@ -2034,15 +2034,52 @@ describe('ServicePrime.clearAllIdentityAuthForExplicitOperation', () => {
 
   it('clears OneKey ID and shared OAuth cache while preserving legacy Keyless credentials', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
     simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision.mockResolvedValue(
       8,
     );
+    mockReadPersistedAccessTokenBySessionSource
+      .mockResolvedValueOnce('legacy-access-token')
+      .mockResolvedValueOnce('keyless-access-token');
 
     await expect(service.clearOneKeyIdLocalAuthCache()).resolves.toEqual({
       revision: 8,
     });
 
+    expect(mockReadPersistedAccessTokenBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(mockReadPersistedAccessTokenBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    expect(logoutPrimeServerSessionBestEffort).toHaveBeenCalledWith({
+      accessToken: 'legacy-access-token',
+      callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+    });
+    expect(logoutPrimeServerSessionBestEffort).toHaveBeenCalledWith({
+      accessToken: 'keyless-access-token',
+      callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+    });
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
+      authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      accessToken: 'legacy-access-token',
+    });
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      accessToken: 'keyless-access-token',
+    });
     expect(mockClearAllSupabaseAuthSessions).toHaveBeenCalledTimes(1);
+    expect(
+      Math.max(
+        ...logoutPrimeServerSessionBestEffort.mock.invocationCallOrder,
+        ...mockRevokeAuthSessionTokenOnServerBestEffort.mock
+          .invocationCallOrder,
+      ),
+    ).toBeLessThan(
+      mockClearAllSupabaseAuthSessions.mock.invocationCallOrder[0],
+    );
     expect(
       backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens,
     ).not.toHaveBeenCalled();
