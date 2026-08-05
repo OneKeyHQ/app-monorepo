@@ -128,27 +128,23 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
   allowPerpFallback?: boolean;
   preferredInstrument?: IActiveTradeInstrument;
 }) {
-  const currentMode = (await tradingModeAtom.get()) ?? 'perp';
-  if (currentMode === 'spot') {
-    const [spotAsset, perpAsset] = await Promise.all([
-      spotActiveAssetAtom.get(),
-      perpsActiveAssetAtom.get(),
-    ]);
-    return buildInitialTradeInstrumentSwitchParams({
-      mode: currentMode,
-      spotAsset,
-      perpAsset,
-      force: options?.force,
-      allowPerpFallback: options?.allowPerpFallback,
-      preferredInstrument: options?.preferredInstrument,
-    });
-  }
-
-  const perpAsset = await perpsActiveAssetAtom.get();
+  // Read the authoritative side rather than this runtime's mirrors: the mirror
+  // is refreshed by a broadcast whose delivery is not confirmed, and a resync
+  // that reads a drifted copy switches the user off the pair they picked.
+  const target =
+    await backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
+  markPerpsColdStartPerf('initial_symbol_bg_target', {
+    bgMode: target.mode,
+    bgSpotCoin: target.spotAsset?.coin,
+    bgPerpCoin: target.perpAsset?.coin,
+    mirrorMode: await tradingModeAtom.get(),
+  });
   return buildInitialTradeInstrumentSwitchParams({
-    mode: currentMode,
-    perpAsset,
+    mode: target.mode,
+    spotAsset: target.spotAsset,
+    perpAsset: target.perpAsset,
     force: options?.force,
+    allowPerpFallback: options?.allowPerpFallback,
     preferredInstrument: options?.preferredInstrument,
   });
 }

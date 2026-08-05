@@ -1362,6 +1362,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     if (!data) {
       return;
     }
+    if (activeCoin !== data.coin) {
+      // Diagnostic only: a book dropped here never reaches the order book, and
+      // the two coin spellings are the only way to tell a genuine mismatch from
+      // a representation difference.
+      markPerpsColdStartPerfOnce('action_l2_book_dropped_coin_mismatch', {
+        activeCoin,
+        dataCoin: data.coin,
+        instrumentMode: activeInstrument.mode,
+      });
+    }
     if (activeCoin === data.coin) {
       const currentBook = get(l2BookAtom());
       if (
@@ -1370,6 +1380,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           nextBook: data,
         })
       ) {
+        markPerpsColdStartPerfOnce('action_l2_book_dropped_not_fresher', {
+          coin: data.coin,
+          instrumentMode: activeInstrument.mode,
+          currentIsCached: Boolean(
+            (currentBook as { isCachedSnapshot?: boolean } | null)
+              ?.isCachedSnapshot,
+          ),
+        });
         return;
       }
       markPerpsColdStartPerfOnce('atom_set_l2_book_first', {

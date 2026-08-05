@@ -80,9 +80,19 @@ function isValidPerpFormattedCtx(
 function useTickerBarSpotAssetCtx() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
-  return spotAssetCtx?.coin === activeTradeInstrument.coin
-    ? spotAssetCtx
-    : undefined;
+  const matched = spotAssetCtx?.coin === activeTradeInstrument.coin;
+  useEffect(() => {
+    // Diagnostic only: separates "the spot ctx never arrived" from "it arrived
+    // under a coin spelling this guard does not accept".
+    if (activeTradeInstrument.mode === 'spot' && !matched) {
+      markPerpsColdStartPerfOnce('ui_ticker_spot_ctx_unmatched', {
+        instrumentCoin: activeTradeInstrument.coin,
+        ctxCoin: spotAssetCtx?.coin,
+        hasCtx: Boolean(spotAssetCtx?.ctx),
+      });
+    }
+  }, [activeTradeInstrument.coin, activeTradeInstrument.mode, matched, spotAssetCtx]);
+  return matched ? spotAssetCtx : undefined;
 }
 
 function useTickerBarPerpAssetCtx() {
