@@ -9,6 +9,9 @@ import {
 import type { IDataCollectionViewProps } from './types';
 
 const INNER_FRAME_ID = 'wc-pay-form-frame';
+// ~6s at 30ms per attempt; mirrors the native variant's injector cap so a
+// persistent cross-frame DOM access failure surfaces instead of spinning
+const MAX_ATTACH_ATTEMPTS = 200;
 
 function escapeHtmlAttribute(value: string): string {
   return value
@@ -85,6 +88,46 @@ export function DataCollectionView({
       }
     };
 
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        // a completion message must come from the form frame nested directly
+        // inside this view's wrapper — another WC Pay window/frame that merely
+        // shares a trusted hostname must not be able to finish this form.
+        // `parent` is a cross-origin-accessible property, so this identity
+        // check works without reaching into the wrapper document and keeps
+        // message reception independent of attach() succeeding
+        if (
+          !expectedOrigin ||
+          event.origin !== expectedOrigin ||
+          !event.source ||
+          (event.source as Window).parent !== wrapper?.contentWindow
+        ) {
+          return;
+        }
+        // defense-in-depth: the loaded url is validated before mount, so
+        // its origin's hostname is expected to always pass this check
+        if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
+          return;
+        }
+        const data =
+          typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data?.type === 'IC_COMPLETE' && !completedRef.current) {
+          completedRef.current = true;
+          onComplete();
+        } else if (data?.type === 'IC_ERROR' && !completedRef.current) {
+          completedRef.current = true;
+          onError(String(data?.error ?? 'Data collection failed'));
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
+    };
+    // the form may post to its direct parent (the wrapper) or to the top
+    // window. The top-window listener is registered unconditionally so
+    // completion is never lost even if cross-frame DOM access below fails
+    window.addEventListener('message', handleMessage);
+    cleanups.push(() => window.removeEventListener('message', handleMessage));
+
     const attach = (): boolean => {
       const doc = wrapper?.contentDocument ?? null;
       // present only in the parsed srcdoc document, never in the initial
@@ -97,45 +140,8 @@ export function DataCollectionView({
         return false;
       }
 
-      const handleMessage = (event: MessageEvent) => {
-        try {
-          // a completion message must come from the window of the form frame
-          // this view is presenting — another WC Pay window/frame that merely
-          // shares a trusted hostname must not be able to finish this form
-          if (
-            !expectedOrigin ||
-            event.origin !== expectedOrigin ||
-            !event.source ||
-            event.source !== frame.contentWindow
-          ) {
-            return;
-          }
-          // defense-in-depth: the loaded url is validated before mount, so
-          // its origin's hostname is expected to always pass this check
-          if (!isWcPayTrustedHost(new URL(event.origin).hostname)) {
-            return;
-          }
-          const data =
-            typeof event.data === 'string'
-              ? JSON.parse(event.data)
-              : event.data;
-          if (data?.type === 'IC_COMPLETE' && !completedRef.current) {
-            completedRef.current = true;
-            onComplete();
-          } else if (data?.type === 'IC_ERROR' && !completedRef.current) {
-            completedRef.current = true;
-            onError(String(data?.error ?? 'Data collection failed'));
-          }
-        } catch {
-          // ignore non-JSON messages
-        }
-      };
-      // the form may post to its direct parent (the wrapper) or to the top
-      // window; accept the message in either place with identical checks
-      window.addEventListener('message', handleMessage);
       wrapperWindow.addEventListener('message', handleMessage);
       cleanups.push(() => {
-        window.removeEventListener('message', handleMessage);
         try {
           wrapperWindow.removeEventListener('message', handleMessage);
         } catch {
@@ -179,12 +185,20 @@ export function DataCollectionView({
     };
 
     // the srcdoc document parses asynchronously; poll briefly until its
-    // elements exist. CSP blocking never depends on these listeners — they
-    // only surface errors and load state — so the short attach delay is safe
+    // elements exist. CSP blocking and top-window completion messages never
+    // depend on attach() — it only adds wrapper-side listeners — but a
+    // persistent failure must abort the flow instead of spinning forever
     if (!attach()) {
+      let attempts = 0;
       const timer = setInterval(() => {
         if (disposed || attach()) {
           clearInterval(timer);
+          return;
+        }
+        attempts += 1;
+        if (attempts > MAX_ATTACH_ATTEMPTS) {
+          clearInterval(timer);
+          finishWithError('Data collection form failed to initialize');
         }
       }, 30);
       cleanups.push(() => clearInterval(timer));
@@ -204,6 +218,10 @@ export function DataCollectionView({
         key={srcDoc}
         ref={wrapperRef}
         srcDoc={srcDoc}
+        // the wrapper's load event waits for its nested form frame, so this
+        // clears the spinner even when attach() cannot reach the wrapper
+        // document to observe the inner frame's load directly
+        onLoad={() => setIsFormLoaded(true)}
         title="WalletConnect Pay"
         style={{
           flex: 1,
