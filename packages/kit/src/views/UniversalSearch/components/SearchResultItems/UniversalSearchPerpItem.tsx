@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
 
 import { MarketPerpsStarV2 } from '../../../Market/components/MarketStarV2';
@@ -53,6 +54,12 @@ export function UniversalSearchPerpItem({
     [assetType, name],
   );
   const tag = isPerpsType ? `${maxLeverage}X` : assetType;
+  // The search index sends a bare-symbol logo, which 404s for `para:UNITREE`
+  // and renders Stacks for `para:STX`. The dex-prefixed asset is the right one.
+  const tokenImageUris = useMemo(
+    () => (isPerpsType ? undefined : getHyperliquidTokenImageUris(coin)),
+    [coin, isPerpsType],
+  );
 
   const handlePress = useCallback(() => {
     defaultLogger.universalSearch.search.universalSearchClick({
@@ -126,7 +133,9 @@ export function UniversalSearchPerpItem({
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={logoUrl}
+            {...(tokenImageUris
+              ? { tokenImageUris }
+              : { tokenImageUri: logoUrl })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
