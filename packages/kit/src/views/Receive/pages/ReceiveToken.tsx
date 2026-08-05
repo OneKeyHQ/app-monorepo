@@ -112,6 +112,15 @@ function ReceiveToken() {
     });
   }, [accountId, networkId]);
 
+  // Server overrides for the arrival ETA and protocol-standard label.
+  // Resolves to undefined on fetch failure so the bundled defaults apply.
+  const { result: receiveArrivalConfig, isLoading: isArrivalConfigLoading } =
+    usePromiseResult(
+      () => backgroundApiProxy.serviceNetwork.getReceiveArrivalConfig(),
+      [],
+      { watchLoading: true },
+    );
+
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
@@ -546,6 +555,14 @@ function ReceiveToken() {
   }, [displayAddress, handleCopyAddress]);
 
   const arrivalTimeText = useMemo(() => {
+    // Until the server override settles, render no ETA instead of the
+    // bundled default — the default may differ a lot from the override and
+    // would flash before being replaced. `isLoading` starts as undefined,
+    // so gate on `!== false`. Failure resolves undefined and falls back to
+    // the bundled defaults below.
+    if (isArrivalConfigLoading !== false) {
+      return undefined;
+    }
     // The text is formatted via appLocale inside the util; depending on
     // intl.locale recomputes it when the app language changes.
     void intl.locale;
@@ -553,8 +570,16 @@ function ReceiveToken() {
       networkId,
       isTestnet: network?.isTestnet,
       isCustomNetwork: network?.isCustomNetwork,
+      override: receiveArrivalConfig,
     });
-  }, [intl.locale, networkId, network?.isTestnet, network?.isCustomNetwork]);
+  }, [
+    isArrivalConfigLoading,
+    intl.locale,
+    networkId,
+    network?.isTestnet,
+    network?.isCustomNetwork,
+    receiveArrivalConfig,
+  ]);
 
   const pageTitleText = useMemo(
     () =>
@@ -573,8 +598,15 @@ function ReceiveToken() {
         networkId,
         isTestnet: network?.isTestnet,
         isCustomNetwork: network?.isCustomNetwork,
+        override: { byNetworkId: receiveArrivalConfig?.standardByNetworkId },
       }),
-    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+    [
+      network?.name,
+      networkId,
+      network?.isTestnet,
+      network?.isCustomNetwork,
+      receiveArrivalConfig?.standardByNetworkId,
+    ],
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {

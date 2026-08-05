@@ -16,6 +16,16 @@ const titleTextStyle = platformEnv.isNativeAndroid
   ? ({ includeFontPadding: false } as const)
   : undefined;
 
+// Directional hit slop: the paired chevrons overlap via IconButton's negative
+// margin, and RN hit-testing lets the later sibling win overlapped areas, so
+// the slop must only extend away from the neighbor (plus vertically).
+const HIT_SLOP_EXPAND_LEFT = platformEnv.isNative
+  ? { top: 8, bottom: 8, left: 8 }
+  : undefined;
+const HIT_SLOP_EXPAND_RIGHT = platformEnv.isNative
+  ? { top: 8, bottom: 8, right: 8 }
+  : undefined;
+
 function NavSpacer() {
   return <Stack width="$10" height="$6" />;
 }
@@ -98,6 +108,7 @@ export const CalendarHeader = memo(
                 icon="ChevronDoubleLeftOutline"
                 variant="tertiary"
                 size={iconSize}
+                hitSlop={HIT_SLOP_EXPAND_LEFT}
                 onPress={onPrevYear}
               />
             ) : (
@@ -110,6 +121,7 @@ export const CalendarHeader = memo(
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
                 size={iconSize}
+                hitSlop={HIT_SLOP_EXPAND_RIGHT}
                 onPress={onPrevMonth}
               />
             ) : (
@@ -124,6 +136,7 @@ export const CalendarHeader = memo(
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
                 size={iconSize}
+                hitSlop={HIT_SLOP_EXPAND_LEFT}
                 onPress={onNextMonth}
               />
             ) : (
@@ -136,6 +149,7 @@ export const CalendarHeader = memo(
                 icon="ChevronDoubleRightOutline"
                 variant="tertiary"
                 size={iconSize}
+                hitSlop={HIT_SLOP_EXPAND_RIGHT}
                 onPress={onNextYear}
               />
             ) : (

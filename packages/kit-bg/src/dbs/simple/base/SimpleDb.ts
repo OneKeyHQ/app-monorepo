@@ -730,6 +730,19 @@ export class SimpleDb {
     return value;
   }
 
+  get receiveArrivalConfig() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@receiveArrivalConfig',
+      loader: () =>
+        import('../entity/SimpleDbEntityReceiveArrivalConfig').then(
+          ({ SimpleDbEntityReceiveArrivalConfig }) =>
+            new SimpleDbEntityReceiveArrivalConfig(),
+        ),
+    });
+    Object.defineProperty(this, 'receiveArrivalConfig', { value });
+    return value;
+  }
+
   get btcFreshAddress() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@btcFreshAddress',
