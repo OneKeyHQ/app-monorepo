@@ -34,6 +34,7 @@ import {
   formatPerpsCompactUsd,
   formatPerpsUsd,
   getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
   getPerpsValueColor,
   getSpotTokenDisplayName,
   isSpotInstrument,
@@ -1159,9 +1160,20 @@ function PerpPortfolioContentComponent({
               <XStack gap="$1.5" alignItems="center">
                 <Token
                   size="xxs"
-                  tokenImageUris={getHyperliquidTokenImageUris(
-                    fillsStats.mostTraded || mostTradedTokenDisplayName,
-                  )}
+                  tokenImageUris={
+                    // Only perps carry a dex prefix worth preserving. A spot
+                    // `mostTraded` is a raw fill coin (`@149`, `PURR/USDC`) and
+                    // must keep going through the resolved display name — the
+                    // slash would otherwise break the image path outright.
+                    fillsStats.mostTraded &&
+                    !isSpotInstrument(fillsStats.mostTraded)
+                      ? getHyperliquidTokenImageUris(fillsStats.mostTraded)
+                      : [
+                          getHyperliquidTokenImageUrl(
+                            mostTradedTokenDisplayName,
+                          ),
+                        ]
+                  }
                 />
                 <SizableText size="$headingSm" color="$text">
                   {mostTradedTokenDisplayName}
