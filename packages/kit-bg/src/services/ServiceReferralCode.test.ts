@@ -2,6 +2,12 @@
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { buildLegacyWalletCreatedAtFallback } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import {
+  EExportSubject,
+  EExportTab,
+  EExportTimeRange,
+} from '@onekeyhq/shared/src/referralCode/type';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceReferralCode from './ServiceReferralCode';
 
@@ -74,6 +80,7 @@ function createService() {
       },
     },
     serviceAccount: {
+      getNetworkAccount: jest.fn(async () => ({ address: '0xcurrent' })),
       getWallets: jest.fn(),
       getDevice: jest.fn(),
       getDBAccountSafe: jest.fn(
@@ -82,10 +89,9 @@ function createService() {
           indexedAccountId: 'hd-1--7',
         }),
       ),
-      getDbAccountIdFromIndexedAccountId: jest.fn(
-        async () => "hd-1--m/44'/60'/0'/0/7",
-      ),
-      getAccount: jest.fn(async () => ({ address: '0xcurrent' })),
+    },
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
     },
     serviceHardware: {},
   };
@@ -106,6 +112,301 @@ function createService() {
 
   return { service, backgroundApi };
 }
+
+describe('ServiceReferralCode Swap rebate API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('uses the authenticated rebate client and forwards cumulative filters', async () => {
+    const { service } = createService();
+    const data = { totalReward: '10' };
+    const get = jest.fn().mockResolvedValue({ data: { data } });
+    const getOneKeyIdClientSpy = jest
+      .spyOn(service, 'getOneKeyIdClient')
+      .mockResolvedValue({ get } as any);
+
+    await expect(
+      service.getSwapCumulativeRewards({
+        timeRange: EExportTimeRange.ThisMonth,
+        startTime: 0,
+        endTime: 123,
+        inviteCode: '',
+      }),
+    ).resolves.toBe(data);
+
+    expect(getOneKeyIdClientSpy).toHaveBeenCalledWith(
+      EServiceEndpointEnum.Rebate,
+    );
+    expect(get).toHaveBeenCalledWith(
+      '/rebate/v1/invite/swap-cumulative-rewards',
+      {
+        params: {
+          timeRange: EExportTimeRange.ThisMonth,
+          startTime: 0,
+          endTime: 123,
+          inviteCode: '',
+        },
+      },
+    );
+  });
+
+  test('mutes cumulative rewards failures while preserving the rejection', async () => {
+    const { service } = createService();
+    const error = Object.assign(new Error('cumulative rewards unavailable'), {
+      autoToast: true,
+    });
+    const get = jest.fn().mockRejectedValue(error);
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ get } as any);
+
+    await expect(service.getSwapCumulativeRewards()).rejects.toBe(error);
+
+    expect(error.autoToast).toBe(false);
+  });
+
+  test('forwards opaque cursors and false invite filters', async () => {
+    const { service } = createService();
+    const data = { total: 0, cursor: null, items: [] };
+    const get = jest.fn().mockResolvedValue({ data: { data } });
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ get } as any);
+    const cursor = 'opaque:+/%==.iv:cipher';
+
+    await expect(
+      service.getSwapInvites({
+        tab: 'total',
+        disableAutoToast: true,
+        hideZeroVolume: false,
+        cursor,
+      }),
+    ).resolves.toBe(data);
+
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/swap-invites', {
+      params: {
+        tab: 'total',
+        hideZeroVolume: false,
+        cursor,
+      },
+    });
+  });
+
+  test('forwards the opaque invitee ID and record status exactly', async () => {
+    const { service } = createService();
+    const data = { total: 0, fiatValue: '0', items: [] };
+    const get = jest.fn().mockResolvedValue({ data: { data } });
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ get } as any);
+    const inviteeId = 'invitee:+/%==.iv:cipher';
+
+    await expect(
+      service.getSwapRecords({
+        disableAutoToast: true,
+        inviteeId,
+        status: 'AVAILABLE',
+      }),
+    ).resolves.toBe(data);
+
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/swap-records', {
+      params: {
+        inviteeId,
+        status: 'AVAILABLE',
+      },
+    });
+  });
+
+  test.each([
+    {
+      name: 'invite list',
+      call: (service: ServiceReferralCode) =>
+        service.getSwapInvites({
+          tab: 'undistributed',
+          disableAutoToast: true,
+        }),
+    },
+    {
+      name: 'invite records',
+      call: (service: ServiceReferralCode) =>
+        service.getSwapRecords({
+          inviteeId: 'opaque-id',
+          disableAutoToast: true,
+        }),
+    },
+  ])('mutes $name failures when requested', async ({ call }) => {
+    const { service } = createService();
+    const error = Object.assign(new Error('rebate request unavailable'), {
+      autoToast: true,
+    });
+    const get = jest.fn().mockRejectedValue(error);
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ get } as any);
+
+    await expect(call(service)).rejects.toBe(error);
+
+    expect(error.autoToast).toBe(false);
+  });
+
+  test('uses the unauthenticated rebate client for invitee rewards', async () => {
+    const { service } = createService();
+    const data = {
+      totalBonus: '1',
+      undistributed: '0',
+      history: [],
+    };
+    const get = jest.fn().mockResolvedValue({ data: { data } });
+    const getClientSpy = jest
+      .spyOn(service, 'getClient')
+      .mockResolvedValue({ get } as any);
+    const getOneKeyIdClientSpy = jest.spyOn(service, 'getOneKeyIdClient');
+
+    await expect(
+      service.getSwapInviteeRewards({
+        walletAddress: '0xAbCdEf',
+      }),
+    ).resolves.toBe(data);
+
+    expect(getClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
+    expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/swap-invitee-rewards', {
+      params: {
+        walletAddress: '0xAbCdEf',
+      },
+    });
+  });
+
+  test('mutes invitee rewards failures while preserving the rejection', async () => {
+    const { service } = createService();
+    const error = Object.assign(new Error('invitee rewards unavailable'), {
+      autoToast: true,
+    });
+    const get = jest.fn().mockRejectedValue(error);
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    await expect(
+      service.getSwapInviteeRewards({ walletAddress: '0xAbCdEf' }),
+    ).rejects.toBe(error);
+
+    expect(error.autoToast).toBe(false);
+  });
+
+  test('resolves the current logical account EVM address from its indexed account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork.mockResolvedValue(
+      'ledgerLive',
+    );
+    backgroundApi.serviceAccount.getNetworkAccount.mockResolvedValue({
+      address: '0xCurrent',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: "hd-1--m/501'/7'/0'",
+        indexedAccountId: 'hd-1--7',
+      }),
+    ).resolves.toBe('0xCurrent');
+
+    expect(
+      backgroundApi.serviceAccount.getDBAccountSafe,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork,
+    ).toHaveBeenCalledWith({ networkId: 'evm--1' });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--7',
+        deriveType: 'ledgerLive',
+        networkId: 'evm--1',
+      },
+    );
+  });
+
+  test('falls back to the DB account identity when no indexed account is provided', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      indexedAccountId: 'hd-1--8',
+    });
+    backgroundApi.serviceAccount.getNetworkAccount.mockResolvedValue({
+      address: '0xFallback',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: "hd-1--m/44'/60'/0'/0/8",
+      }),
+    ).resolves.toBe('0xFallback');
+
+    expect(backgroundApi.serviceAccount.getDBAccountSafe).toHaveBeenCalledWith({
+      accountId: "hd-1--m/44'/60'/0'/0/8",
+    });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--8',
+        deriveType: 'default',
+        networkId: 'evm--1',
+      },
+    );
+  });
+
+  test('returns undefined when the current logical account has no EVM account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getNetworkAccount.mockRejectedValue(
+      new Error('EVM account unavailable'),
+    );
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        indexedAccountId: 'hd-1--9',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('exports Swap without transforming CSV or dropping an epoch range', async () => {
+    const { service } = createService();
+    const get = jest.fn().mockResolvedValue({
+      data: 'Address,Period\\n0xabc,2026-07',
+      headers: {
+        'content-disposition': 'attachment; filename="onchain-rebate-Swap.csv"',
+      },
+    });
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ get } as any);
+
+    await expect(
+      service.exportInviteData({
+        subject: EExportSubject.Onchain,
+        tab: EExportTab.Swap,
+        timeRange: EExportTimeRange.All,
+      }),
+    ).resolves.toEqual({
+      data: 'Address,Period\\n0xabc,2026-07',
+      filename: 'onchain-rebate-Swap.csv',
+    });
+    await service.exportInviteData({
+      subject: EExportSubject.Onchain,
+      tab: EExportTab.Swap,
+      timeRange: EExportTimeRange.All,
+      startTime: 0,
+      endTime: 123,
+    });
+
+    expect(get).toHaveBeenNthCalledWith(1, '/rebate/v1/invite/export', {
+      params: {
+        subject: EExportSubject.Onchain,
+        timeRange: EExportTimeRange.All,
+        tab: EExportTab.Swap,
+      },
+      responseType: 'text',
+      autoHandleError: false,
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/rebate/v1/invite/export', {
+      params: {
+        subject: EExportSubject.Onchain,
+        startTime: 0,
+        endTime: 123,
+        tab: EExportTab.Swap,
+      },
+      responseType: 'text',
+      autoHandleError: false,
+    });
+  });
+});
 
 describe('ServiceReferralCode migration', () => {
   beforeEach(() => {
@@ -542,16 +843,16 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
       accountId: "hd-1--m/86'/0'/7'",
     });
     expect(
-      backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId,
-    ).toHaveBeenCalledWith({
-      indexedAccountId: 'hd-1--7',
-      networkId: 'evm--1',
-      deriveType: 'default',
-    });
-    expect(backgroundApi.serviceAccount.getAccount).toHaveBeenCalledWith({
-      accountId: "hd-1--m/44'/60'/0'/0/7",
-      networkId: 'evm--1',
-    });
+      backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork,
+    ).toHaveBeenCalledWith({ networkId: 'evm--1' });
+    expect(backgroundApi.serviceAccount.getNetworkAccount).toHaveBeenCalledWith(
+      {
+        accountId: undefined,
+        indexedAccountId: 'hd-1--7',
+        deriveType: 'default',
+        networkId: 'evm--1',
+      },
+    );
   });
 
   test('passes the Swap request budget to the authoritative bind check', async () => {

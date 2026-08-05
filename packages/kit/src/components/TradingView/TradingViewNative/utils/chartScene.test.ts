@@ -4,6 +4,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
 } from '../chartConstants';
 
 import {
@@ -33,7 +34,7 @@ describe('TradingViewNative shared chart scene', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
-      crosshair: { visible: true, x: 252.5, y: 80 },
+      crosshair: { visible: true, x: 264.5, y: 80 },
       hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -86,6 +87,19 @@ describe('TradingViewNative shared chart scene', () => {
       scene.commands.filter((command) => command.kind === 'clip'),
     ).toHaveLength(
       scene.commands.filter((command) => command.kind === 'restore').length,
+    );
+
+    const priceAxisX = 320 - scene.priceAxisWidth;
+    const priceAxisTextX = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'priceAxis' &&
+      command.x >= priceAxisX
+        ? [command.x]
+        : [],
+    );
+    expect(priceAxisTextX.length).toBeGreaterThan(0);
+    expect(new Set(priceAxisTextX)).toEqual(
+      new Set([priceAxisX + TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING]),
     );
   });
 
