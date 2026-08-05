@@ -26,8 +26,8 @@ import type {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 
-import { capitalizeString } from '../../../Staking/utils/utils';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
@@ -307,7 +307,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
             <Token size="sm" tokenImageUri={logoURI} borderRadius="$full" />
           ) : null}
           <SizableText size="$headingLg" numberOfLines={1}>
-            {capitalizeString(providerName || provider)}
+            {getEarnProviderDisplayName(providerName || provider)}
           </SizableText>
         </XStack>
       }

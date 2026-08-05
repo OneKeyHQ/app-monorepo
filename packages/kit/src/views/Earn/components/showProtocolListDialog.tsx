@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -29,7 +30,6 @@ import {
   ProtocolImage,
   formatTvl,
 } from '../../Staking/components/ProtocolDisplayShared';
-import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
 import { EarnAprSuffixText } from './EarnAprSuffixText';
@@ -370,7 +370,7 @@ export function ProtocolListContent({
             primary={
               <XStack ai="center" gap="$1.5">
                 <SizableText>
-                  {capitalizeString(item.provider.name)}
+                  {getEarnProviderDisplayName(item.provider.name)}
                 </SizableText>
                 {item.provider.badges?.map((badge) => (
                   <Badge
@@ -440,7 +440,7 @@ export function ProtocolListContent({
           />
           <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {capitalizeString(item.provider.name)}
+              {getEarnProviderDisplayName(item.provider.name)}
             </SizableText>
             {secondaryText ? (
               <SizableText
