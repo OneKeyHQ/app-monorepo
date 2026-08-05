@@ -2326,6 +2326,7 @@ function StockMarketContextPanel({
       <StockMarketDataGrid tokenDetail={tokenDetail} />
       <SwapStockTokenDetails
         tokenDetail={tokenDetail}
+        networkId={networkId}
         loading={marketPanelLoading}
       />
     </YStack>

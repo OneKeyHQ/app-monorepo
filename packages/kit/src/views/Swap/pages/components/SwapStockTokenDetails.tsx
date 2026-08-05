@@ -226,9 +226,11 @@ function ContractAddressValue({
 
 export function SwapStockTokenDetails({
   loading,
+  networkId,
   tokenDetail,
 }: {
   loading?: boolean;
+  networkId?: string;
   tokenDetail?: IMarketTokenDetail;
 }) {
   const intl = useIntl();
@@ -340,7 +342,7 @@ export function SwapStockTokenDetails({
           ) : (
             <ContractAddressValue
               address={tokenAddress}
-              networkId={tokenDetail?.networkId}
+              networkId={networkId}
             />
           )}
         </TokenDetailRow>
