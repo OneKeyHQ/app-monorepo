@@ -242,10 +242,12 @@ function ReferralLandingPage() {
     () => normalizeReferralLandingPageName(page),
     [page],
   );
-  const variant = useMemo<IReferralVariant>(
-    () => (pageName && EARN_PAGE_NAMES.has(pageName) ? 'defi' : 'perps'),
-    [pageName],
-  );
+  const variant = useMemo<IReferralVariant>(() => {
+    if (pageName === EReferralLandingPageName.Swap) {
+      return 'swap';
+    }
+    return pageName && EARN_PAGE_NAMES.has(pageName) ? 'defi' : 'perps';
+  }, [pageName]);
 
   const [inviteeDiscount, setInviteeDiscount] = useState(
     DEFAULT_INVITEE_DISCOUNT,

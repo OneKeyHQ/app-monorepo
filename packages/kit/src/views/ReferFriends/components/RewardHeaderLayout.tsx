@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { XStack, YStack, useMedia } from '@onekeyhq/components';
 
 interface IRewardHeaderLayoutProps {
   primaryCard: ReactNode;
@@ -36,74 +36,106 @@ export function RewardHeaderLayout({
   );
 }
 
+interface IResponsiveColumnLayoutProps {
+  columns: readonly ReactNode[];
+  gap?: string;
+  pb?: string;
+  px?: string;
+}
+
 interface IResponsiveThreeColumnLayoutProps {
   firstColumn: ReactNode;
   secondColumn: ReactNode;
   thirdColumn: ReactNode;
   gap?: string;
+  pb?: string;
   px?: string;
 }
 
+interface IResponsiveFourColumnLayoutProps extends IResponsiveThreeColumnLayoutProps {
+  fourthColumn: ReactNode;
+}
+
 /**
- * Generic 3-column layout that stacks vertically on narrow screens.
- * Wide screen: 3 equal columns in a row
+ * Generic equal-column layout that stacks vertically on narrow screens.
+ * Wide screen: equal columns in a row
  * Narrow screen: all columns stacked vertically
  */
+function ResponsiveColumnLayout({
+  columns,
+  gap = '$5',
+  pb,
+  px = '$5',
+}: IResponsiveColumnLayoutProps) {
+  const { lg } = useMedia();
+
+  if (lg) {
+    return (
+      <YStack width="100%" alignSelf="stretch" gap={gap} pb={pb} px={px}>
+        {columns.map((column, index) => (
+          <YStack
+            key={index}
+            width="100%"
+            alignSelf="stretch"
+            alignItems="stretch"
+          >
+            {column}
+          </YStack>
+        ))}
+      </YStack>
+    );
+  }
+
+  return (
+    <XStack gap={gap} pb={pb} px={px} alignItems="stretch">
+      {columns.map((column, index) => (
+        <XStack
+          key={index}
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
+          minWidth={0}
+        >
+          {column}
+        </XStack>
+      ))}
+    </XStack>
+  );
+}
+
 export function ResponsiveThreeColumnLayout({
   firstColumn,
   secondColumn,
   thirdColumn,
-  gap = '$5',
-  px = '$5',
+  gap,
+  pb,
+  px,
 }: IResponsiveThreeColumnLayoutProps) {
   return (
-    <Stack
+    <ResponsiveColumnLayout
+      columns={[firstColumn, secondColumn, thirdColumn]}
       gap={gap}
+      pb={pb}
       px={px}
-      flexDirection="row"
-      alignItems="stretch"
-      $lg={{
-        flexDirection: 'column',
-      }}
-    >
-      <Stack
-        flexGrow={1}
-        flexShrink={1}
-        flexBasis={0}
-        $lg={{
-          flexGrow: 0,
-          flexShrink: 1,
-          flexBasis: 'auto',
-        }}
-      >
-        {firstColumn}
-      </Stack>
+    />
+  );
+}
 
-      <Stack
-        flexGrow={1}
-        flexShrink={1}
-        flexBasis={0}
-        $lg={{
-          flexGrow: 0,
-          flexShrink: 1,
-          flexBasis: 'auto',
-        }}
-      >
-        {secondColumn}
-      </Stack>
-
-      <Stack
-        flexGrow={1}
-        flexShrink={1}
-        flexBasis={0}
-        $lg={{
-          flexGrow: 0,
-          flexShrink: 1,
-          flexBasis: 'auto',
-        }}
-      >
-        {thirdColumn}
-      </Stack>
-    </Stack>
+export function ResponsiveFourColumnLayout({
+  firstColumn,
+  secondColumn,
+  thirdColumn,
+  fourthColumn,
+  gap,
+  pb,
+  px,
+}: IResponsiveFourColumnLayoutProps) {
+  return (
+    <ResponsiveColumnLayout
+      columns={[firstColumn, secondColumn, thirdColumn, fourthColumn]}
+      gap={gap}
+      pb={pb}
+      px={px}
+    />
   );
 }
