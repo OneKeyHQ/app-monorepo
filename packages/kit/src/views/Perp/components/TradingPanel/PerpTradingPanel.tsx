@@ -37,6 +37,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useOrderConfirm } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
+import { isPerpsAccountSelectionResolved } from '../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
@@ -265,8 +266,17 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
+  const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
+    selectedWalletReady: selectedWalletAccount.ready,
+    selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+    selectedAccountId: selectedWalletAccount.account?.id,
+    selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
+    activeAccountId: perpsActiveAccount.accountId,
+    activeIndexedAccountId: perpsActiveAccount.indexedAccountId,
+  });
   const shouldShowConnectWalletPrompt =
     (platformEnv.isWeb || platformEnv.isDesktop) &&
+    isAccountSelectionResolved &&
     (!perpsActiveAccount?.accountAddress ||
       perpsAccountStatus.accountNotSupport) &&
     !perpsAccountStatus.canCreateAddress;

@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveTradeInstrumentAtom,
   useConnectionStateAtom,
@@ -24,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
@@ -42,6 +44,7 @@ import {
   useL2Book,
 } from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { isPerpsAccountSelectionResolved } from '../utils/accountScopedData';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
@@ -518,12 +521,25 @@ export function PerpOrderBook({
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
+    selectedWalletReady: selectedWalletAccount.ready,
+    selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+    selectedAccountId: selectedWalletAccount.account?.id,
+    selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
+    activeAccountId: perpsActiveAccount.accountId,
+    activeIndexedAccountId: perpsActiveAccount.indexedAccountId,
+  });
   const shouldCompactOrderBookForConnectWallet =
+    isAccountSelectionResolved &&
     (!perpsActiveAccount?.accountAddress ||
       perpsAccountStatus.accountNotSupport) &&
     !perpsAccountStatus.canCreateAddress;
+  const shouldCompactOrderBookForFirstDeposit =
+    perpsAccountStatus.details?.activatedOk === false;
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;
@@ -805,8 +821,10 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton)
+    if (shouldCompactOrderBookForFirstDeposit) return 5;
+    if (shouldShowEnableTradingButton) {
       return shouldCompactOrderBookForConnectWallet ? 6 : 7;
+    }
     if (activeTradeInstrument.mode === 'spot')
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
     if (formData.hasTpsl) return 9;
@@ -815,6 +833,7 @@ export function PerpOrderBook({
     activeTradeInstrument.mode,
     formData.hasTpsl,
     shouldCompactOrderBookForConnectWallet,
+    shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,
   ]);
 

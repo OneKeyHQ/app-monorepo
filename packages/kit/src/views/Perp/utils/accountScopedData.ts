@@ -32,6 +32,36 @@ export function isPerpsAccountAddressMatched({
   return Boolean(activeAddress && dataAddress && activeAddress === dataAddress);
 }
 
+export function isPerpsAccountSelectionResolved({
+  selectedWalletReady,
+  selectAccountLoading,
+  selectedAccountId,
+  selectedIndexedAccountId,
+  activeAccountId,
+  activeIndexedAccountId,
+}: {
+  selectedWalletReady: boolean;
+  selectAccountLoading: boolean;
+  selectedAccountId?: string | null;
+  selectedIndexedAccountId?: string | null;
+  activeAccountId?: string | null;
+  activeIndexedAccountId?: string | null;
+}) {
+  if (!selectedWalletReady || selectAccountLoading) {
+    return false;
+  }
+
+  if (!selectedAccountId && !selectedIndexedAccountId) {
+    return !activeAccountId && !activeIndexedAccountId;
+  }
+
+  return Boolean(
+    (selectedAccountId && selectedAccountId === activeAccountId) ||
+    (selectedIndexedAccountId &&
+      selectedIndexedAccountId === activeIndexedAccountId),
+  );
+}
+
 export function getPerpsAccountScopedListData<T>({
   activeAccountAddress,
   dataAccountAddress,

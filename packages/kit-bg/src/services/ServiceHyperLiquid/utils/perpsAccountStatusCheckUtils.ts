@@ -45,20 +45,23 @@ export function shouldRefreshPerpsActivationFromFundedState({
   eventAddress,
   activatedOk,
   hasFundedBalance,
-  refreshHandled,
+  refreshInFlight,
+  refreshPending,
 }: {
   activeAddress: string | null | undefined;
   eventAddress: string | null | undefined;
   activatedOk: boolean | undefined;
   hasFundedBalance: boolean;
-  refreshHandled: boolean;
+  refreshInFlight: boolean;
+  refreshPending: boolean;
 }): boolean {
   return Boolean(
     activeAddress &&
     eventAddress &&
     activeAddress.toLowerCase() === eventAddress.toLowerCase() &&
-    activatedOk === false &&
+    activatedOk !== true &&
+    (activatedOk === false || refreshPending) &&
     hasFundedBalance &&
-    !refreshHandled,
+    !refreshInFlight,
   );
 }

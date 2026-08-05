@@ -267,6 +267,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _fundedActivationRefreshInFlightAddress: string | null = null;
 
+  private _fundedActivationRefreshPendingAddress: string | null = null;
+
   private _routeSubscriptionStateVersion = 0;
 
   private async _refreshActivationFromFundedState({
@@ -286,27 +288,45 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       statusInfo?.accountAddress?.toLowerCase() === activeAddress
         ? statusInfo
         : undefined;
+    if (
+      activeStatusInfo?.details.activatedOk === true &&
+      this._fundedActivationRefreshPendingAddress === normalizedEventAddress
+    ) {
+      this._fundedActivationRefreshPendingAddress = null;
+    }
     const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
       activeAddress,
       eventAddress: normalizedEventAddress,
       activatedOk: activeStatusInfo?.details.activatedOk,
       hasFundedBalance: hasPositivePerpsBalance(balanceValues),
-      refreshHandled:
+      refreshInFlight:
         this._fundedActivationRefreshInFlightAddress === normalizedEventAddress,
+      refreshPending:
+        this._fundedActivationRefreshPendingAddress === normalizedEventAddress,
     });
 
     if (!shouldRefresh || !normalizedEventAddress) {
       return;
     }
 
+    this._fundedActivationRefreshPendingAddress = normalizedEventAddress;
     this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
     try {
       await this.backgroundApi.serviceHyperliquid.checkPerpsAccountStatus();
+      const latestStatusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      if (
+        latestStatusInfo?.accountAddress?.toLowerCase() ===
+          normalizedEventAddress &&
+        latestStatusInfo.details.activatedOk === true &&
+        this._fundedActivationRefreshPendingAddress === normalizedEventAddress
+      ) {
+        this._fundedActivationRefreshPendingAddress = null;
+      }
     } catch (error) {
-      console.error(
-        '[ServiceHyperliquidSubscription] Funded account status refresh failed:',
+      defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+        type: 'fundedActivationRefresh',
         error,
-      );
+      });
     } finally {
       if (
         this._fundedActivationRefreshInFlightAddress === normalizedEventAddress
@@ -1492,6 +1512,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         state.currentUser?.toLowerCase() !== params.currentUser?.toLowerCase()
       ) {
         this._fundedActivationRefreshInFlightAddress = null;
+        this._fundedActivationRefreshPendingAddress = null;
       }
       state.currentUser = params.currentUser;
     }

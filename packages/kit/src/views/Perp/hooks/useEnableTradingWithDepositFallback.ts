@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -75,16 +75,35 @@ export function useHandleEnableTradingPostStatus() {
 export function useRequestEnableTradingWithDepositFallback() {
   const requestEnableTrading = useRequestEnableTrading();
   const handleEnableTradingPostStatus = useHandleEnableTradingPostStatus();
+  const requestInFlightRef = useRef<
+    Promise<IEnableTradingWithDepositFallbackResult> | undefined
+  >(undefined);
+  const requestInFlightTokenRef = useRef<symbol | undefined>(undefined);
 
   return useCallback(
-    async (
+    (
       options?: IRequestEnableTradingWithDepositFallbackOptions,
     ): Promise<IEnableTradingWithDepositFallbackResult> => {
       if (options?.shouldIgnoreResult?.()) {
-        return { shouldContinue: false, status: undefined };
+        return Promise.resolve({ shouldContinue: false, status: undefined });
       }
-      const status = await requestEnableTrading();
-      return handleEnableTradingPostStatus(status, options);
+      if (requestInFlightRef.current) {
+        return requestInFlightRef.current;
+      }
+
+      const requestToken = Symbol('enableTradingRequest');
+      const requestPromise = (async () => {
+        const status = await requestEnableTrading();
+        return await handleEnableTradingPostStatus(status, options);
+      })().finally(() => {
+        if (requestInFlightTokenRef.current === requestToken) {
+          requestInFlightRef.current = undefined;
+          requestInFlightTokenRef.current = undefined;
+        }
+      });
+      requestInFlightTokenRef.current = requestToken;
+      requestInFlightRef.current = requestPromise;
+      return requestPromise;
     },
     [handleEnableTradingPostStatus, requestEnableTrading],
   );

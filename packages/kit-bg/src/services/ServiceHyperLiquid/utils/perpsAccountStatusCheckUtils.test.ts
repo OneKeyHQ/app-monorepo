@@ -82,7 +82,8 @@ describe('shouldRefreshPerpsActivationFromFundedState', () => {
     eventAddress: '0xABC',
     activatedOk: false,
     hasFundedBalance: true,
-    refreshHandled: false,
+    refreshInFlight: false,
+    refreshPending: false,
   };
 
   it('refreshes a still-unactivated account after a funded event', () => {
@@ -92,14 +93,42 @@ describe('shouldRefreshPerpsActivationFromFundedState', () => {
   it.each([
     ['different account', { eventAddress: '0xdef' }],
     ['activation already confirmed', { activatedOk: true }],
-    ['activation still unknown', { activatedOk: undefined }],
     ['zero balance event', { hasFundedBalance: false }],
-    ['refresh already handled', { refreshHandled: true }],
+    ['refresh already in flight', { refreshInFlight: true }],
   ])('does not refresh for %s', (_, override) => {
     expect(
       shouldRefreshPerpsActivationFromFundedState({
         ...baseParams,
         ...override,
+      }),
+    ).toBe(false);
+  });
+
+  it('retries after a funded activation refresh leaves activation unknown', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: undefined,
+        refreshPending: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not refresh an unknown activation without a pending funded retry', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('stops a pending funded retry after activation is confirmed', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: true,
+        refreshPending: true,
       }),
     ).toBe(false);
   });
