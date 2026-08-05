@@ -75,10 +75,16 @@ export function usePopularTickers(): IPopularTickerItem[] {
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
       if (!isPerpsUniverseCacheComplete(universesByDex)) {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        universesByDex = res.universesByDex;
+        try {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+          universesByDex = res.universesByDex;
+        } catch {
+          // Same reasoning as usePerpsFavorites: a rejection would leave the
+          // popular list empty for the whole session, while the stale universe
+          // still renders every dex the user already had.
+        }
       }
 
       return { mode: 'perp', data: universesByDex ?? [] };
