@@ -90,7 +90,7 @@ function ApprovedTokenItem(props: IProps) {
   const approvalDate = formatDate(new Date(approval.time), {
     formatTemplate: 'PP',
   });
-  const permit2ExpirationInfo = useMemo(() => {
+  const permit2ExpirationText = useMemo(() => {
     if (!isPermit2Approval) {
       return undefined;
     }
@@ -99,54 +99,33 @@ function ApprovedTokenItem(props: IProps) {
       approval.expirationMs,
     );
     if (!expiration) {
-      return {
-        displayText: '--',
-        accessibilityText: '--',
-      };
+      return '--';
     }
     if (expiration.isNeverExpires) {
-      const neverExpiresText = intl.formatMessage({
+      return intl.formatMessage({
         id: ETranslations.wallet_approval_permit2_never_expires__desc,
       });
-      return {
-        displayText: neverExpiresText,
-        accessibilityText: neverExpiresText,
-      };
     }
 
     const expirationDate = new Date(
       Number(expiration.expirationSeconds) * 1000,
     );
     if (Number.isNaN(expirationDate.getTime())) {
-      return {
-        displayText: '--',
-        accessibilityText: '--',
-      };
+      return '--';
     }
     const formattedExpiration = formatDate(expirationDate, {
       formatTemplate: 'PP, HH:mm',
     });
     if (!formattedExpiration || formattedExpiration === '-') {
-      return {
-        displayText: '--',
-        accessibilityText: '--',
-      };
+      return '--';
     }
 
-    return {
-      displayText: intl.formatMessage(
-        {
-          id: ETranslations.wallet_approval_permit2_expires_at__desc,
-        },
-        { date: formattedExpiration },
-      ),
-      accessibilityText: intl.formatMessage(
-        {
-          id: ETranslations.wallet_approval_permit2_expires_at__desc,
-        },
-        { date: formattedExpiration },
-      ),
-    };
+    return intl.formatMessage(
+      {
+        id: ETranslations.wallet_approval_permit2_expires_at__desc,
+      },
+      { date: formattedExpiration },
+    );
   }, [approval.expirationMs, intl, isPermit2Approval]);
 
   if (!token) {
@@ -311,7 +290,7 @@ function ApprovedTokenItem(props: IProps) {
               )}
             </SizableText>
           </XStack>
-          {permit2ExpirationInfo ? (
+          {permit2ExpirationText !== undefined ? (
             <SizableText
               size="$bodySm"
               color="$textSubdued"
@@ -319,9 +298,9 @@ function ApprovedTokenItem(props: IProps) {
               ellipsizeMode="tail"
               minWidth={0}
               maxWidth="100%"
-              accessibilityLabel={permit2ExpirationInfo.accessibilityText}
+              accessibilityLabel={permit2ExpirationText}
             >
-              {permit2ExpirationInfo.displayText}
+              {permit2ExpirationText}
             </SizableText>
           ) : null}
         </YStack>
