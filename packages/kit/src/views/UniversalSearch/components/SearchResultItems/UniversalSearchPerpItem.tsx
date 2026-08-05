@@ -56,11 +56,6 @@ export function UniversalSearchPerpItem({
   const tag = isPerpsType ? `${maxLeverage}X` : assetType;
 
   const handlePress = useCallback(() => {
-    // An unsupported dex resolves to no coin; opening Perps with an empty coin
-    // would fall through to that dex's first ticker.
-    if (!coin) {
-      return;
-    }
     defaultLogger.universalSearch.search.universalSearchClick({
       searchText: getSearchInput(),
       type: item.type,
@@ -113,6 +108,13 @@ export function UniversalSearchPerpItem({
     navigation,
     universalSearchActions,
   ]);
+
+  // A dex this build does not know cannot be opened or favorited. Rendering the
+  // row anyway would give a silent no-op on tap, and the star would persist an
+  // empty `perpsCoin` that every such row then shares in the market watchlist.
+  if (!coin) {
+    return null;
+  }
 
   return (
     <ListItem

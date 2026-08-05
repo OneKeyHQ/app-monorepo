@@ -65,9 +65,13 @@ export function isPerpsUniverseCacheComplete(
   if (!universesByDex || universesByDex.length < SUB_DEX_LIST.length + 1) {
     return false;
   }
-  // Slot 0 is the main perps DEX and is never legitimately empty, so gate on it
-  // rather than on any slot — a partial write must not read as a complete cache.
-  return (universesByDex[0]?.length ?? 0) > 0;
+  // Every registered slot must carry data. Gating on slot 0 alone would accept
+  // `[main, xyz, []]` — the shape produced when one `allPerpMetas()` response
+  // omits a dex and there is no previous slot to preserve — and consumers would
+  // then serve a universe missing that dex with nothing triggering a retry.
+  return universesByDex
+    .slice(0, SUB_DEX_LIST.length + 1)
+    .every((items) => (items?.length ?? 0) > 0);
 }
 
 // Universal search returns the bare symbol plus the dex it belongs to, where

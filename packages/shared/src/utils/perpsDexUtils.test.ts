@@ -150,6 +150,13 @@ describe('perpsDexUtils', () => {
       expect(isPerpsUniverseCacheComplete([[], [{}], [{}]])).toBe(false);
     });
 
+    // `[main, xyz, []]` is what a response that omits one dex persists when no
+    // previous slot exists to preserve; accepting it would hide that dex.
+    it('rejects a cache whose registered sub dex slot is empty', () => {
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], []])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[{}], [], [{}]])).toBe(false);
+    });
+
     it('rejects an empty or missing cache', () => {
       expect(isPerpsUniverseCacheComplete([])).toBe(false);
       expect(isPerpsUniverseCacheComplete(undefined)).toBe(false);

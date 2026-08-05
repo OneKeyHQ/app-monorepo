@@ -62,8 +62,14 @@ function encodeCoinForUrl(params: {
   return coin.toUpperCase();
 }
 
-function decodeCoinFromUrl(urlToken: string): string {
-  if (!urlToken) return '';
+function decodeCoinFromUrl(urlToken: string): {
+  coin: string;
+  // Links written before the separator was kept are ambiguous: a main-DEX
+  // symbol starting with a registered prefix parses as a sub-DEX coin. The
+  // caller must confirm such a guess against the universe before using it.
+  isAmbiguousLegacyGuess: boolean;
+} {
+  if (!urlToken) return { coin: '', isAmbiguousLegacyGuess: false };
 
   const dexPrefix = findDexPrefix(urlToken);
   if (dexPrefix && urlToken.length > dexPrefix.length) {
@@ -72,10 +78,32 @@ function decodeCoinFromUrl(urlToken: string): string {
       ? dexPrefix.length
       : dexPrefix.length + DEX_SEPARATOR.length;
     const symbol = urlToken.slice(symbolStartIndex);
-    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
+    return {
+      coin: `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`,
+      isAmbiguousLegacyGuess: hasNoSeparator,
+    };
   }
 
-  return urlToken.toUpperCase();
+  return { coin: urlToken.toUpperCase(), isAmbiguousLegacyGuess: false };
+}
+
+// Only trust a prefix guessed from a separator-free legacy link when that coin
+// actually exists; otherwise the token was a main-DEX symbol all along.
+async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
+  const { coin, isAmbiguousLegacyGuess } = decodeCoinFromUrl(urlToken);
+  if (!isAmbiguousLegacyGuess) {
+    return coin;
+  }
+  try {
+    const { universesByDex } =
+      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+    const exists = universesByDex?.some((assets) =>
+      assets?.some((asset) => asset.name === coin),
+    );
+    return exists ? coin : urlToken.toUpperCase();
+  } catch {
+    return coin;
+  }
 }
 
 async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
@@ -128,7 +156,7 @@ async function getInstrumentFromUrl(): Promise<{
     }
 
     return {
-      coin: decodeCoinFromUrl(urlToken),
+      coin: await resolvePerpCoinFromUrl(urlToken),
       mode,
     };
   } catch {
