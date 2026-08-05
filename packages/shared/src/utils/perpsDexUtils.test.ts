@@ -108,6 +108,13 @@ describe('perpsDexUtils', () => {
       expect(isPerpsUniverseCacheComplete([[{}], [{}]])).toBe(false);
     });
 
+    // A refresh that only returned the main dex used to leave the sub-dex slots
+    // empty, and the reverse — a main-dex fetch failure — must not read as
+    // complete either, since nothing else forces a retry on the home surfaces.
+    it('rejects a cache whose main dex slot is empty', () => {
+      expect(isPerpsUniverseCacheComplete([[], [{}], [{}]])).toBe(false);
+    });
+
     it('rejects an empty or missing cache', () => {
       expect(isPerpsUniverseCacheComplete([])).toBe(false);
       expect(isPerpsUniverseCacheComplete(undefined)).toBe(false);

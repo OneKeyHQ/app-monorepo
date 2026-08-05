@@ -65,7 +65,9 @@ export function isPerpsUniverseCacheComplete(
   if (!universesByDex || universesByDex.length < SUB_DEX_LIST.length + 1) {
     return false;
   }
-  return universesByDex.some((items) => (items?.length ?? 0) > 0);
+  // Slot 0 is the main perps DEX and is never legitimately empty, so gate on it
+  // rather than on any slot — a partial write must not read as a complete cache.
+  return (universesByDex[0]?.length ?? 0) > 0;
 }
 
 // TV lowercases everything; HL keys perps as `BTC`, spot as `@N`, and sub-DEX
