@@ -30,6 +30,7 @@ import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 
 import { EModeAssetsTable } from './EModeAssetsTable';
 import { EModeCategorySelect } from './EModeCategorySelect';
+import { EModeDescription } from './EModeDescription';
 import { EModeImpactSection } from './EModeImpactSection';
 import {
   E_MODE_PENDING_GUARD_ACTIONS,
@@ -66,13 +67,14 @@ function BorrowEModeSwitchView() {
   });
   const accountId = earnAccount?.account?.id || routeAccountId || '';
 
-  const { eModeStatus, isLoading, refresh } = useBorrowEModeStatus({
-    networkId,
-    provider,
-    marketAddress,
-    accountId,
-    enabled: !!accountId,
-  });
+  const { eModeStatus, isInitialLoading, isError, refresh } =
+    useBorrowEModeStatus({
+      networkId,
+      provider,
+      marketAddress,
+      accountId,
+      enabled: !!accountId,
+    });
   const currentEModeId = eModeStatus?.eModeId ?? null;
   const {
     healthFactorData,
@@ -298,13 +300,11 @@ function BorrowEModeSwitchView() {
         );
   }
 
-  // usePromiseResult exposes no error field; a settled load with no status is
-  // the existing signal that the request failed.
-  if (isLoading === false && !eModeStatus && accountId) {
+  if (isError && accountId) {
     return (
       <Page scrollEnabled>
         <Page.Header
-          title={intl.formatMessage({ id: ETranslations.defi_emode_title })}
+          title={intl.formatMessage({ id: ETranslations.manage_e_mode__title })}
         />
         <Page.Body px="$5">
           <YStack gap="$4" py="$8" ai="center">
@@ -325,7 +325,7 @@ function BorrowEModeSwitchView() {
     );
   }
 
-  const showInitialSkeleton = !eModeStatus;
+  const showInitialSkeleton = isInitialLoading || !eModeStatus;
   const showFooter = !showInitialSkeleton && !!selectedRow;
   const footerDisabled =
     isSubmitting ||
@@ -335,7 +335,7 @@ function BorrowEModeSwitchView() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.defi_emode_title })}
+        title={intl.formatMessage({ id: ETranslations.manage_e_mode__title })}
       />
       <Page.Body px="$5" gap="$5">
         {showInitialSkeleton ? (
@@ -346,16 +346,42 @@ function BorrowEModeSwitchView() {
         ) : null}
         {!showInitialSkeleton && selectedRow ? (
           <>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.defi_emode_intro })}
-            </SizableText>
-            <EModeCategorySelect
-              rows={rows}
-              currentEModeId={currentEModeId ?? 0}
-              value={effectiveSelection}
-              disabled={isSubmitting || pendingGuardActive}
-              onChange={onSelectCategory}
-            />
+            <EModeDescription />
+            {/* The verdict on the selected category belongs to the selector, so
+                it sits right under it on the selector's own tighter spacing
+                rather than out in the page's rhythm. */}
+            <YStack gap="$2">
+              <EModeCategorySelect
+                rows={rows}
+                currentEModeId={currentEModeId ?? 0}
+                value={effectiveSelection}
+                disabled={isSubmitting || pendingGuardActive}
+                onChange={onSelectCategory}
+              />
+              {viewState === 'error' ? (
+                <Alert
+                  type="critical"
+                  icon="ErrorOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.defi_emode_load_error,
+                  })}
+                  action={{
+                    primary: intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    }),
+                    primaryTestID: 'borrow-e-mode-check-retry',
+                    onPrimaryPress: onRetryCheck,
+                  }}
+                />
+              ) : null}
+              {viewState === 'blocked' ? (
+                <Alert
+                  type="warning"
+                  icon="ErrorOutline"
+                  title={blockerTitle}
+                />
+              ) : null}
+            </YStack>
             <EModeImpactSection
               isCurrent={viewState === 'current'}
               check={viewState === 'current' ? null : check}
@@ -364,25 +390,6 @@ function BorrowEModeSwitchView() {
               currentHealthFactor={healthFactorData?.healthFactor?.text}
               currentHealthFactorLoading={!!currentHealthFactorLoading}
             />
-            {viewState === 'error' ? (
-              <Alert
-                type="critical"
-                icon="ErrorOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.defi_emode_load_error,
-                })}
-                action={{
-                  primary: intl.formatMessage({
-                    id: ETranslations.global_retry,
-                  }),
-                  primaryTestID: 'borrow-e-mode-check-retry',
-                  onPrimaryPress: onRetryCheck,
-                }}
-              />
-            ) : null}
-            {viewState === 'blocked' ? (
-              <Alert type="warning" icon="ErrorOutline" title={blockerTitle} />
-            ) : null}
             <EModeAssetsTable row={selectedRow} />
           </>
         ) : null}

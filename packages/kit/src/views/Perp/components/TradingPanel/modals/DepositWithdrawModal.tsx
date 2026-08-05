@@ -58,6 +58,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { TPerpDepositErrorStage } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -76,12 +77,16 @@ import {
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapNativeTokenConfig } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTxHistoryStatus,
+  type ISwapNativeTokenConfig,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getPerpDepositErrorCode } from '../../../utils/perpDepositAnalytics';
 import { preloadPerpsDepositSelectTokenModal } from '../../../utils/preloadPerpsDepositSelectTokenModal';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -1334,6 +1339,40 @@ function DepositWithdrawContent({
       }
     }
 
+    const directDepositAmount = tokenAmount || amount;
+    const directDepositToken =
+      currentPerpsDepositSelectedTokenRef.current ??
+      ({
+        networkId: PERPS_NETWORK_ID,
+        contractAddress: USDC_TOKEN_INFO.address,
+        name: USDC_TOKEN_INFO.name,
+        symbol: USDC_TOKEN_INFO.symbol,
+        decimals: USDC_TOKEN_INFO.decimals,
+        networkLogoURI:
+          swapDefaultSetTokens[PERPS_NETWORK_ID].toToken?.networkLogoURI ?? '',
+      } satisfies IPerpsDepositToken);
+    let directDepositResultLogged = false;
+    let directDepositErrorStage: TPerpDepositErrorStage = 'build';
+    const logDirectDepositFailure = (
+      errorStage: TPerpDepositErrorStage,
+      errorCode: string,
+    ) => {
+      if (directDepositResultLogged) {
+        return;
+      }
+      directDepositResultLogged = true;
+      defaultLogger.perp.deposit.perpDepositInitiate({
+        walletType: selectedAccount.walletType ?? 'unknown',
+        token: directDepositToken,
+        amount: directDepositAmount,
+        toAmount: directDepositAmount,
+        depositRoute: 'directArbitrum',
+        status: ESwapTxHistoryStatus.FAILED,
+        errorStage,
+        errorCode,
+      });
+    };
+
     try {
       if (isDepositQuotePendingDebounce) {
         return;
@@ -1353,30 +1392,30 @@ function DepositWithdrawContent({
         if (isArbitrumUsdcToken) {
           await normalizeTxConfirm({
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
               if (data?.[0]) {
                 const fromTxId = data[0].signedTx.txid;
-                const usdcToken = {
-                  networkId: PERPS_NETWORK_ID,
-                  contractAddress: USDC_TOKEN_INFO.address,
-                  name: USDC_TOKEN_INFO.name,
-                  symbol: USDC_TOKEN_INFO.symbol,
-                  decimals: USDC_TOKEN_INFO.decimals,
-                  networkLogoURI:
-                    swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
-                      ?.networkLogoURI ?? '',
-                };
-                const depositAmount = tokenAmount || amount;
                 void handlePerpDepositTxSuccess({
-                  fromToken:
-                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  fromToken: directDepositToken,
                   fromTxId,
-                  toAmount: depositAmount,
-                  fromAmount: depositAmount,
+                  toAmount: directDepositAmount,
+                  fromAmount: directDepositAmount,
                   isArbUSDCOrder: true,
                   skipToast: true,
                 });
+                directDepositResultLogged = true;
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  walletType: selectedAccount.walletType ?? 'unknown',
+                  token: directDepositToken,
+                  amount: directDepositAmount,
+                  toAmount: directDepositAmount,
+                  depositRoute: 'directArbitrum',
+                  status: ESwapTxHistoryStatus.SUCCESS,
+                  txId: fromTxId,
+                });
+              } else {
+                logDirectDepositFailure('broadcast', 'txidNotFound');
               }
+              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               onClose?.();
             },
@@ -1384,12 +1423,22 @@ function DepositWithdrawContent({
               {
                 from: selectedAccount.accountAddress,
                 to: HYPERLIQUID_DEPOSIT_ADDRESS,
-                amount: tokenAmount || amount,
+                amount: directDepositAmount,
                 tokenInfo: USDC_TOKEN_INFO,
               },
             ],
             gasAccountScenario: 'perps',
+            onFail: (error) => {
+              logDirectDepositFailure(
+                directDepositErrorStage,
+                getPerpDepositErrorCode(error),
+              );
+            },
+            onCancel: () => {
+              logDirectDepositFailure('sign', 'userRejected');
+            },
           });
+          directDepositErrorStage = 'sign';
         } else {
           await buildPerpDepositTx();
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
@@ -1405,6 +1454,13 @@ function DepositWithdrawContent({
         onClose?.();
       }
     } catch (error) {
+      if (
+        selectedAction === 'deposit' &&
+        isArbitrumUsdcToken &&
+        !directDepositResultLogged
+      ) {
+        logDirectDepositFailure('build', getPerpDepositErrorCode(error));
+      }
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
     } finally {
@@ -1415,6 +1471,7 @@ function DepositWithdrawContent({
     checkAccountSupport,
     selectedAccount.accountAddress,
     selectedAccount.accountId,
+    selectedAccount.walletType,
     validateAmountBeforeSubmit,
     selectedAction,
     checkDepositWalletNotBackedUp,

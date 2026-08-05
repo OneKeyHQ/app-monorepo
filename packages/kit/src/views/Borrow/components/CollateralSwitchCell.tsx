@@ -35,10 +35,12 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
+import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { useUniversalBorrowSetCollateral } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
+import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
 import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
@@ -233,17 +235,14 @@ function showCollateralConfirmDialog(params: {
 export function CollateralSwitchCell({
   item,
   eModeId,
-  isCollateralUnavailableInEMode,
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
-  isCollateralUnavailableInEMode?: boolean;
 }) {
   const intl = useIntl();
   const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
     useBorrowContext();
-  const accountId =
-    earnAccount.data?.accountId ?? earnAccount.data?.account?.id ?? '';
+  const accountId = getBorrowEarnAccountId(earnAccount.data) ?? '';
   const setCollateral = useUniversalBorrowSetCollateral({
     networkId: market?.networkId || '',
     accountId,
@@ -300,7 +299,6 @@ export function CollateralSwitchCell({
   const confirmationScopeKey = JSON.stringify({
     operationScopeKey,
     eModeId: eModeId ?? null,
-    isCollateralUnavailableInEMode: isCollateralUnavailableInEMode === true,
   });
   const renderedConfirmationScope = useMemo(
     () => ({ key: confirmationScopeKey }),
@@ -312,8 +310,14 @@ export function CollateralSwitchCell({
     : false;
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
-  const canEnableCollateral =
-    item.canBeCollateral === true && !isCollateralUnavailableInEMode;
+  // v3.2+ e-modes never gate enabling collateral (see collateralControls.utils);
+  // the server flag plus the confirm dialog's live preview stay authoritative.
+  const canEnableCollateral = item.canBeCollateral === true;
+  const isNativeActionUnsupported = isUnsupportedAaveNativeReserve({
+    networkId: market?.networkId,
+    providerName: market?.provider,
+    reserveAddress: item.reserveAddress,
+  });
 
   useEffect(() => {
     mountedRef.current = true;
@@ -649,7 +653,9 @@ export function CollateralSwitchCell({
         value={value}
         size="small"
         disabled={
-          disabled || (!value && requiresEModeId && eModeId === undefined)
+          isNativeActionUnsupported ||
+          disabled ||
+          (!value && requiresEModeId && eModeId === undefined)
         }
         onChange={handleToggle}
       />
