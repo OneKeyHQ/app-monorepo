@@ -2061,13 +2061,14 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
 // the filename URL-safe) and fall back to the bare file.
 function getHyperliquidTokenImageUris(coin: string): string[] {
   const { displayName, dexLabel } = parseDexCoin(coin);
-  const bareUrl = getHyperliquidTokenImageUrl(displayName);
   if (!dexLabel) {
-    return [bareUrl];
+    return [getHyperliquidTokenImageUrl(displayName)];
   }
+  // No bare fallback: the bare path belongs to the main dex namespace, so for a
+  // symbol listed on both it resolves to a different asset (`STX` is Stacks on
+  // the main dex and Seagate on para). A generic icon beats another asset's.
   return [
     `https://uni.onekey-asset.com/static/hyperliquid/${dexLabel}${displayName}.png`,
-    bareUrl,
   ];
 }
 

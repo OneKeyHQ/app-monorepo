@@ -85,6 +85,14 @@ function decodeCoinFromUrl(urlToken: string): {
   return { coin: urlToken.toUpperCase(), isAmbiguousLegacyGuess: false };
 }
 
+async function readCompleteUniverses() {
+  const { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  return isPerpsUniverseCacheComplete(universesByDex)
+    ? universesByDex
+    : undefined;
+}
+
 // A guessed prefix is only trustworthy once the coin is known to exist.
 async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
   const { coin, isAmbiguousLegacyGuess } = decodeCoinFromUrl(urlToken);
@@ -92,12 +100,18 @@ async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
     return coin;
   }
   try {
-    const { universesByDex } =
-      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-    // An incomplete cache proves nothing, and a cold start opening a shared link
-    // is exactly when it is empty. Keeping the guess stays self-healing;
-    // downgrading it strands the user on a coin no refresh can resolve.
-    if (!isPerpsUniverseCacheComplete(universesByDex)) {
+    let universesByDex = await readCompleteUniverses();
+    if (!universesByDex) {
+      // URL resolution runs once, so an incomplete cache would freeze an
+      // unverified guess for the whole session. The refresh is single-flight and
+      // cold start already starts one, so this joins it instead of adding a
+      // request.
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      universesByDex = await readCompleteUniverses();
+    }
+    // Still incomplete: the guess is unproven either way, and keeping it is what
+    // lets a later refresh resolve the link.
+    if (!universesByDex) {
       return coin;
     }
     const exists = universesByDex.some((assets) =>

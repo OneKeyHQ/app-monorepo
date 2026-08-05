@@ -30,6 +30,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
+  isSpotInstrument,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -1042,7 +1043,7 @@ export function PerpMarketDetailContent({
         <XStack alignItems="center" gap="$2.5">
           <Token
             size="sm"
-            {...(coin
+            {...(coin && !isSpotInstrument(coin)
               ? { tokenImageUris: getHyperliquidTokenImageUris(coin) }
               : {
                   tokenImageUri:

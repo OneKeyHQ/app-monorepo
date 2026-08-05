@@ -35,6 +35,7 @@ import {
   getValidPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
+  isSpotInstrument,
   resolveOrderBookSizeDecimals,
   resolveTradingSizeBN,
 } from './perpsUtils';
@@ -740,14 +741,14 @@ describe('isHyperLiquidAbstractionModeEnabled', () => {
 });
 
 describe('getHyperliquidTokenImageUris', () => {
-  it('prefers the prefixed file for sub dex coins and falls back to the bare one', () => {
+  // The bare path is the main dex namespace, so `STX.png` is Stacks while
+  // `para:STX` is Seagate. Falling back to it would assert a wrong identity.
+  it('resolves a sub dex coin to its prefixed file only', () => {
     expect(getHyperliquidTokenImageUris('para:STX')).toEqual([
       'https://uni.onekey-asset.com/static/hyperliquid/paraSTX.png',
-      'https://uni.onekey-asset.com/static/hyperliquid/STX.png',
     ]);
     expect(getHyperliquidTokenImageUris('xyz:NVDA')).toEqual([
       'https://uni.onekey-asset.com/static/hyperliquid/xyzNVDA.png',
-      'https://uni.onekey-asset.com/static/hyperliquid/NVDA.png',
     ]);
   });
 
@@ -761,6 +762,14 @@ describe('getHyperliquidTokenImageUris', () => {
     expect(getHyperliquidTokenImageUris('@149')).toHaveLength(1);
     expect(getHyperliquidTokenImageUris('PURR/USDC')).toHaveLength(1);
     expect(getHyperliquidTokenImageUris('UETH')).toHaveLength(1);
+  });
+
+  // The guard every caller uses before reaching for the dex-scoped helper.
+  it('flags the raw spot forms that must not reach the dex helper', () => {
+    expect(isSpotInstrument('@149')).toBe(true);
+    expect(isSpotInstrument('PURR/USDC')).toBe(true);
+    expect(isSpotInstrument('para:STX')).toBe(false);
+    expect(isSpotInstrument('BTC')).toBe(false);
   });
 
   it('produces an unusable path for a raw spot coin, so callers must resolve it', () => {
