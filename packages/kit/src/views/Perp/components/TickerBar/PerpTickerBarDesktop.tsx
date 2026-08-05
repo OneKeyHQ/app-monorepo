@@ -91,7 +91,12 @@ function useTickerBarSpotAssetCtx() {
         hasCtx: Boolean(spotAssetCtx?.ctx),
       });
     }
-  }, [activeTradeInstrument.coin, activeTradeInstrument.mode, matched, spotAssetCtx]);
+  }, [
+    activeTradeInstrument.coin,
+    activeTradeInstrument.mode,
+    matched,
+    spotAssetCtx,
+  ]);
   return matched ? spotAssetCtx : undefined;
 }
 

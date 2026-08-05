@@ -123,14 +123,16 @@ function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
   return Boolean(data.universesByDex?.some((items) => items?.length > 0));
 }
 
-async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
-  force?: boolean;
-  allowPerpFallback?: boolean;
-  preferredInstrument?: IActiveTradeInstrument;
-}) {
-  // Read the authoritative side rather than this runtime's mirrors: the mirror
-  // is refreshed by a broadcast whose delivery is not confirmed, and a resync
-  // that reads a drifted copy switches the user off the pair they picked.
+type IActiveInstrumentTarget = Awaited<
+  ReturnType<
+    typeof backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget
+  >
+>;
+
+// Read the authoritative side rather than this runtime's mirrors: the mirror is
+// refreshed by a broadcast whose delivery is not confirmed, and a resync that
+// reads a drifted copy switches the user off the pair they picked.
+async function resolveActiveInstrumentTarget(): Promise<IActiveInstrumentTarget> {
   const target =
     await backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
   markPerpsColdStartPerf('initial_symbol_bg_target', {
@@ -139,6 +141,17 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
     bgPerpCoin: target.perpAsset?.coin,
     mirrorMode: await tradingModeAtom.get(),
   });
+  return target;
+}
+
+function buildSwitchParamsFromTarget(
+  target: IActiveInstrumentTarget,
+  options?: {
+    force?: boolean;
+    allowPerpFallback?: boolean;
+    preferredInstrument?: IActiveTradeInstrument;
+  },
+) {
   return buildInitialTradeInstrumentSwitchParams({
     mode: target.mode,
     spotAsset: target.spotAsset,
@@ -147,6 +160,17 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
     allowPerpFallback: options?.allowPerpFallback,
     preferredInstrument: options?.preferredInstrument,
   });
+}
+
+async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
+  force?: boolean;
+  allowPerpFallback?: boolean;
+  preferredInstrument?: IActiveTradeInstrument;
+}) {
+  return buildSwitchParamsFromTarget(
+    await resolveActiveInstrumentTarget(),
+    options,
+  );
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
@@ -951,12 +975,15 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
+      // Resolved once and reused below: two independent reads can straddle the
+      // background's own two-step write, and a divergence seen only in that gap
+      // would force a switch onto the current pair, wiping the order form.
+      const instrumentTarget = await resolveActiveInstrumentTarget();
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
         // The latch is process-wide, so this skip doubles as the only
         // remount-time resync: skipping unconditionally would strand the page
         // on the previous coin when the event bus message was dropped.
-        const bgSwitchParams =
-          await buildActiveInstrumentSwitchParamsFromGlobal();
+        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget);
         const ctxInstrument = activeTradeInstrumentRef.current;
         const diverged =
           !bgSwitchParams ||
@@ -1043,7 +1070,7 @@ function useHyperliquidSymbolSelect() {
         refreshSpotMeta(1800);
       }
       markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
-      const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
+      const switchParams = buildSwitchParamsFromTarget(instrumentTarget, {
         force: true,
         // Only the claiming run is a real cold start, where bailing out
         // strands the page for good. The diverged resync falls through here
