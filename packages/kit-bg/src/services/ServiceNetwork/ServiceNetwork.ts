@@ -45,7 +45,9 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../../vaults/factory';
 import {
@@ -56,6 +58,7 @@ import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
 import type { IAccountSelectorPersistInfo } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IReceiveArrivalConfig } from '../../dbs/simple/entity/SimpleDbEntityReceiveArrivalConfig';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
@@ -1801,6 +1804,71 @@ class ServiceNetwork extends ServiceBase {
       formattedAccountNetworkValues,
       accountDeFiOverview: localDeFiOverview,
     };
+  }
+
+  _fetchReceiveArrivalConfigPromise:
+    | Promise<IReceiveArrivalConfig | undefined>
+    | undefined;
+
+  // Receive-page ETA / protocol-standard label overrides (OK-59089).
+  // Must stay a standalone fetch: merging these fields into the network
+  // list payload would silently drop them (preset networks win the
+  // getNetworks merge). Failures fall back to bundled defaults silently —
+  // the receive flow must never block or surface an error because of this
+  // config (OK-57462 hard requirement).
+  @backgroundMethod()
+  async getReceiveArrivalConfig(): Promise<IReceiveArrivalConfig | undefined> {
+    try {
+      const rawData =
+        await this.backgroundApi.simpleDb.receiveArrivalConfig.getRawData();
+      const cached = rawData?.config;
+      const syncedAt = rawData?.syncedAt ?? 0;
+      const isFresh =
+        Date.now() - syncedAt < timerUtils.getTimeDurationMs({ hour: 1 });
+      if (cached && isFresh) {
+        return cached;
+      }
+      const refreshPromise = this._fetchAndCacheReceiveArrivalConfig();
+      if (cached) {
+        // Stale-while-revalidate: serve the stale copy immediately, let the
+        // refresh land silently for the next open.
+        return cached;
+      }
+      return await refreshPromise;
+    } catch {
+      return undefined;
+    }
+  }
+
+  _fetchAndCacheReceiveArrivalConfig(): Promise<
+    IReceiveArrivalConfig | undefined
+  > {
+    if (!this._fetchReceiveArrivalConfigPromise) {
+      this._fetchReceiveArrivalConfigPromise = (async () => {
+        try {
+          const client = await this.getClient(EServiceEndpointEnum.Wallet);
+          const resp = await client.get<{ data: IReceiveArrivalConfig }>(
+            '/wallet/v1/network/receive-arrival-config',
+          );
+          const config = resp.data.data;
+          // Per-entry validation happens in the resolve utils; only guard
+          // the top-level shape here.
+          if (!config || typeof config !== 'object') {
+            return undefined;
+          }
+          await this.backgroundApi.simpleDb.receiveArrivalConfig.setRawData({
+            config,
+            syncedAt: Date.now(),
+          });
+          return config;
+        } catch {
+          return undefined;
+        } finally {
+          this._fetchReceiveArrivalConfigPromise = undefined;
+        }
+      })();
+    }
+    return this._fetchReceiveArrivalConfigPromise;
   }
 
   getCoreApiByNetwork({
