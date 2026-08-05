@@ -20,6 +20,7 @@ import {
   WALLET_CONNECT_PAY_TRUSTED_HOST,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import { isWcPayExpired } from '@onekeyhq/shared/src/walletConnect/payExpiryUtils';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
@@ -71,12 +72,20 @@ export function useWcPayActionExecutor() {
       accountId,
       indexedAccountId,
       completedResults,
+      expiryMs,
       onActionComplete,
       onActionInvalidated,
     }: {
       actions: IWcPayAction[];
       accountId?: string;
       indexedAccountId?: string;
+      // absolute payment deadline (ms epoch, the earliest of payment-level
+      // and option-level expiry). Re-checked before every signing
+      // confirmation: the payment can expire while the user sits on a
+      // previous confirm or while an approve waits to be mined, and acting
+      // past the deadline still spends gas on-chain while confirmPayment can
+      // only ever return Expired/Failed.
+      expiryMs?: number;
       // results of actions already executed in a previous partially-failed
       // attempt of the same payment option; execution resumes after them so
       // an already-broadcast transaction is never sent twice. Callers must
@@ -149,6 +158,13 @@ export function useWcPayActionExecutor() {
       }
 
       for (let i = startIndex; i < actions.length; i += 1) {
+        // terminate the whole sequence the moment the deadline passes;
+        // progress persisted via onActionComplete keeps already-broadcast
+        // transactions safe for the (server-driven) expired/failed settling
+        if (isWcPayExpired(expiryMs)) {
+          // copy pending product i18n keys
+          throw new OneKeyLocalError('This payment has expired');
+        }
         const { chainId, method, params } = actions[i].walletRpc;
         const networkId = wcPayChainIdToNetworkId(chainId);
         if (!networkId) {

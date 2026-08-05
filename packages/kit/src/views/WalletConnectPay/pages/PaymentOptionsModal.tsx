@@ -24,6 +24,10 @@ import {
   isWcPayTrustedUrl,
   wcPayChainIdToNetworkId,
 } from '@onekeyhq/shared/src/walletConnect/payConstant';
+import {
+  getWcPayEffectiveExpiryMs,
+  isWcPayExpired,
+} from '@onekeyhq/shared/src/walletConnect/payExpiryUtils';
 import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
   IWcPayConfirmResult,
@@ -66,24 +70,22 @@ function formatPayAmount({
   return `${new BigNumber(value).shiftedBy(-decimals).toFixed()} ${symbol}`;
 }
 
-function useExpiryCountdown(expiresAt: number | undefined) {
+function useExpiryCountdown(expiryMs: number | undefined) {
   const [remainingSec, setRemainingSec] = useState<number | undefined>();
   useEffect(() => {
-    if (!expiresAt) {
+    if (!expiryMs) {
       setRemainingSec(undefined);
       return;
     }
-    // expiresAt may be seconds or milliseconds epoch
-    const expiresMs = expiresAt > 1e12 ? expiresAt : expiresAt * 1000;
     const tick = () => {
-      setRemainingSec(Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)));
+      setRemainingSec(Math.max(0, Math.floor((expiryMs - Date.now()) / 1000)));
     };
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [expiresAt]);
-  // expiresAt is optional in the payment info; without it there is no local
-  // expiry signal and the server-reported status remains the only gate
+  }, [expiryMs]);
+  // expiry is optional in the payment info/options; without it there is no
+  // local expiry signal and the server-reported status remains the only gate
   const isExpiredLocally = remainingSec !== undefined && remainingSec <= 0;
   if (remainingSec === undefined) {
     return { countdown: undefined, isExpiredLocally };
@@ -167,10 +169,17 @@ function PaymentOptionsPage() {
 
   const payResult = result?.pay;
   const networkMap = result?.networkMap;
-  const { countdown, isExpiredLocally } = useExpiryCountdown(
-    payResult?.info?.expiresAt,
-  );
   const options = payResult?.options ?? [];
+  const selectedOption: IWcPayOption | undefined =
+    options.find((o) => o.id === selectedOptionId) ?? options[0];
+  // The effective deadline is the earliest of the payment-level and the
+  // selected option's expiry; the countdown, the Continue gate and every
+  // in-flow re-check below must all use this single value.
+  const effectiveExpiryMs = getWcPayEffectiveExpiryMs({
+    infoExpiresAt: payResult?.info?.expiresAt,
+    optionExpiresAt: selectedOption?.expiresAt,
+  });
+  const { countdown, isExpiredLocally } = useExpiryCountdown(effectiveExpiryMs);
   const payStatus = payResult?.info?.status;
   // A payment in a final state can no longer be paid regardless of balances.
   const isPaymentInactive =
@@ -184,11 +193,9 @@ function PaymentOptionsPage() {
   // (e.g. `processing` while options are still present) must NOT be payable,
   // or an already-submitted payment could be fetched and broadcast again.
   // The local countdown must also not have hit zero (the page may outlive
-  // expiresAt while the server status is stale).
+  // the deadline while the server status is stale).
   const isPaymentActionable =
     payStatus === EWcPayStatus.RequiresAction && !isExpiredLocally;
-  const selectedOption: IWcPayOption | undefined =
-    options.find((o) => o.id === selectedOptionId) ?? options[0];
 
   const handlePay = useCallback(async () => {
     if (
@@ -237,6 +244,13 @@ function PaymentOptionsPage() {
         });
       }
 
+      // the compliance form (and any hesitation before it) may outlive the
+      // payment deadline; never fetch/execute actions for an expired payment
+      if (isWcPayExpired(effectiveExpiryMs)) {
+        // copy pending product i18n keys
+        throw new OneKeyLocalError('This payment has expired');
+      }
+
       // 2. fetch the ordered signing actions
       const actions =
         await backgroundApiProxy.serviceWalletConnectPay.getRequiredPaymentActions(
@@ -267,6 +281,9 @@ function PaymentOptionsPage() {
         accountId,
         indexedAccountId,
         completedResults,
+        // absolute deadline re-checked before every signing confirmation;
+        // it never moves during the flow, so capturing it here stays correct
+        expiryMs: effectiveExpiryMs,
         // awaited by the executor before the sequence continues, so a
         // broadcast transaction is durably recorded before anything else
         // can fail
@@ -336,6 +353,7 @@ function PaymentOptionsPage() {
     isPaying,
     isLoading,
     isPaymentActionable,
+    effectiveExpiryMs,
     navigation,
     executeActions,
     accountId,
