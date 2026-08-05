@@ -758,4 +758,12 @@ describe('getHyperliquidTokenImageUris', () => {
       'https://uni.onekey-asset.com/static/hyperliquid/BTC.png',
     ]);
   });
+
+  // Position share passes raw fill coins straight through, and spot raw forms
+  // must not be mistaken for a dex prefix.
+  it('does not treat spot raw coin forms as a sub dex', () => {
+    expect(getHyperliquidTokenImageUris('@149')).toHaveLength(1);
+    expect(getHyperliquidTokenImageUris('PURR/USDC')).toHaveLength(1);
+    expect(getHyperliquidTokenImageUris('UETH')).toHaveLength(1);
+  });
 });

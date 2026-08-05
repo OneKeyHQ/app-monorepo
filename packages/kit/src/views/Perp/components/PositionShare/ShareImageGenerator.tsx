@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
@@ -86,7 +86,7 @@ export const ShareImageGenerator = forwardRef<
       const {
         side,
         mode,
-        token: _token,
+        token,
         tokenDisplayName,
         tokenImageUrl,
         pnl,
@@ -98,8 +98,11 @@ export const ShareImageGenerator = forwardRef<
       const pnlBn = new BigNumber(pnl || '0');
       const isProfit = pnlBn.isGreaterThan(0);
       const pnlColor = isProfit ? colors.long : colors.short;
+      // Same reasoning as ShareContentRenderer: prefer the dex-scoped file so a
+      // sub-DEX asset does not borrow the main DEX icon of the same symbol.
       const tokenImage =
-        tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
+        tokenImageUrl ||
+        getHyperliquidTokenImageUris(token || tokenDisplayName)[0];
       const pnlDisplayText = getPnlDisplayInfo(data, config.pnlDisplayMode);
       const pnlFontSize =
         pnlDisplayText.length > 6

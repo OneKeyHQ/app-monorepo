@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
@@ -50,6 +50,7 @@ export function ShareContentRenderer({
   const {
     side,
     mode,
+    token,
     tokenDisplayName,
     tokenImageUrl,
     pnl,
@@ -62,8 +63,11 @@ export function ShareContentRenderer({
   const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
+  // `token` keeps the dex prefix; the display name does not, and a symbol
+  // listed on both the main DEX and a sub-DEX would otherwise share one file.
   const tokenImage =
-    tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
+    tokenImageUrl ||
+    getHyperliquidTokenImageUris(token || tokenDisplayName)[0];
   const pnlDisplayMode = config.pnlDisplayMode;
 
   const selectedBackground = isProfit
