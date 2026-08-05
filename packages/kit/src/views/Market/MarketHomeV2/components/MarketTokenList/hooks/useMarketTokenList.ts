@@ -176,6 +176,26 @@ function reuseStableMarketTokenRows({
   return changed ? reused : prev;
 }
 
+function transformMarketTokenListResponse({
+  response,
+  networkId,
+  networkLogoUri,
+  timeRange,
+}: {
+  response: IMarketTokenListResponseWithSource | undefined;
+  networkId: string;
+  networkLogoUri: string;
+  timeRange: IMarketTimeRangeValue | undefined;
+}) {
+  return (response?.list ?? []).map((item) =>
+    transformApiItemToToken(item, {
+      chainId: networkId,
+      networkLogoUri,
+      timeRange,
+    }),
+  );
+}
+
 export function useMarketTokenList({
   networkId,
   initialSortBy = 'v24hUSD',
@@ -192,7 +212,6 @@ export function useMarketTokenList({
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
@@ -457,6 +476,18 @@ export function useMarketTokenList({
     },
   );
 
+  // Seed and SWR values are available synchronously during render. Initialize
+  // the table rows from that value so remounting Market never starts from an
+  // empty list while the same cached response waits for an effect.
+  const [transformedData, setTransformedData] = useState<IMarketToken[]>(() =>
+    transformMarketTokenListResponse({
+      response: apiResult,
+      networkId,
+      networkLogoUri,
+      timeRange: timeRangeRef.current,
+    }),
+  );
+
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
   const isColdCacheFallbackResult = Boolean(apiResult?.__fromColdCacheFallback);
@@ -546,13 +577,12 @@ export function useMarketTokenList({
       platformEnv.isWeb && typeof performance !== 'undefined'
         ? performance.now()
         : 0;
-    const transformed = apiResult.list.map((item) =>
-      transformApiItemToToken(item, {
-        chainId: networkId,
-        networkLogoUri,
-        timeRange: timeRangeRef.current,
-      }),
-    );
+    const transformed = transformMarketTokenListResponse({
+      response: apiResult,
+      networkId,
+      networkLogoUri,
+      timeRange: timeRangeRef.current,
+    });
     const transformDuration =
       transformStart > 0 ? performance.now() - transformStart : undefined;
     markMarketReactPerf({
