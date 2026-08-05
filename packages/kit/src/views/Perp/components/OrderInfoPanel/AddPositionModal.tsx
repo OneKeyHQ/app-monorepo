@@ -18,6 +18,7 @@ import {
   getFontSize,
   useKeyboardHeight,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useConnectionStateAtom,
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
@@ -60,7 +62,11 @@ import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogConten
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
-import { SizeInput } from '../TradingPanel/inputs/SizeInput';
+import {
+  type ISizeInputMinimumOrderAction,
+  SizeInput,
+  getMinimumOrderToastActionProps,
+} from '../TradingPanel/inputs/SizeInput';
 import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
 import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLimitPriceWarning';
 
@@ -129,6 +135,10 @@ const AddPositionForm = memo(
     const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
     const isLimitPriceInitializedRef = useRef(false);
+    const sizeInputRef = useRef<IInputRef>(null);
+    const minimumOrderActionRef = useRef<
+      ISizeInputMinimumOrderAction | undefined
+    >(undefined);
 
     const midPrice = allMids?.mids?.[coin] ?? '';
     const displayName = parseDexCoin(coin).displayName;
@@ -368,6 +378,11 @@ const AddPositionForm = memo(
       setAmount('');
     }, [sizeInputMode]);
 
+    const requestSizeInputFocus = useCallback(() => {
+      if (!platformEnv.isNative) return;
+      requestAnimationFrame(() => sizeInputRef.current?.focus());
+    }, []);
+
     // Size problems keep the button pressable and surface a toast on press,
     // matching the main trading panel instead of silently disabling it.
     const showValidationToast = useCallback(
@@ -396,6 +411,7 @@ const AddPositionForm = memo(
           });
           return;
         }
+        const minimumOrderAction = minimumOrderActionRef.current;
         Toast.message({
           title: intl.formatMessage(
             { id: ETranslations.perp_size_least },
@@ -409,9 +425,16 @@ const AddPositionForm = memo(
               }),
             },
           ),
+          ...getMinimumOrderToastActionProps(
+            minimumOrderAction,
+            intl.formatMessage({
+              id: ETranslations.fill_minimum_amount__action,
+            }),
+          ),
         });
+        requestSizeInputFocus();
       },
-      [displayName, intl, leverage, sizeInputUnit],
+      [displayName, intl, leverage, requestSizeInputFocus, sizeInputUnit],
     );
 
     const handleTpslCheckboxChange = useCallback(
@@ -693,6 +716,8 @@ const AddPositionForm = memo(
           leverage={leverage}
           allowMarginInput
           ifOnDialog
+          inputRef={sizeInputRef}
+          minimumOrderActionRef={minimumOrderActionRef}
         />
         <YStack gap="$1.5">
           <PerpsSlider
