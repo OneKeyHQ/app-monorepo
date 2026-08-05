@@ -31,7 +31,8 @@ import {
   hasTradingViewNativeVolume,
 } from './chartLayout';
 
-const SECONDS_PER_HOUR = 60 * 60;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
 function getLocalTimestamp(
@@ -573,6 +574,55 @@ describe('TradingViewNative chart layout', () => {
     );
   });
 
+  it('aligns minute ticks to the selected time grid', () => {
+    const points = buildPoints({
+      count: 6,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0, 2),
+      stepSeconds: 15 * SECONDS_PER_MINUTE,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 15 * SECONDS_PER_MINUTE,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('minute');
+    expect(layout.ticks.map(({ label }) => label)).toEqual([
+      '01/15',
+      '00:15',
+      '00:30',
+      '00:45',
+      '01:00',
+      '01:15',
+    ]);
+  });
+
+  it('aligns hour ticks to whole hours', () => {
+    const points = buildPoints({
+      count: 120,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      endIndex: 100,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(9),
+      points,
+      startIndex: 60,
+    });
+
+    expect(layout.unit).toBe('hour');
+    expect(
+      layout.ticks.every(({ label }) =>
+        /^\d{2}:\d{2}$/.test(label) ? label.endsWith(':00') : true,
+      ),
+    ).toBe(true);
+  });
+
   it('keeps tick anchors stable while panning within the same time unit', () => {
     const points = buildPoints({
       count: 72,
@@ -664,6 +714,39 @@ describe('TradingViewNative chart layout', () => {
     );
   });
 
+  it('keeps hourly tick anchors fixed while panning across a tick window boundary', () => {
+    const points = buildPoints({
+      count: 120,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(9),
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 71,
+      startIndex: 31,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 72,
+      startIndex: 32,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 32 && index < 71);
+
+    expect(initialLayout.unit).toBe('hour');
+    expect(pannedLayout.unit).toBe('hour');
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
+  });
+
   it('uses day ticks for a multi-week visible range', () => {
     const points = buildPoints({
       count: 29,
@@ -702,6 +785,33 @@ describe('TradingViewNative chart layout', () => {
     expect(layout.ticks.every(({ label }) => /^\d{4}-\d{2}$/.test(label))).toBe(
       true,
     );
+  });
+
+  it('keeps consecutive month labels across a short February', () => {
+    const pointSpacing = 2.5;
+    const points = buildPoints({
+      count: 144,
+      startTimestamp: getLocalTimestamp(2026, 0, 1),
+      stepSeconds: SECONDS_PER_DAY,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_DAY,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing:
+        getTradingViewNativeTimeTickMinimumIndexSpacing(pointSpacing),
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('month');
+    expect(layout.ticks.map(({ label }) => label)).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+    ]);
   });
 
   it('adapts the unit to the visible subset when the chart is zoomed', () => {
@@ -751,7 +861,7 @@ describe('TradingViewNative chart layout', () => {
       startIndex: 0,
     });
 
-    expect(minimumIndexSpacing).toBe(9);
+    expect(minimumIndexSpacing).toBe(8);
     expect(layout.ticks.length).toBeGreaterThan(1);
     expect(
       layout.ticks.every(

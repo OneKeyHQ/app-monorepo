@@ -13,6 +13,7 @@ import {
   TRADING_VIEW_NATIVE_PRICE_EXTREMA_LINE_LENGTH,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
+  TRADING_VIEW_NATIVE_TIME_AXIS_TARGET_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
@@ -561,7 +562,7 @@ export function formatTradingViewNativeCrosshairTime(
 
 function formatTradingViewNativeTimeTick(
   timestamp: number,
-  unit: ITradingViewNativeTimeAxisUnit,
+  interval: ITimeAxisInterval,
   previousTimestamp?: number,
 ) {
   'worklet';
@@ -570,8 +571,17 @@ function formatTradingViewNativeTimeTick(
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
   const day = padTimeAxisValue(date.getDate());
-  const hour = padTimeAxisValue(date.getHours());
-  const minute = padTimeAxisValue(date.getMinutes());
+  const { step, unit } = interval;
+  let alignedHour = date.getHours();
+  let alignedMinute = date.getMinutes();
+  if (unit === 'minute') {
+    alignedMinute = Math.floor(alignedMinute / step) * step;
+  } else if (unit === 'hour') {
+    alignedHour = Math.floor(alignedHour / step) * step;
+    alignedMinute = 0;
+  }
+  const hour = padTimeAxisValue(alignedHour);
+  const minute = padTimeAxisValue(alignedMinute);
 
   if (unit === 'minute' || unit === 'hour') {
     const previousDate =
@@ -713,22 +723,24 @@ export function getTradingViewNativeTimeAxisLayout({
     0,
   );
   const maxTickCount = Math.max(
-    Math.floor(chartWidth / TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING),
+    Math.floor(chartWidth / TRADING_VIEW_NATIVE_TIME_AXIS_TARGET_TICK_SPACING),
     2,
   );
   const targetInterval = visibleDuration / maxTickCount;
+  const normalizedMinimumIndexSpacing = Math.max(
+    Math.ceil(minimumIndexSpacing),
+    1,
+  );
+  // Select a drawable interval first so viewport changes cannot shift the
+  // phase of a finer tick set during collision filtering.
   const minimumInterval =
     candleIntervalSeconds > 0 && Number.isFinite(candleIntervalSeconds)
-      ? candleIntervalSeconds
+      ? candleIntervalSeconds * normalizedMinimumIndexSpacing
       : 0;
   const interval = getClosestTimeAxisInterval({
     minimumSeconds: minimumInterval,
     targetSeconds: targetInterval,
   });
-  const normalizedMinimumIndexSpacing = Math.max(
-    Math.ceil(minimumIndexSpacing),
-    1,
-  );
   // Align an expanded window so nearby viewport updates keep the same
   // tick anchors without rebuilding candidates for the full history.
   const tickWindowPadding = normalizedMinimumIndexSpacing * 2;
@@ -767,7 +779,7 @@ export function getTradingViewNativeTimeAxisLayout({
             index,
             label: formatTradingViewNativeTimeTick(
               timestamp,
-              interval.unit,
+              interval,
               previousTick?.timestamp,
             ),
             timestamp,
