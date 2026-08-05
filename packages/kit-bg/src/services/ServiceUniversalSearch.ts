@@ -13,6 +13,10 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import {
+  buildCoinFromSearchAssetType,
+  isPerpsUniverseCacheComplete,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -1219,6 +1223,30 @@ class ServiceUniversalSearch extends ServiceBase {
     return { items } as IUniversalSearchSingleResult;
   }
 
+  // Returns undefined when the universe is not fully cached: an incomplete
+  // cache cannot prove an asset is gone, and filtering against it would empty
+  // the result list instead of trimming it.
+  private async getTradablePerpCoinSet(): Promise<Set<string> | undefined> {
+    try {
+      const { universesByDex } =
+        await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        return undefined;
+      }
+      const coins = new Set<string>();
+      universesByDex.forEach((assets) => {
+        assets?.forEach((asset) => {
+          if (!asset?.isDelisted && asset?.name) {
+            coins.add(asset.name);
+          }
+        });
+      });
+      return coins;
+    } catch {
+      return undefined;
+    }
+  }
+
   private universalSearchOfPerpCached = memoizee(
     async (input: string): Promise<IUniversalSearchPerpResult> => {
       try {
@@ -1237,19 +1265,36 @@ class ServiceUniversalSearch extends ServiceBase {
           params: { query: input },
         });
 
+        const tradableCoins = await this.getTradablePerpCoinSet();
+
         const items: IUniversalSearchPerpResult['items'] =
-          response?.data?.data?.map((asset) => ({
-            type: EUniversalSearchType.Perp,
-            payload: {
-              assetType: asset.type,
-              logoUrl: asset.logoUrl,
-              name: asset.name,
-              maxLeverage: asset.maxLeverage,
-              midPx: asset.midPx,
-              dayNtlVlm: asset.dayNtlVlm,
-              subtitle: asset.subtitle,
-            },
-          })) ?? [];
+          response?.data?.data
+            ?.filter((asset) => {
+              // The search index still carries assets hyperliquid has delisted
+              // — `xyz:UNITREE` survives there after moving to `para`, so the
+              // same ticker would appear twice with one dead row. Drop anything
+              // the local universe no longer lists as tradable.
+              if (!tradableCoins) {
+                return true;
+              }
+              const coin = buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              });
+              return Boolean(coin && tradableCoins.has(coin));
+            })
+            .map((asset) => ({
+              type: EUniversalSearchType.Perp,
+              payload: {
+                assetType: asset.type,
+                logoUrl: asset.logoUrl,
+                name: asset.name,
+                maxLeverage: asset.maxLeverage,
+                midPx: asset.midPx,
+                dayNtlVlm: asset.dayNtlVlm,
+                subtitle: asset.subtitle,
+              },
+            })) ?? [];
 
         return { items };
       } catch (error) {
