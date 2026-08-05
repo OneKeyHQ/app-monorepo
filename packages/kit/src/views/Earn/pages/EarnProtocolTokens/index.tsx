@@ -16,6 +16,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -203,6 +204,10 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
 
   const handleRowPress = useCallback(
     (row: IEarnProtocolTokenRow) => {
+      // OK-59304: warm the logo the detail page is about to render
+      prewarmTokenImages({
+        tokenImageUri: assetLogoMap.get(row.symbol.toLowerCase()),
+      });
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: row.item.network.networkId,
         symbol: row.symbol,
@@ -210,7 +215,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         vault: row.item.provider.vault,
       });
     },
-    [navigation],
+    [navigation, assetLogoMap],
   );
 
   const renderItem = useCallback(

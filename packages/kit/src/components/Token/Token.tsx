@@ -127,12 +127,6 @@ export function Token({
   const sharedImageProps = {
     size: tokenImageSize,
     borderRadius: borderRadius as IImageProps['borderRadius'],
-    // OK-59304: token logos are small and heavily repeated across lists and
-    // detail headers. The default disk-only cache still needs an async read
-    // on every mount, so each page entry flashed the fallback icon for a few
-    // frames before the real logo appeared. Memory cache renders the logo on
-    // the first frame for any image seen earlier in the session.
-    cachePolicy: 'memory-disk' as const,
     bg: resolvedBg,
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,

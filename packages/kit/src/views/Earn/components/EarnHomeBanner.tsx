@@ -229,10 +229,17 @@ export function EarnHomeBanner({
   // and the outer one would win the gesture and switch top tabs mid-swipe.
   // Report drag state so the outer pager pauses its own scrolling while the
   // user is swiping the banner.
+  //
+  // Only a real finger drag counts. `settling` is also emitted by the 5s
+  // autoplay's programmatic setPage() — and autoplay never pauses on native
+  // (the Carousel's visibility observer is web-only) — so treating it as a
+  // drag would disable the outer pager for ~300ms every 5s even while the
+  // user sits on another top tab. After the finger lifts the gesture owner
+  // is already decided, so `settling` needs no gating either.
   const handleBannerPageScrollStateChanged = useCallback(
     (event: { nativeEvent: { pageScrollState: string } }) => {
       appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-        dragging: event.nativeEvent.pageScrollState !== 'idle',
+        dragging: event.nativeEvent.pageScrollState === 'dragging',
       });
     },
     [],

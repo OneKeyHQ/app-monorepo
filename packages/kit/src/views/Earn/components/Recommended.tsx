@@ -84,7 +84,9 @@ function useRecommendedTokens({
     // per-token balances shown as the "Balance" subtitle
     const recommendedAssets =
       await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2(
-        accountId ? { accountId, networkId, indexedAccountId } : undefined,
+        accountId || indexedAccountId
+          ? { accountId: accountId ?? '', networkId, indexedAccountId }
+          : undefined,
       );
 
     const tokens = recommendedAssets?.tokens || [];

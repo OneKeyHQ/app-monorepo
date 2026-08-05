@@ -1360,9 +1360,22 @@ class ServiceStaking extends ServiceBase {
       accountAddress: string;
       publicKey?: string;
     }[] = [];
-    if (params?.accountId && params?.networkId) {
+    // An indexedAccountId alone is enough to resolve the per-network
+    // addresses, and it is a real home state: the selected network may have
+    // no address created yet, and all-network falls back to
+    // `account === undefined` when the mocked account cannot be built. Gating
+    // on accountId only would leave those users at "Balance: 0" while the
+    // overview on the same page shows real numbers. Matches the sibling earn
+    // paths (useEarnPortfolio / fetchAllNetworkAssets), which pass `''`.
+    const hasAccountScope = Boolean(
+      params?.networkId && (params?.accountId || params?.indexedAccountId),
+    );
+    if (params && hasAccountScope) {
       try {
-        accounts = await this.getEarnAvailableAccountsParams(params);
+        accounts = await this.getEarnAvailableAccountsParams({
+          ...params,
+          accountId: params.accountId || '',
+        });
       } catch {
         accounts = [];
       }
