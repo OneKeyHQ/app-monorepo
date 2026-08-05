@@ -932,7 +932,7 @@ function PerpsDepositButton({
   isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal('home');
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
 
   const handleDeposit = useCallback(async () => {

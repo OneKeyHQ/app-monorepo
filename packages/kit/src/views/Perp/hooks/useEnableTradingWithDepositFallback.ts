@@ -49,7 +49,8 @@ export function useRequestEnableTrading() {
 export function useHandleEnableTradingPostStatus() {
   const intl = useIntl();
   const [perpsAccount] = usePerpsActiveAccountAtom();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('enableTrading');
 
   return useCallback(
     async (

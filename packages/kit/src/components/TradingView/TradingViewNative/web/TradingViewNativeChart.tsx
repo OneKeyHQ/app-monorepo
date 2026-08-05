@@ -65,6 +65,7 @@ interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
+  hasVolume: boolean;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -89,6 +90,7 @@ interface IDrawKLineChartOptions {
   canvas: HTMLCanvasElement;
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
+  hasVolume: boolean;
   points: IMarketTokenKLineDataPoint[];
   runtimeState: ITradingViewNativeChartRuntimeState;
   watermarkImage: HTMLImageElement | null;
@@ -227,6 +229,7 @@ function drawKLineChart({
   canvas,
   chartType,
   colors,
+  hasVolume,
   points,
   runtimeState,
   watermarkImage,
@@ -255,6 +258,7 @@ function drawKLineChart({
     candleIntervalSeconds,
     chartType,
     crosshair: runtimeState.crosshair,
+    hasVolume,
     height,
     measureTextWidth: (text, font) => {
       context.font = getCanvasFont(font);
@@ -277,6 +281,7 @@ export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
     chartType,
+    hasVolume,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -355,6 +360,7 @@ export const TradingViewNativeChart = memo(
             line,
             up: CHART_UP_COLOR,
           },
+          hasVolume,
           points,
           runtimeState: nextRuntimeState,
           watermarkImage,
@@ -367,6 +373,7 @@ export const TradingViewNativeChart = memo(
         candleIntervalSeconds,
         chartType,
         grid,
+        hasVolume,
         line,
         points,
         watermarkImage,
