@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -514,19 +513,11 @@ export function SwapInviteRecord({
                 </YStack>
               </YStack>
               <YStack flex={1} gap="$1">
-                <XStack ai="center" gap="$1">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_perps_onekey_fee,
-                    })}
-                  </SizableText>
-                  <InfoIcon
-                    size="$4"
-                    tooltip={intl.formatMessage({
-                      id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
-                    })}
-                  />
-                </XStack>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_perps_onekey_fee,
+                  })}
+                </SizableText>
                 <SummaryFiatValue
                   isZeroData={isZeroData}
                   value={item.feeFiatValue}

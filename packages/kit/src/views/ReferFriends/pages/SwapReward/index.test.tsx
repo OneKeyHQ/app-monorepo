@@ -230,6 +230,46 @@ describe('SwapReward refresh feedback', () => {
     );
   });
 
+  it('shows a refresh error after an initial load displays only the overview', async () => {
+    let listCalls = 0;
+    mockGetSwapCumulativeRewards
+      .mockResolvedValueOnce(cumulativeRewards)
+      .mockRejectedValueOnce(new Error('Cumulative rewards failed'));
+    mockGetSwapInvites.mockImplementation((params) => {
+      if (params.limit === 1) {
+        return Promise.resolve(invites);
+      }
+      listCalls += 1;
+      return listCalls === 1
+        ? Promise.reject(new Error('Invite list failed'))
+        : Promise.resolve(invites);
+    });
+
+    const view = render(<SwapReward />);
+    await waitFor(() => {
+      expect(mockSwapDetailsSection).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hasError: true }),
+      );
+    });
+    expect(toastErrorMock).not.toHaveBeenCalled();
+
+    act(() => {
+      mockRouteFocused = false;
+      view.rerender(<SwapReward />);
+    });
+    act(() => {
+      mockRouteFocused = true;
+      view.rerender(<SwapReward />);
+    });
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledTimes(1);
+      expect(toastErrorMock).toHaveBeenCalledWith({
+        title: ETranslations.global_failed,
+      });
+    });
+  });
+
   it('does not show a refresh error after the route loses focus', async () => {
     const cumulativeRefresh = createDeferred<ISwapCumulativeRewardsResponse>();
     const listRefresh = createDeferred<ISwapInvitesResponse>();

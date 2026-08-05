@@ -411,51 +411,45 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
 
         <YStack bg="$bgApp" position="relative" minHeight={200}>
           <LoadingOverlay visible={isTabLoading} />
-          {!isTabLoading ? (
+          {hasError ? <ErrorState onRetry={onRetry} /> : null}
+          {!hasError && !hasData && !isTabLoading ? <SwapEmptyData /> : null}
+          {!hasError && hasData ? (
             <>
-              {hasError ? <ErrorState onRetry={onRetry} /> : null}
-              {!hasError && !hasData ? <SwapEmptyData /> : null}
-              {!hasError && hasData ? (
-                <>
-                  {isCompact ? (
-                    <ScrollView
-                      ref={scrollViewRef}
-                      horizontal
-                      showsHorizontalScrollIndicator
-                      bounces={false}
-                      onScroll={
-                        platformEnv.isNative
-                          ? handleNativeScroll
-                          : handleWebScroll
-                      }
-                      scrollEventThrottle={16}
-                      contentContainerStyle={SCROLL_CONTENT_STYLE}
-                    >
-                      <DesktopRecordsTable
-                        {...props}
-                        columnWidths={columnWidths}
-                        isCompact
-                        recordStatus={recordStatus}
-                        showFixedDivider={showFixedDivider}
-                        tableMinWidth={tableMinWidth}
-                      />
-                    </ScrollView>
-                  ) : (
-                    <DesktopRecordsTable
-                      {...props}
-                      columnWidths={columnWidths}
-                      isCompact={false}
-                      recordStatus={recordStatus}
-                      showFixedDivider={false}
-                      tableMinWidth={tableMinWidth}
-                    />
-                  )}
-                  {isLoadingMore ? (
-                    <YStack py="$4" ai="center">
-                      <Spinner size="small" />
-                    </YStack>
-                  ) : null}
-                </>
+              {isCompact ? (
+                <ScrollView
+                  ref={scrollViewRef}
+                  horizontal
+                  showsHorizontalScrollIndicator
+                  bounces={false}
+                  onScroll={
+                    platformEnv.isNative ? handleNativeScroll : handleWebScroll
+                  }
+                  scrollEventThrottle={16}
+                  contentContainerStyle={SCROLL_CONTENT_STYLE}
+                >
+                  <DesktopRecordsTable
+                    {...props}
+                    columnWidths={columnWidths}
+                    isCompact
+                    recordStatus={recordStatus}
+                    showFixedDivider={showFixedDivider}
+                    tableMinWidth={tableMinWidth}
+                  />
+                </ScrollView>
+              ) : (
+                <DesktopRecordsTable
+                  {...props}
+                  columnWidths={columnWidths}
+                  isCompact={false}
+                  recordStatus={recordStatus}
+                  showFixedDivider={false}
+                  tableMinWidth={tableMinWidth}
+                />
+              )}
+              {isLoadingMore ? (
+                <YStack py="$4" ai="center">
+                  <Spinner size="small" />
+                </YStack>
               ) : null}
             </>
           ) : null}
@@ -501,29 +495,25 @@ function MobileSection(props: ISwapDetailsSectionProps) {
       ) : null}
       <YStack position="relative" minHeight={200}>
         <LoadingOverlay visible={isTabLoading} />
-        {!isTabLoading ? (
-          <>
-            {hasError ? <ErrorState onRetry={onRetry} /> : null}
-            {!hasError && !hasData ? <SwapEmptyData /> : null}
-            {!hasError && hasData ? (
-              <YStack gap="$4">
-                {records.map((item, index) => (
-                  <SwapInviteRecord
-                    key={`${index}:${item._id}`}
-                    item={item}
-                    query={recordQuery}
-                    status={recordStatus}
-                    variant="mobile"
-                  />
-                ))}
-                {isLoadingMore ? (
-                  <YStack py="$4" ai="center">
-                    <Spinner size="small" />
-                  </YStack>
-                ) : null}
+        {hasError ? <ErrorState onRetry={onRetry} /> : null}
+        {!hasError && !hasData && !isTabLoading ? <SwapEmptyData /> : null}
+        {!hasError && hasData ? (
+          <YStack gap="$4">
+            {records.map((item, index) => (
+              <SwapInviteRecord
+                key={`${index}:${item._id}`}
+                item={item}
+                query={recordQuery}
+                status={recordStatus}
+                variant="mobile"
+              />
+            ))}
+            {isLoadingMore ? (
+              <YStack py="$4" ai="center">
+                <Spinner size="small" />
               </YStack>
             ) : null}
-          </>
+          </YStack>
         ) : null}
       </YStack>
     </YStack>

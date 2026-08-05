@@ -86,6 +86,7 @@ function SwapRewardPageWrapper() {
   const cursorRef = useRef<string | undefined>(undefined);
   const loadingMoreCursorRef = useRef<string | undefined>(undefined);
   const hasListDataRef = useRef(false);
+  const hasOverviewDataRef = useRef(false);
 
   const {
     filterState,
@@ -217,6 +218,10 @@ function SwapRewardPageWrapper() {
     setHasListError(false);
   }, [querySignature, updateCursor]);
 
+  useEffect(() => {
+    hasOverviewDataRef.current = false;
+  }, [overviewQuerySignature]);
+
   const refreshDashboard = useCallback(
     async ({ showLoading }: { showLoading: boolean }) => {
       refreshRequestIdRef.current += 1;
@@ -234,7 +239,8 @@ function SwapRewardPageWrapper() {
 
       const inactiveTab: ISwapRecordsTab =
         activeTab === 'undistributed' ? 'total' : 'undistributed';
-      const hadLoadedListData = hasListDataRef.current;
+      const hadDisplayedData =
+        hasListDataRef.current || hasOverviewDataRef.current;
       const [cumulativeResult, listResult, inactiveCountResult] =
         await Promise.allSettled([
           backgroundApiProxy.serviceReferralCode.getSwapCumulativeRewards(
@@ -259,6 +265,12 @@ function SwapRewardPageWrapper() {
         isLatestRequest && listGenerationRef.current === listGeneration;
 
       if (isLatestRequest) {
+        if (
+          cumulativeResult.status === 'fulfilled' ||
+          inactiveCountResult.status === 'fulfilled'
+        ) {
+          hasOverviewDataRef.current = true;
+        }
         setOverviewState((previous) => {
           const previousOverview =
             previous?.overviewQuerySignature === overviewQuerySignature
@@ -310,12 +322,12 @@ function SwapRewardPageWrapper() {
         }
       }
 
-      // Once data is on screen, a failed refresh keeps the stale list/overview
-      // visible and every request here has its auto error toast muted, so this
-      // toast is the only signal that the refresh did not go through.
+      // Once any dashboard data is on screen, a failed refresh keeps stale
+      // values visible. Every request here has its auto error toast muted, so
+      // this toast is the only signal that the refresh did not go through.
       if (
         isLatestRequest &&
-        hadLoadedListData &&
+        hadDisplayedData &&
         (cumulativeResult.status === 'rejected' ||
           listResult.status === 'rejected' ||
           inactiveCountResult.status === 'rejected')
