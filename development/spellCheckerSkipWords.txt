@@ -1579,3 +1579,6 @@ mispunched
 unifold
 hypercore
 lookback
+
+# @rehookify/datepicker package name
+rehookify
