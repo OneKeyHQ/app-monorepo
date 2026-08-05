@@ -296,6 +296,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
