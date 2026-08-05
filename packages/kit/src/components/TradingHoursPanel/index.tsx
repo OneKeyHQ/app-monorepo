@@ -35,6 +35,8 @@ import {
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import type { GestureResponderEvent } from 'react-native';
+
 type ILiquidityLevel = 'high' | 'moderate' | 'low' | 'none';
 
 const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
@@ -569,6 +571,13 @@ function TradingHoursHoverPopover({
       setIsOpen(true);
     }, HOVER_OPEN_DELAY_MS);
   }, []);
+  const handleTriggerPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+    setIsOpen(true);
+  }, []);
+  const handleContentPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+  }, []);
   useEffect(() => cancelPendingOpen, [cancelPendingOpen]);
 
   useEffect(() => {
@@ -633,15 +642,21 @@ function TradingHoursHoverPopover({
       title={<TradingHoursTitle />}
       renderTrigger={
         <Stack
+          testID="trading-hours-popover-trigger"
           {...({ ref: triggerRef } as object)}
           onHoverIn={handleHoverIn}
           onHoverOut={cancelPendingOpen}
+          onPress={handleTriggerPress}
         >
           {renderTrigger}
         </Stack>
       }
       renderContent={
-        <Stack {...({ ref: contentRef } as object)}>
+        <Stack
+          testID="trading-hours-popover-content"
+          {...({ ref: contentRef } as object)}
+          onPress={handleContentPress}
+        >
           <TradingHoursContent stock={stock} showInlineHeader dense />
         </Stack>
       }
