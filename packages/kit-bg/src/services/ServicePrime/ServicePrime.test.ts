@@ -3441,6 +3441,33 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     jest.clearAllMocks();
   });
 
+  it('records an email OTP verification failure once in the background runtime', async () => {
+    const { service } = createService();
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: null, user: null },
+      error: {
+        name: 'AuthApiError',
+        message: 'Invalid verification code',
+        code: 'otp_expired',
+        status: 400,
+      },
+    });
+
+    await expect(
+      service.apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      }),
+    ).rejects.toThrow('Invalid verification code');
+
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
+      reason: expect.stringContaining(
+        'ServicePrime.apiEmailOtpLogin email OTP verification failed',
+      ),
+    });
+  });
+
   it('repairs a v6.5.0 logged-out projection before the Email login guard', async () => {
     const { service, simpleDbPrime } = createService();
     const v650LoggedOutState =

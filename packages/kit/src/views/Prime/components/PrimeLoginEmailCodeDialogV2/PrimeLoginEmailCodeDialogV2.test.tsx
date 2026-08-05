@@ -64,13 +64,40 @@ jest.mock('@onekeyhq/components', () => {
       ),
     Dialog: {
       Description: Container,
-      Footer: () => null,
+      Footer: ({
+        confirmButtonProps,
+        onConfirm,
+      }: {
+        confirmButtonProps?: { disabled?: boolean };
+        onConfirm?: (args: { preventClose: () => void }) => void;
+      }) =>
+        React.createElement(
+          'button',
+          {
+            disabled: confirmButtonProps?.disabled,
+            onClick: () => onConfirm?.({ preventClose: jest.fn() }),
+            type: 'button',
+          },
+          'confirm',
+        ),
       Header: Container,
       Icon: () => null,
       Title: Container,
     },
     Icon: () => null,
-    OTPInput: () => null,
+    OTPInput: ({
+      onTextChange,
+      value,
+    }: {
+      onTextChange?: (value: string) => void;
+      value?: string;
+    }) =>
+      React.createElement('input', {
+        'data-testid': 'verification-code',
+        onChange: (event: import('react').ChangeEvent<HTMLInputElement>) =>
+          onTextChange?.(event.target.value),
+        value,
+      }),
     SizableText: ({
       children,
       onPress,
@@ -255,5 +282,42 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     fireEvent.click(screen.getByTestId('prime-login-email-sender-copy'));
 
     expect(mockCopyText).toHaveBeenCalledWith('OneKey');
+  });
+
+  test('does not duplicate the background server event for an OTP login failure', async () => {
+    const loginWithCode = jest
+      .fn()
+      .mockRejectedValue(new Error('Invalid verification code'));
+
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest.fn().mockResolvedValue(undefined)}
+        loginWithCode={loginWithCode}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('verification-code'), {
+      target: { value: '123456' },
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'confirm' })
+          .hasAttribute('disabled'),
+      ).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+
+    await waitFor(() => {
+      expect(loginWithCode).toHaveBeenCalledWith({
+        code: '123456',
+        email: 'test@example.com',
+      });
+      expect(
+        screen.getByText(ETranslations.prime_invalid_verification_code),
+      ).toBeTruthy();
+    });
+    expect(mockOneKeyIdLoginFailedReason).not.toHaveBeenCalled();
   });
 });

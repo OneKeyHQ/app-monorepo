@@ -217,10 +217,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           email,
         });
       } catch (error) {
-        logOneKeyIdLoginFailureReason(
-          `Prime email login failed: ${getSanitizedAuthErrorText(error)}`,
-          error,
-        );
+        // apiEmailOtpLogin owns both local and server diagnostics for this
+        // failure. Logging again here would duplicate the server event after
+        // the error crosses the background/main runtime boundary.
         defaultLogger.referral.page.signupOneKeyIDResult(false);
         if (!isMountedRef.current) {
           return;
