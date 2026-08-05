@@ -271,12 +271,15 @@ export class KeyringHardware extends KeyringHardwareBase {
             // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
             // read below comes off the top level instead, where it never exists, so hardware
             // has only ever signed the legacy version 0 form. Left as-is on purpose.
+            // Cast: the structural annotation above cannot express a per-chain payload.
             const offchainVersion = (
               payload as { payload?: { version?: number } }
             ).payload?.version;
             if (offchainVersion === 1) {
               throw new OneKeyLocalError(
-                'Hardware wallet does not support version 1 Solana offchain messages yet',
+                appLocale.intl.formatMessage({
+                  id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
+                }),
               );
             }
             const response = await HardwareSDK.solSignOffchainMessage(

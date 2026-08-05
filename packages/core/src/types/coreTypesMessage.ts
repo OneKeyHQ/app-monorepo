@@ -99,7 +99,7 @@ export type IUnsignedMessageAlph = {
  */
 export type IOffchainMessagePayloadV0 = {
   version?: 0;
-  /** Version 0 only. Removed by version 1 because it is unverifiable and spoofable. */
+  /** Version 0 only. Removed by version 1 because it is unverifiable and easily forged. */
   applicationDomain?: string;
 };
 

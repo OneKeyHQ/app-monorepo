@@ -50,7 +50,7 @@ export interface ICreateOffChainMessageOptions {
  *         | content (UTF-8, trailing, no length prefix)
  *
  * Compared with version 0 this drops the message format enum, the u16 content length prefix and
- * the spoofable 32 byte application domain, and constrains the signer list to be unique and
+ * the easily forged 32 byte application domain, and constrains the signer list to be unique and
  * lexicographically ordered.
  */
 export interface ICreateOffChainMessageV1Options {

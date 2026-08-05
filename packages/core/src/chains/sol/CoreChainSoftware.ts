@@ -159,12 +159,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       // Version 0 and version 1 have incompatible wire formats, so dispatch explicitly.
       // Anything that is not version 1 stays on the version 0 path it has always used.
       if (messagePayload?.version === 1) {
-        const signedOffchainMessage = OffchainMessage.createOffChainMessageV1Bytes({
-          message,
-          requiredSigners: messagePayload.requiredSigners.map((signer_) =>
-            bs58.decode(signer_),
-          ),
-        });
+        const signedOffchainMessage =
+          OffchainMessage.createOffChainMessageV1Bytes({
+            message,
+            requiredSigners: messagePayload.requiredSigners.map((signer_) =>
+              bs58.decode(signer_),
+            ),
+          });
         const [signature] = await signer.sign(
           Buffer.from(signedOffchainMessage),
         );

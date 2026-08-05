@@ -257,6 +257,11 @@ class ProviderApiSolana extends ProviderApiBase {
     if (params.version === 1) {
       const { message, requiredSigners } = params;
 
+      if (!isString(message) || message.length === 0) {
+        throw web3Errors.rpc.invalidParams(
+          'message must be a non-empty UTF-8 string',
+        );
+      }
       if (!isArray(requiredSigners) || requiredSigners.length === 0) {
         throw web3Errors.rpc.invalidParams(
           'requiredSigners must be a non-empty array',
@@ -273,12 +278,11 @@ class ProviderApiSolana extends ProviderApiBase {
 
       // Built here as well as on the signing path. Both go through the same encoder, so the
       // bytes returned to the dapp are exactly the bytes that were signed.
-      const signedOffchainMessage = OffchainMessage.createOffChainMessageV1Bytes(
-        {
+      const signedOffchainMessage =
+        OffchainMessage.createOffChainMessageV1Bytes({
           message,
           requiredSigners: requiredSigners.map((signer) => bs58.decode(signer)),
-        },
-      );
+        });
 
       const signature =
         await this.backgroundApi.serviceDApp.openSignMessageModal({

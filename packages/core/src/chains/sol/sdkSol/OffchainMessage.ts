@@ -373,7 +373,8 @@ export class OffchainMessage {
 
     const signers = requiredSigners
       .map((signer) => Uint8Array.from(signer))
-      .sort(this.compareRequiredSigners);
+      // oxlint-disable-next-line unicorn/no-array-sort -- sorting a freshly mapped copy
+      .sort((a, b) => this.compareRequiredSigners(a, b));
     for (let i = 1; i < signers.length; i += 1) {
       if (this.compareRequiredSigners(signers[i - 1], signers[i]) === 0) {
         throw new OneKeyLocalError('Required signers must be unique');

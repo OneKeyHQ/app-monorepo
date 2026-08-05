@@ -180,7 +180,6 @@ function DAppSignMessageContent({
     [unsignedMessage],
   );
 
-
   return (
     <YStack
       justifyContent="center"

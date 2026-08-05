@@ -276,12 +276,15 @@ export class KeyringQr extends KeyringQrBase {
             //
             // NOTE: the version lives on `unsignedMessage.payload`. The `applicationDomain`
             // read below comes off the top level instead, where it never exists.
+            // Cast: the structural annotation above cannot express a per-chain payload.
             const offchainVersion = (
               payload as { payload?: { version?: number } }
             ).payload?.version;
             if (offchainVersion === 1) {
               throw new OneKeyLocalError(
-                'QR wallet does not support version 1 Solana offchain messages yet',
+                appLocale.intl.formatMessage({
+                  id: ETranslations.hardware_str_not_supported_by_hardware_wallets,
+                }),
               );
             }
             const format = OffchainMessage.guessMessageFormat(
