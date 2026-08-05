@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 
-import { Canvas, Picture, useSVG } from '@shopify/react-native-skia';
+import { Canvas, Picture, useFont, useSVG } from '@shopify/react-native-skia';
 import { type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
@@ -29,11 +29,17 @@ import {
   TRADING_VIEW_NATIVE_CHART_UP_COLOR as CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION as CROSSHAIR_LONG_PRESS_DURATION,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
+  TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
+import {
+  getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLabel,
+  getTradingViewNativePriceAxisLabel,
+  getTradingViewNativePriceAxisWidth,
+} from '../utils/chartLayout';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -64,6 +70,8 @@ const MIN_FLING_VELOCITY = 100;
 const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   ? 'sans-serif'
   : 'System';
+const PRICE_AXIS_FONT_SOURCE =
+  require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 
@@ -159,6 +167,7 @@ export const TradingViewNativeChart = memo(
       height: 0,
       width: 0,
     });
+    const [chartWidth, setChartWidth] = useState(0);
     const chartRuntime = useSharedValue(
       getInitialRuntime({
         candleIntervalSeconds,
@@ -181,13 +190,24 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
+    const priceAxisFont = useFont(
+      PRICE_AXIS_FONT_SOURCE,
+      TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+    );
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
     const background = theme.transparent.val;
     const grid = theme.borderSubdued.val;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
-    const chartWidth = getTradingViewNativeChartWidth(chartSize.width);
     const pointCount = points.length;
+    const currentPriceLabel = useMemo(
+      () => getTradingViewNativeCurrentPriceLabel(points),
+      [points],
+    );
+    const widestPriceLabel = useMemo(
+      () => getTradingViewNativePriceAxisLabel(points),
+      [points],
+    );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
     const resources = useDerivedValue(
@@ -202,10 +222,28 @@ export const TradingViewNativeChart = memo(
             up: CHART_UP_COLOR,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
+          priceAxisFont,
           watermarkSvg,
         }),
-      [axisText, background, grid, line, watermarkSvg],
+      [axisText, background, grid, line, priceAxisFont, watermarkSvg],
     );
+    const priceAxisWidth = useDerivedValue(() => {
+      const measuredPriceAxisFont = resources.value.fonts.priceAxis;
+      const currentPriceLabelBounds =
+        measuredPriceAxisFont.measureText(currentPriceLabel);
+      const widestPriceLabelBounds =
+        measuredPriceAxisFont.measureText(widestPriceLabel);
+      return getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: Math.max(
+          currentPriceLabelBounds.x + currentPriceLabelBounds.width,
+          0,
+        ),
+        widestPriceLabelWidth: Math.max(
+          widestPriceLabelBounds.x + widestPriceLabelBounds.width,
+          0,
+        ),
+      });
+    }, [currentPriceLabel, resources, widestPriceLabel]);
 
     const picture = useDerivedValue(() => {
       const runtime = chartRuntime.value;
@@ -216,12 +254,21 @@ export const TradingViewNativeChart = memo(
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
         points: runtime.points,
+        priceAxisWidth: priceAxisWidth.value,
         resources: resources.value,
         viewport: runtime.viewport,
         watermarkOpacity,
         width: runtime.size.width,
       });
-    }, [resources, watermarkOpacity]);
+    }, [priceAxisWidth, resources, watermarkOpacity]);
+
+    const handleChartWidthChange = useCallback((nextChartWidth: number) => {
+      setChartWidth((currentChartWidth) =>
+        currentChartWidth === nextChartWidth
+          ? currentChartWidth
+          : nextChartWidth,
+      );
+    }, []);
 
     const handleVisiblePointRangeChange = useCallback(
       (startIndex: number, endIndex: number) => {
@@ -235,6 +282,7 @@ export const TradingViewNativeChart = memo(
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
           runtime.size.width,
+          priceAxisWidth.value,
         );
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           chartWidth: nextChartWidth,
@@ -258,6 +306,9 @@ export const TradingViewNativeChart = memo(
         'worklet';
 
         const runtime = chartRuntime.value;
+        if (current.chartWidth !== previous?.chartWidth) {
+          scheduleOnRN(handleChartWidthChange, current.chartWidth);
+        }
         if (runtime.viewport.offset !== current.offset) {
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtime,
@@ -318,7 +369,10 @@ export const TradingViewNativeChart = memo(
         const nextPoints =
           replacementPoints ??
           (latestPoint ? [...runtime.points.slice(0, -1), latestPoint] : []);
-        const nextChartWidth = getTradingViewNativeChartWidth(nextSize.width);
+        const nextChartWidth = getTradingViewNativeChartWidth(
+          nextSize.width,
+          priceAxisWidth.value,
+        );
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           appendedPointCount: dataUpdateMetadata.appendedPointCount,
           chartWidth: nextChartWidth,
@@ -365,6 +419,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       hasVolume,
       points,
+      priceAxisWidth,
     ]);
 
     useLayoutEffect(() => {
@@ -453,10 +508,13 @@ export const TradingViewNativeChart = memo(
 
         const runtime = chartRuntime.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
+          chartWidth: getTradingViewNativeChartWidth(
+            runtime.size.width,
+            priceAxisWidth.value,
+          ),
           height: runtime.size.height,
           pointCount: runtime.points.length,
           type: 'crosshairMoved',
-          width: runtime.size.width,
           x,
           y,
         });
@@ -511,6 +569,7 @@ export const TradingViewNativeChart = memo(
           const runtime = chartRuntime.value;
           const nextChartWidth = getTradingViewNativeChartWidth(
             runtime.size.width,
+            priceAxisWidth.value,
           );
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtime,
@@ -540,7 +599,10 @@ export const TradingViewNativeChart = memo(
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtime,
             {
-              chartWidth: getTradingViewNativeChartWidth(runtime.size.width),
+              chartWidth: getTradingViewNativeChartWidth(
+                runtime.size.width,
+                priceAxisWidth.value,
+              ),
               hideCrosshair: true,
               offset:
                 runtime.panGesture.startOffset +
@@ -565,7 +627,10 @@ export const TradingViewNativeChart = memo(
 
           const runtime = chartRuntime.value;
           const maxOffset = getTradingViewNativeMaxPanOffset({
-            chartWidth: getTradingViewNativeChartWidth(runtime.size.width),
+            chartWidth: getTradingViewNativeChartWidth(
+              runtime.size.width,
+              priceAxisWidth.value,
+            ),
             pointCount: runtime.points.length,
             zoomScale: runtime.viewport.zoomScale,
           });
@@ -573,7 +638,10 @@ export const TradingViewNativeChart = memo(
             const nextRuntimeState = reduceTradingViewNativeChartRuntime(
               runtime,
               {
-                chartWidth: getTradingViewNativeChartWidth(runtime.size.width),
+                chartWidth: getTradingViewNativeChartWidth(
+                  runtime.size.width,
+                  priceAxisWidth.value,
+                ),
                 offset: 0,
                 pointCount: runtime.points.length,
                 type: 'panMoved',
@@ -614,7 +682,10 @@ export const TradingViewNativeChart = memo(
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtime,
             {
-              chartWidth: getTradingViewNativeChartWidth(runtime.size.width),
+              chartWidth: getTradingViewNativeChartWidth(
+                runtime.size.width,
+                priceAxisWidth.value,
+              ),
               hideCrosshair: true,
               offset: runtime.viewport.offset,
               pointCount: runtime.points.length,
@@ -652,7 +723,10 @@ export const TradingViewNativeChart = memo(
                 offset: runtime.pinchGesture.startOffset,
                 zoomScale: runtime.pinchGesture.startZoomScale,
               },
-              chartWidth: getTradingViewNativeChartWidth(runtime.size.width),
+              chartWidth: getTradingViewNativeChartWidth(
+                runtime.size.width,
+                priceAxisWidth.value,
+              ),
               hideCrosshair: true,
               nextZoomScale:
                 runtime.pinchGesture.startZoomScale * relativeScale,
@@ -689,7 +763,7 @@ export const TradingViewNativeChart = memo(
         crosshairGesture,
         Gesture.Race(panGesture, pinchGesture),
       );
-    }, [chartRuntime, decayOffset]);
+    }, [chartRuntime, decayOffset, priceAxisWidth]);
 
     const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;

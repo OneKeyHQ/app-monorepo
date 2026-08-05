@@ -20,7 +20,8 @@ import {
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_OPACITY as LEGEND_BACKGROUND_OPACITY,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
-  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING as PRICE_AXIS_LABEL_RIGHT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING as PRICE_AXIS_LABEL_LEFT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
   TRADING_VIEW_NATIVE_PRICE_LEGEND_TOP as PRICE_LEGEND_TOP,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT as TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
@@ -37,8 +38,11 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceAtY,
+  getTradingViewNativePriceAxisLabel,
+  getTradingViewNativePriceAxisWidth,
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
@@ -67,7 +71,7 @@ import type {
 } from './chartRuntime';
 import type { ITradingViewNativeChartType } from '../types';
 
-export type ITradingViewNativeChartSceneFont = 'axis' | 'legend';
+export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'
@@ -175,6 +179,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
     font: ITradingViewNativeChartSceneFont,
   ) => number;
   points: IMarketTokenKLineDataPoint[];
+  priceAxisWidth?: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
   watermarkOpacity: number;
   width: number;
@@ -183,6 +188,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
 export interface ITradingViewNativeChartScene {
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
+  priceAxisWidth: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
 }
@@ -310,13 +316,29 @@ export function buildTradingViewNativeChartScene({
   height,
   measureTextWidth,
   points,
+  priceAxisWidth,
   viewport,
   watermarkOpacity,
   width,
 }: IBuildTradingViewNativeChartSceneOptions): ITradingViewNativeChartScene {
   'worklet';
 
-  const chartWidth = getTradingViewNativeChartWidth(width);
+  const resolvedPriceAxisWidth = Number.isFinite(priceAxisWidth)
+    ? Math.max(priceAxisWidth ?? 0, 0)
+    : getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: measureTextWidth(
+          getTradingViewNativeCurrentPriceLabel(points),
+          'priceAxis',
+        ),
+        widestPriceLabelWidth: measureTextWidth(
+          getTradingViewNativePriceAxisLabel(points),
+          'priceAxis',
+        ),
+      });
+  const chartWidth = getTradingViewNativeChartWidth(
+    width,
+    resolvedPriceAxisWidth,
+  );
   const zoomScale = clampTradingViewNativeZoomScale(viewport.zoomScale);
   const offset = clampTradingViewNativePanOffset({
     chartWidth,
@@ -353,6 +375,7 @@ export function buildTradingViewNativeChartScene({
   const emptyScene = {
     commands,
     crosshairPointIndex: null,
+    priceAxisWidth: resolvedPriceAxisWidth,
     viewport: normalizedViewport,
     visiblePointRange,
   };
@@ -370,6 +393,7 @@ export function buildTradingViewNativeChartScene({
         TRADING_VIEW_NATIVE_CANDLE_STEP * zoomScale,
       ),
     points,
+    priceAxisWidth: resolvedPriceAxisWidth,
     visiblePointRange,
     width,
   });
@@ -425,15 +449,12 @@ export function buildTradingViewNativeChartScene({
         y2: y,
       },
       {
-        font: 'axis',
+        font: 'priceAxis',
         kind: 'text',
         paint: 'axisText',
         text,
-        x:
-          width -
-          PRICE_AXIS_LABEL_RIGHT_PADDING -
-          measureTextWidth(text, 'axis'),
-        y: y + AXIS_FONT_SIZE / 2 - 1,
+        x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       },
     );
   }
@@ -749,19 +770,16 @@ export function buildTradingViewNativeChartScene({
         y: currentPriceLayout.labelTop,
       },
       {
-        font: 'axis',
+        font: 'priceAxis',
         kind: 'text',
         paint: 'currentPriceLabelText',
         text,
-        x:
-          width -
-          PRICE_AXIS_LABEL_RIGHT_PADDING -
-          measureTextWidth(text, 'axis'),
+        x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
         y:
           currentPriceLayout.labelTop +
           CURRENT_PRICE_LABEL_HEIGHT / 2 +
-          AXIS_FONT_SIZE / 2 -
-          1,
+          AXIS_FONT_SIZE / 2 +
+          PRICE_AXIS_TEXT_BASELINE_OFFSET,
       },
     );
   }
@@ -789,15 +807,16 @@ export function buildTradingViewNativeChartScene({
           y: labelTop,
         },
         {
-          font: 'axis',
+          font: 'priceAxis',
           kind: 'text',
           paint: 'crosshairLabelText',
           text,
-          x:
-            width -
-            PRICE_AXIS_LABEL_RIGHT_PADDING -
-            measureTextWidth(text, 'axis'),
-          y: labelTop + CROSSHAIR_LABEL_HEIGHT / 2 + AXIS_FONT_SIZE / 2 - 1,
+          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          y:
+            labelTop +
+            CROSSHAIR_LABEL_HEIGHT / 2 +
+            AXIS_FONT_SIZE / 2 +
+            PRICE_AXIS_TEXT_BASELINE_OFFSET,
         },
       );
     }
@@ -842,6 +861,7 @@ export function buildTradingViewNativeChartScene({
   return {
     commands,
     crosshairPointIndex,
+    priceAxisWidth: resolvedPriceAxisWidth,
     viewport: normalizedViewport,
     visiblePointRange,
   };
