@@ -93,6 +93,8 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
+const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 const MAX_TO_FIXED_FRACTION_DIGITS = 100;
 const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   { approximateSeconds: SECONDS_PER_MINUTE, step: 1, unit: 'minute' },
@@ -117,6 +119,47 @@ const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   { approximateSeconds: 5 * 365 * SECONDS_PER_DAY, step: 5, unit: 'year' },
   { approximateSeconds: 10 * 365 * SECONDS_PER_DAY, step: 10, unit: 'year' },
 ];
+
+function formatTradingViewNativeSubscript(value: number) {
+  'worklet';
+
+  const valueString = String(value);
+  let result = '';
+  for (let index = 0; index < valueString.length; index += 1) {
+    const digitIndex = valueString.charCodeAt(index) - 48;
+    result += PRICE_SUBSCRIPT_DIGITS[digitIndex] ?? valueString[index];
+  }
+  return result;
+}
+
+function compactTradingViewNativePriceLeadingZeros(value: string) {
+  'worklet';
+
+  const signLength = value[0] === '-' ? 1 : 0;
+  if (value[signLength] !== '0' || value[signLength + 1] !== '.') {
+    return value;
+  }
+
+  const fractionStartIndex = signLength + 2;
+  let firstSignificantDigitIndex = fractionStartIndex;
+  while (
+    firstSignificantDigitIndex < value.length &&
+    value[firstSignificantDigitIndex] === '0'
+  ) {
+    firstSignificantDigitIndex += 1;
+  }
+  const leadingZeroCount = firstSignificantDigitIndex - fractionStartIndex;
+  if (
+    leadingZeroCount <= PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD ||
+    firstSignificantDigitIndex === value.length
+  ) {
+    return value;
+  }
+
+  return `${signLength ? '-' : ''}0.0${formatTradingViewNativeSubscript(
+    leadingZeroCount,
+  )}${value.slice(firstSignificantDigitIndex)}`;
+}
 
 export function formatTradingViewNativePriceTick(price: number) {
   'worklet';
@@ -150,9 +193,11 @@ export function formatTradingViewNativePriceTick(price: number) {
   while (endIndex > decimalIndex + 1 && fixedPrice[endIndex - 1] === '0') {
     endIndex -= 1;
   }
-  return fixedPrice.slice(
-    0,
-    endIndex === decimalIndex + 1 ? decimalIndex : endIndex,
+  return compactTradingViewNativePriceLeadingZeros(
+    fixedPrice.slice(
+      0,
+      endIndex === decimalIndex + 1 ? decimalIndex : endIndex,
+    ),
   );
 }
 
@@ -192,9 +237,11 @@ export function getTradingViewNativePriceAxisLabel(
             leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS <=
             MAX_TO_FIXED_FRACTION_DIGITS
           ) {
-            label = `${price < 0 ? '-' : ''}0.${'0'.repeat(
-              leadingZeroCount,
-            )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`;
+            label = compactTradingViewNativePriceLeadingZeros(
+              `${price < 0 ? '-' : ''}0.${'0'.repeat(
+                leadingZeroCount,
+              )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`,
+            );
           }
         }
         if (label.length > longestLabel.length) {
