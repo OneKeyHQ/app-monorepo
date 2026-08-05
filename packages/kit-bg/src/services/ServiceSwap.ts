@@ -84,7 +84,6 @@ import {
 import type {
   ESwapExtraStatus,
   ESwapQuoteKind,
-  ESwapTradeSource,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -122,6 +121,7 @@ import {
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -3455,6 +3455,7 @@ export default class ServiceSwap extends ServiceBase {
         fromTokenAddress: params.fromTokenAddress,
         userAddress: params.userAddress,
         receivingAddress: params.receivingAddress,
+        tradeSource: ESwapTradeSource.PERPS,
       };
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(

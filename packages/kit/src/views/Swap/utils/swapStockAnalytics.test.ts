@@ -84,6 +84,7 @@ describe('swapStockAnalytics', () => {
         isSwapPro: false,
       }),
     ).toBe(ESwapTradeSource.UNKNOWN);
+    expect(ESwapTradeSource.PERPS).toBe('perps');
   });
 
   it('maps Swap source values to tradeCategorySwitch enterFrom values', () => {

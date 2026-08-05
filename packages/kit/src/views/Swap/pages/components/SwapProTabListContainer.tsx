@@ -58,6 +58,19 @@ function SwapProTabListSkeleton() {
   );
 }
 
+function getSwapProAnalyticsTab(tab: ETabName | string) {
+  if (tab === ETabName.Positions) {
+    return ESwapProAnalyticsTab.POSITIONS;
+  }
+  if (tab === ETabName.SwapProOpenOrders) {
+    return ESwapProAnalyticsTab.OPEN_ORDERS;
+  }
+  if (tab === ETabName.SwapOrderHistory) {
+    return ESwapProAnalyticsTab.ORDER_HISTORY;
+  }
+  return undefined;
+}
+
 const SwapProTabListContainer = memo(
   ({
     onTokenPress,
@@ -111,17 +124,12 @@ const SwapProTabListContainer = memo(
         if (!focusSwapPro) {
           return;
         }
-        if (tab === ETabName.Positions) {
+        const fromTab = getSwapProAnalyticsTab(activeTab);
+        const toTab = getSwapProAnalyticsTab(tab);
+        if (fromTab && toTab) {
           defaultLogger.swap.swapPro.swapProTabSwitch({
-            tab: ESwapProAnalyticsTab.POSITIONS,
-          });
-        } else if (tab === ETabName.SwapProOpenOrders) {
-          defaultLogger.swap.swapPro.swapProTabSwitch({
-            tab: ESwapProAnalyticsTab.OPEN_ORDERS,
-          });
-        } else if (tab === ETabName.SwapOrderHistory) {
-          defaultLogger.swap.swapPro.swapProTabSwitch({
-            tab: ESwapProAnalyticsTab.ORDER_HISTORY,
+            fromTab,
+            toTab,
           });
         }
       },

@@ -114,6 +114,7 @@ export enum ESwapTradeSource {
   SWAP_PRO = 'swapPro',
   MARKET_DEX = 'marketDex',
   STOCK = 'stock',
+  PERPS = 'perps',
   UNKNOWN = 'unknown',
 }
 

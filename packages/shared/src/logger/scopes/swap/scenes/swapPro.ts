@@ -22,19 +22,29 @@ export class SwapProScene extends BaseScene {
 
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
-  public swapProTradeTypeChange(params: { tradeType: ESwapProTradeType }) {
+  public swapProTradeTypeChange(params: {
+    fromType: ESwapProTradeType;
+    toType: ESwapProTradeType;
+  }) {
     return params;
   }
 
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
-  public swapProTimeRangeChange(params: { timeRange: ESwapProTimeRange }) {
+  public swapProTimeRangeChange(params: {
+    fromRange: ESwapProTimeRange;
+    toRange: ESwapProTimeRange;
+    tokenSymbol: string;
+  }) {
     return params;
   }
 
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
-  public swapProTabSwitch(params: { tab: ESwapProAnalyticsTab }) {
+  public swapProTabSwitch(params: {
+    fromTab: ESwapProAnalyticsTab;
+    toTab: ESwapProAnalyticsTab;
+  }) {
     return params;
   }
 

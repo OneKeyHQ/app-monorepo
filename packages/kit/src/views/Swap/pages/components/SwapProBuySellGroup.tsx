@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { YStack } from '@onekeyhq/components';
 import {
+  useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -21,6 +22,7 @@ const SwapProBuySellGroup = ({
   supportSpeedSwap?: boolean;
 }) => {
   const [swapProTokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTimeRange, setSwapProTimeRange] = useSwapProTimeRangeAtom();
   const handleTimeRangeChange = useCallback(
     (value: ESwapProTimeRange) => {
@@ -34,10 +36,12 @@ const SwapProBuySellGroup = ({
         value,
       });
       defaultLogger.swap.swapPro.swapProTimeRangeChange({
-        timeRange: value,
+        fromRange: swapProTimeRange.value,
+        toRange: value,
+        tokenSymbol: swapProSelectToken?.symbol ?? '',
       });
     },
-    [setSwapProTimeRange, swapProTimeRange.value],
+    [setSwapProTimeRange, swapProSelectToken?.symbol, swapProTimeRange.value],
   );
   return (
     <YStack testID={SwapTestIDs.proBuySellGroup} gap="$2">

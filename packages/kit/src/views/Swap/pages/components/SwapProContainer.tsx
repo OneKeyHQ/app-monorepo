@@ -31,6 +31,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
@@ -195,7 +196,13 @@ const SwapProContainer = ({
 
   const onTokenPressCallback = useCallback(
     (token: ISwapToken) => {
-      if (!token.isStock) {
+      if (
+        !token.isStock &&
+        !equalTokenNoCaseSensitive({
+          token1: token,
+          token2: swapProSelectToken,
+        })
+      ) {
         defaultLogger.swap.swapPro.swapProTokenSwitch({
           selectFrom: ESwapProAnalyticsTokenSelectFrom.POSITIONS,
           tokenSymbol: token.symbol,
@@ -208,7 +215,7 @@ const SwapProContainer = ({
         animated: true,
       });
     },
-    [onTokenPress],
+    [onTokenPress, swapProSelectToken],
   );
 
   const netAccountAddress = netAccountRes.result?.addressDetail.address;

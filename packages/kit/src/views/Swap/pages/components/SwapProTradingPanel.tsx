@@ -99,7 +99,8 @@ const SwapProTradingPanel = ({
       cleanInputAmount();
       setSwapProTradeType(value);
       defaultLogger.swap.swapPro.swapProTradeTypeChange({
-        tradeType: value,
+        fromType: swapProTradeType,
+        toType: value,
       });
     },
     [cleanInputAmount, setSwapProTradeType, swapProTradeType],
