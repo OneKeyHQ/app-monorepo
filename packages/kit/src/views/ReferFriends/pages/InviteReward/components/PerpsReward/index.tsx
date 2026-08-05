@@ -86,9 +86,6 @@ export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
       <Card.Title
         icon="TradeOutline"
         title={intl.formatMessage({ id: ETranslations.global_perp })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_perps_description,
-        })}
         onPress={handlePress}
         badge={builderFeeRate === 0 ? <ZeroFeeBadge /> : undefined}
       />

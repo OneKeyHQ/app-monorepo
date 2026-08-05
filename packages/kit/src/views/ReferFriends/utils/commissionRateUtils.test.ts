@@ -26,10 +26,11 @@ describe('commissionRateUtils', () => {
   it('keeps hardware sales first when sorting commission rates', () => {
     expect(
       sortCommissionRateItems([
+        { subject: 'Swap' },
         { subject: 'Earn' },
         { subject: 'HardwareSales' },
         { subject: 'Perp' },
       ]).map((item) => item.subject),
-    ).toEqual(['HardwareSales', 'Perp', 'Earn']);
+    ).toEqual(['HardwareSales', 'Perp', 'Earn', 'Swap']);
   });
 });

@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 
-import { Page } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabSwapRoutes,
@@ -13,10 +14,15 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { getRootRoutersLength } from '../../../hooks/useRouteIsFocused';
+import {
+  SwapInviteeRewardHeaderAction,
+  useSwapInviteeRewardActionPlacement,
+} from '../components/InviteeReward/SwapInviteeRewardHeaderAction';
 
 import SwapMainLandWithPageType from './components/SwapMainLand';
 
@@ -33,6 +39,7 @@ const SwapPageContainer = () => {
 
   const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
   const tabParam = route.params?.tab;
+  const { md } = useMedia();
 
   const swapInitParams = useMemo(() => {
     if (!tabParam) return undefined;
@@ -40,6 +47,13 @@ const SwapPageContainer = () => {
     if (!swapTabSwitchType) return undefined;
     return { swapTabSwitchType };
   }, [tabParam]);
+
+  const swapInviteeRewardActionPlacement = useSwapInviteeRewardActionPlacement({
+    isDesktop: Boolean(platformEnv.isDesktop),
+    isMediumLayout: md,
+    isNative: Boolean(platformEnv.isNative),
+    routeSwapType: swapInitParams?.swapTabSwitchType,
+  });
 
   // "Visit = read": archive every unread finished item in the history preview
   // when the user LEAVES the Swap surface (e.g. switches bottom tabs) — but NOT
@@ -65,6 +79,22 @@ const SwapPageContainer = () => {
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.swap}
           tabRoute={ETabRoutes.Swap}
+          customHeaderRightItems={
+            swapInviteeRewardActionPlacement === 'desktopHeader' ? (
+              // headerRight mounts in the navigator's header tree, outside this
+              // page's providers, so it must bring its own account-selector
+              // mirror (same as Perp's customHeaderRightItems).
+              <AccountSelectorProviderMirror
+                config={{
+                  sceneName: EAccountSelectorSceneName.swap,
+                  sceneUrl: '',
+                }}
+                enabledNum={[0]}
+              >
+                <SwapInviteeRewardHeaderAction />
+              </AccountSelectorProviderMirror>
+            ) : undefined
+          }
         />
         <Page.Body>
           <SwapMainLandWithPageType swapInitParams={swapInitParams} />
