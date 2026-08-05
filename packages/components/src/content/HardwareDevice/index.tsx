@@ -1,13 +1,15 @@
 import { ClassicDevice } from '../ClassicDevice';
 import { ProDevice } from '../ProDevice';
+import { SlateDevice } from '../SlateDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IProDeviceScene } from '../ProDevice';
 
 /**
- * The code-drawn hardware devices. This is the entry point; ../ClassicDevice
- * and ../ProDevice are the per-model drawings behind it, not a second way in.
- * Call sites hold the model at runtime and fix the scenario at build time:
+ * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
+ * ../ProDevice and ../SlateDevice are the per-model drawings behind it, not
+ * a second way in. Call sites hold the model at runtime and fix the scenario
+ * at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -15,9 +17,10 @@ import type { IProDeviceScene } from '../ProDevice';
  * the Classic family collapsing onto one replica, and models without a
  * replica rendering nothing.
  *
- * Only the routing is shared. The two shells stay apart because they draw
+ * Only the routing is shared. The shells stay apart because they draw
  * different objects - the Classic carries noise, blurs, four physical keys
- * and a 256x128 OLED; the Pro has none of that and a 288x484 touchscreen -
+ * and a 256x128 OLED; the Pro has none of that and a 288x484 touchscreen;
+ * the Slate is an edge-to-edge glass slab in a blurred-stroke metal frame -
  * and what they genuinely have in common already lives in ../deviceScene.
  * Live screen content, when something needs it, attaches per model at that
  * layer, where the canvas and the key presses are known.
@@ -28,6 +31,9 @@ import type { IProDeviceScene } from '../ProDevice';
  * here rather than imported so @onekeyhq/components stays clear of the
  * hardware SDK; the enum's members assign to these literals, so callers pass
  * their `deviceType` straight through.
+ *
+ * 'slate' is the one local-only member: an in-design replica whose device
+ * has no SDK enum value yet. It renames to the real value when one ships.
  */
 export type IHardwareDeviceType =
   | 'unknown'
@@ -36,12 +42,15 @@ export type IHardwareDeviceType =
   | 'classicpure'
   | 'mini'
   | 'touch'
-  | 'pro';
+  | 'pro'
+  | 'slate';
 
 /**
- * The scenes every replica implements. Intersecting the per-device unions
- * keeps this honest without a second list to maintain: a scene added to only
- * one device drops out of the shared set instead of being wrongly offered.
+ * The scenes every scene-capable replica implements. Intersecting the
+ * per-device unions keeps this honest without a second list to maintain: a
+ * scene added to only one device drops out of the shared set instead of
+ * being wrongly offered. The Slate has no scenes yet and renders its static
+ * shell whatever is asked, so it stays out of the intersection.
  */
 export type IHardwareDeviceScene = IClassicDeviceScene & IProDeviceScene;
 
@@ -69,6 +78,11 @@ export function HardwareDevice({
       return <ClassicDevice width={width} animation={animation} />;
     case 'pro':
       return <ProDevice width={width} animation={animation} />;
+    case 'slate':
+      // Static shell only: the Slate has no scene loops yet, so the shared
+      // scene names have nothing to map to and are ignored rather than
+      // played wrong.
+      return <SlateDevice width={width} />;
     default:
       return null;
   }
