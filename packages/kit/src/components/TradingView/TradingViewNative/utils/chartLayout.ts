@@ -188,6 +188,10 @@ export function formatTradingViewNativePriceTick(price: number) {
   }
 
   const fixedPrice = price.toFixed(fractionDigits);
+  const roundedPrice = Number(fixedPrice);
+  if (Math.abs(roundedPrice) >= 1) {
+    return roundedPrice.toFixed(PRICE_INTEGER_FRACTION_DIGITS);
+  }
   const decimalIndex = fixedPrice.indexOf('.');
   let endIndex = fixedPrice.length;
   while (endIndex > decimalIndex + 1 && fixedPrice[endIndex - 1] === '0') {
@@ -213,44 +217,115 @@ function getTradingViewNativeWidestDigitLabel(label: string) {
   return widestLabel;
 }
 
+function getTradingViewNativePriceAxisCandidateLabel(price: number) {
+  'worklet';
+
+  const absolutePrice = Math.abs(price);
+  let label = getTradingViewNativeWidestDigitLabel(
+    formatTradingViewNativePriceTick(price),
+  );
+  if (absolutePrice > 0 && absolutePrice < 1) {
+    const leadingZeroCount = Math.max(
+      -Math.floor(Math.log10(absolutePrice)) - 1,
+      0,
+    );
+    if (
+      leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS <=
+      MAX_TO_FIXED_FRACTION_DIGITS
+    ) {
+      label = compactTradingViewNativePriceLeadingZeros(
+        `${price < 0 ? '-' : ''}0.${'0'.repeat(
+          leadingZeroCount,
+        )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`,
+      );
+    }
+  }
+  return label;
+}
+
+function getTradingViewNativeLongerPriceAxisLabel(
+  currentLabel: string,
+  candidatePrice: number,
+) {
+  'worklet';
+
+  const candidateLabel =
+    getTradingViewNativePriceAxisCandidateLabel(candidatePrice);
+  return candidateLabel.length > currentLabel.length
+    ? candidateLabel
+    : currentLabel;
+}
+
 export function getTradingViewNativePriceAxisLabel(
   points: IMarketTokenKLineDataPoint[],
 ) {
   'worklet';
 
-  let longestLabel = '';
+  let largestNonNegativePrice = 0;
+  let largestNegativePrice = 0;
+  let smallestPositiveSubOnePrice = Number.POSITIVE_INFINITY;
+  let smallestNegativeSubOnePrice = Number.NEGATIVE_INFINITY;
+  let hasFinitePrice = false;
+  // Only magnitude boundaries and the sign can change the formatted label width.
   for (const point of points) {
-    const prices = [point.o, point.h, point.l, point.c];
-    for (const price of prices) {
+    for (let priceIndex = 0; priceIndex < 4; priceIndex += 1) {
+      let price = point.o;
+      if (priceIndex === 1) {
+        price = point.h;
+      } else if (priceIndex === 2) {
+        price = point.l;
+      } else if (priceIndex === 3) {
+        price = point.c;
+      }
       if (Number.isFinite(price)) {
-        const absolutePrice = Math.abs(price);
-        let label = getTradingViewNativeWidestDigitLabel(
-          formatTradingViewNativePriceTick(price),
-        );
-        if (absolutePrice > 0 && absolutePrice < 1) {
-          // Reserve full precision for interpolated ticks even when source values trim trailing zeros.
-          const leadingZeroCount = Math.max(
-            -Math.floor(Math.log10(absolutePrice)) - 1,
-            0,
-          );
-          if (
-            leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS <=
-            MAX_TO_FIXED_FRACTION_DIGITS
-          ) {
-            label = compactTradingViewNativePriceLeadingZeros(
-              `${price < 0 ? '-' : ''}0.${'0'.repeat(
-                leadingZeroCount,
-              )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`,
+        hasFinitePrice = true;
+        if (price >= 0) {
+          largestNonNegativePrice = Math.max(largestNonNegativePrice, price);
+          if (price > 0 && price < 1) {
+            smallestPositiveSubOnePrice = Math.min(
+              smallestPositiveSubOnePrice,
+              price,
             );
           }
-        }
-        if (label.length > longestLabel.length) {
-          longestLabel = label;
+        } else {
+          largestNegativePrice = Math.min(largestNegativePrice, price);
+          if (price > -1) {
+            smallestNegativeSubOnePrice = Math.max(
+              smallestNegativeSubOnePrice,
+              price,
+            );
+          }
         }
       }
     }
   }
-  return longestLabel || formatTradingViewNativePriceTick(0);
+
+  if (!hasFinitePrice) {
+    return formatTradingViewNativePriceTick(0);
+  }
+
+  let longestLabel = getTradingViewNativePriceAxisCandidateLabel(
+    largestNonNegativePrice,
+  );
+  if (largestNegativePrice < 0) {
+    longestLabel = getTradingViewNativeLongerPriceAxisLabel(
+      longestLabel,
+      largestNegativePrice,
+    );
+  }
+  if (Number.isFinite(smallestPositiveSubOnePrice)) {
+    longestLabel = getTradingViewNativeLongerPriceAxisLabel(
+      longestLabel,
+      smallestPositiveSubOnePrice,
+    );
+  }
+  if (Number.isFinite(smallestNegativeSubOnePrice)) {
+    longestLabel = getTradingViewNativeLongerPriceAxisLabel(
+      longestLabel,
+      smallestNegativeSubOnePrice,
+    );
+  }
+  return longestLabel;
 }
 
 export function getTradingViewNativeCurrentPriceLabel(

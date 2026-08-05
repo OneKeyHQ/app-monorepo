@@ -73,15 +73,13 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe(
       '0.00004543',
     );
-    expect(formatTradingViewNativePriceTick(0.000_002_547)).toBe(
-      '0.0₅2547',
-    );
+    expect(formatTradingViewNativePriceTick(0.000_002_547)).toBe('0.0₅2547');
     expect(formatTradingViewNativePriceTick(0.000_000_000_149_73)).toBe(
       '0.0₉1497',
     );
-    expect(formatTradingViewNativePriceTick(-0.000_002_547)).toBe(
-      '-0.0₅2547',
-    );
+    expect(formatTradingViewNativePriceTick(-0.000_002_547)).toBe('-0.0₅2547');
+    expect(formatTradingViewNativePriceTick(0.999_99)).toBe('1.00');
+    expect(formatTradingViewNativePriceTick(-0.999_99)).toBe('-1.00');
     expect(formatTradingViewNativePriceTick(Number.NaN)).toBe('--');
   });
 
@@ -147,9 +145,16 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativeCurrentPriceLabel(compactPoints)).toBe(
       '0.0₅2547',
     );
-    expect(getTradingViewNativePriceAxisLabel(compactPoints)).toBe(
-      '0.0₁₀8888',
-    );
+    expect(getTradingViewNativePriceAxisLabel(compactPoints)).toBe('0.0₁₀8888');
+
+    const signedPoints = regularPoints.map((point) => ({
+      ...point,
+      c: 500,
+      h: 500,
+      l: -499,
+      o: 400,
+    }));
+    expect(getTradingViewNativePriceAxisLabel(signedPoints)).toBe('-888.88');
   });
 
   it('reserves symmetric padding when the current price is the widest label', () => {
