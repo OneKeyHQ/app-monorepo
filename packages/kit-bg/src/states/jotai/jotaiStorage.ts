@@ -24,6 +24,37 @@ import type {
 } from './types';
 
 const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
+
+function isMergeableValue(value: unknown): boolean {
+  return typeof value === 'object' && value !== null;
+}
+
+// lodash merge is only meaningful between objects. Handed a primitive it spreads
+// a string into a character-indexed object and reduces a number to `{}`, so the
+// stored value stops comparing equal to anything the atom's consumers expect.
+function mergeStoredValue<Value>(
+  initialValue: Value,
+  nextValue: Value,
+  shouldMergeInitialValue: boolean,
+): Value {
+  if (!shouldMergeInitialValue || !isMergeableValue(nextValue)) {
+    return nextValue;
+  }
+  return merge({}, initialValue, nextValue) as Value;
+}
+
+// Values persisted before that guard existed are still on disk, and a primitive
+// atom that hydrates into an object would keep failing every comparison. Falling
+// back to the initial value costs one stale selection and self-heals on write.
+export function sanitizeStoredValue<Value>(
+  initialValue: Value,
+  storedValue: Value,
+): Value {
+  if (!isMergeableValue(initialValue) && isMergeableValue(storedValue)) {
+    return initialValue;
+  }
+  return storedValue;
+}
 const mockStorage = storageHub._mockStorage;
 
 export const MMKV_MIGRATION_COMPLETE_KEY = '__mmkv_migration_v1__';
@@ -419,9 +450,11 @@ export function atomWithStorage<Value>(
 
       const shouldMergeInitialValue =
         atomsConfig?.[storageName]?.mergeInitialValue ?? true;
-      const newValue = shouldMergeInitialValue
-        ? merge({}, initialValue, nextValue)
-        : nextValue;
+      const newValue = mergeStoredValue(
+        initialValue,
+        nextValue,
+        shouldMergeInitialValue,
+      );
 
       const shouldDeepCompare =
         atomsConfig?.[storageName]?.deepCompare ?? false;
@@ -485,11 +518,11 @@ export function atomWithStorage<Value>(
           const shouldMergeInitialValue =
             atomsConfig?.[storageName as any as IAtomNameKeys]
               ?.mergeInitialValue ?? true;
-          const newValue = (
-            shouldMergeInitialValue
-              ? merge({}, initialValue, nextValue)
-              : nextValue
-          ) as Value;
+          const newValue = mergeStoredValue(
+            initialValue,
+            nextValue as Value,
+            shouldMergeInitialValue,
+          );
 
           const shouldDeepCompare =
             atomsConfig?.[storageName as any as IAtomNameKeys]?.deepCompare ??
