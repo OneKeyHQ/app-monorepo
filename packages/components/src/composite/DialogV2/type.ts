@@ -27,4 +27,10 @@ export interface IDialogV2Props {
    * disabled, leaving the footer actions as the only way out.
    */
   dismissible?: boolean;
+  /**
+   * Opaque paint over the whole sheet face (native presentationBackground;
+   * web panel background), replacing the platform material. For stage-like
+   * surfaces that must not sample what is behind them.
+   */
+  background?: string;
 }

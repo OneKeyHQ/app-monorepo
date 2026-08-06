@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Dialog } from '@base-ui/react/dialog';
 
@@ -39,9 +39,15 @@ export function DialogV2({
   cancelText,
   onCancel,
   dismissible = true,
+  background,
 }: IDialogV2Props) {
   const themeName = useThemeName();
   const theme = themeName.includes('dark') ? 'dark' : 'light';
+
+  const popupStyle = useMemo(
+    () => (background ? { background } : undefined),
+    [background],
+  );
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean, details: DialogRootChangeEventDetails) => {
@@ -68,7 +74,11 @@ export function DialogV2({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="okd-overlay" />
-        <Dialog.Popup className="okd-content" data-theme={theme}>
+        <Dialog.Popup
+          className="okd-content"
+          data-theme={theme}
+          style={popupStyle}
+        >
           {hasHeader ? (
             <div className="okd-header">
               {title ? (
