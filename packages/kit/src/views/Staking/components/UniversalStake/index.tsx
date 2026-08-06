@@ -53,6 +53,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
@@ -77,7 +78,6 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -194,7 +194,7 @@ function ProtocolSwitchTriggerRow({
   isSwitchEnabled: boolean;
   onPress: () => void;
 }) {
-  const providerName = capitalizeString(
+  const providerName = getEarnProviderDisplayName(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
@@ -2297,7 +2297,7 @@ export function UniversalStake({
                                 borderRadius="$2"
                               />
                               <SizableText size="$bodyMd">
-                                {capitalizeString(providerName || '')}
+                                {getEarnProviderDisplayName(providerName || '')}
                               </SizableText>
                             </XStack>
                             <YStack
