@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { IAccordionSingleProps } from '@onekeyhq/components';
 import {
@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 // Define stable components outside of render function to avoid React warnings
 function LinkComponent({
@@ -288,7 +289,7 @@ export function DeviceNotFoundDialogContent() {
       <Button
         testID="hardware-ui-troubleshooting-btn"
         onPress={() => {
-          void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+          openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
         }}
         size="large"
         icon="OpenOutline"
@@ -317,7 +318,7 @@ export function TrezorDeviceNotFoundDialogContent() {
       <Button
         testID="hardware-ui-trezor-troubleshooting-btn"
         onPress={() => {
-          void Linking.openURL(TREZOR_TROUBLESHOOTING_URL);
+          openUrlExternal(TREZOR_TROUBLESHOOTING_URL);
         }}
         size="large"
         icon="OpenOutline"

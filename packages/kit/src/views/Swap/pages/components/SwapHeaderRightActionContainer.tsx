@@ -39,6 +39,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapStockExecutionTokensAtom,
@@ -77,6 +78,12 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  SwapInviteeRewardActionButton,
+  useSwapInviteeRewardAction,
+} from '../../components/InviteeReward/SwapInviteeRewardActionButton';
+import { SwapInviteeRewardSettingsItem } from '../../components/InviteeReward/SwapInviteeRewardSettingsItem';
+import { getSwapInviteeRewardActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
@@ -87,6 +94,7 @@ import {
   getSwapLimitOpenOrderCount,
 } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
+import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -290,8 +298,13 @@ const SwapSlippageCustomContent = ({
 };
 
 const SwapSettingsDialogContent = ({
+  inviteeRewardAction,
   marketPresetSettings,
 }: {
+  inviteeRewardAction?: {
+    onShow: () => void;
+    title: string;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
   const intl = useIntl();
@@ -301,6 +314,7 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
@@ -378,10 +392,15 @@ const SwapSettingsDialogContent = ({
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const handleProviderManagerSaved = useCallback(() => {
     cleanQuoteInterval();
-    closeQuoteEvent();
+    closeQuoteEvent(quoteActionLock.quoteRequestId);
     void resetQuoteAction();
     void dialogRef.current?.close();
-  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
+  }, [
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    quoteActionLock.quoteRequestId,
+    resetQuoteAction,
+  ]);
   return (
     <ScrollView
       mx="$-5"
@@ -488,6 +507,15 @@ const SwapSettingsDialogContent = ({
                   showCancelButton: false,
                 });
               }}
+            />
+          </>
+        ) : null}
+        {inviteeRewardAction ? (
+          <>
+            <Divider />
+            <SwapInviteeRewardSettingsItem
+              onShowSwapInviteeReward={inviteeRewardAction.onShow}
+              title={inviteeRewardAction.title}
             />
           </>
         ) : null}
@@ -629,6 +657,10 @@ type ISwapSettingsHeaderButtonProps = {
   iconColor?: ColorTokens;
   compact?: boolean;
   showCustomSlippageValue?: boolean;
+  inviteeRewardAction?: {
+    onShow: () => void;
+    title: string;
+  };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
 
@@ -638,6 +670,7 @@ export function SwapSettingsHeaderButton({
   iconColor,
   compact,
   showCustomSlippageValue,
+  inviteeRewardAction,
   marketPresetSettings,
 }: ISwapSettingsHeaderButtonProps) {
   const intl = useIntl();
@@ -688,6 +721,7 @@ export function SwapSettingsHeaderButton({
       renderContent: (
         <SwapProviderMirror storeName={swapStoreName}>
           <SwapSettingsDialogContent
+            inviteeRewardAction={inviteeRewardAction}
             marketPresetSettings={marketPresetSettings}
           />
         </SwapProviderMirror>
@@ -699,7 +733,7 @@ export function SwapSettingsHeaderButton({
       }),
       showFooter: true,
     });
-  }, [intl, marketPresetSettings, swapStoreName]);
+  }, [intl, inviteeRewardAction, marketPresetSettings, swapStoreName]);
 
   if (slippageTitle) {
     return (
@@ -742,6 +776,26 @@ export function SwapSettingsHeaderButton({
   );
 }
 
+function SwapSettingsHeaderButtonWithInviteeRewardAction(
+  props: Omit<ISwapSettingsHeaderButtonProps, 'inviteeRewardAction'>,
+) {
+  const { showSwapInviteeReward, title } = useSwapInviteeRewardAction();
+  const inviteeRewardAction = useMemo(
+    () => ({
+      onShow: showSwapInviteeReward,
+      title,
+    }),
+    [showSwapInviteeReward, title],
+  );
+
+  return (
+    <SwapSettingsHeaderButton
+      {...props}
+      inviteeRewardAction={inviteeRewardAction}
+    />
+  );
+}
+
 const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
@@ -761,7 +815,7 @@ const SwapHeaderRightActionContainer = ({
     { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
   ] = useInAppNotificationAtom();
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtLg, md } = useMedia();
   const InTabDialog = useInTabDialog();
   const InModalDialog = useInModalDialog();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -813,6 +867,17 @@ const SwapHeaderRightActionContainer = ({
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  const swapInviteeRewardActionPlacement = getSwapInviteeRewardActionPlacement({
+    isDesktop: Boolean(platformEnv.isDesktop),
+    isMediumLayout: md,
+    isModal: pageType === EPageType.modal,
+    isNative: Boolean(platformEnv.isNative),
+    swapTypeSwitch,
+  });
+  const showSwapInviteeRewardAction =
+    swapInviteeRewardActionPlacement === 'swapHeader';
+  const showSwapInviteeRewardSettingsItem =
+    swapInviteeRewardActionPlacement === 'mobileSettings';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -832,6 +897,13 @@ const SwapHeaderRightActionContainer = ({
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled) {
+      return;
+    }
+
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
@@ -913,6 +985,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
+          onPressIn={onSwapKLinePressIn}
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
@@ -923,18 +996,39 @@ const SwapHeaderRightActionContainer = ({
   }
 
   return (
-    // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
+    // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
       <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+        {showSwapInviteeRewardAction ? (
+          <SwapInviteeRewardActionButton
+            testID={SwapTestIDs.inviteeRewardButton}
+            icon="GiftOutline"
+            iconProps={{
+              size: resolvedIconSize,
+              color: iconColor ?? '$icon',
+            }}
+            size={resolvedButtonSize}
+          />
+        ) : null}
         {kLineButton}
-        <SwapSettingsHeaderButton
-          pageType={pageType}
-          iconSize={iconSize}
-          iconColor={iconColor}
-          compact={compact}
-          marketPresetSettings={marketPresetSettings}
-        />
+        {showSwapInviteeRewardSettingsItem ? (
+          <SwapSettingsHeaderButtonWithInviteeRewardAction
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        ) : (
+          <SwapSettingsHeaderButton
+            pageType={pageType}
+            iconSize={iconSize}
+            iconColor={iconColor}
+            compact={compact}
+            marketPresetSettings={marketPresetSettings}
+          />
+        )}
 
         {/* On mobile every tab has its own Order History list, so the global
             history button is hidden there; keep it on desktop / web / ext. */}

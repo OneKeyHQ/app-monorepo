@@ -25,6 +25,7 @@ import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { sidePanelUiState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -51,6 +52,28 @@ let didRunFirstLaunchDispatch = false;
 // watcher effect below can react to a late hydration / in-session status
 // transition without re-running the full first-launch dispatch.
 let silentReadyDialogShown = false;
+
+/**
+ * OK-58962: on the extension every UI surface is its own page load, so a window
+ * opened purely to host a DApp approval boots the same first-launch dispatch as
+ * the wallet and pops the post-update changelog over the signing screen.
+ * ServiceDApp is the standalone window's sole opener, so it stands down
+ * unconditionally; the side panel is a normal wallet surface, so it stands down
+ * only while it is actually hosting an approval.
+ */
+async function shouldDeferPostUpdateUi(): Promise<boolean> {
+  if (platformEnv.isExtensionUiStandaloneWindow) return true;
+  if (platformEnv.isExtensionUiSidePanel) {
+    // Checked first: it is local, synchronous, and the only signal covering the
+    // Keyless / OneKey-ID hand-off, which page-loads a panel purely to host its
+    // approval without ever reaching ServiceDApp.openModal. Safe to read as a
+    // latch here because this gate runs once, before the page can have handled
+    // anything the user did themselves.
+    if (sidePanelUiState.hasReceivedPushedModal) return true;
+    return backgroundApiProxy.serviceDApp.hasPendingDappRequest();
+  }
+  return false;
+}
 
 /**
  * Mount-once foreground container for app-update side effects.
@@ -204,7 +227,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               params?.storeUrl &&
               fileType === EUpdateFileType.appShell
             ) {
-              openUrlExternal(params.storeUrl);
+              // Server-driven store URL must reach the store app via the
+              // system browser; in-app browsers never trigger universal links.
+              openUrlExternal(params.storeUrl, { useSystemBrowser: true });
             } else {
               setTimeout(async () => {
                 const updateInfo =
@@ -330,6 +355,11 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       if (cancelled) return;
 
       if (isFirstLaunchAfterUpdated(info)) {
+        // Defer, don't skip: everything below is one-shot (analytics event,
+        // whatsNew marker, refreshUpdateStatus reset), so returning before any
+        // of it leaves this version's changelog intact for the next surface the
+        // user opens themselves.
+        if ((await shouldDeferPostUpdateUi()) || cancelled) return;
         // After the update has completed, current == target, so
         // getUpdateFileType always returns appShell. Derive the actual type
         // from the persisted info so bundle (hot-update) successes aren't

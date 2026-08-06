@@ -24,7 +24,6 @@ import {
   useAccountSelectorStatusAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { analytics } from '@onekeyhq/shared/src/analytics';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -44,7 +43,6 @@ import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWallet
 import { WalletListItem } from './WalletListItem';
 import {
   buildGroupedAccountSelectorWallets,
-  computeHwVendorProfile,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -215,32 +213,6 @@ export function AccountSelectorWalletListSideBar({
     selectedAccount,
     walletsCount: wallets?.length ?? 0,
   });
-
-  useEffect(() => {
-    const walletCount = wallets.reduce(
-      (count, wallet) => count + 1 + (wallet.botWallets?.length ?? 0),
-      0,
-    );
-    if (walletCount > 0) {
-      const hwWalletCount = wallets.filter(
-        (wallet) => wallet.type === 'hw',
-      ).length;
-      const keylessWalletCount = wallets.filter(
-        (wallet) => wallet.isKeyless,
-      ).length;
-      const appWalletCount = walletCount - hwWalletCount;
-      const { hwVendors, primaryHwVendor } = computeHwVendorProfile(wallets);
-
-      analytics.updateUserProfile({
-        walletCount,
-        hwWalletCount,
-        appWalletCount,
-        keylessWalletCount,
-        hwVendors,
-        primaryHwVendor,
-      });
-    }
-  }, [wallets]);
 
   useEffect(() => {
     if (

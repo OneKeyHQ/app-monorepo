@@ -139,6 +139,7 @@ const BaseSlippageInput = ({
       disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
       placeholder={displaySlippage}
       onChangeText={handleTextChange}
+      keyboardType="decimal-pad"
       {...props}
     />
   );

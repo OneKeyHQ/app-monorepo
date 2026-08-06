@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Divider,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -11,7 +17,11 @@ import { TokenSecurityAlertDialogContent } from './components';
 import { useTokenSecurity } from './hooks';
 import { getTotalSecurityDisplayInfo } from './utils/utils';
 
-function TokenSecurityAlert() {
+function TokenSecurityAlert({
+  showLeadingDivider = false,
+}: {
+  showLeadingDivider?: boolean;
+}) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
 
@@ -55,18 +65,23 @@ function TokenSecurityAlert() {
   );
 
   return (
-    <XStack
-      cursor="pointer"
-      onPress={handlePress}
-      ai="center"
-      gap="$0.5"
-      hitSlop={NATIVE_HIT_SLOP}
-    >
-      <Icon name="BugOutline" size="$4" color={color} />
-      <SizableText size="$bodySmMedium" color={color}>
-        {count}
-      </SizableText>
-    </XStack>
+    <>
+      {showLeadingDivider ? (
+        <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+      ) : null}
+      <XStack
+        cursor="pointer"
+        onPress={handlePress}
+        ai="center"
+        gap="$0.5"
+        hitSlop={NATIVE_HIT_SLOP}
+      >
+        <Icon name="BugOutline" size="$4" color={color} />
+        <SizableText size="$bodySmMedium" color={color}>
+          {count}
+        </SizableText>
+      </XStack>
+    </>
   );
 }
 

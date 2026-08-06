@@ -60,18 +60,15 @@ const LoggerDemo = () => {
     console.log('Upload result:', res);
   }, []);
 
+  const defaultAccordionValues: string[] = [
+    // 'logging-config',
+    // 'logging-perf',
+    // 'logging-demo'
+  ];
+
   return (
     <Stack gap="$2">
-      <Accordion
-        type="multiple"
-        defaultValue={
-          [
-            // 'logging-config',
-            // 'logging-perf',
-            // 'logging-demo'
-          ]
-        }
-      >
+      <Accordion type="multiple" defaultValue={defaultAccordionValues}>
         <Accordion.Item value="logging-config">
           <Accordion.Trigger>
             {({ open }: { open: boolean }) => (

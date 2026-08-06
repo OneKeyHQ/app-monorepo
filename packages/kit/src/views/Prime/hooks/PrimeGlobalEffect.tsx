@@ -6,6 +6,7 @@ import { useUpdateEffect } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  useAppIsLockedAtom,
   usePrimeInitAtom,
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -16,10 +17,16 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  EPrimeAuthSessionSource,
+  IPrimeUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
+import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 
+import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 
 import type {
@@ -28,37 +35,99 @@ import type {
 } from './usePrimePaymentTypes';
 
 function PrimeGlobalEffectAfterAuthReady() {
-  const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
+  const [primePersistAtom] = usePrimePersistAtom();
   const [, setPrimeInitAtom] = usePrimeInitAtom();
+  const [isAppLocked] = useAppIsLockedAtom();
+  const isAppLockedRef = useRef(isAppLocked);
+  isAppLockedRef.current = isAppLocked;
 
   const { getCustomerInfo } = usePrimePaymentMethods();
   const { isLoggedInOnServer } = primePersistAtom;
 
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelayMs = 2000;
+
+    const reconcileLoggedOutProjection = async (expectedRevision?: number) => {
+      if (expectedRevision !== undefined) {
+        const currentRevision =
+          await backgroundApiProxy.simpleDb.prime.getIdentityLifecycleRevision();
+        if (currentRevision !== expectedRevision) {
+          return;
+        }
+      }
+      if (await backgroundApiProxy.servicePrime.isLoggedIn()) {
+        return;
+      }
+      const completed = await logoutPurchasesSdk();
+      if (!completed && !cancelled) {
+        retryTimer = setTimeout(() => {
+          void reconcileLoggedOutProjection();
+        }, retryDelayMs);
+        retryDelayMs = Math.min(retryDelayMs * 2, 60_000);
+      }
+    };
+
+    const onIdentityLifecycleCommitted = (payload: {
+      revision: number;
+      oneKeyIdState: 'loggedIn' | 'loggedOut';
+    }) => {
+      if (payload.oneKeyIdState === 'loggedOut') {
+        void reconcileLoggedOutProjection(payload.revision);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.IdentityLifecycleCommitted,
+      onIdentityLifecycleCommitted,
+    );
+    if (!primePersistAtom.isLoggedIn || !isLoggedInOnServer) {
+      void reconcileLoggedOutProjection();
+    }
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      appEventBus.off(
+        EAppEventBusNames.IdentityLifecycleCommitted,
+        onIdentityLifecycleCommitted,
+      );
+    };
+  }, [isLoggedInOnServer, primePersistAtom.isLoggedIn]);
+
   const {
     user,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    logout,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     supabaseUser,
     isSupabaseLoggedIn,
-    getAccessToken: getSupabaseAccessToken,
   } = useOneKeyAuth();
 
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
-    if (user?.onekeyUserId && user?.isLoggedInOnServer) {
-      // wait 600ms to ensure the apiLogin() is finished
-      await timerUtils.wait(600);
+    try {
+      if (user?.onekeyUserId && user?.isLoggedInOnServer) {
+        // wait 600ms to ensure the apiLogin() is finished
+        await timerUtils.wait(600);
 
-      const accessToken =
-        await backgroundApiProxy.simpleDb.prime.getAuthToken();
+        const accessToken =
+          await backgroundApiProxy.simpleDb.prime.getActiveAuthToken();
 
-      // only fetch user info if accessToken is valid (server api login success)
-      if (accessToken) {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        // only fetch user info if accessToken is valid (server api login success)
+        if (accessToken) {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        }
       }
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: '',
+        errorCode: -1759,
+        errorMessage: `PrimeGlobalEffect.autoRefreshPrimeUserInfo: fetch user info failed: ${String(
+          error,
+        )}`,
+      });
     }
   }, [user?.onekeyUserId, user?.isLoggedInOnServer]);
 
@@ -123,21 +192,56 @@ function PrimeGlobalEffectAfterAuthReady() {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
 
+  useEffect(() => {
+    if (isAppLocked || !user?.onekeyUserId || !user?.isLoggedInOnServer) {
+      return undefined;
+    }
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        await showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade({
+          onekeyUserId: user.onekeyUserId,
+          shouldSkip: () => isCancelled || isAppLockedRef.current,
+        });
+      } catch (error) {
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: '',
+          errorCode: -1759,
+          errorMessage: `PrimeGlobalEffect.credentialUpgradeBindPrompt failed: ${String(
+            error,
+          )}`,
+        });
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAppLocked, user?.onekeyUserId, user?.isLoggedInOnServer]);
+
   const isUserLoggedIn = user.isLoggedIn;
   const isUserLoggedInOnServer = user.isLoggedInOnServer;
   useEffect(() => {
     void (async () => {
-      if (isUserLoggedIn && !isUserLoggedInOnServer) {
-        const accessToken =
-          await backgroundApiProxy.simpleDb.prime.getAuthToken();
-        if (accessToken) {
-          await backgroundApiProxy.servicePrime.apiLogin({
-            accessToken,
-          });
-        } else {
-          // Do not call apiLogout here, otherwise the user will automatically call logout during the login process, resulting in no login
-          // await backgroundApiProxy.servicePrime.apiLogout();
+      try {
+        if (isUserLoggedIn && !isUserLoggedInOnServer) {
+          const accessToken =
+            await backgroundApiProxy.simpleDb.prime.getSupabaseAuthToken();
+          if (accessToken) {
+            await backgroundApiProxy.servicePrime.apiLogin({
+              accessToken,
+            });
+          }
         }
+      } catch (error) {
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: '',
+          errorCode: -1759,
+          errorMessage: `PrimeGlobalEffect.legacyApiLogin: api login failed: ${String(
+            error,
+          )}`,
+        });
       }
     })();
   }, [isUserLoggedIn, isUserLoggedInOnServer]);
@@ -145,43 +249,62 @@ function PrimeGlobalEffectAfterAuthReady() {
   useEffect(() => {
     void (async () => {
       let accessToken: string | null | undefined = '';
-      if (isSupabaseLoggedIn) {
-        accessToken = await getSupabaseAccessToken();
-      }
+      try {
+        if (isSupabaseLoggedIn) {
+          // Steady-state token read: MUST go through the bg bridge (bg
+          // runtime performs any needed token refresh). Reading via the UI
+          // client's getSession() here could refresh an expired session in
+          // the UI runtime and race the bg rotation — see
+          // isSupabaseTokenRefreshRuntime in supabaseClientUtils.
+          accessToken =
+            await backgroundApiProxy.simpleDb.prime.getSupabaseAuthToken();
+        }
+        if (!accessToken) {
+          accessToken =
+            await backgroundApiProxy.simpleDb.prime.getActiveAuthToken();
+        }
 
-      // use apiLogin() to save authToken
-      // await backgroundApiProxy.simpleDb.prime.saveAuthToken(accessToken || '');
-      if (!accessToken) {
-        await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
-      }
-      // Do not save accessToken here, apiLogin() will save it
-
-      if (accessToken) {
-        // do nothing here, apiLogin() will set the primePersistAtom and update login status
-      } else {
-        defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
-          reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null ${JSON.stringify(
+        if (accessToken) {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        } else {
+          defaultLogger.prime.subscription.onekeyIdAtomNotLoggedIn({
+            reason: `PrimeGlobalEffect: privySdk.getAccessToken() is null ${JSON.stringify(
+              {
+                isSupabaseLoggedIn,
+              },
+            )}`,
+          });
+          // Guarded bg-side clear (authStateWriteMutex + in-lock re-read):
+          // a raw clearAuthTokens here could interleave with an in-flight
+          // OAuth login commit and wipe its freshly written
+          // authSessionSource — a wiped KeylessOAuth source is never
+          // re-inferred, orphaning a still-valid keyless session.
+          await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
             {
-              isSupabaseLoggedIn,
+              callerName: 'PrimeGlobalEffect',
             },
+          );
+        }
+      } catch (error) {
+        defaultLogger.prime.subscription.onekeyIdInvalidToken({
+          url: '',
+          errorCode: -1759,
+          errorMessage: `PrimeGlobalEffect: fetch user info failed: ${String(
+            error,
           )}`,
         });
-        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
+        // Keep local auth state for transient refresh/network failures.
+        // Server-side invalid tokens are cleared by the PrimeLoginInvalidToken event.
+      } finally {
+        setPrimeInitAtom(
+          (v): IPrimeInitAtomData => ({
+            ...v,
+            isReady: true,
+          }),
+        );
       }
-
-      setPrimeInitAtom(
-        (v): IPrimeInitAtomData => ({
-          ...v,
-          isReady: true,
-        }),
-      );
     })();
-  }, [
-    setPrimePersistAtom,
-    setPrimeInitAtom,
-    isSupabaseLoggedIn,
-    getSupabaseAccessToken,
-  ]);
+  }, [setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
   useUpdateEffect(() => {
@@ -213,30 +336,69 @@ function PrimeGlobalEffectAfterAuthReady() {
 }
 
 function PrimeGlobalEffectView() {
-  const { isReady, logout, isSupabaseLoggedIn } = useOneKeyAuth();
+  const { isReady } = useOneKeyAuth();
 
   useEffect(() => {
-    const fn = async () => {
-      if (isSupabaseLoggedIn) {
-        defaultLogger.prime.subscription.onekeyIdLogout({
-          reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
-        });
-        // If the server returns that the login is invalid, call the supabase sdk logout
-        await logout();
+    // Main-runtime handler NEVER mutates the shared session storage: every
+    // persistent session deletion is bg-owned and identity-coordinated — a main-side
+    // signOut here could race a fresh login's persist and delete
+    // credentials no later guard can restore (extension runs this handler
+    // once per UI surface, multiplying that window). The session
+    // PROJECTION refresh is handled by SupabaseAuthProvider's own
+    // PrimeLoginInvalidToken subscription (pure storage re-read).
+    const fn = async (
+      payload:
+        | {
+            authSessionSource?: EPrimeAuthSessionSource;
+            clearedByBackground?: boolean;
+            authStateGeneration?: number;
+          }
+        | undefined,
+    ) => {
+      defaultLogger.prime.subscription.onekeyIdLogout({
+        reason: 'appEventBus: EAppEventBusNames.PrimeLoginInvalidToken',
+      });
+      if (
+        payload?.clearedByBackground &&
+        payload.authStateGeneration !== undefined
+      ) {
+        // Staleness gate: the payload carries the auth-state commit
+        // generation observed when bg decided to clear. A user can
+        // complete a fresh login while this event propagates bg -> main;
+        // that commit bumps the generation, and the rest of this handler
+        // must not run against the pre-login epoch.
+        const currentAuthStateGeneration =
+          await backgroundApiProxy.simpleDb.prime.getAuthStateGeneration();
+        if (currentAuthStateGeneration !== payload.authStateGeneration) {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason: `PrimeGlobalEffectView.PrimeLoginInvalidToken: skip stale event, a login committed during propagation (generation ${payload.authStateGeneration} -> ${currentAuthStateGeneration})`,
+          });
+          return;
+        }
       }
-      await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
+      // Guarded reset (authStateWriteMutex + in-lock re-read): the bg-side
+      // invalid-token cleanup already reset the atom in-lock before
+      // emitting this event, and a new login may have committed during the
+      // event-bus hop — an unconditional atom reset here would wipe it
+      // (ext runs this handler once per UI surface).
+      await backgroundApiProxy.servicePrime.clearOneKeyIdAuthStateIfNoActiveToken(
+        {
+          callerName: 'PrimeGlobalEffectView.PrimeLoginInvalidToken',
+        },
+      );
     };
     appEventBus.on(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     };
-  }, [logout, isSupabaseLoggedIn]);
+  }, []);
 
-  if (isReady) {
-    return <PrimeGlobalEffectAfterAuthReady />;
-  }
-
-  return null;
+  return (
+    <>
+      <KYTIntroOnMount />
+      {isReady ? <PrimeGlobalEffectAfterAuthReady /> : null}
+    </>
+  );
 }
 
 export function PrimeGlobalEffect() {

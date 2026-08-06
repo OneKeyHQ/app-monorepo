@@ -7,7 +7,7 @@ import type {
 import type {
   CustomerInfo as CustomerInfoNative,
   MakePurchaseResult,
-} from '@revenuecat/purchases-typescript-internal';
+} from 'react-native-purchases';
 
 export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
@@ -15,6 +15,7 @@ export type IPackageFreeTrial = {
   periodIso: string; // e.g. "P3D"
   periodNumber: number; // e.g. 3
   periodUnit: 'day' | 'week' | 'month' | 'year';
+  source: 'native' | 'web';
 };
 
 export type IPackage = {

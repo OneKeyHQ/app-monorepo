@@ -31,7 +31,9 @@ import {
   OAuthLoginCancelError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
@@ -309,7 +311,7 @@ export class OAuthPopup extends OAuthPopupBase {
       });
 
       if (error) {
-        throw new OneKeyLocalError(error.message);
+        throw error;
       }
 
       if (!data.session) {
@@ -560,7 +562,7 @@ export class OAuthPopup extends OAuthPopupBase {
       });
 
       if (error) {
-        throw new OneKeyLocalError(error.message);
+        throw error;
       }
 
       if (!data.session) {
@@ -619,7 +621,12 @@ export class OAuthPopup extends OAuthPopupBase {
         cb.host === rt.host &&
         normalizePath(cb.pathname) === normalizePath(rt.pathname)
       );
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `Native OAuth callback URL validation failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+      });
       return false;
     }
   }

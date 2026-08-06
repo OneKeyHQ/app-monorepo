@@ -18,12 +18,14 @@ import { AppCryptoTestEmoji } from '@onekeyhq/shared/src/appCrypto/utils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-// Core secret functions are loaded dynamically to avoid kit->core value import
+// These developer-only galleries intentionally exercise Core APIs directly.
 export async function loadCoreSecret() {
+  // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
   return import('@onekeyhq/core/src/secret');
 }
 
 export async function loadCoreAdaSdk() {
+  // oxlint-disable-next-line no-restricted-imports -- Developer-only Core API test harness.
   return import('@onekeyhq/core/src/chains/ada/sdkAda');
 }
 

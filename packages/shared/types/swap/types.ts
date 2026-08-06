@@ -59,6 +59,13 @@ export enum ESwapTabSwitchType {
   STOCK = 'stock',
 }
 
+export enum ESwapTipsEffectiveTab {
+  ALL = 'All',
+  SWAP_AND_BRIDGE = 'Swap&Bridge',
+  STOCKS = 'Stocks',
+  LIMIT = 'Limit',
+}
+
 export enum ESwapDirectionType {
   FROM = 'from',
   TO = 'to',
@@ -152,11 +159,14 @@ export interface IMarketPresetTokenContext {
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
+  importAccountKey?: string;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;
+  closeModalAfterSwapBroadcast?: boolean;
+  onSwapBroadcast?: () => void | Promise<void>;
 }
 
 // token & network
@@ -250,6 +260,7 @@ export interface IFetchTokensParams {
   accountId?: string;
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
+  throwOnError?: boolean;
   lpToken?: boolean;
   currency?: string;
 }
@@ -363,6 +374,15 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   denyCrossChainProvider?: string;
   denySingleSwapProvider?: string;
   walletDeviceType?: IDeviceType;
+}
+
+export interface ISwapQuoteEventPayload {
+  event: ISwapQuoteEvent;
+  type: 'done' | 'close' | 'error' | 'message' | 'open';
+  params: IFetchQuotesParams;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+  accountId?: string;
+  quoteRequestId: string;
 }
 interface ISocketAsset {
   address: string;
@@ -590,6 +610,7 @@ export interface ISwapPreSwapData {
 export interface IFetchSwapQuoteParams {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  requestScopeKey?: string;
   fromTokenAmount?: string;
   receivingAddress?: string;
   incognito?: boolean;
@@ -604,6 +625,7 @@ export interface IFetchSwapQuoteParams {
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
   userMarketPriceRate?: string;
+  quoteRequestId?: string;
 }
 
 export interface IFetchQuoteResult {
@@ -747,6 +769,7 @@ export enum ESwapFetchCancelCause {
 export interface ISwapState {
   label: string;
   isLoading: boolean;
+  isQuoteActionLoading: boolean;
   approving: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;
@@ -757,6 +780,7 @@ export interface ISwapState {
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
+  shouldEnterRecipient?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -857,6 +881,9 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  bindedAccountAddress?: string;
+  bindedNetworkId?: string;
+  rebateAddress?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
@@ -919,6 +946,7 @@ export interface IFetchBuildTxResponse {
 export interface IPerpDepositQuoteResponse {
   result: IPerpDepositQuoteRes;
   tx?: ITransaction;
+  orderId?: string;
 }
 
 export interface IPerpDepositQuoteRes {
@@ -935,6 +963,7 @@ export interface IPerpDepositQuoteRes {
 export interface ISwapTips {
   tipsId: string;
   title: string;
+  effectiveTab?: ESwapTipsEffectiveTab[];
   detailLink?: string;
   userCanClose?: boolean;
   iconImage?: string;
@@ -1077,6 +1106,7 @@ export interface ISwapTxHistory {
     chainFlipExplorerUrl?: string;
     instantRate: string;
     protocolFee?: number;
+    hideProtocolFee?: boolean;
     oneKeyFee?: number;
     oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];

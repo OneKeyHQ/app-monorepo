@@ -29,7 +29,8 @@ function MoreMenu({ url, title, onReload }: IMoreMenuProps) {
   }, [copyText, url]);
 
   const handleOpenExternal = useCallback(() => {
-    if (url) openUrlExternal(url);
+    // Explicit "open in browser" action: the user intends to leave the app.
+    if (url) openUrlExternal(url, { useSystemBrowser: true });
   }, [url]);
 
   const handleAddBookmark = useCallback(async () => {

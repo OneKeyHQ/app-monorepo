@@ -23,6 +23,7 @@ import {
 } from '../utils/tokenListHelpers';
 
 import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
+import { getMarketTokenListApiNetworkId } from './marketTokenListQueryUtils';
 
 import type { IMarketTokenListResponseWithSource } from './marketTokenListPlatformApiTypes';
 import type { IMarketTimeRangeValue } from '../../../types';
@@ -217,8 +218,12 @@ export function useMarketTokenList({
     [networkId],
   );
 
-  // For API calls, use empty string when "All Networks" is selected
-  const apiNetworkId = isAllNetworks ? '' : networkId;
+  // Stocks and All Networks both request the unfiltered asset universe.
+  const apiNetworkId = getMarketTokenListApiNetworkId({
+    networkId,
+    isAllNetworks,
+    type,
+  });
   const currentQueryKey = useMemo(
     () =>
       JSON.stringify({

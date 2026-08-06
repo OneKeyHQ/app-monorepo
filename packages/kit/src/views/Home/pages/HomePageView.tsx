@@ -34,6 +34,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -545,6 +549,7 @@ export function HomePageView({
   }, [tabConfigs]);
 
   const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 
@@ -830,12 +835,28 @@ export function HomePageView({
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
+    // The remount key resets the pager to the first tab while HomePageView's
+    // activeTab state still points at the previously selected tab, so seed
+    // the remounted container with that tab. But the new pagerTabConfigs and
+    // the stale activeTabName can land in the same render (the reset effect
+    // above runs only after it), and the web Tabs.Container initializes
+    // focusedTab with whatever name it receives without falling back when
+    // the name is missing from the tab set — leaving content, highlight and
+    // active state out of sync. Validate here and fall back to the first tab.
+    const seedTabName = pagerTabConfigs.some(
+      (tab) => tab.name === activeTabName,
+    )
+      ? activeTabName
+      : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // Both implementations only read this prop at mount.
+        initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
-        headerHeight={platformEnv.isNative ? 312 : undefined}
+        disableWebTabContentVisibility
+        headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -871,6 +892,7 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
+    activeTabName,
     activeTabId,
     mountedHomeTabIds,
   ]);

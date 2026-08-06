@@ -17,7 +17,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '../../../Market/components/PerpsBadges';
 
@@ -110,7 +110,7 @@ const SwapProTokenSelector = ({
               </SizableText>
             ) : null}
             <StockSourceLogo stock={selectedTokenStock} />
-            <StockIsOpenBadge stock={selectedTokenStock} />
+            <StockMarketStatusBadge stock={selectedTokenStock} />
           </XStack>
         ) : null}
       </YStack>

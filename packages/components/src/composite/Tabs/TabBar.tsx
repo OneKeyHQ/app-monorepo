@@ -627,6 +627,8 @@ export interface ITabBarProps extends TabBarProps<string> {
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
+  /** Aligns the selected item within a horizontal scrollable tab bar. */
+  keepFocusedTabVisible?: boolean;
 }
 
 export interface ITabBarItemProps {
@@ -751,6 +753,7 @@ export function TabBar({
   textSize,
   directTabPressAnimation = false,
   directTabPressAnimationMode = 'timing',
+  keepFocusedTabVisible = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -765,6 +768,7 @@ export function TabBar({
   indexDecimal?: SharedValue<number>;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
+  keepFocusedTabVisible?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -850,14 +854,28 @@ export function TabBar({
       }
       if (listViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
+        if (keepFocusedTabVisible && index < 0) {
+          return;
+        }
+        let focusedTabViewPosition = 0.5;
+        if (index === 0) {
+          focusedTabViewPosition = 0;
+        } else if (index === tabNames.length - 1) {
+          focusedTabViewPosition = 1;
+        }
         listViewTimerId.current = setTimeout(() => {
-          listViewRef.current?.scrollToIndex({
-            index: index < 3 ? 0 : index,
-          });
+          listViewRef.current?.scrollToIndex(
+            keepFocusedTabVisible
+              ? {
+                  index,
+                  viewPosition: focusedTabViewPosition,
+                }
+              : { index: index < 3 ? 0 : index },
+          );
         }, 100);
       }
     },
-    [tabNames],
+    [keepFocusedTabVisible, tabNames],
   );
 
   const clearDirectTabPressTimer = useCallback(() => {

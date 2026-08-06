@@ -52,6 +52,7 @@ export const buildPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
     channel,
     deskChannel: process.env.DESK_CHANNEL || '',
     processStartAt: getProcessStartAt(),
+    supportsShareImageFile: process.platform === 'darwin',
   };
 };
 

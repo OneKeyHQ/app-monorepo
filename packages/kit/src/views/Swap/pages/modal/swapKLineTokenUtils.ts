@@ -17,6 +17,20 @@ type ISwapKLineStableTokenIdentity = {
   isNative?: boolean;
 };
 
+type ISwapKLineTokenSymbol = Pick<ISwapToken, 'symbol'>;
+
+export function haveSameSwapKLineTokenSymbol({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapKLineTokenSymbol;
+  toToken?: ISwapKLineTokenSymbol;
+}) {
+  const fromSymbol = fromToken?.symbol.trim().toLowerCase();
+  const toSymbol = toToken?.symbol.trim().toLowerCase();
+  return Boolean(fromSymbol && toSymbol && fromSymbol === toSymbol);
+}
+
 function normalizeSwapKLineStableTokenAddress({
   networkId,
   contractAddress,
@@ -145,6 +159,47 @@ export async function fetchSwapKLineTokenIsStable(
 ): Promise<boolean> {
   const stableStatusMap = await fetchSwapKLineTokensStableStatus([token]);
   return getSwapKLineTokenStableStatusFromMap({ stableStatusMap, token });
+}
+
+export async function prefetchSwapKLineTokenInfo(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  const tokenInfoRequests = new Map<
+    string,
+    { networkId: string; tokenAddress: string }
+  >();
+
+  tokens.forEach((token) => {
+    if (!token?.networkId || isKnownSwapKLineUnsupportedToken(token)) {
+      return;
+    }
+
+    const tokenAddress = token.contractAddress ?? '';
+    const requestKey = `${token.networkId}:${tokenAddress}`;
+    tokenInfoRequests.set(requestKey, {
+      networkId: token.networkId,
+      tokenAddress,
+    });
+  });
+
+  await Promise.all(
+    Array.from(tokenInfoRequests.values()).map(async (params) => {
+      try {
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly(params);
+      } catch {
+        // Prefetch must not block opening; mounted consumers own retry handling.
+      }
+    }),
+  );
+}
+
+export async function prefetchSwapKLineMetadata(
+  tokens: (ISwapKLineToken | undefined)[],
+) {
+  await Promise.all([
+    prefetchSwapKLineTokenInfo(tokens),
+    fetchSwapKLineTokensStableStatus(tokens),
+  ]);
 }
 
 export function getDefaultSwapKLineSide({

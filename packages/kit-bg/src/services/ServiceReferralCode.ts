@@ -12,6 +12,7 @@ import {
   FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
@@ -59,6 +60,14 @@ import type {
   IRedemptionCodeRedeemParams,
   IRedemptionCodeRedeemResponse,
   IRedemptionRecordsResponse,
+  ISwapCumulativeRewardsParams,
+  ISwapCumulativeRewardsResponse,
+  ISwapInviteeRewardsParams,
+  ISwapInviteeRewardsResponse,
+  ISwapInvitesParams,
+  ISwapInvitesResponse,
+  ISwapRecordsParams,
+  ISwapRecordsResponse,
   IThirdPartyDeviceRewardChallenge,
   IThirdPartyDeviceRewardClaimResult,
   IThirdPartyDeviceRewardEvidence,
@@ -78,6 +87,14 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBWallet } from '../dbs/local/types';
 import type { IWalletReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
+type ISwapInvitesRequestParams = ISwapInvitesParams & {
+  disableAutoToast?: boolean;
+};
+
+type ISwapRecordsRequestParams = ISwapRecordsParams & {
+  disableAutoToast?: boolean;
+};
 
 // Background best-effort referral endpoints share this options bag: in
 // production we don't want unhealthy backends to surface scary error toasts
@@ -207,7 +224,7 @@ class ServiceReferralCode extends ServiceBase {
       subject: params.subject,
     };
     // Only pass timeRange when not using custom date range
-    if (params.startTime && params.endTime) {
+    if (params.startTime !== undefined && params.endTime !== undefined) {
       queryParams.startTime = params.startTime;
       queryParams.endTime = params.endTime;
     } else {
@@ -559,6 +576,84 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapCumulativeRewards(
+    params: ISwapCumulativeRewardsParams = {},
+  ): Promise<ISwapCumulativeRewardsResponse> {
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: ISwapCumulativeRewardsResponse;
+      }>('/rebate/v1/invite/swap-cumulative-rewards', {
+        params,
+      });
+      return response.data.data;
+    } catch (error) {
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInvites(
+    params: ISwapInvitesRequestParams,
+  ): Promise<ISwapInvitesResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInvitesResponse }>(
+        '/rebate/v1/invite/swap-invites',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapRecords(
+    params: ISwapRecordsRequestParams = {},
+  ): Promise<ISwapRecordsResponse> {
+    const { disableAutoToast, ...queryParams } = params;
+    try {
+      const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapRecordsResponse }>(
+        '/rebate/v1/invite/swap-records',
+        { params: queryParams },
+      );
+      return response.data.data;
+    } catch (error) {
+      if (disableAutoToast) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapInviteeRewards(
+    params: ISwapInviteeRewardsParams,
+  ): Promise<ISwapInviteeRewardsResponse> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{ data: ISwapInviteeRewardsResponse }>(
+        '/rebate/v1/invite/swap-invitee-rewards',
+        { params },
+      );
+      return response.data.data;
+    } catch (error) {
+      // The invitee reward dialog renders its own inline error state; keep the
+      // rejection but mute the proxy-layer auto toast so failures don't show
+      // both a raw server toast and the inline error.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
   async getMyReferralCode() {
     const myReferralCode =
       await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
@@ -588,6 +683,80 @@ class ServiceReferralCode extends ServiceBase {
       }
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async getBoundEvmReferralCodeWalletInfo({
+    accountId,
+    requestTimeoutMs,
+  }: {
+    accountId: string;
+    requestTimeoutMs?: number;
+  }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const walletInfo = await this.getReferralCodeWalletInfo({ walletId });
+    // Swap attribution uses the first EVM address as the stable wallet identity.
+    if (!walletInfo || walletInfo.networkId !== getNetworkIdsMap().eth) {
+      return undefined;
+    }
+
+    const bindStatusParams = {
+      address: walletInfo.address,
+      networkId: walletInfo.networkId,
+    };
+    const bindStatus = requestTimeoutMs
+      ? await this.checkWalletBindStatus(bindStatusParams, requestTimeoutMs)
+      : await this.checkWalletBindStatus(bindStatusParams);
+    if (!bindStatus.data) {
+      return undefined;
+    }
+
+    const rebateAddress = await this.getCurrentEvmAccountAddress({
+      accountId,
+    }).catch(() => undefined);
+    return {
+      ...walletInfo,
+      ...(rebateAddress ? { rebateAddress } : {}),
+    };
+  }
+
+  @backgroundMethod()
+  async getCurrentEvmAccountAddress({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }): Promise<string | undefined> {
+    try {
+      let currentIndexedAccountId = indexedAccountId;
+      if (!currentIndexedAccountId && accountId) {
+        const dbAccount =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        currentIndexedAccountId = dbAccount?.indexedAccountId;
+      }
+      if (!currentIndexedAccountId) {
+        return undefined;
+      }
+
+      const networkId = getNetworkIdsMap().eth;
+      const deriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const evmAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId: currentIndexedAccountId,
+          deriveType,
+          networkId,
+        });
+      return evmAccount?.address;
+    } catch {
+      return undefined;
+    }
   }
 
   @backgroundMethod()
@@ -812,35 +981,69 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchCheckWalletsBoundReferralCodeV2(items: IBatchCheckWalletItem[]) {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
-    // Bind-status checks gate dialogs / nudges; skip the prompt silently in
-    // production rather than toast a backend error to the user.
-    const response = await client.post<{
-      data: IBatchCheckWalletV2Response;
-    }>('/rebate/v1/wallet/batch-check-v2', { items }, SILENT_IN_PROD);
-    return response.data.data;
+  async batchCheckWalletsBoundReferralCodeV2(
+    items: IBatchCheckWalletItem[],
+    requestTimeoutMs?: number,
+  ) {
+    const requestAbortController =
+      requestTimeoutMs && requestTimeoutMs > 0
+        ? new AbortController()
+        : undefined;
+    const requestTimeout = requestAbortController
+      ? setTimeout(() => requestAbortController.abort(), requestTimeoutMs)
+      : undefined;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      // Bind-status checks gate dialogs / nudges; skip the prompt silently in
+      // production rather than toast a backend error to the user.
+      const response = await client.post<{
+        data: IBatchCheckWalletV2Response;
+      }>(
+        '/rebate/v1/wallet/batch-check-v2',
+        { items },
+        {
+          ...SILENT_IN_PROD,
+          ...(requestAbortController
+            ? {
+                signal: requestAbortController.signal,
+                timeout: requestTimeoutMs,
+              }
+            : {}),
+        },
+      );
+      return response.data.data;
+    } finally {
+      if (requestTimeout) {
+        clearTimeout(requestTimeout);
+      }
+    }
   }
 
   @backgroundMethod()
-  async checkWalletBindStatus({
-    address,
-    networkId,
-  }: {
-    address: string;
-    networkId: string;
-  }) {
+  async checkWalletBindStatus(
+    {
+      address,
+      networkId,
+    }: {
+      address: string;
+      networkId: string;
+    },
+    requestTimeoutMs?: number,
+  ) {
     const requestAddress =
       normalizeTokenContractAddress({
         networkId,
         contractAddress: address,
       }) || address;
-    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2([
-      {
-        address: requestAddress,
-        networkId,
-      },
-    ]);
+    const batchResult = await this.batchCheckWalletsBoundReferralCodeV2(
+      [
+        {
+          address: requestAddress,
+          networkId,
+        },
+      ],
+      requestTimeoutMs,
+    );
     const requestedKey = `${networkId}:${requestAddress}`;
     const serverData = batchResult[requestedKey];
     if (!serverData) {

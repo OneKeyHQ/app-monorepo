@@ -3,6 +3,7 @@
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 
+import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
@@ -48,6 +49,7 @@ import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceIpTable from '../services/ServiceIpTable';
 import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
@@ -88,6 +90,7 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -170,6 +173,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
+  serviceUnifoldDeposit: ILazyServiceProxy<ServiceUnifoldDeposit>;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
@@ -187,12 +191,13 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
-  serviceDemo: ServiceDemo;
+  serviceDemo: ILazyServiceProxy<ServiceDemo>;
   serviceV4Migration: ServiceV4Migration;
   serviceDApp: ServiceDApp;
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
+  serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;

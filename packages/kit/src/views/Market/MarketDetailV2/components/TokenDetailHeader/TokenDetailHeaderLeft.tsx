@@ -17,7 +17,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
@@ -129,12 +129,15 @@ export function TokenDetailHeaderLeft({
               </SizableText>
             ) : null}
             {md ? (
-              <TokenTagsPopover
-                communityRecognized={communityRecognized}
-                stock={stock}
-                showAllInTrigger
-                noTruncateSubtitle
-              />
+              <>
+                <TokenTagsPopover
+                  communityRecognized={communityRecognized}
+                  stock={stock}
+                  showAllInTrigger
+                  noTruncateSubtitle
+                />
+                <StockMarketStatusBadge stock={stock} />
+              </>
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
@@ -142,7 +145,7 @@ export function TokenDetailHeaderLeft({
                 {stock?.subtitle ? (
                   <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}
-                {stock ? <StockIsOpenBadge stock={stock} /> : null}
+                <StockMarketStatusBadge stock={stock} />
               </>
             )}
           </XStack>
@@ -178,11 +181,7 @@ export function TokenDetailHeaderLeft({
             {showMediaAndSecurity ? (
               <>
                 {address && networkId ? (
-                  <>
-                    <Divider vertical backgroundColor="$borderSubdued" h="$3" />
-
-                    <TokenSecurityAlert />
-                  </>
+                  <TokenSecurityAlert showLeadingDivider />
                 ) : null}
 
                 {website || twitter || address ? (

@@ -73,21 +73,29 @@ function useWalletBanner({
       }
 
       if (item.mode) {
-        parseNotificationPayload(item.mode, item.payload, () => {});
-        if (item.mode === ENotificationPushMessageMode.page && item.payload) {
-          try {
-            const payloadObj = JSON.parse(item.payload);
-            if (
-              payloadObj?.screen === 'main' &&
-              payloadObj?.params?.screen === ETabRoutes.Perp
-            ) {
-              setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
+        // Returning here unconditionally skipped the href handling below, so
+        // a payload that never dispatched made the banner a dead tap.
+        const payloadHandled = parseNotificationPayload(
+          item.mode,
+          item.payload,
+          () => {},
+        );
+        if (payloadHandled) {
+          if (item.mode === ENotificationPushMessageMode.page && item.payload) {
+            try {
+              const payloadObj = JSON.parse(item.payload);
+              if (
+                payloadObj?.screen === 'main' &&
+                payloadObj?.params?.screen === ETabRoutes.Perp
+              ) {
+                setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
+              }
+            } catch {
+              // ignore malformed payload
             }
-          } catch {
-            // ignore malformed payload
           }
+          return;
         }
-        return;
       }
 
       if (item.href) {
@@ -100,7 +108,11 @@ function useWalletBanner({
           ],
           qrWalletScene: false,
           autoExecuteParsedAction: true,
-          defaultHandler: openUrlExternal,
+          // The backend flag promises the OS browser, not the in-app one.
+          defaultHandler: (url: string) =>
+            openUrlExternal(url, {
+              useSystemBrowser: item.useSystemBrowser,
+            }),
           account,
           network,
           wallet,

@@ -52,6 +52,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  TPerpLocalInvalidReason,
+  TPerpTradeOrderType,
+  TPerpTradePriceMode,
+  TPerpTradeValidationState,
+} from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -76,6 +83,7 @@ import {
   useOrderConfirmWithMarketDataFreshness,
   usePerpsMarketDataFreshness,
 } from '../../hooks';
+import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import {
   type IEnableTradingWithDepositFallbackResult,
   useConfirmHyperliquidTerms,
@@ -87,6 +95,7 @@ import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculation
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
@@ -111,6 +120,10 @@ import {
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
+import {
+  type ISizeInputMinimumOrderAction,
+  getMinimumOrderToastActionProps,
+} from './inputs/SizeInput';
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
@@ -124,6 +137,10 @@ interface ITradingButtonGroupProps {
   isMobile: boolean;
   isLiveStatusPending?: boolean;
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
+  onRequestSizeInputFocus?: () => void;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
 }
 
 function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
@@ -143,7 +160,10 @@ function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
         iconAfter="LockOutline"
         iconColor="$iconSubdued"
       >
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
+        <SizableText
+          size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+          color="$textSubdued"
+        >
           {intl.formatMessage({
             id: ETranslations.trading_unavailable__action,
           })}
@@ -160,6 +180,10 @@ interface ISideButtonProps {
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
   marketDataFreshness: IPerpsMarketDataFreshness;
   handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
+  onRequestSizeInputFocus?: () => void;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
   justifyContent?:
     | 'flex-start'
     | 'flex-end'
@@ -231,7 +255,8 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
   if (liquidationPrice) {
     return (
       <NumberSizeableText
-        size="$bodySm"
+        size="$bodySmMedium"
+        fontFamily="$body"
         color="$text"
         formatter="price"
         formatterOptions={{ currency: '$' }}
@@ -241,7 +266,7 @@ const EstLiqPriceLeaf = memo(({ side }: { side: 'long' | 'short' }) => {
     );
   }
   return (
-    <SizableText size="$bodySm" color="$text">
+    <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
       --
     </SizableText>
   );
@@ -253,6 +278,152 @@ function getPerpSideButtonStyles(isLong: boolean) {
   return styles;
 }
 
+function getPerpTradeButtonState({
+  canTrade,
+  activatedOk,
+}: {
+  canTrade: boolean;
+  activatedOk?: boolean;
+}) {
+  if (canTrade) {
+    return 'readyToTrade' as const;
+  }
+  if (activatedOk === false) {
+    return 'depositRequired' as const;
+  }
+  return 'enableTrading' as const;
+}
+
+type IPerpTradeAnalyticsFormData = Pick<
+  ITradingFormData,
+  'orderMode' | 'type'
+> &
+  Partial<
+    Pick<
+      ITradingFormData,
+      | 'bboPriceMode'
+      | 'hasTpsl'
+      | 'limitTif'
+      | 'reduceOnly'
+      | 'scaleReduceOnly'
+      | 'scaleTif'
+      | 'triggerOrderType'
+      | 'triggerReduceOnly'
+      | 'twapReduceOnly'
+    >
+  >;
+
+function getPerpTradeOrderType(
+  formData: IPerpTradeAnalyticsFormData,
+): TPerpTradeOrderType {
+  if (formData.orderMode === 'trigger') {
+    return formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT
+      ? 'triggerLimit'
+      : 'triggerMarket';
+  }
+  if (formData.orderMode === 'scale') {
+    return 'scale';
+  }
+  if (formData.orderMode === 'twap') {
+    return 'twap';
+  }
+  return formData.type;
+}
+
+function getPerpTradePriceMode(
+  formData: IPerpTradeAnalyticsFormData,
+): TPerpTradePriceMode {
+  if (
+    formData.orderMode === 'standard' &&
+    formData.type === 'limit' &&
+    formData.bboPriceMode
+  ) {
+    return formData.bboPriceMode.type === 'counterparty'
+      ? 'bboCounterparty'
+      : 'bboQueue';
+  }
+  if (
+    formData.orderMode === 'twap' ||
+    (formData.orderMode === 'standard' && formData.type === 'market') ||
+    (formData.orderMode === 'trigger' &&
+      formData.triggerOrderType !== ETriggerOrderType.TRIGGER_LIMIT)
+  ) {
+    return 'market';
+  }
+  return 'manualLimit';
+}
+
+function getPerpTradeReduceOnly(
+  formData: IPerpTradeAnalyticsFormData,
+): boolean | undefined {
+  if (formData.orderMode === 'trigger') {
+    return formData.triggerReduceOnly;
+  }
+  if (formData.orderMode === 'scale') {
+    return formData.scaleReduceOnly;
+  }
+  if (formData.orderMode === 'twap') {
+    return formData.twapReduceOnly;
+  }
+  return formData.reduceOnly;
+}
+
+function getPerpTradeTif(
+  formData: IPerpTradeAnalyticsFormData,
+): string | undefined {
+  if (formData.orderMode === 'scale') {
+    return formData.scaleTif;
+  }
+  if (formData.orderMode === 'standard' && formData.type === 'limit') {
+    return formData.limitTif;
+  }
+  return undefined;
+}
+
+function logPerpTradeButtonClick({
+  side,
+  canTrade,
+  activatedOk,
+  validationState,
+  localInvalidReason,
+  formData,
+  symbol,
+  leverage,
+  orderValue,
+}: {
+  side: 'long' | 'short';
+  canTrade: boolean;
+  activatedOk?: boolean;
+  validationState: TPerpTradeValidationState;
+  localInvalidReason?: TPerpLocalInvalidReason;
+  formData: IPerpTradeAnalyticsFormData;
+  symbol: string;
+  leverage?: number;
+  orderValue?: BigNumber;
+}) {
+  defaultLogger.perp.common.perpTradeButtonClick({
+    side,
+    isTradingEnabled: canTrade,
+    buttonState: getPerpTradeButtonState({ canTrade, activatedOk }),
+    validationState,
+    ...(localInvalidReason ? { localInvalidReason } : {}),
+    symbol,
+    orderType: getPerpTradeOrderType(formData),
+    priceMode: getPerpTradePriceMode(formData),
+    reduceOnly: getPerpTradeReduceOnly(formData),
+    hasTpsl: formData.orderMode === 'standard' ? formData.hasTpsl : undefined,
+    tif: getPerpTradeTif(formData),
+    leverage:
+      typeof leverage === 'number' && Number.isFinite(leverage) && leverage > 0
+        ? leverage
+        : undefined,
+    orderValue:
+      orderValue?.isFinite() && orderValue.gt(0)
+        ? orderValue.toNumber()
+        : undefined,
+  });
+}
+
 function SideButtonInternal({
   side,
   isMobile,
@@ -260,6 +431,8 @@ function SideButtonInternal({
   enableTradingModeOverride,
   marketDataFreshness,
   handleConfirm,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
@@ -304,13 +477,14 @@ function SideButtonInternal({
 
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -630,6 +804,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    orderValue,
     perpsAccount,
     perpsCustomSettings,
     priceError,
@@ -655,6 +830,7 @@ function SideButtonInternal({
     marketDataFreshness,
     midPriceBN,
     orderContextKey,
+    orderValue,
     perpsAccount,
     perpsCustomSettings,
     priceError,
@@ -677,8 +853,6 @@ function SideButtonInternal({
       shouldValidateBboPriceError: boolean;
     }) => {
       const {
-        activeAsset: latestActiveAsset,
-        activeTradeInstrument: latestActiveTradeInstrument,
         computedSizeForSide: latestComputedSizeForSide,
         effectivePriceBN: latestEffectivePriceBN,
         formData: latestFormData,
@@ -688,10 +862,8 @@ function SideButtonInternal({
         isScaleMode: latestIsScaleMode,
         isTriggerMode: latestIsTriggerMode,
         isTwapMode: latestIsTwapMode,
-        leverage: latestLeverage,
         midPriceBN: latestMidPriceBN,
         priceError: latestPriceError,
-        resolvedSizeInputUnit: latestResolvedSizeInputUnit,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
       } = orderPanelState;
@@ -705,7 +877,7 @@ function SideButtonInternal({
             id: ETranslations.Perps_BBO_unavailable,
           }),
         });
-        return false;
+        return 'bboUnavailable' as const;
       }
 
       if (latestShouldBlockForMarketData) {
@@ -717,7 +889,7 @@ function SideButtonInternal({
             id: ETranslations.perps_offline_moblie,
           }),
         });
-        return false;
+        return 'marketDataUnavailable' as const;
       }
 
       if (latestIsTriggerMode && latestFormData.triggerOrderType) {
@@ -728,7 +900,7 @@ function SideButtonInternal({
               id: ETranslations.perps_input_trigger_price,
             }),
           });
-          return false;
+          return 'invalidTriggerPrice' as const;
         }
         const isLimitTrigger =
           latestFormData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
@@ -740,18 +912,18 @@ function SideButtonInternal({
                 id: ETranslations.perp_trade_price_place_holder,
               }),
             });
-            return false;
+            return 'invalidLimitPrice' as const;
           }
         }
         if (!latestMidPriceBN.isFinite() || latestMidPriceBN.lte(0)) {
           Toast.error({ title: 'Market price unavailable, please try again' });
-          return false;
+          return 'marketDataUnavailable' as const;
         }
         if (new BigNumber(tp).eq(latestMidPriceBN)) {
           Toast.error({
             title: 'Trigger price must differ from current price',
           });
-          return false;
+          return 'invalidTriggerPrice' as const;
         }
       }
 
@@ -767,7 +939,7 @@ function SideButtonInternal({
             id: ETranslations.perp_trade_price_place_holder,
           }),
         });
-        return false;
+        return 'missingLimitPrice' as const;
       }
 
       if (latestIsScaleMode) {
@@ -784,7 +956,7 @@ function SideButtonInternal({
               id: ETranslations.perp_scale_price_range_required__msg,
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
         if (lowerPrice.eq(upperPrice)) {
           Toast.message({
@@ -792,7 +964,7 @@ function SideButtonInternal({
               id: ETranslations.perp_scale_price_range_same__msg,
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
         const orderCount = normalizeScaleOrderCount(
           latestFormData.scaleOrderCount ?? 0,
@@ -812,7 +984,7 @@ function SideButtonInternal({
               },
             ),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
       }
 
@@ -826,7 +998,7 @@ function SideButtonInternal({
           Toast.message({
             title: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
           });
-          return false;
+          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -845,48 +1017,28 @@ function SideButtonInternal({
           (!latestComputedSizeForSide.gt(0) ||
             latestIsMinimumOrderNotMetForSide))
       ) {
-        let minAmount = '$10';
-        if (latestEffectivePriceBN.gt(0)) {
-          const minSize = new BigNumber(10)
-            .dividedBy(latestEffectivePriceBN)
-            .decimalPlaces(latestSzDecimals, BigNumber.ROUND_UP);
-          if (latestResolvedSizeInputUnit === 'token') {
-            const coinSymbol = (() => {
-              if (latestIsSpot && latestActiveTradeInstrument.mode === 'spot') {
-                const u = latestActiveTradeInstrument.universe;
-                return u
-                  ? getSpotTokenDisplayName(u.displayName || u.baseName)
-                  : '';
-              }
-              return latestActiveAsset?.coin
-                ? parseDexCoin(latestActiveAsset.coin).displayName
-                : '';
-            })();
-            minAmount = `${minSize.toFixed(latestSzDecimals)} ${coinSymbol}`;
-          } else if (latestResolvedSizeInputUnit === 'margin') {
-            const leverageBN = new BigNumber(latestLeverage || 1);
-            if (leverageBN.isFinite() && leverageBN.gt(0)) {
-              const minMargin = minSize
-                .multipliedBy(latestEffectivePriceBN)
-                .dividedBy(leverageBN)
-                .decimalPlaces(2, BigNumber.ROUND_UP)
-                .toFixed(2);
-              minAmount = `$${minMargin}`;
-            }
-          }
-        }
+        const minimumOrderAction = minimumOrderActionRef?.current;
         Toast.message({
           title: intl.formatMessage(
-            { id: ETranslations.perp_size_least },
-            { amount: minAmount },
+            { id: ETranslations.perp_order_size_small },
+            { amount: minimumOrderAction?.amountLabel ?? '$10' },
+          ),
+          ...getMinimumOrderToastActionProps(
+            minimumOrderAction,
+            intl.formatMessage({
+              id: ETranslations.fill_minimum_amount__action,
+            }),
           ),
         });
-        return false;
+        onRequestSizeInputFocus?.();
+        return hasSizeEmpty
+          ? ('emptySize' as const)
+          : ('minimumOrderNotMet' as const);
       }
 
       if (latestIsNoEnoughMargin) {
         showNoEnoughMarginToast(latestIsSpot);
-        return false;
+        return 'insufficientMargin' as const;
       }
 
       if (latestIsScaleMode) {
@@ -911,7 +1063,7 @@ function SideButtonInternal({
               fallback: 'Invalid scale order',
             }),
           });
-          return false;
+          return 'invalidScaleConfig' as const;
         }
       }
 
@@ -934,7 +1086,7 @@ function SideButtonInternal({
               id: ETranslations.perp_twap_small_slice__msg,
             }),
           });
-          return false;
+          return 'invalidTwapConfig' as const;
         }
       }
 
@@ -1005,7 +1157,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_tp_desc_1,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
           if (
             validationSide === 'short' &&
@@ -1019,7 +1171,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_tp_desc_2,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
         }
 
@@ -1041,7 +1193,7 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_sl_desc_1,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
           if (
             validationSide === 'short' &&
@@ -1055,14 +1207,19 @@ function SideButtonInternal({
                 id: ETranslations.perp_invaild_sl_desc_2,
               }),
             });
-            return false;
+            return 'invalidTpsl' as const;
           }
         }
       }
 
-      return true;
+      return undefined;
     },
-    [intl, showNoEnoughMarginToast],
+    [
+      intl,
+      minimumOrderActionRef,
+      onRequestSizeInputFocus,
+      showNoEnoughMarginToast,
+    ],
   );
 
   const requestOrderPanelEnableTrading = useCallback(
@@ -1172,7 +1329,33 @@ function SideButtonInternal({
         return;
       }
 
+      const logTradeClick = ({
+        orderPanelState,
+        validationState,
+        localInvalidReason,
+      }: {
+        orderPanelState: ILatestOrderPanelState;
+        validationState: TPerpTradeValidationState;
+        localInvalidReason?: TPerpLocalInvalidReason;
+      }) => {
+        if (orderPanelState.isSpot) {
+          return;
+        }
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState,
+          localInvalidReason,
+          formData: orderPanelState.formData,
+          symbol: orderPanelState.activeTradeInstrument.coin,
+          leverage: orderPanelState.leverage,
+          orderValue: orderPanelState.orderValue,
+        });
+      };
+
       const preEnableOrderPanelState = latestOrderPanelStateRef.current;
+      let hasLoggedDeferredClick = false;
 
       if (shouldEnableTradingBeforeOrder) {
         const isDepositRequired =
@@ -1184,9 +1367,20 @@ function SideButtonInternal({
             isDepositRequired,
           })
         ) {
+          logTradeClick({
+            orderPanelState: preEnableOrderPanelState,
+            validationState: 'invalid',
+            localInvalidReason: 'insufficientMargin',
+          });
           showNoEnoughMarginToast(preEnableOrderPanelState.isSpot);
           return;
         }
+
+        logTradeClick({
+          orderPanelState: preEnableOrderPanelState,
+          validationState: 'deferred',
+        });
+        hasLoggedDeferredClick = !preEnableOrderPanelState.isSpot;
 
         const enableTradingAccountKey = perpsAccountKey;
         const enableTradingSide = side;
@@ -1232,13 +1426,19 @@ function SideButtonInternal({
       // dialog. Running validation here covers both the just-enabled path and
       // accounts that can already trade.
       const validationState = latestOrderPanelStateRef.current;
-      if (
-        !validateOrderPanelState({
-          orderPanelState: validationState,
-          validationSide: side,
-          shouldValidateBboPriceError: true,
-        })
-      ) {
+      const localInvalidReason = validateOrderPanelState({
+        orderPanelState: validationState,
+        validationSide: side,
+        shouldValidateBboPriceError: true,
+      });
+      if (localInvalidReason) {
+        if (!hasLoggedDeferredClick) {
+          logTradeClick({
+            orderPanelState: validationState,
+            validationState: 'invalid',
+            localInvalidReason,
+          });
+        }
         return;
       }
       const submitState = latestOrderPanelStateRef.current;
@@ -1254,6 +1454,13 @@ function SideButtonInternal({
             submitState.activePositionsValue.accountAddress,
         });
         if (snapshotError) {
+          if (!hasLoggedDeferredClick) {
+            logTradeClick({
+              orderPanelState: submitState,
+              validationState: 'invalid',
+              localInvalidReason: 'invalidReduceOnly',
+            });
+          }
           Toast.message({ title: snapshotError });
           return;
         }
@@ -1281,18 +1488,43 @@ function SideButtonInternal({
               }),
         });
         if (reduceOnlyError) {
+          if (!hasLoggedDeferredClick) {
+            logTradeClick({
+              orderPanelState: submitState,
+              validationState: 'invalid',
+              localInvalidReason: 'invalidReduceOnly',
+            });
+          }
           Toast.message({ title: reduceOnlyError });
           return;
         }
       }
 
-      if (submitState.perpsCustomSettings.skipOrderConfirm) {
-        void handleConfirmRef.current(side);
-      } else {
+      if (!hasLoggedDeferredClick) {
+        logTradeClick({
+          orderPanelState: submitState,
+          validationState: 'valid',
+        });
+      }
+
+      const aggressiveLimitPriceWarning = getAggressiveLimitPriceWarning({
+        formData: submitState.formData,
+        side,
+        price: submitState.effectivePriceBN.toFixed(),
+      });
+      if (
+        shouldShowOrderConfirm({
+          skipOrderConfirm: submitState.perpsCustomSettings.skipOrderConfirm,
+          aggressiveLimitPriceWarning,
+        })
+      ) {
         showOrderConfirmDialog({
           overrideSide: side,
           intl,
+          aggressiveLimitPriceWarning,
         });
+      } else {
+        void handleConfirmRef.current(side);
       }
     },
     1000,
@@ -1442,8 +1674,8 @@ function SideButtonInternal({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1504,7 +1736,8 @@ function SideButtonInternal({
               </DashText>
 
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -1550,7 +1783,8 @@ function SideButtonInternal({
               {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
             </SizableText>
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodySmMedium"
+              fontFamily="$body"
               color="$text"
               formatter="value"
               formatterOptions={{ currency: '$' }}
@@ -1600,6 +1834,8 @@ function EmptySizeSideButton({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
   justifyContent = 'flex-start',
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
@@ -1620,7 +1856,8 @@ function EmptySizeSideButton({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -1825,6 +2062,19 @@ function EmptySizeSideButton({
         return;
       }
 
+      let hasLoggedDeferredClick = false;
+      if (!isSpot && shouldEnableTradingBeforeOrder) {
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState: 'deferred',
+          formData,
+          symbol: activeTradeInstrument.coin,
+        });
+        hasLoggedDeferredClick = true;
+      }
+
       if (shouldEnableTradingBeforeOrder) {
         const enableTradingAccountKey = perpsAccountKey;
         const shouldIgnoreEnableTradingResult = () =>
@@ -1846,6 +2096,17 @@ function EmptySizeSideButton({
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
       if (shouldBlockForMarketData) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'marketDataUnavailable',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.perp_offline,
@@ -1861,6 +2122,17 @@ function EmptySizeSideButton({
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
+        if (!isSpot && !hasLoggedDeferredClick) {
+          logPerpTradeButtonClick({
+            side,
+            canTrade: Boolean(perpsAccountStatus.canTrade),
+            activatedOk: perpsAccountStatus.details?.activatedOk,
+            validationState: 'invalid',
+            localInvalidReason: 'missingLimitPrice',
+            formData,
+            symbol: activeTradeInstrument.coin,
+          });
+        }
         Toast.message({
           title: intl.formatMessage({
             id: ETranslations.perp_trade_price_place_holder,
@@ -1869,12 +2141,31 @@ function EmptySizeSideButton({
         return;
       }
 
+      if (!isSpot && !hasLoggedDeferredClick) {
+        logPerpTradeButtonClick({
+          side,
+          canTrade: Boolean(perpsAccountStatus.canTrade),
+          activatedOk: perpsAccountStatus.details?.activatedOk,
+          validationState: 'invalid',
+          localInvalidReason: 'emptySize',
+          formData,
+          symbol: activeTradeInstrument.coin,
+        });
+      }
+      const minimumOrderAction = minimumOrderActionRef?.current;
       Toast.message({
         title: intl.formatMessage(
-          { id: ETranslations.perp_size_least },
-          { amount: '$10' },
+          { id: ETranslations.perp_order_size_small },
+          { amount: minimumOrderAction?.amountLabel ?? '$10' },
+        ),
+        ...getMinimumOrderToastActionProps(
+          minimumOrderAction,
+          intl.formatMessage({
+            id: ETranslations.fill_minimum_amount__action,
+          }),
         ),
       });
+      onRequestSizeInputFocus?.();
     },
     1000,
     {
@@ -1932,8 +2223,8 @@ function EmptySizeSideButton({
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
+            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 16 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1976,7 +2267,8 @@ function EmptySizeSideButton({
                 }
               />
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodySmMedium"
+                fontFamily="$body"
                 color="$text"
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
@@ -2011,7 +2303,11 @@ function EmptySizeSideButton({
                   </YStack>
                 }
               />
-              <SizableText size="$bodySm" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                fontFamily="$body"
+                color="$text"
+              >
                 --
               </SizableText>
             </XStack>
@@ -2047,7 +2343,8 @@ function EmptySizeSideButton({
               }
             />
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodySmMedium"
+              fontFamily="$body"
               color="$text"
               formatter="value"
               formatterOptions={{ currency: '$' }}
@@ -2075,7 +2372,7 @@ function EmptySizeSideButton({
                 </DashText>
               }
             />
-            <SizableText size="$bodySm" color="$text">
+            <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
               --
             </SizableText>
           </XStack>
@@ -2114,6 +2411,8 @@ function TradingButtonGroupLive({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -2136,6 +2435,8 @@ function TradingButtonGroupLive({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2150,6 +2451,8 @@ function TradingButtonGroupLive({
       return (
         <YStack gap="$3">
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2158,6 +2461,8 @@ function TradingButtonGroupLive({
             handleConfirm={handleConfirm}
           />
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2172,6 +2477,8 @@ function TradingButtonGroupLive({
       <XStack gap="$2.5" mt="$4">
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2183,6 +2490,8 @@ function TradingButtonGroupLive({
         </XStack>
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
           <SideButtonLive
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2211,6 +2520,8 @@ function TradingButtonGroupEmptySize({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -2226,6 +2537,8 @@ function TradingButtonGroupEmptySize({
       return (
         <YStack {...(!isMobile && { mt: '$4' })}>
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side={tradingSide}
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2238,12 +2551,16 @@ function TradingButtonGroupEmptySize({
       return (
         <YStack gap="$3">
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
             enableTradingModeOverride={enableTradingModeOverride}
           />
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2256,6 +2573,8 @@ function TradingButtonGroupEmptySize({
       <XStack gap="$2.5" mt="$4">
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="long"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2265,6 +2584,8 @@ function TradingButtonGroupEmptySize({
         </XStack>
         <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
           <SideButtonEmptySize
+            onRequestSizeInputFocus={onRequestSizeInputFocus}
+            minimumOrderActionRef={minimumOrderActionRef}
             side="short"
             isMobile={isMobile}
             isLiveStatusPending={isLiveStatusPending}
@@ -2283,12 +2604,16 @@ function TradingButtonGroup({
   isMobile,
   isLiveStatusPending = false,
   enableTradingModeOverride,
+  onRequestSizeInputFocus,
+  minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
   const formData = useTradingFormEmptySizeParams();
 
   if (shouldUseEmptySizeTradingButtons(formData)) {
     return (
       <TradingButtonGroupEmptySize
+        onRequestSizeInputFocus={onRequestSizeInputFocus}
+        minimumOrderActionRef={minimumOrderActionRef}
         isMobile={isMobile}
         isLiveStatusPending={isLiveStatusPending}
         enableTradingModeOverride={enableTradingModeOverride}
@@ -2298,6 +2623,8 @@ function TradingButtonGroup({
 
   return (
     <TradingButtonGroupLive
+      onRequestSizeInputFocus={onRequestSizeInputFocus}
+      minimumOrderActionRef={minimumOrderActionRef}
       isMobile={isMobile}
       isLiveStatusPending={isLiveStatusPending}
       enableTradingModeOverride={enableTradingModeOverride}

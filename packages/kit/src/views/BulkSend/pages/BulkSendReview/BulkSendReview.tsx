@@ -127,7 +127,6 @@ function BaseBulkSendReview({
     accountId,
     tokenInfo,
     transfersInfo,
-    totalTokenAmount,
     approvesInfo,
     setApprovesInfo,
     setUnsignedTxs,

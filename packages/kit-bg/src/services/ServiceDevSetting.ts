@@ -366,6 +366,63 @@ class ServiceDevSetting extends ServiceBase {
         devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
     });
   }
+
+  // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----
+  //
+  // Runtime model: in native production the app runs two isolated JS runtimes
+  // (`main` UI + `background`) in one native process. On iOS they share the
+  // AsyncStorage disk files/manifest but keep per-runtime native manifest
+  // caches. The write forwarder (setupMainThreadBackgroundRunner) makes `bg`
+  // the single writer so a stale `main`-local manifest can no longer clobber
+  // `bg`-written keys.
+  //
+  // These methods always execute inside the `bg` runtime (they are reached via
+  // backgroundApiProxy RPC), so `appStorage` here is the bg-local instance and
+  // its writes are genuine bg-origin writes — exactly the side that used to get
+  // clobbered. The UI test button (AsyncStorageDevSettings) drives these
+  // concurrently with `main`-origin writes to verify no key is dropped.
+  //
+  // Safety boundary: every key MUST carry the fixed test prefix, so this
+  // dev-only RPC can never read or mutate real storage keys.
+  private static readonly ASYNC_STORAGE_TEST_KEY_PREFIX =
+    '$$test_async_storage_concurrent/';
+
+  private assertAsyncStorageTestKeys(keys: string[]) {
+    for (const key of keys) {
+      if (!key.startsWith(ServiceDevSetting.ASYNC_STORAGE_TEST_KEY_PREFIX)) {
+        throw new OneKeyLocalError(
+          `AsyncStorage dev test key must start with "${ServiceDevSetting.ASYNC_STORAGE_TEST_KEY_PREFIX}", got: ${key}`,
+        );
+      }
+    }
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiSet(
+    keyValuePairs: [string, string][],
+  ): Promise<void> {
+    this.assertAsyncStorageTestKeys(keyValuePairs.map(([key]) => key));
+    // bg-local write (bg runtime is not the forwarder's main runtime, so this
+    // stays local and lands on the shared iOS AsyncStorage disk manifest).
+    await appStorage.multiSet(keyValuePairs);
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiGet(
+    keys: string[],
+  ): Promise<[string, string | null][]> {
+    this.assertAsyncStorageTestKeys(keys);
+    const result = await appStorage.multiGet(keys);
+    return result.map(
+      ([key, value]) => [key, value ?? null] as [string, string | null],
+    );
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiRemove(keys: string[]): Promise<void> {
+    this.assertAsyncStorageTestKeys(keys);
+    await appStorage.multiRemove(keys);
+  }
 }
 
 export default ServiceDevSetting;

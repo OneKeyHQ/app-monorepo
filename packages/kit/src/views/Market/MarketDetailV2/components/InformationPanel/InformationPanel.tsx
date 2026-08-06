@@ -14,6 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
 import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
@@ -239,6 +240,7 @@ export function InformationPanel() {
             hideCommunityInTrigger
             noTruncateSubtitle
           />
+          <StockMarketStatusBadge stock={stock} />
         </XStack>
       </YStack>
 

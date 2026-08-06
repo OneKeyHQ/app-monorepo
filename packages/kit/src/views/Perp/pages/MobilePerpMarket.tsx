@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -32,7 +33,6 @@ import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUti
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
@@ -60,7 +60,7 @@ import {
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
-const IOS_CHART_HEIGHT = 500;
+const MOBILE_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
@@ -150,97 +150,16 @@ function MobilePerpMarketTabBar({
   );
 }
 
-function useNativeGestureTouchScrollGuard({
-  onTouchScroll,
-  releaseDelayMs = 80,
-}: {
-  onTouchScroll: (deltaY: number) => void;
-  releaseDelayMs?: number;
-}) {
-  const isNativeGestureActiveRef = useRef(false);
-  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (releaseTimerRef.current) {
-        clearTimeout(releaseTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  const handleGestureActiveChange = useCallback(
-    (active: boolean) => {
-      if (releaseTimerRef.current) {
-        clearTimeout(releaseTimerRef.current);
-        releaseTimerRef.current = null;
-      }
-
-      if (active) {
-        isNativeGestureActiveRef.current = true;
-        return;
-      }
-
-      releaseTimerRef.current = setTimeout(() => {
-        isNativeGestureActiveRef.current = false;
-        releaseTimerRef.current = null;
-      }, releaseDelayMs);
-    },
-    [releaseDelayMs],
-  );
-
-  const handleTouchScroll = useCallback(
-    (deltaY: number) => {
-      if (isNativeGestureActiveRef.current) {
-        return;
-      }
-      onTouchScroll(deltaY);
-    },
-    [onTouchScroll],
-  );
-
-  return {
-    handleGestureActiveChange,
-    handleTouchScroll,
-  };
-}
-
-function MobilePerpCandlesTouchBridge({
+function MobilePerpCandlesHeader({
   isInteractionOverlayOpen,
   onInteractionOverlayOpenChange,
 }: {
   isInteractionOverlayOpen: boolean;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
-  const rawTouchScroll = useMobileTabTouchScrollBridge();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
-  const interactionOverlayOpenRef = useRef(isInteractionOverlayOpen);
-  const handleTouchScrollWhenEnabled = useCallback(
-    (deltaY: number) => {
-      if (interactionOverlayOpenRef.current) {
-        return;
-      }
-      rawTouchScroll(deltaY);
-    },
-    [rawTouchScroll],
-  );
-  const handleInteractionOverlayOpenChange = useCallback(
-    (isOpen: boolean) => {
-      interactionOverlayOpenRef.current = isOpen;
-      onInteractionOverlayOpenChange(isOpen);
-    },
-    [onInteractionOverlayOpenChange],
-  );
-  const { handleGestureActiveChange, handleTouchScroll } =
-    useNativeGestureTouchScrollGuard({
-      onTouchScroll: handleTouchScrollWhenEnabled,
-    });
-  useEffect(() => {
-    interactionOverlayOpenRef.current = isInteractionOverlayOpen;
-  }, [isInteractionOverlayOpen]);
   useEffect(
     () => () => {
-      interactionOverlayOpenRef.current = false;
       onInteractionOverlayOpenChange(false);
     },
     [onInteractionOverlayOpenChange],
@@ -248,9 +167,9 @@ function MobilePerpCandlesTouchBridge({
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
     if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
-      tracePerpsMobileLayout('mobileMarket.candlesTouchBridge.layout', {
+      tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
         rect,
-        chartHeight: IOS_CHART_HEIGHT,
+        chartHeight: MOBILE_CHART_HEIGHT,
         bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
       });
       layoutRef.current = rect;
@@ -265,15 +184,14 @@ function MobilePerpCandlesTouchBridge({
         panActiveOffsetY={[-4, 4]}
         panFailOffsetX={[-40, 40]}
         excludeRightEdgeRatio={0.1}
-        scrollScale={1}
+        scrollScale={1.2}
+        disableMomentum
         simultaneousWithNativeGesture
         cancelChildTouches={false}
-        onGestureActiveChange={handleGestureActiveChange}
       >
-        <YStack h={IOS_CHART_HEIGHT} overflow="hidden">
+        <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
           <PerpCandles
-            onTouchScroll={handleTouchScroll}
-            onInteractionOverlayOpenChange={handleInteractionOverlayOpenChange}
+            onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
           />
         </YStack>
       </HeaderScrollGestureWrapper>
@@ -304,7 +222,11 @@ function MobilePerpCandlesStatic({
   return (
     <YStack onLayout={handleLayout}>
       <MobilePerpMarketHeader />
-      <YStack flex={1} minHeight={500}>
+      {/* Explicit height, not `flex={1} minHeight`: the parent height is
+          indefinite here, so `flex-basis: 0%` resolves the chart box to its
+          content in WebKit (Safari collapses it and leaves the reserved space
+          blank) while Blink grows it to the min-height. */}
+      <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
         <PerpCandles
           onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         />
@@ -314,6 +236,7 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, displayName, mode } = useActiveTradeDisplay();
   const themeVariant = useThemeVariant();
@@ -330,6 +253,24 @@ function MobilePerpMarket() {
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
+  // react-native-web styles scrollEnabled={false} ScrollViews with
+  // `touch-action: none`, which swallows vertical pans over everything inside
+  // the pager (chart header, order book) so the page cannot scroll on mobile
+  // web. The pager only ever scrolls programmatically, so let vertical pans
+  // chain up to the page scroller instead.
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const node = (
+      scrollViewRef.current as unknown as {
+        getScrollableNode?: () => unknown;
+      } | null
+    )?.getScrollableNode?.() as { style?: { touchAction?: string } } | null;
+    if (node?.style) {
+      node.style.touchAction = 'pan-y';
+    }
+  }, []);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -357,12 +298,14 @@ function MobilePerpMarket() {
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
       currentToken: activeTradeInstrument.coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
+      walletType: activePerpsAccount.walletType ?? 'unknown',
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
   }, [
     activeTradeInstrument.coin,
+    activePerpsAccount.walletType,
     mode,
     navigation,
     prewarmTokenSelectorImages,
@@ -616,9 +559,7 @@ function MobilePerpMarket() {
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
   const { pageScrollContainerEnabled, pageNativeScrollEnabled } =
     getMobilePerpMarketPageScrollState({
-      activeTab,
       isInteractionOverlayOpen: isTradingViewInteractionOverlayOpen,
-      isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
       isNativeIOS: Boolean(platformEnv.isNativeIOS),
     });
   const pageScrollProps = useMemo(
@@ -685,7 +626,7 @@ function MobilePerpMarket() {
                 <Tabs.Container
                   initialTabName="orderbook"
                   renderHeader={() => (
-                    <MobilePerpCandlesTouchBridge
+                    <MobilePerpCandlesHeader
                       isInteractionOverlayOpen={
                         isTradingViewInteractionOverlayOpen
                       }

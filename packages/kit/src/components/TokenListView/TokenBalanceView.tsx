@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -22,8 +22,11 @@ function TokenBalanceView(props: IProps) {
   // `ITokenFiat` always carries `balanceParsed`.
   const balanceParsed = useTokenBalanceParsed($key || '');
 
+  // No balance record for this $key (e.g. backend search results the account
+  // never held): render nothing — a "-" placeholder carries no information
+  // and reads as a glitch.
   if (balanceParsed === undefined) {
-    return <SizableText {...rest}>-</SizableText>;
+    return null;
   }
 
   return (

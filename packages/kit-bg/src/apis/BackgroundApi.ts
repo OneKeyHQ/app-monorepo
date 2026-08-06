@@ -9,14 +9,23 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
+import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type { ILazyServiceProxy } from './lazyServiceProxy';
+import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
+import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
+
+type ILazyServiceModule<T extends object> = {
+  default: new (params: { backgroundApi: IBackgroundApi }) => T;
+};
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
@@ -33,6 +42,24 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
+
+  private buildLazyService<T extends object>(
+    propertyName: keyof IBackgroundApi,
+    loader: () => Promise<ILazyServiceModule<T>>,
+  ): ILazyServiceProxy<T> {
+    const value = createLazyServiceProxy<T>({
+      serviceName: String(propertyName),
+      loader: () =>
+        loader().then(
+          ({ default: Service }) =>
+            new Service({
+              backgroundApi: this,
+            }),
+        ),
+    });
+    Object.defineProperty(this, propertyName, { value });
+    return value;
+  }
 
   get walletConnect() {
     const ProviderApiWalletConnect =
@@ -64,14 +91,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDemo() {
-    const Service =
-      require('../services/ServiceDemo') as typeof import('../services/ServiceDemo');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceDemo', { value });
-    return value;
+  get serviceDemo(): ILazyServiceProxy<ServiceDemo> {
+    return this.buildLazyService(
+      'serviceDemo',
+      () => import('../services/ServiceDemo'),
+    );
   }
 
   get serviceV4Migration() {
@@ -182,6 +206,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     });
     Object.defineProperty(this, 'serviceSwap', { value });
     return value;
+  }
+
+  get serviceUnifoldDeposit(): ILazyServiceProxy<ServiceUnifoldDeposit> {
+    return this.buildLazyService(
+      'serviceUnifoldDeposit',
+      () => import('../services/ServiceUnifoldDeposit'),
+    );
   }
 
   get serviceBootstrap() {
@@ -382,6 +413,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     });
     Object.defineProperty(this, 'serviceNotification', { value });
     return value;
+  }
+
+  get serviceIdentityExit(): ILazyServiceProxy<ServiceIdentityExit> {
+    return this.buildLazyService(
+      'serviceIdentityExit',
+      () => import('../services/ServiceIdentityExit/ServiceIdentityExit'),
+    );
   }
 
   get servicePrime() {

@@ -48,7 +48,11 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         action: shouldOpenStore ? 'store' : 'download',
       });
       if (shouldOpenStore && appUpdateInfo.data.storeUrl) {
-        openUrlExternal(appUpdateInfo.data.storeUrl);
+        // Server-driven store URL must reach the store app via the system
+        // browser; in-app browsers never trigger universal links.
+        openUrlExternal(appUpdateInfo.data.storeUrl, {
+          useSystemBrowser: true,
+        });
       } else if (
         appUpdateInfo.data.downloadUrl ||
         appUpdateInfo.data.jsBundle?.downloadUrl

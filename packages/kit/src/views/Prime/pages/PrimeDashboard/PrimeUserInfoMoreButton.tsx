@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -8,20 +9,45 @@ import {
   IconButton,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
+
+import {
+  getPrimeSubscriptionManagementTarget,
+  resolvePrimeSubscriptionManagementTarget,
+} from './primeSubscriptionManagementUtils';
+
+// Crypto pay is not available on iOS / Android Google Play builds (store
+// policy, integration plan §2), so those builds must not surface the Infini
+// management entry either (plan §10 regression criterion): skip the Infini
+// lookup entirely and keep the original RevenueCat manage-url behavior.
+const isInfiniManageSupported =
+  !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
+
+// Grace period before the loading dialog appears: waits that resolve faster
+// than this stay dialog-free, so an (almost) settled lookup never flashes a
+// loading frame.
+const LOADING_DIALOG_DELAY_MS = 150;
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -33,13 +59,96 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   onLogoutSuccess?: () => Promise<void>;
 }) {
   const { user } = useOneKeyAuth();
-  const isPrime = user?.primeSubscription?.isActive;
-  const primeExpiredAt = user?.primeSubscription?.expiresAt;
+  const primeSubscription = user?.primeSubscription;
+  const isPrime = primeSubscription?.isActive;
+  const primeExpiredAt = primeSubscription?.expiresAt;
   const subscriptionManageUrl = user?.subscriptionManageUrl;
+  const currentOneKeyUserId = user?.onekeyUserId;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const { purchase } = usePrimePurchaseCallback();
+  const navigation = useAppNavigation();
+
+  const handleManageSubscription = useCallback(async () => {
+    const currentUserInfo = {
+      primeSubscription,
+      subscriptionManageUrl,
+    };
+    const currentTarget = getPrimeSubscriptionManagementTarget({
+      userInfo: currentUserInfo,
+      isInfiniManageSupported,
+    });
+    const openTarget = (
+      target: ReturnType<typeof getPrimeSubscriptionManagementTarget>,
+    ) => {
+      if (target.type === 'infini') {
+        navigation.push(EPrimePages.PrimeInfiniSubscription);
+        return true;
+      }
+      if (target.type === 'external') {
+        openUrlUtils.openUrlExternal(target.url);
+        return true;
+      }
+      return false;
+    };
+    if (openTarget(currentTarget)) {
+      return;
+    }
+
+    let loadingDialog: IDialogInstance | undefined;
+    const loadingTimerId = setTimeout(() => {
+      loadingDialog = Dialog.loading({
+        title: intl.formatMessage({ id: ETranslations.global_preparing }),
+      });
+    }, LOADING_DIALOG_DELAY_MS);
+    try {
+      const resolvedTarget = await resolvePrimeSubscriptionManagementTarget({
+        currentUserInfo,
+        isInfiniManageSupported,
+        fetchFreshUserInfo: async () => {
+          const { userInfo } =
+            await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          return userInfo;
+        },
+        fetchInfiniSubscription: async () => {
+          if (!currentOneKeyUserId) {
+            return undefined;
+          }
+          return backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
+            expectedOneKeyUserId: currentOneKeyUserId,
+          });
+        },
+      });
+      if (openTarget(resolvedTarget)) {
+        return;
+      }
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.prime_manage_subscription,
+        }),
+        // TODO: Replace with subscription_management_channel_unavailable__msg
+        // after the key is added to Lokalise and translations are pulled.
+        message:
+          'Unable to manage this subscription because its channel is missing or unsupported, and no management URL was provided.',
+      });
+    } catch (error) {
+      errorToastUtils.toastIfError(error);
+      errorToastUtils.showToastOfError(error);
+    } finally {
+      // Clear the pending timer first: a refresh that resolved inside the
+      // grace period would otherwise still pop the dialog afterwards, with
+      // nothing left to close it.
+      clearTimeout(loadingTimerId);
+      void loadingDialog?.close();
+    }
+  }, [
+    currentOneKeyUserId,
+    intl,
+    navigation,
+    primeSubscription,
+    subscriptionManageUrl,
+  ]);
 
   const refreshUserInfo = useCallback(async () => {
     void getCustomerInfo();
@@ -81,7 +190,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           }}
         >
           <SizableText flex={1} size="$headingSm">
-            {user?.email}
+            {getDisplayEmailOrUnknown({
+              intl,
+              displayEmail: user?.displayEmail,
+            })}
           </SizableText>
         </MultipleClickStack>
       </XStack>
@@ -104,18 +216,26 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {/* 
-       Sometimes, the local payment is successful (for example, sandbox payment), but the server status is incorrect, so even if the subscriptionManageUrl exists, you need to expose the management subscription entry to allow the user to cancel the subscription
-      */}
-      {isPrime && subscriptionManageUrl ? (
+      {/* Shown for every Prime user immediately — waiting for the channel
+       routing data (Infini lookup / RevenueCat manage url) made the item pop
+       in noticeably late. The click handler resolves the destination behind
+       a loading dialog instead, and falls back to a refresh + toast when
+       neither channel resolves (e.g. sandbox payment succeeded locally but
+       the server state lags). */}
+      {isPrime ? (
         <ActionList.Item
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={() => {
-            openUrlUtils.openUrlExternal(subscriptionManageUrl);
+          // Declaring the `close` param opts out of ActionList's
+          // close-after-onPress behavior: the menu must close before the
+          // destination is resolved, otherwise it would stay open underneath
+          // the loading dialog until the resolution finishes.
+          onPress={async (close) => {
+            close();
+            await handleManageSubscription();
           }}
         />
       ) : null}
@@ -127,8 +247,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               label="Change Subscription (DevOnly)"
               icon="CreditCardOutline"
               onClose={handleActionListClose}
-              onPress={async () => {
-                void purchase({
+              onPress={async (close) => {
+                close();
+                await timerUtils.wait(300);
+                await purchase({
                   selectedSubscriptionPeriod: 'P1Y',
                 });
               }}

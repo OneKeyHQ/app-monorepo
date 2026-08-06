@@ -452,7 +452,7 @@ function RawPopover({
       {/* sheet */}
       {usingSheet ? (
         <>
-          {/* TODO: Temporary solution for overlay backdrop. 
+          {/* TODO: Temporary solution for overlay backdrop.
                This should be deprecated in favor of Tamagui's overlay implementation */}
           {isShowNativeKeepChildrenMountedBackdrop ? (
             <Stack

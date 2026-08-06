@@ -21,10 +21,27 @@ const macExcludePrebuilds = [
   '!**/prebuilds/linux-*/**',
   '!**/prebuilds/win32-*/**',
 ];
+// Cross-packaging a win build from a non-Windows host (local debugging only —
+// release CI runs on windows-2025). node-gyp-build loads build/Release BEFORE
+// prebuilds/, so bindings compiled on the packaging host are Mach-O and fail
+// at runtime with "not a valid Win32 application". Dropping them lets the
+// bundled win32 prebuilds load instead. NOT applied on a Windows host, where
+// build/Release is the correct, ABI-matched binary and must ship as-is.
+const winCrossPackagingExcludes =
+  process.platform === 'win32'
+    ? []
+    : [
+        '!**/node_modules/@stoprocent/noble/build/**',
+        '!**/node_modules/@stoprocent/bluetooth-hci-socket/build/**',
+        '!**/node_modules/usb/build/**',
+        '!**/node_modules/@serialport/bindings-cpp/build/**',
+      ];
+
 const winExcludePrebuilds = [
   '!**/prebuilds/android-*/**',
   '!**/prebuilds/darwin-*/**',
   '!**/prebuilds/linux-*/**',
+  ...winCrossPackagingExcludes,
 ];
 const linuxExcludePrebuilds = [
   '!**/prebuilds/android-*/**',

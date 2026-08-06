@@ -25,6 +25,10 @@ import {
 import { PERPS_HL_PORTFOLIO_STALE_SERVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
@@ -75,6 +79,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
+  IActiveAssetData,
   IApiRequestError,
   IApiRequestResult,
   IBook,
@@ -82,6 +87,7 @@ import type {
   IFill,
   IFundingHistoryRecord,
   IHex,
+  IL2BookResponse,
   IMarginTable,
   IMarginTableMap,
   IPerpAnnotation,
@@ -135,6 +141,7 @@ import {
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
+  perpsUnifoldActiveRecipientAtom,
   spotActiveAssetAtom,
   spotActiveAssetCtxAtom,
   spotAssetCtxsMapAtom,
@@ -155,6 +162,7 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import { buildL2BookByCoinRequest } from './utils/l2Book';
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
@@ -744,6 +752,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               disablePerpActionPerp:
                 commonConfig.disablePerpActionPerp === true,
               ipDisablePerp: commonConfig.ipDisablePerp === true,
+              unifoldDepositEnabled:
+                commonConfig.unifoldDepositEnabled === true,
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -1539,6 +1549,19 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getActiveAssetDataByCoin({
+    coin,
+    user,
+  }: {
+    coin: string;
+    user: IHex;
+  }): Promise<IActiveAssetData> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.activeAssetData({ coin: apiCoin, user });
+  }
+
+  @backgroundMethod()
   async getPerpContractInfo({
     coin,
   }: {
@@ -1618,6 +1641,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       nSigFigs,
       mantissa,
     });
+  }
+
+  @backgroundMethod()
+  async fetchL2BookByCoin({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IL2BookResponse> {
+    const { infoClient } = hyperLiquidApiClients;
+    const { apiCoin } = this.resolveInfoRequestCoin(coin);
+    return infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
   }
 
   @backgroundMethod()
@@ -2440,12 +2474,21 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IPerpsActiveAccountAtom | undefined> {
     const requestId = this.beginActivePerpsAccountChange();
     const { indexedAccountId, accountId, deriveType } = params;
+    const walletType =
+      await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+        walletId: params.walletId ?? undefined,
+        accountId: accountId ?? undefined,
+      });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
 
     const perpsAccount: IPerpsActiveAccountAtom = {
       indexedAccountId: indexedAccountId || null,
       accountId: null,
       accountAddress: null,
       deriveType: deriveType || 'default',
+      walletType,
     };
 
     try {
@@ -2592,11 +2635,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
     }
 
-    // Expose the new active account last. Account-value consumers must still
-    // verify address alignment because multiple atom sets are observable.
+    // Commit the background recipient guard before publishing the account to
+    // main. On split-runtime targets the UI must never observe a recipient
+    // that the persisted IPC guard has not accepted yet; a failed persistence
+    // write therefore leaves the previous active account published.
     if (!this.isLatestActivePerpsAccountChange(requestId)) {
       return undefined;
     }
+    await perpsUnifoldActiveRecipientAtom.set((prev) => {
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return prev;
+      }
+      return {
+        accountAddress: perpsAccount.accountAddress,
+      };
+    });
+    if (!this.isLatestActivePerpsAccountChange(requestId)) {
+      return undefined;
+    }
+
+    // Expose the new active account last. Account-value consumers must still
+    // verify address alignment because the other account-data atom resets
+    // above remain independently observable.
     await perpsActiveAccountAtom.set((prev): IPerpsActiveAccountAtom => {
       if (!this.isLatestActivePerpsAccountChange(requestId)) {
         return prev;
@@ -2661,22 +2721,46 @@ export default class ServiceHyperliquid extends ServiceBase {
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
-      if (dexUniverses?.length === 0) {
+      // `universesByDex` is `[]` before anything is cached, so the old
+      // `?.length === 0` test was never true and `assetId: -1` got committed
+      // as a resolved asset.
+      if (!dexUniverses?.length) {
+        // perpsActiveAssetAtom is persisted, so matching on coin alone would
+        // hand back an `assetId: -1` left by an older build.
         if (
-          shouldSeedSubscriptionTarget &&
-          requestId === this.activeAssetChangeRequestId
+          !shouldSeedSubscriptionTarget &&
+          oldActiveAsset &&
+          oldActiveAsset.coin === newCoin &&
+          oldActiveAsset.universe &&
+          typeof oldActiveAsset.assetId === 'number' &&
+          oldActiveAsset.assetId >= 0
         ) {
-          await perpsActiveAssetAtom.set(rollbackActiveAsset);
+          markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
+            coin: oldActiveAsset.coin,
+          });
+          return oldActiveAsset;
         }
         const result = {
-          coin: rollbackActiveAsset?.coin || newCoin || '',
-          assetId: rollbackActiveAsset?.assetId,
-          universe: rollbackActiveAsset?.universe,
-          margin: rollbackActiveAsset?.margin,
+          coin: newCoin || rollbackActiveAsset?.coin || '',
+          assetId: undefined,
+          universe: undefined,
+          margin: undefined,
         };
+        if (requestId === this.activeAssetChangeRequestId) {
+          await perpsActiveAssetAtom.set(result);
+          // Returning early skips the shared tail that clears this, and
+          // perpsActiveAssetCtxMidPriceAtom reads the ctx without a coin
+          // guard — the form would seed with the previous coin's mid price.
+          if (oldCoin !== newCoin) {
+            await perpsActiveAssetCtxAtom.set(undefined);
+            schedulePerpsActiveAssetCtxDisplayUpdate({
+              nextValue: undefined,
+              immediate: true,
+            });
+          }
+        }
         markPerpsColdStartPerf('service_change_active_asset_empty_universe', {
           coin: result.coin,
-          assetId: result.assetId,
         });
         return result;
       }
@@ -3830,6 +3914,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     );
   }
 
+  // Concurrent callers (mount prefetch + priceScale fallback/refresh) share
+  // one REST allMids request instead of issuing duplicates.
+  private allMidsInflightRequest: Promise<
+    Awaited<ReturnType<typeof hyperLiquidApiClients.infoClient.allMids>>
+  > | null = null;
+
   @backgroundMethod()
   async getTradingviewMidPrice(symbol: string): Promise<string | undefined> {
     if (!symbol) {
@@ -3849,8 +3939,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     try {
-      const { infoClient } = hyperLiquidApiClients;
-      const allMids = await infoClient.allMids();
+      if (!this.allMidsInflightRequest) {
+        const { infoClient } = hyperLiquidApiClients;
+        this.allMidsInflightRequest = infoClient.allMids().finally(() => {
+          this.allMidsInflightRequest = null;
+        });
+      }
+      const allMids = await this.allMidsInflightRequest;
       hyperLiquidCache.allMids = {
         mids: allMids,
       };
@@ -3863,6 +3958,73 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       return undefined;
     }
+  }
+
+  @backgroundMethod()
+  async getTradingviewPriceScale({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<{ priceScale: number | undefined }> {
+    if (!symbol) {
+      return { priceScale: undefined };
+    }
+
+    const cachedMid = hyperLiquidCache.allMids?.mids?.[symbol];
+    if (cachedMid) {
+      const priceScale = perpsUtils.calculateDisplayPriceScale(cachedMid);
+      void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+        () => undefined,
+      );
+      return { priceScale };
+    }
+
+    // Answer from the persisted scale instead of waiting for the REST
+    // fallback; the chart's resolveSymbol blocks first paint on this response.
+    const persisted = await this.getTradingviewDisplayPriceScale(symbol);
+    if (persisted !== undefined) {
+      this.refreshTradingviewPriceScaleOffCriticalPath({
+        symbol,
+        previousPriceScale: persisted,
+      });
+      return { priceScale: persisted };
+    }
+
+    const midValue = await this.getTradingviewMidPrice(symbol);
+    if (!midValue) {
+      return { priceScale: undefined };
+    }
+    const priceScale = perpsUtils.calculateDisplayPriceScale(midValue);
+    void this.setTradingviewDisplayPriceScale({ symbol, priceScale }).catch(
+      () => undefined,
+    );
+    return { priceScale };
+  }
+
+  private refreshTradingviewPriceScaleOffCriticalPath({
+    symbol,
+    previousPriceScale,
+  }: {
+    symbol: string;
+    previousPriceScale: number;
+  }): void {
+    void this.getTradingviewMidPrice(symbol)
+      .then(async (midValue) => {
+        if (!midValue) {
+          return;
+        }
+        const priceScale = perpsUtils.calculateDisplayPriceScale(midValue);
+        await this.setTradingviewDisplayPriceScale({ symbol, priceScale });
+        if (priceScale !== previousPriceScale) {
+          // The chart may have already resolved with the stale scale; let the
+          // UI trigger a re-resolve so precision self-heals in this session.
+          appEventBus.emit(EAppEventBusNames.PerpsTvPriceScaleRefreshed, {
+            symbol,
+            priceScale,
+          });
+        }
+      })
+      .catch(() => undefined);
   }
 
   @backgroundMethod()

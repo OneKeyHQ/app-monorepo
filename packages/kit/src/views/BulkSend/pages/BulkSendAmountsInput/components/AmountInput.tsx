@@ -53,6 +53,7 @@ export function SpecifiedAmountInput() {
     minTransferAmount,
     bulkSendMode,
     isMaxMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const isInPreviewMode = previewState.specifiedPreviewed;
@@ -64,7 +65,8 @@ export function SpecifiedAmountInput() {
 
   const isLoading =
     !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens; equals raw for ordinary tokens.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
   const tokenSymbol = tokenInfo.symbol;
   const minTransferDisplayAmount = useMemo(
     () =>
@@ -208,12 +210,14 @@ export function RangeAmountInput() {
     setPreviewState,
     minTransferAmount: ctxMinTransferAmount,
     bulkSendMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens; equals raw for ordinary tokens.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
 
   // Local display values for immediate UI feedback
   const [localMin, setLocalMin] = useState(amountInputValues.rangeMin);
@@ -534,6 +538,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     bulkSendMode,
     isMaxMode,
     setIsMaxMode,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -574,7 +579,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   }, [intl, hasCustomAmounts]);
 
   const validateSpecifiedAmount = useCallback((): IAmountInputError => {
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
     const minTransferAmountBN = new BigNumber(minTransferAmount);
     const valueBN = new BigNumber(amountInputValues.specifiedAmount || '0');
     if (
@@ -618,6 +623,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     intl,
     tokenInfo,
     tokenDetails?.balanceParsed,
+    displayBalance,
     amountInputValues.specifiedAmount,
     transfersInfo.length,
     minTransferAmount,
@@ -626,7 +632,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   ]);
 
   const validateRangeAmount = useCallback((): IAmountInputError => {
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
     const error = validateRangeInput({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
@@ -639,6 +645,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     return error ? { rangeError: error } : {};
   }, [
     tokenDetails?.balanceParsed,
+    displayBalance,
     amountInputValues.rangeMin,
     amountInputValues.rangeMax,
     minTransferAmount,

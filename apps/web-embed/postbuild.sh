@@ -2,6 +2,11 @@
 
 set -euo pipefail -x
 
+if [[ "${WEB_EMBED_SKIP_POSTBUILD:-false}" == "true" ]]; then
+  echo "Skipping native asset sync for the web-embed bundle."
+  exit 0
+fi
+
 echo "Creating .well-known directory..."
 mkdir -p ./web-build/.well-known
 
@@ -21,4 +26,3 @@ echo "Syncing web-build to iOS assets..."
 rsync -r -c -v ./web-build/ ../mobile/ios/OneKeyWallet/web-embed/
 
 echo "Postbuild completed successfully."
-

@@ -1,14 +1,30 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { MutableRefObject, Ref } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Icon,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  formatHlSize,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -16,11 +32,16 @@ import type { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { SizeInputModeSelector } from '../selectors/SizeInputModeSelector';
 
+import {
+  canSkipPerpsSizePriceConversion,
+  convertPerpsSizeDisplayValueToToken,
+} from './sizeInputConversion';
 import { TradingFormInput } from './TradingFormInput';
 
 import type { ISide } from '../selectors/TradeSideToggle';
 
 type ISizeInputUnit = 'token' | 'usd' | 'margin';
+const MINIMUM_ORDER_NOTIONAL = 10;
 
 export type ISizeInputDisplayValueChangePayload = {
   inputMode: ISizeInputUnit;
@@ -28,7 +49,34 @@ export type ISizeInputDisplayValueChangePayload = {
   tokenValue: string;
 };
 
+export type ISizeInputMinimumOrderAction = {
+  amountLabel: string;
+  label: string;
+  onPress: () => void;
+};
+
+export function getMinimumOrderToastActionProps(
+  action?: ISizeInputMinimumOrderAction,
+  actionLabel?: string,
+) {
+  if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
+  return {
+    actionsAlign: 'left' as const,
+    actions: (
+      <Button
+        testID="perp-minimum-order-toast-action"
+        size="small"
+        variant="primary"
+        onPress={action.onPress}
+      >
+        {actionLabel}
+      </Button>
+    ),
+  };
+}
+
 interface ISizeInputProps {
+  testID?: string;
   value: string;
   side: ISide;
   symbol: string;
@@ -46,10 +94,16 @@ interface ISizeInputProps {
   isMobile?: boolean;
   leverage: number;
   allowMarginInput?: boolean;
+  ifOnDialog?: boolean;
+  inputRef?: Ref<IInputRef>;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
 }
 
 export const SizeInput = memo(
   ({
+    testID,
     value,
     onChange,
     onDisplayValueChange,
@@ -67,6 +121,9 @@ export const SizeInput = memo(
     isMobile = false,
     leverage,
     allowMarginInput = true,
+    ifOnDialog = false,
+    inputRef,
+    minimumOrderActionRef,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
@@ -134,13 +191,15 @@ export const SizeInput = memo(
     // otherwise we may submit a size whose actual notional exceeds the user's
     // typed USD amount (root cause of the "input $10 → estimate $10.44" bug).
     const calcTokenFromUsd = useCallback(
-      (usdValue: string) => {
-        if (!hasValidPrice) return '';
-        const usdBN = new BigNumber(usdValue);
-        if (!usdBN.isFinite()) return '';
-        return formatHlSize(usdBN.dividedBy(priceBN), szDecimals);
-      },
-      [hasValidPrice, priceBN, szDecimals],
+      (usdValue: string) =>
+        convertPerpsSizeDisplayValueToToken({
+          displayValue: usdValue,
+          inputMode: 'usd',
+          referencePrice,
+          leverage,
+          szDecimals,
+        }),
+      [leverage, referencePrice, szDecimals],
     );
 
     const calcMarginFromToken = useCallback(
@@ -155,14 +214,15 @@ export const SizeInput = memo(
     );
 
     const calcTokenFromMargin = useCallback(
-      (marginValue: string) => {
-        if (!hasValidPrice) return '';
-        const marginBN = new BigNumber(marginValue);
-        if (!marginBN.isFinite()) return '';
-        const tokenValue = marginBN.multipliedBy(leverageBN).dividedBy(priceBN);
-        return formatHlSize(tokenValue, szDecimals);
-      },
-      [hasValidPrice, priceBN, leverageBN, szDecimals],
+      (marginValue: string) =>
+        convertPerpsSizeDisplayValueToToken({
+          displayValue: marginValue,
+          inputMode: 'margin',
+          referencePrice,
+          leverage,
+          szDecimals,
+        }),
+      [leverage, referencePrice, szDecimals],
     );
 
     const sliderDisplay = useMemo(() => {
@@ -279,7 +339,14 @@ export const SizeInput = memo(
     useEffect(() => {
       if (isSliderMode) return;
 
-      if (!prevValueRef.current) {
+      if (
+        canSkipPerpsSizePriceConversion({
+          tokenValue: prevValueRef.current,
+          inputMode,
+          usdAmount,
+          marginAmount,
+        })
+      ) {
         prevPriceRef.current = referencePrice;
         return;
       }
@@ -350,14 +417,8 @@ export const SizeInput = memo(
       return () => clearTimeout(timer);
     }, [isUserTyping]);
 
-    const handleInputChange = useCallback(
+    const applyManualInputValue = useCallback(
       (newValue: string) => {
-        if (isSliderMode) {
-          setTokenAmount('');
-          onChange('');
-          return;
-        }
-
         setIsUserTyping(true);
         onRequestManualMode?.();
 
@@ -396,7 +457,6 @@ export const SizeInput = memo(
         }
       },
       [
-        isSliderMode,
         inputMode,
         onChange,
         onDisplayValueChange,
@@ -405,6 +465,74 @@ export const SizeInput = memo(
         onRequestManualMode,
       ],
     );
+
+    const handleInputChange = useCallback(
+      (newValue: string) => {
+        if (isSliderMode) {
+          setTokenAmount('');
+          onChange('');
+          return;
+        }
+        applyManualInputValue(newValue);
+      },
+      [applyManualInputValue, isSliderMode, onChange],
+    );
+
+    const minimumOrderSuggestion = useMemo(() => {
+      if (!hasValidPrice || isDisabled) return undefined;
+
+      const tokenValue = new BigNumber(MINIMUM_ORDER_NOTIONAL)
+        .dividedBy(priceBN)
+        .decimalPlaces(szDecimals, BigNumber.ROUND_CEIL)
+        .toFixed(szDecimals);
+      if (inputMode === 'token') {
+        return {
+          displayValue: tokenValue,
+          label: `${tokenValue} ${symbol}`.trim(),
+        };
+      }
+
+      const orderValue = new BigNumber(tokenValue).multipliedBy(priceBN);
+      const displayValue = (
+        inputMode === 'margin' ? orderValue.dividedBy(leverageBN) : orderValue
+      )
+        .decimalPlaces(2, BigNumber.ROUND_CEIL)
+        .toFixed(2);
+      return { displayValue, label: `$${displayValue}` };
+    }, [
+      hasValidPrice,
+      inputMode,
+      isDisabled,
+      leverageBN,
+      priceBN,
+      symbol,
+      szDecimals,
+    ]);
+    const inputAccessoryAction = useMemo(
+      () =>
+        minimumOrderSuggestion
+          ? {
+              testID: 'perp-size-input-minimum-action',
+              amountLabel: minimumOrderSuggestion.label,
+              label: intl.formatMessage(
+                { id: ETranslations.perp_size_least },
+                { amount: minimumOrderSuggestion.label },
+              ),
+              onPress: () =>
+                applyManualInputValue(minimumOrderSuggestion.displayValue),
+            }
+          : undefined,
+      [applyManualInputValue, intl, minimumOrderSuggestion],
+    );
+    useLayoutEffect(() => {
+      if (!minimumOrderActionRef) return;
+      minimumOrderActionRef.current = inputAccessoryAction;
+      return () => {
+        if (minimumOrderActionRef.current === inputAccessoryAction) {
+          minimumOrderActionRef.current = undefined;
+        }
+      };
+    }, [inputAccessoryAction, minimumOrderActionRef]);
 
     const handleModeChange = useCallback(
       (newMode: string) => {
@@ -537,6 +665,7 @@ export const SizeInput = memo(
 
     return (
       <TradingFormInput
+        testID={testID}
         value={displayValue}
         onChange={handleInputChange}
         label={formatLabel}
@@ -555,6 +684,9 @@ export const SizeInput = memo(
               })
             : '0.0'
         }
+        ifOnDialog={ifOnDialog}
+        inputAccessoryAction={inputAccessoryAction}
+        inputRef={inputRef}
       />
     );
   },

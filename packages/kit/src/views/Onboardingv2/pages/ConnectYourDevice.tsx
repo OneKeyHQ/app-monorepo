@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { get, isString } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -27,7 +27,6 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
-  useThemeName,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -61,6 +60,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
@@ -275,7 +275,7 @@ function useDeviceConnection({
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+              onConfirm: () => openUrlExternal(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
             deviceScanner.stopScan();
@@ -441,7 +441,7 @@ function TroubleShootingButton({ type: _type }: { type: 'usb' | 'bluetooth' }) {
               testID={OnboardingTestIDs.connectYourDeviceTroubleshootingBtn}
               icon="OpenOutline"
               onPress={() => {
-                void Linking.openURL(HARDWARE_TROUBLESHOOTING_URL);
+                openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
               }}
             >
               {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
@@ -543,13 +543,7 @@ function BluetoothCard({
   );
 }
 
-function DeviceVideo({
-  themeVariant,
-  deviceTypeItems,
-}: {
-  themeVariant: 'light' | 'dark';
-  deviceTypeItems: EDeviceType[];
-}) {
+function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -571,29 +565,20 @@ function DeviceVideo({
     );
   }, [deviceTypeItems]);
 
+  // The onboarding flow is force-dark, so every device uses its dark (-D) asset
+  // and no theme branching is needed.
   const videoSource = useMemo<ReactVideoSource>(() => {
     if (isMini) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Mini-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource;
     }
-
     if (isClassic) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Classic1S-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource;
     }
-
     if (isTouch) {
-      return themeVariant === 'dark'
-        ? (require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource)
-        : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
+      return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
     }
-
-    return themeVariant === 'dark'
-      ? (require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource)
-      : (require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4') as ReactVideoSource);
-  }, [isClassic, isMini, isTouch, themeVariant]);
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+  }, [isClassic, isMini, isTouch]);
 
   return (
     <Video
@@ -615,7 +600,6 @@ function USBOrBLEConnectionIndicator({
   connectDevice,
   vendor,
 }: IDeviceConnectionProps) {
-  const themeVariant = useThemeName() as 'light' | 'dark';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -786,10 +770,7 @@ function USBOrBLEConnectionIndicator({
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
-              <DeviceVideo
-                themeVariant={themeVariant}
-                deviceTypeItems={deviceTypeItems}
-              />
+              <DeviceVideo deviceTypeItems={deviceTypeItems} />
             </ConnectionIndicator.Animation>
             <ConnectionIndicator.Content gap="$2">
               <ConnectionIndicator.Title>

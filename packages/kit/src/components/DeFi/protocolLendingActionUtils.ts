@@ -3,6 +3,70 @@ import BigNumber from 'bignumber.js';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
+type IProtocolLendingPostCloseErrorMode = 'report' | 'propagate';
+
+export function createProtocolLendingSubmitGuard({
+  isActionDialogClosed,
+  isUserRejectedError,
+  isErrorAlreadyReported,
+  shouldShowInlineError,
+  onInlineError,
+  onPostCloseError,
+  onRelease,
+}: {
+  isActionDialogClosed: () => boolean;
+  isUserRejectedError: (error: unknown) => boolean;
+  isErrorAlreadyReported: (error: unknown) => boolean;
+  shouldShowInlineError: (error: unknown) => boolean;
+  onInlineError: (error: unknown) => void;
+  onPostCloseError: (error: unknown) => void;
+  onRelease: () => void;
+}) {
+  let released = false;
+
+  const release = () => {
+    if (released) {
+      return false;
+    }
+    released = true;
+    onRelease();
+    return true;
+  };
+
+  const releaseWithError = (
+    error: unknown,
+    {
+      postCloseErrorMode = 'report',
+    }: {
+      postCloseErrorMode?: IProtocolLendingPostCloseErrorMode;
+    } = {},
+  ) => {
+    if (released) {
+      return false;
+    }
+
+    let shouldPropagate = false;
+    if (!isUserRejectedError(error) && !isErrorAlreadyReported(error)) {
+      if (isActionDialogClosed()) {
+        if (postCloseErrorMode === 'propagate') {
+          shouldPropagate = true;
+        } else {
+          onPostCloseError(error);
+        }
+      } else if (shouldShowInlineError(error)) {
+        onInlineError(error);
+      }
+    }
+    release();
+    return shouldPropagate;
+  };
+
+  return {
+    release,
+    releaseWithError,
+  };
+}
+
 function toNonNegativeAmountBN(value?: string) {
   const amountBN = new BigNumber(value ?? '');
   if (!amountBN.isFinite() || amountBN.lt(0)) return undefined;
@@ -35,23 +99,26 @@ function resolveRepayValueForMax({
 }) {
   const debtLimitAmount = repayAllTargetAmount ?? referenceBalance;
   const debtLimitBN = toNonNegativeAmountBN(debtLimitAmount);
-  const maxRepayBN = toNonNegativeAmountBN(maxRepayBalance);
-  if (maxRepayBN) {
-    if (debtLimitBN?.gt(0) && maxRepayBN.gt(debtLimitBN)) {
+
+  // Repaying more than the debt is not a thing, so any candidate cap is itself
+  // capped by the debt. Undefined means the candidate is unusable, which is
+  // what makes the fallback chain below read in preference order.
+  const capToDebtLimit = (candidate?: string) => {
+    const candidateBN = toNonNegativeAmountBN(candidate);
+    if (!candidateBN) {
+      return undefined;
+    }
+    if (debtLimitBN?.gt(0) && candidateBN.gt(debtLimitBN)) {
       return debtLimitAmount;
     }
-    return maxRepayBalance ?? '0';
-  }
+    return candidate ?? '0';
+  };
 
-  const walletBN = toNonNegativeAmountBN(repayWalletBalance);
-  if (walletBN) {
-    if (debtLimitBN?.gt(0) && walletBN.gt(debtLimitBN)) {
-      return debtLimitAmount;
-    }
-    return repayWalletBalance ?? '0';
-  }
-
-  return referenceBalance;
+  return (
+    capToDebtLimit(maxRepayBalance) ??
+    capToDebtLimit(repayWalletBalance) ??
+    referenceBalance
+  );
 }
 
 export function resolveProtocolLendingWithdrawAmountState({

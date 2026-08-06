@@ -1,0 +1,117 @@
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
+  buildSwapRequestErrorToastPayload,
+  shouldAttachSwapReferralBuildTxParams,
+} from './ServiceSwap.utils';
+
+describe('shouldAttachSwapReferralBuildTxParams', () => {
+  it('enables attribution for Swap and Bridge builds', () => {
+    expect(
+      shouldAttachSwapReferralBuildTxParams(EProtocolOfExchange.SWAP),
+    ).toBe(true);
+  });
+
+  it.each([
+    EProtocolOfExchange.LIMIT,
+    EProtocolOfExchange.PRIVATE_SEND,
+    EProtocolOfExchange.STOCK,
+    EProtocolOfExchange.ALL,
+  ])('excludes %s builds from referral attribution', (protocol) => {
+    expect(shouldAttachSwapReferralBuildTxParams(protocol)).toBe(false);
+  });
+});
+
+describe('buildSwapReferralBuildTxParams', () => {
+  it('maps a bound EVM wallet to the swap build contract', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+        rebateAddress: '0xcurrent',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+      rebateAddress: '0xcurrent',
+    });
+  });
+
+  it('keeps bound attribution when the current EVM address is unavailable', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+    });
+  });
+
+  it('omits referral attribution for an unbound wallet', () => {
+    expect(buildSwapReferralBuildTxParams()).toEqual({});
+  });
+});
+
+describe('buildPerpDepositOrderStatusRequestParams', () => {
+  it('maps the quote order ID to the status request', () => {
+    expect(
+      buildPerpDepositOrderStatusRequestParams({
+        networkId: 'evm--1',
+        txId: '0xtx',
+        isArbUSDCToken: false,
+        toPerpDepositTokenAddress: '0xdeposit',
+        receivingAddress: '0xreceiver',
+        orderId: 'order-123',
+      }),
+    ).toEqual({
+      networkId: 'evm--1',
+      txId: '0xtx',
+      isArbUSDCToken: false,
+      toPerpDepositTokenAddress: '0xdeposit',
+      receivedAddress: '0xreceiver',
+      orderId: 'order-123',
+    });
+  });
+
+  it('omits the order ID for direct deposits and legacy pending orders', () => {
+    expect(
+      buildPerpDepositOrderStatusRequestParams({
+        networkId: 'evm--42161',
+        txId: '0xtx',
+        isArbUSDCToken: true,
+        toPerpDepositTokenAddress: '0xdeposit',
+        receivingAddress: '0xreceiver',
+      }),
+    ).not.toHaveProperty('orderId');
+  });
+});
+
+describe('buildSwapRequestErrorToastPayload', () => {
+  it('keeps the request ID out of visible text while preserving diagnostics', () => {
+    const payload = buildSwapRequestErrorToastPayload({
+      message: 'Minimum value is 10 USDT',
+      requestId: 'req-123',
+    });
+
+    expect(payload).toEqual({
+      diagnosticText: 'RequestId: req-123',
+      method: 'error',
+      requestId: 'req-123',
+      title: 'Minimum value is 10 USDT',
+    });
+    expect(payload).not.toHaveProperty('message');
+  });
+
+  it('omits request diagnostics when the error has no request ID', () => {
+    expect(buildSwapRequestErrorToastPayload()).toEqual({
+      diagnosticText: undefined,
+      method: 'error',
+      requestId: undefined,
+      title: 'Request failed',
+    });
+  });
+});

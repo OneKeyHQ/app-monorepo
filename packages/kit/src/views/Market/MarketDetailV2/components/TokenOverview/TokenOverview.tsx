@@ -76,12 +76,14 @@ export function TokenOverview() {
 
     return {
       label: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
-      value: intl.formatMessage(
-        { id: ETranslations.dexmarket_details_audit_issue },
-        { amount: count },
-      ),
+      value: securityData
+        ? intl.formatMessage(
+            { id: ETranslations.dexmarket_details_audit_issue },
+            { amount: count },
+          )
+        : '--',
       icon: 'BugOutline',
-      iconColor: color,
+      iconColor: securityData ? color : '$iconSubdued',
       onPress: securityData ? handleAuditPress : undefined,
     };
   }, [

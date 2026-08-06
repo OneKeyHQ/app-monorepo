@@ -67,6 +67,7 @@ import {
   ClearPendingTransactionsListItem,
   CurrencyListItem,
   DesktopBluetoothListItem,
+  HapticFeedbackListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -382,6 +383,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isNative
+              ? {
+                  icon: 'HandPointerOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_vibration_haptic,
+                  }),
+                  renderElement: <HapticFeedbackListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
       platformEnv.isWebDappMode
@@ -607,6 +619,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             {
               icon: 'BroomOutline',
+              testID: SettingTestIDs.clearAppCacheItem,
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_cache_on_app,
               }),
@@ -764,6 +777,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         }),
                       );
                     } else if (platformEnv.isNativeAndroidGooglePlay) {
+                      // Store hosts are forced to the system browser by the
+                      // central openUrlExternal policy.
                       openUrlExternal(PLAY_STORE_LINK);
                     } else if (platformEnv.isNativeIOS) {
                       openUrlExternal(APP_STORE_LINK);

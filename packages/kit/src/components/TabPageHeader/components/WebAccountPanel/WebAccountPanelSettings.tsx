@@ -47,6 +47,7 @@ import { WebAccountPanelSectionTitle } from './atoms/WebAccountPanelSectionTitle
 const SELECT_OFFSET = { mainAxis: -4, crossAxis: -10 } as const;
 
 const CLEAR_CACHE_BASE: IClearCacheOnAppState = {
+  oneKeyId: false,
   tokenAndNFT: false,
   transactionHistory: false,
   swapHistory: false,

@@ -29,6 +29,7 @@ import {
   useSwapActions,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
@@ -65,6 +66,8 @@ import {
 } from '../../hooks/useSwapAccount';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
+  shouldEnableSwapIncognitoRecipientValidation,
+  shouldShowSwapIncognitoRecipientInput,
   useSwapIncognitoRecipientInput,
 } from '../../hooks/useSwapIncognitoRecipientInput';
 import {
@@ -79,6 +82,7 @@ import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 
 interface ISwapActionsStateProps {
+  forceQuoteActionLoading?: boolean;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -87,6 +91,7 @@ interface ISwapActionsStateProps {
 // cspell:ignore ellipsize
 
 const SwapActionsState = ({
+  forceQuoteActionLoading,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -96,6 +101,7 @@ const SwapActionsState = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -121,8 +127,7 @@ const SwapActionsState = ({
     setSettings,
   ] = useSettingsAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { quoteLoading, quoteEventFetching, isWaitingActionableQuote } =
-    useSwapQuoteProgressState();
+  const { quoteLoading, quoteEventFetching } = useSwapQuoteProgressState();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -201,19 +206,32 @@ const SwapActionsState = ({
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
-      !!(
-        swapIncognitoMode &&
-        swapProviderSupportReceiveAddress &&
-        fromToken &&
-        toToken &&
-        swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
-        swapTypeSwitch !== ESwapTabSwitchType.STOCK
-      ),
+      shouldShowSwapIncognitoRecipientInput({
+        incognitoMode: swapIncognitoMode,
+        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        swapType: swapTypeSwitch,
+      }),
+    [swapIncognitoMode, swapProviderSupportReceiveAddress, swapTypeSwitch],
+  );
+
+  const incognitoRecipientNetworkId =
+    toToken?.networkId ?? swapToAddressInfo.networkId;
+  const shouldValidateIncognitoRecipientInput = useMemo(
+    () =>
+      shouldEnableSwapIncognitoRecipientValidation({
+        hasFromToken: Boolean(fromToken),
+        hasToToken: Boolean(toToken),
+        isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+        networkId: incognitoRecipientNetworkId,
+        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        visible: shouldShowIncognitoRecipientInput,
+      }),
     [
       fromToken,
-      swapIncognitoMode,
+      incognitoRecipientNetworkId,
+      shouldShowIncognitoRecipientInput,
       swapProviderSupportReceiveAddress,
-      swapTypeSwitch,
+      swapToAddressInfo.isAddressInfoReady,
       toToken,
     ],
   );
@@ -225,8 +243,9 @@ const SwapActionsState = ({
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
     visible: shouldShowIncognitoRecipientInput,
+    validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
-    networkId: toToken?.networkId ?? swapToAddressInfo.networkId,
+    networkId: incognitoRecipientNetworkId,
     accountId:
       swapToAddressInfo.accountInfo?.account?.id ??
       swapToAddressInfo.activeAccount?.account?.id,
@@ -273,22 +292,24 @@ const SwapActionsState = ({
 
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
-      enabled: incognitoRecipientInput.enabled,
       inputText: incognitoRecipientInput.inputText,
+      isConnectWalletAction: Boolean(swapActionState.noConnectWallet),
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
+      validationEnabled: incognitoRecipientInput.enabled,
+      visible: shouldShowIncognitoRecipientInput,
     });
 
+  const shouldShowQuoteActionLoading =
+    !swapActionState.isRefreshQuote &&
+    (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled =
     swapActionState.disabled ||
     swapActionState.isLoading ||
+    shouldShowQuoteActionLoading ||
     shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
-    if (shouldBlockIncognitoRecipientAction) {
-      return;
-    }
-
     if (swapActionState.noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -302,6 +323,9 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldBlockIncognitoRecipientAction) {
       return;
     }
     if (swapActionState.isRefreshQuote) {
@@ -318,15 +342,21 @@ const SwapActionsState = ({
       );
       return;
     }
+    if (swapActionState.shouldEnterRecipient) {
+      onOpenRecipientAddress();
+      return;
+    }
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onOpenRecipientAddress,
     onPreSwap,
     quoteAction,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.noConnectWallet,
+    swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
@@ -394,7 +424,7 @@ const SwapActionsState = ({
       );
 
       cleanQuoteInterval();
-      closeQuoteEvent();
+      closeQuoteEvent(quoteActionLock.quoteRequestId);
       setSwapManualSelectQuoteProvider(undefined);
       setSwapQuoteEventTotalCount({ count: 0 });
       setSwapQuoteList([]);
@@ -423,6 +453,7 @@ const SwapActionsState = ({
       closeQuoteEvent,
       currentQuoteRes?.kind,
       quoteAction,
+      quoteActionLock.quoteRequestId,
       setSettings,
       setSwapManualSelectQuoteProvider,
       setSwapQuoteEventTotalCount,
@@ -812,7 +843,7 @@ const SwapActionsState = ({
 
   const actionButtonChildren = useMemo(
     () =>
-      isWaitingActionableQuote || swapActionState.isWaitingAutoSlippage ? (
+      shouldShowQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -839,12 +870,7 @@ const SwapActionsState = ({
           {swapActionState.label}
         </SizableText>
       ),
-    [
-      isWaitingActionableQuote,
-      swapActionState.isWaitingAutoSlippage,
-      swapActionState.label,
-      themeVariant,
-    ],
+    [swapActionState.label, shouldShowQuoteActionLoading, themeVariant],
   );
 
   const actionRowComponent = useMemo(

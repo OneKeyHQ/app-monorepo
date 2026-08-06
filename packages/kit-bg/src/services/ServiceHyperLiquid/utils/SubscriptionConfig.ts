@@ -2,7 +2,9 @@ import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { DEX_PREFIXES } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IBook,
   IEventAllDexsClearinghouseStateParameters,
+  IEventFastL2Parameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
   IEventTwapStatesParameters,
@@ -86,6 +88,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 3,
   },
+  [ESubscriptionType.L2]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
+    priority: 3,
+  },
   [ESubscriptionType.ACTIVE_ASSET_DATA]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
@@ -109,11 +115,26 @@ export interface ISubscriptionSpec<T extends ESubscriptionType> {
   readonly priority: number;
 }
 
+export function normalizeL2BookForSubscriptionSpec(
+  data: IBook,
+  spec: ISubscriptionSpec<ESubscriptionType.L2_BOOK> | null,
+): IBook | undefined {
+  if (!spec || data.coin !== spec.params.coin) {
+    return undefined;
+  }
+  return {
+    ...data,
+    nSigFigs: spec.params.nSigFigs ?? null,
+    mantissa: spec.params.mantissa ?? null,
+  };
+}
+
 export interface ISubscriptionState {
   currentUser: IHex | null;
   currentSymbol: string;
   isConnected: boolean;
   l2BookOptions?: IL2BookOptions | null;
+  orderBookTransport?: 'l2' | 'l2Book';
   enableLedgerUpdates?: boolean;
   spotEnabled?: boolean;
   spotAssetCtxsEnabled?: boolean;
@@ -125,6 +146,35 @@ export interface ISubscriptionState {
 export interface ISubscriptionDiff {
   toUnsubscribe: ISubscriptionSpec<ESubscriptionType>[];
   toSubscribe: ISubscriptionSpec<ESubscriptionType>[];
+}
+
+export function isOrderBookOptionsTargetReady(
+  currentCoin: string | undefined,
+  optionsCoin: string | undefined,
+) {
+  return !currentCoin || !optionsCoin || currentCoin === optionsCoin;
+}
+
+// Order-book transitions overlap-check by coin: L2 params use `c`,
+// L2_BOOK params use `coin`; fall back to the key for non-book specs.
+export function getOrderBookSubscriptionCoin(
+  spec: ISubscriptionSpec<ESubscriptionType>,
+): string {
+  const params = spec.params as { c?: string; coin?: string };
+  return params.c ?? params.coin ?? spec.key;
+}
+
+export function getSubscriptionResumeAction({
+  isOpen,
+  isClosedOrClosing,
+}: {
+  isOpen: boolean;
+  isClosedOrClosing: boolean;
+}): 'reconcile' | 'reconnect' | 'waitForOpen' {
+  if (isOpen) {
+    return 'reconcile';
+  }
+  return isClosedOrClosing ? 'reconnect' : 'waitForOpen';
 }
 
 export function generateSubscriptionKey<T extends ESubscriptionType>(
@@ -155,6 +205,20 @@ function buildSubscriptionSpec<T extends ESubscriptionType>({
     params,
     priority: getSubscriptionPriority(type),
   };
+}
+
+function buildFastL2Params(
+  coin: string,
+  l2BookParams: IEventL2BookParameters,
+): IEventFastL2Parameters {
+  const fastL2Params: IEventFastL2Parameters = { c: coin };
+  if (l2BookParams.nSigFigs !== null) {
+    fastL2Params.s = l2BookParams.nSigFigs;
+  }
+  if (l2BookParams.mantissa !== null) {
+    fastL2Params.m = l2BookParams.mantissa;
+  }
+  return fastL2Params;
 }
 
 export function calculateRequiredSubscriptions(
@@ -198,16 +262,26 @@ export function calculateRequiredSubscriptions(
       }),
     );
     if (state.l2BookOptions) {
-      specs.push(
-        buildSubscriptionSpec({
-          type: ESubscriptionType.L2_BOOK,
-          params: {
-            coin: state.currentSpotSymbol,
-            nSigFigs: state.l2BookOptions.nSigFigs ?? null,
-            mantissa: state.l2BookOptions.mantissa ?? null,
-          },
-        }),
-      );
+      const l2BookParams: IEventL2BookParameters = {
+        coin: state.currentSpotSymbol,
+        nSigFigs: state.l2BookOptions.nSigFigs ?? null,
+        mantissa: state.l2BookOptions.mantissa ?? null,
+      };
+      if (state.orderBookTransport === 'l2') {
+        specs.push(
+          buildSubscriptionSpec({
+            type: ESubscriptionType.L2,
+            params: buildFastL2Params(state.currentSpotSymbol, l2BookParams),
+          }),
+        );
+      } else {
+        specs.push(
+          buildSubscriptionSpec({
+            type: ESubscriptionType.L2_BOOK,
+            params: l2BookParams,
+          }),
+        );
+      }
     }
   } else if (state.currentSymbol) {
     specs.push(
@@ -237,12 +311,21 @@ export function calculateRequiredSubscriptions(
         nSigFigs: state.l2BookOptions.nSigFigs ?? null,
         mantissa: state.l2BookOptions.mantissa ?? null,
       };
-      specs.push(
-        buildSubscriptionSpec({
-          type: ESubscriptionType.L2_BOOK,
-          params: l2BookParams,
-        }),
-      );
+      if (state.orderBookTransport === 'l2') {
+        specs.push(
+          buildSubscriptionSpec({
+            type: ESubscriptionType.L2,
+            params: buildFastL2Params(state.currentSymbol, l2BookParams),
+          }),
+        );
+      } else {
+        specs.push(
+          buildSubscriptionSpec({
+            type: ESubscriptionType.L2_BOOK,
+            params: l2BookParams,
+          }),
+        );
+      }
     }
   }
 

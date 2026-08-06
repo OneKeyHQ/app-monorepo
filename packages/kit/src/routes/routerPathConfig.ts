@@ -58,6 +58,10 @@ const appUpdatePathConfig = [
     name: EAppUpdateRoutes.UpdatePreview,
     rewrite: '/preview',
   }),
+  route({
+    name: EAppUpdateRoutes.FeaturedChangelogPreview,
+    rewrite: '/changelog-preview',
+  }),
 ];
 
 const stakingPathConfig = [

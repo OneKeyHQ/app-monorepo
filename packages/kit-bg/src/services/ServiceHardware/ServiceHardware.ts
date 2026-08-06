@@ -23,6 +23,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
+import {
   CoreSDKLoader,
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
@@ -345,7 +349,6 @@ class ServiceHardware extends ServiceBase {
             currentTransportType ?? 'null'
           } → ${hardwareTransportType}`,
         );
-
         // Reset SDK instance to use new transport type
         await resetHardwareSDKInstance();
         this.registeredEvents = false;
@@ -2346,6 +2349,58 @@ class ServiceHardware extends ServiceBase {
     return state.forceTransportType;
   }
 
+  private shouldPrecheckNativeBleForHardwareCall({
+    hardwareCallContext,
+  }: {
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    return (
+      platformEnv.isNativeAndroid &&
+      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+    );
+  }
+
+  private async ensureNativeBleReadyForHardwareCall({
+    connectId,
+    hardwareCallContext,
+  }: {
+    connectId: string;
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
+      return;
+    }
+
+    const currentTransportType = await this.getCurrentTransportType();
+    if (currentTransportType !== EHardwareTransportType.BLE) {
+      return;
+    }
+
+    const hasBlePermission = !!(await checkBLEPermissions());
+    if (!hasBlePermission) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.LOCATION_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothPermissions({
+        payload: {
+          connectId,
+        },
+      });
+    }
+
+    const isBluetoothOn = !!(await checkBLEState());
+    if (!isBluetoothOn) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothTurnedOn({
+        payload: {
+          connectId,
+        },
+      });
+    }
+  }
+
   @backgroundMethod()
   async getCurrentTransportType() {
     return this.connectionManager.getCurrentTransportType();
@@ -2460,17 +2515,55 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  // Returns the device's bleConnectId when the Trezor call should go over BLE,
+  // undefined otherwise. Honors a BLE target directly; for a USB-family target
+  // it re-verifies with a Trezor-scoped USB check — the global optimal-transport
+  // probe answers "is any OneKey USB / Bridge device present", which can be true
+  // while THIS Trezor is BLE-only, routing its calls to the USB handle and
+  // burning a BLE connect timeout before the fallback ladder recovers.
+  private async resolveTrezorPreferredBleConnectId({
+    device,
+    targetType,
+  }: {
+    device: { vendor?: string; bleConnectId?: string };
+    targetType: EHardwareTransportType;
+  }): Promise<string | undefined> {
+    if (!device.bleConnectId) {
+      return undefined;
+    }
+    if (targetType === EHardwareTransportType.DesktopWebBle) {
+      return device.bleConnectId;
+    }
+    if (device.vendor !== EHardwareVendor.trezor) {
+      return undefined;
+    }
+    const trezorUsbPresent =
+      await this.connectionManager.detectTrezorUSBDeviceAvailability();
+    if (trezorUsbPresent) {
+      return undefined;
+    }
+    return device.bleConnectId;
+  }
+
   @backgroundMethod()
   async getCompatibleConnectId({
     hardwareCallContext,
     connectId,
     featuresDeviceId,
     features,
+    vendor,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    // Optional: passed ONLY by callers that already know the device's vendor
+    // (e.g. from a loaded DB record). Without it the lookup below defaults to
+    // OneKey, which cannot find a third-party device, so its bleConnectId branch
+    // never runs and the raw (deviceId) connectId leaks to the BLE transport.
+    // Passing it does NOT broaden the default — it's opt-in per caller, so the
+    // "don't pull Ledger in unintentionally" guarantee holds.
+    vendor?: EHardwareVendor;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -2486,13 +2579,16 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // Try to get device from DB first. Keep the default OneKey vendor filter:
-    // broadening it would pull shipped Ledger devices into the third-party
-    // branch below and change a working flow.
+    // Try to get device from DB first. The vendor filter defaults to OneKey
+    // (broadening it globally would pull shipped Ledger devices into the
+    // third-party branch below and change a working flow) — but a caller that
+    // already knows the vendor may pass it so a third-party device is found and
+    // its transport-correct connectId (e.g. Trezor bleConnectId) is resolved.
     const device = await localDb.getDeviceByQuery({
       connectId,
       featuresDeviceId: featuresDeviceId || undefined,
       features,
+      vendor,
     });
 
     // Third-party devices keep USB as the primary connectId, but Trezor can
@@ -2507,28 +2603,31 @@ class ServiceHardware extends ServiceBase {
         }
         if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
           const currentTransportType = await this.getCurrentTransportType();
-          if (
-            currentTransportType === EHardwareTransportType.DesktopWebBle &&
-            device.bleConnectId
-          ) {
-            return device.bleConnectId;
-          }
-          return device.connectId || connectId;
+          const preferredBle = await this.resolveTrezorPreferredBleConnectId({
+            device,
+            targetType: currentTransportType,
+          });
+          const picked = preferredBle || device.connectId || connectId;
+          return picked;
         }
 
         const result = await this.connectionManager.shouldSwitchTransportType({
           connectId: device.connectId || connectId,
           hardwareCallContext,
         });
-        if (
-          result.targetType === EHardwareTransportType.DesktopWebBle &&
-          device.bleConnectId
-        ) {
-          return device.bleConnectId;
-        }
-        return device.connectId || connectId;
+        const preferredBle = await this.resolveTrezorPreferredBleConnectId({
+          device,
+          targetType: result.targetType,
+        });
+        const picked = preferredBle || device.connectId || connectId;
+        return picked;
       }
     }
+
+    await this.ensureNativeBleReadyForHardwareCall({
+      connectId,
+      hardwareCallContext,
+    });
 
     if (!platformEnv.isSupportDesktopBle) {
       return device?.connectId || connectId;

@@ -116,7 +116,7 @@ public class MainApplication extends Application implements ReactApplication {
     @NonNull
     private String getBackgroundRunnerEntryUrl() {
       if (BuildConfig.DEBUG) {
-        String host = AndroidInfoHelpers.getServerHost(this, 8082);
+        String host = AndroidInfoHelpers.getServerHost(this);
         String entryUrl =
           "http://" + host
             + "/background.bundle?platform=android&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true";

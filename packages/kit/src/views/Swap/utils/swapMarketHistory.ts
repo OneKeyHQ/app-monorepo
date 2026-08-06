@@ -44,6 +44,14 @@ export const SWAP_LIMIT_OPEN_STATUSES = [
   ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
 ];
 
+export function isSwapLimitHistoryTypeSupported({
+  isNative,
+}: {
+  isNative?: boolean;
+}) {
+  return isNative !== true;
+}
+
 export function isSwapLimitOpenOrder(item: IFetchLimitOrderRes) {
   return SWAP_LIMIT_OPEN_STATUSES.includes(item.status);
 }

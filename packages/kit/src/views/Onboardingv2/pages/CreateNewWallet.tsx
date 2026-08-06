@@ -147,7 +147,7 @@ function CreateNewWallet() {
         }}
       >
         <OnboardingSidebar $md={{ pt: '$5' }}>
-          {md ? null : <OnboardingIconBadge icon="EmailSparkleSolid" />}
+          {md ? null : <OnboardingIconBadge icon="WalletCryptoSolid" />}
           <YStack gap="$6">
             <SizableText size="$headingMd">
               {intl.formatMessage({

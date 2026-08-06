@@ -3,6 +3,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IFeaturedChangelog,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -78,29 +79,20 @@ const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
 const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
 
 // ---------------------------------------------------------------------------
-// OCDS v1.1 §5.11 — cross-restart download attempt budget
+// Download attempt budget
 // ---------------------------------------------------------------------------
 // The in-memory retry loop (updateRetry.ts) bounds attempts WITHIN a single
-// invocation. §5.11 additionally requires a bound that PERSISTS across process
-// restarts, so a permanently-failing object cannot re-spend the full budget on
-// every launch and loop forever (conformance scenario #9). We persist a small
-// counter keyed by the target version to durable MMKV (syncStorage). When the
-// attempt count is exhausted, the download reaches a definitive terminal "gave
-// up" outcome.
-//
-// Persistence is keyed by the target version so a NEW bundle/app release starts
-// with a fresh budget — we never carry a stale give-up into a fresh release.
-//
-// Stored in the onekey-app-setting MMKV instance (syncStorage). The key string
-// is local to this service; the enum cast keeps the typed wrapper happy without
-// editing the shared key enum.
+// invocation. This service-instance counter adds a bound across invocations,
+// while a cold restart creates a new service instance and a fresh budget.
+// Keep the former storage key only so reset can remove stale MMKV data written
+// by an earlier bundle; it is never read or written by the gate.
 const DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY =
   'onekey_app_update_download_attempt_budget';
-// Persisted give-up threshold. Distinct from updateRetry's in-memory
-// per-invocation cap: this counts total attempts across relaunches. There is
-// intentionally NO wall-clock deadline — idle time (app closed) must not
-// abandon a still-resumable partial; see evaluateDownloadBudget.
-const DOWNLOAD_PERSISTED_MAX_ATTEMPTS = 8;
+// Service-instance give-up threshold. Distinct from updateRetry's
+// per-invocation cap: this counts attempts across retry-loop invocations within
+// one bg service instance. A cold restart creates a fresh budget. There is no
+// wall-clock deadline because idle time must not abandon a resumable partial.
+const DOWNLOAD_INSTANCE_MAX_ATTEMPTS = 8;
 
 interface IDownloadAttemptBudgetRecord {
   targetKey: string;
@@ -113,8 +105,8 @@ export interface IDownloadAttemptBudgetResult {
   targetKey: string;
   attemptCount: number;
   firstAttemptAt: number;
-  // True once the persisted attempt count is exhausted: the caller must stop
-  // retrying and surface a terminal outcome.
+  // True once the service-instance attempt count is exhausted: the caller must
+  // stop retrying and surface a terminal outcome.
   givenUp: boolean;
   // Populated when givenUp, for the terminal reason.
   reason?: 'maxAttempts';
@@ -156,6 +148,8 @@ class ServiceAppUpdate extends ServiceBase {
   updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
+
+  private downloadAttemptBudget: IDownloadAttemptBudgetRecord | undefined;
 
   private get pendingInstallTaskService() {
     const service = this.backgroundApi.servicePendingInstallTask;
@@ -505,6 +499,59 @@ class ServiceAppUpdate extends ServiceBase {
     return this.cachedUpdateInfo;
   }
 
+  // Ops-only Featured Changelog preview. Looks up the changelog configured for
+  // EXACTLY the requested version via the read-only preview endpoint
+  // (/featured-changelog-preview), which bypasses the release-selection
+  // pipeline server-side — the production /app-update response only attaches
+  // featuredChangelog to the release the pipeline currently selects, so any
+  // other version would be unreachable.
+  //
+  // Deliberately does NOT call the real /app-update: that path performs a
+  // grayscale `$inc` (server-side write to shared release state) when the
+  // selected release is under grayscale rollout, which would violate the
+  // preview's zero-side-effect guarantee. The preview endpoint is a pure read.
+  //
+  // Writes NOTHING client-side either — no this.cachedUpdateInfo, no
+  // this.updateAt, no appUpdatePersistAtom.
+  //
+  // Runtime scope: bg-JS. The returned plain object crosses the
+  // backgroundApiProxy boundary back to main-JS (JSON-safe).
+  @backgroundMethod()
+  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+    version: string | undefined;
+    featuredChangelog: IFeaturedChangelog | undefined;
+  }> {
+    const version = params.version?.trim();
+    if (!version) {
+      throw new OneKeyLocalError(
+        'previewFeaturedChangelog: version is required',
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      data: { version?: string; featuredChangelog?: unknown };
+    }>('/utility/v1/app-update/featured-changelog-preview', {
+      params: { version },
+    });
+
+    const { code, data } = response.data;
+    if (code !== 0) {
+      return { version: undefined, featuredChangelog: undefined };
+    }
+    // Use the version the server echoed as the expected-version guard for
+    // normalizeFeaturedChangelog (same as the production path) so operator
+    // input formatting never nukes an otherwise-valid payload.
+    const responseVersion = normalizeOptionalString(data?.version);
+    return {
+      version: responseVersion,
+      featuredChangelog: normalizeFeaturedChangelog(
+        data?.featuredChangelog,
+        responseVersion,
+      ),
+    };
+  }
+
   @backgroundMethod()
   async getAppLatestInfo(forceUpdate = false) {
     if (
@@ -840,12 +887,11 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   // -------------------------------------------------------------------------
-  // OCDS v1.1 §5.11 — persisted cross-restart attempt budget. See the
-  // constants block at the top of this file.
+  // Service-instance attempt budget. See the constants block above.
   // -------------------------------------------------------------------------
 
-  // The typed syncStorage wrapper keys on EAppSyncStorageKeys; the budget uses
-  // a service-local key string, so cast at the single read/write boundary.
+  // The typed syncStorage wrapper keys on EAppSyncStorageKeys; cast the legacy
+  // service-local key at the cleanup boundary.
   private get downloadAttemptBudgetStorageKey(): EAppSyncStorageKeys {
     return DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY as EAppSyncStorageKeys;
   }
@@ -853,30 +899,29 @@ class ServiceAppUpdate extends ServiceBase {
   private readDownloadAttemptBudget():
     | IDownloadAttemptBudgetRecord
     | undefined {
-    return appStorage.syncStorage.getObject<IDownloadAttemptBudgetRecord>(
-      this.downloadAttemptBudgetStorageKey,
-    );
+    return this.downloadAttemptBudget;
   }
 
   private writeDownloadAttemptBudget(record: IDownloadAttemptBudgetRecord) {
-    appStorage.syncStorage.setObject(
-      this.downloadAttemptBudgetStorageKey,
-      record,
-    );
+    this.downloadAttemptBudget = record;
   }
 
   private evaluateDownloadBudget(
     record: IDownloadAttemptBudgetRecord,
+    options?: { allowRecordedAttempt?: boolean },
   ): IDownloadAttemptBudgetResult {
-    // Give up purely on the persisted attempt count. We deliberately do NOT
+    // Give up purely on the in-memory attempt count. We deliberately do NOT
     // impose a wall-clock deadline: it would be calendar time measured from the
     // first attempt, so a user who downloaded part of an update and reopened the
     // app days later would be denied the (still valid) resume — idle time must
     // not count against a resumable download. Attempts only ever accrue on real
     // failures, so the count alone bounds a permanently-failing target without
     // punishing legitimate idle gaps. `firstAttemptAt` is retained for telemetry.
-    const attemptsExceeded =
-      record.attemptCount >= DOWNLOAD_PERSISTED_MAX_ATTEMPTS;
+    // recordDownloadAttempt runs before the native operation. Let attempt 8
+    // run; entry checks (and attempt 9) then see an exhausted budget.
+    const attemptsExceeded = options?.allowRecordedAttempt
+      ? record.attemptCount > DOWNLOAD_INSTANCE_MAX_ATTEMPTS
+      : record.attemptCount >= DOWNLOAD_INSTANCE_MAX_ATTEMPTS;
     return {
       targetKey: record.targetKey,
       attemptCount: record.attemptCount,
@@ -908,7 +953,7 @@ class ServiceAppUpdate extends ServiceBase {
     const version = nativeAppVersion || platformEnv.version || 'unknown';
     const buildNumber =
       nativeBuildNumber || platformEnv.buildNumber || 'unknown';
-    // Desktop must always write a stable key. Returning undefined here makes a
+    // Desktop must always record a stable key. Returning undefined here makes a
     // transient native-info failure ambiguous: a later successful read can
     // either erase the same runtime's budget or inherit an older runtime's
     // exhausted budget. Build-time values are stable per installed shell and
@@ -917,10 +962,8 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   /**
-   * Read the persisted budget for `targetKey` WITHOUT mutating it. The caller
-   * checks `givenUp` on entry (before starting a download) so a target that
-   * already exhausted its budget on a prior launch is terminal immediately and
-   * never re-spends the in-memory retry budget (OCDS §5.11, scenario #9).
+   * Read the current service instance's budget for `targetKey` without
+   * mutating it. The caller checks `givenUp` before starting a download.
    *
    * A record belonging to a DIFFERENT target version is treated as absent: a
    * new release starts fresh, never inheriting a stale give-up.
@@ -949,7 +992,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   /**
-   * Increment and persist the attempt counter for `targetKey`, then return the
+   * Increment the in-memory attempt counter for `targetKey`, then return the
    * post-increment budget state. Called once per download attempt. The first
    * attempt for a target stamps `firstAttemptAt` (retained for telemetry only;
    * there is no wall-clock deadline). A record for a different target version is
@@ -977,7 +1020,9 @@ class ServiceAppUpdate extends ServiceBase {
       nativeRuntimeKey: nativeRuntimeKey ?? base.nativeRuntimeKey,
     };
     this.writeDownloadAttemptBudget(next);
-    const result = this.evaluateDownloadBudget(next);
+    const result = this.evaluateDownloadBudget(next, {
+      allowRecordedAttempt: true,
+    });
     if (result.givenUp) {
       defaultLogger.app.appUpdate.log(
         `recordDownloadAttempt: budget exhausted target=${targetKey} attempts=${next.attemptCount} reason=${
@@ -989,7 +1034,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   /**
-   * Clear the persisted attempt budget. Called on a successful download or
+   * Clear the in-memory attempt budget. Called on a successful download or
    * when a new target version supersedes the prior one, so the give-up state
    * never outlives the target it was recorded for.
    */
@@ -1000,12 +1045,15 @@ class ServiceAppUpdate extends ServiceBase {
     const targetKey = params?.targetKey;
     if (targetKey) {
       const existing = this.readDownloadAttemptBudget();
-      // Only clear when the persisted record matches the target being reset,
+      // Only clear when the in-memory record matches the target being reset,
       // so an unrelated in-flight target's budget is left intact.
       if (existing && existing.targetKey !== targetKey) {
         return;
       }
     }
+    this.downloadAttemptBudget = undefined;
+    // Remove a stale record written by an earlier bundle. The gate never reads
+    // or writes this MMKV key.
     appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
   }
 
@@ -1458,6 +1506,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
+    await this.resetDownloadAttemptBudget();
     await AppUpdate.clearPackage();
     await BundleUpdate.clearDownload();
     await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();

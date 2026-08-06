@@ -33,7 +33,7 @@ interface ISwapProTabListContainerProps {
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSearchClick?: () => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
-  disableDelayRender?: boolean;
+  supportNetworksReady: boolean;
 }
 
 function SwapProTabListSkeleton() {
@@ -60,7 +60,7 @@ const SwapProTabListContainer = memo(
     onOpenOrdersClick,
     onSearchClick,
     supportNetworksList,
-    disableDelayRender = false,
+    supportNetworksReady,
   }: ISwapProTabListContainerProps) => {
     const [activeTab, setActiveTab] = useState<ETabName | string>(
       ETabName.Positions,
@@ -72,8 +72,15 @@ const SwapProTabListContainer = memo(
     const [swapToToken] = useSwapSelectToTokenAtom();
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
-    const { cachedPositionTokenList, hasCachedPositionTokenList } =
-      useSwapProSupportNetworksTokenList(supportNetworksList);
+    const {
+      cachedPositionTokenList,
+      hasCachedPositionSnapshot,
+      hasPositionOwner,
+      isLiveTokenListForCurrentOwner,
+    } = useSwapProSupportNetworksTokenList(
+      supportNetworksList,
+      supportNetworksReady,
+    );
     const focusSwapPro = useMemo(() => {
       return (
         platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT
@@ -94,9 +101,9 @@ const SwapProTabListContainer = memo(
       swapToToken,
       swapProTokenSelect,
     ]);
-    const shouldRenderListContent = shouldRenderLists || disableDelayRender;
+    const shouldRenderListContent = shouldRenderLists;
     const shouldRenderPositionsContent =
-      shouldRenderListContent || hasCachedPositionTokenList;
+      shouldRenderListContent || hasCachedPositionSnapshot;
 
     const changeTabToLimitOrderList = useCallback(() => {
       setActiveTab(ETabName.SwapProOpenOrders);
@@ -108,7 +115,7 @@ const SwapProTabListContainer = memo(
       if (!focusSwapPro && activeTab === ETabName.SwapProOpenOrders) {
         setActiveTab(ETabName.Positions);
       }
-    }, [focusSwapPro, activeTab]);
+    }, [focusSwapPro, activeTab, setActiveTab]);
 
     useEffect(() => {
       appEventBus.off(
@@ -178,7 +185,9 @@ const SwapProTabListContainer = memo(
                 onSearchClick={onSearchClick}
                 filterToken={filterToken}
                 cachedTokenList={cachedPositionTokenList}
-                hasCachedTokenList={hasCachedPositionTokenList}
+                hasPositionOwner={hasPositionOwner}
+                hasCachedTokenSnapshot={hasCachedPositionSnapshot}
+                isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
               />
             ) : (
               <SwapProTabListSkeleton />

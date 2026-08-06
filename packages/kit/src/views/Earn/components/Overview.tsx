@@ -203,11 +203,13 @@ const OverviewComponent = ({
   onRefresh,
   displayTotalFiatValue,
   displayEarnings24h,
+  onPressTotalValue,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
   displayTotalFiatValue?: string;
   displayEarnings24h?: string;
+  onPressTotalValue?: () => void;
 }) => {
   const {
     activeAccount: { account, indexedAccount },
@@ -316,7 +318,15 @@ const OverviewComponent = ({
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
-        <XStack gap="$3" ai="center">
+        <XStack
+          testID={onPressTotalValue ? EarnTestIDs.portfolioEntry : undefined}
+          role={onPressTotalValue ? 'button' : undefined}
+          gap="$3"
+          ai="center"
+          alignSelf="flex-start"
+          cursor={onPressTotalValue ? 'pointer' : undefined}
+          onPress={onPressTotalValue}
+        >
           <NumberSizeableText
             size="$heading5xl"
             fontWeight={400}
@@ -328,13 +338,22 @@ const OverviewComponent = ({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          <IconButton
-            testID="earn-icon-btn"
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            loading={isLoading}
-            onPress={handleRefresh}
-          />
+          {onPressTotalValue ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$8"
+              color="$iconSubdued"
+              pointerEvents="none"
+            />
+          ) : (
+            <IconButton
+              testID="earn-icon-btn"
+              icon="RefreshCcwOutline"
+              variant="tertiary"
+              loading={isLoading}
+              onPress={handleRefresh}
+            />
+          )}
         </XStack>
       </YStack>
       {/* 24h earnings */}
