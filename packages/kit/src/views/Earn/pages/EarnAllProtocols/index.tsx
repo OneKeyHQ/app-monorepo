@@ -48,6 +48,9 @@ type IFilteredProvider = IEarnAggregatedProvider & {
   // Reward unit of the row that produced maxApy (review P2): rendering a
   // fixed "APY" would mislabel APR protocols
   maxApyUnit: string;
+  // Server-driven highlight color of that same row (OK-59344): only boosted
+  // rows carry a highlight color, everything else renders in default text
+  maxApyColor?: string;
 };
 
 function getRowApy(row: IEarnProtocolTokenRow): number {
@@ -119,11 +122,13 @@ function EarnAllProtocolsContent() {
       }
       let maxApy = 0;
       let maxApyUnit = 'APY';
+      let maxApyColor: string | undefined;
       for (const row of rows) {
         const apy = getRowApy(row);
         if (apy > maxApy) {
           maxApy = apy;
           maxApyUnit = row.item.provider.rewardUnit || 'APY';
+          maxApyColor = row.item.aprInfo?.highlight?.color;
         }
       }
       return [
@@ -132,6 +137,7 @@ function EarnAllProtocolsContent() {
           filteredTvlValue: rows.reduce((sum, row) => sum + row.tvlValue, 0),
           maxApy,
           maxApyUnit,
+          maxApyColor,
         },
       ];
     });
@@ -231,13 +237,16 @@ function EarnAllProtocolsContent() {
         <YStack ai="flex-end" jc="center">
           {provider.maxApy > 0 ? (
             // Value + smaller APY suffix via the shared renderer instead
-            // of hard-coding the unit into the copy (review feedback)
+            // of hard-coding the unit into the copy (review feedback).
+            // OK-59344: default text color — green is reserved for boosted
+            // rows and is driven by the server-side aprInfo color, so a
+            // hardcoded success color made every protocol look boosted.
             <EarnAprSuffixText
               text={`${provider.maxApy.toFixed(2)}%`}
               fallbackUnit={provider.maxApyUnit}
               size="$bodyMdMedium"
               suffixSize="$bodySmMedium"
-              color="$textSuccess"
+              color={provider.maxApyColor ?? '$text'}
             />
           ) : null}
           <XStack ai="center" gap="$1">

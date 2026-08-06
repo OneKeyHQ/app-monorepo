@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   BlurView,
@@ -10,6 +10,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
@@ -221,6 +224,36 @@ export function EarnHomeBanner({
     [],
   );
 
+  // OK-59246: the banner pager is nested inside the Discovery outer pager
+  // (market / DeFi / browser) — both are horizontal react-native-pager-views,
+  // and the outer one would win the gesture and switch top tabs mid-swipe.
+  // Report drag state so the outer pager pauses its own scrolling while the
+  // user is swiping the banner.
+  //
+  // Only a real finger drag counts. `settling` is also emitted by the 5s
+  // autoplay's programmatic setPage() — and autoplay never pauses on native
+  // (the Carousel's visibility observer is web-only) — so treating it as a
+  // drag would disable the outer pager for ~300ms every 5s even while the
+  // user sits on another top tab. After the finger lifts the gesture owner
+  // is already decided, so `settling` needs no gating either.
+  const handleBannerPageScrollStateChanged = useCallback(
+    (event: { nativeEvent: { pageScrollState: string } }) => {
+      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
+        dragging: event.nativeEvent.pageScrollState === 'dragging',
+      });
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      // Never leave the outer pager disabled if the banner unmounts mid-drag
+      appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
+        dragging: false,
+      });
+    },
+    [],
+  );
+
   if (isLoading && validBanners.length === 0) {
     return (
       <YStack h={248} px="$pagePadding" pb="$4">
@@ -238,6 +271,11 @@ export function EarnHomeBanner({
       <Carousel
         data={validBanners}
         renderItem={renderItem}
+        pagerProps={
+          platformEnv.isNative
+            ? { onPageScrollStateChanged: handleBannerPageScrollStateChanged }
+            : undefined
+        }
         autoPlayInterval={5000}
         loop={validBanners.length > 1}
         showPagination={validBanners.length > 1}

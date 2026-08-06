@@ -45,6 +45,10 @@ export type ITabEarnParamList = {
     symbol: string;
     provider: string;
     vault?: string;
+    // OK-59304: the token logo the entry list already had on screen. The page
+    // otherwise has no logo until getProtocolDetailsV2 resolves and renders
+    // the placeholder icon in the meantime.
+    logoURI?: string;
   };
   [ETabEarnRoutes.EarnProtocolDetailsShare]: {
     network: string; // network name, like 'ethereum', 'bitcoin'

@@ -206,6 +206,26 @@ export function normalizeToEarnProvider(
   return providerMap[provider.toLowerCase()];
 }
 
+/**
+ * Display name for an earn provider (OK-59245).
+ *
+ * The canonical casing lives in EEarnProviderEnum (Lido / Stakefish / Bitway
+ * ...), so a known provider resolves to it. Unknown providers — new ones the
+ * server ships before the client knows about them — fall back to capitalizing
+ * the raw name, which is what the protocol lists used to do everywhere and is
+ * still better than rendering the raw lowercase id.
+ */
+export function getEarnProviderDisplayName(provider?: string): string {
+  if (!provider) {
+    return '';
+  }
+  const known = normalizeToEarnProvider(provider);
+  if (known) {
+    return known;
+  }
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
 export function getImportFromToken({
   networkId,
   tokenAddress,

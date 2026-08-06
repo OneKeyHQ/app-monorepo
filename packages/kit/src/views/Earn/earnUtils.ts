@@ -549,6 +549,7 @@ export const EarnNavigation = {
       symbol: string;
       provider: string;
       vault?: string;
+      logoURI?: string;
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
@@ -556,6 +557,7 @@ export const EarnNavigation = {
       symbol: params.symbol,
       provider: params.provider,
       vault: params.vault,
+      logoURI: params.logoURI,
     });
   },
 
