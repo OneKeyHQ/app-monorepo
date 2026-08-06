@@ -39,13 +39,14 @@ import {
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  getDexIndexByAssetId,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
   formatAssetCtx,
   getSpotMarketCapValue,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import {
-  PERP_LAYOUT_CONFIG,
-  XYZ_ASSET_ID_OFFSET,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
@@ -97,11 +98,8 @@ function useTickerBarPerpAssetCtx() {
       };
     }
 
-    const dexIndex = activeAsset.assetId >= XYZ_ASSET_ID_OFFSET ? 1 : 0;
-    const ctxIndex =
-      dexIndex === 1
-        ? activeAsset.assetId - XYZ_ASSET_ID_OFFSET
-        : activeAsset.assetId;
+    const dexIndex = getDexIndexByAssetId(activeAsset.assetId);
+    const ctxIndex = toCtxIndex(activeAsset.assetId, dexIndex);
     const cachedCtx = allAssetCtxs.assetCtxsByDex?.[dexIndex]?.[ctxIndex];
     const formattedCachedCtx = cachedCtx
       ? formatAssetCtx(cachedCtx)
