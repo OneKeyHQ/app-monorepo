@@ -68,6 +68,7 @@ unpermitted
 wcm
 perp
 hyperliquid
+UNITREE
 Delisted
 inferrable
 PerpTrade

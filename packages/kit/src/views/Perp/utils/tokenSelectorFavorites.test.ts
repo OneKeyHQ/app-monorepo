@@ -1,7 +1,10 @@
+import type { IPerpsAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
+
 import {
   dedupeTokenSelectorFavoriteCoins,
   dedupeTokenSelectorFavoritesOrder,
   getTokenSelectorFavoriteItems,
+  getTokenSelectorFavoriteSortEntry,
   reconcileTokenSelectorFavoritesOrder,
   sortTokenSelectorFavoriteItems,
   toggleTokenSelectorFavoriteCoin,
@@ -187,5 +190,36 @@ describe('tokenSelectorFavorites', () => {
       { mode: 'perp', coinName: 'HYPE' },
       { mode: 'spot', coinName: '@156' },
     ]);
+  });
+
+  it('reads sort values from a second sub dex ctx array', () => {
+    const entry = getTokenSelectorFavoriteSortEntry({
+      item: {
+        dexIndex: 2,
+        index: 19,
+        assetId: 180_019,
+        tokenName: 'para:UNITREE',
+      },
+      order: 0,
+      spotPriceSnapshot: {},
+      spotMarketCaps: {},
+      perpAssetCtxsByDex: [
+        [],
+        [],
+        [
+          ...Array.from({ length: 19 }, () => undefined),
+          { dayNtlVlm: '42' },
+        ] as IPerpsAssetCtx[],
+      ],
+      computePerpSortValues: (assetCtx) => ({
+        markPrice: 0,
+        change24hPercent: 0,
+        fundingRate: 0,
+        volume24h: Number(assetCtx?.dayNtlVlm ?? -1),
+        openInterestValue: 0,
+      }),
+    });
+
+    expect(entry.volume24h).toBe(42);
   });
 });
