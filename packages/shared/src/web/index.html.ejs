@@ -18,6 +18,19 @@
     />
     <title>OneKey</title>
     <meta name="theme-color" content="#ffffff" />
+    <% if (platform === 'web') { %>
+    <link
+      rel="dns-prefetch"
+      href="https://tradingview.onekey.so"
+      data-onekey-trading-view-preconnect="dns-prefetch"
+    />
+    <link
+      rel="preconnect"
+      href="https://tradingview.onekey.so"
+      crossorigin="anonymous"
+      data-onekey-trading-view-preconnect="preconnect"
+    />
+    <% } %>
     <style>
       /* add global styles to packages/shared/src/web/index.css */
     </style>

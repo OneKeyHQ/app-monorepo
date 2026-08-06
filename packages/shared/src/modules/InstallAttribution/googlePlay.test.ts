@@ -10,6 +10,8 @@ import {
   reportGooglePlayInstallAttribution,
 } from './googlePlay';
 
+import type { IInstallAttributionParams } from '../../logger/scopes/app/scenes/install';
+
 jest.mock('expo-application', () => ({
   getInstallationTimeAsync: jest.fn(),
   getInstallReferrerAsync: jest.fn(),
@@ -37,16 +39,19 @@ const getInstallReferrerMock = jest.mocked(getInstallReferrerAsync);
 const getInstallationTimeMock = jest.mocked(getInstallationTimeAsync);
 const getReportedMock = jest.mocked(appStorage.getItem);
 const markReportedMock = jest.mocked(appStorage.setItem);
-const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
+const mockedLoggerModule = jest.requireMock<{
   defaultLogger: {
     app: {
       install: {
-        reportGooglePlayInstallAttribution: jest.Mock;
+        reportGooglePlayInstallAttribution: jest.Mock<
+          Promise<void>,
+          [IInstallAttributionParams]
+        >;
       };
     };
   };
-};
-const logAttributionMock =
+}>('../../logger/logger');
+const mockLogAttribution =
   mockedLoggerModule.defaultLogger.app.install
     .reportGooglePlayInstallAttribution;
 
@@ -55,7 +60,7 @@ describe('Google Play install attribution', () => {
     jest.clearAllMocks();
     getInstallationTimeMock.mockResolvedValue(new Date());
     getReportedMock.mockResolvedValue(null);
-    logAttributionMock.mockResolvedValue(undefined);
+    mockLogAttribution.mockResolvedValue(undefined);
     markReportedMock.mockResolvedValue(undefined);
   });
 
@@ -101,7 +106,7 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logAttributionMock).toHaveBeenCalledWith({
+    expect(mockLogAttribution).toHaveBeenCalledWith({
       clickId: 'click-123',
       utmCampaign: 'download_page',
       utmMedium: 'owned_web',
@@ -114,7 +119,7 @@ describe('Google Play install attribution', () => {
     getInstallReferrerMock.mockResolvedValue(
       'utm_source=onekey.so&utm_medium=owned_web',
     );
-    logAttributionMock.mockRejectedValueOnce(new Error('network failed'));
+    mockLogAttribution.mockRejectedValueOnce(new Error('network failed'));
 
     await expect(reportGooglePlayInstallAttribution()).rejects.toThrow(
       'network failed',
@@ -125,7 +130,7 @@ describe('Google Play install attribution', () => {
     await reportGooglePlayInstallAttribution();
 
     expect(getInstallReferrerMock).toHaveBeenCalledTimes(2);
-    expect(logAttributionMock).toHaveBeenCalledTimes(2);
+    expect(mockLogAttribution).toHaveBeenCalledTimes(2);
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
@@ -134,7 +139,7 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(mockLogAttribution).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
 
@@ -143,7 +148,7 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(mockLogAttribution).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
 
@@ -154,7 +159,7 @@ describe('Google Play install attribution', () => {
 
     await reportGooglePlayInstallAttribution();
 
-    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(mockLogAttribution).not.toHaveBeenCalled();
     expect(markReportedMock).not.toHaveBeenCalled();
   });
 
@@ -166,7 +171,7 @@ describe('Google Play install attribution', () => {
     await reportGooglePlayInstallAttribution();
 
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
-    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(mockLogAttribution).not.toHaveBeenCalled();
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
@@ -177,6 +182,6 @@ describe('Google Play install attribution', () => {
 
     expect(getInstallationTimeMock).not.toHaveBeenCalled();
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
-    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(mockLogAttribution).not.toHaveBeenCalled();
   });
 });

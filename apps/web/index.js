@@ -21,6 +21,7 @@ import '@onekeyhq/shared/src/security/sesHarden/installWeb';
 import { registerRootComponent } from 'expo';
 import React from 'react';
 
+import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
@@ -131,6 +132,26 @@ if (process.env.NODE_ENV !== 'production') {
 
 registerRootComponent(RootApp);
 logCurrentWebVersionInfo();
+
+function scheduleTradingViewResourceWarmup() {
+  const schedule = () => {
+    void import(
+      /* webpackChunkName: "web-tradingview-cold-start" */ './src/tradingViewColdStart'
+    )
+      .then(({ scheduleTradingViewColdStartWarmup }) => {
+        scheduleTradingViewColdStartWarmup(TRADING_VIEW_URL);
+      })
+      .catch(() => undefined);
+  };
+
+  if (document.readyState === 'complete') {
+    schedule();
+  } else {
+    window.addEventListener('load', schedule, { once: true });
+  }
+}
+
+scheduleTradingViewResourceWarmup();
 
 if (process.env.NODE_ENV !== 'production') {
   const { debugLandingLog } = require('@onekeyhq/shared/src/performance/init');
