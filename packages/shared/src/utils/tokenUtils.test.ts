@@ -230,6 +230,129 @@ describe('getFilteredTokenBySearchKey — aggregate token network search', () =>
   });
 });
 
+describe('getFilteredTokenBySearchKey — separators, aliases, address fallback, sort', () => {
+  const aggregateUsdt = buildTestToken({
+    $key: 'aggregate_USDT_',
+    address: 'aggregate_USDT_',
+    networkId: 'aggregate',
+    isAggregateToken: true,
+    symbol: 'USDT',
+    name: 'Tether USD',
+    commonSymbol: 'USDT',
+  });
+  const ethereumUsdt = buildTestToken({
+    $key: 'eth-usdt',
+    address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    networkId: 'evm--1',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const tronUsdt = buildTestToken({
+    $key: 'tron-usdt',
+    address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    networkId: 'tron--0x2b6653dc',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  // NEAR-style contract address: contains '-' but no whitespace, so the
+  // tokenizer would split it into several AND-ed words without the fallback.
+  const nearUsdt = buildTestToken({
+    $key: 'near-usdt',
+    address: 'usdt.tether-token.near',
+    networkId: 'near--0',
+    symbol: 'USDT',
+    name: 'Tether USD',
+  });
+  const aggregateTokenListMap = {
+    [aggregateUsdt.$key]: {
+      tokens: [ethereumUsdt, tronUsdt, nearUsdt],
+    },
+  };
+  // The Tron id must be the real preset id — network aliases are keyed by
+  // getNetworkIdsMap() values.
+  const networksMap = {
+    'evm--1': buildTestNetwork({
+      id: 'evm--1',
+      name: 'Ethereum',
+      code: 'eth',
+      shortname: 'ETH',
+    }),
+    'tron--0x2b6653dc': buildTestNetwork({
+      id: 'tron--0x2b6653dc',
+      name: 'Tron',
+      code: 'trx',
+      shortname: 'TRX',
+    }),
+    'near--0': buildTestNetwork({
+      id: 'near--0',
+      name: 'Near',
+      code: 'near',
+      shortname: 'NEAR',
+    }),
+  };
+
+  test.each(['usdt trc20', 'usdt-trc20', 'USDT-Trc20', 'usdt波场', 'usdt trx'])(
+    'splits out the Tron sub row for %s',
+    (searchKey) => {
+      expect(
+        getFilteredTokenBySearchKey({
+          tokens: [aggregateUsdt],
+          searchKey,
+          aggregateTokenListMap,
+          networksMap,
+          enableNetworkSearch: true,
+        }),
+      ).toEqual([tronUsdt]);
+    },
+  );
+
+  test('separator-containing address still matches as a full string (aggregate sub)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [aggregateUsdt],
+        searchKey: 'usdt.tether-token.near',
+        aggregateTokenListMap,
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([aggregateUsdt]);
+  });
+
+  test('separator-containing address still matches as a full string (plain token)', () => {
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [nearUsdt],
+        searchKey: 'usdt.tether-token.near',
+        networksMap,
+        enableNetworkSearch: true,
+      }),
+    ).toEqual([nearUsdt]);
+  });
+
+  test('exact symbol hits sort before includes hits at equal strength, ahead of fiat', () => {
+    const ethAusdt = buildTestToken({
+      $key: 'eth-ausdt',
+      address: '0x3ed3b47dd13ec9a98b44e6204a523e766b225811',
+      networkId: 'evm--1',
+      symbol: 'aUSDT',
+      name: 'Aave interest bearing USDT',
+    });
+    const tokenFiatMap = {
+      [ethAusdt.$key]: { fiatValue: '1000' } as ITokenFiat,
+      [ethereumUsdt.$key]: { fiatValue: '1' } as ITokenFiat,
+    };
+    expect(
+      getFilteredTokenBySearchKey({
+        tokens: [ethAusdt, ethereumUsdt],
+        searchKey: 'usdt',
+        networksMap,
+        enableNetworkSearch: true,
+        tokenFiatMap,
+      }),
+    ).toEqual([ethereumUsdt, ethAusdt]);
+  });
+});
+
 describe('calculateAccountTotalValue — tray case (no filters)', () => {
   test('sums all token values + deFi when no filters passed', () => {
     expect(

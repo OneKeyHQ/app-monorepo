@@ -14,6 +14,10 @@ import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import tokenRebaseUtils from './tokenRebaseUtils';
 import {
+  getTokenNetworkAliasMap,
+  tokenizeTokenSearchKeywords,
+} from './tokenSelectorCrossNetworkUtils';
+import {
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
 } from './tokenValueUtils';
@@ -132,6 +136,9 @@ function networkFieldsContainKeyword(
     network.code?.toLowerCase().includes(kw) ||
     network.shortname?.toLowerCase().includes(kw) ||
     network.shortcode?.toLowerCase().includes(kw) ||
+    // Curated aliases ("trc20", "波场") are exact-equality only, so a partial
+    // word like "trc" can never scope a search through them.
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
     false
   );
 }
@@ -174,6 +181,12 @@ function computeSearchStrength(
   token: IAccountToken,
   keywords: string[],
   network: IServerNetwork | undefined,
+  // Original trimmed search string, set ONLY when the tokenizer split a
+  // whitespace-free input (e.g. "usdt.tether-token.near"). Contract addresses
+  // legitimately contain separator chars (TON base64url, NEAR dots, Move ::),
+  // and per-word AND matching would never reassemble them — so an exact
+  // full-string address hit short-circuits as matched.
+  fullSearchKey?: string,
 ): {
   matched: boolean;
   strength: ESearchStrength;
@@ -183,6 +196,14 @@ function computeSearchStrength(
   // qualifier: it is a symbol search that merely collides with a chain name.
   hasPureNetworkKeyword: boolean;
 } {
+  if (fullSearchKey && token.address?.toLowerCase() === fullSearchKey) {
+    return {
+      matched: true,
+      strength: ESearchStrength.TOKEN_ONLY,
+      hasPureNetworkKeyword: false,
+    };
+  }
+
   let anyTokenHit = false;
   let anyNetworkHit = false;
   let hasPureNetworkKeyword = false;
@@ -281,13 +302,28 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  const keywords = tokenizeTokenSearchKeywords(trimmedSearchKey);
   if (keywords.length === 0) return [];
+
+  // A1 fallback: only a whitespace-free input can be a contract address the
+  // tokenizer tore apart, so only then is the full-string check armed.
+  const fullSearchKey =
+    keywords.length > 1 && !/\s/.test(trimmedSearchKey)
+      ? trimmedSearchKey
+      : undefined;
 
   const results: Array<{
     token: IAccountToken;
     strength: ESearchStrength;
+    exactSymbolHit: boolean;
   }> = [];
+
+  const hasExactSymbolKeywordHit = (token: IAccountToken): boolean =>
+    keywords.some(
+      (kw) =>
+        kw === token.symbol?.toLowerCase() ||
+        kw === token.commonSymbol?.toLowerCase(),
+    );
 
   for (const token of mergedTokens) {
     if (token.isAggregateToken) {
@@ -296,12 +332,13 @@ export function getFilteredTokenBySearchKey({
       const matchedSubs: Array<{
         token: IAccountToken;
         strength: ESearchStrength;
+        exactSymbolHit: boolean;
         hasPureNetworkKeyword: boolean;
       }> = [];
       for (const sub of subTokens) {
         const network = networksMap?.[sub.networkId ?? ''];
         const { matched, strength, hasPureNetworkKeyword } =
-          computeSearchStrength(sub, keywords, network);
+          computeSearchStrength(sub, keywords, network, fullSearchKey);
         if (matched) {
           const localSub = localAggregateTokenListMap?.[
             token.$key
@@ -309,6 +346,7 @@ export function getFilteredTokenBySearchKey({
           matchedSubs.push({
             token: localSub ?? sub,
             strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(localSub ?? sub),
             hasPureNetworkKeyword,
           });
         }
@@ -331,6 +369,7 @@ export function getFilteredTokenBySearchKey({
             // double-hit ('eth') is not buried at TOKEN_ONLY below every
             // network-qualified plain row.
             strength: Math.min(...matchedSubs.map((s) => s.strength)),
+            exactSymbolHit: hasExactSymbolKeywordHit(token),
           });
         }
       } else {
@@ -338,9 +377,14 @@ export function getFilteredTokenBySearchKey({
           token,
           keywords,
           undefined,
+          fullSearchKey,
         );
         if (matched) {
-          results.push({ token, strength });
+          results.push({
+            token,
+            strength,
+            exactSymbolHit: hasExactSymbolKeywordHit(token),
+          });
         }
       }
     } else {
@@ -349,9 +393,14 @@ export function getFilteredTokenBySearchKey({
         token,
         keywords,
         network,
+        fullSearchKey,
       );
       if (matched) {
-        results.push({ token, strength });
+        results.push({
+          token,
+          strength,
+          exactSymbolHit: hasExactSymbolKeywordHit(token),
+        });
       }
     }
   }
@@ -359,6 +408,11 @@ export function getFilteredTokenBySearchKey({
   if (tokenFiatMap) {
     results.sort((a, b) => {
       if (a.strength !== b.strength) return a.strength - b.strength;
+      // Exact symbol hits ("usdt" → USDT) outrank includes hits (aUSDT) even
+      // when the includes hit carries more fiat value.
+      if (a.exactSymbolHit !== b.exactSymbolHit) {
+        return a.exactSymbolHit ? -1 : 1;
+      }
       const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
       const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
       return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
