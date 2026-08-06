@@ -4102,6 +4102,34 @@ PODS:
   - RealmJS (20.2.0):
     - React
   - RevenueCat (5.80.3)
+  - RNCMaskedView (0.3.2):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - RNDateTimePicker (8.4.4):
     - boost
     - DoubleConversion
@@ -5000,6 +5028,7 @@ DEPENDENCIES:
   - "ReactNativeSplashScreen (from `../../../node_modules/@onekeyfe/react-native-splash-screen`)"
   - ReactNativeZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - RealmJS (from `../../../node_modules/realm`)
+  - "RNCMaskedView (from `../../../node_modules/@react-native-masked-view/masked-view`)"
   - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../../../node_modules/@react-native-google-signin/google-signin`)"
@@ -5374,6 +5403,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-zip-archive"
   RealmJS:
     :path: "../../../node_modules/realm"
+  RNCMaskedView:
+    :path: "../../../node_modules/@react-native-masked-view/masked-view"
   RNDateTimePicker:
     :path: "../../../node_modules/@react-native-community/datetimepicker"
   RNGestureHandler:
@@ -5592,15 +5623,16 @@ SPEC CHECKSUMS:
   ReactNativeGetRandomValues: 62cb6e978f513af1a23b2f3fae4eba25050ee771
   ReactNativeLiteCard: 7f5c52161aa5b60540ac46121a9ff5b285466ac7
   ReactNativeNativeLogger: f4e4dd6f92ea5d2178c0ceccd7eacb2c4c6767f8
-  ReactNativeNetworkThrottle: 88a5678b2b78533974f8db355c7df4835007864f
+  ReactNativeNetworkThrottle: b3b03ec55b0806c734dc132055360f865597a893
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativePerfMemory: 7ef4df212ac2a19e5125deb9f2067ee110235e48
   ReactNativePerfStats: d1368e3a14b5387dea7cc87bca9a566810636f5e
-  ReactNativeRangeDownloader: 93e90ff445d0404cb97a6eea7a617b4b4b209c12
+  ReactNativeRangeDownloader: 143ac25a9cd897d6f4371f93d734a38f61fd2d96
   ReactNativeSplashScreen: 0bc82cdce113b2f60366b3d0f2a495ff86e13022
   ReactNativeZipArchive: bb4a2b338281c0166bee97142bf59ef9cd124c62
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 72d1e14966339bf38c41d9b2841ef64c8fd79646
+  RNCMaskedView: 5ef8c95cbab95334a32763b72896a7b7d07e6299
   RNDateTimePicker: cda4c045beca864cebb3209ef9cc4094f974864c
   RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
   RNGoogleSignin: 628d629e8dca39fc4ab70e30cf55bb3fc284f518
@@ -5621,7 +5653,7 @@ SPEC CHECKSUMS:
   SegmentSlider: e3507345e9bf6a48fd301181765d056a70420512
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: e04f3e3d91865cdb03ef256a095d128688acf3fb
-  SniConnect: eb28a03028065e205739894cb10be4c80b8cabd5
+  SniConnect: fa64c182f91c3d8234fd7d4391f3b414fa9872cf
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
