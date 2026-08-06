@@ -15,3 +15,21 @@ export function supportsHardwareQrWallet(
 ): boolean {
   return deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2;
 }
+
+export function resolveQrWalletDeviceType({
+  deviceName,
+  deviceType,
+}: {
+  deviceName?: string;
+  deviceType?: IDeviceType;
+}): IDeviceType {
+  if (deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2) {
+    return deviceType;
+  }
+
+  if (deviceName?.startsWith('OneKey Pro2')) {
+    return EDeviceType.Pro2;
+  }
+
+  return EDeviceType.Pro;
+}

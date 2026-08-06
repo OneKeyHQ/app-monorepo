@@ -112,6 +112,7 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -5606,8 +5607,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let xfpHash = '';
     let xfpHashLegacy = '';
 
-    // TODO support OneKey Pro device only
-    const deviceType: IDeviceType = EDeviceType.Pro;
+    const deviceType = resolveQrWalletDeviceType({
+      deviceName: qrDevice.name,
+      deviceType: qrDevice.deviceType,
+    });
     // TODO name should be OneKey Pro-xxxxxx
     let deviceName = qrDevice.name || 'OneKey Pro';
     const nameArr = deviceName.split('-');
@@ -5840,6 +5843,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               ids: [dbDeviceId],
               updater: async (item) => {
                 item.updatedAt = now;
+                item.deviceType = deviceType;
                 // TODO update qrDevice last version(not updated version)
 
                 if (!item.features && featuresStr) {

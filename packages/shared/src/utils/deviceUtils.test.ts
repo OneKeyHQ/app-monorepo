@@ -4,6 +4,7 @@ import deviceUtils, { ESupportSettings } from './deviceUtils';
 import {
   NEO_DEVICE_TYPE,
   isProtocolV2ProductType,
+  resolveQrWalletDeviceType,
   supportsHardwareQrWallet,
 } from './hardwareDeviceTypes';
 
@@ -177,6 +178,35 @@ describe('deviceUtils', () => {
     expect(supportsHardwareQrWallet(EDeviceType.Pro)).toBe(true);
     expect(supportsHardwareQrWallet(EDeviceType.Pro2)).toBe(true);
     expect(supportsHardwareQrWallet(NEO_DEVICE_TYPE)).toBe(false);
+  });
+
+  test.each([
+    ['OneKey Pro2', EDeviceType.Pro2],
+    ['OneKey Pro2:SERIAL:universal', EDeviceType.Pro2],
+    ['OneKey Pro', EDeviceType.Pro],
+    ['OneKey Pro 2', EDeviceType.Pro],
+    ['QR Wallet', EDeviceType.Pro],
+    [undefined, EDeviceType.Pro],
+  ])('resolves QR wallet device name %s to %s', (deviceName, expected) => {
+    expect(resolveQrWalletDeviceType({ deviceName })).toBe(expected);
+  });
+
+  it('prefers an explicit Pro 2 QR wallet device type', () => {
+    expect(
+      resolveQrWalletDeviceType({
+        deviceName: 'Legacy device name',
+        deviceType: EDeviceType.Pro2,
+      }),
+    ).toBe(EDeviceType.Pro2);
+  });
+
+  it('preserves an explicit legacy Pro QR wallet device type', () => {
+    expect(
+      resolveQrWalletDeviceType({
+        deviceName: 'OneKey Pro 2',
+        deviceType: EDeviceType.Pro,
+      }),
+    ).toBe(EDeviceType.Pro);
   });
 
   it.each(['ble', 'webble', 'electron-ble'] as const)(
