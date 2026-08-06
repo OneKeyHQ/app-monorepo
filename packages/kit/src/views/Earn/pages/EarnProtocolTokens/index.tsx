@@ -16,6 +16,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,8 +27,8 @@ import type {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 
-import { capitalizeString } from '../../../Staking/utils/utils';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
@@ -203,14 +204,21 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
 
   const handleRowPress = useCallback(
     (row: IEarnProtocolTokenRow) => {
+      // OK-59304: hand the detail page the logo this row already resolved, so
+      // it does not render the placeholder until its own request lands.
+      // Note this is the token logo, not the page's `logoURI` route param,
+      // which is the protocol's.
+      const tokenLogoURI = assetLogoMap.get(row.symbol.toLowerCase());
+      prewarmTokenImages({ tokenImageUri: tokenLogoURI });
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: row.item.network.networkId,
         symbol: row.symbol,
         provider: row.item.provider.name,
         vault: row.item.provider.vault,
+        logoURI: tokenLogoURI,
       });
     },
-    [navigation],
+    [navigation, assetLogoMap],
   );
 
   const renderItem = useCallback(
@@ -307,7 +315,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
             <Token size="sm" tokenImageUri={logoURI} borderRadius="$full" />
           ) : null}
           <SizableText size="$headingLg" numberOfLines={1}>
-            {capitalizeString(providerName || provider)}
+            {getEarnProviderDisplayName(providerName || provider)}
           </SizableText>
         </XStack>
       }

@@ -289,12 +289,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
           })
             ? protocol.provider.vault
             : undefined,
+          logoURI,
         });
       } catch (_error) {
         // ignore error
       }
     },
-    [symbol, navigation],
+    [symbol, navigation, logoURI],
   );
 
   const protocolDisplayData = useMemo(() => {
