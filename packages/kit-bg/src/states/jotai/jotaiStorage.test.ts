@@ -487,7 +487,9 @@ describe('mergeStoredValue', () => {
 
   // merge({}, undefined, 1712345678) collapses to {} — the timestamp is gone.
   it('leaves a number value untouched', () => {
-    expect(mergeStoredValue(undefined, 1_712_345_678, true)).toBe(1_712_345_678);
+    expect(mergeStoredValue(undefined, 1_712_345_678, true)).toBe(
+      1_712_345_678,
+    );
   });
 
   it('leaves a boolean value untouched', () => {
@@ -505,8 +507,9 @@ describe('mergeStoredValue', () => {
   // (firmwareUpdatesDetectStatusPersistAtom does), so the stored object must
   // survive rather than be treated as a corrupted primitive.
   it('keeps a stored object when the initial value is undefined', () => {
-    expect(mergeStoredValue(undefined, { deviceA: { hasUpgrade: true } }, true))
-      .toEqual({ deviceA: { hasUpgrade: true } });
+    expect(
+      mergeStoredValue(undefined, { deviceA: { hasUpgrade: true } }, true),
+    ).toEqual({ deviceA: { hasUpgrade: true } });
   });
 
   it('skips merging entirely when the atom opted out', () => {
