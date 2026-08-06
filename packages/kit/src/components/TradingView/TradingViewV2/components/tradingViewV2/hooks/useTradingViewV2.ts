@@ -59,7 +59,6 @@ interface ITradingViewV2FirstScreenPrefetchRecord {
   latestResult?: ITradingViewV2FirstScreenPrefetchResult;
   backgroundRequestId: string;
   isInitialPending: boolean;
-  isUpgradePending: boolean;
   expiresAt: number;
 }
 
@@ -70,14 +69,12 @@ interface ITradingViewV2FirstScreenPrefetchSubscriberParams extends Pick<
   interval: string;
   onResult: (
     result: ITradingViewV2FirstScreenPrefetchResult | undefined,
-    delivery: 'initial' | 'upgrade',
   ) => void;
   onError?: (error: unknown) => void;
 }
 
 type ITradingViewV2FirstScreenPrefetchRecordSubscriber = (
   record: ITradingViewV2FirstScreenPrefetchRecord,
-  delivery: 'initial' | 'upgrade',
 ) => void;
 
 interface IFetchKLineDataFallbackParams {
@@ -359,38 +356,11 @@ function buildKLineRequestKey({
 function pruneExpiredFirstScreenPrefetchRecords(now = Date.now()) {
   for (const [key, record] of firstScreenPrefetchRecords) {
     if (record.expiresAt <= now) {
-      if (!record.isInitialPending && !record.isUpgradePending) {
+      if (!record.isInitialPending) {
         firstScreenPrefetchRecords.delete(key);
       }
     }
   }
-}
-
-export function getTradingViewV2FirstScreenPrefetchPromise({
-  tokenAddress,
-  networkId,
-  interval,
-  kLineProvider,
-  kLineProviderSymbol,
-}: Pick<
-  ITradingViewV2FirstScreenPrefetchParams,
-  'tokenAddress' | 'networkId' | 'kLineProvider' | 'kLineProviderSymbol'
-> & {
-  interval: string;
-}) {
-  pruneExpiredFirstScreenPrefetchRecords();
-  const record = firstScreenPrefetchRecords.get(
-    buildKLineRequestKey({
-      tokenAddress,
-      networkId,
-      interval,
-      kLineProvider,
-      kLineProviderSymbol,
-    }),
-  );
-  return record?.latestResult
-    ? Promise.resolve(record.latestResult)
-    : record?.promise;
 }
 
 export function subscribeTradingViewV2FirstScreenPrefetch({
@@ -411,17 +381,14 @@ export function subscribeTradingViewV2FirstScreenPrefetch({
     kLineProviderSymbol,
   });
   let isActive = true;
-  const handleRecord = (
-    record: ITradingViewV2FirstScreenPrefetchRecord,
-    delivery: 'initial' | 'upgrade',
-  ) => {
+  const handleRecord = (record: ITradingViewV2FirstScreenPrefetchRecord) => {
     const promise = record.latestResult
       ? Promise.resolve(record.latestResult)
       : record.promise;
     void promise.then(
       (result) => {
         if (isActive) {
-          onResult(result, delivery);
+          onResult(result);
         }
       },
       (error: unknown) => {
@@ -438,7 +405,7 @@ export function subscribeTradingViewV2FirstScreenPrefetch({
   firstScreenPrefetchRecordSubscribers.set(key, subscribers);
   const existingRecord = firstScreenPrefetchRecords.get(key);
   if (existingRecord) {
-    handleRecord(existingRecord, 'initial');
+    handleRecord(existingRecord);
   }
 
   return () => {
@@ -454,14 +421,13 @@ export function subscribeTradingViewV2FirstScreenPrefetch({
 function notifyFirstScreenPrefetchRecordSubscribers(
   key: string,
   record: ITradingViewV2FirstScreenPrefetchRecord,
-  delivery: 'initial' | 'upgrade',
 ) {
   const subscribers = firstScreenPrefetchRecordSubscribers.get(key);
   if (!subscribers) {
     return;
   }
   for (const subscriber of subscribers) {
-    subscriber(record, delivery);
+    subscriber(record);
   }
 }
 
@@ -492,16 +458,8 @@ function cancelStaleFirstScreenPrefetchRecords(activeKey: string) {
     if (
       key !== activeKey &&
       !firstScreenPrefetchRecordSubscribers.get(key)?.size &&
-      (record.isInitialPending || record.isUpgradePending)
+      record.isInitialPending
     ) {
-      cancelFirstScreenPrefetchRecord(key, record);
-    }
-  }
-}
-
-export function cancelTradingViewV2FirstScreenPrefetchData() {
-  for (const [key, record] of firstScreenPrefetchRecords) {
-    if (record.isInitialPending || record.isUpgradePending) {
       cancelFirstScreenPrefetchRecord(key, record);
     }
   }
@@ -1471,7 +1429,6 @@ export function prefetchTradingViewV2FirstScreenData(
     promise: Promise.resolve(undefined),
     backgroundRequestId,
     isInitialPending: true,
-    isUpgradePending: false,
     expiresAt: Date.now() + FIRST_SCREEN_KLINE_PREFETCH_CACHE_TTL_MS,
   };
   const promise = runTradingViewV2FirstScreenPrefetch({
@@ -1495,7 +1452,7 @@ export function prefetchTradingViewV2FirstScreenData(
       record.isInitialPending = false;
     });
   firstScreenPrefetchRecords.set(key, record);
-  notifyFirstScreenPrefetchRecordSubscribers(key, record, 'initial');
+  notifyFirstScreenPrefetchRecordSubscribers(key, record);
   if (
     firstScreenPrefetchRecords.size >
     MAX_FIRST_SCREEN_KLINE_PREFETCH_CACHE_ENTRIES
@@ -1503,10 +1460,7 @@ export function prefetchTradingViewV2FirstScreenData(
     const oldestKey = firstScreenPrefetchRecords.keys().next().value;
     if (typeof oldestKey === 'string') {
       const oldestRecord = firstScreenPrefetchRecords.get(oldestKey);
-      if (
-        oldestRecord &&
-        (oldestRecord.isInitialPending || oldestRecord.isUpgradePending)
-      ) {
+      if (oldestRecord?.isInitialPending) {
         cancelFirstScreenPrefetchRecord(oldestKey, oldestRecord);
       } else {
         firstScreenPrefetchRecords.delete(oldestKey);

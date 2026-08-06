@@ -670,7 +670,6 @@ class ServiceMarketV2 extends ServiceBase {
       } satisfies IMarketTokenKLineResponse;
     }
     const historyFloor = getMarketKlineHistoryFloor({
-      requestTimeTo: requestTo,
       historyStartTime: normalizedHistoryStartTime,
     });
     const requestedTimeFrom = Number.isFinite(params.timeFrom)

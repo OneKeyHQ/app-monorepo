@@ -23,7 +23,10 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/TradingView/hooks', () => ({
-  useNavigationHandler: () => ({ handleNavigation: () => true }),
+  useNavigationHandler: () => ({
+    handleNavigation: () => true,
+    originWhitelist: ['https://tradingview.onekey.so'],
+  }),
   useTradingViewUrl: () => ({
     finalUrl: 'https://tradingview.onekey.so',
     timezone: 'Etc/UTC',
@@ -52,6 +55,10 @@ let mockHyperLiquidKlineSource = {
   isLoading: true,
 };
 let mockRouteIsFocused = true;
+let mockNativeIndicatorState = {
+  activeIndicatorValues: new Set<string>(),
+  isInitialized: false,
+};
 
 jest.mock('@onekeyhq/kit/src/components/WebView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -115,10 +122,7 @@ jest.mock('../TradingViewNativeChartControls', () => ({
   TradingViewNativeIndicatorQuickBar: () => null,
   getTradingViewNativeSubIndicatorCount: () => 0,
   getTradingViewNativeSubIndicatorCountFromOptions: () => 0,
-  useNativeIndicatorActiveValues: () => ({
-    activeIndicatorValues: new Set<string>(),
-    isInitialized: false,
-  }),
+  useNativeIndicatorActiveValues: () => mockNativeIndicatorState,
 }));
 
 jest.mock('./hooks', () => ({
@@ -134,7 +138,6 @@ jest.mock('./hooks', () => ({
     decimal: number;
   }) => `${networkId}:${tokenAddress}:${symbol}:${decimal}`,
   buildMarketTradingViewUrl: ({ baseUrl }: { baseUrl: string }) => baseUrl,
-  getTradingViewV2FirstScreenPrefetchPromise: () => undefined,
   prefetchTradingViewV2FirstScreenData: (params: Record<string, unknown>) =>
     mockPrefetchTradingViewV2FirstScreenData(params),
   subscribeTradingViewV2FirstScreenPrefetch: (
@@ -196,10 +199,7 @@ interface IMockFirstScreenPrefetchResult {
 }
 
 interface IMockFirstScreenPrefetchSubscription {
-  onResult: (
-    result: IMockFirstScreenPrefetchResult,
-    delivery: 'initial' | 'upgrade',
-  ) => void;
+  onResult: (result: IMockFirstScreenPrefetchResult) => void;
 }
 
 function buildMockFirstScreenPrefetchResult(): IMockFirstScreenPrefetchResult {
@@ -237,6 +237,10 @@ describe('TradingViewV2 native source discovery', () => {
     };
     mockTradingViewLogger.dexTVFirstPaint.mockClear();
     mockRouteIsFocused = true;
+    mockNativeIndicatorState = {
+      activeIndicatorValues: new Set<string>(),
+      isInitialized: false,
+    };
   });
 
   afterEach(() => {
@@ -274,6 +278,9 @@ describe('TradingViewV2 native source discovery', () => {
     expect(webViewProps?.skipBackgroundBridge).toBe(true);
     expect(webViewProps?.cacheEnabled).toBe(true);
     expect(webViewProps?.useSharedProcessPool).toBe(true);
+    expect(webViewProps?.originWhitelist).toEqual([
+      'https://tradingview.onekey.so',
+    ]);
     expect(typeof injectedScript).toBe('string');
     expect((injectedScript as string).length).toBeLessThan(3000);
     expect(injectedScript).toContain('window.ReactNativeWebView');
@@ -307,37 +314,31 @@ describe('TradingViewV2 native source discovery', () => {
 
     const subscriptionParams = mockSubscribeTradingViewV2FirstScreenPrefetch
       .mock.calls[0][0] as {
-      onResult: (
-        result: {
-          interval: string;
-          requestedTimeTo: number;
-          coveredTimeFrom: number;
-          coveredTimeTo: number;
-          historyExhausted: boolean;
-          points: {
-            o: number;
-            h: number;
-            l: number;
-            c: number;
-            v: number;
-            t: number;
-          }[];
-        },
-        delivery: 'initial' | 'upgrade',
-      ) => void;
+      onResult: (result: {
+        interval: string;
+        requestedTimeTo: number;
+        coveredTimeFrom: number;
+        coveredTimeTo: number;
+        historyExhausted: boolean;
+        points: {
+          o: number;
+          h: number;
+          l: number;
+          c: number;
+          v: number;
+          t: number;
+        }[];
+      }) => void;
     };
     act(() => {
-      subscriptionParams.onResult(
-        {
-          interval: '1m',
-          requestedTimeTo: 1120,
-          coveredTimeFrom: 1000,
-          coveredTimeTo: 1120,
-          historyExhausted: false,
-          points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
-        },
-        'initial',
-      );
+      subscriptionParams.onResult({
+        interval: '1m',
+        requestedTimeTo: 1120,
+        coveredTimeFrom: 1000,
+        coveredTimeTo: 1120,
+        historyExhausted: false,
+        points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+      });
     });
 
     expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
@@ -354,6 +355,7 @@ describe('TradingViewV2 native source discovery', () => {
     ).not.toHaveProperty('continuationMode');
     const bootstrapId = sendMessageViaInjectedScript.mock.calls.at(-1)?.[0]
       ?.payload?.bootstrapId as string;
+    expect(bootstrapId.startsWith('onekey::evm--1:0xabc:ABC:1m:')).toBe(true);
     const readinessParams = mockUseTradingViewMessageHandler.mock.calls.at(
       -1,
     )?.[0] as
@@ -373,25 +375,57 @@ describe('TradingViewV2 native source discovery', () => {
       }),
     ).toBe(true);
 
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not register readiness for an unavailable message that was not sent', () => {
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const webViewProps = mockWebViewProps.at(-1);
+    const sendMessageViaInjectedScript = jest.fn();
     act(() => {
-      subscriptionParams.onResult(
-        {
-          interval: '1m',
-          requestedTimeTo: 1120,
-          coveredTimeFrom: 880,
-          coveredTimeTo: 1120,
-          historyExhausted: true,
-          points: [
-            { o: 1, h: 1, l: 1, c: 1, v: 0, t: 960 },
-            { o: 2, h: 2, l: 2, c: 2, v: 0, t: 1020 },
-          ],
-        },
-        'upgrade',
-      );
+      (
+        webViewProps?.onWebViewRef as
+          | ((ref: { sendMessageViaInjectedScript: jest.Mock }) => void)
+          | undefined
+      )?.({ sendMessageViaInjectedScript });
+    });
+    const subscriptionParams = mockSubscribeTradingViewV2FirstScreenPrefetch
+      .mock.calls[0][0] as IMockFirstScreenPrefetchSubscription & {
+      onError?: (error: unknown) => void;
+    };
+
+    act(() => {
+      (
+        webViewProps?.onLoadStart as
+          | ((event: Record<string, unknown>) => void)
+          | undefined
+      )?.({});
+      subscriptionParams.onError?.(new Error('stale request'));
     });
 
-    // Upgrade deliveries are ignored to avoid post-paint chart resets.
-    expect(sendMessageViaInjectedScript).toHaveBeenCalledTimes(1);
+    const readinessParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          resolveReadinessAckTarget?: (data: {
+            requestId: string;
+          }) => boolean | undefined;
+        }
+      | undefined;
+    expect(
+      readinessParams?.resolveReadinessAckTarget?.({
+        requestId: 'onekey::evm--1:0xabc:ABC:1m:unavailable:prefetch-failed',
+      }),
+    ).toBeUndefined();
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
   });
 
   it('keeps the empty native-token address in the bootstrap identity', () => {
@@ -437,37 +471,31 @@ describe('TradingViewV2 native source discovery', () => {
     });
     const subscriptionParams = mockSubscribeTradingViewV2FirstScreenPrefetch
       .mock.calls[0][0] as {
-      onResult: (
-        result: {
-          interval: string;
-          requestedTimeTo: number;
-          coveredTimeFrom: number;
-          coveredTimeTo: number;
-          historyExhausted: boolean;
-          points: {
-            o: number;
-            h: number;
-            l: number;
-            c: number;
-            v: number;
-            t: number;
-          }[];
-        },
-        delivery: 'initial' | 'upgrade',
-      ) => void;
+      onResult: (result: {
+        interval: string;
+        requestedTimeTo: number;
+        coveredTimeFrom: number;
+        coveredTimeTo: number;
+        historyExhausted: boolean;
+        points: {
+          o: number;
+          h: number;
+          l: number;
+          c: number;
+          v: number;
+          t: number;
+        }[];
+      }) => void;
     };
     act(() => {
-      subscriptionParams.onResult(
-        {
-          interval: '1m',
-          requestedTimeTo: 1120,
-          coveredTimeFrom: 1000,
-          coveredTimeTo: 1120,
-          historyExhausted: false,
-          points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
-        },
-        'initial',
-      );
+      subscriptionParams.onResult({
+        interval: '1m',
+        requestedTimeTo: 1120,
+        coveredTimeFrom: 1000,
+        coveredTimeTo: 1120,
+        historyExhausted: false,
+        points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 1020 }],
+      });
     });
 
     expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
@@ -617,7 +645,7 @@ describe('TradingViewV2 native source discovery', () => {
     const subscription = mockSubscribeTradingViewV2FirstScreenPrefetch.mock
       .calls[0][0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
     });
 
     expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
@@ -670,7 +698,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
       jest.advanceTimersByTime(10_000);
     });
 
@@ -730,7 +758,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
       jest.advanceTimersByTime(2999);
     });
 
@@ -801,7 +829,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
     });
 
     const currentMessageHandlerParams =
@@ -920,7 +948,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
       jest.advanceTimersByTime(10_000);
     });
 
@@ -977,7 +1005,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
     });
     const currentMessageHandlerParams =
       mockUseTradingViewMessageHandler.mock.calls.at(-1)?.[0] as
@@ -1148,7 +1176,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      subscription.onResult(buildMockFirstScreenPrefetchResult(), 'initial');
+      subscription.onResult(buildMockFirstScreenPrefetchResult());
     });
 
     const currentMessageHandlerParams =
@@ -1219,10 +1247,7 @@ describe('TradingViewV2 native source discovery', () => {
         -1,
       )?.[0] as IMockFirstScreenPrefetchSubscription;
     act(() => {
-      resumedSubscription.onResult(
-        buildMockFirstScreenPrefetchResult(),
-        'initial',
-      );
+      resumedSubscription.onResult(buildMockFirstScreenPrefetchResult());
       jest.advanceTimersByTime(10_000);
     });
 
@@ -1697,6 +1722,72 @@ describe('TradingViewV2 native source discovery', () => {
     expect(
       mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
     ).toEqual(expect.objectContaining({ symbolSyncSupport: true }));
+  });
+
+  it('reloads the chart instead of syncing symbols with an active indicator', () => {
+    mockNativeIndicatorState = {
+      activeIndicatorValues: new Set(['VOL', 'MACD']),
+      isInitialized: true,
+    };
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: false }));
+    expect(mockUseMarketSymbolSync.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it('keeps symbol sync enabled when Volume is the only active indicator', () => {
+    mockNativeIndicatorState = {
+      activeIndicatorValues: new Set(['VOL']),
+      isInitialized: true,
+    };
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: true }));
+    expect(mockUseMarketSymbolSync.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ enabled: true }),
+    );
   });
 
   it('ignores the previous document handshake timer after a reload starts', () => {

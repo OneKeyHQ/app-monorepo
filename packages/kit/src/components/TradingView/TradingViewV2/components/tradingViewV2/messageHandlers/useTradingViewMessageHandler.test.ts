@@ -110,6 +110,35 @@ describe('useTradingViewMessageHandler request lifecycle', () => {
     expect(mockHandleKLineDataRequest).not.toHaveBeenCalled();
   });
 
+  it('safely forwards a malformed K-line payload to the guarded handler', async () => {
+    const { webRef } = buildWebViewRef();
+    const onKLineRequestStart = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewMessageHandler({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        webRef,
+        onKLineRequestStart,
+      }),
+    );
+
+    await expect(
+      act(async () => {
+        await result.current.customReceiveHandler({
+          data: {
+            scope: '$private',
+            method: 'tradingview_getKLineData',
+            origin: 'onekey',
+            data: null,
+          },
+        } as unknown as ICustomReceiveHandlerData);
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(onKLineRequestStart).not.toHaveBeenCalled();
+    expect(mockHandleKLineDataRequest).toHaveBeenCalledTimes(1);
+  });
+
   it('lets a request accepted while active finish after the WebView is parked', async () => {
     const { webRef } = buildWebViewRef();
     let isVisible = true;

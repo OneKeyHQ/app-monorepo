@@ -10,7 +10,6 @@ const MARKET_KLINE_SPARSE_RANGE_BUFFER = 1.25;
 const MARKET_KLINE_RANGE_EXPANSION_FACTOR = 4;
 
 export const MARKET_KLINE_MAX_BACKFILL_REQUESTS = 30;
-export const MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS = 5 * 365 * 24 * 60 * 60;
 
 interface IMarketKlineRange {
   timeFrom: number;
@@ -29,16 +28,11 @@ interface IFetchMarketKlineBackfillParams {
 }
 
 export function getMarketKlineHistoryFloor({
-  requestTimeTo,
   historyStartTime,
 }: {
-  requestTimeTo: number;
   historyStartTime?: number;
 }) {
-  return (
-    historyStartTime ??
-    Math.max(0, requestTimeTo - MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS)
-  );
+  return historyStartTime ?? 0;
 }
 
 export function normalizeMarketKlinePoints(

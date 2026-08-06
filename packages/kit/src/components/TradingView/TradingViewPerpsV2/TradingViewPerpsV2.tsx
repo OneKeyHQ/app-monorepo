@@ -355,8 +355,6 @@ export function TradingViewPerpsV2(
     }
   }, [closeChartOrderDialog, symbol]);
 
-  const { handleNavigation } = useNavigationHandler();
-
   // Optimization: Static URL with only initialization params to avoid WebView reload
   // Memoize additionalParams to prevent useTradingViewUrl from regenerating URL
   const staticUrlSymbol = useMemo(
@@ -380,6 +378,8 @@ export function TradingViewPerpsV2(
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
   });
+  const { handleNavigation, originWhitelist } =
+    useNavigationHandler(staticTradingViewUrl);
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
   const tradingViewWebViewStyleProps = useMemo(
@@ -649,6 +649,7 @@ export function TradingViewPerpsV2(
       <WebViewMemoized
         key={_webviewKey}
         src={staticTradingViewUrl}
+        originWhitelist={originWhitelist}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}

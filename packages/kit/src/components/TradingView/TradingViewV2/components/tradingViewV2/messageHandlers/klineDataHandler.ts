@@ -452,9 +452,20 @@ export async function handleKLineDataRequest({
   ) {
     // Extract properties safely with explicit checks
     const safeData = messageData as unknown as Record<string, unknown>;
-    const resolution = safeData.resolution as string;
-    const from = safeData.from as number;
-    const to = safeData.to as number;
+    if (
+      typeof safeData.resolution !== 'string' ||
+      !safeData.resolution ||
+      typeof safeData.from !== 'number' ||
+      !Number.isFinite(safeData.from) ||
+      typeof safeData.to !== 'number' ||
+      !Number.isFinite(safeData.to) ||
+      safeData.to <= safeData.from
+    ) {
+      return;
+    }
+    const resolution = safeData.resolution;
+    const from = safeData.from;
+    const to = safeData.to;
     const isFirstDataRequest = safeData.firstDataRequest === true;
     const targetCount = getHistoryTargetCount({
       countBack: safeData.countBack,

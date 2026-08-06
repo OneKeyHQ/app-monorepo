@@ -5,7 +5,6 @@ import type {
 
 import {
   MARKET_KLINE_MAX_BACKFILL_REQUESTS,
-  MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS,
   fetchMarketKlineBackfill,
   getMarketKlineHistoryFloor,
 } from './marketKlineBackfill';
@@ -216,6 +215,40 @@ describe('fetchMarketKlineBackfill', () => {
     });
   });
 
+  test.each([
+    { label: 'daily', intervalSeconds: 24 * 60 * 60 },
+    { label: 'weekly', intervalSeconds: 7 * 24 * 60 * 60 },
+  ])(
+    'can reach 2000 $label candles without an artificial five-year floor',
+    async ({ intervalSeconds }) => {
+      const targetCount = 2000;
+      const requestTimeTo = intervalSeconds * 2500;
+      const result = await fetchMarketKlineBackfill({
+        targetCount,
+        stopAfterCount: targetCount,
+        intervalSeconds,
+        requestTimeFrom: requestTimeTo - intervalSeconds * targetCount,
+        requestTimeTo,
+        historyFloor: getMarketKlineHistoryFloor({}),
+        fetchPage: async ({ timeFrom, timeTo }) =>
+          buildResponse(
+            Array.from(
+              { length: Math.floor((timeTo - timeFrom) / intervalSeconds) },
+              (_, index) => timeFrom + index * intervalSeconds,
+            ),
+          ),
+        isCancelled: () => false,
+      });
+
+      expect(result.points).toHaveLength(targetCount);
+      expect(result.historyMeta).toMatchObject({
+        noData: false,
+        isPartial: false,
+        stopReason: 'target_reached',
+      });
+    },
+  );
+
   test('fills the requested count across sparse capped ranges without ending history', async () => {
     const requestedRanges: Array<{ timeFrom: number; timeTo: number }> = [];
     const endpointSlotCapacity = 200;
@@ -322,15 +355,12 @@ describe('getMarketKlineHistoryFloor', () => {
   test('uses the token history start when available', () => {
     expect(
       getMarketKlineHistoryFloor({
-        requestTimeTo: 1000,
         historyStartTime: 800,
       }),
     ).toBe(800);
   });
 
-  test('limits unknown history instead of scanning to 1970', () => {
-    const requestTimeTo = MARKET_KLINE_MAX_HISTORY_RANGE_SECONDS + 1000;
-
-    expect(getMarketKlineHistoryFloor({ requestTimeTo })).toBe(1000);
+  test('does not treat an artificial lookback window as exhausted history', () => {
+    expect(getMarketKlineHistoryFloor({})).toBe(0);
   });
 });

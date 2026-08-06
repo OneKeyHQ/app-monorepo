@@ -70,7 +70,6 @@ import type {
   ICustomReceiveHandlerData,
   ITradingViewChartReadyData,
   ITradingViewFirstPaintReadyData,
-  ITradingViewHistoryData,
   ITradingViewHistoryReadyData,
   ITradingViewIntervalConfigData,
   ITradingViewKLineDataReadyData,
@@ -423,6 +422,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       nativeSubIndicatorCountFromConfig,
     ],
   );
+  const hasActiveNonVolumeIndicator = useMemo(
+    () =>
+      nativeIndicatorState.isInitialized &&
+      Array.from(nativeIndicatorState.activeIndicatorValues).some(
+        (indicatorValue) => indicatorValue !== 'VOL',
+      ),
+    [
+      nativeIndicatorState.activeIndicatorValues,
+      nativeIndicatorState.isInitialized,
+    ],
+  );
 
   useEffect(() => {
     if (!enableNativeChartControls) {
@@ -438,7 +448,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeSubIndicatorCountChange,
   ]);
 
-  const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
     (resolution: string) => {
       const normalizedResolution =
@@ -648,6 +657,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   ].join(':');
   const registerReadinessAckTarget = useCallback(
     (correlationId: string) => {
+      readinessAckTargetsRef.current.delete(correlationId);
       readinessAckTargetsRef.current.set(correlationId, {
         identity: firstPaintMetricIdentity,
         webViewLoadGeneration: webViewLoadGeneration.current,
@@ -664,7 +674,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [firstPaintMetricIdentity],
   );
   const handleKLineRequestStart = useCallback(
-    (data: ITradingViewHistoryData) => {
+    (data: { requestId: string }) => {
       if (data.requestId) {
         registerReadinessAckTarget(data.requestId);
       }
@@ -1047,10 +1057,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       additionalParams: staticAdditionalParams,
       disabledFeatures,
     });
+  const { handleNavigation, originWhitelist } =
+    useNavigationHandler(staticTradingViewUrl);
   const marketSymbolIdentityKey =
     buildMarketTradingViewIdentityKey(marketSymbolIdentity);
   const shouldForceReloadMarketSymbol =
     forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey;
+  // Persisted studies can leave chart history requests unresolved during an
+  // in-document symbol change, so reload only when a user indicator is active.
+  const effectiveMarketSymbolSyncSupport = hasActiveNonVolumeIndicator
+    ? false
+    : isMarketSymbolSyncSupported;
   const {
     staticTradingViewUrl: iframeStaticTradingViewUrl,
     identity: iframeIdentity,
@@ -1059,7 +1076,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     identity: marketSymbolIdentity,
     symbolSyncSupport: shouldForceReloadMarketSymbol
       ? false
-      : isMarketSymbolSyncSupported,
+      : effectiveMarketSymbolSyncSupport,
   });
   const iframeIdentityKey = buildMarketTradingViewIdentityKey(iframeIdentity);
   useEffect(() => {
@@ -1076,7 +1093,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     if (
       !isVisibilityManagedExternally ||
       isKLineHistoryReadyRef.current ||
-      isMarketSymbolSyncSupported !== true ||
+      effectiveMarketSymbolSyncSupport !== true ||
       iframeIdentityKey === marketSymbolIdentityKey ||
       forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey ||
       (successfulFirstPaint?.identity === firstPaintMetricIdentity &&
@@ -1112,7 +1129,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     firstPaintMetricIdentity,
     forceReloadMarketSymbolIdentityKey,
     iframeIdentityKey,
-    isMarketSymbolSyncSupported,
+    effectiveMarketSymbolSyncSupport,
     isVisibilityManagedExternally,
     marketSymbolIdentityKey,
   ]);
@@ -1139,7 +1156,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     identity: marketSymbolIdentity,
     frameIdentity: iframeIdentity,
     documentGeneration: webViewLoadGeneration.current,
-    enabled: isVisible && isMarketSymbolSyncSupported === true,
+    enabled: isVisible && effectiveMarketSymbolSyncSupport === true,
   });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
@@ -1372,17 +1389,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         decimal: decimal.toString(),
       };
       const bootstrapIdPrefix = [
+        kLineProvider,
+        kLineProviderSymbol ?? '',
         networkId,
         tokenAddress,
+        chartSymbol,
         bootstrapKLineResolution,
       ].join(':');
       const sendUnavailable = (reason: string) => {
         if (requestTarget.requestWebView !== ref) {
           return;
         }
-        const bootstrapId = `${bootstrapIdPrefix}:unavailable`;
-        registerReadinessAckTarget(bootstrapId);
-        requestTarget.sendMessage({
+        const bootstrapId = `${bootstrapIdPrefix}:unavailable:${reason}`;
+        const unavailableSent = requestTarget.sendMessage({
           type: 'KLINE_BOOTSTRAP_UNAVAILABLE',
           payload: {
             protocolVersion: KLINE_BOOTSTRAP_PROTOCOL_VERSION,
@@ -1392,6 +1411,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
             reason,
           },
         });
+        if (unavailableSent) {
+          registerReadinessAckTarget(bootstrapId);
+        }
       };
 
       if (
@@ -1411,7 +1433,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           interval: bootstrapKLineResolution,
           kLineProvider,
           kLineProviderSymbol,
-          onResult: (result, delivery) => {
+          onResult: (result) => {
             if (!requestTarget.isCurrent()) {
               return;
             }
@@ -1422,19 +1444,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
               sendUnavailable('prefetch-empty');
               return;
             }
-            // First screen is a single viewport-complete package. Ignore late
-            // upgrade deliveries so the chart never resets after first paint.
-            if (delivery !== 'initial') {
-              return;
-            }
             const bootstrapId = [
               bootstrapIdPrefix,
               result.requestedTimeTo,
-              delivery,
               result.coveredTimeFrom,
               result.points.length,
             ].join(':');
-            registerReadinessAckTarget(bootstrapId);
             const bootstrapSent = requestTarget.sendMessage({
               type: 'KLINE_BOOTSTRAP',
               payload: {
@@ -1452,6 +1467,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
               },
             });
             if (bootstrapSent) {
+              registerReadinessAckTarget(bootstrapId);
               initialHistoryBootstrapSentIdentityRef.current =
                 firstPaintMetricIdentity;
               scheduleMarketSymbolSyncRecovery();
@@ -1649,6 +1665,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         skipBackgroundBridge={platformEnv.isNative}
         cacheEnabled={platformEnv.isNative ? true : undefined}
         useSharedProcessPool={platformEnv.isNative ? true : undefined}
+        originWhitelist={originWhitelist}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
         onLoadStart={handleLoadStart}
@@ -1673,6 +1690,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       handleContentProcessDidTerminate,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
+      originWhitelist,
       theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,

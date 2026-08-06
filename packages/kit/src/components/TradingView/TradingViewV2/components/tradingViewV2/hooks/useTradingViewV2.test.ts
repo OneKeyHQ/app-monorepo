@@ -402,7 +402,6 @@ describe('first-screen K-line prefetch subscription', () => {
         points: response.points,
         historyExhausted: true,
       }),
-      'initial',
     );
     unsubscribe();
   });
@@ -459,7 +458,6 @@ describe('first-screen K-line prefetch subscription', () => {
         points: completedResponse.points,
         historyExhausted: true,
       }),
-      'initial',
     );
     unsubscribe();
   });
@@ -511,7 +509,6 @@ describe('first-screen K-line prefetch subscription', () => {
         points: nativePoints,
         historyExhausted: false,
       }),
-      'initial',
     );
     unsubscribe();
   });
@@ -570,7 +567,6 @@ describe('first-screen K-line prefetch subscription', () => {
           points: btcPoints,
           historyExhausted: false,
         }),
-        'initial',
       );
     } finally {
       unsubscribe();

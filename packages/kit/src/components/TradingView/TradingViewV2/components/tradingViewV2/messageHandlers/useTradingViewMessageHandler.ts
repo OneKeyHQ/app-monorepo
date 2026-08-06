@@ -22,7 +22,6 @@ import type {
   ICustomReceiveHandlerData,
   ITradingViewChartReadyData,
   ITradingViewFirstPaintReadyData,
-  ITradingViewHistoryData,
   ITradingViewHistoryReadyData,
   ITradingViewIndicatorsDialogData,
   ITradingViewInteractionOverlayData,
@@ -96,7 +95,7 @@ interface IUseTradingViewMessageHandlerParams {
   onIntervalAckSupportChange?: (supported: boolean) => void;
   onHistoryReadyAckSupportChange?: (supported: boolean) => void;
   onChartReady?: (data: ITradingViewChartReadyData) => void;
-  onKLineRequestStart?: (data: ITradingViewHistoryData) => void;
+  onKLineRequestStart?: (data: { requestId: string }) => void;
   resolveReadinessAckTarget?: (
     data: ITradingViewHistoryReadyData | ITradingViewFirstPaintReadyData,
   ) => boolean | undefined;
@@ -843,9 +842,9 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method === 'tradingview_getKLineData'
       ) {
-        const requestData = data.data as ITradingViewHistoryData;
-        if (typeof requestData.requestId === 'string') {
-          onKLineRequestStart?.(requestData);
+        const requestData = isRecord(data.data) ? data.data : undefined;
+        if (typeof requestData?.requestId === 'string') {
+          onKLineRequestStart?.({ requestId: requestData.requestId });
         }
         await handleKLineDataRequest({ data, context });
       }

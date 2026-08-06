@@ -8,8 +8,6 @@ export {
   useMarketSymbolSync,
 } from './useMarketSymbolSync';
 export {
-  cancelTradingViewV2FirstScreenPrefetchData,
-  getTradingViewV2FirstScreenPrefetchPromise,
   prefetchTradingViewV2FirstScreenData,
   subscribeTradingViewV2FirstScreenPrefetch,
   fetchTradingViewV2Data,
