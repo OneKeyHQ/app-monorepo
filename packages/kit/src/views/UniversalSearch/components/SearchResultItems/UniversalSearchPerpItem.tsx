@@ -1,11 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -24,8 +19,7 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
@@ -87,17 +81,6 @@ export function UniversalSearchPerpItem({
       } catch (error) {
         console.error('Failed to change active asset:', error);
         return;
-      }
-      if (platformEnv.isNative) {
-        // rootNavigationRef needed because search modal's navigation context can't push into Perp tab's stack
-        setTimeout(() => {
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Perp,
-            params: {
-              screen: EModalPerpRoutes.MobilePerpMarket,
-            },
-          });
-        }, 500);
       }
       setTimeout(() => {
         universalSearchActions.current.addIntoRecentSearchList({
@@ -162,31 +145,15 @@ export function UniversalSearchPerpItem({
                 <LeverageBadge leverage={maxLeverage} />
               ) : null}
               <PerpDexBadge dexLabel={dexLabel} />
-              {subtitle ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgInfo"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
-                >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
-                    color="$textInfo"
-                    lineHeight={16}
-                  >
-                    {subtitle}
-                  </SizableText>
-                </XStack>
-              ) : null}
             </XStack>
           </XStack>
         }
         secondary={
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {`${name} - USDC`}
-          </SizableText>
+          subtitle ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {subtitle}
+            </SizableText>
+          ) : undefined
         }
       />
       <NumberSizeableText

@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -237,6 +238,7 @@ function MobilePerpMarket() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const {
     baseName,
+    dexLabel,
     displayName,
     coin: activeCoin,
     mode,
@@ -339,6 +341,7 @@ function MobilePerpMarket() {
         />
         <SizableText size="$headingLg">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        <PerpDexBadge dexLabel={dexLabel} />
         {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}
@@ -347,6 +350,7 @@ function MobilePerpMarket() {
   }, [
     activeCoin,
     baseName,
+    dexLabel,
     displayName,
     isSplitDetailActive,
     mode,

@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Image,
   SizableText,
   Stack,
@@ -46,7 +47,15 @@ function getPerpDexDescriptionId(dexLabel?: string) {
 }
 
 const PerpDexBadge = memo(
-  ({ dexLabel, testID }: { dexLabel?: string; testID?: string }) => {
+  ({
+    compact,
+    dexLabel,
+    testID,
+  }: {
+    compact?: boolean;
+    dexLabel?: string;
+    testID?: string;
+  }) => {
     const intl = useIntl();
     const descriptionId = getPerpDexDescriptionId(dexLabel);
 
@@ -56,7 +65,20 @@ const PerpDexBadge = memo(
 
     const label = dexLabel.toLowerCase();
     const description = intl.formatMessage({ id: descriptionId });
-    const badge = (
+    const badgeText = (
+      <SizableText
+        color="$textInfo"
+        fontSize={10}
+        {...(!compact && { lineHeight: 16 })}
+      >
+        {label}
+      </SizableText>
+    );
+    const badge = compact ? (
+      <Badge radius="$1" bg="$bgInfo" px="$1" py={0} testID={testID}>
+        {badgeText}
+      </Badge>
+    ) : (
       <XStack
         borderRadius="$1"
         bg="$bgInfo"
@@ -65,9 +87,7 @@ const PerpDexBadge = memo(
         px="$1.5"
         testID={testID}
       >
-        <SizableText color="$textInfo" fontSize={10} lineHeight={16}>
-          {label}
-        </SizableText>
+        {badgeText}
       </XStack>
     );
 
