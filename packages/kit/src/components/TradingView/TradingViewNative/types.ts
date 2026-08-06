@@ -5,6 +5,13 @@ import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIn
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartType = 'candlestick' | 'line';
 
+export interface ITradingViewNativeCandleLabels {
+  close: string;
+  high: string;
+  low: string;
+  open: string;
+}
+
 export type ITradingViewNativeSource =
   | {
       kind: 'hyperliquid';
