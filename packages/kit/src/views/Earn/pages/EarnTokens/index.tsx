@@ -94,12 +94,17 @@ function EarnTokensContent() {
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
-  // Fetch All + StableCoins once; every category derives from these two
-  // datasets client-side, so switching chips never re-requests the server
+  // Fetch SimpleEarn + StableCoins once; every category derives from these
+  // two datasets client-side, so switching chips never re-requests the server.
+  // OK-59338: the base dataset is SimpleEarn (a server-side category that
+  // already excludes fixed-rate PT products) instead of All minus a
+  // fixed-rate symbol set — that subtraction also removed simple-earn
+  // products of symbols that happen to have a PT variant too (USDe), making
+  // them unsearchable here.
   const { result: assets, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: EAvailableAssetsTypeEnum.All,
+        type: EAvailableAssetsTypeEnum.SimpleEarn,
       }),
     [],
     { watchLoading: true, undefinedResultIfError: true },
@@ -127,21 +132,6 @@ function EarnTokensContent() {
     }
     return list;
   }, [assets, categoryType, stableSymbols]);
-
-  // The Tokens list excludes fixed-rate assets (OK-58879): fixed-rate (PT-like,
-  // separate symbols) has its own list page, so filter by the fixedRate symbol set
-  const { result: fixedRateAssets } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: EAvailableAssetsTypeEnum.FixedRate,
-      }),
-    [],
-    { undefinedResultIfError: true },
-  );
-  const fixedRateSymbols = useMemo(
-    () => new Set((fixedRateAssets ?? []).map((asset) => asset.symbol)),
-    [fixedRateAssets],
-  );
 
   // Data source for the default sort (OK-58880): total TVL of all providers
   // under each symbol. Reuses the all-protocol aggregation (single request +
@@ -195,9 +185,6 @@ function EarnTokensContent() {
     const selectedSet = new Set(selectedNetworkIds);
     const keyword = searchText.trim().toLowerCase();
     return list.filter((asset) => {
-      if (fixedRateSymbols.has(asset.symbol)) {
-        return false;
-      }
       if (
         selectedSet.size > 0 &&
         !(asset.protocols ?? []).some((protocol) =>
@@ -215,7 +202,7 @@ function EarnTokensContent() {
       }
       return true;
     });
-  }, [categoryAssets, fixedRateSymbols, searchText, selectedNetworkIds]);
+  }, [categoryAssets, searchText, selectedNetworkIds]);
 
   const sortedAssets = useMemo(
     () =>
