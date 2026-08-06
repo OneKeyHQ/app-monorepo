@@ -75,6 +75,7 @@ const mockEnsureKeylessCredentialReady = jest.fn(async () => ({
   hasLocalKeylessWallet: true as const,
 }));
 const mockApiFetchPrimeUserInfo = jest.fn(async () => undefined);
+const mockLogOneKeyIdLoginFailureReason = jest.fn();
 const mockYStack = jest.fn((_props: unknown) => null);
 let mockOneKeyAuthUser:
   | {
@@ -144,7 +145,11 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
 
 jest.mock('../oneKeyIdLoginToastUtils', () => ({
   getSanitizedAuthErrorText: (error: unknown) => String(error),
+  logOneKeyIdLoginFailureReason: (...args: unknown[]) => {
+    mockLogOneKeyIdLoginFailureReason(...args);
+  },
   showOneKeyIdLoginSuccessToast: jest.fn(),
+  throwLocalizedOneKeyIdLoginError: jest.fn(),
 }));
 
 jest.mock('../useOneKeyIdLocalKeylessOAuth', () => ({
@@ -225,18 +230,17 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
   it('keeps the inline bind guidance ready when profile refresh fails', async () => {
     const profileError = new OneKeyLocalError('profile unavailable');
     mockApiFetchPrimeUserInfo.mockRejectedValueOnce(profileError);
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
 
     render(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
 
     await waitFor(() => expect(mockYStack).toHaveBeenCalled());
     expect(mockEnsureKeylessCredentialReady).toHaveBeenCalledTimes(1);
     expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
-    expect(consoleError).toHaveBeenCalledWith(
-      'OneKeyIdLegacyOAuthBindPrompt profile refresh failed:',
-      expect.any(String),
+    expect(mockLogOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'OneKeyIdLegacyOAuthBindPrompt profile refresh failed:',
+      ),
+      profileError,
     );
   });
 });

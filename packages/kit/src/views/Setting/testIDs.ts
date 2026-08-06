@@ -10,8 +10,13 @@ export const SettingTestIDs = {
   themeItem: 'setting-theme',
   notificationsItem: 'setting-notifications',
   securityItem: 'setting-security',
+  clearAppCacheItem: 'setting-clear-app-cache',
   addressBookItem: 'setting-address-book',
   aboutItem: 'setting-about',
+
+  // Clear application cache
+  clearAppCachePage: 'setting-clear-app-cache-page',
+  clearAppCacheOneKeyIdCheckbox: 'setting-clear-app-cache-onekey-id-checkbox',
 
   // OneKey ID
   oneKeyIdPage: 'setting-onekey-id-page',
