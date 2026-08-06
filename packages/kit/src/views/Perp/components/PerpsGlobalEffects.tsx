@@ -12,7 +12,6 @@ import {
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   perpsActiveOrderBookOptionsAtom,
-  tradingModeAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
@@ -129,15 +128,7 @@ type IActiveInstrumentTarget = Awaited<
 // refreshed by a broadcast whose delivery is not confirmed, and a resync that
 // reads a drifted copy switches the user off the pair they picked.
 async function resolveActiveInstrumentTarget(): Promise<IActiveInstrumentTarget> {
-  const target =
-    await backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
-  markPerpsColdStartPerf('initial_symbol_bg_target', {
-    bgMode: target.mode,
-    bgSpotCoin: target.spotAsset?.coin,
-    bgPerpCoin: target.perpAsset?.coin,
-    mirrorMode: await tradingModeAtom.get(),
-  });
-  return target;
+  return backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
 }
 
 function buildSwitchParamsFromTarget(
@@ -1076,15 +1067,11 @@ function useHyperliquidSymbolSelect() {
           ? activeTradeInstrumentRef.current
           : undefined,
       });
-      // Diagnostic only: mirrorMode is main's copy of the bg-owned mode, while
-      // instrumentMode drives what the order book and price actually render.
-      // Comparing them against the bg-side marker locates a divergence.
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,
         coin: switchParams?.coin,
         mode: switchParams?.mode,
         claimed,
-        mirrorMode: await tradingModeAtom.get(),
         instrumentMode: activeTradeInstrumentRef.current?.mode,
         instrumentCoin: activeTradeInstrumentRef.current?.coin,
       });
