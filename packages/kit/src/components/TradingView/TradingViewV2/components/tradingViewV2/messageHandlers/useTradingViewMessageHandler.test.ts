@@ -186,6 +186,50 @@ describe('useTradingViewMessageHandler request lifecycle', () => {
     });
   });
 
+  it('reports whether symbol sync safely refreshes active studies', async () => {
+    const { webRef } = buildWebViewRef();
+    const onMarketSymbolSyncSupportChange = jest.fn();
+    const onMarketSymbolSyncStudiesSupportChange = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewMessageHandler({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        webRef,
+        onMarketSymbolSyncSupportChange,
+        onMarketSymbolSyncStudiesSupportChange,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.customReceiveHandler(
+        buildMessage('tradingview_chartReady', {
+          capabilities: {
+            marketSymbolSync: true,
+            marketSymbolSyncStudies: true,
+          },
+        }),
+      );
+      await result.current.customReceiveHandler(
+        buildMessage('tradingview_chartReady', {
+          capabilities: {
+            marketSymbolSync: true,
+          },
+        }),
+      );
+    });
+
+    expect(onMarketSymbolSyncSupportChange).toHaveBeenNthCalledWith(1, true);
+    expect(onMarketSymbolSyncSupportChange).toHaveBeenNthCalledWith(2, true);
+    expect(onMarketSymbolSyncStudiesSupportChange).toHaveBeenNthCalledWith(
+      1,
+      true,
+    );
+    expect(onMarketSymbolSyncStudiesSupportChange).toHaveBeenNthCalledWith(
+      2,
+      false,
+    );
+  });
+
   it('drops marks after the WebView document reloads', async () => {
     const { sendMessageViaInjectedScript, webRef } = buildWebViewRef();
     const webViewLoadGeneration = { current: 1 };

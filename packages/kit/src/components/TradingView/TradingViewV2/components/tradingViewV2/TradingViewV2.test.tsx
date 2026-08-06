@@ -1695,6 +1695,7 @@ describe('TradingViewV2 native source discovery', () => {
     )?.[0] as
       | {
           onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          onMarketSymbolSyncStudiesSupportChange?: (supported: boolean) => void;
           onMarketAppKlineTransportSupportChange?: (supported: boolean) => void;
           onIntervalAckSupportChange?: (supported: boolean) => void;
           onHistoryReadyAckSupportChange?: (supported: boolean) => void;
@@ -1704,6 +1705,7 @@ describe('TradingViewV2 native source discovery', () => {
     const chartReadyData = {
       capabilities: {
         marketSymbolSync: true,
+        marketSymbolSyncStudies: true,
         marketAppKlineTransport: true,
         intervalAck: true,
         historyReadyAck: true,
@@ -1711,6 +1713,7 @@ describe('TradingViewV2 native source discovery', () => {
     };
     act(() => {
       messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+      messageHandlerParams?.onMarketSymbolSyncStudiesSupportChange?.(true);
       messageHandlerParams?.onMarketAppKlineTransportSupportChange?.(true);
       messageHandlerParams?.onIntervalAckSupportChange?.(true);
       messageHandlerParams?.onHistoryReadyAckSupportChange?.(true);
@@ -1724,7 +1727,7 @@ describe('TradingViewV2 native source discovery', () => {
     ).toEqual(expect.objectContaining({ symbolSyncSupport: true }));
   });
 
-  it('reloads the chart instead of syncing symbols with an active indicator', () => {
+  it('reloads an active indicator for a legacy chart without study-safe sync', () => {
     mockNativeIndicatorState = {
       activeIndicatorValues: new Set(['VOL', 'MACD']),
       isInitialized: true,
@@ -1754,6 +1757,41 @@ describe('TradingViewV2 native source discovery', () => {
     ).toEqual(expect.objectContaining({ symbolSyncSupport: false }));
     expect(mockUseMarketSymbolSync.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it('keeps fast symbol sync with active indicators on a fixed chart', () => {
+    mockNativeIndicatorState = {
+      activeIndicatorValues: new Set(['VOL', 'MACD']),
+      isInitialized: true,
+    };
+    render(
+      <TradingViewV2
+        symbol="ABC"
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        decimal={8}
+      />,
+    );
+
+    const messageHandlerParams = mockUseTradingViewMessageHandler.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+          onMarketSymbolSyncStudiesSupportChange?: (supported: boolean) => void;
+        }
+      | undefined;
+    act(() => {
+      messageHandlerParams?.onMarketSymbolSyncSupportChange?.(true);
+      messageHandlerParams?.onMarketSymbolSyncStudiesSupportChange?.(true);
+    });
+
+    expect(
+      mockUseMarketTradingViewFrameIdentity.mock.calls.at(-1)?.[0],
+    ).toEqual(expect.objectContaining({ symbolSyncSupport: true }));
+    expect(mockUseMarketSymbolSync.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ enabled: true }),
     );
   });
 

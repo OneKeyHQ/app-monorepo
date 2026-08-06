@@ -280,6 +280,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const [isMarketSymbolSyncSupported, setIsMarketSymbolSyncSupported] =
     useState<boolean | undefined>();
   const [
+    isMarketSymbolSyncStudiesSupported,
+    setIsMarketSymbolSyncStudiesSupported,
+  ] = useState<boolean | undefined>();
+  const [
     isMarketAppKlineTransportSupported,
     setIsMarketAppKlineTransportSupported,
   ] = useState<boolean | undefined>();
@@ -378,6 +382,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
     capabilityHandshakeSettledGenerationRef.current = loadGeneration;
     setIsMarketSymbolSyncSupported((supported) => supported ?? false);
+    setIsMarketSymbolSyncStudiesSupported((supported) => supported ?? false);
     setIsMarketAppKlineTransportSupported((supported) => supported ?? false);
     setIsIntervalAckSupported((supported) => supported ?? false);
     setIsHistoryReadyAckSupported((supported) => supported ?? false);
@@ -989,6 +994,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         ? handleKLinePeriodChange
         : undefined,
     onMarketSymbolSyncSupportChange: setIsMarketSymbolSyncSupported,
+    onMarketSymbolSyncStudiesSupportChange:
+      setIsMarketSymbolSyncStudiesSupported,
     onMarketAppKlineTransportSupportChange:
       setIsMarketAppKlineTransportSupported,
     onIntervalAckSupportChange: setIsIntervalAckSupported,
@@ -1063,11 +1070,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     buildMarketTradingViewIdentityKey(marketSymbolIdentity);
   const shouldForceReloadMarketSymbol =
     forceReloadMarketSymbolIdentityKey === marketSymbolIdentityKey;
-  // Persisted studies can leave chart history requests unresolved during an
-  // in-document symbol change, so reload only when a user indicator is active.
-  const effectiveMarketSymbolSyncSupport = hasActiveNonVolumeIndicator
-    ? false
-    : isMarketSymbolSyncSupported;
+  // Older chart builds silently cancel study history during symbol changes.
+  // Keep their safe reload fallback while allowing fixed builds to retain the
+  // persistent fast-switch path for every indicator.
+  const effectiveMarketSymbolSyncSupport =
+    hasActiveNonVolumeIndicator && isMarketSymbolSyncStudiesSupported !== true
+      ? false
+      : isMarketSymbolSyncSupported;
   const {
     staticTradingViewUrl: iframeStaticTradingViewUrl,
     identity: iframeIdentity,
@@ -1348,6 +1357,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       firstPaintTrackingRef.current.requestIds.clear();
       readinessAckTargetsRef.current.clear();
       setIsMarketSymbolSyncSupported(undefined);
+      setIsMarketSymbolSyncStudiesSupported(undefined);
       setIsMarketAppKlineTransportSupported(undefined);
       setIsIntervalAckSupported(undefined);
       setIsHistoryReadyAckSupported(undefined);

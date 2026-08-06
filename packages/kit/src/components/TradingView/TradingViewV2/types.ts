@@ -45,6 +45,7 @@ export interface ITradingViewChartReadyData {
   containerId?: string;
   capabilities?: {
     marketSymbolSync?: boolean;
+    marketSymbolSyncStudies?: boolean;
     marketAppKlineTransport?: boolean;
     intervalAck?: boolean;
     historyReadyAck?: boolean;

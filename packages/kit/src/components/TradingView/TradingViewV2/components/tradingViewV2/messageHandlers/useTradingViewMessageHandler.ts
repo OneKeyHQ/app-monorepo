@@ -91,6 +91,7 @@ interface IUseTradingViewMessageHandlerParams {
     data: ITradingViewNativeChartControlsConfigData,
   ) => void;
   onMarketSymbolSyncSupportChange?: (supported: boolean) => void;
+  onMarketSymbolSyncStudiesSupportChange?: (supported: boolean) => void;
   onMarketAppKlineTransportSupportChange?: (supported: boolean) => void;
   onIntervalAckSupportChange?: (supported: boolean) => void;
   onHistoryReadyAckSupportChange?: (supported: boolean) => void;
@@ -740,6 +741,7 @@ export function useTradingViewMessageHandler({
   onIntervalConfigChange,
   onNativeChartControlsConfigChange,
   onMarketSymbolSyncSupportChange,
+  onMarketSymbolSyncStudiesSupportChange,
   onMarketAppKlineTransportSupportChange,
   onIntervalAckSupportChange,
   onHistoryReadyAckSupportChange,
@@ -918,6 +920,9 @@ export function useTradingViewMessageHandler({
         onMarketSymbolSyncSupportChange?.(
           readyData?.capabilities?.marketSymbolSync === true,
         );
+        onMarketSymbolSyncStudiesSupportChange?.(
+          readyData?.capabilities?.marketSymbolSyncStudies === true,
+        );
         onMarketAppKlineTransportSupportChange?.(
           readyData?.capabilities?.marketAppKlineTransport === true,
         );
@@ -1084,6 +1089,7 @@ export function useTradingViewMessageHandler({
       onIntervalConfigChange,
       onNativeChartControlsConfigChange,
       onMarketSymbolSyncSupportChange,
+      onMarketSymbolSyncStudiesSupportChange,
       onMarketAppKlineTransportSupportChange,
       onIntervalAckSupportChange,
       onHistoryReadyAckSupportChange,
