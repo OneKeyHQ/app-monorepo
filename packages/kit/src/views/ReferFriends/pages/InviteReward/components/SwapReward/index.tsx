@@ -26,7 +26,7 @@ export function SwapReward({ swapRewards }: ISwapRewardProps) {
       <Card.Title
         icon="SwitchHorOutline"
         title={intl.formatMessage({
-          id: ETranslations.global_swap,
+          id: ETranslations.global_trade,
         })}
         onPress={navigateToSwapReward}
       />

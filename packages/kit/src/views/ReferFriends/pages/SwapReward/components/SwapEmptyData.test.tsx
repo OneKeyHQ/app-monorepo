@@ -17,30 +17,40 @@ jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const copyUrl = jest.fn();
 
+  const TestButton = ({
+    children,
+    loading,
+    onPress,
+    testID,
+  }: {
+    children?: ReactNode;
+    loading?: boolean;
+    onPress?: () => void;
+    testID?: string;
+  }) => (
+    <button
+      data-loading={String(Boolean(loading))}
+      disabled={loading}
+      onClick={onPress}
+      data-testid={testID}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+
   return {
     __copyUrl: copyUrl,
-    Button: ({
-      children,
-      loading,
-      onPress,
-      testID,
+    Button: TestButton,
+    Empty: ({
+      buttonProps,
     }: {
-      children?: ReactNode;
-      loading?: boolean;
-      onPress?: () => void;
-      testID?: string;
+      buttonProps?: React.ComponentProps<typeof TestButton>;
     }) => (
-      <button
-        data-loading={String(Boolean(loading))}
-        disabled={loading}
-        onClick={onPress}
-        data-testid={testID}
-        type="button"
-      >
-        {children}
-      </button>
+      <div data-testid="swap-reward-empty-content">
+        {buttonProps ? <TestButton {...buttonProps} /> : null}
+      </div>
     ),
-    Empty: () => React.createElement('div'),
     YStack: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
     useClipboard: () => ({ copyUrl }),
@@ -79,7 +89,9 @@ describe('SwapEmptyData', () => {
 
     const { rerender } = render(<SwapEmptyData />);
     const copyButton = screen.getByTestId('swap-reward-copy-link-btn');
+    const emptyContent = screen.getByTestId('swap-reward-empty-content');
 
+    expect(emptyContent.contains(copyButton)).toBe(true);
     expect((copyButton as HTMLButtonElement).disabled).toBe(true);
     expect(copyButton.getAttribute('data-loading')).toBe('true');
     fireEvent.click(copyButton);
