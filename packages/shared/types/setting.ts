@@ -1,6 +1,7 @@
 import type { IAggregateToken, IHomeDefaultToken } from './token';
 
 export type IClearCacheOnAppState = {
+  oneKeyId: boolean;
   tokenAndNFT: boolean;
   transactionHistory: boolean;
   swapHistory: boolean;

@@ -9,7 +9,7 @@ import { render } from '@testing-library/react';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
-const mockShowTradingViewChartSettingsDialog = jest.fn<void, []>();
+const mockPushModal = jest.fn();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -25,14 +25,9 @@ jest.mock(
   }),
 );
 
-jest.mock(
-  '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings',
-  () => ({
-    showTradingViewChartSettingsDialog: () => {
-      mockShowTradingViewChartSettingsDialog();
-    },
-  }),
-);
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
+  pushModal: mockPushModal,
+}));
 
 describe('TradingViewNative chart controls', () => {
   beforeEach(() => {
@@ -49,6 +44,7 @@ describe('TradingViewNative chart controls', () => {
 
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
+        backgroundColor: '$transparent',
         hasVisibleIndicators: false,
         hasVisibleIntervalSelector: true,
         settingsEnabled: false,
@@ -94,7 +90,9 @@ describe('TradingViewNative chart controls', () => {
     };
     controlsProps.onSettingsPress();
 
-    expect(mockShowTradingViewChartSettingsDialog).toHaveBeenCalledTimes(1);
+    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+      screen: 'MarketChartSettings',
+    });
   });
 
   it('enables calendar navigation in desktop controls', () => {

@@ -24,6 +24,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
@@ -240,6 +241,19 @@ class ServiceToken extends ServiceBase {
       ...rest
     } = params;
     const { networkId } = rest;
+
+    // All-network flows must fan out per real network before reaching this
+    // method; the wallet API always rejects the all-network mock id, so a
+    // direct request with it is a caller bug — drop it before the network layer.
+    if (networkUtils.isAllNetwork({ networkId })) {
+      defaultLogger.token.request.fetchAccountTokensBlockedAllNetworkRequest({
+        params,
+      });
+      return {
+        ...getEmptyTokenData(),
+        networkId,
+      };
+    }
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
@@ -473,6 +487,37 @@ class ServiceToken extends ServiceBase {
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         };
       });
+
+    // Explicit custom contracts may still be returned when the wallet-token
+    // request excludes dApp tokens. Normalize the complete groups before
+    // cache and account-worth consumers see them.
+    const tokenSelectorFilterParams = {
+      withoutDappToken: rest.withoutDappToken,
+      withoutWalletToken: rest.withoutWalletToken,
+    };
+    resp.data.data.tokens = filterTokenSelectorTokenDataByDappTokenFilterParams(
+      {
+        tokenData: resp.data.data.tokens,
+        tokenSelectorFilterParams,
+      },
+    );
+    resp.data.data.riskTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.riskTokens,
+        tokenSelectorFilterParams,
+      });
+    resp.data.data.smallBalanceTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.smallBalanceTokens,
+        tokenSelectorFilterParams,
+      });
+    if (resp.data.data.allTokens) {
+      resp.data.data.allTokens =
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData: resp.data.data.allTokens,
+          tokenSelectorFilterParams,
+        });
+    }
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
@@ -819,15 +864,20 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    // The dedupe key and the row `$key` must stay identical, so derive both
+    // from one builder. networkId is part of it because native tokens across
+    // chains share uniqueKey 'native' and an empty address: a bare
+    // `uniqueKey ?? address` collides and downstream $key-keyed maps
+    // (TokenListView tokenByKey) collapse them into one row.
+    const buildSearchTokenKey = (info: IToken) =>
+      `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
+
     return uniqBy(
       fulfilledResponses.flatMap((resp) => resp.data.data),
-      (item) =>
-        `${item.info.networkId ?? ''}_${
-          item.info.uniqueKey ?? item.info.address
-        }`,
+      (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,
-      $key: item.info.uniqueKey ?? item.info.address,
+      $key: buildSearchTokenKey(item.info),
     }));
   }
 

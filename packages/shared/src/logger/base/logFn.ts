@@ -26,7 +26,10 @@ export type ILogEntry = {
 // Log handlers — one per log target type
 // ---------------------------------------------------------------------------
 
-function handleServerLog(entry: ILogEntry) {
+function handleServerLog(
+  entry: ILogEntry,
+  waitForServer?: boolean,
+): Promise<void> | undefined {
   const eventProps = (entry.args as Record<string, string>[]).reduce(
     (prev, current, index) => {
       if (!current) {
@@ -41,9 +44,18 @@ function handleServerLog(entry: ILogEntry) {
     {} as Record<string, string>,
   );
   // UTM attribution is emitted as its own event to avoid reading mutable route state here.
+  if (waitForServer) {
+    if (!appGlobals?.$analytics) {
+      return Promise.reject(new Error('Analytics is unavailable'));
+    }
+    return appGlobals.$analytics.trackEventAsync(entry.methodName, {
+      ...eventProps,
+    });
+  }
   appGlobals?.$analytics?.trackEvent(entry.methodName, {
     ...eventProps,
   });
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +81,7 @@ function processEntry(entry: ILogEntry) {
 
   // Track whether any local/console handler ran, for a single colorful output
   let needsColorful = false;
+  const pendingServerLogs: Promise<void>[] = [];
 
   for (const metadata of entry.metadataList) {
     switch (metadata.type) {
@@ -87,7 +100,15 @@ function processEntry(entry: ILogEntry) {
         }
         break;
       case 'server':
-        handleServerLog(entry);
+        {
+          const pendingServerLog = handleServerLog(
+            entry,
+            metadata.waitForServer,
+          );
+          if (pendingServerLog) {
+            pendingServerLogs.push(pendingServerLog);
+          }
+        }
         break;
       case 'console':
       default:
@@ -115,11 +136,36 @@ function processEntry(entry: ILogEntry) {
       ...entry.rawArgs,
     );
   }
+
+  if (pendingServerLogs.length > 0) {
+    return Promise.all(pendingServerLogs).then(() => undefined);
+  }
+  return undefined;
 }
 
 export const logFn = (entry: ILogEntry) => {
+  const waitForServer = entry.metadataList.some(
+    (metadata) => metadata.type === 'server' && metadata.waitForServer,
+  );
+  if (waitForServer) {
+    return new Promise<void>((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          if (!loggerConfig.isReady) {
+            reject(new Error('Logger is not ready'));
+            return;
+          }
+          void Promise.resolve(processEntry(entry)).then(resolve, reject);
+        } catch (error) {
+          console.error('Logger error:', error);
+          reject(error);
+        }
+      });
+    });
+  }
+
   // Single async deferral with error boundary.
-  // If config is not ready yet, loggerRuntime queues until init drains it.
+  // If config is not ready yet, regular logs queue until init drains them.
   setTimeout(() => {
     try {
       loggerRuntime.enqueueOrProcess(loggerConfig.isReady, entry, processEntry);
@@ -127,4 +173,5 @@ export const logFn = (entry: ILogEntry) => {
       console.error('Logger error:', error);
     }
   });
+  return undefined;
 };

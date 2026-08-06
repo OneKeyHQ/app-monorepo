@@ -1,6 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
   convertCoinGeckoChartToKLineResponse,
@@ -8,7 +7,10 @@ import {
   getCoinGeckoHistoryRequestCandleCount,
 } from './coinGeckoKLineUtils';
 
-import type { ITradingViewNativeHistoryDataProvider } from '../types';
+import type {
+  ITradingViewNativeHistoryDataProvider,
+  ITradingViewNativeHistoryResponse,
+} from '../types';
 
 const COINGECKO_ID_CACHE_MAX_SIZE = 100;
 
@@ -94,7 +96,7 @@ export function createTradingViewNativeCoinGeckoDataProvider({
       signal,
       timeFrom,
       timeTo,
-    }): Promise<IMarketTokenKLineResponse | null> => {
+    }): Promise<ITradingViewNativeHistoryResponse | null> => {
       if (signal.aborted) {
         return null;
       }

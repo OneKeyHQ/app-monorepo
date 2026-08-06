@@ -20,7 +20,6 @@ import {
   Icon,
   IconButton,
   Page,
-  SegmentControl,
   SizableText,
   Spinner,
   Stack,
@@ -47,12 +46,14 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountTransactionRange } from '@onekeyhq/shared/types/history';
 
 import { PageFrame } from '../../Staking/components/PageFrame';
+import BulkExportHistoryDateRangeSelector from '../components/BulkExportHistoryDateRangeSelector';
 import BulkExportHistoryNetworkTrigger from '../components/BulkExportHistoryNetworkTrigger';
 import { useBulkExportHistorySupportedNetworks } from '../hooks/useBulkExportHistorySupportedNetworks';
 import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountNetworkCompatibility,
   getBulkExportHistoryAccountTypeForTracking,
+  getBulkExportHistoryNetworkAccountSafe,
   resolveBulkExportHistoryAccountIdentity,
 } from '../utils/bulkExportHistoryAccountUtils';
 
@@ -510,19 +511,12 @@ function BulkExportHistoryContent({
             );
           } else {
             // Single derive type — use global derive type
-            const deriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                { networkId },
-              );
-            const { accounts } =
-              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                {
-                  indexedAccountIds: [exportAccountIdentity.indexedAccountId],
-                  networkId,
-                  deriveType,
-                },
-              );
-            const networkAccount = accounts[0];
+            const networkAccount = await getBulkExportHistoryNetworkAccountSafe(
+              {
+                networkId,
+                indexedAccountId: exportAccountIdentity.indexedAccountId,
+              },
+            );
             if (networkAccount) {
               const xpub =
                 await backgroundApiProxy.serviceAccount.getAccountXpub({
@@ -742,11 +736,12 @@ function BulkExportHistoryContent({
             pointerEvents={isDateRangeDisabled || isExporting ? 'none' : 'auto'}
             gap="$3"
           >
-            <SegmentControl
-              fullWidth
+            <BulkExportHistoryDateRangeSelector
               value={dateRange}
               options={dateRangeOptions}
               onChange={setDateRange}
+              disabled={isDateRangeDisabled || isExporting}
+              testID="bulk-export-history-date-range"
             />
             {dateRange === EDateRange.Custom ? (
               <>

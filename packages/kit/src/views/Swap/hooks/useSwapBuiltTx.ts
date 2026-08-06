@@ -148,6 +148,10 @@ import {
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
+import {
+  completeBroadcastedSwapSuccess,
+  completeSignedNoSendSwapSuccess,
+} from './swapBroadcastSuccess';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
 import {
@@ -177,6 +181,10 @@ type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
 };
 
+type IUseSwapBuildTxOptions = {
+  onSwapBroadcast?: () => void | Promise<void>;
+};
+
 function canFallbackToSeparateTxConfirm({
   buildUnsignedParams,
   approveUnsignedTxArr,
@@ -198,7 +206,11 @@ function canFallbackToSeparateTxConfirm({
  *
  * @returns An object with `preSwapStepsStart` to initiate the swap steps process and `cancelLimitOrder` to cancel a limit order.
  */
-export function useSwapBuildTx() {
+export function useSwapBuildTx({
+  onSwapBroadcast,
+}: IUseSwapBuildTxOptions = {}) {
+  const onSwapBroadcastRef = useRef(onSwapBroadcast);
+  onSwapBroadcastRef.current = onSwapBroadcast;
   const intl = useIntl();
   const {
     currentQuoteRes: selectQuote,
@@ -439,11 +451,13 @@ export function useSwapBuildTx() {
         ) {
           void goBackQrCodeModal();
         }
-        await generateSwapHistoryItem({
+        await completeBroadcastedSwapSuccess({
           txId,
-          swapTxInfo: swapInfo,
+          swapInfo,
           gasFeeFiatValue,
           gasFeeInNative,
+          generateSwapHistoryItem,
+          onSwapBroadcast: onSwapBroadcastRef.current,
         });
         if (
           swapInfo.sender.token.networkId === swapInfo.receiver.token.networkId
@@ -499,8 +513,10 @@ export function useSwapBuildTx() {
             };
           },
         );
-        await generateSwapHistoryItem({
-          swapTxInfo: swapInfo,
+        await completeSignedNoSendSwapSuccess({
+          swapInfo,
+          generateSwapHistoryItem,
+          onSwapBroadcast: onSwapBroadcastRef.current,
         });
       }
     },

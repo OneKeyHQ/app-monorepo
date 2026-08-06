@@ -505,6 +505,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             {
               id: 'clear-cache',
               icon: 'BroomOutline',
+              testID: SettingTestIDs.clearAppCacheItem,
               title: intl.formatMessage({
                 id: ETranslations.settings_clear_cache_on_app,
               }),

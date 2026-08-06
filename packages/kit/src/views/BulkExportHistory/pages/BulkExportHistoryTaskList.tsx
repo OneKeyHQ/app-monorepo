@@ -44,6 +44,7 @@ import {
 import {
   buildBulkExportHistoryAccountIdentifierMap,
   getBulkExportHistoryAccountNetworkCompatibility,
+  getBulkExportHistoryNetworkAccountSafe,
   resolveBulkExportHistoryAccountIdentity,
 } from '../utils/bulkExportHistoryAccountUtils';
 
@@ -123,17 +124,11 @@ async function resolveAccountAddressesOnNetwork({
     return networkAccounts.map((item) => item.account?.address).filter(Boolean);
   }
 
-  const deriveType =
-    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-      networkId,
-    });
-  const { accounts } =
-    await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-      indexedAccountIds: [indexedAccountId],
-      networkId,
-      deriveType,
-    });
-  const address = accounts[0]?.address;
+  const networkAccount = await getBulkExportHistoryNetworkAccountSafe({
+    networkId,
+    indexedAccountId,
+  });
+  const address = networkAccount?.address;
   return address ? [address] : [];
 }
 

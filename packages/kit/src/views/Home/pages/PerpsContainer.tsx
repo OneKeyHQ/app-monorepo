@@ -722,7 +722,9 @@ function PerpsEmptyRecommendSection() {
                     <LeverageBadge leverage={token.maxLeverage} />
                   </XStack>
                   {token.subtitle ? (
-                    <SubtitleText subtitle={token.subtitle} />
+                    <XStack alignItems="center" minWidth={0}>
+                      <SubtitleText subtitle={token.subtitle} />
+                    </XStack>
                   ) : null}
                 </YStack>
               </XStack>
@@ -930,7 +932,7 @@ function PerpsDepositButton({
   isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal('home');
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
 
   const handleDeposit = useCallback(async () => {

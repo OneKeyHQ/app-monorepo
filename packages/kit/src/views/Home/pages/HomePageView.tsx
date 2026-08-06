@@ -855,6 +855,7 @@ export function HomePageView({
         // Both implementations only read this prop at mount.
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
+        disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}

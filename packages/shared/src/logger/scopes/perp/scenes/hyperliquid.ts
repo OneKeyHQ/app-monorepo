@@ -419,7 +419,8 @@ export class HyperLiquidScene extends BaseScene {
       | 'refresh_trading_meta'
       | 'refresh_spot_meta'
       | 'active_asset_ctx_snapshot'
-      | 'active_asset_ctx_cache';
+      | 'active_asset_ctx_cache'
+      | 'prewarm_subscriptions';
     coin?: string;
     error: unknown;
   }) {

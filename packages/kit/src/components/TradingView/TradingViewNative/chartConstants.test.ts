@@ -2,9 +2,13 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CANDLE_GAP,
   TRADING_VIEW_NATIVE_CANDLE_STEP,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
 } from './chartConstants';
 
 describe('TradingViewNative chart constants', () => {
@@ -20,7 +24,18 @@ describe('TradingViewNative chart constants', () => {
     expect(TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP).toBe(4);
   });
 
-  it('aligns price labels with a shared right padding', () => {
-    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING).toBe(4);
+  it('uses compact price-axis horizontal padding', () => {
+    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING).toBe(8);
+    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING).toBe(0);
+    expect(TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING).toBe(
+      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
+    );
+  });
+
+  it('uses the project monospace font for price-axis labels', () => {
+    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY).toBe(
+      'GeistMono-Regular',
+    );
+    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET).toBe(-2);
   });
 });

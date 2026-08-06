@@ -12,7 +12,10 @@ export abstract class BackgroundServiceProxyBase {
 
   _proxyServiceCache = {} as any;
 
-  _createProxyService(serviceName = 'ROOT') {
+  _createProxyService(
+    serviceName = 'ROOT',
+    immediateMembers?: Record<PropertyKey, unknown>,
+  ) {
     if (this._serviceCreatedNames[serviceName]) {
       throw new OneKeyLocalError(
         `_createProxyService name duplicated. name=${serviceName}`,
@@ -23,6 +26,15 @@ export abstract class BackgroundServiceProxyBase {
       {},
       {
         get: (target, serviceMethod) => {
+          if (
+            immediateMembers &&
+            Object.prototype.hasOwnProperty.call(
+              immediateMembers,
+              serviceMethod,
+            )
+          ) {
+            return Reflect.get(immediateMembers, serviceMethod);
+          }
           if (typeof serviceMethod === 'string') {
             const key = this.serviceNameSpace
               ? `${this.serviceNameSpace}@${serviceName}.${serviceMethod}`

@@ -1,7 +1,9 @@
 import { ETokenDappType } from '../../types/token';
 
+import { sumFiatValuesIgnoringUnavailable } from './tokenValueUtils';
+
 import type { IServerNetwork } from '../../types';
-import type { ITokenDappType } from '../../types/token';
+import type { ITokenDappType, ITokenData } from '../../types/token';
 
 export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
 
@@ -152,6 +154,36 @@ export function filterTokenSelectorTokensByDappTokenFilterParams<
     return tokens.filter((token) => isTokenSelectorDappToken(token));
   }
   return tokens;
+}
+
+export function filterTokenSelectorTokenDataByDappTokenFilterParams({
+  tokenData,
+  tokenSelectorFilterParams,
+}: {
+  tokenData: ITokenData;
+  tokenSelectorFilterParams: ITokenSelectorDappTokenFilterParams;
+}): ITokenData {
+  const data = filterTokenSelectorTokensByDappTokenFilterParams({
+    tokens: tokenData.data,
+    tokenSelectorFilterParams,
+  });
+
+  if (data.length === tokenData.data.length) {
+    return tokenData;
+  }
+
+  const tokenKeys = new Set(data.map((token) => token.$key));
+  const map = Object.fromEntries(
+    Object.entries(tokenData.map).filter(([key]) => tokenKeys.has(key)),
+  );
+
+  return {
+    ...tokenData,
+    data,
+    keys: data.map((token) => token.$key).join(','),
+    map,
+    fiatValue: sumFiatValuesIgnoringUnavailable(map),
+  };
 }
 
 export function buildSwapAllNetworkTokenListCacheKey({

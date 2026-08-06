@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { hasTradingViewNativeVolume } from './utils/chartLayout';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 import type { ITradingViewNativeProps } from './types';
@@ -60,6 +61,7 @@ export const TradingViewNativeContainer = memo(
     const {
       calendarAvailableTimeRange,
       candleIntervalSeconds,
+      chartType,
       chartPictureVersion,
       dataProviderKey,
       dataState,
@@ -78,6 +80,10 @@ export const TradingViewNativeContainer = memo(
       onRealtimePoint: handleRealtimePoint,
       source,
     });
+    const hasVolume = useMemo(
+      () => hasTradingViewNativeVolume(points),
+      [points],
+    );
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
     const latestPriceTimestamp = latestPoint?.t;
@@ -216,7 +222,7 @@ export const TradingViewNativeContainer = memo(
     }, [onNativeSubIndicatorCountChange]);
 
     return (
-      <Stack flex={1} w="100%" h="100%" bg="$bgApp">
+      <Stack flex={1} w="100%" h="100%" bg="$transparent">
         <TradingViewNativeChartControlsContainer
           calendarAvailableTimeRange={calendarAvailableTimeRange}
           enableNativeChartSettings={enableNativeChartSettings}
@@ -233,7 +239,9 @@ export const TradingViewNativeContainer = memo(
           <TradingViewNativeChart
             key={`${dataProviderKey}:${candleIntervalSeconds}`}
             candleIntervalSeconds={candleIntervalSeconds}
+            chartType={chartType}
             chartPictureVersion={chartPictureVersion}
+            hasVolume={hasVolume}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
@@ -252,7 +260,7 @@ export const TradingViewNativeContainer = memo(
               ai="center"
               jc="center"
               gap="$3"
-              bg="$bgApp"
+              bg="$transparent"
               testID={testID ? `${testID}-error` : undefined}
             >
               <SizableText size="$bodyMd" color="$textSubdued">

@@ -23,6 +23,8 @@ export type ITradingViewSettingsMockIcon =
   | 'TradingViewCandlesOutline'
   | 'RandomCrossoverOutline'
   | 'ClockTimeHistoryOutline'
+  | 'MoveOutline'
+  | 'CalendarDaysOutline'
   | 'LayoutGrid2Outline';
 
 export type ITradingViewSettingsMockLine = {
@@ -178,7 +180,7 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
     {
       id: 'coordinates',
       label: 'Coordinates',
-      icon: 'RandomCrossoverOutline',
+      icon: 'MoveOutline',
       items: [
         {
           id: 'crosshair',
@@ -199,7 +201,7 @@ const DEFAULT_APPEARANCE_SECTIONS: ITradingViewSettingsMockAppearanceSection[] =
     {
       id: 'events',
       label: 'Events',
-      icon: 'ClockTimeHistoryOutline',
+      icon: 'CalendarDaysOutline',
       items: [
         {
           id: 'orders',

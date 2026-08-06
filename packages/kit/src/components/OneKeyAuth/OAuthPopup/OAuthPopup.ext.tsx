@@ -370,7 +370,7 @@ export class OAuthPopup extends OAuthPopupBase {
         });
 
         if (error) {
-          throw new OneKeyLocalError(error.message);
+          throw error;
         }
 
         if (!data.session) {

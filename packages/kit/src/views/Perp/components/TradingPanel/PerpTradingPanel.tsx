@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { DebugRenderTracker, YStack } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useTradingFormAtom,
@@ -23,6 +24,7 @@ import {
   usePerpsCustomSettingsAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOrderConfirm } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
@@ -47,9 +49,14 @@ import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 import { TradingButtonGroup } from './TradingButtonGroup';
 
+import type { ISizeInputMinimumOrderAction } from './inputs/SizeInput';
 import type { LayoutChangeEvent } from 'react-native';
 
-function PerpTradingDisabledPlaceOrderButton() {
+function PerpTradingDisabledPlaceOrderButton({
+  isMobile = false,
+}: {
+  isMobile?: boolean;
+}) {
   const intl = useIntl();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
@@ -182,6 +189,7 @@ function PerpTradingDisabledPlaceOrderButton() {
 
   return (
     <PerpTradingButton
+      isMobile={isMobile}
       disabledForAccountLoading={disabledForAccountLoading}
       handleShowConfirm={handleShowConfirm}
       formData={formData}
@@ -198,6 +206,10 @@ const PerpTradingDisabledPlaceOrderButtonMemo = memo(
 );
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
+  const sizeInputRef = useRef<IInputRef>(null);
+  const minimumOrderActionRef = useRef<
+    ISizeInputMinimumOrderAction | undefined
+  >(undefined);
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [displayReady] = usePerpsAccountDisplayReadyAtom();
@@ -339,6 +351,10 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       }),
     [canShowTradingButtons, isMobile],
   );
+  const handleRequestSizeInputFocus = useCallback(() => {
+    if (!platformEnv.isNative) return;
+    requestAnimationFrame(() => sizeInputRef.current?.focus());
+  }, []);
 
   const content = (
     <YStack
@@ -352,18 +368,22 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       onLayout={handleLayout}
     >
       <PerpTradingForm
+        sizeInputRef={sizeInputRef}
+        minimumOrderActionRef={minimumOrderActionRef}
         isSubmitting={isSubmitting}
         isMobile={isMobile}
         reserveMobileEnableTradingLayout={reserveMobileEnableTradingLayout}
       />
       {canShowTradingButtons ? (
         <TradingButtonGroup
+          onRequestSizeInputFocus={handleRequestSizeInputFocus}
+          minimumOrderActionRef={minimumOrderActionRef}
           isMobile={isMobile}
           isLiveStatusPending={isLiveStatusPending}
           enableTradingModeOverride={orderPanelEnableTradingMode}
         />
       ) : (
-        <PerpTradingDisabledPlaceOrderButtonMemo />
+        <PerpTradingDisabledPlaceOrderButtonMemo isMobile={isMobile} />
       )}
     </YStack>
   );

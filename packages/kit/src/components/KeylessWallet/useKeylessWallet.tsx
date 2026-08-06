@@ -50,6 +50,8 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   markOneKeyIdFailureServerLogged,
   showOneKeyIdLoginFailedToast,
   throwLocalizedOneKeyIdLoginError,
@@ -220,7 +222,13 @@ export async function getKeylessOnboardingSameEmailAccountStatus(): Promise<IKey
       retryProvider: status?.retryProvider,
       currentProvider: status?.currentProvider,
     };
-  } catch {
+  } catch (error) {
+    logOneKeyIdLoginFailureReason(
+      `Keyless onboarding same-email status parse failed: ${getSanitizedAuthErrorText(
+        error,
+      )}`,
+      error,
+    );
     return {
       isSameEmailAccountAtOldVersion: false,
     };
@@ -262,7 +270,13 @@ async function shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimi
       });
 
     return result.isRateLimited && result.retryAfterSeconds > 0;
-  } catch {
+  } catch (statusError) {
+    logOneKeyIdLoginFailureReason(
+      `Keyless onboarding rate-limit status check failed: ${getSanitizedAuthErrorText(
+        statusError,
+      )}`,
+      statusError,
+    );
     return false;
   }
 }
@@ -288,8 +302,10 @@ async function syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
       });
     }
   } catch (syncError) {
-    console.error(
-      'Failed to sync keyless same-email retry provider after rate limit:',
+    logOneKeyIdLoginFailureReason(
+      `Keyless onboarding same-email retry provider sync failed: ${getSanitizedAuthErrorText(
+        syncError,
+      )}`,
       syncError,
     );
   }
@@ -525,21 +541,18 @@ export function useKeylessWallet() {
             });
           }
         } catch (error) {
-          console.error(
-            'Failed to auto login OneKey ID after Keyless identity verification:',
-            error,
-          );
           // Best-effort login: keyless identity verification already
           // succeeded, so the wallet flow must continue even when this
           // fails. Log the reason at the source (the deduped fallback toast
           // below is skipped for user-cancel / already-auto-toasted errors)
           // and mark the error so the toast does not emit a second server
           // event for the same failure.
-          defaultLogger.prime.subscription.onekeyIdLoginFailedToast({
-            reason: `Auto OneKey ID login after keyless identity verification failed: ${
-              (error as Error | undefined)?.message || 'unknown'
-            }`,
-          });
+          logOneKeyIdLoginFailureReason(
+            `Auto OneKey ID login after Keyless identity verification failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           markOneKeyIdFailureServerLogged(error);
           showOneKeyIdLoginFailedToast({ error, intl });
         }
@@ -1325,7 +1338,13 @@ export function useKeylessWallet() {
         try {
           keylessWallet =
             await backgroundApiProxy.serviceAccount.getKeylessWallet();
-        } catch (_error) {
+        } catch (error) {
+          logOneKeyIdLoginFailureReason(
+            `Keyless OAuth navigation local wallet read failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           // Continue to OAuth navigation when the local wallet cannot be read.
         }
         keylessProvider = keylessWallet?.keylessDetailsInfo?.keylessProvider;
@@ -1343,7 +1362,13 @@ export function useKeylessWallet() {
               });
               return;
             }
-          } catch {
+          } catch (error) {
+            logOneKeyIdLoginFailureReason(
+              `Keyless OAuth navigation local session reuse failed: ${getSanitizedAuthErrorText(
+                error,
+              )}`,
+              error,
+            );
             // A missing or unusable session falls through to real OAuth.
           }
         }
@@ -1527,7 +1552,9 @@ export function useKeylessWallet() {
         return;
       }
       if (!action) {
-        console.error('EKeylessFinalizeAction is required');
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: 'Keyless wallet finalization failed: action is missing',
+        });
         Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.global_unknown_error,
@@ -1855,7 +1882,13 @@ export function useVerifyKeylessPinChecking() {
           return await backgroundApiProxy.serviceAccount.getWallet({
             walletId: selectedAccount.walletId,
           });
-        } catch {
+        } catch (error) {
+          logOneKeyIdLoginFailureReason(
+            `Keyless PIN reminder active wallet read failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           return undefined;
         }
       };
@@ -1999,6 +2032,13 @@ export function useVerifyKeylessPinChecking() {
                     })
                   ) {
                     showPinReminderDialog();
+                  } else {
+                    logOneKeyIdLoginFailureReason(
+                      `Keyless PIN reminder cancellation sync failed: ${getSanitizedAuthErrorText(
+                        error,
+                      )}`,
+                      error,
+                    );
                   }
                 }
               },
@@ -2057,7 +2097,12 @@ export function useVerifyKeylessPinChecking() {
                     await loadingDialog.close();
                   } catch (innerError) {
                     isPinReminderDialogShowing = false;
-                    await loadingDialog.close();
+                    logOneKeyIdLoginFailureReason(
+                      `Keyless PIN reminder continuation failed: ${getSanitizedAuthErrorText(
+                        innerError,
+                      )}`,
+                      innerError,
+                    );
                     errorToastUtils.toastIfError(innerError);
                   } finally {
                     await loadingDialog.close();
@@ -2073,6 +2118,13 @@ export function useVerifyKeylessPinChecking() {
                     })
                   ) {
                     showPinReminderDialog();
+                  } else {
+                    logOneKeyIdLoginFailureReason(
+                      `Keyless PIN reminder password flow failed: ${getSanitizedAuthErrorText(
+                        error,
+                      )}`,
+                      error,
+                    );
                   }
                 }
               },

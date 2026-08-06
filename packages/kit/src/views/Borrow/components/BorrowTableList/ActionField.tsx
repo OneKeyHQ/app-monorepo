@@ -19,7 +19,8 @@ type IActionFieldProps = {
   item: IAssetWithToken;
   onPress?: (item: IAssetWithToken) => void;
   needAdditionButton?: boolean;
-  buttonText: React.ReactNode;
+  /** Row's primary action, e.g. Withdraw. */
+  actionLabel: string;
   accountId?: string;
   walletId?: string;
   indexedAccountId?: string;
@@ -36,7 +37,7 @@ export const ActionField = ({
   item,
   onPress,
   needAdditionButton = false,
-  buttonText,
+  actionLabel,
   accountId = '',
   walletId = '',
   indexedAccountId,
@@ -105,7 +106,7 @@ export const ActionField = ({
           onPress?.(item);
         }}
       >
-        {buttonText}
+        {actionLabel}
       </Button>
       {needAdditionButton ? (
         <ActionList

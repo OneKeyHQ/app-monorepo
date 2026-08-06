@@ -4,13 +4,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  DashText,
   Icon,
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
-import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { BorrowTableList } from '@onekeyhq/kit/src/views/Borrow/components/BorrowTableList';
@@ -45,6 +44,10 @@ function CapabilityBadge({
   );
 }
 
+// The dashed underline carries the "there is more to read here" cue that an
+// info icon used to, without spending a second glyph of column width — these
+// columns are only 76–104px wide. The column Stack centers this via its
+// `align`, so the label needs no wrapper of its own.
 function CapabilityHeader({
   label,
   tooltip,
@@ -53,17 +56,16 @@ function CapabilityHeader({
   tooltip: string;
 }) {
   return (
-    <XStack ai="center" jc="center" gap="$0.5" minWidth={0}>
-      <SizableText
-        size="$bodySmMedium"
-        color="$textSubdued"
-        minWidth={0}
-        numberOfLines={1}
-      >
-        {label}
-      </SizableText>
-      <InfoIcon size="$4" tooltip={tooltip} />
-    </XStack>
+    <DashText
+      size="$bodySmMedium"
+      color="$textSubdued"
+      dashColor="$borderStrong"
+      dashThickness={0.5}
+      numberOfLines={1}
+      tooltip={tooltip}
+    >
+      {label}
+    </DashText>
   );
 }
 
@@ -101,7 +103,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
         renderHeader: () => (
           <CapabilityHeader
             label={intl.formatMessage({
-              id: ETranslations.defi_max_ltv,
+              id: ETranslations.boosted_ltv__title,
             })}
             tooltip={intl.formatMessage({
               id: ETranslations.defi_emode_collateral_capability__tooltip,
@@ -113,7 +115,7 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
             available={asset.boostedLTV}
             accessibilityLabel={[
               asset.token.symbol,
-              intl.formatMessage({ id: ETranslations.defi_max_ltv }),
+              intl.formatMessage({ id: ETranslations.boosted_ltv__title }),
               intl.formatMessage({
                 id: asset.boostedLTV
                   ? ETranslations.global_available
@@ -155,41 +157,36 @@ export function EModeAssetsTable({ row }: { row: IEModeRow }) {
     [intl],
   );
 
-  return (
-    <YStack gap="$3">
-      <SizableText size="$headingSm">
-        {intl.formatMessage({
-          id: ETranslations.defi_emode_supported_assets,
+  if (row.isOff) {
+    return (
+      <Alert
+        type="default"
+        title={intl.formatMessage({
+          id: ETranslations.defi_emode_off_assets__desc,
         })}
-      </SizableText>
-      {row.isOff ? (
-        <Alert
-          type="default"
-          title={intl.formatMessage({
-            id: ETranslations.defi_emode_off_assets__desc,
-          })}
-        />
-      ) : (
-        <BorrowTableList<IBorrowEModeAsset>
-          columns={columns}
-          data={row.assets ?? []}
-          emptyContent={intl.formatMessage({
-            id: ETranslations.defi_emode_no_supported_assets,
-          })}
-          listProps={{
-            keyExtractor: (asset) => asset.reserveAddress,
-            rowGap: '$2',
-            headerProps: {
-              px: '$1.5',
-              mx: '$0',
-            },
-            listItemProps: {
-              px: '$1.5',
-              mx: '$0',
-            },
-          }}
-        />
-      )}
-    </YStack>
+      />
+    );
+  }
+
+  return (
+    <BorrowTableList<IBorrowEModeAsset>
+      columns={columns}
+      data={row.assets ?? []}
+      emptyContent={intl.formatMessage({
+        id: ETranslations.defi_emode_no_supported_assets,
+      })}
+      listProps={{
+        keyExtractor: (asset) => asset.reserveAddress,
+        rowGap: '$2',
+        headerProps: {
+          px: '$1.5',
+          mx: '$0',
+        },
+        listItemProps: {
+          px: '$1.5',
+          mx: '$0',
+        },
+      }}
+    />
   );
 }

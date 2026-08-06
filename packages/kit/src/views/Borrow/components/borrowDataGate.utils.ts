@@ -26,3 +26,13 @@ export function getOwnedBorrowReservesResult<T>({
   }
   return result;
 }
+
+export function shouldRefreshBorrowDataOnActivation({
+  isViewActive,
+  wasViewActive,
+}: {
+  isViewActive: boolean;
+  wasViewActive: boolean;
+}) {
+  return isViewActive && !wasViewActive;
+}

@@ -568,7 +568,11 @@ function TokenDetailsHeaderContent({
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
         {isWatchOnly ? (
-          <Stack pt="$2" px="$5">
+          // In tab view the alert must sit at the same offset as the
+          // aggregate Overview tab's alert (pt $5), or switching tabs
+          // visibly shifts it. Standalone pages keep the tighter offset
+          // under the navigation header.
+          <Stack pt={isTabView ? '$5' : '$2'} px="$5">
             <Alert
               type="warning"
               icon="ErrorOutline"

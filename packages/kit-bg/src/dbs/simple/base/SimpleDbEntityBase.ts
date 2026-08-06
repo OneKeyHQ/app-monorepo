@@ -6,9 +6,9 @@ import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+import { getSimpleDbEntityKey } from './simpleDbFacadeCompatibility';
 
-const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 type ISimpleDbEntitySavedData<T> = {
   data: T;
@@ -26,7 +26,7 @@ abstract class SimpleDbEntityBase<T> {
   abstract readonly enableCache: boolean;
 
   get entityKey() {
-    return `${SIMPLE_DB_KEY_PREFIX}:${this.entityName}`;
+    return getSimpleDbEntityKey(this.entityName);
   }
 
   // localStorage.getItem may return null if data not exists
@@ -39,8 +39,7 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
-  @backgroundMethod()
-  clearRawDataCache() {
+  protected clearRawDataCache() {
     this.cachedRawData = null;
     this.cachedRawDataPromise = null;
   }

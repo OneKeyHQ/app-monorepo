@@ -84,6 +84,36 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(stats.volumeUsd).toBe(5130);
   });
 
+  it('converts base-token spot fees at the fill price and drops ones without a usable price', () => {
+    const stats = buildPerpPortfolioFillsStats({
+      timePeriod: 'day',
+      now: NOW,
+      fills: [
+        createFill({ coin: 'BTC', px: '50000', sz: '0.1', fee: '1', tid: 1 }),
+        // Real MAX spot buy: fee charged in the base token (OK-57923).
+        createFill({
+          coin: 'MAX/USDC',
+          px: '0.0000006',
+          sz: '18333333.3',
+          fee: '12319.983333',
+          feeToken: 'MAX',
+          tid: 2,
+        }),
+        // No usable price: dropped instead of counted as raw token units.
+        createFill({
+          coin: 'MAX/USDC',
+          px: '0',
+          sz: '1',
+          fee: '100',
+          feeToken: 'MAX',
+          tid: 3,
+        }),
+      ],
+    });
+
+    expect(stats.feesPaid).toBeCloseTo(1 + 12_319.983_333 * 0.000_000_6, 10);
+  });
+
   it('filters portfolio activity stats by pnl type', () => {
     const fills = [
       createFill({

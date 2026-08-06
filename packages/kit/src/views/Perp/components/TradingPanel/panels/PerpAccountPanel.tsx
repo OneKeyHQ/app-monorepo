@@ -105,7 +105,7 @@ function PerpAccountPanel() {
   const { copyText } = useClipboard();
   const { showPortfolio } = useShowPortfolio();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('accountPanel');
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
