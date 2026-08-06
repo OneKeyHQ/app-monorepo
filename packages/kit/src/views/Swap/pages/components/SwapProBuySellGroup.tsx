@@ -1,10 +1,16 @@
+import { useCallback } from 'react';
+
 import { YStack } from '@onekeyhq/components';
 import {
   useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { swapProTimeRangeItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  type ESwapProTimeRange,
+  swapProTimeRangeItems,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import SwapProBuySellInfo from '../../components/SwapProBuySellInfo';
 import SwapProTimeRangeSelector from '../../components/SwapProTimeRangeSelector';
@@ -20,6 +26,25 @@ const SwapProBuySellGroup = ({
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTimeRange, setSwapProTimeRange] = useSwapProTimeRangeAtom();
   const isHyperliquidBtc = isSwapProHyperliquidBtcToken(swapProSelectToken);
+  const handleTimeRangeChange = useCallback(
+    (value: ESwapProTimeRange) => {
+      if (value === swapProTimeRange.value) {
+        return;
+      }
+      setSwapProTimeRange({
+        label:
+          swapProTimeRangeItems.find((item) => item.value === value)?.label ??
+          '',
+        value,
+      });
+      defaultLogger.swap.swapPro.swapProTimeRangeChange({
+        fromRange: swapProTimeRange.value,
+        toRange: value,
+        tokenSymbol: swapProSelectToken?.symbol ?? '',
+      });
+    },
+    [setSwapProTimeRange, swapProSelectToken?.symbol, swapProTimeRange.value],
+  );
   return (
     <YStack testID={SwapTestIDs.proBuySellGroup} gap="$2">
       {isHyperliquidBtc ? null : (
@@ -33,14 +58,7 @@ const SwapProBuySellGroup = ({
         disabled={!supportSpeedSwap && !isHyperliquidBtc}
         items={swapProTimeRangeItems}
         selectedValue={swapProTimeRange}
-        onChange={(value) =>
-          setSwapProTimeRange({
-            label:
-              swapProTimeRangeItems.find((item) => item.value === value)
-                ?.label ?? '',
-            value,
-          })
-        }
+        onChange={handleTimeRangeChange}
       />
     </YStack>
   );
