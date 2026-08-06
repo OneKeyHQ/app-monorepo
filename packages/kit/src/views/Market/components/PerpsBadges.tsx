@@ -3,14 +3,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Icon,
   Image,
   SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
@@ -40,6 +43,92 @@ const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
   </XStack>
 ));
 LeverageBadge.displayName = 'LeverageBadge';
+
+function getPerpDexDescriptionId(dexLabel?: string) {
+  switch (dexLabel?.toLowerCase()) {
+    case 'xyz':
+      return ETranslations.perp_xyz_market__desc;
+    case 'para':
+      return ETranslations.perp_para_market__desc;
+    default:
+      return undefined;
+  }
+}
+
+const PerpDexBadge = memo(
+  ({
+    compact,
+    dexLabel,
+    testID,
+  }: {
+    compact?: boolean;
+    dexLabel?: string;
+    testID?: string;
+  }) => {
+    const intl = useIntl();
+    const descriptionId = getPerpDexDescriptionId(dexLabel);
+
+    if (!descriptionId || !dexLabel) {
+      return null;
+    }
+
+    const label = dexLabel.toLowerCase();
+    const description = intl.formatMessage({ id: descriptionId });
+    const badgeText = (
+      <SizableText
+        color="$textInfo"
+        fontSize={10}
+        {...(!compact && { lineHeight: 16 })}
+      >
+        {label}
+      </SizableText>
+    );
+    const badge = compact ? (
+      <Badge radius="$1" bg="$bgInfo" px="$1" py={0} testID={testID}>
+        {badgeText}
+      </Badge>
+    ) : (
+      <XStack
+        borderRadius="$1"
+        bg="$bgInfo"
+        justifyContent="center"
+        alignItems="center"
+        px="$1.5"
+        testID={testID}
+      >
+        {badgeText}
+      </XStack>
+    );
+
+    if (platformEnv.isNative) {
+      return (
+        <LazyPopover
+          title={label}
+          placement="top"
+          renderTrigger={badge}
+          renderContent={
+            <YStack px="$5" pb="$4" maxWidth={360}>
+              <SizableText size="$bodyLg">{description}</SizableText>
+            </YStack>
+          }
+        />
+      );
+    }
+
+    return (
+      <LazyTooltip
+        placement="top"
+        renderTrigger={badge}
+        renderContent={
+          <SizableText size="$bodySm" maxWidth={320}>
+            {description}
+          </SizableText>
+        }
+      />
+    );
+  },
+);
+PerpDexBadge.displayName = 'PerpDexBadge';
 
 const SubtitleBadge = memo(
   ({ subtitle, noTruncate }: { subtitle: string; noTruncate?: boolean }) => {
@@ -358,6 +447,7 @@ StockSourceLogo.displayName = 'StockSourceLogo';
 
 export {
   LeverageBadge,
+  PerpDexBadge,
   StockIsOpenBadge,
   StockMarketStatusBadge,
   StockSourceLogo,

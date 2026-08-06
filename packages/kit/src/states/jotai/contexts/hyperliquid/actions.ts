@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
+import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
   perpsActiveAccountAtom,
@@ -83,6 +84,7 @@ import type {
   IPerpsAssetPosition,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -234,26 +236,6 @@ function resolveSubmitOrderTradeInstrument({
     return activeTradeInstrument;
   }
   return undefined;
-}
-
-function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
-  const incoming = data?.ctxs || [];
-  const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
-  incoming.forEach(([dexName, ctxList]) => {
-    ctxMap.set(dexName, ctxList || []);
-  });
-
-  const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
-  const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-  const xyzCtx = ctxMap.get('xyz') ?? [];
-  ctxsByDex[0] = perpsCtx;
-  ctxsByDex[1] = xyzCtx;
-
-  return {
-    ctxsByDex,
-    perpsCtxCount: perpsCtx.length,
-    xyzCtxCount: xyzCtx.length,
-  };
 }
 
 function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
@@ -957,14 +939,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       const primaryState =
         stateMap.get('') ?? stateMap.get('perps') ?? states[0]?.[1];
-      const xyzState = stateMap.get('xyz');
-
       const getPositions = (state?: IChStateLite): IChPositionLite[] =>
         state?.assetPositions || [];
 
       const combinedPositions: IChPositionLite[] = [
         ...getPositions(primaryState),
-        ...getPositions(xyzState),
+        ...SUB_DEX_LIST.flatMap((item) =>
+          getPositions(stateMap.get(item.prefix)),
+        ),
       ];
 
       const activePositions = getActivePerpsPositions(
@@ -1080,14 +1062,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return false;
     }
 
-    const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
-      buildAllDexsAssetCtxsByDex(entry.data);
+    const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot(entry.data);
     if (!hasAnyAssetCtxs(ctxsByDex)) {
       markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss', {
         reason: 'empty_snapshot',
       });
       return false;
     }
+    const ctxCountsByDex = ctxsByDex.map((ctxs) => ctxs.length);
 
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: ctxsByDex,
@@ -1095,13 +1077,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
     markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
       source: 'cache',
-      perpsCtxCount,
-      xyzCtxCount,
+      ctxCountsByDex,
     });
     markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_hit', {
       ageMs: Date.now() - entry.updatedAt,
-      perpsCtxCount,
-      xyzCtxCount,
+      ctxCountsByDex,
     });
     return true;
   });
@@ -1220,12 +1200,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
-        buildAllDexsAssetCtxsByDex(data);
+      const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot(data);
       markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
         source: 'ws',
-        perpsCtxCount,
-        xyzCtxCount,
+        ctxCountsByDex: ctxsByDex.map((ctxs) => ctxs.length),
       });
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
