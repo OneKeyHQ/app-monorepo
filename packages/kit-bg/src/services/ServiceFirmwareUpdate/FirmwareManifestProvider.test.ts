@@ -5,11 +5,16 @@ import {
   clearFirmwareManifestSnapshotCache,
   getFirmwareManifestSnapshot,
 } from './FirmwareManifestProvider';
+import { getTrustedFirmwareConfig } from './trustedFirmwareCatalog';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/hardware/firmwareConfigProvider', () => ({
   fetchFirmwareConfig: jest.fn(),
+}));
+
+jest.mock('./trustedFirmwareCatalog', () => ({
+  getTrustedFirmwareConfig: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -23,13 +28,18 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 const mockedFetchFirmwareConfig = fetchFirmwareConfig as jest.Mock;
+const mockedGetTrustedFirmwareConfig = getTrustedFirmwareConfig as jest.Mock;
 const remoteConfig = {
   bridge: { version: 'remote' },
+} as unknown as RemoteConfigResponse;
+const bundledConfig = {
+  bridge: { version: 'bundled' },
 } as unknown as RemoteConfigResponse;
 describe('FirmwareManifestProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearFirmwareManifestSnapshotCache();
+    mockedGetTrustedFirmwareConfig.mockResolvedValue(bundledConfig);
   });
 
   afterEach(() => {
@@ -45,7 +55,7 @@ describe('FirmwareManifestProvider', () => {
   });
 
   it.each([null, new Error('transport failed')])(
-    'fails closed without a remote or cached snapshot for %s',
+    'uses the bundled trusted snapshot without a remote or cache for %s',
     async (remoteResult) => {
       if (remoteResult instanceof Error) {
         mockedFetchFirmwareConfig.mockRejectedValue(remoteResult);
@@ -55,7 +65,10 @@ describe('FirmwareManifestProvider', () => {
 
       await expect(
         getFirmwareManifestSnapshot({ preRelease: true }),
-      ).rejects.toThrow('Firmware manifest is unavailable');
+      ).resolves.toBe(bundledConfig);
+      expect(mockedGetTrustedFirmwareConfig).toHaveBeenCalledWith({
+        preRelease: true,
+      });
     },
   );
 
