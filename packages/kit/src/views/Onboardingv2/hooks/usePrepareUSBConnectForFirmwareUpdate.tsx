@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -8,6 +7,7 @@ import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
@@ -58,8 +58,9 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
         }
       }
 
-      const connectProtocol =
-        device.deviceType === EDeviceType.Pro2 ? 'V2' : undefined;
+      const connectProtocol = isProtocolV2ProductType(device.deviceType)
+        ? 'V2'
+        : undefined;
       let connectIdToUse = device.connectId;
       if (platformEnv.isDesktop && features) {
         try {

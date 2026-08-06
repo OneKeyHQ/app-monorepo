@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -35,6 +34,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
@@ -447,7 +447,7 @@ export function FirmwareUpdateProgressBarV2({
   }, [firmwareProgress, firmwareProgressType]);
 
   const shouldEstimatePro2Progress =
-    result?.deviceType === EDeviceType.Pro2 &&
+    isProtocolV2ProductType(result?.deviceType) &&
     stepInfo.step === EFirmwareUpdateSteps.installing &&
     firmwareProgressType === 'installingFirmware' &&
     lastFirmwareTipMessage !==

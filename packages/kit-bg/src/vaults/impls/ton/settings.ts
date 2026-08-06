@@ -9,6 +9,7 @@ import {
   IMPL_TON,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -65,6 +66,7 @@ const settings: IVaultSettings = {
     EDeviceType.Touch,
     EDeviceType.Pro,
     EDeviceType.Pro2,
+    NEO_DEVICE_TYPE,
     EDeviceType.Classic1s,
     EDeviceType.ClassicPure,
   ],

@@ -1,6 +1,11 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import deviceUtils, { ESupportSettings } from './deviceUtils';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+  supportsHardwareQrWallet,
+} from './hardwareDeviceTypes';
 
 const mockGetAutoLockOptions = jest.fn();
 const mockGetAutoShutDownOptions = jest.fn();
@@ -150,11 +155,28 @@ describe('deviceUtils', () => {
     expect(deviceUtils.getDefaultDeviceLabel(EDeviceType.Classic1s)).toBe(
       'OneKey Classic 1S',
     );
+    expect(deviceUtils.getDefaultDeviceLabel(NEO_DEVICE_TYPE)).toBe(
+      'OneKey Neo',
+    );
   });
 
-  it('temporarily skips every firmware verification flow for Pro 2', () => {
+  it('temporarily skips firmware verification for Protocol V2 products', () => {
     expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro2)).toBe(false);
     expect(deviceUtils.isFirmwareVerifySupported(EDeviceType.Pro)).toBe(true);
+    expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(false);
+  });
+
+  it('classifies Neo as a Protocol V2 product without aliasing it to Pro 2', () => {
+    expect(NEO_DEVICE_TYPE).toBe('neo');
+    expect(isProtocolV2ProductType(NEO_DEVICE_TYPE)).toBe(true);
+    expect(isProtocolV2ProductType(EDeviceType.Pro2)).toBe(true);
+    expect(isProtocolV2ProductType(EDeviceType.Pro)).toBe(false);
+  });
+
+  test('keeps Neo out of camera-dependent QR wallet onboarding', () => {
+    expect(supportsHardwareQrWallet(EDeviceType.Pro)).toBe(true);
+    expect(supportsHardwareQrWallet(EDeviceType.Pro2)).toBe(true);
+    expect(supportsHardwareQrWallet(NEO_DEVICE_TYPE)).toBe(false);
   });
 
   it.each(['ble', 'webble', 'electron-ble'] as const)(
@@ -200,6 +222,13 @@ describe('deviceUtils', () => {
     expect(
       deviceUtils.supportSettings({
         deviceType: EDeviceType.Pro2,
+        firmwareVersion: '1.0.0',
+        setting,
+      }),
+    ).toBe(true);
+    expect(
+      deviceUtils.supportSettings({
+        deviceType: NEO_DEVICE_TYPE,
         firmwareVersion: '1.0.0',
         setting,
       }),

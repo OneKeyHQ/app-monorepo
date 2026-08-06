@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -29,6 +28,7 @@ import {
 import deviceUtils, {
   ESupportSettings,
 } from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -608,21 +608,20 @@ function DeviceSectionGeneral() {
     return null;
   }
 
-  const brightnessItem =
-    deviceType === EDeviceType.Pro2 ? (
-      <Pro2BrightnessListItem />
-    ) : (
-      <ListItem
-        key="changeBrightness"
-        title={intl.formatMessage({
-          id: ETranslations.global_brightness,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressBrightness}
-        testID={DeviceManagementTestIDs.brightnessItem}
-      />
-    );
+  const brightnessItem = isProtocolV2ProductType(deviceType) ? (
+    <Pro2BrightnessListItem />
+  ) : (
+    <ListItem
+      key="changeBrightness"
+      title={intl.formatMessage({
+        id: ETranslations.global_brightness,
+      })}
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      drillIn
+      onPress={onPressBrightness}
+      testID={DeviceManagementTestIDs.brightnessItem}
+    />
+  );
 
   return (
     <ListItemGroup

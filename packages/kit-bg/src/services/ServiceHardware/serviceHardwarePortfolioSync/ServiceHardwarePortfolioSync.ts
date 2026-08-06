@@ -1,4 +1,3 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { debounce, uniq } from 'lodash';
 
 import {
@@ -9,6 +8,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import {
   EHardwareCallContext,
@@ -200,7 +200,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       device?.deviceStateInfo?.protocol === 'V2';
     if (
       !device ||
-      device.deviceType !== EDeviceType.Pro2 ||
+      !isProtocolV2ProductType(device.deviceType) ||
       !isProtocolV2 ||
       vendor !== EHardwareVendor.onekey
     ) {

@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import { Empty, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
 type IWalletType = IOneKeyDeviceType | 'watching';
@@ -30,6 +31,7 @@ export function HomeSupportedWallet({
     [EDeviceType.Touch]: 'Touch',
     [EDeviceType.Pro]: 'Pro',
     [EDeviceType.Pro2]: 'Pro 2',
+    [NEO_DEVICE_TYPE]: 'Neo',
     [EDeviceType.Unknown]: '',
     'watching': intl.formatMessage({
       id: ETranslations.faq_watched_account,

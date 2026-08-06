@@ -20,6 +20,10 @@ import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+} from './hardwareDeviceTypes';
 
 import type {
   IAllDeviceVerifyVersions,
@@ -53,6 +57,9 @@ type IGetDeviceVersionParams = {
 };
 
 function getDefaultDeviceLabel(deviceType: IDeviceType): string {
+  if (deviceType === NEO_DEVICE_TYPE) {
+    return 'OneKey Neo';
+  }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     [EDeviceType.Classic]: 'OneKey Classic',
     [EDeviceType.Classic1s]: 'OneKey Classic 1S',
@@ -61,6 +68,7 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
     [EDeviceType.Pro2]: 'OneKey Pro 2',
+    [EDeviceType.Neo]: 'OneKey Neo',
     [EDeviceType.Unknown]: '',
   };
   return defaultLabelsByDeviceType[deviceType] || '';
@@ -206,15 +214,16 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
 }
 
 function isTouchDevice(deviceType: IDeviceType) {
-  return [EDeviceType.Touch, EDeviceType.Pro, EDeviceType.Pro2].includes(
-    deviceType,
+  return (
+    [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType) ||
+    isProtocolV2ProductType(deviceType)
   );
 }
 
 // Pro2 server-side firmware verification is not ready yet.
 // Keep all firmware verification capability checks centralized here.
 function isFirmwareVerifySupported(deviceType?: IDeviceType) {
-  return deviceType !== EDeviceType.Pro2;
+  return !isProtocolV2ProductType(deviceType);
 }
 
 async function getDeviceTypeFromFeatures({
@@ -622,7 +631,7 @@ async function shouldUseV2FirmwareUpdateFlow({
 
   const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
-  if (deviceType === EDeviceType.Pro2) {
+  if (isProtocolV2ProductType(deviceType)) {
     return true;
   }
   if (deviceType !== EDeviceType.Pro) {
@@ -944,7 +953,7 @@ function supportSettings({
   firmwareVersion: string;
   setting: ESupportSettings;
 }) {
-  if (deviceType === EDeviceType.Pro2) {
+  if (isProtocolV2ProductType(deviceType)) {
     return true;
   }
 

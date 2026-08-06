@@ -6,6 +6,7 @@ import { type IntlShape, defineMessages, useIntl } from 'react-intl';
 import { Anchor, Image, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import { SeedCardIllustration } from '../components/SeedCardIllustration';
 import { SetupCardBody } from '../components/SetupCard';
@@ -132,7 +133,7 @@ const pro2Messages = defineMessages({
 export function supportsDeviceDrivenOnboarding(
   device: { deviceType?: IDeviceType } | undefined,
 ): boolean {
-  return device?.deviceType === EDeviceType.Pro2;
+  return isProtocolV2ProductType(device?.deviceType);
 }
 
 // ---------------------------------------------------------------------------

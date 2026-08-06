@@ -62,6 +62,10 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import {
+  isProtocolV2ProductType,
+  supportsHardwareQrWallet,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorSceneName,
@@ -558,8 +562,8 @@ function DeviceVideo({
   deviceTypeItems: EDeviceType[];
   themeVariant: 'light' | 'dark';
 }) {
-  const isPro2 = useMemo(
-    () => deviceTypeItems.includes(EDeviceType.Pro2),
+  const isProtocolV2Product = useMemo(
+    () => deviceTypeItems.some(isProtocolV2ProductType),
     [deviceTypeItems],
   );
 
@@ -585,7 +589,7 @@ function DeviceVideo({
   }, [deviceTypeItems]);
 
   const videoSource = useMemo<ReactVideoSource>(() => {
-    if (isPro2) {
+    if (isProtocolV2Product) {
       return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
     }
     if (isMini) {
@@ -606,7 +610,7 @@ function DeviceVideo({
         : (require('@onekeyhq/kit/assets/onboarding/Touch-L.mp4') as ReactVideoSource);
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
-  }, [isClassic, isMini, isPro2, isTouch, themeVariant]);
+  }, [isClassic, isMini, isProtocolV2Product, isTouch, themeVariant]);
 
   return (
     <Video
@@ -1117,10 +1121,7 @@ function ConnectYourDevicePage({
   const reactNavigation = useNavigation();
   const intl = useIntl();
   const isSupportedQRCode = useMemo(() => {
-    return deviceTypeItems.every(
-      (deviceType) =>
-        deviceType === EDeviceType.Pro || deviceType === EDeviceType.Pro2,
-    );
+    return deviceTypeItems.every(supportsHardwareQrWallet);
   }, [deviceTypeItems]);
   const navigateToCreateQRWallet = useCallback(async () => {
     await timerUtils.wait(100);

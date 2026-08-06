@@ -45,6 +45,7 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -152,6 +153,7 @@ const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
   EDeviceType.Pro,
   EDeviceType.Pro2,
+  NEO_DEVICE_TYPE,
 ]);
 const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
 const MAX_PERSISTED_DEVICE_PROTOCOL_ENTRIES = 128;
@@ -257,7 +259,8 @@ const isOneKeyLoaderMode = (mode?: string | null) =>
 const supportsDedicatedFirmwareFeatures = (deviceType: IDeviceType) =>
   deviceType === EDeviceType.Touch ||
   deviceType === EDeviceType.Pro ||
-  deviceType === EDeviceType.Pro2;
+  deviceType === EDeviceType.Pro2 ||
+  deviceType === NEO_DEVICE_TYPE;
 
 function buildOnekeyFeaturesFromState(
   state: IOneKeyDeviceState,

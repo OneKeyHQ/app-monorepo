@@ -39,6 +39,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -697,24 +698,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    const pro2ForceTargets =
-      deviceType === EDeviceType.Pro2
-        ? [
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateTargets',
-            )) ?? []),
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateOnceTargets',
-            )) ?? []),
-          ]
-        : undefined;
-    const pro2TargetsToUpdate =
-      deviceType === EDeviceType.Pro2
-        ? buildPro2TargetsToUpdate({
-            sdkTargets: releaseInfo.targetsToUpdate,
-            forceTargets: pro2ForceTargets,
-          })
-        : undefined;
+    const pro2ForceTargets = isProtocolV2ProductType(deviceType)
+      ? [
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateTargets',
+          )) ?? []),
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateOnceTargets',
+          )) ?? []),
+        ]
+      : undefined;
+    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
+      ? buildPro2TargetsToUpdate({
+          sdkTargets: releaseInfo.targetsToUpdate,
+          forceTargets: pro2ForceTargets,
+        })
+      : undefined;
 
     const result = {
       updatingConnectId,
@@ -1034,11 +1033,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     const releaseFeatures =
       'features' in releasePayload ? releasePayload.features : undefined;
+    const protocolV2DeviceType = releaseFeatures
+      ? await deviceUtils.getDeviceTypeFromFeatures({
+          features: releaseFeatures,
+        })
+      : undefined;
     const isPro2Device =
-      releaseFeatures &&
-      (await deviceUtils.getDeviceTypeFromFeatures({
-        features: releaseFeatures,
-      })) === EDeviceType.Pro2;
+      protocolV2DeviceType === EDeviceType.Pro2 ||
+      protocolV2DeviceType === EDeviceType.Neo;
     if (
       firmwareType === 'firmware' &&
       !isPro2Device &&
@@ -2067,7 +2069,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             const deviceType = params?.releaseResult?.deviceType;
             if (
               deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Pro2
+              !isProtocolV2ProductType(deviceType)
             ) {
               throw new OneKeyLocalError(
                 'Do not support update firmware for this device',
@@ -2423,7 +2425,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
-    const isPro2Device = releaseResult.deviceType === EDeviceType.Pro2;
+    // Keep the legacy field name while routing every Protocol V2 product through V4.
+    const isPro2Device =
+      releaseResult.deviceType === EDeviceType.Pro2 ||
+      releaseResult.deviceType === EDeviceType.Neo;
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
