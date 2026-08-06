@@ -31,7 +31,8 @@ import {
   hasTradingViewNativeVolume,
 } from './chartLayout';
 
-const SECONDS_PER_HOUR = 60 * 60;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
 function getLocalTimestamp(
@@ -573,6 +574,96 @@ describe('TradingViewNative chart layout', () => {
     );
   });
 
+  it('keeps minute tick labels aligned with candle timestamps', () => {
+    const points = buildPoints({
+      count: 6,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0, 2),
+      stepSeconds: 15 * SECONDS_PER_MINUTE,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: 15 * SECONDS_PER_MINUTE,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing: 1,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('minute');
+    expect(layout.ticks.map(({ label }) => label)).toEqual([
+      '00:02',
+      '00:17',
+      '00:32',
+      '00:47',
+      '01:02',
+      '01:17',
+    ]);
+  });
+
+  it('keeps hour tick labels aligned with candle timestamps', () => {
+    const points = buildPoints({
+      count: 120,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0, 15),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      endIndex: 100,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(9),
+      points,
+      startIndex: 60,
+    });
+
+    expect(layout.unit).toBe('hour');
+    const timeTicks = layout.ticks.filter(({ label }) =>
+      /^\d{2}:\d{2}$/.test(label),
+    );
+    expect(timeTicks.length).toBeGreaterThan(0);
+    expect(timeTicks.every(({ label }) => label.endsWith(':15'))).toBe(true);
+    expect(
+      timeTicks.every(
+        ({ label, timestamp }) =>
+          formatTradingViewNativeCrosshairTime(
+            timestamp,
+            SECONDS_PER_HOUR,
+          ).slice(-5) === label,
+      ),
+    ).toBe(true);
+  });
+
+  it('preserves fractional-hour phases in hour tick labels', () => {
+    const points = buildPoints({
+      count: 120,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0, 30),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      endIndex: 100,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(9),
+      points,
+      startIndex: 60,
+    });
+    const timeTicks = layout.ticks.filter(({ label }) =>
+      /^\d{2}:\d{2}$/.test(label),
+    );
+
+    expect(layout.unit).toBe('hour');
+    expect(timeTicks.length).toBeGreaterThan(0);
+    expect(timeTicks.every(({ label }) => label.endsWith(':30'))).toBe(true);
+    expect(
+      timeTicks.every(
+        ({ label, timestamp }) =>
+          formatTradingViewNativeCrosshairTime(
+            timestamp,
+            SECONDS_PER_HOUR,
+          ).slice(-5) === label,
+      ),
+    ).toBe(true);
+  });
+
   it('keeps tick anchors stable while panning within the same time unit', () => {
     const points = buildPoints({
       count: 72,
@@ -664,6 +755,39 @@ describe('TradingViewNative chart layout', () => {
     );
   });
 
+  it('keeps hourly tick anchors fixed while panning across a tick window boundary', () => {
+    const points = buildPoints({
+      count: 120,
+      startTimestamp: getLocalTimestamp(2025, 0, 15, 0),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    const commonOptions = {
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      minimumIndexSpacing: getTradingViewNativeTimeTickMinimumIndexSpacing(9),
+      points,
+    };
+    const initialLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 71,
+      startIndex: 31,
+    });
+    const pannedLayout = getTradingViewNativeTimeAxisLayout({
+      ...commonOptions,
+      endIndex: 72,
+      startIndex: 32,
+    });
+    const getSharedVisibleTicks = (
+      layout: ReturnType<typeof getTradingViewNativeTimeAxisLayout>,
+    ) => layout.ticks.filter(({ index }) => index >= 32 && index < 71);
+
+    expect(initialLayout.unit).toBe('hour');
+    expect(pannedLayout.unit).toBe('hour');
+    expect(getSharedVisibleTicks(pannedLayout)).toEqual(
+      getSharedVisibleTicks(initialLayout),
+    );
+  });
+
   it('uses day ticks for a multi-week visible range', () => {
     const points = buildPoints({
       count: 29,
@@ -702,6 +826,96 @@ describe('TradingViewNative chart layout', () => {
     expect(layout.ticks.every(({ label }) => /^\d{4}-\d{2}$/.test(label))).toBe(
       true,
     );
+  });
+
+  it('keeps consecutive month labels across a short February', () => {
+    const pointSpacing = 2.5;
+    const points = buildPoints({
+      count: 144,
+      startTimestamp: getLocalTimestamp(2026, 0, 1),
+      stepSeconds: SECONDS_PER_DAY,
+    });
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_DAY,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing:
+        getTradingViewNativeTimeTickMinimumIndexSpacing(pointSpacing),
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('month');
+    expect(layout.ticks.map(({ label }) => label)).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+    ]);
+  });
+
+  it('uses a drawable month cadence when February is shorter than the spacing', () => {
+    const pointSpacing = 2.16;
+    const points = buildPoints({
+      count: 144,
+      startTimestamp: getLocalTimestamp(2026, 0, 1),
+      stepSeconds: SECONDS_PER_DAY,
+    });
+    const minimumIndexSpacing =
+      getTradingViewNativeTimeTickMinimumIndexSpacing(pointSpacing);
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_DAY,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('month');
+    expect(layout.ticks.map(({ label }) => label)).toEqual([
+      '2026-01',
+      '2026-03',
+      '2026-05',
+    ]);
+    expect(
+      layout.ticks.every(
+        (tick, index) =>
+          index === 0 ||
+          tick.index - layout.ticks[index - 1].index >= minimumIndexSpacing,
+      ),
+    ).toBe(true);
+  });
+
+  it('uses a drawable day cadence across a DST-shortened day', () => {
+    const pointSpacing = 5.58;
+    const points = buildPoints({
+      count: 72,
+      startTimestamp: getLocalTimestamp(2026, 2, 7, 0),
+      stepSeconds: SECONDS_PER_HOUR,
+    });
+    for (let index = 26; index < points.length; index += 1) {
+      points[index].t += SECONDS_PER_HOUR;
+    }
+    const minimumIndexSpacing =
+      getTradingViewNativeTimeTickMinimumIndexSpacing(pointSpacing);
+    const layout = getTradingViewNativeTimeAxisLayout({
+      candleIntervalSeconds: SECONDS_PER_HOUR,
+      chartWidth: 360,
+      endIndex: points.length,
+      minimumIndexSpacing,
+      points,
+      startIndex: 0,
+    });
+
+    expect(layout.unit).toBe('day');
+    expect(layout.ticks.map(({ index, label }) => ({ index, label }))).toEqual([
+      { index: 0, label: '03/07' },
+      { index: 24, label: '03/08' },
+      { index: 47, label: '03/09' },
+      { index: 71, label: '03/10' },
+    ]);
   });
 
   it('adapts the unit to the visible subset when the chart is zoomed', () => {
@@ -751,7 +965,7 @@ describe('TradingViewNative chart layout', () => {
       startIndex: 0,
     });
 
-    expect(minimumIndexSpacing).toBe(9);
+    expect(minimumIndexSpacing).toBe(8);
     expect(layout.ticks.length).toBeGreaterThan(1);
     expect(
       layout.ticks.every(

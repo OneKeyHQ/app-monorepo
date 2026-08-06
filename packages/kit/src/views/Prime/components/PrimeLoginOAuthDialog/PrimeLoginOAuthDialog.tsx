@@ -37,6 +37,7 @@ import type {
 
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   scrubSensitiveErrorMessageText,
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
@@ -368,15 +369,15 @@ function PrimeLoginOAuthDialog(props: {
         inspection =
           await backgroundApiProxy.serviceKeylessWallet.inspectLocalKeylessWalletForOAuth();
       } catch (error) {
-        console.error(
-          'PrimeLoginOAuthDialog: failed to inspect local Keyless wallet:',
-          getSanitizedAuthErrorText(error),
-          scrubSensitiveErrorMessageText(
+        logOneKeyIdLoginFailureReason(
+          `PrimeLoginOAuthDialog failed to inspect local Keyless wallet: ${getSanitizedAuthErrorText(
+            error,
+          )} prepareResult=${scrubSensitiveErrorMessageText(
             localKeylessLoginPrepareResult?.errorMessage || '',
-          ),
-          scrubSensitiveErrorMessageText(
+          )} prepareError=${scrubSensitiveErrorMessageText(
             localKeylessLoginPrepareErrorMessage || '',
-          ),
+          )}`,
+          error,
         );
         Toast.error({
           title: intl.formatMessage({

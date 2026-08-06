@@ -173,6 +173,9 @@ export function useOneKeyIdLocalKeylessOAuth({
           });
         }
         if (localSessionResult.status === 'retryable') {
+          logOneKeyIdLoginFailureReason(
+            'OneKey ID login could not reuse the local Keyless OAuth session because credential migration is retryable.',
+          );
           throw new OneKeyLocalError(missingTokenMessage);
         }
         if (localSessionResult.status === 'ready') {
