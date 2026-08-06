@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,14 +29,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import {
-  getHyperliquidTokenImageUris,
-  getHyperliquidTokenImageUrl,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { PerpCandles } from '../components/PerpCandles';
 import PerpMarketFooter from '../components/PerpMarketFooter';
@@ -235,13 +230,7 @@ function MobilePerpCandlesStatic({
 
 function MobilePerpMarket() {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const {
-    baseName,
-    displayName,
-    coin: activeCoin,
-    mode,
-  } = useActiveTradeDisplay();
-  const themeVariant = useThemeVariant();
+  const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>('orderbook');
   const [hasInfoTabMounted, setHasInfoTabMounted] = useState(false);
@@ -308,7 +297,7 @@ function MobilePerpMarket() {
     } else {
       pairLabel = '--';
     }
-    // Match the MarketDetailV2 layout: Token + Symbol + dropdown sit
+    // Match the MarketDetailV2 layout: Symbol + badges + dropdown sit
     // in the native headerTitle slot. The system back chevron renders
     // separately on the left via HeaderScreenOptions
     // (headerBackButtonDisplayMode: 'minimal'), so we no longer wrap
@@ -324,35 +313,15 @@ function MobilePerpMarket() {
         pressStyle={isSplitDetailActive ? undefined : { opacity: 0.6 }}
         cursor="default"
       >
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          {...(mode === 'spot'
-            ? {
-                tokenImageUri: baseName
-                  ? getHyperliquidTokenImageUrl(baseName)
-                  : undefined,
-              }
-            : { tokenImageUris: getHyperliquidTokenImageUris(activeCoin) })}
-          fallbackIcon="CryptoCoinOutline"
-        />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <SizableText size="$headingMd">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
+        <PerpDexBadge dexLabel={dexLabel} />
         {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}
       </XStack>
     );
-  }, [
-    activeCoin,
-    baseName,
-    displayName,
-    isSplitDetailActive,
-    mode,
-    onPressTokenSelector,
-    themeVariant,
-  ]);
+  }, [dexLabel, displayName, isSplitDetailActive, mode, onPressTokenSelector]);
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 

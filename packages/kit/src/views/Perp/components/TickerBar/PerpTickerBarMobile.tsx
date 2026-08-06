@@ -212,7 +212,11 @@ function PerpBadgesRow() {
               })}
         </SizableText>
       </Badge>
-      <PerpDexBadge dexLabel={dexLabel} testID={PerpTestIDs.ActiveDexBadge} />
+      <PerpDexBadge
+        compact
+        dexLabel={dexLabel}
+        testID={PerpTestIDs.ActiveDexBadge}
+      />
       {subtitle ? (
         <Popover
           title={intl.formatMessage({
