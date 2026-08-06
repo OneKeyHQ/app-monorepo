@@ -295,7 +295,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         // ignore error
       }
     },
-    [symbol, navigation],
+    [symbol, navigation, logoURI],
   );
 
   const protocolDisplayData = useMemo(() => {

@@ -205,15 +205,17 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
   const handleRowPress = useCallback(
     (row: IEarnProtocolTokenRow) => {
       // OK-59304: hand the detail page the logo this row already resolved, so
-      // it does not render the placeholder until its own request lands
-      const logoURI = assetLogoMap.get(row.symbol.toLowerCase());
-      prewarmTokenImages({ tokenImageUri: logoURI });
+      // it does not render the placeholder until its own request lands.
+      // Note this is the token logo, not the page's `logoURI` route param,
+      // which is the protocol's.
+      const tokenLogoURI = assetLogoMap.get(row.symbol.toLowerCase());
+      prewarmTokenImages({ tokenImageUri: tokenLogoURI });
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: row.item.network.networkId,
         symbol: row.symbol,
         provider: row.item.provider.name,
         vault: row.item.provider.vault,
-        logoURI,
+        logoURI: tokenLogoURI,
       });
     },
     [navigation, assetLogoMap],
