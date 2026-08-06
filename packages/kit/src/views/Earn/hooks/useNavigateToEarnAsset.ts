@@ -79,6 +79,7 @@ export function useNavigateToEarnAsset() {
             symbol: asset.symbol,
             provider: protocol.provider,
             vault: protocol.vault,
+            logoURI: asset.logoURI,
           });
           return;
         }

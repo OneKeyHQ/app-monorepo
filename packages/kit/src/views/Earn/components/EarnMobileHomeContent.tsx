@@ -28,6 +28,7 @@ function EarnMobileHomeContentComponent({
   isActive,
   showContent,
   isRefreshing,
+  isPullRefreshing,
   displayTotalFiatValue,
   displayEarnings24h,
   onRefresh,
@@ -43,7 +44,14 @@ function EarnMobileHomeContentComponent({
   isFaqLoading: boolean;
   isActive: boolean;
   showContent: boolean;
+  /** Any portfolio load — drives the overview number skeletons */
   isRefreshing: boolean;
+  /**
+   * User-initiated refresh only. The pull-to-refresh spinner must not be
+   * driven by background/automatic loads, otherwise simply returning to this
+   * page renders a spinner the user never pulled for.
+   */
+  isPullRefreshing: boolean;
   displayTotalFiatValue?: string;
   displayEarnings24h?: string;
   onRefresh: () => Promise<void>;
@@ -64,7 +72,7 @@ function EarnMobileHomeContentComponent({
       nestedScrollEnabled
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} />
       }
     >
       <HeaderScrollGestureWrapper onHorizontalSwipe={onHeaderHorizontalSwipe}>
