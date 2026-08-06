@@ -7,6 +7,7 @@
     "**/*.css"
   ],
   "dependencies": {
+    "@react-native-masked-view/masked-view": "0.3.2",
     "@onekeyfe/react-native-scroll-guard": "3.0.101",
     "@onekeyfe/react-native-segment-slider": "3.0.101",
     "@onekeyfe/react-native-tab-view": "3.0.101",
