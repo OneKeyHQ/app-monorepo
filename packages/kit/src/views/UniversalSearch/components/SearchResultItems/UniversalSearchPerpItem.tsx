@@ -12,6 +12,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -53,7 +57,7 @@ export function UniversalSearchPerpItem({
     () => buildCoinFromSearchAssetType({ assetType, name }) ?? '',
     [assetType, name],
   );
-  const tag = isPerpsType ? `${maxLeverage}X` : assetType;
+  const dexLabel = isPerpsType ? undefined : assetType;
   // The search index sends a bare-symbol logo, which 404s for `para:UNITREE`
   // and renders Stacks for `para:STX`. The dex-prefixed asset is the right one.
   const tokenImageUris = useMemo(
@@ -154,22 +158,10 @@ export function UniversalSearchPerpItem({
               {name}
             </SizableText>
             <XStack gap="$1">
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textSubdued"
-                  lineHeight={16}
-                >
-                  {tag}
-                </SizableText>
-              </XStack>
+              {maxLeverage > 0 ? (
+                <LeverageBadge leverage={maxLeverage} />
+              ) : null}
+              <PerpDexBadge dexLabel={dexLabel} />
               {subtitle ? (
                 <XStack
                   borderRadius="$1"

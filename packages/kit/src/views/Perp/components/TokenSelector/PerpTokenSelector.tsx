@@ -39,6 +39,7 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   type ISpotAssetCtxsMap,
@@ -84,6 +85,7 @@ import {
 } from '../../hooks';
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
+import { PerpTestIDs } from '../../testIDs';
 import { tracePerpsMobileLayout } from '../../utils/mobileLayoutTrace';
 import { preloadPerpsMobileTokenSelectorPage } from '../../utils/preloadPerpsTokenSelector';
 import {
@@ -433,9 +435,7 @@ function BasePerpTokenSelectorContent({
         }
       } catch (error) {
         defaultLogger.app.error.log(
-          `Failed to load spot meta: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Failed to load spot meta: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
       if (!cancelled) {
@@ -567,9 +567,13 @@ function BasePerpTokenSelectorContent({
   );
 
   const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
-    usePerpsFavorites({ mode: 'perp' });
+    usePerpsFavorites({
+      mode: 'perp',
+    });
   const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
-    usePerpsFavorites({ mode: 'spot' });
+    usePerpsFavorites({
+      mode: 'spot',
+    });
   const favoriteItems = useMemo(
     () => [...perpFavoriteItems, ...spotFavoriteItems],
     [perpFavoriteItems, spotFavoriteItems],
@@ -1342,6 +1346,7 @@ function BasePerpTokenSelector() {
     displayName,
     baseName,
     coin: activeCoin,
+    dexLabel,
     mode,
   } = useActiveTradeDisplay();
   const [isLoading, setIsLoading] = useState(false);
@@ -1444,6 +1449,10 @@ function BasePerpTokenSelector() {
               {triggerLabel}
             </SizableText>
             <TradingModeBadge isSpot={mode === 'spot'} />
+            <PerpDexBadge
+              dexLabel={dexLabel}
+              testID={PerpTestIDs.ActiveDexBadge}
+            />
             {builderFeeRate === 0 ? (
               <Tooltip
                 placement="bottom"
@@ -1482,6 +1491,7 @@ function BasePerpTokenSelector() {
       activeCoin,
       baseName,
       mode,
+      dexLabel,
       builderFeeRate,
       intl,
       prewarmTokenSelectorImages,

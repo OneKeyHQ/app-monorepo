@@ -24,7 +24,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxEntry,
   spotAssetCtxsMapAtom,
@@ -59,6 +63,7 @@ import {
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
+import { PerpTestIDs } from '../../testIDs';
 
 interface IPerpTokenSelectorRowProps {
   mockedToken: {
@@ -401,22 +406,13 @@ const TokenInfoCellDesktop = memo(() => {
                   />
                 ) : null}
                 {!isSpot && token.maxLeverage > 0 ? (
-                  <XStack
-                    borderRadius="$1"
-                    bg="$bgStrong"
-                    justifyContent="center"
-                    alignItems="center"
-                    px="$1.5"
-                  >
-                    <SizableText
-                      fontSize={10}
-                      alignSelf="center"
-                      color="$textSubdued"
-                      lineHeight={16}
-                    >
-                      {token.maxLeverage}x
-                    </SizableText>
-                  </XStack>
+                  <LeverageBadge leverage={token.maxLeverage} />
+                ) : null}
+                {!isSpot ? (
+                  <PerpDexBadge
+                    dexLabel={token.dexLabel}
+                    testID={PerpTestIDs.TokenSelectorDexBadge(token.name)}
+                  />
                 ) : null}
               </XStack>
               {token.subtitle ? (
@@ -430,6 +426,7 @@ const TokenInfoCellDesktop = memo(() => {
     [
       token.displayName,
       token.subtitle,
+      token.dexLabel,
       token.maxLeverage,
       token.name,
       isSpot,
@@ -898,29 +895,20 @@ const TokenNameMobile = memo(() => {
                 <TradingModeBadge isSpot px="$1.5" bg="$bgStrong" />
               ) : null}
               {!isSpot && token.maxLeverage > 0 ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgStrong"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
-                >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
-                    color="$textSubdued"
-                    lineHeight={16}
-                  >
-                    {token.maxLeverage}x
-                  </SizableText>
-                </XStack>
+                <LeverageBadge leverage={token.maxLeverage} />
+              ) : null}
+              {!isSpot ? (
+                <PerpDexBadge
+                  dexLabel={token.dexLabel}
+                  testID={PerpTestIDs.TokenSelectorDexBadge(token.name)}
+                />
               ) : null}
             </XStack>
           </XStack>
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, isSpot],
+    [token.dexLabel, token.displayName, token.maxLeverage, token.name, isSpot],
   );
   return content;
 });

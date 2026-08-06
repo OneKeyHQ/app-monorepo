@@ -6,6 +6,8 @@ import {
   SUB_DEX_LIST,
 } from '../../types/hyperliquid/perp.constants';
 
+import type { IPerpsUniverse } from '../../types/hyperliquid/sdk';
+
 // dexIndex is local: 0 = main perps DEX, 1..n = SUB_DEX_LIST order.
 export function getDexAssetIdOffset(dexIndex: number): number {
   return DEX_ASSET_ID_OFFSETS[dexIndex] ?? 0;
@@ -67,6 +69,20 @@ export function isPerpsUniverseCacheComplete(
   return universesByDex
     .slice(0, SUB_DEX_LIST.length + 1)
     .every((items) => (items?.length ?? 0) > 0);
+}
+
+export function buildTradablePerpMaxLeverageMap(
+  universesByDex: IPerpsUniverse[][],
+): Map<string, number> {
+  const maxLeverageByCoin = new Map<string, number>();
+  universesByDex.forEach((assets) => {
+    assets.forEach((asset) => {
+      if (!asset.isDelisted && asset.name) {
+        maxLeverageByCoin.set(asset.name, asset.maxLeverage);
+      }
+    });
+  });
+  return maxLeverageByCoin;
 }
 
 // Search returns `assetType` as the dex prefix itself ('perps' = main DEX).
