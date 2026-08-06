@@ -48,7 +48,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
+import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { bootloaderModeDialogManager } from '../../FirmwareUpdate/hooks/bootloaderModeDialogManager';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
@@ -64,6 +66,7 @@ import {
   trackHardwareWalletConnection,
 } from '../utils';
 
+import { resolveFirmwareReconnectDevice } from './firmwareReconnectUtils';
 import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -281,11 +284,10 @@ export function useDeviceConnect({
         isSameHardware(device, activeDeviceRef.current) &&
         activeFeaturesRef.current
       ) {
+        await bootloaderModeDialogManager.close();
         return activeFeaturesRef.current;
       }
 
-      // Clear bootloader mode flag when reconnecting
-      wasInBootloaderModeRef.current = false;
       let hardwareCallContext: EHardwareCallContext | undefined;
       let isBootMode = false;
       if (
@@ -303,8 +305,23 @@ export function useDeviceConnect({
         options?.connectProtocol,
         options?.forceProtocolDetection,
       );
-      // If device was in bootloader mode and connectId is empty, search for the updated device
-      if (device.connectId === '' && isBootMode && !features?.bootloaderMode) {
+      let isConnectedBootloaderMode = false;
+      if (features) {
+        isConnectedBootloaderMode =
+          await deviceUtils.isBootloaderModeByFeatures({ features });
+        wasInBootloaderModeRef.current = isConnectedBootloaderMode;
+        if (!isConnectedBootloaderMode) {
+          await bootloaderModeDialogManager.close();
+        }
+      }
+      const hasPlaceholderConnectId =
+        !device.connectId || /^0+$/.test(device.connectId);
+      if (
+        hasPlaceholderConnectId &&
+        isBootMode &&
+        features &&
+        !isConnectedBootloaderMode
+      ) {
         const searchedDevices =
           await backgroundApiProxy.serviceHardware.searchDevices();
         if (searchedDevices.success && searchedDevices.payload.length === 1) {
@@ -318,6 +335,53 @@ export function useDeviceConnect({
       return features;
     },
     [connectDevice, isSameHardware, setCurrentDevice],
+  );
+
+  const rebindDeviceAfterFirmwareUpdate = useCallback(
+    async (
+      previousDevice: SearchDevice,
+      onConnectId?: (connectId: string) => void,
+    ) => {
+      wasInBootloaderModeRef.current = true;
+      await ensureStopScan();
+      const searchedDevices =
+        await backgroundApiProxy.serviceHardware.searchDevices();
+      if (!searchedDevices.success) {
+        throw new OneKeyLocalError(
+          'Unable to search for device after firmware update',
+        );
+      }
+
+      const result = await resolveFirmwareReconnectDevice({
+        previousDevice,
+        devices: searchedDevices.payload,
+        getFeatures: (connectId) =>
+          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              retryCount: 1,
+              skipWebDevicePrompt: true,
+            },
+          }),
+        onConnectId,
+      });
+      activeDeviceRef.current = { ...result.device };
+      activeFeaturesRef.current = result.features;
+      wasInBootloaderModeRef.current = false;
+      await bootloaderModeDialogManager.close();
+      setCurrentDevice?.(result.device);
+      defaultLogger.hardware.sdkLog.log(
+        'Firmware reconnect succeeded',
+        JSON.stringify({
+          deviceType: result.device.deviceType,
+          commType: result.device.commType,
+          connectIdChanged:
+            previousDevice.connectId !== result.device.connectId,
+        }),
+      );
+      return result;
+    },
+    [ensureStopScan, setCurrentDevice],
   );
 
   const getActiveDevice = useCallback(() => {
@@ -534,6 +598,20 @@ export function useDeviceConnect({
             // Return USB connectId if preparation succeeded, otherwise fallback
             return usbPrepareResult.connectId ?? device.connectId ?? undefined;
           };
+
+          // Both dialogs use the same iOS full-window portal. Wait until the main
+          // runtime has committed the hardware dialog removal before mounting the
+          // bootloader dialog, otherwise the old Sheet overlay can swallow taps.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(async () =>
+              backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+                connectId: device.connectId ?? undefined,
+                skipDeviceCancel: true,
+                skipDelayClose: true,
+                reason: 'open bootloader mode dialog',
+              }),
+            );
+          }
 
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
@@ -976,6 +1054,7 @@ export function useDeviceConnect({
       onSelectAddWalletType,
       createHWWallet: onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     }),
@@ -985,6 +1064,7 @@ export function useDeviceConnect({
       verifyHardware,
       onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     ],

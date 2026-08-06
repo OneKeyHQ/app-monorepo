@@ -21,6 +21,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 import { getTargetFirmwareTypeLabel } from '../utils';
 
+import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
+
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
@@ -184,43 +186,49 @@ export function useFirmwareUpdateActions() {
       };
 
       if (existsFirmware) {
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.update_device_in_bootloader_mode,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.update_hardware_wallet_in_bootloader_mode_restart,
-          }),
-          dismissOnOverlayPress: false,
-          onConfirm: async ({ close }) => {
-            void close?.();
-          },
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_got_it,
-          }),
-          onCancel: async () => {
-            await handleUpdateClick();
-          },
-          onCancelText: intl.formatMessage({
-            id: ETranslations.update_update_now,
-          }),
+        bootloaderModeDialogManager.show({
+          onUpdate: handleUpdateClick,
+          createDialog: ({ onClose, onUpdate }) =>
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.update_device_in_bootloader_mode,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.update_hardware_wallet_in_bootloader_mode_restart,
+              }),
+              dismissOnOverlayPress: false,
+              onConfirm: async ({ close }) => {
+                void close?.();
+              },
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              onCancel: onUpdate,
+              onCancelText: intl.formatMessage({
+                id: ETranslations.update_update_now,
+              }),
+              onClose,
+            }),
         });
       } else {
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.update_device_in_bootloader_mode,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.update_hardware_wallet_in_bootloader_mode,
-          }),
-          dismissOnOverlayPress: false,
-          showCancelButton: false,
-          onConfirm: async () => {
-            await handleUpdateClick();
-          },
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.update_update_now,
-          }),
+        bootloaderModeDialogManager.show({
+          onUpdate: handleUpdateClick,
+          createDialog: ({ onClose, onUpdate }) =>
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.update_device_in_bootloader_mode,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.update_hardware_wallet_in_bootloader_mode,
+              }),
+              dismissOnOverlayPress: false,
+              showCancelButton: false,
+              onConfirm: onUpdate,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.update_update_now,
+              }),
+              onClose,
+            }),
         });
       }
     },

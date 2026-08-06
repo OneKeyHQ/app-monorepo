@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -104,6 +106,43 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
+
+describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
+  it('forces an App-managed manifest refresh before a release check', async () => {
+    const checkAllFirmwareRelease = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { features: {} },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      checkAllFirmwareRelease,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance,
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.baseCheckAllFirmwareRelease({
+      connectId: 'device-1',
+      firmwareType: undefined,
+      skipChangeTransportType: true,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'device-1',
+      forceFirmwareManifestRefresh: true,
+    });
+    expect(checkAllFirmwareRelease).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -244,7 +283,7 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       } as unknown as IBackgroundApi,
     });
 
-    await service.updatingFirmwareV3({
+    await service.updatingFirmwareV4({
       connectId: 'PRO2_CONNECT_ID',
       bleVersion: undefined,
       firmwareVersion: undefined,
@@ -252,6 +291,8 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       firmwareType: undefined,
       isPro2Device: true,
       pro2TargetsToUpdate: ['resource'],
+      requirePreparedArtifacts: false,
+      targetsToUpdate: ['resource'],
     });
 
     expect(firmwareUpdateV4).toHaveBeenCalledTimes(1);
@@ -297,7 +338,7 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       } as unknown as IBackgroundApi,
     });
 
-    await service.updatingFirmwareV3({
+    await service.updatingFirmwareV4({
       connectId: bleConnectId,
       bleVersion: undefined,
       firmwareVersion: undefined,
@@ -305,6 +346,8 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       firmwareType: undefined,
       isPro2Device: true,
       pro2TargetsToUpdate: ['app_v1'],
+      requirePreparedArtifacts: false,
+      targetsToUpdate: ['app_v1'],
     });
 
     expect(firmwareUpdateV4).toHaveBeenCalledWith(
@@ -590,6 +633,105 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
+    );
+  });
+});
+
+describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
+  const createService = () =>
+    new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+  test('keeps Pro on the existing V3 path when no prepared Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV3 = jest
+      .spyOn(service, 'updatingFirmwareV3')
+      .mockResolvedValue({ message: 'ok' });
+    const runtimeHost = jest.spyOn(
+      service as unknown as {
+        getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+      },
+      'getFirmwareUpdateRuntimeHost',
+    );
+    jest
+      .spyOn(service, 'createRunTaskWithRetry')
+      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+
+    await service.startUpdateFirmwareTaskForNewBootVersion({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Pro,
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(updatingFirmwareV3).toHaveBeenCalledTimes(1);
+    expect(runtimeHost).not.toHaveBeenCalled();
+  });
+
+  test('keeps the legacy Pro2 rejection when no Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest
+      .spyOn(service, 'updatingFirmwareV4')
+      .mockResolvedValue({ message: 'ok' });
+
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow('Do not support update firmware for this device');
+
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
+  });
+
+  test('requires App-prepared artifacts whenever the Pro2 Plan is present', async () => {
+    const service = createService();
+    const plan = {
+      executor: 'v4',
+      targetsToUpdate: ['boot', 'app_v1'],
+    };
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({
+        artifacts: {
+          getPlan: jest.fn(() => plan),
+        },
+      });
+    jest
+      .spyOn(service, 'createRunTaskWithRetry')
+      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+    const updatingFirmwareV4 = jest
+      .spyOn(service, 'updatingFirmwareV4')
+      .mockResolvedValue({ message: 'ok' });
+
+    await service.startUpdateFirmwareTaskForNewBootVersion({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Pro2,
+        firmwareUpdatePlanDigest: 'c'.repeat(64),
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(updatingFirmwareV4).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requirePreparedArtifacts: true,
+        targetsToUpdate: ['boot', 'app_v1'],
+      }),
+      undefined,
     );
   });
 });

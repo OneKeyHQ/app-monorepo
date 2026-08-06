@@ -57,6 +57,7 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import { DESKTOP_API_ALLOWED_MODULES } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -1132,23 +1133,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
-  const allowedModules = new Set([
-    'system',
-    'security',
-    'storage',
-    'webview',
-    'notification',
-    'dev',
-    'inAppPurchase',
-    'bluetooth',
-    'appUpdate',
-    'bundleUpdate',
-    'cloudKit',
-    'keychain',
-    'sniRequest',
-    'oauthLocalServer',
-    'appleAuth',
-  ]);
+  const allowedModules = new Set<string>(DESKTOP_API_ALLOWED_MODULES);
   ipcMain.handle(
     'DESKTOP_API_CALL',
     async (

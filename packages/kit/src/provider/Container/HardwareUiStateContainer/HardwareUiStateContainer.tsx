@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -76,6 +77,7 @@ import {
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
 import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
 let globalShowDeviceProgressDialogEnabled = true;
 
@@ -687,6 +689,17 @@ function HardwareUiStateContainerCmpControlled() {
     hasToastCloseAction,
     state,
   ]);
+
+  useLayoutEffect(() => {
+    hardwareUiStateDialogLifecycle.updateOpenState(actionStatus.isDialogAction);
+  }, [actionStatus.isDialogAction]);
+
+  useEffect(
+    () => () => {
+      hardwareUiStateDialogLifecycle.updateOpenState(false);
+    },
+    [],
+  );
 
   // Block Android back button when hardware toast is showing
   const handleBackPress = useCallback(() => true, []);

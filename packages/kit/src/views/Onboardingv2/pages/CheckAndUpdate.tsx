@@ -48,23 +48,18 @@ import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBCon
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
+import {
+  ECheckAndUpdateStepId,
+  ECheckAndUpdateStepState,
+  beginPostUpdateRecheck,
+  isCheckAndUpdateReady,
+  isCheckAndUpdateRetryDisabled,
+  isCheckAndUpdateStepAccepted,
+  keepPostUpdateGenuineRecheckArmed,
+} from './checkAndUpdateStepState';
 import { createFirmwareRecheckTimer } from './firmwareRecheckUtils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
-
-enum ECheckAndUpdateStepState {
-  Idle = 'idle',
-  InProgress = 'inProgress',
-  Warning = 'warning',
-  Skipped = 'skipped',
-  Success = 'success',
-  Error = 'error',
-}
-
-enum ECheckAndUpdateStepId {
-  GenuineCheck = 'genuine-check',
-  FirmwareCheck = 'firmware-check',
-}
 
 // Illustration glyph tint per step state (idle / in progress stay neutral).
 const STEP_STATE_TONE: Partial<
@@ -144,6 +139,7 @@ function CheckAndUpdatePage({
   const {
     verifyHardware,
     ensureActiveConnection,
+    rebindDeviceAfterFirmwareUpdate,
     getActiveDevice,
     getActiveDeviceFeatures,
     ensureStopScan,
@@ -217,26 +213,35 @@ function CheckAndUpdatePage({
   ]);
 
   const [celebrate, setCelebrate] = useState(false);
-  // The flow may proceed once the firmware step is terminal-ok: Success or
-  // Skipped both reveal the "Continue" button, but only a real Success fires
-  // the celebratory confetti — skipping a check is not a pass.
+  // Both checks must be terminal-ok before setup can continue. Bootloader
+  // recovery can temporarily restart the two checks in a different order.
+  const genuineStepState = steps.find(
+    (step) => step.id === ECheckAndUpdateStepId.GenuineCheck,
+  )?.state;
   const firmwareStepState = steps.find(
     (step) => step.id === ECheckAndUpdateStepId.FirmwareCheck,
   )?.state;
-  const isReady =
-    firmwareStepState === ECheckAndUpdateStepState.Success ||
-    firmwareStepState === ECheckAndUpdateStepState.Skipped;
+  const isReady = isCheckAndUpdateReady(steps);
+  const isAnyStepInProgress = isCheckAndUpdateRetryDisabled(steps);
   useEffect(() => {
-    if (firmwareStepState === ECheckAndUpdateStepState.Success) {
-      setCelebrate(true);
-    }
-  }, [firmwareStepState]);
+    setCelebrate(
+      isReady && firmwareStepState === ECheckAndUpdateStepState.Success,
+    );
+  }, [firmwareStepState, isReady]);
   // Lets the focus-effect guard read the latest firmware step state without
   // joining the focus callback's dependency array.
   const firmwareStepStateRef = useRef(firmwareStepState);
   useEffect(() => {
     firmwareStepStateRef.current = firmwareStepState;
   }, [firmwareStepState]);
+  const genuineStepStateRef = useRef(genuineStepState);
+  useEffect(() => {
+    genuineStepStateRef.current = genuineStepState;
+  }, [genuineStepState]);
+  const [
+    shouldReverifyGenuineAfterUpdate,
+    setShouldReverifyGenuineAfterUpdate,
+  ] = useState(false);
 
   const actions = useFirmwareUpdateActions();
   const toFirmwareUpgradePage = useCallback(async () => {
@@ -339,9 +344,13 @@ function CheckAndUpdatePage({
 
   // Retry connecting to device after firmware update
   const retryDeviceConnectionAfterUpdate = useCallback(
-    async (connectId: string, isStale: () => boolean) => {
+    async (
+      previousDevice: SearchDevice,
+      isStale: () => boolean,
+      onConnectId: (connectId: string) => void,
+    ) => {
       try {
-        await pRetry(
+        return await pRetry(
           async (attemptCount) => {
             if (isStale()) {
               // A newer round took over — stop touching the device from this
@@ -349,18 +358,16 @@ function CheckAndUpdatePage({
               throw new AbortError('stale firmware check round');
             }
             console.log(
-              `Attempting to connect to device after firmware update (attempt ${attemptCount}/5)...`,
+              `Attempting to reconnect device after firmware update (attempt ${attemptCount}/11)...`,
             );
 
-            await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
-              connectId,
-              params: {
-                retryCount: 1,
-                skipWebDevicePrompt: true,
-              },
-            });
+            const result = await rebindDeviceAfterFirmwareUpdate(
+              previousDevice,
+              onConnectId,
+            );
 
             console.log('Device connection successful after firmware update');
+            return result.device;
           },
           {
             retries: 10,
@@ -398,7 +405,7 @@ function CheckAndUpdatePage({
         );
       }
     },
-    [intl],
+    [intl, rebindDeviceAfterFirmwareUpdate],
   );
 
   const checkFirmwareUpdate = useCallback(
@@ -458,14 +465,25 @@ function CheckAndUpdatePage({
         await ensureTransportType();
         const baseDevice =
           getActiveDevice() ?? currentDevice ?? deviceData.device;
-        if (!baseDevice?.connectId) {
+        if (!baseDevice || (!checkAfterUpdate && !baseDevice.connectId)) {
           setDeviceNotFoundErrorMessageStep();
           return;
         }
-        watchdogConnectId = baseDevice.connectId;
-        await ensureActiveConnection(baseDevice as SearchDevice);
-        const latestDevice = getActiveDevice() ?? baseDevice;
-        setCurrentDevice(latestDevice as SearchDevice);
+        watchdogConnectId = baseDevice.connectId ?? undefined;
+        let latestDevice: SearchDevice;
+        if (checkAfterUpdate) {
+          latestDevice = await retryDeviceConnectionAfterUpdate(
+            baseDevice as SearchDevice,
+            isStale,
+            (connectId) => {
+              watchdogConnectId = connectId;
+            },
+          );
+        } else {
+          await ensureActiveConnection(baseDevice as SearchDevice);
+          latestDevice = (getActiveDevice() ?? baseDevice) as SearchDevice;
+        }
+        setCurrentDevice(latestDevice);
 
         if (!latestDevice?.connectId) {
           setDeviceNotFoundErrorMessageStep();
@@ -478,11 +496,6 @@ function CheckAndUpdatePage({
           });
         const compatibleConnectId = resolvedTransport.connectId;
         watchdogConnectId = compatibleConnectId;
-
-        // Wait for hardware to restart after firmware update
-        if (checkAfterUpdate) {
-          await retryDeviceConnectionAfterUpdate(compatibleConnectId, isStale);
-        }
 
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
@@ -622,6 +635,14 @@ function CheckAndUpdatePage({
         return;
       }
 
+      setShouldReverifyGenuineAfterUpdate((wasArmed) =>
+        keepPostUpdateGenuineRecheckArmed(
+          wasArmed,
+          genuineStepStateRef.current,
+        ),
+      );
+      setSteps((prev) => beginPostUpdateRecheck(prev));
+
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
       // Keep the previous state during this cancellable window so a blur can
       // safely reschedule the check on the next focus. The check owns the
@@ -671,97 +692,121 @@ function CheckAndUpdatePage({
     return unsubscribe;
   }, [reactNavigation]);
 
-  const handleVerifyHardware = useCallback(async () => {
-    // Double-check: ensure device scanning is fully stopped before starting verification
-    await ensureStopScan();
-    await ensureTransportType();
+  const runGenuineCheck = useCallback(
+    async (checkFirmwareAfterSuccess: boolean) => {
+      // Double-check: ensure device scanning is fully stopped before starting verification
+      await ensureStopScan();
+      await ensureTransportType();
 
-    setSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[0] = {
-        ...newSteps[0],
-        state: ECheckAndUpdateStepState.InProgress,
-        errorMessage: undefined,
-      };
-      return newSteps;
-    });
-
-    try {
-      const [result] = await Promise.all([
-        verifyHardware(currentDevice as SearchDevice, tabValue),
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 1200);
-        }),
-      ]);
-      const latestDevice =
-        getActiveDevice() ??
-        currentDevice ??
-        (deviceData.device as SearchDevice | undefined);
-      setCurrentDevice(latestDevice);
-      console.log('verifyHardware', result);
-      if (!result) {
-        throw new OneKeyLocalError(
-          intl.formatMessage({ id: ETranslations.global_unknown_error }),
-        );
-      }
-      // Skipping (dev skip or "continue anyway" when the verify service is
-      // unavailable) is not a verification pass — record it as Skipped so the
-      // step doesn't claim the device is genuine.
-      let genuineState = ECheckAndUpdateStepState.Error;
-      if (result.skipVerification) {
-        genuineState = ECheckAndUpdateStepState.Skipped;
-      } else if (result.verified) {
-        genuineState = ECheckAndUpdateStepState.Success;
-      }
-      const shouldContinueToFirmwareCheck =
-        genuineState !== ECheckAndUpdateStepState.Error;
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
           ...newSteps[0],
-          state: genuineState,
-          errorMessage:
-            genuineState === ECheckAndUpdateStepState.Error
-              ? result.result?.message
-              : undefined,
+          state: ECheckAndUpdateStepState.InProgress,
+          errorMessage: undefined,
         };
-        if (shouldContinueToFirmwareCheck) {
-          newSteps[1] = {
-            ...newSteps[1],
-            state: ECheckAndUpdateStepState.InProgress,
-          };
+        return newSteps;
+      });
+
+      try {
+        const verificationDevice =
+          getActiveDevice() ?? currentDevice ?? deviceData.device;
+        const [result] = await Promise.all([
+          verifyHardware(verificationDevice as SearchDevice, tabValue),
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 1200);
+          }),
+        ]);
+        const latestDevice =
+          getActiveDevice() ??
+          currentDevice ??
+          (deviceData.device as SearchDevice | undefined);
+        setCurrentDevice(latestDevice);
+        console.log('verifyHardware', result);
+        if (!result) {
+          throw new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.global_unknown_error }),
+          );
         }
-        return newSteps;
-      });
-      if (shouldContinueToFirmwareCheck) {
-        setTimeout(() => {
-          void checkFirmwareUpdate();
-        }, 150);
+        // Skipping (dev skip or "continue anyway" when the verify service is
+        // unavailable) is not a verification pass — record it as Skipped so the
+        // step doesn't claim the device is genuine.
+        let genuineState = ECheckAndUpdateStepState.Error;
+        if (result.verified) {
+          genuineState = ECheckAndUpdateStepState.Success;
+        } else if (result.skipVerification) {
+          genuineState = ECheckAndUpdateStepState.Skipped;
+        }
+        const shouldContinueToFirmwareCheck =
+          genuineState !== ECheckAndUpdateStepState.Error;
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: genuineState,
+            errorMessage:
+              genuineState === ECheckAndUpdateStepState.Error
+                ? result.result?.message
+                : undefined,
+          };
+          if (shouldContinueToFirmwareCheck && checkFirmwareAfterSuccess) {
+            newSteps[1] = {
+              ...newSteps[1],
+              state: ECheckAndUpdateStepState.InProgress,
+            };
+          }
+          return newSteps;
+        });
+        if (shouldContinueToFirmwareCheck && checkFirmwareAfterSuccess) {
+          setTimeout(() => {
+            void checkFirmwareUpdate();
+          }, 150);
+        }
+        isFirmwareVerifiedRef.current = !!result.verified;
+      } catch (_error) {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[0] = {
+            ...newSteps[0],
+            state: ECheckAndUpdateStepState.Error,
+          };
+          return newSteps;
+        });
       }
-      isFirmwareVerifiedRef.current = !!result.verified;
-    } catch (_error) {
-      setSteps((prev) => {
-        const newSteps = [...prev];
-        newSteps[0] = {
-          ...newSteps[0],
-          state: ECheckAndUpdateStepState.Error,
-        };
-        return newSteps;
-      });
+    },
+    [
+      ensureStopScan,
+      ensureTransportType,
+      verifyHardware,
+      deviceData.device,
+      tabValue,
+      intl,
+      checkFirmwareUpdate,
+      getActiveDevice,
+      currentDevice,
+    ],
+  );
+
+  const handleVerifyHardware = useCallback(async () => {
+    await runGenuineCheck(true);
+  }, [runGenuineCheck]);
+
+  useEffect(() => {
+    if (
+      !shouldReverifyGenuineAfterUpdate ||
+      !isCheckAndUpdateStepAccepted(firmwareStepState)
+    ) {
+      return;
     }
-  }, [
-    ensureStopScan,
-    ensureTransportType,
-    verifyHardware,
-    deviceData.device,
-    tabValue,
-    intl,
-    checkFirmwareUpdate,
-    getActiveDevice,
-    currentDevice,
-  ]);
+
+    setShouldReverifyGenuineAfterUpdate(false);
+    void runGenuineCheck(false);
+  }, [firmwareStepState, runGenuineCheck, shouldReverifyGenuineAfterUpdate]);
 
   const handleRetry = useCallback(async () => {
+    if (isAnyStepInProgress) {
+      return;
+    }
     const currentErrorStep = steps.find(
       (step) => step.state === ECheckAndUpdateStepState.Error,
     );
@@ -770,11 +815,18 @@ function CheckAndUpdatePage({
       return;
     }
     if (currentErrorStep.id === ECheckAndUpdateStepId.GenuineCheck) {
-      await handleVerifyHardware();
+      await runGenuineCheck(!isCheckAndUpdateStepAccepted(firmwareStepState));
     } else if (currentErrorStep.id === ECheckAndUpdateStepId.FirmwareCheck) {
       await checkFirmwareUpdate();
     }
-  }, [checkFirmwareUpdate, handleVerifyHardware, steps]);
+  }, [
+    checkFirmwareUpdate,
+    firmwareStepState,
+    handleVerifyHardware,
+    isAnyStepInProgress,
+    runGenuineCheck,
+    steps,
+  ]);
 
   const handleSkipUpdate = useCallback(() => {
     Dialog.show({
@@ -1126,6 +1178,7 @@ function CheckAndUpdatePage({
                       testID={OnboardingTestIDs.checkAndUpdateRetryBtn}
                       variant="primary"
                       onPress={handleRetry}
+                      disabled={isAnyStepInProgress}
                     >
                       {intl.formatMessage({
                         id: ETranslations.global_retry,
