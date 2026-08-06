@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -195,6 +195,7 @@ export function AutoLockListItem({
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
+  const [isOpen, setIsOpen] = useState(false);
 
   const [autoLockDelayMs] = useDeviceAutoLockDelayMsAtom();
   const stateful = useStatefulAction<number>({
@@ -223,31 +224,42 @@ export function AutoLockListItem({
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoLockOptions, intl]);
 
+  const isDisabled = disabled || stateful.loading;
+  const handleOpen = useCallback(() => {
+    if (!isDisabled) {
+      setIsOpen(true);
+    }
+  }, [isDisabled]);
+
   return (
-    <Select
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      items={autoLockOptions}
-      value={stateful.value}
-      onChange={stateful.onChange}
-      placement="bottom-end"
+    <ListItem
+      testID={DeviceManagementTestIDs.autoLockSelect}
+      mx="$0"
+      px="$5"
+      py="$3"
+      borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.global_auto_lock,
       })}
-      disabled={disabled || stateful.loading}
-      testID={DeviceManagementTestIDs.autoLockSelect}
-      renderTrigger={() => (
-        <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
-          title={intl.formatMessage({
-            id: ETranslations.global_auto_lock,
-          })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={disabled || stateful.loading}
-        >
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      disabled={isDisabled}
+      onPress={handleOpen}
+    >
+      <Select
+        testID={`${DeviceManagementTestIDs.autoLockSelect}-control`}
+        offset={{ mainAxis: -4, crossAxis: -10 }}
+        items={autoLockOptions}
+        value={stateful.value}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onChange={stateful.onChange}
+        placement="bottom-end"
+        title={intl.formatMessage({
+          id: ETranslations.global_auto_lock,
+        })}
+        disabled={isDisabled}
+        renderTrigger={() => (
           <XStack alignItems="center">
             <ListItem.Text
               primary={displayLabel}
@@ -259,9 +271,9 @@ export function AutoLockListItem({
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
-        </ListItem>
-      )}
-    />
+        )}
+      />
+    </ListItem>
   );
 }
 
@@ -278,6 +290,7 @@ export function AutoShutDownListItem({
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
+  const [isOpen, setIsOpen] = useState(false);
 
   const [autoShutDownDelayMs] = useDeviceAutoShutDownDelayMsAtom();
   const stateful = useStatefulAction<number>({
@@ -308,31 +321,42 @@ export function AutoShutDownListItem({
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoShutDownOptions, intl]);
 
+  const isDisabled = disabled || stateful.loading;
+  const handleOpen = useCallback(() => {
+    if (!isDisabled) {
+      setIsOpen(true);
+    }
+  }, [isDisabled]);
+
   return (
-    <Select
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      items={autoShutDownOptions}
-      value={stateful.value}
-      onChange={stateful.onChange}
-      placement="bottom-end"
+    <ListItem
+      testID={DeviceManagementTestIDs.autoShutDownSelect}
+      mx="$0"
+      px="$5"
+      py="$3"
+      borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.global_auto_shutdown,
       })}
-      disabled={disabled || stateful.loading}
-      testID={DeviceManagementTestIDs.autoShutDownSelect}
-      renderTrigger={() => (
-        <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
-          title={intl.formatMessage({
-            id: ETranslations.global_auto_shutdown,
-          })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={disabled || stateful.loading}
-        >
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      disabled={isDisabled}
+      onPress={handleOpen}
+    >
+      <Select
+        testID={`${DeviceManagementTestIDs.autoShutDownSelect}-control`}
+        offset={{ mainAxis: -4, crossAxis: -10 }}
+        items={autoShutDownOptions}
+        value={stateful.value}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onChange={stateful.onChange}
+        placement="bottom-end"
+        title={intl.formatMessage({
+          id: ETranslations.global_auto_shutdown,
+        })}
+        disabled={isDisabled}
+        renderTrigger={() => (
           <XStack alignItems="center">
             <ListItem.Text
               primary={displayLabel}
@@ -344,9 +368,9 @@ export function AutoShutDownListItem({
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
-        </ListItem>
-      )}
-    />
+        )}
+      />
+    </ListItem>
   );
 }
 
