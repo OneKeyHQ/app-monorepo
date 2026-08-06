@@ -120,6 +120,10 @@ const NotificationsSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'),
 );
 
+const OfficialChannels = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/OfficialChannels'),
+);
+
 const ManageAccountActivity = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Notifications/ManageAccountActivity'),
@@ -293,6 +297,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingNotifications,
     component: NotificationsSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingOfficialChannels,
+    component: OfficialChannels,
   },
   {
     name: EModalSettingRoutes.SettingManageAccountActivity,

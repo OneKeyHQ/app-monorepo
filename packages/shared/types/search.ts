@@ -113,7 +113,7 @@ export type IUniversalSearchSettings = {
     id?: string;
     title: string;
     icon: string;
-    sectionName?: string;
+    sectionName?: ESettingsTabNames;
     sectionTitle: string;
     sectionIcon: string;
     keywords?: string[];

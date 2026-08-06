@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
@@ -17,6 +18,7 @@ import type {
   IPageNavigationProp,
   ISelectItem,
   ISizableTextProps,
+  IXStackProps,
 } from '@onekeyhq/components';
 import {
   Badge,
@@ -59,12 +61,6 @@ import {
   displayFullVersion,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
-  GITHUB_URL,
-  ONEKEY_URL,
-  TWITTER_FOLLOW_URL,
-  TWITTER_FOLLOW_URL_CN,
-} from '@onekeyhq/shared/src/config/appConfig';
-import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -77,9 +73,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
-import openUrlUtils, {
-  openUrlExternal,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -89,11 +83,13 @@ import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
 import { TabSettingsListItem } from './ListItem';
-import { useIsTabNavigator } from './useIsTabNavigator';
+import { useOfficialChannels } from './officialChannels';
+import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
 
 export interface ICustomElementProps {
   titleMatch?: IFuseResultMatch;
   title?: string;
+  subtitle?: ReactNode;
   titleProps?: ISizableTextProps;
   valueTextProps?: ISizableTextProps;
   iconProps?: IIconProps;
@@ -228,30 +224,11 @@ export function ThemeListItem(props: ICustomElementProps) {
 
 function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
+  const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const shouldRender =
     isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport);
-  // TODO(biologyAuth-debug): temporary log to diagnose biology auth visibility in Settings
-  useEffect(() => {
-    defaultLogger.setting.page.biologyAuthDebug('SuspenseBiologyAuthListItem', {
-      platform: platformEnv.symbol,
-      isPasswordSet,
-      biologyAuthIsSupport,
-      biologyAuthIsEnable: isEnable,
-      authType,
-      webAuthIsSupport,
-      shouldRender,
-    });
-  }, [
-    isPasswordSet,
-    biologyAuthIsSupport,
-    isEnable,
-    authType,
-    webAuthIsSupport,
-    shouldRender,
-  ]);
   return shouldRender ? (
     <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
@@ -259,22 +236,10 @@ function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   ) : null;
 }
 
-export function BiologyAuthListItem({
-  titleMatch,
-  title,
-  icon,
-  titleProps,
-  iconProps,
-}: ICustomElementProps) {
+export function BiologyAuthListItem(props: ICustomElementProps) {
   return (
     <Suspense fallback={null}>
-      <SuspenseBiologyAuthListItem
-        titleMatch={titleMatch}
-        title={title}
-        icon={icon}
-        titleProps={titleProps}
-        iconProps={iconProps}
-      />
+      <SuspenseBiologyAuthListItem {...props} />
     </Suspense>
   );
 }
@@ -430,8 +395,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 
 export function ListVersionItem(props: ICustomElementProps) {
   const { iconProps, titleProps } = props;
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
+  const { isMobileLayout } = useSettingsLayout();
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
@@ -542,25 +506,19 @@ function SocialButton({
   icon,
   url,
   text,
-  openInApp = false,
   testID,
 }: {
   icon: IKeyOfIcons;
   url: string;
   text: string;
-  openInApp?: boolean;
   testID?: string;
 }) {
   const isTabNavigator = useIsTabNavigator();
   const buttonSize = isTabNavigator ? undefined : '$14';
   const size = isTabNavigator ? '$5' : '$6';
   const onPress = useCallback(() => {
-    if (openInApp) {
-      openUrlUtils.openUrlInApp(url, text);
-    } else {
-      openUrlExternal(url);
-    }
-  }, [url, text, openInApp]);
+    openUrlExternal(url);
+  }, [url]);
   return (
     <Tooltip
       renderTrigger={
@@ -611,9 +569,25 @@ function SupportButton({ text }: { text: string }) {
   );
 }
 
+// Security-posture warning shown wherever the app version appears; keep the
+// mobile root and desktop footer on one definition.
+function SkipGpgBadges(props: IXStackProps) {
+  return (
+    <XStack gap="$2" alignItems="center" {...props}>
+      <Badge badgeType="warning" badgeSize="lg">
+        TEST
+      </Badge>
+      <Badge badgeType="critical" badgeSize="lg">
+        SKIP GPG
+      </Badge>
+    </XStack>
+  );
+}
+
 function useAppVersionDetails() {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
     useState(false);
 
@@ -660,81 +634,6 @@ function useAppVersionDetails() {
     );
   }, [copyText, versionString]);
   const formattedVersion = upperFirst(versionString);
-
-  return {
-    copyVersionAccessibilityLabel: `${intl.formatMessage({
-      id: ETranslations.global_copy,
-    })}: ${formattedVersion}`,
-    formattedVersion,
-    handleCopyVersion,
-    isSkipGpgVerificationAllowed,
-  };
-}
-
-export function MobileAboutHeader() {
-  const {
-    copyVersionAccessibilityLabel,
-    formattedVersion,
-    handleCopyVersion,
-    isSkipGpgVerificationAllowed,
-  } = useAppVersionDetails();
-
-  return (
-    <YStack alignItems="center" pt="$5" pb="$2" userSelect="none">
-      <YStack
-        maxWidth="100%"
-        px="$3"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        pressStyle={{ opacity: 0.7 }}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={copyVersionAccessibilityLabel}
-        testID={SettingTestIDs.versionItem}
-        onPress={handleCopyVersion}
-      >
-        <Icon name="OnekeyBrand" size="$14" />
-        <XStack
-          minHeight={44}
-          maxWidth="100%"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText
-            color="$textSubdued"
-            size="$bodyMd"
-            textAlign="center"
-            numberOfLines={1}
-          >
-            {formattedVersion}
-          </SizableText>
-        </XStack>
-      </YStack>
-      {isSkipGpgVerificationAllowed ? (
-        <XStack gap="$2" alignItems="center">
-          <Badge badgeType="warning" badgeSize="lg">
-            TEST
-          </Badge>
-          <Badge badgeType="critical" badgeSize="lg">
-            SKIP GPG
-          </Badge>
-        </XStack>
-      ) : null}
-    </YStack>
-  );
-}
-
-export function SocialButtonGroup() {
-  const intl = useIntl();
-  const [{ locale }] = useSettingsPersistAtom();
-  const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const { formattedVersion, handleCopyVersion, isSkipGpgVerificationAllowed } =
-    useAppVersionDetails();
-  const isTabNavigator = useIsTabNavigator();
-
-  const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
-  const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   const isUpToDate = useMemo(() => {
     if (!appUpdateInfo.latestVersion) {
       return true;
@@ -747,14 +646,88 @@ export function SocialButtonGroup() {
     }
     return appUpdateInfo.latestVersion === platformEnv.version;
   }, [appUpdateInfo.jsBundleVersion, appUpdateInfo.latestVersion]);
-  const twitterFollowUrl = useMemo(() => {
-    if (!locale) {
-      return TWITTER_FOLLOW_URL;
-    }
-    return ['zh-CN', 'zh-HK', 'zh-TW'].includes(locale)
-      ? TWITTER_FOLLOW_URL_CN
-      : TWITTER_FOLLOW_URL;
-  }, [locale]);
+
+  return {
+    copyVersionAccessibilityLabel: `${intl.formatMessage({
+      id: ETranslations.global_copy,
+    })}: ${formattedVersion}`,
+    formattedVersion,
+    handleCopyVersion,
+    isSkipGpgVerificationAllowed,
+    isUpToDate,
+  };
+}
+
+export function MobileAboutHeader() {
+  return (
+    <YStack alignItems="center" pt="$6" pb="$5" userSelect="none">
+      <Icon name="OnekeyBrand" size="$14" />
+    </YStack>
+  );
+}
+
+export function MobileSettingsVersionFooter() {
+  const intl = useIntl();
+  const {
+    copyVersionAccessibilityLabel,
+    formattedVersion,
+    handleCopyVersion,
+    isSkipGpgVerificationAllowed,
+    isUpToDate,
+  } = useAppVersionDetails();
+
+  return (
+    <YStack alignItems="center" mt="$1" pb="$2" userSelect="none">
+      <YStack
+        alignSelf="stretch"
+        minHeight={44}
+        px="$3"
+        alignItems="center"
+        justifyContent="center"
+        pressStyle={{ opacity: 0.7 }}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={copyVersionAccessibilityLabel}
+        testID={SettingTestIDs.versionItem}
+        onPress={handleCopyVersion}
+      >
+        <SizableText
+          color="$textSubdued"
+          size="$bodyMd"
+          textAlign="center"
+          numberOfLines={2}
+        >
+          {formattedVersion}
+        </SizableText>
+      </YStack>
+      {isSkipGpgVerificationAllowed ? <SkipGpgBadges mt="$1" /> : null}
+      {isUpToDate ? (
+        <SizableText
+          color="$textDisabled"
+          mt="$1"
+          size="$bodySm"
+          textAlign="center"
+        >
+          {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}
+
+export function SocialButtonGroup() {
+  const intl = useIntl();
+  const officialChannels = useOfficialChannels();
+  const {
+    formattedVersion,
+    handleCopyVersion,
+    isSkipGpgVerificationAllowed,
+    isUpToDate,
+  } = useAppVersionDetails();
+  const isTabNavigator = useIsTabNavigator();
+
+  const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
+  const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
@@ -762,26 +735,15 @@ export function SocialButtonGroup() {
         jc={isTabNavigator ? 'flex-start' : 'center'}
         gap={isTabNavigator ? '$1.5' : '$3'}
       >
-        <SocialButton
-          icon="OnekeyBrand"
-          url={ONEKEY_URL}
-          text={intl.formatMessage({
-            id: ETranslations.global_official_website,
-          })}
-          testID={SettingTestIDs.socialOnekeyWebsiteBtn}
-        />
-        <SocialButton
-          icon="Xbrand"
-          url={twitterFollowUrl}
-          text={intl.formatMessage({ id: ETranslations.global_x })}
-          testID={SettingTestIDs.socialXBtn}
-        />
-        <SocialButton
-          icon="GithubBrand"
-          url={GITHUB_URL}
-          text={intl.formatMessage({ id: ETranslations.global_github })}
-          testID={SettingTestIDs.socialGithubBtn}
-        />
+        {officialChannels.map((channel) => (
+          <SocialButton
+            key={channel.id}
+            icon={channel.icon}
+            url={channel.url}
+            text={channel.title}
+            testID={channel.testID}
+          />
+        ))}
         <SupportButton
           text={intl.formatMessage({
             id: ETranslations.settings_contact_us,
@@ -807,16 +769,7 @@ export function SocialButtonGroup() {
         >
           {formattedVersion}
         </SizableText>
-        {isSkipGpgVerificationAllowed ? (
-          <XStack mt="$2" gap="$2" ai="center">
-            <Badge badgeType="warning" badgeSize="lg">
-              TEST
-            </Badge>
-            <Badge badgeType="critical" badgeSize="lg">
-              SKIP GPG
-            </Badge>
-          </XStack>
-        ) : null}
+        {isSkipGpgVerificationAllowed ? <SkipGpgBadges mt="$2" /> : null}
         {!isTabNavigator && isUpToDate ? (
           <SizableText
             color="$textDisabled"

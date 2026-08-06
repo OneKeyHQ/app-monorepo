@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   Dialog,
@@ -10,45 +10,19 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 
 import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
-import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
+
+import { useOneKeyIdListItemStyles } from './useOneKeyIdListItemStyles';
 
 function SignInSecurityPageView() {
   const { user } = useOneKeyAuth();
-  const isTabNavigator = useIsTabNavigator();
+  const { titleProps, valueTextProps, iconProps, isTabNavigator } =
+    useOneKeyIdListItemStyles();
 
   const email = (user as { email?: string })?.email || '';
-
-  const titleProps = useMemo(
-    () => ({
-      size: (isTabNavigator
-        ? '$bodyMdMedium'
-        : '$bodyLgMedium') as ISizableTextProps['size'],
-    }),
-    [isTabNavigator],
-  );
-
-  const valueTextProps = useMemo<ISizableTextProps>(
-    () =>
-      isTabNavigator
-        ? titleProps
-        : {
-            size: '$bodyLg',
-            color: '$textSubdued',
-          },
-    [isTabNavigator, titleProps],
-  );
-
-  const iconProps = useMemo(
-    () => ({
-      size: (isTabNavigator ? '$5' : '$6') as IIconProps['size'],
-    }),
-    [isTabNavigator],
-  );
 
   const handleEditEmail = useCallback(() => {
     Dialog.confirm({

@@ -1,56 +1,23 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUniversalSearchType,
   type IUniversalSearchSettings,
 } from '@onekeyhq/shared/types/search';
 
-import {
-  type ISubSettingConfig,
-  getMobileSettingsPresentation,
-  useSettingsConfig,
-} from '../../Setting/pages/Tab/config';
+import { getSettingsDisplayTitle } from '../../Setting/pages/Tab/settingsDisplay';
 import {
   SETTINGS_SEARCH_KEYS,
-  getSettingsSearchSectionItem,
+  normalizeSettingsSearchQuery,
 } from '../../Setting/pages/Tab/settingsSearchUtils';
-import { useIsTabNavigator } from '../../Setting/pages/Tab/useIsTabNavigator';
-
-interface IFlatSettingsItem extends ISubSettingConfig {
-  sectionName?: string;
-  sectionTitle: string;
-  sectionIcon: string;
-}
+import { useSettingsLayout } from '../../Setting/pages/Tab/useIsTabNavigator';
+import { useFlatSettingsSearchItems } from '../../Setting/pages/Tab/useSettingsSearchItems';
 
 export function useSettingsSearch() {
-  const settingsConfig = useSettingsConfig();
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = platformEnv.isNative && !isTabNavigator;
+  const { preferMobileNaming } = useSettingsLayout();
 
-  const flattenSettingsConfig = useMemo(
-    () =>
-      settingsConfig.filter(Boolean).flatMap((config) =>
-        config.configs
-          .flat()
-          .filter((i): i is ISubSettingConfig => i !== null && i !== undefined)
-          .map((i) => {
-            const mobilePresentation = isMobileLayout
-              ? getMobileSettingsPresentation(config, {
-                  item: getSettingsSearchSectionItem(i),
-                })
-              : undefined;
-            return {
-              ...i,
-              sectionName: config.name,
-              sectionTitle: mobilePresentation?.title || config.title,
-              sectionIcon: mobilePresentation?.icon || config.icon,
-            } as IFlatSettingsItem;
-          }),
-      ),
-    [isMobileLayout, settingsConfig],
-  );
+  const flattenSettingsConfig = useFlatSettingsSearchItems();
 
   const searchFuse = useFuse(flattenSettingsConfig, {
     keys: [...SETTINGS_SEARCH_KEYS],
@@ -59,15 +26,14 @@ export function useSettingsSearch() {
 
   const searchSettings = useCallback(
     (input: string): IUniversalSearchSettings[] => {
-      if (!input.trim()) return [];
-      const results = searchFuse.search(input);
+      const query = normalizeSettingsSearchQuery(input);
+      if (!query) return [];
+      const results = searchFuse.search(query);
       return results.map((result) => ({
         type: EUniversalSearchType.Settings,
         payload: {
           id: result.item.id,
-          title:
-            (isMobileLayout ? result.item.mobileTitle : undefined) ||
-            result.item.title,
+          title: getSettingsDisplayTitle(result.item, preferMobileNaming),
           icon: result.item.icon,
           sectionName: result.item.sectionName,
           sectionTitle: result.item.sectionTitle,
@@ -79,7 +45,7 @@ export function useSettingsSearch() {
         },
       }));
     },
-    [isMobileLayout, searchFuse],
+    [preferMobileNaming, searchFuse],
   );
 
   return searchSettings;

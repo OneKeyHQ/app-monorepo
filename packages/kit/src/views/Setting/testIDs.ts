@@ -12,6 +12,7 @@ export const SettingTestIDs = {
   securityItem: 'setting-security',
   addressBookItem: 'setting-address-book',
   aboutItem: 'setting-about',
+  officialChannelsItem: 'setting-official-channels',
 
   // OneKey ID
   oneKeyIdPage: 'setting-onekey-id-page',
@@ -79,5 +80,16 @@ export const SettingTestIDs = {
   socialOnekeyWebsiteBtn: 'setting-social-onekey-website-btn',
   socialXBtn: 'setting-social-x-btn',
   socialGithubBtn: 'setting-social-github-btn',
+  socialRedditBtn: 'setting-social-reddit-btn',
+  socialInstagramBtn: 'setting-social-instagram-btn',
   socialSupportBtn: 'setting-social-support-btn',
 } as const;
+
+/**
+ * Sidebar tabs derived from a `desktopTab` item reuse the item's testID with
+ * this suffix so the tab and the still-rendered item row (e.g. a search
+ * result) never collide in one tree.
+ */
+export function settingsSidebarTabTestID(itemTestID: string): string {
+  return `${itemTestID}-tab`;
+}

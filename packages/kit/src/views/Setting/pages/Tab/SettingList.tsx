@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,8 +14,11 @@ import {
   SearchBar,
   XStack,
   YStack,
+  getTokenValue,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -26,30 +29,38 @@ import {
 import { SettingTestIDs } from '../../testIDs';
 
 import {
-  type ISettingsConfig,
+  type ISettingCategoryConfig,
   type ISubSettingConfig,
-  getMobileSettingsPresentation,
   useSettingsConfig,
 } from './config';
-import { SocialButtonGroup } from './CustomElement';
 import {
-  MobileTabSettingsDivider,
+  MobileSettingsVersionFooter,
+  SocialButtonGroup,
+} from './CustomElement';
+import {
   MobileTabSettingsSection,
+  TabSettingsInsetDivider,
   TabSettingsListGrid,
   TabSettingsListItem,
 } from './ListItem';
 import { SearchView } from './SearchView';
-import { useIsTabNavigator } from './useIsTabNavigator';
-import { useMobileSettingsPageStyle } from './useMobileSettingsPageStyle';
+import {
+  getSettingsDisplayIcon,
+  getSettingsDisplayTitle,
+} from './settingsDisplay';
+import {
+  isVisibleSettingsCategory,
+  resolveSettingsRootInsets,
+} from './settingsRootLayout';
+import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
-
-type ISettingCategory = NonNullable<ISettingsConfig[number]>;
+import { useSettingsPageStyle } from './useSettingsPageStyle';
 
 type IMobileHomeEntry =
   | {
       type: 'category';
       key: string;
-      config: ISettingCategory;
+      config: ISettingCategoryConfig;
     }
   | {
       type: 'setting';
@@ -57,23 +68,16 @@ type IMobileHomeEntry =
       config: ISubSettingConfig;
     };
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}
-
 function SettingCategoryListItem({
   config,
   useMobilePresentation = false,
 }: {
-  config: ISettingCategory;
+  config: ISettingCategoryConfig;
   useMobilePresentation?: boolean;
 }) {
   const navigation = useAppNavigation();
-  const mobilePresentation = useMobilePresentation
-    ? getMobileSettingsPresentation(config)
-    : undefined;
-  const title = mobilePresentation?.title || config.title;
-  const icon = mobilePresentation?.icon || config.icon;
+  const title = getSettingsDisplayTitle(config, useMobilePresentation);
+  const icon = getSettingsDisplayIcon(config, useMobilePresentation);
   const iconProps = useMemo<IIconProps | undefined>(
     () =>
       useMobilePresentation
@@ -96,7 +100,10 @@ function SettingCategoryListItem({
     [config.tabBarLabelStyle, useMobilePresentation],
   );
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
+    // Match the sibling row paths: drop the search keyboard before pushing so
+    // it does not linger over the pushed page (Android IME especially).
+    await dismissKeyboardWithDelay(100);
     navigation.push(EModalSettingRoutes.SettingListSubModal, {
       title,
       name: config.name,
@@ -138,9 +145,13 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
               useMobilePresentation
             />
           ) : (
-            <TabSettingsListGrid item={entry.config} useMobilePresentation />
+            <TabSettingsListGrid
+              item={entry.config}
+              preferMobileNaming
+              useMobilePresentation
+            />
           )}
-          {index !== entries.length - 1 ? <MobileTabSettingsDivider /> : null}
+          {index !== entries.length - 1 ? <TabSettingsInsetDivider /> : null}
         </Fragment>
       ))}
     </MobileTabSettingsSection>
@@ -149,23 +160,33 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
 
 export function SettingList() {
   const intl = useIntl();
-  const isTabNavigator = useIsTabNavigator();
-  const isMobileLayout = Boolean(platformEnv.isNative && !isTabNavigator);
-  const { headerStyle, pageBackgroundColor } =
-    useMobileSettingsPageStyle(isMobileLayout);
+  const { isMobileLayout } = useSettingsLayout();
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+  const { pageSafeAreaEnabled, scrollBottomInset } = resolveSettingsRootInsets({
+    isMobileLayout,
+    isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+    bottomInset: safeAreaBottom,
+  });
+  const mobileContentPaddingBottom =
+    (getTokenValue('$4', 'size') as number) + scrollBottomInset;
+  const { headerBackgroundColor, headerStyle, pageBackgroundColor } =
+    useSettingsPageStyle(isMobileLayout);
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig.filter((config): config is ISettingCategory =>
-      Boolean(config && !config.isHidden && !config.desktopOnlyTab),
-    );
+    return settingsConfig.filter(isVisibleSettingsCategory);
   }, [settingsConfig]);
-  const mobileSections = useMemo(() => {
+  const { mobileSections, mobileHomeOrphans } = useMemo(() => {
     const categoryMap = new Map(
       filteredSettingsConfig.map((config) => [config.name, config]),
     );
+    // The builders record what the cards literal below actually consumes so
+    // the dev-only orphan check cannot drift from the real layout.
+    const consumedCategories = new Set<ESettingsTabNames>();
+    const promotedSources = new Set<ESettingsTabNames>();
     const getCategoryEntry = (
       name: ESettingsTabNames,
     ): IMobileHomeEntry | undefined => {
+      consumedCategories.add(name);
       const config = categoryMap.get(name);
       return config
         ? {
@@ -178,12 +199,13 @@ export function SettingList() {
     const getPromotedEntries = (
       name: ESettingsTabNames,
     ): IMobileHomeEntry[] => {
+      promotedSources.add(name);
       const config = categoryMap.get(name);
       const items =
         config?.configs
           .flat()
           .filter((item): item is ISubSettingConfig =>
-            Boolean(item?.mobilePlacement === 'home'),
+            Boolean(item?.mobileHome),
           ) || [];
       return items.map((item, index) => ({
         type: 'setting',
@@ -197,34 +219,66 @@ export function SettingList() {
         getCategoryEntry(ESettingsTabNames.Wallet),
         getCategoryEntry(ESettingsTabNames.Backup),
         getCategoryEntry(ESettingsTabNames.Security),
-      ].filter(isDefined),
+      ].filter(Boolean),
       [
         ...getPromotedEntries(ESettingsTabNames.Security),
         getCategoryEntry(ESettingsTabNames.Network),
-      ].filter(isDefined),
+      ].filter(Boolean),
       [
         ...getPromotedEntries(ESettingsTabNames.Preferences),
         getCategoryEntry(ESettingsTabNames.Preferences),
         getCategoryEntry(ESettingsTabNames.AppData),
-      ].filter(isDefined),
+      ].filter(Boolean),
       [
         ...getPromotedEntries(ESettingsTabNames.About),
         getCategoryEntry(ESettingsTabNames.About),
-      ].filter(isDefined),
-      [getCategoryEntry(ESettingsTabNames.Dev)].filter(isDefined),
+      ].filter(Boolean),
+      [getCategoryEntry(ESettingsTabNames.Dev)].filter(Boolean),
     ];
-    return sections.filter((section) => section.length > 0);
+    return {
+      mobileSections: sections.filter((section) => section.length > 0),
+      // Mirror of the desktop sidebar orphan check: a visible category (or a
+      // promoted item in a category the cards never scan) outside the literal
+      // would be silently unreachable from the phone home.
+      mobileHomeOrphans: platformEnv.isDev
+        ? {
+            categories: filteredSettingsConfig
+              .filter((config) => !consumedCategories.has(config.name))
+              .map((config) => config.name),
+            promotedSources: filteredSettingsConfig
+              .filter(
+                (config) =>
+                  !promotedSources.has(config.name) &&
+                  config.configs.flat().some((item) => item?.mobileHome),
+              )
+              .map((config) => config.name),
+          }
+        : undefined,
+    };
   }, [filteredSettingsConfig]);
-  const { onSearch, searchResult, isSearching } = useSearch();
+  useEffect(() => {
+    if (
+      mobileHomeOrphans &&
+      (mobileHomeOrphans.categories.length ||
+        mobileHomeOrphans.promotedSources.length)
+    ) {
+      console.warn(
+        '[settings] mobile home cards missing entries:',
+        mobileHomeOrphans,
+      );
+    }
+  }, [mobileHomeOrphans]);
+  const { onSearch, searchResult, isSearching } = useSearch(settingsConfig);
   let content: ReactNode;
   if (isSearching) {
-    content = <SearchView sections={searchResult} isSearching={isSearching} />;
+    content = <SearchView results={searchResult} isSearching={isSearching} />;
   } else if (isMobileLayout) {
     content = (
       <YStack gap="$5" px="$5" pt="$4">
         {mobileSections.map((section, index) => (
           <MobileSettingsSection key={index} entries={section} />
         ))}
+        <MobileSettingsVersionFooter />
       </YStack>
     );
   } else {
@@ -236,14 +290,17 @@ export function SettingList() {
     <Page
       testID={SettingTestIDs.settingsPage}
       backgroundColor={pageBackgroundColor}
-      safeAreaEnabled={!isMobileLayout}
+      safeAreaEnabled={pageSafeAreaEnabled}
     >
       <Page.Header
         headerShown
+        {...(headerBackgroundColor
+          ? { headerContainerBackgroundColor: headerBackgroundColor }
+          : undefined)}
         headerStyle={headerStyle}
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
-      <Page.Body bg={pageBackgroundColor}>
+      <Page.Body>
         <XStack px="$5" pb={isMobileLayout ? '$2' : '$4'}>
           <SearchBar onSearchTextChange={onSearch} />
         </XStack>
@@ -251,7 +308,9 @@ export function SettingList() {
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ pb: isMobileLayout ? '$4' : '$10' }}
+            contentContainerStyle={{
+              pb: isMobileLayout ? mobileContentPaddingBottom : '$10',
+            }}
           >
             {content}
           </ScrollView>

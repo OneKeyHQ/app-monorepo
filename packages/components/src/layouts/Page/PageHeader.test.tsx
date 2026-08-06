@@ -67,6 +67,16 @@ describe('PageHeader', () => {
     );
   });
 
+  it('forwards an explicit header container background', () => {
+    render(<PageHeader headerContainerBackgroundColor="#f9f9f9" />);
+
+    expect(mockSetOptions.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        headerContainerBackgroundColor: '#f9f9f9',
+      }),
+    );
+  });
+
   it('forces a transparent background for transparent headers', () => {
     render(<PageHeader headerTransparent />);
 

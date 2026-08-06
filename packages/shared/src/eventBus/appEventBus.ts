@@ -133,13 +133,9 @@ export type IEventBusPayloadAccountDataUpdate =
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
 
-export interface ISettingsSearchResultSection {
-  title: string;
-  icon: string;
-  // The item shape is owned by kit's settings config; it stays opaque here so
-  // shared never depends on kit types.
-  configs: FuseResult<unknown>[];
-}
+// The item shape is owned by kit's settings config; it stays opaque here so
+// shared never depends on kit types or its search-results presentation.
+export type ISettingsSearchResultItem = FuseResult<unknown>;
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -536,7 +532,7 @@ export interface IAppEventBusPayload {
     sourceId: string;
   };
   [EAppEventBusNames.SettingsSearchResult]: {
-    list: ISettingsSearchResultSection[];
+    list: ISettingsSearchResultItem[];
     searchText: string;
   };
   [EAppEventBusNames.DesktopBleRepairRequired]: {

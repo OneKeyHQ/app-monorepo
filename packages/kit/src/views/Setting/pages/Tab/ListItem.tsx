@@ -17,28 +17,44 @@ import { ListItem as BaseListItem } from '@onekeyhq/kit/src/components/ListItem'
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { type ISubSettingConfig } from './config';
 import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
+import {
+  getSettingsDisplayTitle,
+  getSettingsDisplayTitleKey,
+} from './settingsDisplay';
+import {
+  type ISettingsSectionPresentation,
+  resolveSettingsSectionSurface,
+} from './settingsSurface';
 import { useIsTabNavigator } from './useIsTabNavigator';
 
-export function TabSettingsSection(props: IStackProps) {
+type ISettingsSectionProps = IStackProps & {
+  presentation?: ISettingsSectionPresentation;
+};
+
+export function TabSettingsSection({
+  presentation = 'flat',
+  ...props
+}: ISettingsSectionProps) {
+  const surface = resolveSettingsSectionSurface(presentation);
   return (
     <YStack
-      bg="$bgSubdued"
+      backgroundColor={surface.backgroundColor}
       overflow="hidden"
-      borderRadius="$2.5"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$neutral3"
+      borderRadius={surface.borderRadius}
+      borderCurve={surface.borderCurve}
+      borderWidth={StyleSheet.hairlineWidth * surface.borderWidthScale}
+      borderColor={surface.borderColor}
       {...(props as IYStackProps)}
     />
   );
 }
 
-export function MobileTabSettingsSection(props: IStackProps) {
-  return (
-    <TabSettingsSection bg="$bg" borderWidth={0} borderRadius="$4" {...props} />
-  );
+export function MobileTabSettingsSection(props: ISettingsSectionProps) {
+  return <TabSettingsSection {...props} presentation="mobile" />;
 }
 
 export function TabSettingsListItem({
@@ -80,17 +96,17 @@ export function TabSettingsInsetDivider({
   );
 }
 
-export function MobileTabSettingsDivider() {
-  return <TabSettingsInsetDivider iconWidth="$6" />;
-}
-
 export function TabSettingsListGrid({
   item,
-  titleMatch,
+  matches,
+  searchPath,
   useMobilePresentation = false,
+  preferMobileNaming = useMobilePresentation,
 }: {
   item: ISubSettingConfig | undefined | null;
-  titleMatch?: IFuseResultMatch | undefined;
+  matches?: readonly IFuseResultMatch[];
+  searchPath?: string;
+  preferMobileNaming?: boolean;
   useMobilePresentation?: boolean;
 }) {
   const isTabNavigator = useIsTabNavigator();
@@ -101,16 +117,21 @@ export function TabSettingsListGrid({
         : '$bodyLgMedium') as ISizableTextProps['size'],
     };
   }, [isTabNavigator]);
-  const valueTextProps = useMemo<ISizableTextProps | undefined>(
-    () =>
-      useMobilePresentation
-        ? {
-            size: '$bodyLg',
-            color: '$textSubdued',
-          }
-        : undefined,
-    [useMobilePresentation],
-  );
+  const valueTextProps = useMemo<ISizableTextProps | undefined>(() => {
+    if (useMobilePresentation) {
+      return {
+        size: '$bodyLg',
+        color: '$textSubdued',
+      };
+    }
+    if (platformEnv.isDesktop) {
+      return {
+        size: '$bodyMd',
+        color: '$textSubdued',
+      };
+    }
+    return undefined;
+  }, [useMobilePresentation]);
   const iconProps = useMemo(() => {
     if (useMobilePresentation) {
       return {
@@ -123,8 +144,19 @@ export function TabSettingsListGrid({
     };
   }, [isTabNavigator, useMobilePresentation]);
   const appNavigation = useAppNavigation();
-  const title =
-    (useMobilePresentation ? item?.mobileTitle : undefined) || item?.title;
+  const title = item
+    ? getSettingsDisplayTitle(item, preferMobileNaming)
+    : undefined;
+  const subtitle = searchPath ?? item?.subtitle;
+  // Highlight the match for the field the row actually displays. Naming is a
+  // separate axis from the compact/mobile row styling.
+  // Match indices are raw offsets into the matched string, so picking the
+  // wrong key paints the highlight onto foreign characters.
+  const titleMatch = matches?.find(
+    (match) =>
+      match.key ===
+      (item ? getSettingsDisplayTitleKey(item, preferMobileNaming) : 'title'),
+  );
   const onPress = useCallback(async () => {
     await dismissKeyboardWithDelay(100);
     if (isTabNavigator && item?.desktopTab) {
@@ -139,7 +171,7 @@ export function TabSettingsListGrid({
     cloneElement(item.renderElement, {
       titleMatch,
       title,
-      subtitle: item?.subtitle,
+      subtitle,
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
       badgeProps: item?.badgeProps,
@@ -151,18 +183,14 @@ export function TabSettingsListGrid({
   ) : (
     <TabSettingsListItem
       testID={item?.testID}
-      py="$3"
-      px="$5"
-      mx={0}
       titleMatch={titleMatch}
       titleProps={titleProps}
-      borderRadius={0}
       onPress={onPress}
       key={item?.icon ?? title}
       icon={item?.icon as IKeyOfIcons}
       iconProps={iconProps}
       title={title}
-      subtitle={item?.subtitle}
+      subtitle={subtitle}
       drillIn={!item?.isExternalLink}
     >
       {item?.isExternalLink ? (

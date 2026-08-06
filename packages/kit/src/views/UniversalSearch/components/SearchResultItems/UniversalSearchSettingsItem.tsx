@@ -5,9 +5,13 @@ import { Icon, SizableText } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { tryNavigateToSettingsTabInModal } from '@onekeyhq/kit/src/views/Setting/pages/Tab/navigateToSettingsTab';
 import { useIsTabNavigator } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useIsTabNavigator';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  ESettingsTabNames,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -48,20 +52,30 @@ export function UniversalSearchSettingsItem({
     navigation.pop();
     await timerUtils.wait(300);
 
+    const openSettingsTab = (tabName: ESettingsTabNames) => {
+      if (!tryNavigateToSettingsTabInModal(tabName)) {
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingListModal,
+          params: { screen: tabName },
+        });
+      }
+    };
+
     if (settingsTab && isTabNavigator) {
-      // On tab-navigator layouts the target lives as a settings sidebar tab;
-      // open the settings modal focused on that tab instead of stacking the
-      // standalone page.
-      navigation.pushModal(EModalRoutes.SettingModal, {
-        screen: EModalSettingRoutes.SettingListModal,
-        params: { screen: settingsTab },
-      });
+      // pushModal deduplicates an already-open SettingListModal before it sees
+      // the deeper tab parameter, so switch the mounted navigator directly.
+      openSettingsTab(settingsTab);
     } else if (settingRoute) {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: settingRoute as keyof IModalSettingParamList,
       });
     } else if (onPress) {
       onPress(navigation);
+    } else if (sectionName && isTabNavigator) {
+      // Custom controls such as Theme and Clear Cache have no leaf route.
+      // Keep tab layouts in their sidebar shell instead of opening a
+      // standalone category page.
+      openSettingsTab(sectionName);
     } else if (sectionName) {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: EModalSettingRoutes.SettingListSubModal,

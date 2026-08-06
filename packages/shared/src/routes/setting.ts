@@ -35,6 +35,7 @@ export enum EModalSettingRoutes {
   SettingDevLocalSecretEnvelopeSelfTestModal = 'SettingDevLocalSecretEnvelopeSelfTestModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
+  SettingOfficialChannels = 'SettingOfficialChannels',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
@@ -122,6 +123,7 @@ export type IModalSettingParamList = {
   };
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
+  [EModalSettingRoutes.SettingOfficialChannels]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;

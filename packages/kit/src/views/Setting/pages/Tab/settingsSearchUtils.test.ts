@@ -1,8 +1,12 @@
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import {
+  getSettingsDisplayTitle,
+  getSettingsDisplayTitleKey,
+} from './settingsDisplay';
+import {
   SETTINGS_SEARCH_KEYS,
-  getSettingsSearchSectionItem,
+  normalizeSettingsSearchQuery,
 } from './settingsSearchUtils';
 
 describe('settings search keys', () => {
@@ -35,7 +39,7 @@ describe('settings search keys', () => {
       ],
       {
         keys: [...SETTINGS_SEARCH_KEYS],
-        shouldSort: false,
+        shouldSort: true,
       },
     );
 
@@ -46,11 +50,66 @@ describe('settings search keys', () => {
     ]);
   });
 
-  it('groups promoted settings under their parent section', () => {
-    const promotedItem = { mobilePlacement: 'home' as const };
-    const nestedItem = { mobilePlacement: 'AppData' as const };
+  it('ranks a visible title match ahead of a later keyword match', () => {
+    const search = buildFuse(
+      [
+        {
+          title: 'Security',
+          keywords: ['Create and remove wallets'],
+        },
+        {
+          title: 'Wallet',
+        },
+      ],
+      {
+        keys: [...SETTINGS_SEARCH_KEYS],
+        shouldSort: true,
+      },
+    );
 
-    expect(getSettingsSearchSectionItem(promotedItem)).toBeUndefined();
-    expect(getSettingsSearchSectionItem(nestedItem)).toBe(nestedItem);
+    expect(search.search('wallet').map((result) => result.item.title)).toEqual([
+      'Wallet',
+      'Security',
+    ]);
+  });
+
+  it('uses the matched mobile title as the visible title on tab layouts', () => {
+    const search = buildFuse(
+      [
+        {
+          title: 'Connected sites',
+          mobileTitle: 'dApp connections',
+          keywords: ['WalletConnect'],
+        },
+      ],
+      {
+        keys: [...SETTINGS_SEARCH_KEYS],
+        shouldSort: true,
+      },
+    );
+
+    const result = search.search('dApp connections')[0];
+    const titleKey = getSettingsDisplayTitleKey(result.item, true);
+
+    expect(getSettingsDisplayTitle(result.item, true)).toBe('dApp connections');
+    expect(titleKey).toBe('mobileTitle');
+    expect(result.matches?.some((match) => match.key === titleKey)).toBe(true);
+  });
+
+  it('uses the canonical title on extension and narrow web layouts', () => {
+    const entry = {
+      title: 'Backup',
+      mobileTitle: 'Alternate backup label',
+    };
+
+    expect(getSettingsDisplayTitle(entry, false)).toBe('Backup');
+    expect(getSettingsDisplayTitleKey(entry, false)).toBe('title');
+  });
+});
+
+describe('settings search query normalization', () => {
+  it('ignores surrounding whitespace and treats whitespace-only input as empty', () => {
+    expect(normalizeSettingsSearchQuery('  wallet  ')).toBe('wallet');
+    expect(normalizeSettingsSearchQuery('   ')).toBe('');
   });
 });

@@ -56,7 +56,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { SettingTestIDs } from '../../testIDs';
+import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -79,6 +79,9 @@ import {
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { getSettingsDisplayTitle } from './settingsDisplay';
+import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
 // import { OneKeyIdTabItem } from './OneKeyIdTabItem';
 import { SubSearchSettings } from './SubSettings';
@@ -86,6 +89,7 @@ import {
   SubConnectionsSettings,
   SubNotificationsSettings,
 } from './SubSettingsLinkPanes';
+import { useSettingsLayout } from './useIsTabNavigator';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -110,27 +114,24 @@ const settingsLinkTabComponents = {
   [ESettingsTabNames.Connections]: SubConnectionsSettings,
 };
 
-// Selected-state (solid) sidebar icons for derived link tabs; tabs without a
-// solid pair fall back to the item's outline icon.
-const settingsLinkTabSelectedIcons: Partial<
-  Record<keyof typeof settingsLinkTabComponents, string>
-> = {
-  [ESettingsTabNames.Notifications]: 'BellSolid',
-};
+const SETTINGS_CONFIG_ORDER = new Map(
+  [...SETTINGS_SIDEBAR_ORDER, ESettingsTabNames.Search].map((name, index) => [
+    name,
+    index,
+  ]),
+);
 
-export interface ISubSettingConfig {
-  /**
-   * Stable identity for analytics and recent-search records; survives copy
-   * changes. Items with a `settingRoute` already have a stable identity and
-   * may omit it.
-   */
-  id?: string;
+interface ISubSettingConfigBase {
   icon: string | IKeyOfIcons;
   title: string;
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
-  mobilePlacement?: 'home';
+  /**
+   * Phone layouts promote this item to the settings home cards; its own
+   * category page hides it there.
+   */
+  mobileHome?: boolean;
   /**
    * Tab-navigator layouts promote this item to its own sidebar tab. The
    * synthetic tab category is derived from the item, so platform gating and
@@ -144,12 +145,23 @@ export interface ISubSettingConfig {
     badgeText: string;
   };
   onPress?: (navigation?: ReturnType<typeof useAppNavigation>) => void;
-  /** Route within the SettingModal navigator for direct navigation from universal search */
-  settingRoute?: EModalSettingRoutes;
   renderElement?: React.ReactElement<any>;
   /** If true, shows ArrowTopRightOutline icon instead of drill-in arrow for external links */
   isExternalLink?: boolean;
 }
+
+/**
+ * Every item is search-indexed, so each needs a stable identity for analytics
+ * and recent-search records (it must survive copy changes): an explicit
+ * kebab-case `id`, or a `settingRoute` (the route within the SettingModal
+ * navigator for direct navigation from universal search) that already
+ * identifies it. Enforced here so an item with neither cannot compile.
+ */
+type ISubSettingIdentity =
+  | { id: string; settingRoute?: EModalSettingRoutes }
+  | { id?: string; settingRoute: EModalSettingRoutes };
+
+export type ISubSettingConfig = ISubSettingConfigBase & ISubSettingIdentity;
 
 export type ISettingsConfig = (
   | {
@@ -187,40 +199,6 @@ export type ISettingsConfig = (
 
 export type ISettingCategoryConfig = NonNullable<ISettingsConfig[number]>;
 
-export function getMobileSettingsPresentation(
-  config: ISettingCategoryConfig,
-  {
-    item,
-  }: {
-    item?: ISubSettingConfig;
-  } = {},
-) {
-  if (item?.mobilePlacement === 'home') {
-    return {
-      title: item.mobileTitle || item.title,
-      icon: item.icon,
-    };
-  }
-
-  return {
-    title: config.mobileTitle || config.title,
-    icon: config.mobileIcon || config.icon,
-  };
-}
-
-const referenceSettingsCopy = {
-  en: {
-    backupAndMigration: 'Backup & Migration',
-    app: 'App',
-    helpAndAbout: 'Help & About',
-  },
-  zhCN: {
-    backupAndMigration: '备份与迁移',
-    app: '应用',
-    helpAndAbout: '帮助与关于',
-  },
-} as const;
-
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
   const isShowAppUpdateUI = useMemo(() => {
@@ -230,10 +208,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const intl = useIntl();
-  const referenceCopy =
-    intl.locale.toLowerCase() === 'zh-cn'
-      ? referenceSettingsCopy.zhCN
-      : referenceSettingsCopy.en;
+  const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
@@ -254,6 +229,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(() => {
+    const clearPendingTransactionsItem: ISubSettingConfig = {
+      id: 'clear-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: intl.formatMessage({
+        id: ETranslations.settings_clear_pending_transactions,
+      }),
+      renderElement: <ClearPendingTransactionsListItem />,
+    };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
       // {
@@ -270,8 +253,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             name: ESettingsTabNames.Backup,
             icon: 'CloudUploadSolid',
             mobileIcon: 'CloudUploadOutline',
-            title: referenceCopy.backupAndMigration,
-            mobileTitle: intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.global_backup,
             }),
             configs: [
@@ -382,8 +364,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         // No solid pair exists for SliderThree; both states use the outline.
         icon: 'SliderThreeOutline',
         mobileIcon: 'SliderThreeOutline',
-        title: referenceCopy.app,
-        mobileTitle: intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.global_preferences,
         }),
         configs: [
@@ -394,7 +375,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
-                  mobilePlacement: 'home',
+                  mobileHome: true,
                   desktopTab: ESettingsTabNames.Notifications,
                   testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
@@ -529,6 +510,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ClearAppCacheListItem />,
             },
+            platformEnv.isWebDappMode
+              ? clearPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -642,16 +626,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [
-                {
-                  id: 'clear-pending-transactions',
-                  icon: 'ClockTimeHistoryOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_clear_pending_transactions,
-                  }),
-                  renderElement: <ClearPendingTransactionsListItem />,
-                },
-              ],
+              [clearPendingTransactionsItem],
             ],
           },
       platformEnv.isWebDappMode
@@ -750,7 +725,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       mobileTitle: intl.formatMessage({
                         id: ETranslations.explore_dapp_connections,
                       }),
-                      mobilePlacement: 'home',
+                      mobileHome: true,
                       desktopTab: ESettingsTabNames.Connections,
                       keywords: [
                         intl.formatMessage({
@@ -891,8 +866,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         icon: 'InfoCircleSolid',
         mobileIcon: 'InfoCircleOutline',
         testID: SettingTestIDs.aboutItem,
-        title: referenceCopy.helpAndAbout,
-        mobileTitle: intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.about_onekey__title,
         }),
         showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
@@ -930,11 +904,29 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_contact_us,
               }),
-              mobilePlacement: 'home',
+              mobileHome: true,
               onPress: () => {
                 void showIntercom();
               },
             },
+            isMobileLayout
+              ? {
+                  id: 'official-channels',
+                  icon: 'SpeakerPromoteOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.official_channels__title,
+                  }),
+                  keywords: [...OFFICIAL_CHANNELS_SEARCH_KEYWORDS],
+                  mobileHome: true,
+                  settingRoute: EModalSettingRoutes.SettingOfficialChannels,
+                  testID: SettingTestIDs.officialChannelsItem,
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingOfficialChannels,
+                    );
+                  },
+                }
+              : undefined,
             platformEnv.isExtension ||
             platformEnv.isNativeAndroidGooglePlay ||
             platformEnv.isNativeIOS
@@ -1069,43 +1061,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           )
           .map((item) => ({
             name: item.desktopTab,
-            icon:
-              settingsLinkTabSelectedIcons[item.desktopTab] ??
-              (item.icon as string),
+            icon: item.icon,
             mobileIcon: item.icon,
-            title: item.mobileTitle || item.title,
-            // Suffixed so the derived tab never shares a testID with the
-            // source row, which can be mounted at the same time (sidebar tab
-            // alongside a search-result row).
-            testID: item.testID ? `${item.testID}-tab` : undefined,
+            title: getSettingsDisplayTitle(item, true),
+            testID: item.testID
+              ? settingsSidebarTabTestID(item.testID)
+              : undefined,
             desktopOnlyTab: true,
             Component: settingsLinkTabComponents[item.desktopTab],
             configs: [],
           })) ?? [],
     );
-    const order = new Map(
-      [
-        ESettingsTabNames.Wallet,
-        ESettingsTabNames.Backup,
-        ESettingsTabNames.Security,
-        ESettingsTabNames.Connections,
-        ESettingsTabNames.Network,
-        ESettingsTabNames.Notifications,
-        ESettingsTabNames.Preferences,
-        ESettingsTabNames.AppData,
-        ESettingsTabNames.About,
-        ESettingsTabNames.Dev,
-        ESettingsTabNames.Search,
-      ].map((name, index) => [name, index]),
-    );
     return [...config, ...linkTabCategories].toSorted((a, b) => {
-      const aOrder = a ? (order.get(a.name) ?? order.size) : order.size + 1;
-      const bOrder = b ? (order.get(b.name) ?? order.size) : order.size + 1;
+      const aOrder = a
+        ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
+        : SETTINGS_CONFIG_ORDER.size + 1;
+      const bOrder = b
+        ? (SETTINGS_CONFIG_ORDER.get(b.name) ?? SETTINGS_CONFIG_ORDER.size)
+        : SETTINGS_CONFIG_ORDER.size + 1;
       return aOrder - bOrder;
     });
   }, [
     intl,
-    referenceCopy,
     cloudBackupFeatureInfo?.supportCloudBackup,
     cloudBackupFeatureInfo?.icon,
     cloudBackupFeatureInfo?.title,
@@ -1125,5 +1102,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     userAgreementUrl,
     privacyPolicyUrl,
     isPrimeActive,
+    isMobileLayout,
   ]);
 };

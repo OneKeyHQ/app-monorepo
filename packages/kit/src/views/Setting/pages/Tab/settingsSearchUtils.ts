@@ -1,11 +1,9 @@
 export const SETTINGS_SEARCH_KEYS = [
-  'title',
-  'mobileTitle',
-  'keywords',
+  { name: 'title', weight: 3 },
+  { name: 'mobileTitle', weight: 3 },
+  { name: 'keywords', weight: 1 },
 ] as const;
 
-export function getSettingsSearchSectionItem<
-  T extends { mobilePlacement?: unknown },
->(item: T): T | undefined {
-  return item.mobilePlacement === 'home' ? undefined : item;
+export function normalizeSettingsSearchQuery(query: string): string {
+  return query.trim();
 }
