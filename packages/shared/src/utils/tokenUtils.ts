@@ -244,6 +244,7 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch,
   tokenFiatMap,
   localAggregateTokenListMap,
+  flattenAggregateTokens,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -256,6 +257,10 @@ export function getFilteredTokenBySearchKey({
   enableNetworkSearch?: boolean;
   tokenFiatMap?: Record<string, ITokenFiat>;
   localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+  // Search-mode aggregate flatten (Receive): output every matched sub row
+  // instead of the grouped aggregate row. Off by default — all other callers
+  // keep the grouped behavior.
+  flattenAggregateTokens?: boolean;
 }) {
   let mergedTokens = tokens;
 
@@ -353,24 +358,32 @@ export function getFilteredTokenBySearchKey({
       }
 
       if (matchedSubs.length > 0) {
-        // Split into network-specific sub rows ONLY on an EXPLICIT network
-        // qualifier ('usdc eth'). A single word hitting a sub's token AND
-        // network at once ('eth' = ETH symbol + Ethereum chain — same for
-        // sol/trx/bnb/pol) is a symbol search: keep the aggregate row grouped.
-        const networkQualifiedMatches = matchedSubs.filter(
-          (s) => s.hasPureNetworkKeyword,
-        );
-        if (networkQualifiedMatches.length > 0) {
-          results.push(...networkQualifiedMatches);
+        if (flattenAggregateTokens) {
+          // Search-mode flatten: every matched sub becomes its own
+          // per-network row, whether or not the query carried an explicit
+          // network qualifier. Owned copies were already substituted above.
+          results.push(...matchedSubs);
         } else {
-          results.push({
-            token,
-            // Rank the grouped row by its best sub match so a token+network
-            // double-hit ('eth') is not buried at TOKEN_ONLY below every
-            // network-qualified plain row.
-            strength: Math.min(...matchedSubs.map((s) => s.strength)),
-            exactSymbolHit: hasExactSymbolKeywordHit(token),
-          });
+          // Split into network-specific sub rows ONLY on an EXPLICIT network
+          // qualifier ('usdc eth'). A single word hitting a sub's token AND
+          // network at once ('eth' = ETH symbol + Ethereum chain — same for
+          // sol/trx/bnb/pol) is a symbol search: keep the aggregate row
+          // grouped.
+          const networkQualifiedMatches = matchedSubs.filter(
+            (s) => s.hasPureNetworkKeyword,
+          );
+          if (networkQualifiedMatches.length > 0) {
+            results.push(...networkQualifiedMatches);
+          } else {
+            results.push({
+              token,
+              // Rank the grouped row by its best sub match so a token+network
+              // double-hit ('eth') is not buried at TOKEN_ONLY below every
+              // network-qualified plain row.
+              strength: Math.min(...matchedSubs.map((s) => s.strength)),
+              exactSymbolHit: hasExactSymbolKeywordHit(token),
+            });
+          }
         }
       } else {
         const { matched, strength } = computeSearchStrength(
@@ -421,7 +434,12 @@ export function getFilteredTokenBySearchKey({
     });
   }
 
-  return results.map((r) => r.token);
+  // Two server aggregate configs may share one sub token; emitting it twice
+  // would collide FlashList keys. First occurrence wins, preserving sort.
+  return uniqBy(
+    results.map((r) => r.token),
+    (token) => token.$key,
+  );
 }
 
 export function sortTokensByFiatValue({
