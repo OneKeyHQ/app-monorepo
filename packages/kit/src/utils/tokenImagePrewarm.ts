@@ -1,5 +1,10 @@
+import { PixelRatio } from 'react-native';
+
 import { primeCachedImageRefs } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
+
+import { getTokenImageResizeWidth } from '../components/Token/tokenSize';
 
 export type ITokenImagePrewarmSource = {
   tokenImageUri?: string;
@@ -22,6 +27,26 @@ function rememberPrewarmedUris(uris: string[]) {
     prewarmedTokenImageUris.clear();
   }
   uris.forEach((uri) => prewarmedTokenImageUris.add(uri));
+}
+
+export function getTokenImagePrewarmUri({
+  uri,
+  pixelRatio,
+}: {
+  uri: string;
+  pixelRatio?: number;
+}) {
+  const result = buildTosImageResizeUrl({
+    uri,
+    resizeWidth: getTokenImageResizeWidth('md'),
+    pixelRatio:
+      pixelRatio ??
+      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
+      1,
+  });
+
+  // Keep non-TOS URLs unchanged because ImageV2 renders them without rewriting.
+  return result.optimized && result.uri ? result.uri : uri;
 }
 
 /**
@@ -47,10 +72,11 @@ export function prewarmTokenImages(
 ) {
   if (!source) return;
 
-  const uris = uniqueImageUris([
-    source.tokenImageUri,
-    ...(source.tokenImageUris ?? []),
-  ])
+  const uris = uniqueImageUris(
+    [source.tokenImageUri, ...(source.tokenImageUris ?? [])].map((uri) =>
+      uri ? getTokenImagePrewarmUri({ uri }) : undefined,
+    ),
+  )
     .filter(
       (uri) =>
         !prewarmedTokenImageUris.has(uri) && !prewarmingTokenImageUris.has(uri),
