@@ -511,7 +511,7 @@ export function ManagePositionContent({
     () =>
       hasLoadError
         ? {
-            text: ETranslations.global_retry,
+            text: intl.formatMessage({ id: ETranslations.global_retry }),
             onPress: () => {
               void refreshManageData();
             },
@@ -519,7 +519,7 @@ export function ManagePositionContent({
             disabled: isLoading,
           }
         : undefined,
-    [hasLoadError, isLoading, refreshManageData],
+    [hasLoadError, intl, isLoading, refreshManageData],
   );
 
   // No-wallet CTA takes priority; otherwise show retry after a failed load,
