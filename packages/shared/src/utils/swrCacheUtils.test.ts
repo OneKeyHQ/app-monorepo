@@ -296,6 +296,29 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(swr.get('walletList')).toBe('wallets');
   });
 
+  it('carries the whole copy forward when the file becomes readable mid-repair', () => {
+    otherRuntimeFlush({
+      kept: { d: 'disk', t: 500 },
+      alsoKept: { d: 'disk2', t: 600 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get('kept')).toBe('disk');
+    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
+
+    // Schedules the repair from this copy.
+    swr.reloadFromStorage();
+    // The other runtime republishes a small but parseable store before the
+    // repair lands, so the merge must not silently carry nothing forward.
+    otherRuntimeFlush({ theirs: { d: 'new', t: 700 } });
+    swr.flushNow();
+
+    const disk = readDiskStore();
+    expect(disk.theirs).toMatchObject({ d: 'new', t: 700 });
+    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
+    expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
+    expect(swr.get('kept')).toBe('disk');
+  });
+
   it('does not resurrect a removed key from the other runtime copy', () => {
     otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
     const swr = loadFreshRuntime();

@@ -2,7 +2,7 @@
 /* eslint-disable camelcase */
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom } from 'jotai';
-import { isEqual, isString, merge } from 'lodash';
+import { isEqual, isPlainObject, isString, merge } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,8 +25,11 @@ import type {
 
 const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
 
+// Arrays and class instances lose their identity under lodash merge just like
+// primitives do (an array becomes an index keyed object, a Date becomes `{}`),
+// so only plain objects are treated as mergeable.
 function isMergeableValue(value: unknown): boolean {
-  return typeof value === 'object' && value !== null;
+  return isPlainObject(value);
 }
 
 // lodash merge is only meaningful between objects. Handed a primitive it spreads

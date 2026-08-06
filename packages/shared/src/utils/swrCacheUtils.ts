@@ -102,6 +102,14 @@ function reloadFromStorage(): void {
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
     // Repairing from an empty copy instead would leave a parseable empty
     // store, costing the runtime holding a full copy its only chance.
+    //
+    // Every key is marked pending, not just the dirty ones: if the other
+    // runtime makes the file parseable again before this flush lands, the
+    // merge would otherwise carry nothing forward and the adoption would drop
+    // this copy from memory as well.
+    for (const key of Object.keys(_cache)) {
+      _updatedKeys.add(key);
+    }
     _dirty = true;
     scheduleFlush();
   } else if (store) {

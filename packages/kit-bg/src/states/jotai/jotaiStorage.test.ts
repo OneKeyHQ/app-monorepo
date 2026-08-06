@@ -513,3 +513,20 @@ describe('mergeStoredValue', () => {
     expect(mergeStoredValue({ a: 1 }, { b: 2 }, false)).toEqual({ b: 2 });
   });
 });
+
+describe('mergeStoredValue non plain objects', () => {
+  const { mergeStoredValue } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('./jotaiStorage') as typeof import('./jotaiStorage');
+
+  // merge({}, init, [1, 2]) yields {"0":1,"1":2} — the array identity is gone.
+  it('leaves an array value untouched', () => {
+    expect(mergeStoredValue([], [1, 2], true)).toEqual([1, 2]);
+  });
+
+  // merge({}, init, new Date()) collapses to {}.
+  it('leaves a Date value untouched', () => {
+    const date = new Date(1_712_345_678_000);
+    expect(mergeStoredValue(undefined, date, true)).toBe(date);
+  });
+});
