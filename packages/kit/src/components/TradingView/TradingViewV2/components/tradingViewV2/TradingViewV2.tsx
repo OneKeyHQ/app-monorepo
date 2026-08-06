@@ -14,7 +14,6 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
-import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -53,6 +52,7 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import TradingViewRuntimeView from './TradingViewRuntimeView';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -732,7 +732,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
 
   const webView = useMemo(
     () => (
-      <WebView
+      <TradingViewRuntimeView
         key={`${theme}:${tradingViewUrlWithParams}`}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}

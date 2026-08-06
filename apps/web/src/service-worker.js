@@ -17,6 +17,9 @@ const STATIC_RESOURCES_MAX_ENTRIES = 300;
 const STATIC_RESOURCES_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const STATIC_RESOURCE_CACHE_TIME_HEADER = 'x-onekey-cache-time';
 const PREVIOUS_VERSION_LIMIT = 1;
+const TRADINGVIEW_EMBED_CACHE_PREFIX = 'onekey-tradingview-embed:';
+const TRADINGVIEW_EMBED_DIRECTORY = 'tradingview-embed/';
+const TRADINGVIEW_PREFETCH_CONCURRENCY = 6;
 
 const MESSAGE_TYPES = {
   GET_VERSION_STATE: 'GET_VERSION_STATE',
@@ -27,9 +30,12 @@ const MESSAGE_TYPES = {
   UPDATE_READY: 'UPDATE_READY',
   UPDATE_FAILED: 'UPDATE_FAILED',
   VERSION_ACTIVATED: 'VERSION_ACTIVATED',
+  PREFETCH_TRADINGVIEW_EMBED: 'PREFETCH_TRADINGVIEW_EMBED',
 };
 
 let versionCheckPromise = null;
+const tradingViewPrefetchPromises = new Map();
+const tradingViewManifestStates = new Map();
 
 // Precache app shell (manifest injected by InjectManifest at build time)
 precacheAndRoute(self.__WB_MANIFEST);
@@ -217,6 +223,233 @@ async function verifyIntegrity(response, integrity) {
     throw new ServiceWorkerVersionError('integrity_mismatch');
   }
   return response;
+}
+
+function isValidTradingViewAssetPath(file) {
+  return (
+    typeof file === 'string' &&
+    Boolean(file) &&
+    !file.startsWith('/') &&
+    !file.includes('..') &&
+    !file.includes('\\')
+  );
+}
+
+function isValidTradingViewManifest(manifest) {
+  return (
+    manifest?.schema === 1 &&
+    typeof manifest.version === 'string' &&
+    Boolean(manifest.version) &&
+    isValidTradingViewAssetPath(manifest.entry) &&
+    Array.isArray(manifest.styles) &&
+    manifest.styles.every(isValidTradingViewAssetPath) &&
+    Array.isArray(manifest.assets) &&
+    manifest.assets.every(
+      (asset) =>
+        isValidTradingViewAssetPath(asset?.file) &&
+        typeof asset.integrity === 'string' &&
+        asset.integrity.startsWith('sha384-'),
+    )
+  );
+}
+
+function getTradingViewCacheName(version) {
+  return `${TRADINGVIEW_EMBED_CACHE_PREFIX}${version}`;
+}
+
+function getTradingViewBaseUrlFromRequest(request) {
+  const url = new URL(request.url);
+  const directory = `/${TRADINGVIEW_EMBED_DIRECTORY}`;
+  const directoryIndex = url.pathname.indexOf(directory);
+  if (directoryIndex < 0) {
+    return '';
+  }
+  return new URL(
+    url.pathname.slice(0, directoryIndex + directory.length),
+    url.origin,
+  ).toString();
+}
+
+function normalizeTradingViewBaseUrl(publicUrl) {
+  const appAssetBaseUrl = new URL(publicUrl || '/', self.location.origin);
+  return new URL(TRADINGVIEW_EMBED_DIRECTORY, appAssetBaseUrl).toString();
+}
+
+async function fetchTradingViewManifest(baseUrl) {
+  const manifestUrl = new URL('embed-manifest.json', baseUrl);
+  const response = await fetch(manifestUrl, {
+    cache: 'no-store',
+    credentials: 'omit',
+    mode: 'cors',
+  });
+  if (!response.ok || response.type === 'opaque') {
+    throw new ServiceWorkerVersionError(
+      `tradingview_manifest_http_${response.status}`,
+    );
+  }
+  const manifest = await response.clone().json();
+  if (!isValidTradingViewManifest(manifest)) {
+    throw new ServiceWorkerVersionError('tradingview_manifest_invalid');
+  }
+  tradingViewManifestStates.set(baseUrl, {
+    cacheName: getTradingViewCacheName(manifest.version),
+    manifest,
+  });
+  return { manifest, manifestUrl, response };
+}
+
+async function getCompletedTradingViewManifest(baseUrl) {
+  const manifestRequest = new Request(new URL('embed-manifest.json', baseUrl));
+  const cacheNames = (await caches.keys()).filter((cacheName) =>
+    cacheName.startsWith(TRADINGVIEW_EMBED_CACHE_PREFIX),
+  );
+  for (const cacheName of cacheNames.toReversed()) {
+    const cache = await caches.open(cacheName);
+    const response = await cache.match(manifestRequest);
+    if (response) {
+      const manifest = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (isValidTradingViewManifest(manifest)) {
+        tradingViewManifestStates.set(baseUrl, { cacheName, manifest });
+        return response;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function fetchTradingViewAsset(asset, baseUrl) {
+  const assetUrl = new URL(asset.file, baseUrl);
+  if (assetUrl.origin !== new URL(baseUrl).origin) {
+    throw new ServiceWorkerVersionError('tradingview_asset_origin_mismatch');
+  }
+  const response = await fetch(assetUrl, {
+    cache: 'reload',
+    credentials: 'omit',
+    mode: 'cors',
+    redirect: 'error',
+  });
+  if (!response.ok || response.type === 'opaque') {
+    throw new ServiceWorkerVersionError(
+      `tradingview_asset_http_${response.status}`,
+    );
+  }
+  return {
+    request: new Request(assetUrl),
+    response: await verifyIntegrity(response, asset.integrity),
+  };
+}
+
+async function runConcurrent(items, concurrency, task) {
+  let index = 0;
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (index < items.length) {
+        const item = items[index];
+        index += 1;
+        await task(item);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
+async function deleteOldTradingViewCaches(activeCacheName) {
+  const cacheNames = await caches.keys();
+  await Promise.all(
+    cacheNames
+      .filter(
+        (cacheName) =>
+          cacheName.startsWith(TRADINGVIEW_EMBED_CACHE_PREFIX) &&
+          cacheName !== activeCacheName,
+      )
+      .map((cacheName) => caches.delete(cacheName)),
+  );
+}
+
+async function prefetchTradingViewEmbed(publicUrl) {
+  const baseUrl = normalizeTradingViewBaseUrl(publicUrl);
+  const existingPromise = tradingViewPrefetchPromises.get(baseUrl);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const prefetchPromise = (async () => {
+    const {
+      manifest,
+      manifestUrl,
+      response: manifestResponse,
+    } = await fetchTradingViewManifest(baseUrl);
+
+    const cacheName = getTradingViewCacheName(manifest.version);
+    const cache = await caches.open(cacheName);
+    const priorityFiles = new Set([
+      manifest.entry,
+      ...manifest.styles,
+      'charting_library/charting_library.standalone.js',
+    ]);
+    const assets = [...manifest.assets].toSorted(
+      (left, right) =>
+        Number(priorityFiles.has(right.file)) -
+        Number(priorityFiles.has(left.file)),
+    );
+
+    await runConcurrent(
+      assets,
+      TRADINGVIEW_PREFETCH_CONCURRENCY,
+      async (asset) => {
+        const request = new Request(new URL(asset.file, baseUrl));
+        if (await cache.match(request)) {
+          return;
+        }
+        const fetched = await fetchTradingViewAsset(asset, baseUrl);
+        await cache.put(fetched.request, fetched.response);
+      },
+    );
+    // The cached manifest marks this version as complete. Keep it last so an
+    // interrupted prefetch can never be mistaken for an offline-ready package.
+    await cache.put(new Request(manifestUrl), manifestResponse);
+    await deleteOldTradingViewCaches(cacheName);
+  })().finally(() => {
+    tradingViewPrefetchPromises.delete(baseUrl);
+  });
+
+  tradingViewPrefetchPromises.set(baseUrl, prefetchPromise);
+  return prefetchPromise;
+}
+
+async function handleTradingViewAssetRequest(request) {
+  const baseUrl = getTradingViewBaseUrlFromRequest(request);
+  if (!baseUrl) {
+    return fetch(request);
+  }
+
+  if (new URL(request.url).pathname.endsWith('/embed-manifest.json')) {
+    try {
+      const { response } = await fetchTradingViewManifest(baseUrl);
+      return response;
+    } catch {
+      const completedManifest = await getCompletedTradingViewManifest(baseUrl);
+      if (completedManifest) {
+        return completedManifest;
+      }
+      throw new ServiceWorkerVersionError('tradingview_manifest_unavailable');
+    }
+  }
+
+  const manifestState = tradingViewManifestStates.get(baseUrl);
+  if (!manifestState) {
+    return fetch(request);
+  }
+  const cache = await caches.open(manifestState.cacheName);
+  const cachedResponse = await cache.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  return fetch(request);
 }
 
 async function fetchCriticalAsset(asset) {
@@ -883,8 +1116,20 @@ self.addEventListener('message', (event) => {
 
   if (type === MESSAGE_TYPES.ACTIVATE_VERSION) {
     event.waitUntil(activateReadyVersion(payload.version, { client }));
+    return;
+  }
+
+  if (type === MESSAGE_TYPES.PREFETCH_TRADINGVIEW_EMBED) {
+    event.waitUntil(
+      prefetchTradingViewEmbed(payload.publicUrl).catch(() => undefined),
+    );
   }
 });
+
+registerRoute(
+  ({ url }) => url.pathname.includes(`/${TRADINGVIEW_EMBED_DIRECTORY}`),
+  ({ request }) => handleTradingViewAssetRequest(request),
+);
 
 // Static assets (images, fonts) -> CacheFirst with expiration
 registerRoute(
