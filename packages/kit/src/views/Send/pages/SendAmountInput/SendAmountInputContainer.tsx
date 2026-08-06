@@ -127,6 +127,7 @@ import {
   ESwapQuoteKind,
   ESwapSource,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -2816,6 +2817,7 @@ function SendAmountInputContainer() {
                 quoteResultCtx: privateSendQuote.quoteResultCtx,
                 protocol: EProtocolOfExchange.PRIVATE_SEND,
                 kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
+                tradeSource: ESwapTradeSource.UNKNOWN,
               });
 
             if (!buildSwapRes?.changellyOrder) {
