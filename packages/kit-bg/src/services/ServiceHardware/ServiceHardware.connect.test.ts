@@ -833,10 +833,16 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     jest
       .mocked(hardwareInstance.getHardwareSDKInstance)
       .mockReturnValueOnce(instancePromise as never);
+    const runExclusiveOneKeyOperation = jest.fn(
+      async (operation: () => Promise<unknown>) => operation(),
+    );
     const service = new ServiceHardware({
       backgroundApi: {
         serviceDevSetting: {
           getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceHardwareUI: {
+          runExclusiveOneKeyOperation,
         },
       } as unknown as IBackgroundApi,
     });
@@ -867,6 +873,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     await expect(initialization).resolves.toBe(sdkInstance);
     await expect(reset).resolves.toBeUndefined();
 
+    expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
     expect(hardwareInstance.resetHardwareSDKInstance).toHaveBeenCalledTimes(1);
   });
 

@@ -1536,13 +1536,15 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async resetHardwareSDK() {
-    await this.sdkInstanceMutex.runExclusive(async () => {
-      this.resetHardwareUiEventQueue();
-      this.registeredEvents = false;
-      await resetHardwareSDKInstance();
-      this.activeHardwareSDKInstance = undefined;
-      this.activeHardwareTransportType = undefined;
-    });
+    await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(() =>
+      this.sdkInstanceMutex.runExclusive(async () => {
+        this.resetHardwareUiEventQueue();
+        this.registeredEvents = false;
+        await resetHardwareSDKInstance();
+        this.activeHardwareSDKInstance = undefined;
+        this.activeHardwareTransportType = undefined;
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -3646,27 +3648,31 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
-    try {
-      // 1. Update transport type setting
-      await this.backgroundApi.serviceSetting.setHardwareTransportType(
-        transportType,
-      );
+    return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+      async () => {
+        try {
+          // 1. Update transport type setting
+          await this.backgroundApi.serviceSetting.setHardwareTransportType(
+            transportType,
+          );
 
-      // Recreate the SDK under the lifecycle lock when the transport changes.
-      const newInstance = await this.getSDKInstance({
-        connectId: undefined,
-        hardwareTransportType: transportType,
-      });
+          // Recreate the SDK under the lifecycle lock when the transport changes.
+          const newInstance = await this.getSDKInstance({
+            connectId: undefined,
+            hardwareTransportType: transportType,
+          });
 
-      console.log(
-        `Successfully switched hardware transport type to: ${transportType}`,
-      );
+          console.log(
+            `Successfully switched hardware transport type to: ${transportType}`,
+          );
 
-      return newInstance;
-    } catch (error) {
-      console.error('Failed to switch hardware transport type:', error);
-      throw error;
-    }
+          return newInstance;
+        } catch (error) {
+          console.error('Failed to switch hardware transport type:', error);
+          throw error;
+        }
+      },
+    );
   }
 
   @backgroundMethod()
