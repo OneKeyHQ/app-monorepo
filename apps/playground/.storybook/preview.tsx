@@ -7,18 +7,34 @@ import './injectTamaguiCss';
 import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import '@onekeyhq/shared/src/web/index.css';
 
+import { useEffect } from 'react';
+
 import {
   ShowToastProvider,
   Toaster,
 } from '@onekeyhq/components/src/actions/Toast';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
+import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import type { Preview } from '@storybook/react-native-web-vite';
+
+function CanvasBackground() {
+  // The decorator's Stack stops at its content height (its min-height:100%
+  // resolves against an auto-height parent), so on the dark theme the canvas
+  // shows Storybook's white body around a dark strip. Paint the preview body
+  // with the theme's app background instead of fighting the height chain.
+  const theme = useTheme();
+  const bg = theme.bgApp.val as string;
+  useEffect(() => {
+    document.body.style.backgroundColor = bg;
+  }, [bg]);
+  return null;
+}
 
 const preview: Preview = {
   parameters: {
@@ -94,6 +110,7 @@ const preview: Preview = {
           locale={locale}
           HyperlinkText={HyperlinkTextStub}
         >
+          <CanvasBackground />
           <Stack bg="$bgApp" p="$5" minHeight="100%">
             <Story />
           </Stack>
