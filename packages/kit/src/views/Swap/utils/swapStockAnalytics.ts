@@ -60,6 +60,9 @@ export function getSwapTradeSource({
   if (isSwapPro) {
     return ESwapTradeSource.SWAP_PRO;
   }
+  if (protocol === EProtocolOfExchange.LIMIT) {
+    return ESwapTradeSource.LIMIT;
+  }
   return ESwapTradeSource.SWAP_BRIDGE;
 }
 

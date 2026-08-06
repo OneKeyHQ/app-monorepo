@@ -74,6 +74,12 @@ describe('swapStockAnalytics', () => {
     ).toBe(ESwapTradeSource.SWAP_PRO);
     expect(
       getSwapTradeSource({
+        protocol: EProtocolOfExchange.LIMIT,
+        isSwapPro: false,
+      }),
+    ).toBe(ESwapTradeSource.LIMIT);
+    expect(
+      getSwapTradeSource({
         protocol: EProtocolOfExchange.STOCK,
         isSwapPro: false,
       }),

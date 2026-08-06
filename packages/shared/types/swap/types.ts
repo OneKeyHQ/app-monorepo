@@ -113,6 +113,7 @@ export enum ESwapTradeSource {
   SWAP_BRIDGE = 'swapBridge',
   SWAP_PRO = 'swapPro',
   MARKET_DEX = 'marketDex',
+  LIMIT = 'limit',
   STOCK = 'stock',
   PERPS = 'perps',
   UNKNOWN = 'unknown',
