@@ -18,6 +18,7 @@ import {
   usePerpsMaxBuilderFeeAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -72,7 +73,7 @@ function PerpBadgesRow() {
   const [tradingMode] = useTradingModeAtom();
   const isSpot = tradingMode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = usePerpsMaxBuilderFeeAtom();
-  const { baseName, rawBaseName, coin } = useActiveTradeDisplay();
+  const { baseName, rawBaseName, coin, dexLabel } = useActiveTradeDisplay();
   const [tokenSearchAliases, setTokenSearchAliases] =
     usePerpsTokenSearchAliasesAtom();
   const [fetchedTokenSearchAliases, setFetchedTokenSearchAliases] = useState<
@@ -211,6 +212,7 @@ function PerpBadgesRow() {
               })}
         </SizableText>
       </Badge>
+      <PerpDexBadge dexLabel={dexLabel} testID={PerpTestIDs.ActiveDexBadge} />
       {subtitle ? (
         <Popover
           title={intl.formatMessage({

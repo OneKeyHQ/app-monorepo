@@ -2,6 +2,7 @@ import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.co
 
 import {
   buildCoinFromSearchAssetType,
+  buildTradablePerpMaxLeverageMap,
   getDexAssetIdOffset,
   getDexIndexByAssetId,
   getDexIndexByCoin,
@@ -95,6 +96,54 @@ describe('perpsDexUtils', () => {
 
   it('does not rewrite an unregistered prefix', () => {
     expect(normalizeDexCoin('unsupported:tsla')).toBe('UNSUPPORTED:TSLA');
+  });
+
+  describe('buildTradablePerpMaxLeverageMap', () => {
+    it('indexes main and HIP-3 leverage while excluding delisted assets', () => {
+      const map = buildTradablePerpMaxLeverageMap([
+        [
+          {
+            name: 'BTC',
+            maxLeverage: 40,
+            assetId: 0,
+            szDecimals: 5,
+            marginTableId: 0,
+          },
+        ],
+        [
+          {
+            name: 'xyz:UNITREE',
+            maxLeverage: 10,
+            assetId: 110_000,
+            szDecimals: 2,
+            marginTableId: 0,
+          },
+        ],
+        [
+          {
+            name: 'para:UNITREE',
+            maxLeverage: 5,
+            assetId: 180_000,
+            szDecimals: 2,
+            marginTableId: 0,
+          },
+          {
+            name: 'para:OLD',
+            maxLeverage: 3,
+            assetId: 180_001,
+            szDecimals: 2,
+            marginTableId: 0,
+            isDelisted: true,
+          },
+        ],
+      ]);
+
+      expect([...map.entries()]).toEqual([
+        ['BTC', 40],
+        ['xyz:UNITREE', 10],
+        ['para:UNITREE', 5],
+      ]);
+    });
   });
 
   describe('buildCoinFromSearchAssetType', () => {

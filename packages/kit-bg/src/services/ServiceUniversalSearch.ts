@@ -18,6 +18,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildCoinFromSearchAssetType,
+  buildTradablePerpMaxLeverageMap,
   isPerpsUniverseCacheComplete,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
@@ -1229,7 +1230,9 @@ class ServiceUniversalSearch extends ServiceBase {
 
   // Undefined when the universe is not fully cached: an incomplete cache cannot
   // prove an asset is gone, and filtering against it would empty the results.
-  private async readTradablePerpCoinSet(): Promise<Set<string> | undefined> {
+  private async readTradablePerpMaxLeverageMap(): Promise<
+    Map<string, number> | undefined
+  > {
     try {
       const { universesByDex, updatedAt } =
         await this.backgroundApi.simpleDb.perp.getTradingUniverse();
@@ -1241,15 +1244,7 @@ class ServiceUniversalSearch extends ServiceBase {
       if (isStale) {
         return undefined;
       }
-      const coins = new Set<string>();
-      universesByDex.forEach((assets) => {
-        assets?.forEach((asset) => {
-          if (!asset?.isDelisted && asset?.name) {
-            coins.add(asset.name);
-          }
-        });
-      });
-      return coins;
+      return buildTradablePerpMaxLeverageMap(universesByDex);
     } catch {
       return undefined;
     }
@@ -1261,8 +1256,9 @@ class ServiceUniversalSearch extends ServiceBase {
         // Kick the refresh off before the request so both are in flight at
         // once: a missing or stale universe is only awaited below, and only
         // when there are perp rows that actually need filtering.
-        const cachedCoins = await this.readTradablePerpCoinSet();
-        const refreshPromise = cachedCoins
+        const cachedPerpMaxLeverage =
+          await this.readTradablePerpMaxLeverageMap();
+        const refreshPromise = cachedPerpMaxLeverage
           ? undefined
           : this.backgroundApi.serviceHyperliquid
               .refreshTradingMeta()
@@ -1287,10 +1283,10 @@ class ServiceUniversalSearch extends ServiceBase {
         const rawAssets = response?.data?.data;
         // Only wait on the refresh when there is something to filter: a query
         // that matches no perp asset needs no universe at all.
-        const tradableCoins =
+        const tradablePerpMaxLeverage =
           rawAssets?.length && (await refreshPromise)
-            ? await this.readTradablePerpCoinSet()
-            : cachedCoins;
+            ? await this.readTradablePerpMaxLeverageMap()
+            : cachedPerpMaxLeverage;
 
         const items: IUniversalSearchPerpResult['items'] =
           rawAssets
@@ -1298,27 +1294,35 @@ class ServiceUniversalSearch extends ServiceBase {
               // The search index still carries delisted assets — `xyz:UNITREE`
               // survives there after moving to `para`, so the same ticker would
               // appear twice with one dead row.
-              if (!tradableCoins) {
+              if (!tradablePerpMaxLeverage) {
                 return true;
               }
               const coin = buildCoinFromSearchAssetType({
                 assetType: asset.type,
                 name: asset.name,
               });
-              return Boolean(coin && tradableCoins.has(coin));
+              return Boolean(coin && tradablePerpMaxLeverage.has(coin));
             })
-            .map((asset) => ({
-              type: EUniversalSearchType.Perp,
-              payload: {
+            .map((asset) => {
+              const coin = buildCoinFromSearchAssetType({
                 assetType: asset.type,
-                logoUrl: asset.logoUrl,
                 name: asset.name,
-                maxLeverage: asset.maxLeverage,
-                midPx: asset.midPx,
-                dayNtlVlm: asset.dayNtlVlm,
-                subtitle: asset.subtitle,
-              },
-            })) ?? [];
+              });
+              return {
+                type: EUniversalSearchType.Perp,
+                payload: {
+                  assetType: asset.type,
+                  logoUrl: asset.logoUrl,
+                  name: asset.name,
+                  maxLeverage:
+                    (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
+                    asset.maxLeverage,
+                  midPx: asset.midPx,
+                  dayNtlVlm: asset.dayNtlVlm,
+                  subtitle: asset.subtitle,
+                },
+              };
+            }) ?? [];
 
         return { items };
       } catch (error) {

@@ -39,7 +39,11 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
-import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
@@ -241,6 +245,7 @@ const InitialRowsSnapshotRow = memo(
     const imageName = mockedToken.spotUniverse
       ? displayName
       : parsed.displayName;
+    const dexLabel = mockedToken.spotUniverse ? undefined : parsed.dexLabel;
     const subtitle = mockedToken.tokenSubtitle;
     const maxLeverage = mockedToken.tokenMaxLeverage ?? 0;
     const hasDisplayAssetCtx = Boolean(
@@ -282,19 +287,8 @@ const InitialRowsSnapshotRow = memo(
             <SizableText size="$bodyMdMedium" numberOfLines={1}>
               {displayName}
             </SizableText>
-            {maxLeverage > 0 ? (
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText fontSize={10} color="$textSubdued" lineHeight={16}>
-                  {maxLeverage}x
-                </SizableText>
-              </XStack>
-            ) : null}
+            {maxLeverage > 0 ? <LeverageBadge leverage={maxLeverage} /> : null}
+            <PerpDexBadge dexLabel={dexLabel} />
           </XStack>
           <XStack gap="$1" alignItems="center" minWidth={0}>
             {subtitle ? (
