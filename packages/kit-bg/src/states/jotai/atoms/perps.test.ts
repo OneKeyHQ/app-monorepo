@@ -1,5 +1,7 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import type { IAtomNameKeys } from '../atomNames';
+import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
 import {
@@ -31,6 +33,27 @@ describe('tradingModeAtom', () => {
       (tradingModeAtom.atom() as unknown as IJotaiAtomPro<ITradingMode>)
         .persist,
     ).toBe(true);
+  });
+
+  // The persisted write path runs `merge({}, initialValue, nextValue)` unless a
+  // config opts out. lodash spreads a string into a character-indexed object, so
+  // without this the stored mode reads back as {0:'s',1:'p',...} and every
+  // `=== 'spot'` check silently fails.
+  it('opts out of initial-value merging because the value is a bare string', () => {
+    expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
+      false,
+    );
+  });
+});
+
+// Any persisted atom holding a primitive hits the same lodash-merge trap, so the
+// opt-out is asserted for the whole class rather than one atom at a time.
+describe('persisted primitive atoms', () => {
+  it('never merge the initial value into the stored value', () => {
+    const primitiveAtoms: IAtomNameKeys[] = [EAtomNames.tradingModeAtom];
+    for (const name of primitiveAtoms) {
+      expect(atomsConfig[name]?.mergeInitialValue).toBe(false);
+    }
   });
 });
 
