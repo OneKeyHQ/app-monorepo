@@ -287,8 +287,12 @@ const InitialRowsSnapshotRow = memo(
             <SizableText size="$bodyMdMedium" numberOfLines={1}>
               {displayName}
             </SizableText>
-            {maxLeverage > 0 ? <LeverageBadge leverage={maxLeverage} /> : null}
-            <PerpDexBadge dexLabel={dexLabel} />
+            <XStack gap="$1">
+              {maxLeverage > 0 ? (
+                <LeverageBadge leverage={maxLeverage} />
+              ) : null}
+              <PerpDexBadge dexLabel={dexLabel} />
+            </XStack>
           </XStack>
           <XStack gap="$1" alignItems="center" minWidth={0}>
             {subtitle ? (
