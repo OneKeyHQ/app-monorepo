@@ -2,7 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export const NEO_DEVICE_TYPE = 'neo' as IDeviceType;
+export const NEO_DEVICE_TYPE = EDeviceType.Neo;
 
 export function isProtocolV2ProductType(
   deviceType: IDeviceType | string | null | undefined,
