@@ -1,0 +1,40 @@
+diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
+index f385284..6c099fc 100644
+--- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
++++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
+@@ -248,3 +248,18 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
+     }
+   }
+ }
++// OneKey patch: expose SwiftUI's preferredColorScheme. Unlike the environment
++// colorScheme (subtree-only), it flows up to the enclosing presentation and
++// flips the system sheet chrome - background material, grabber - to the given
++// scheme. This is the only lever that keeps the native glass material while
++// pinning a sheet dark on a light system.
++
++// MARK: - Preferred Color Scheme
++
++internal struct PreferredColorSchemeModifier: ViewModifier, Record {
++  @Field var colorScheme: ColorSchemeType = .light
++
++  func body(content: Content) -> some View {
++    content.preferredColorScheme(colorScheme.toNativeColorScheme())
++  }
++}
+diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
+index 6867c8f..23fbf10 100644
+--- a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
++++ b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
+@@ -2156,6 +2156,12 @@ extension ViewModifierRegistry {
+       return try EnvironmentModifier(from: params, appContext: appContext)
+     }
+ 
++    // OneKey patch: registry entry for PreferredColorSchemeModifier, defined
++    // in PresentationModifiers.swift.
++    register("preferredColorScheme") { params, appContext, _ in
++      return try PreferredColorSchemeModifier(from: params, appContext: appContext)
++    }
++
+     register("contentTransition") { params, appContext, _ in
+       return try ContentTransitionModifier(from: params, appContext: appContext)
+     }
