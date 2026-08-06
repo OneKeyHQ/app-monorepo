@@ -94,6 +94,9 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Kill switch for the fast-failover behaviors introduced for extreme
+  // network conditions (adapter fail-open + service fast switch to last-best IP)
+  disableIpTableFailover?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
@@ -170,6 +173,7 @@ export const {
       usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      disableIpTableFailover: false, // Fast failover enabled by default
       useFastPbkdf2NativeBackend: false,
     },
   },
