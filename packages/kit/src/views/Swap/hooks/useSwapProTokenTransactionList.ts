@@ -209,11 +209,13 @@ export function useSwapProTokenTransactionList({
     };
     currentTransactionStateRef.current = nextState;
     setTransactionState(nextState);
-    setSwapProTokenTransactionPrice(
-      nextTransactions[0]
-        ? getSwapProTransactionTokenPrice(nextTransactions[0])
-        : '',
-    );
+    if (transactionSource === 'market') {
+      setSwapProTokenTransactionPrice(
+        nextTransactions[0]
+          ? getSwapProTransactionTokenPrice(nextTransactions[0])
+          : '',
+      );
+    }
   }, [feedKey, feedResult, setSwapProTokenTransactionPrice, transactionSource]);
 
   const handleNewTransactions = useCallback(

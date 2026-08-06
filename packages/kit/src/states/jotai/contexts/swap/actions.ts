@@ -114,7 +114,6 @@ import {
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
   swapProDirectionAtom,
-  swapProErrorAlertAtom,
   swapProInputAmountAtom,
   swapProPositionsCacheAtom,
   swapProPositionsCurrentOwnerKeyAtom,
@@ -705,14 +704,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         if (!isSameToken) {
           // These atoms belong to the previous selected token. Clear them in
-          // the same state transition so its detail, websocket and warning
-          // cannot render under the next token while new data is loading.
+          // the same state transition so its detail, websocket and
+          // transaction price cannot render under the next token.
           set(swapProTokenMarketDetailInfoAtom(), undefined);
           set(swapProTokenMarketDetailPerpsInfoAtom(), undefined);
           set(swapProTokenDetailWebsocketAtom(), undefined);
           set(swapProTokenTransactionPriceAtom(), '');
           set(swapProTokenMarketDetailInfoLoadingAtom(), false);
-          set(swapProErrorAlertAtom(), undefined);
         }
         set(swapProSelectTokenAtom(), nextToken);
       };
