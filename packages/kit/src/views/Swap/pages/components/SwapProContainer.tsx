@@ -78,6 +78,7 @@ interface ISwapProContainerProps {
   marketPresetSettings?: IMarketPresetSettingsState;
   config: {
     isLoading: boolean;
+    isAccountContextReady: boolean;
     speedConfigReady: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
@@ -104,6 +105,7 @@ const SwapProContainer = ({
 }: ISwapProContainerProps) => {
   const {
     isLoading,
+    isAccountContextReady,
     speedConfigReady,
     speedConfig,
     balanceLoading,
@@ -361,8 +363,10 @@ const SwapProContainer = ({
         />
       ) : (
         <SwapProErrorAlert
-          title={swapProErrorAlert?.title}
-          message={swapProErrorAlert?.message}
+          title={isAccountContextReady ? swapProErrorAlert?.title : undefined}
+          message={
+            isAccountContextReady ? swapProErrorAlert?.message : undefined
+          }
         />
       )}
       <SwapProTabListContainer
