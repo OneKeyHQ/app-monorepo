@@ -3835,11 +3835,13 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
+    vendor,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    vendor?: EHardwareVendor;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -3857,16 +3859,17 @@ class ServiceHardware extends ServiceBase {
 
     // A transport connect ID is already a precise device key. Do not let stale
     // device info or legacy feature projections veto a valid USB/BLE ID match.
-    let device = await localDb.getDeviceByQuery({ connectId });
+    let device = await localDb.getDeviceByQuery({ connectId, vendor });
     if (!device && featuresDeviceId) {
       device = await localDb.getDeviceByQuery({
         featuresDeviceId,
+        vendor,
       });
     }
     // Features are not an identity source for DeviceState-backed devices. This
     // final fallback only supports legacy records that have not connected yet.
     if (!device && features) {
-      device = await localDb.getDeviceByQuery({ features });
+      device = await localDb.getDeviceByQuery({ features, vendor });
     }
     const persistedDesktopBleConnectId =
       getPersistedDesktopBleConnectId(device);

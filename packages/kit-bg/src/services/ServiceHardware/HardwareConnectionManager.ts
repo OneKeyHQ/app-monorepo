@@ -435,7 +435,12 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) => args[0].hardwareCallContext || 'default',
+      normalizer: (args) =>
+        JSON.stringify([
+          args[0].hardwareCallContext || 'default',
+          args[0].connectProtocol || '',
+          args[0].connectId?.startsWith('MI') ? 'mini' : 'other',
+        ]),
     },
   );
 

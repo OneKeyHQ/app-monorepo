@@ -3455,6 +3455,7 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
             hardwareCallContext,
+            vendor: dbDevice.vendor,
           });
       } catch (error) {
         // If getCompatibleConnectId fails, use the original connectId
@@ -3596,6 +3597,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
+        vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
 
@@ -3779,6 +3781,7 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
+            vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
 
