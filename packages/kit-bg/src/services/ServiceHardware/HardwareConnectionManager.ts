@@ -139,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -156,20 +156,13 @@ export class HardwareConnectionManager {
           dev.serialNumber.trim().length > 0;
         return isOneKey && hasSerialNumber;
       });
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return onekeyDevices.length > 0;
-      }
-      return onekeyDevices.some(
-        (device) =>
-          device.serialNumber?.trim().toLowerCase() === normalizedConnectId,
-      );
+      return onekeyDevices.length > 0;
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -187,15 +180,7 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return devices.length > 0;
-      }
-      return devices.some(
-        (device) =>
-          typeof device?.path === 'string' &&
-          device.path.trim().toLowerCase() === normalizedConnectId,
-      );
+      return devices.length > 0;
     } catch (_error) {
       return false;
     }
@@ -450,15 +435,7 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) =>
-        JSON.stringify([
-          args[0].hardwareCallContext || 'default',
-          // 同一个业务调用可能先用 USB serial 做选择，随后再用 BLE UUID
-          // 初始化 SDK。传输探测不能因为这两个“不同类型的 ID”而重新跑一遍，
-          // 否则 USB 列表瞬时变化时会在一次调用中发生 USB/BLE 路由漂移。
-          Boolean(args[0].connectId?.startsWith('MI')),
-          args[0].connectProtocol || '',
-        ]),
+      normalizer: (args) => args[0].hardwareCallContext || 'default',
     },
   );
 
