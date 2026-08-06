@@ -186,6 +186,14 @@ type IProtocolAwareCoreApi = CoreApi & {
   ) => void;
 };
 
+type IGetSDKInstanceOptions = {
+  connectId: string | undefined;
+  connectProtocol?: HardwareConnectProtocol;
+  forceProtocolDetection?: boolean;
+  hardwareCallContext?: EHardwareCallContext;
+  hardwareTransportType?: EHardwareTransportType;
+};
+
 function isHardwareConnectProtocol(
   protocol: unknown,
 ): protocol is HardwareConnectProtocol {
@@ -369,6 +377,8 @@ class ServiceHardware extends ServiceBase {
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
 
   private activeHardwareTransportType: EHardwareTransportType | undefined;
+
+  private sdkInstanceMutex = new Semaphore(1);
 
   private bindDeviceProtocolToSDK({
     connectId,
@@ -789,13 +799,15 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance(options: {
-    connectId: string | undefined;
-    connectProtocol?: HardwareConnectProtocol;
-    forceProtocolDetection?: boolean;
-    hardwareCallContext?: EHardwareCallContext;
-    hardwareTransportType?: EHardwareTransportType;
-  }) {
+  async getSDKInstance(options: IGetSDKInstanceOptions) {
+    return this.sdkInstanceMutex.runExclusive(() =>
+      this.getSDKInstanceWithLifecycleLock(options),
+    );
+  }
+
+  private async getSDKInstanceWithLifecycleLock(
+    options: IGetSDKInstanceOptions,
+  ) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
@@ -839,13 +851,23 @@ class ServiceHardware extends ServiceBase {
 
     const currentTransportType =
       await this.connectionManager.getCurrentTransportType();
+    const { forceTransportType } = await hardwareForceTransportAtom.get();
+    const normalizedForceTransportType = forceTransportType
+      ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
+          transportType: forceTransportType,
+          connectProtocol: resolvedConnectProtocol,
+        })
+      : undefined;
     let hardwareTransportType =
-      options.hardwareTransportType ?? currentTransportType;
+      normalizedForceTransportType ??
+      options.hardwareTransportType ??
+      currentTransportType;
     let shouldSwitch = false;
 
     // Desktop Auto switch transport type
     if (
       platformEnv.isSupportDesktopBle &&
+      normalizedForceTransportType === undefined &&
       options.hardwareTransportType === undefined
     ) {
       // Check if we should switch transport type based on optimal connection strategy
@@ -1514,9 +1536,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async resetHardwareSDK() {
-    this.resetHardwareUiEventQueue();
-    this.registeredEvents = false;
-    await resetHardwareSDKInstance();
+    await this.sdkInstanceMutex.runExclusive(async () => {
+      this.resetHardwareUiEventQueue();
+      this.registeredEvents = false;
+      await resetHardwareSDKInstance();
+      this.activeHardwareSDKInstance = undefined;
+      this.activeHardwareTransportType = undefined;
+    });
   }
 
   @backgroundMethod()
@@ -3626,16 +3652,10 @@ class ServiceHardware extends ServiceBase {
         transportType,
       );
 
-      // Reset event registration flag to allow re-registration
-      this.resetHardwareUiEventQueue();
-      this.registeredEvents = false;
-
-      // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
-      await resetHardwareSDKInstance();
-
-      // 4. Get new SDK instance with new transport type
+      // Recreate the SDK under the lifecycle lock when the transport changes.
       const newInstance = await this.getSDKInstance({
         connectId: undefined,
+        hardwareTransportType: transportType,
       });
 
       console.log(

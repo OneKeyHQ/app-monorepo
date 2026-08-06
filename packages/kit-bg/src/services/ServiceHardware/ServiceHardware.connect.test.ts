@@ -12,6 +12,7 @@ import {
 
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
@@ -120,6 +121,9 @@ const mockedLocalDb = jest.mocked(localDb);
 const mockedAppStatus = jest.mocked(simpleDb.appStatus);
 const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
 const mockedCheckBLEState = jest.mocked(checkBLEState);
+const mockedHardwareForceTransportAtomGet = jest.mocked(
+  hardwareForceTransportAtom.get,
+);
 let appStatusData: ISimpleDBAppStatus;
 
 function buildDevice({
@@ -170,6 +174,9 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     });
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
+    mockedHardwareForceTransportAtomGet.mockResolvedValue({
+      forceTransportType: undefined,
+    });
   });
 
   it('升级时仅迁移历史 OneKey 硬件设备的连接协议', async () => {
@@ -760,6 +767,153 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
 
     expect(checkBridgeStatus).not.toHaveBeenCalled();
     expect(switchTransport).not.toHaveBeenCalled();
+  });
+
+  it('串行执行不同 transport 的 SDK 生命周期切换', async () => {
+    let resolveFirstInstance: ((value: object) => void) | undefined;
+    const firstInstancePromise = new Promise<object>((resolve) => {
+      resolveFirstInstance = resolve;
+    });
+    const firstInstance = { name: 'webusb-sdk' };
+    const secondInstance = { name: 'desktop-ble-sdk' };
+    const getHardwareSDKInstance = jest.mocked(
+      hardwareInstance.getHardwareSDKInstance,
+    );
+    getHardwareSDKInstance
+      .mockReturnValueOnce(firstInstancePromise as never)
+      .mockResolvedValueOnce(secondInstance as never);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.registerSdkEvents = jest.fn();
+    jest
+      .spyOn(service.connectionManager, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(service.connectionManager, 'setCurrentTransportType')
+      .mockResolvedValue(undefined);
+
+    const firstCall = service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    });
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+    const secondCall = service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+
+    expect(getHardwareSDKInstance).toHaveBeenCalledTimes(1);
+    expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    resolveFirstInstance?.(firstInstance);
+    await expect(firstCall).resolves.toBe(firstInstance);
+    await expect(secondCall).resolves.toBe(secondInstance);
+
+    expect(getHardwareSDKInstance).toHaveBeenCalledTimes(2);
+    expect(hardwareInstance.resetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+  });
+
+  it('手动 reset 等待正在初始化的 SDK 生命周期完成', async () => {
+    let resolveInstance: ((value: object) => void) | undefined;
+    const instancePromise = new Promise<object>((resolve) => {
+      resolveInstance = resolve;
+    });
+    const sdkInstance = { name: 'initializing-sdk' };
+    jest
+      .mocked(hardwareInstance.getHardwareSDKInstance)
+      .mockReturnValueOnce(instancePromise as never);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.registerSdkEvents = jest.fn();
+    jest
+      .spyOn(service.connectionManager, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(service.connectionManager, 'setCurrentTransportType')
+      .mockResolvedValue(undefined);
+
+    const initialization = service.getSDKInstance({
+      connectId: undefined,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    });
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+    const reset = service.resetHardwareSDK();
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+
+    expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    resolveInstance?.(sdkInstance);
+    await expect(initialization).resolves.toBe(sdkInstance);
+    await expect(reset).resolves.toBeUndefined();
+
+    expect(hardwareInstance.resetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+  });
+
+  it('显式 transport 不会绕过固件流程的 force transport 锁', async () => {
+    mockedHardwareForceTransportAtomGet.mockResolvedValue({
+      forceTransportType: EHardwareTransportType.WEBUSB,
+    });
+    const sdkInstance = { name: 'forced-webusb-sdk' };
+    jest
+      .mocked(hardwareInstance.getHardwareSDKInstance)
+      .mockResolvedValue(sdkInstance as never);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.registerSdkEvents = jest.fn();
+    jest
+      .spyOn(service.connectionManager, 'getCurrentTransportType')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    const setCurrentTransportType = jest
+      .spyOn(service.connectionManager, 'setCurrentTransportType')
+      .mockResolvedValue(undefined);
+    const internals = service as unknown as {
+      activeHardwareTransportType: EHardwareTransportType;
+    };
+    internals.activeHardwareTransportType = EHardwareTransportType.WEBUSB;
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      }),
+    ).resolves.toBe(sdkInstance);
+
+    expect(hardwareInstance.getHardwareSDKInstance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(setCurrentTransportType).toHaveBeenCalledWith(
+      EHardwareTransportType.WEBUSB,
+    );
+    expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {
