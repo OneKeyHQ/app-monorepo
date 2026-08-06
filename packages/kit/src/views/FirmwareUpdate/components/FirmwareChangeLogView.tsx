@@ -11,7 +11,6 @@ import type {
 import {
   Accordion,
   Alert,
-  Dialog,
   Icon,
   SizableText,
   Stack,
@@ -371,24 +370,6 @@ export function FirmwareChangeLogView({
   const { showCheckList } = useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
-    const isUSBDeviceAvailable =
-      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
-    if (!isUSBDeviceAvailable) {
-      Dialog.show({
-        icon: 'TypeCoutline',
-        title: intl.formatMessage({
-          id: ETranslations.upgrade_use_usb,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.upgrade_recommend_usb,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_got_it,
-        }),
-        showCancelButton: false,
-      });
-      return;
-    }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
@@ -407,7 +388,7 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+  }, [result, showCheckList, onConfirmClick, setStepInfo]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 

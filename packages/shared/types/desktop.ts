@@ -20,6 +20,7 @@ export type IDesktopEventUnSubscribe = () => void;
 // Type for the legacy desktopApi exposed via contextBridge in preload.ts
 export type INobleBleApi = {
   enumerate: () => Promise<{ id: string; name: string }[]>;
+  stopScan: () => Promise<void>;
   getDevice: (uuid: string) => Promise<{ id: string; name: string } | null>;
   connect: (uuid: string) => Promise<void>;
   disconnect: (uuid: string) => Promise<void>;

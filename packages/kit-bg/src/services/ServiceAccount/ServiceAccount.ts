@@ -3479,9 +3479,6 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: dbDevice.deviceId,
             features: dbDevice.featuresInfo,
             hardwareCallContext,
-            // We hold the record here, so pass its vendor: lets the resolver find
-            // a third-party device and pick its transport-correct connectId
-            // (Trezor BLE session -> bleConnectId instead of the deviceId).
             vendor: dbDevice.vendor,
           });
       } catch (error) {
@@ -3624,9 +3621,6 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.serviceHardware.getCompatibleConnectId({
         connectId,
         featuresDeviceId: dbDevice.deviceId,
-        // Without the vendor the lookup defaults to OneKey and misses a
-        // third-party device row, so a Trezor main connectId (deviceId) leaks
-        // raw into the BLE session and hangs on the noble connect timeout.
         vendor: dbDevice.vendor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
@@ -3734,14 +3728,14 @@ class ServiceAccount extends ServiceBase {
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
-    // Don't trust the global transport flag alone — use the picked device's
-    // actual connectionType (carried on `device.raw` for third-party devices;
-    // absent for OneKey HD, so they're unaffected).
+    // 全局 transport 只是默认值；创建时以用户实际选中的设备通道为准。
+    // OneKey 使用 commType，第三方设备使用 raw.connectionType。
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
+      deviceCommType: params.device.commType,
       isNative: !!platformEnv.isNative,
     });
 
@@ -3811,9 +3805,6 @@ class ServiceAccount extends ServiceBase {
         : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
             connectId: params.device.connectId ?? '',
             featuresDeviceId: params.device.deviceId ?? '',
-            // Third-party rows are invisible to the default (OneKey) lookup;
-            // without this a Trezor arriving with its main connectId (e.g. the
-            // hidden-wallet path passes the DB record) keeps the raw deviceId.
             vendor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
@@ -5267,10 +5258,15 @@ class ServiceAccount extends ServiceBase {
     let wallet = await this.getWalletSafe({ walletId });
     assertWalletCanUseGenericRemoval(wallet);
 
-    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-      walletId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-    });
+    const shouldSkipUnavailableHardwareCheck =
+      accountUtils.isHwWallet({ walletId }) &&
+      accountUtils.isWalletDeprecatedOrMocked(wallet);
+    if (!shouldSkipUnavailableHardwareCheck) {
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      });
+    }
 
     wallet = await this.getWalletSafe({ walletId });
     assertWalletCanUseGenericRemoval(wallet);

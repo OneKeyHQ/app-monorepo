@@ -22,6 +22,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { isBluetoothFirmwareUpdateTransport } from '../firmwareUpdateTransportUtils';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
@@ -35,6 +36,10 @@ export function FirmwareUpdateCheckList({
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const isMountedRef = useRef(true);
+  const isBluetoothTransport = isBluetoothFirmwareUpdateTransport({
+    isNative: platformEnv.isNative,
+    hardwareTransportType,
+  });
 
   useEffect(
     () => () => {
@@ -55,13 +60,13 @@ export function FirmwareUpdateCheckList({
       {
         id: 'connection',
         label: intl.formatMessage({
-          id: platformEnv.isNative
+          id: isBluetoothTransport
             ? ETranslations.update_device_connected_via_bluetooth
             : ETranslations.update_device_connected_via_usb,
         }),
-        emoji: platformEnv.isNative ? '📲' : '🔌',
+        emoji: isBluetoothTransport ? '📲' : '🔌',
       },
-      ...(platformEnv.isNative
+      ...(isBluetoothTransport
         ? []
         : [
             {
@@ -80,7 +85,7 @@ export function FirmwareUpdateCheckList({
             },
           ]),
     ],
-    [intl],
+    [intl, isBluetoothTransport],
   );
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const onCheckChanged = useCallback((id: string) => {

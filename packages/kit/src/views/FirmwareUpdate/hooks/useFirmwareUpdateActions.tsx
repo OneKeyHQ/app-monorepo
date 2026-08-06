@@ -100,11 +100,13 @@ export function useFirmwareUpdateActions() {
         return;
       }
 
-      if (connectId) {
+      let resolvedConnectId = connectId;
+      if (resolvedConnectId) {
         try {
-          await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
-            { connectId },
-          );
+          resolvedConnectId =
+            await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: resolvedConnectId },
+            );
         } catch {
           return;
         }
@@ -117,7 +119,7 @@ export function useFirmwareUpdateActions() {
             params: {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
               params: {
-                connectId,
+                connectId: resolvedConnectId,
                 firmwareType,
                 baseReleaseInfo,
               },
@@ -129,7 +131,7 @@ export function useFirmwareUpdateActions() {
         navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
           screen: EModalFirmwareUpdateRoutes.ChangeLog,
           params: {
-            connectId,
+            connectId: resolvedConnectId,
             firmwareType,
             baseReleaseInfo,
           },

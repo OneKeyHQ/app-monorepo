@@ -20,6 +20,10 @@ import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+} from './hardwareDeviceTypes';
 
 import type {
   IAllDeviceVerifyVersions,
@@ -53,6 +57,9 @@ type IGetDeviceVersionParams = {
 };
 
 function getDefaultDeviceLabel(deviceType: IDeviceType): string {
+  if (deviceType === NEO_DEVICE_TYPE) {
+    return 'OneKey Neo';
+  }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     [EDeviceType.Classic]: 'OneKey Classic',
     [EDeviceType.Classic1s]: 'OneKey Classic 1S',
@@ -61,6 +68,7 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
     [EDeviceType.Pro2]: 'OneKey Pro 2',
+    [EDeviceType.Neo]: 'OneKey Neo',
     [EDeviceType.Unknown]: '',
   };
   return defaultLabelsByDeviceType[deviceType] || '';
@@ -206,15 +214,16 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
 }
 
 function isTouchDevice(deviceType: IDeviceType) {
-  return [EDeviceType.Touch, EDeviceType.Pro, EDeviceType.Pro2].includes(
-    deviceType,
+  return (
+    [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType) ||
+    isProtocolV2ProductType(deviceType)
   );
 }
 
 // Pro2 server-side firmware verification is not ready yet.
 // Keep all firmware verification capability checks centralized here.
 function isFirmwareVerifySupported(deviceType?: IDeviceType) {
-  return deviceType !== EDeviceType.Pro2;
+  return !isProtocolV2ProductType(deviceType);
 }
 
 async function getDeviceTypeFromFeatures({
@@ -342,37 +351,6 @@ function getUpdatingConnectId({
     return undefined;
   }
   return platformEnv.isNative ? connectId : undefined;
-}
-
-/**
- * Fix the updatingConnectId based on current transport type.
- * Used for scenarios where fallback to BLE is needed when USB is not available.
- *
- * NOTE: This function is NOT used in firmware update flow, because firmware
- * updates on desktop should always use USB for stability.
- *
- * @param updatingConnectId - The connectId from getUpdatingConnectId
- * @param currentTransportType - Current active transport type
- * @param device - Device info from database
- * @returns Fixed connectId based on current transport
- */
-function getFixedUpdatingConnectId({
-  updatingConnectId,
-  currentTransportType,
-  device,
-}: {
-  updatingConnectId: string | undefined;
-  currentTransportType: EHardwareTransportType;
-  device: IDBDevice | undefined;
-}) {
-  if (
-    platformEnv.isSupportDesktopBle &&
-    currentTransportType === EHardwareTransportType.DesktopWebBle &&
-    device?.connectId
-  ) {
-    return device?.connectId || updatingConnectId;
-  }
-  return updatingConnectId;
 }
 
 function checkInputPinOnSoftwareSupport(deviceType: IDeviceType) {
@@ -670,7 +648,7 @@ async function shouldUseV2FirmwareUpdateFlow({
 
   const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
-  if (deviceType === EDeviceType.Pro2) {
+  if (isProtocolV2ProductType(deviceType)) {
     return true;
   }
   if (deviceType !== EDeviceType.Pro) {
@@ -700,9 +678,9 @@ function getRawDeviceId({
     : device.deviceId || usedFeatures?.deviceId || '';
 }
 
-function isBluetoothSearchDevice(
-  device: Pick<SearchDevice, 'commType'>,
-): boolean {
+function isBluetoothSearchDevice(device: {
+  commType?: SearchDevice['commType'] | null;
+}): boolean {
   return (
     device.commType === 'ble' ||
     device.commType === 'webble' ||
@@ -992,7 +970,7 @@ function supportSettings({
   firmwareVersion: string;
   setting: ESupportSettings;
 }) {
-  if (deviceType === EDeviceType.Pro2) {
+  if (isProtocolV2ProductType(deviceType)) {
     return true;
   }
 
@@ -1026,7 +1004,6 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
-  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   getDeviceModelNameByType,
   buildDeviceLabel,

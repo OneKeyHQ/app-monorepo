@@ -91,10 +91,26 @@ export const getDeviceLabel = (
   separator = '/',
 ) => {
   return deviceTypeItems
-    .map(
-      (deviceType) =>
-        deviceUtils.getDeviceModelNameByType(deviceType) || deviceType,
-    )
+    .map((deviceType) => {
+      switch (deviceType) {
+        case EDeviceType.Pro:
+          return 'OneKey Pro';
+        case EDeviceType.Pro2:
+          return 'OneKey Pro2';
+        case EDeviceType.Classic:
+          return 'OneKey Classic';
+        case EDeviceType.Classic1s:
+          return 'OneKey Classic 1S';
+        case EDeviceType.ClassicPure:
+          return '1S Pure';
+        case EDeviceType.Mini:
+          return 'OneKey Mini';
+        case EDeviceType.Touch:
+          return 'OneKey Touch';
+        default:
+          return deviceType;
+      }
+    })
     .join(separator);
 };
 

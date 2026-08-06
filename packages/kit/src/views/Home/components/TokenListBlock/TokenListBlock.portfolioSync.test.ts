@@ -2,10 +2,10 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 describe('TokenListBlock portfolio sync producer', () => {
-  it('checks the Pro2 device type before building the cross-runtime payload', () => {
+  it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
     const gateIndex = source.indexOf(
-      'device?.deviceType === EDeviceType.Pro2 &&',
+      'isProtocolV2ProductType(device?.deviceType) &&',
     );
     const buildIndex = source.indexOf(
       'const flattenedAggregateTokenMap = flattenAggregateTokensMap',

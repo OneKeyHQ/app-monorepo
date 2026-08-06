@@ -856,7 +856,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableDesktopBluetooth() {
     const { enableDesktopBluetooth } = await settingsPersistAtom.get();
-    return enableDesktopBluetooth ?? false;
+    return enableDesktopBluetooth ?? true;
   }
 
   @backgroundMethod()

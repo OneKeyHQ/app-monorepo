@@ -31,6 +31,7 @@ type IDeviceScannerBackgroundApi = {
       transportType?: 'usb' | 'ble';
       connectProtocol?: HardwareConnectProtocol;
     }) => Promise<ISearchResponse>;
+    stopDeviceScan?: () => Promise<void>;
   };
 };
 
@@ -183,9 +184,10 @@ export class DeviceScannerUtils {
   }
 
   async stopScanAndWait() {
-    // Stop scanning first
+    // 先停止轮询并等待当前枚举任务收尾，再等待 Electron Noble 确认
+    // stopScanning 完成，避免紧随其后的 connect 与旧扫描互相干扰。
     this.stopScan();
-    // Wait for any ongoing search to complete
     await this.waitForCurrentSearchToComplete();
+    await this.backgroundApi.serviceHardware.stopDeviceScan?.();
   }
 }

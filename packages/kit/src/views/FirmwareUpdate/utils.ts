@@ -1,6 +1,7 @@
-import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import type { IntlShape } from 'react-intl';
@@ -8,12 +9,14 @@ import type { IntlShape } from 'react-intl';
 export function isPro2SafeOSFirmwareUpdate(
   result: ICheckAllFirmwareReleaseResult | undefined,
 ) {
+  if (!result || !isProtocolV2ProductType(result.deviceType)) {
+    return false;
+  }
   return (
-    result?.deviceType === EDeviceType.Pro2 &&
-    (result.updateInfos?.firmware?.hasUpgrade === true ||
-      result.pro2TargetsToUpdate?.some(
-        (target) => target === 'app_v1' || target === 'app_v2',
-      ) === true)
+    result.updateInfos?.firmware?.hasUpgrade === true ||
+    result.pro2TargetsToUpdate?.some(
+      (target) => target === 'app_v1' || target === 'app_v2',
+    ) === true
   );
 }
 

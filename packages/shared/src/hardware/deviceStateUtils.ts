@@ -55,17 +55,26 @@ export function mergeDeviceStateEvent({
   currentState,
   incomingState,
   changedKeys,
+  source,
 }: {
   currentState?: IOneKeyDeviceState;
   incomingState: IOneKeyDeviceState;
   changedKeys: string[];
+  source?: string;
 }): IOneKeyDeviceState {
   if (!currentState) {
     return sanitizeState(incomingState);
   }
 
   let mergedState = sanitizeState(currentState);
-  for (const changedKey of changedKeys) {
+  // settings-read 是 SDK 从硬件读取到的权威设置快照。changedKeys 只表示
+  // 相对 SDK 内存缓存发生变化的字段，不能用它判断数据库需要同步哪些字段；
+  // 否则 SDK 缓存已更新、数据库仍旧时，会漏掉硬件侧手动修改的设置。
+  const mergeKeys =
+    source === 'settings-read'
+      ? Array.from(new Set([...changedKeys, 'settings']))
+      : changedKeys;
+  for (const changedKey of mergeKeys) {
     const isNonPersistedKey =
       changedKey === 'identity.displayName' ||
       changedKey === 'raw' ||

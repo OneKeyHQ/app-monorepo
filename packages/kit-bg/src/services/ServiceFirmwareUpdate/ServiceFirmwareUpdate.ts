@@ -32,12 +32,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -84,7 +86,6 @@ import {
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
-import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IPromiseContainerCallbackCreate,
   IPromiseContainerReject,
@@ -163,15 +164,26 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async getSDKInstance({
     connectId,
+    hardwareTransportType,
   }: {
     connectId: string | undefined;
+    hardwareTransportType?: EHardwareTransportType;
   }): Promise<CoreApi> {
     const hardwareSDK = await this.backgroundApi.serviceHardware.getSDKInstance(
       {
         connectId,
+        hardwareTransportType,
       },
     );
     return hardwareSDK;
+  }
+
+  private async getActiveTransportType(): Promise<EHardwareTransportType> {
+    const serviceHardware = this.backgroundApi.serviceHardware;
+    if (typeof serviceHardware?.getCurrentTransportType === 'function') {
+      return serviceHardware.getCurrentTransportType();
+    }
+    return this.backgroundApi.serviceSetting.getHardwareTransportType();
   }
 
   async clearOnceUpdateDevSettings() {
@@ -208,10 +220,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId,
     allowEmptyConnectId,
     featuresCache,
+    forceProtocolDetection,
+    hardwareTransportType,
   }: {
     connectId: string | undefined;
     allowEmptyConnectId?: boolean | undefined;
     featuresCache?: IOneKeyDeviceFeatures;
+    forceProtocolDetection?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
   }) {
     let features: IOneKeyDeviceFeatures | undefined;
     let error: IOneKeyError | undefined;
@@ -231,8 +247,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
               // do not prompt web device permission
               skipWebDevicePrompt: true,
               allowEmptyConnectId,
+              forceProtocolDetection,
+              ...(forceProtocolDetection
+                ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+                : {}),
             },
             silentMode: true,
+            hardwareTransportType,
           });
       }
       isBootloaderMode = await deviceUtils.isBootloaderModeByFeatures({
@@ -412,12 +433,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     skipCancel,
     baseReleaseInfoCache,
     checkFirmwareHash,
+    resolvedTransportType,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     skipCancel?: boolean;
     baseReleaseInfoCache?: AllFirmwareRelease;
     checkFirmwareHash?: boolean;
+    resolvedTransportType?: EHardwareTransportType;
   }): Promise<ICheckAllFirmwareReleaseResult> {
     const hardwareSdk = await CoreSDKLoader();
     const getDeviceSerialNo =
@@ -433,7 +456,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
           baseReleaseInfo: baseReleaseInfoCache,
         });
 
-    const originalConnectId = connectId;
+    let resolvedTransport:
+      | {
+          connectId: string;
+          transportType: EHardwareTransportType;
+        }
+      | undefined;
+    if (connectId) {
+      resolvedTransport = resolvedTransportType
+        ? { connectId, transportType: resolvedTransportType }
+        : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
+            connectId,
+            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+          });
+    }
+    const originalConnectId = resolvedTransport?.connectId ?? connectId;
     // Skip cancel when using cached data since device state was already verified
     const needSkipCancel = skipCancel || !!releaseInfoCache;
 
@@ -450,8 +487,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateRetryAtom.set(undefined);
     serviceHardwareUtils.hardwareLog('checkAllFirmwareRelease');
 
+    // transport 与 connectId 已在上方成对解析；这里不能再从持久化设置推导，
+    // 因为持久化值可能仍描述上一轮操作，而本轮已经选择了 BLE。
+    const currentTransportType =
+      resolvedTransport?.transportType ?? (await this.getActiveTransportType());
     const sdk = await this.getSDKInstance({
       connectId: originalConnectId,
+      hardwareTransportType: currentTransportType,
     });
     try {
       if (!needSkipCancel) {
@@ -465,8 +507,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await timerUtils.wait(1000);
     }
 
-    const currentTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const updatingConnectId = deviceUtils.getUpdatingConnectId({
       connectId: originalConnectId,
       currentTransportType,
@@ -484,6 +524,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
+        forceProtocolDetection:
+          currentTransportType === EHardwareTransportType.DesktopWebBle,
+        hardwareTransportType: currentTransportType,
         featuresCache: releaseInfoCache?.features as unknown as
           | IOneKeyDeviceFeatures
           | undefined,
@@ -498,7 +541,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
+            forceProtocolDetection:
+              currentTransportType === EHardwareTransportType.DesktopWebBle,
+            ...(currentTransportType === EHardwareTransportType.DesktopWebBle
+              ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+              : {}),
           },
+          hardwareTransportType: currentTransportType,
         });
     }
 
@@ -513,6 +562,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         firmwareType,
         skipChangeTransportType: true,
         checkFirmwareHash,
+        resolvedTransportType: currentTransportType,
       }));
 
     const currentFirmwareType = await deviceUtils.getFirmwareType({
@@ -648,44 +698,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    let device: IDBDevice | undefined;
-    let fixedUpdatingConnectId = updatingConnectId;
-    try {
-      if (platformEnv.isSupportDesktopBle) {
-        device = await localDb.getDeviceByQuery({
-          connectId: originalConnectId,
-        });
-        fixedUpdatingConnectId = deviceUtils.getFixedUpdatingConnectId({
-          updatingConnectId,
-          currentTransportType,
-          device,
-        });
-      }
-    } catch (_error) {
-      // ignore
-    }
-
-    const pro2ForceTargets =
-      deviceType === EDeviceType.Pro2
-        ? [
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateTargets',
-            )) ?? []),
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateOnceTargets',
-            )) ?? []),
-          ]
-        : undefined;
-    const pro2TargetsToUpdate =
-      deviceType === EDeviceType.Pro2
-        ? buildPro2TargetsToUpdate({
-            sdkTargets: releaseInfo.targetsToUpdate,
-            forceTargets: pro2ForceTargets,
-          })
-        : undefined;
+    const pro2ForceTargets = isProtocolV2ProductType(deviceType)
+      ? [
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateTargets',
+          )) ?? []),
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateOnceTargets',
+          )) ?? []),
+        ]
+      : undefined;
+    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
+      ? buildPro2TargetsToUpdate({
+          sdkTargets: releaseInfo.targetsToUpdate,
+          forceTargets: pro2ForceTargets,
+        })
+      : undefined;
 
     const result = {
-      updatingConnectId: fixedUpdatingConnectId,
+      updatingConnectId,
       originalConnectId,
       features,
       deviceType,
@@ -754,6 +785,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     retryCount,
     silentMode,
     checkFirmwareHash,
+    resolvedTransportType,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
@@ -761,15 +793,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
     retryCount?: number;
     silentMode?: boolean;
     checkFirmwareHash?: boolean;
+    resolvedTransportType?: EHardwareTransportType;
   }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      hardwareTransportType: resolvedTransportType,
     });
     const checkBridgeRelease = await this._hasUseBridge();
     let currentConnectId = connectId;
     if (!skipChangeTransportType) {
       const currentTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        resolvedTransportType ?? (await this.getActiveTransportType());
       currentConnectId = deviceUtils.getUpdatingConnectId({
         connectId,
         currentTransportType,
@@ -999,11 +1033,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     const releaseFeatures =
       'features' in releasePayload ? releasePayload.features : undefined;
+    const protocolV2DeviceType = releaseFeatures
+      ? await deviceUtils.getDeviceTypeFromFeatures({
+          features: releaseFeatures,
+        })
+      : undefined;
     const isPro2Device =
-      releaseFeatures &&
-      (await deviceUtils.getDeviceTypeFromFeatures({
-        features: releaseFeatures,
-      })) === EDeviceType.Pro2;
+      protocolV2DeviceType === EDeviceType.Pro2 ||
+      protocolV2DeviceType === EDeviceType.Neo;
     if (
       firmwareType === 'firmware' &&
       !isPro2Device &&
@@ -1385,8 +1422,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
       });
 
-      const currentTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const currentTransportType = await this.getActiveTransportType();
 
       const result = await convertDeviceResponse(async () =>
         hardwareSDK.firmwareUpdateV2(
@@ -1450,8 +1486,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async _hasUseBridge() {
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const hardwareTransportType = await this.getActiveTransportType();
     if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
       return false;
     }
@@ -1594,8 +1629,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const attempt = (tracking.attemptCount += 1);
       const err =
         error === undefined ? undefined : toPlainErrorObject(error as any);
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       defaultLogger.update.firmware.firmwareUpdateAttemptResult({
         deviceType: tracking.releaseResult.deviceType,
         transportType: hardwareTransportType,
@@ -1689,8 +1723,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     //     allowEmptyConnectId: true,
     //   },
     // );
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const hardwareTransportType = await this.getActiveTransportType();
     if (actionType === 'nextPhase') {
       const isWebUsb = hardwareTransportType === EHardwareTransportType.WEBUSB;
       await timerUtils.wait(isWebUsb ? 20 * 1000 : 15 * 1000);
@@ -1745,8 +1778,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         // Lock transport type during firmware update to prevent auto-switching
         // This prevents the system from switching to BLE when USB device is temporarily
         // unavailable during device reboot
-        const currentTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        const currentTransportType = await this.getActiveTransportType();
         await this.backgroundApi.serviceHardware.setForceTransportType({
           forceTransportType: currentTransportType,
         });
@@ -1922,8 +1954,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -1974,8 +2005,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     try {
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -2011,8 +2041,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await timerUtils.wait(3000);
 
             // Lock transport type during firmware update to prevent auto-switching
-            const currentTransportType =
-              await this.backgroundApi.serviceSetting.getHardwareTransportType();
+            const currentTransportType = await this.getActiveTransportType();
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
@@ -2040,7 +2069,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             const deviceType = params?.releaseResult?.deviceType;
             if (
               deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Pro2
+              !isProtocolV2ProductType(deviceType)
             ) {
               throw new OneKeyLocalError(
                 'Do not support update firmware for this device',
@@ -2396,7 +2425,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
-    const isPro2Device = releaseResult.deviceType === EDeviceType.Pro2;
+    // Keep the legacy field name while routing every Protocol V2 product through V4.
+    const isPro2Device =
+      releaseResult.deviceType === EDeviceType.Pro2 ||
+      releaseResult.deviceType === EDeviceType.Neo;
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2421,8 +2453,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async updatingFirmwareV3(
     params: IFirmwareUpdateV3VersionParams,
   ): Promise<DeviceSuccess> {
+    const currentTransportType = await this.getActiveTransportType();
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.connectId,
+      hardwareTransportType: currentTransportType,
     });
 
     return this.withFirmwareUpdateEvents(async () => {
@@ -2458,8 +2492,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         );
 
       try {
-        const currentTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
         const updatingConnectId = deviceUtils.getUpdatingConnectId({
           connectId,
           currentTransportType,

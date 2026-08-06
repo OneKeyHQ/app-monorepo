@@ -76,6 +76,25 @@ export class HardwareConnectionManager {
     }
   }
 
+  async getTransportTypeForChannel({
+    transportType,
+    connectProtocol,
+  }: {
+    transportType: 'usb' | 'ble';
+    connectProtocol?: HardwareConnectProtocol;
+  }): Promise<EHardwareTransportType> {
+    if (transportType === 'ble') {
+      return platformEnv.isSupportDesktopBle
+        ? EHardwareTransportType.DesktopWebBle
+        : EHardwareTransportType.BLE;
+    }
+
+    const mode = await this.getDesktopUsbSetting(connectProtocol);
+    return mode === 'bridge'
+      ? EHardwareTransportType.Bridge
+      : EHardwareTransportType.WEBUSB;
+  }
+
   private async requestBluetoothPermission(): Promise<boolean> {
     try {
       // use servicePromise to wait for user to grant permission
@@ -120,7 +139,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -130,22 +149,20 @@ export class HardwareConnectionManager {
         const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
           (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
         );
-        return isOneKey;
+        // The SDK uses serialNumber as the WebUSB device path. Authorized
+        // devices without one cannot be acquired by the transport.
+        const hasSerialNumber =
+          typeof dev?.serialNumber === 'string' &&
+          dev.serialNumber.trim().length > 0;
+        return isOneKey && hasSerialNumber;
       });
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return onekeyDevices.length > 0;
-      }
-      return onekeyDevices.some(
-        (device) =>
-          device.serialNumber?.trim().toLowerCase() === normalizedConnectId,
-      );
+      return onekeyDevices.length > 0;
     } catch {
       return false;
     }
   }
 
-  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -163,15 +180,7 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      const normalizedConnectId = connectId?.trim().toLowerCase();
-      if (!normalizedConnectId) {
-        return devices.length > 0;
-      }
-      return devices.some(
-        (device) =>
-          typeof device?.path === 'string' &&
-          device.path.trim().toLowerCase() === normalizedConnectId,
-      );
+      return devices.length > 0;
     } catch (_error) {
       return false;
     }
@@ -445,11 +454,24 @@ export class HardwareConnectionManager {
       normalizer: (args) =>
         JSON.stringify([
           args[0].hardwareCallContext || 'default',
-          args[0].connectId?.trim().toLowerCase() || '',
           args[0].connectProtocol || '',
+          args[0].connectId?.startsWith('MI') ? 'mini' : 'other',
         ]),
     },
   );
+
+  async resolveTransportType(params: {
+    connectId?: string;
+    connectProtocol?: HardwareConnectProtocol;
+    hardwareCallContext?: IHardwareCallContext;
+  }): Promise<{
+    shouldSwitch: boolean;
+    targetType: EHardwareTransportType;
+  }> {
+    const result = await this.shouldSwitchTransportType(params);
+    await this.setCurrentTransportType(result.targetType);
+    return result;
+  }
 
   async getCurrentTransportType(): Promise<EHardwareTransportType> {
     const currentTransportType =
@@ -457,18 +479,26 @@ export class HardwareConnectionManager {
     return this.actualTransportType || currentTransportType;
   }
 
-  setCurrentTransportType(transportType: EHardwareTransportType): void {
+  async setCurrentTransportType(
+    transportType: EHardwareTransportType,
+  ): Promise<void> {
     // Only clear cache when transport type actually changes
     if (this.actualTransportType !== transportType) {
-      void this.backgroundApi.serviceSetting.setHardwareTransportType(
-        transportType,
-      );
+      // 先更新运行时状态，避免持久化期间的并发调用继续使用旧传输。
       this.actualTransportType = transportType;
       // Clear cache when transport type changes to ensure fresh detection
       try {
         void this.shouldSwitchTransportType.clear();
       } catch {
         // Ignore cache clear errors
+      }
+      if (
+        typeof this.backgroundApi.serviceSetting?.setHardwareTransportType ===
+        'function'
+      ) {
+        await this.backgroundApi.serviceSetting.setHardwareTransportType(
+          transportType,
+        );
       }
     }
   }

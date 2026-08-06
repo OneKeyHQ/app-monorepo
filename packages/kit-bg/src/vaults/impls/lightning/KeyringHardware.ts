@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { sha256 } from '@noble/hashes/sha256';
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import stringify from 'fast-json-stable-stringify';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -27,6 +26,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEncodedTxLightning,
@@ -56,15 +56,16 @@ export class KeyringHardware extends KeyringHardwareBase {
   private assertPro2LightningSupported(
     deviceParams: IDeviceSharedCallParams | undefined,
   ) {
-    if (deviceParams?.dbDevice?.deviceType !== EDeviceType.Pro2) {
+    const dbDevice = deviceParams?.dbDevice;
+    if (!dbDevice || !isProtocolV2ProductType(dbDevice.deviceType)) {
       return;
     }
 
     throw new deviceErrors.UnknownMethod({
       payload: {
         error: 'Device not support this method',
-        connectId: deviceParams.dbDevice.connectId,
-        deviceId: deviceParams.dbDevice.deviceId,
+        connectId: dbDevice.connectId,
+        deviceId: dbDevice.deviceId,
       },
     });
   }

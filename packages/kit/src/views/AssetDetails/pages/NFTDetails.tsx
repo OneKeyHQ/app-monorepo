@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -32,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import {
   generatePro2NftMetadata,
@@ -116,7 +116,7 @@ export default function NFTDetails() {
       setIsCollecting(true);
       let uploadResParams: DeviceUploadResourceParams | undefined;
       let pro2UploadParams: IPro2NftUploadParams | undefined;
-      const isPro2 = device.deviceType === EDeviceType.Pro2;
+      const isProtocolV2Product = isProtocolV2ProductType(device.deviceType);
 
       let config: Awaited<
         ReturnType<typeof backgroundApiProxy.serviceHardware.getDeviceNftConfig>
@@ -211,7 +211,7 @@ export default function NFTDetails() {
           originH,
         });
 
-        if (isPro2) {
+        if (isProtocolV2Product) {
           if (!config.thumbnailSize) {
             throw new OneKeyAppError({
               message: 'Pro2 NFT thumbnail config is missing',

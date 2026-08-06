@@ -260,7 +260,7 @@ export type IDeviceHomeScreen = {
 
 export type IQrWalletDevice = {
   name: string; // device name like: 'OneKey Pro'
-  // TODO deviceType
+  deviceType?: IDeviceType;
   deviceId: string;
   version: string;
   xfp: string; // different in passphrase

@@ -1,6 +1,5 @@
 import { type ComponentProps, useMemo } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
@@ -15,6 +14,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -59,7 +59,7 @@ export function WalletRenameButton({
   );
 
   const labelAsciiAlphanumericWithSpacesOnly = useMemo(
-    () => wallet?.associatedDeviceInfo?.deviceType === EDeviceType.Pro2,
+    () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),
     [wallet?.associatedDeviceInfo?.deviceType],
   );
 

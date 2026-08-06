@@ -1,6 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -10,7 +9,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStatefulAction } from '@onekeyhq/kit/src/hooks/useStatefulAction';
 import {
-  canEditPro2DeviceWideSettings,
   resolveDeviceWithCurrentType,
   useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
@@ -20,7 +18,6 @@ import {
   useDeviceHapticFeedbackAtom,
   useDeviceLanguageAtom,
   useDeviceMetaStaticAtom,
-  useDeviceSettingsAccessibleAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +28,7 @@ import {
 import deviceUtils, {
   ESupportSettings,
 } from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -197,6 +195,7 @@ export function AutoLockListItem({
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
+  const [isOpen, setIsOpen] = useState(false);
 
   const [autoLockDelayMs] = useDeviceAutoLockDelayMsAtom();
   const stateful = useStatefulAction<number>({
@@ -225,31 +224,42 @@ export function AutoLockListItem({
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoLockOptions, intl]);
 
+  const isDisabled = disabled || stateful.loading;
+  const handleOpen = useCallback(() => {
+    if (!isDisabled) {
+      setIsOpen(true);
+    }
+  }, [isDisabled]);
+
   return (
-    <Select
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      items={autoLockOptions}
-      value={stateful.value}
-      onChange={stateful.onChange}
-      placement="bottom-end"
+    <ListItem
+      testID={DeviceManagementTestIDs.autoLockSelect}
+      mx="$0"
+      px="$5"
+      py="$3"
+      borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.global_auto_lock,
       })}
-      disabled={disabled || stateful.loading}
-      testID={DeviceManagementTestIDs.autoLockSelect}
-      renderTrigger={() => (
-        <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
-          title={intl.formatMessage({
-            id: ETranslations.global_auto_lock,
-          })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={disabled || stateful.loading}
-        >
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      disabled={isDisabled}
+      onPress={handleOpen}
+    >
+      <Select
+        testID={`${DeviceManagementTestIDs.autoLockSelect}-control`}
+        offset={{ mainAxis: -4, crossAxis: -10 }}
+        items={autoLockOptions}
+        value={stateful.value}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onChange={stateful.onChange}
+        placement="bottom-end"
+        title={intl.formatMessage({
+          id: ETranslations.global_auto_lock,
+        })}
+        disabled={isDisabled}
+        renderTrigger={() => (
           <XStack alignItems="center">
             <ListItem.Text
               primary={displayLabel}
@@ -261,9 +271,9 @@ export function AutoLockListItem({
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
-        </ListItem>
-      )}
-    />
+        )}
+      />
+    </ListItem>
   );
 }
 
@@ -280,6 +290,7 @@ export function AutoShutDownListItem({
 }) {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
+  const [isOpen, setIsOpen] = useState(false);
 
   const [autoShutDownDelayMs] = useDeviceAutoShutDownDelayMsAtom();
   const stateful = useStatefulAction<number>({
@@ -310,31 +321,42 @@ export function AutoShutDownListItem({
     return { displayLabel: label, isLocked: locked };
   }, [stateful.value, autoShutDownOptions, intl]);
 
+  const isDisabled = disabled || stateful.loading;
+  const handleOpen = useCallback(() => {
+    if (!isDisabled) {
+      setIsOpen(true);
+    }
+  }, [isDisabled]);
+
   return (
-    <Select
-      offset={{ mainAxis: -4, crossAxis: -10 }}
-      items={autoShutDownOptions}
-      value={stateful.value}
-      onChange={stateful.onChange}
-      placement="bottom-end"
+    <ListItem
+      testID={DeviceManagementTestIDs.autoShutDownSelect}
+      mx="$0"
+      px="$5"
+      py="$3"
+      borderRadius="$0"
+      $gtMd={{ py: '$0' }}
       title={intl.formatMessage({
         id: ETranslations.global_auto_shutdown,
       })}
-      disabled={disabled || stateful.loading}
-      testID={DeviceManagementTestIDs.autoShutDownSelect}
-      renderTrigger={() => (
-        <ListItem
-          mx="$0"
-          px="$5"
-          py="$3"
-          borderRadius="$0"
-          $gtMd={{ py: '$0' }}
-          title={intl.formatMessage({
-            id: ETranslations.global_auto_shutdown,
-          })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-          disabled={disabled || stateful.loading}
-        >
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      disabled={isDisabled}
+      onPress={handleOpen}
+    >
+      <Select
+        testID={`${DeviceManagementTestIDs.autoShutDownSelect}-control`}
+        offset={{ mainAxis: -4, crossAxis: -10 }}
+        items={autoShutDownOptions}
+        value={stateful.value}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onChange={stateful.onChange}
+        placement="bottom-end"
+        title={intl.formatMessage({
+          id: ETranslations.global_auto_shutdown,
+        })}
+        disabled={isDisabled}
+        renderTrigger={() => (
           <XStack alignItems="center">
             <ListItem.Text
               primary={displayLabel}
@@ -346,17 +368,13 @@ export function AutoShutDownListItem({
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
           </XStack>
-        </ListItem>
-      )}
-    />
+        )}
+      />
+    </ListItem>
   );
 }
 
-export function HapticFeedbackListItem({
-  disabled: settingsDisabled,
-}: {
-  disabled?: boolean;
-}) {
+export function HapticFeedbackListItem() {
   const intl = useIntl();
   const actions = useDeviceDetailsActions();
   const [hapticFeedback] = useDeviceHapticFeedbackAtom();
@@ -379,14 +397,12 @@ export function HapticFeedbackListItem({
       value={hapticFeedback ?? false}
       onAction={onUpdateHapticFeedback}
     >
-      {({ value, disabled: actionDisabled, onChange }) => (
+      {({ value, disabled, onChange }) => (
         <Switch
           size="small"
           value={value}
           onChange={onChange}
-          disabled={
-            settingsDisabled || hapticFeedback === undefined || actionDisabled
-          }
+          disabled={disabled}
           testID={DeviceManagementTestIDs.hapticFeedbackSwitch}
         />
       )}
@@ -394,14 +410,13 @@ export function HapticFeedbackListItem({
   );
 }
 
-function Pro2BrightnessListItem({ disabled }: { disabled?: boolean }) {
+function Pro2BrightnessListItem() {
   const actions = useDeviceDetailsActions();
   const [brightness] = useDeviceBrightnessAtom();
 
   return (
     <DeviceBrightnessSlider
       value={brightness ?? 50}
-      disabled={disabled || brightness === undefined}
       onCommit={actions.updateBrightness}
     />
   );
@@ -414,7 +429,6 @@ function DeviceSectionGeneral() {
 
   const [deviceMeta] = useDeviceMetaStaticAtom();
   const [deviceType] = useDeviceTypeAtom();
-  const [deviceSettingsAccessible] = useDeviceSettingsAccessibleAtom();
   const [device] = useDeviceAtom();
   const isTrezor = device?.vendor === EHardwareVendor.trezor;
   const settingsProtocol = useMemo(() => {
@@ -428,12 +442,6 @@ function DeviceSectionGeneral() {
     }
     return undefined;
   }, [device?.connectProtocol, device?.deviceStateInfo?.protocol]);
-  const generalSettingsDisabled =
-    deviceType === EDeviceType.Pro2
-      ? !canEditPro2DeviceWideSettings({
-          unlocked: Boolean(deviceSettingsAccessible),
-        })
-      : !deviceSettingsAccessible;
   const trezorFeatures = useMemo(
     () => (device?.featuresInfo ?? {}) as Record<string, unknown>,
     [device?.featuresInfo],
@@ -624,21 +632,20 @@ function DeviceSectionGeneral() {
     return null;
   }
 
-  const brightnessItem =
-    deviceType === EDeviceType.Pro2 ? (
-      <Pro2BrightnessListItem disabled={generalSettingsDisabled} />
-    ) : (
-      <ListItem
-        key="changeBrightness"
-        title={intl.formatMessage({
-          id: ETranslations.global_brightness,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressBrightness}
-        testID={DeviceManagementTestIDs.brightnessItem}
-      />
-    );
+  const brightnessItem = isProtocolV2ProductType(deviceType) ? (
+    <Pro2BrightnessListItem />
+  ) : (
+    <ListItem
+      key="changeBrightness"
+      title={intl.formatMessage({
+        id: ETranslations.global_brightness,
+      })}
+      titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+      drillIn
+      onPress={onPressBrightness}
+      testID={DeviceManagementTestIDs.brightnessItem}
+    />
+  );
 
   return (
     <ListItemGroup
@@ -649,10 +656,7 @@ function DeviceSectionGeneral() {
       })}
     >
       {showLanguage ? (
-        <LanguageListItem
-          languageOptions={languageOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <LanguageListItem languageOptions={languageOptions} />
       ) : null}
       {showWallpaper ? (
         <ListItem
@@ -668,20 +672,12 @@ function DeviceSectionGeneral() {
       ) : null}
       {showBrightness ? brightnessItem : null}
       {showAutoLock ? (
-        <AutoLockListItem
-          autoLockOptions={autoLockOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <AutoLockListItem autoLockOptions={autoLockOptions} />
       ) : null}
       {showAutoShutDown ? (
-        <AutoShutDownListItem
-          autoShutDownOptions={autoShutDownOptions}
-          disabled={generalSettingsDisabled}
-        />
+        <AutoShutDownListItem autoShutDownOptions={autoShutDownOptions} />
       ) : null}
-      {showHapticFeedback ? (
-        <HapticFeedbackListItem disabled={generalSettingsDisabled} />
-      ) : null}
+      {showHapticFeedback ? <HapticFeedbackListItem /> : null}
     </ListItemGroup>
   );
 }

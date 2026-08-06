@@ -1,11 +1,12 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 type IDeviceConnectionInfo = {
   vendor?: EHardwareVendor;
@@ -81,7 +82,7 @@ export type IFirmwareTypeChangeAvailability =
 export function getFirmwareTypeChangeAvailability(
   deviceType: EDeviceType | undefined,
 ): IFirmwareTypeChangeAvailability {
-  if (deviceType === EDeviceType.Pro2) {
+  if (isProtocolV2ProductType(deviceType)) {
     return 'comingSoon';
   }
   if (deviceType && deviceUtils.checkAllowChangeFirmwareType(deviceType)) {

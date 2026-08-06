@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { HeaderButtonGroup, Page, SizableText } from '@onekeyhq/components';
 import {
@@ -41,6 +41,7 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
@@ -62,11 +63,13 @@ function PageFirmwareUpdateChangeLog() {
   const { result, run, isLoading } = usePromiseResult(
     async () => {
       try {
-        const compatibleConnectId =
-          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+        const resolvedTransport =
+          await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
+        const compatibleConnectId = resolvedTransport.connectId;
+        setActiveConnectId(compatibleConnectId);
 
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
@@ -74,6 +77,7 @@ function PageFirmwareUpdateChangeLog() {
               connectId: compatibleConnectId,
               firmwareType,
               baseReleaseInfoCache: baseReleaseInfo,
+              resolvedTransportType: resolvedTransport.transportType,
             },
           );
         if (r?.hasUpgrade) {
@@ -113,7 +117,7 @@ function PageFirmwareUpdateChangeLog() {
       return (
         <>
           <FirmwareUpdateExitPrevent />
-          <FirmwareCheckingLoading connectId={connectId} />
+          <FirmwareCheckingLoading connectId={activeConnectId} />
         </>
       );
     }
@@ -145,7 +149,7 @@ function PageFirmwareUpdateChangeLog() {
     }
     return <FirmwareLatestVersionInstalled />;
   }, [
-    connectId,
+    activeConnectId,
     isLoading,
     result,
     run,

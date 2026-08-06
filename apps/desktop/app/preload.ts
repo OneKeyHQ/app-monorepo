@@ -232,6 +232,8 @@ const desktopApi = {
   nobleBle: {
     enumerate: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
+    stopScan: () =>
+      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
     getDevice: (uuid: string) =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
     connect: (uuid: string) =>

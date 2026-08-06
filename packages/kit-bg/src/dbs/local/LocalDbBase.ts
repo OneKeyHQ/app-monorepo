@@ -112,6 +112,7 @@ import perfUtils, {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -206,7 +207,7 @@ import type {
   ITrezorThpCredential,
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 
 export function sanitizeDeviceStateForPersistence(
   state: IOneKeyDeviceState,
@@ -400,6 +401,46 @@ export function buildTrezorDesktopBleUsbConnectId({
     return rawDeviceId;
   }
   return undefined;
+}
+
+/**
+ * 只接受已明确来自 BLE 通道的 connectId。
+ * USB serial 即使当前全局 transport 是 BLE，也不能作为 bleConnectId 持久化。
+ */
+export function resolveBleConnectIdForPersistence({
+  connectId,
+  explicitBleConnectId,
+  usbConnectId,
+  commType,
+  connectionType,
+}: {
+  connectId?: string | null;
+  explicitBleConnectId?: string | null;
+  usbConnectId?: string | null;
+  commType?: SearchDevice['commType'];
+  connectionType?: 'usb' | 'ble';
+}): string | undefined {
+  const isBleDevice =
+    connectionType === 'ble' ||
+    commType === 'ble' ||
+    commType === 'webble' ||
+    commType === 'electron-ble';
+  const storedBleConnectId = explicitBleConnectId?.trim();
+  const normalizedStoredBleConnectId = storedBleConnectId?.toLowerCase();
+  const aliasesUsbConnectId = [connectId, usbConnectId].some((candidate) =>
+    Boolean(
+      normalizedStoredBleConnectId &&
+      candidate?.trim().toLowerCase() === normalizedStoredBleConnectId,
+    ),
+  );
+  if (storedBleConnectId && (isBleDevice || !aliasesUsbConnectId)) {
+    return storedBleConnectId;
+  }
+
+  if (!isBleDevice) {
+    return undefined;
+  }
+  return connectId?.trim() || undefined;
 }
 
 function getExtraDeviceFieldString(
@@ -5107,6 +5148,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     connectId,
     sdkEventSequence,
     sdkInstanceEpoch,
+    source,
     state,
   }: {
     changedKeys: string[];
@@ -5216,6 +5258,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             currentState,
             incomingState: state,
             changedKeys,
+            source,
           });
           item.deviceState = stringUtils.stableStringify(persistedState);
           item.features = stringUtils.stableStringify(
@@ -5577,8 +5620,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let xfpHash = '';
     let xfpHashLegacy = '';
 
-    // TODO support OneKey Pro device only
-    const deviceType: IDeviceType = EDeviceType.Pro;
+    const deviceType = resolveQrWalletDeviceType({
+      deviceName: qrDevice.name,
+      deviceType: qrDevice.deviceType,
+    });
     // TODO name should be OneKey Pro-xxxxxx
     let deviceName = qrDevice.name || 'OneKey Pro';
     const nameArr = deviceName.split('-');
@@ -5811,6 +5856,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               ids: [dbDeviceId],
               updater: async (item) => {
                 item.updatedAt = now;
+                item.deviceType = deviceType;
                 // TODO update qrDevice last version(not updated version)
 
                 if (!item.features && featuresStr) {
@@ -6183,6 +6229,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let usbConnectId: string | undefined;
     let bleConnectId: string | undefined;
     let compatibleConnectId: string | undefined;
+    const runtimeDevice = device as typeof device & {
+      bleConnectId?: string;
+      usbConnectId?: string;
+      raw?: { connectionType?: 'usb' | 'ble' };
+    };
+    const verifiedBleConnectId = resolveBleConnectIdForPersistence({
+      connectId,
+      explicitBleConnectId: runtimeDevice.bleConnectId,
+      usbConnectId: runtimeDevice.usbConnectId,
+      commType: device.commType,
+      connectionType: runtimeDevice.raw?.connectionType,
+    });
 
     if (transportType) {
       switch (transportType) {
@@ -6193,14 +6251,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           compatibleConnectId = connectId ?? undefined;
           break;
         case EHardwareTransportType.BLE:
-          bleConnectId = connectId ?? undefined;
-          compatibleConnectId = connectId ?? undefined;
+          if (!verifiedBleConnectId) {
+            throw new OneKeyLocalError(
+              'createHwWallet ERROR: verified BLE connectId is required',
+            );
+          }
+          bleConnectId = verifiedBleConnectId;
+          compatibleConnectId = verifiedBleConnectId;
           break;
         case EHardwareTransportType.DesktopWebBle:
-          // BLE connections - set bleConnectId but don't override connectId
-          // @ts-expect-error
-          bleConnectId = (device.bleConnectId || connectId) ?? undefined;
-          // If connectId is empty, get it from device serial number for compatibility
+          if (!verifiedBleConnectId) {
+            throw new OneKeyLocalError(
+              'createHwWallet ERROR: verified BLE connectId is required',
+            );
+          }
+          // BLE 外设 ID 与 USB serial 分开存储，不能相互回退。
+          bleConnectId = verifiedBleConnectId;
+          // 桌面端主 connectId 仍保留设备 serial，兼容历史 USB 查询路径。
           if (!compatibleConnectId) {
             const hardwareSdk = await CoreSDKLoader();
             const getDeviceSerialNo =

@@ -14,7 +14,7 @@ type IWalletCreationHardwareService = {
     connectId: string;
     params: {
       connectProtocol?: HardwareConnectProtocol;
-      scope: 'runtime';
+      scope: 'settings';
     };
   }) => Promise<IOneKeyDeviceState>;
   getDeviceStateWithUnlock: (params: {
@@ -22,7 +22,7 @@ type IWalletCreationHardwareService = {
     pinType?: DeviceSessionPinType;
     params: {
       connectProtocol?: HardwareConnectProtocol;
-      scope: 'runtime';
+      scope: 'runtime' | 'settings';
     };
   }) => Promise<IOneKeyDeviceState>;
 };
@@ -36,14 +36,26 @@ export async function getWalletCreationDeviceState({
   connectId: string;
   connectProtocol?: HardwareConnectProtocol;
 }): Promise<IOneKeyDeviceState> {
-  const params = {
-    connectProtocol,
-    scope: 'runtime' as const,
-  };
-  return serviceHardware.getDeviceStateWithUnlock({
+  const isProtocolV2 = connectProtocol === 'V2';
+  const unlockedState = await serviceHardware.getDeviceStateWithUnlock({
     connectId,
-    ...(connectProtocol === 'V2' ? { pinType: DeviceSessionPinType.Any } : {}),
-    params,
+    ...(isProtocolV2 ? { pinType: DeviceSessionPinType.Any } : {}),
+    params: {
+      connectProtocol,
+      scope: isProtocolV2 ? 'runtime' : 'settings',
+    },
+  });
+
+  // Protocol V1 has no scoped state and returns the full state in one call.
+  if (!isProtocolV2) {
+    return unlockedState;
+  }
+
+  // Protocol V2 settings reads are rejected while locked, so read them only
+  // after the runtime-scoped unlock flow completes.
+  return serviceHardware.getDeviceState({
+    connectId,
+    params: { connectProtocol, scope: 'settings' },
   });
 }
 
