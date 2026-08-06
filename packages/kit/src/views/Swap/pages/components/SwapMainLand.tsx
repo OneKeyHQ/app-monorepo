@@ -242,6 +242,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const incomingMarketPresetToken =
     swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken;
   const {
+    defaultTokensFromType,
     isLoading,
     speedConfig,
     speedConfigReady,
@@ -250,6 +251,30 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     hasEnoughBalance,
     supportSpeedSwap,
   } = useSwapProTokenInit();
+
+  const isSwapProAccountContextReady = useMemo(() => {
+    if (!speedConfigReady || !swapProSelectToken || !swapProFromToken) {
+      return false;
+    }
+    if (swapProDirection === ESwapDirection.SELL) {
+      return equalTokenNoCaseSensitive({
+        token1: swapProFromToken,
+        token2: swapProSelectToken,
+      });
+    }
+    return defaultTokensFromType.some((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: swapProFromToken,
+      }),
+    );
+  }, [
+    defaultTokensFromType,
+    speedConfigReady,
+    swapProDirection,
+    swapProFromToken,
+    swapProSelectToken,
+  ]);
 
   useEffect(() => {
     if (incomingMarketPresetToken) {
@@ -1208,6 +1233,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   useSwapProErrorAlert({
     isSwapProActive: Boolean(focusSwapPro),
+    isAccountContextReady: isSwapProAccountContextReady,
     accountScope: swapProAccount.accountScope,
     accountStatus: swapProAccount.accountStatus,
   });
@@ -1457,6 +1483,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               }
               config={{
                 isLoading,
+                isAccountContextReady: isSwapProAccountContextReady,
                 speedConfigReady,
                 speedConfig,
                 balanceLoading,

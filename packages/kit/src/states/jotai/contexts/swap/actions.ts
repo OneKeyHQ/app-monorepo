@@ -129,6 +129,7 @@ import {
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
   swapProTokenMarketDetailPerpsInfoAtom,
+  swapProTokenTransactionPriceAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
@@ -693,8 +694,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return rest;
       };
 
+      const setSelectedToken = (nextToken: ISwapToken) => {
+        const currentToken = get(swapProSelectTokenAtom());
+        const isSameToken =
+          currentToken &&
+          equalTokenNoCaseSensitive({
+            token1: currentToken,
+            token2: nextToken,
+          });
+        if (!isSameToken) {
+          // These atoms belong to the previous selected token. Clear them in
+          // the same state transition so its detail, websocket and
+          // transaction price cannot render under the next token.
+          set(swapProTokenMarketDetailInfoAtom(), undefined);
+          set(swapProTokenMarketDetailPerpsInfoAtom(), undefined);
+          set(swapProTokenDetailWebsocketAtom(), undefined);
+          set(swapProTokenTransactionPriceAtom(), '');
+          set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        }
+        set(swapProSelectTokenAtom(), nextToken);
+      };
+
       if (token) {
-        set(swapProSelectTokenAtom(), token);
+        setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
           getTokenForStorage(token),
         );
@@ -702,9 +724,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
         if (savedToken) {
-          set(swapProSelectTokenAtom(), savedToken);
+          setSelectedToken(savedToken);
         } else if (defaultToken) {
-          set(swapProSelectTokenAtom(), defaultToken);
+          setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
             getTokenForStorage(defaultToken),
           );
@@ -3757,6 +3779,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
         const currentSelectToken = get(swapProSelectTokenAtom());
+        if (
+          !currentSelectToken ||
+          !equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress,
+            },
+            token2: currentSelectToken,
+          })
+        ) {
+          return;
+        }
         const currentTokenDetail = get(swapProTokenMarketDetailInfoAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -3806,7 +3840,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } catch (error) {
         console.error('swap__tokenDetail error', error);
       } finally {
-        set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        const currentSelectToken = get(swapProSelectTokenAtom());
+        if (
+          currentSelectToken &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId,
+              contractAddress,
+            },
+            token2: currentSelectToken,
+          })
+        ) {
+          set(swapProTokenMarketDetailInfoLoadingAtom(), false);
+        }
       }
     },
   );
