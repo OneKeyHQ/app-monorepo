@@ -1,6 +1,5 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
-import type { IAtomNameKeys } from '../atomNames';
 import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
@@ -23,6 +22,7 @@ import {
   tradingModeAtom,
 } from './perps';
 
+import type { IAtomNameKeys } from '../atomNames';
 import type { IJotaiAtomPro } from '../types';
 
 const now = 1_000_000;

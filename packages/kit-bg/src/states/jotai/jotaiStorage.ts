@@ -32,7 +32,7 @@ function isMergeableValue(value: unknown): boolean {
 // lodash merge is only meaningful between objects. Handed a primitive it spreads
 // a string into a character-indexed object and reduces a number to `{}`, so the
 // stored value stops comparing equal to anything the atom's consumers expect.
-function mergeStoredValue<Value>(
+export function mergeStoredValue<Value>(
   initialValue: Value,
   nextValue: Value,
   shouldMergeInitialValue: boolean,
@@ -43,18 +43,6 @@ function mergeStoredValue<Value>(
   return merge({}, initialValue, nextValue) as Value;
 }
 
-// Values persisted before that guard existed are still on disk, and a primitive
-// atom that hydrates into an object would keep failing every comparison. Falling
-// back to the initial value costs one stale selection and self-heals on write.
-export function sanitizeStoredValue<Value>(
-  initialValue: Value,
-  storedValue: Value,
-): Value {
-  if (!isMergeableValue(initialValue) && isMergeableValue(storedValue)) {
-    return initialValue;
-  }
-  return storedValue;
-}
 const mockStorage = storageHub._mockStorage;
 
 export const MMKV_MIGRATION_COMPLETE_KEY = '__mmkv_migration_v1__';

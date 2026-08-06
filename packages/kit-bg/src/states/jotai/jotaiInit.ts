@@ -10,7 +10,6 @@ import {
   buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
   onekeyJotaiStorage,
-  sanitizeStoredValue,
 } from './jotaiStorage';
 import { JotaiCrossAtom } from './utils/JotaiCrossAtom';
 import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
@@ -207,17 +206,13 @@ async function jotaiInitImpl() {
         storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
       }
       const currentValue = await jotaiDefaultStore.get(atomObj);
-      const sanitizedStorageValue = sanitizeStoredValue(
-        initValue,
-        storageValue,
-      );
       const nextValue =
-        isPlainObject(sanitizedStorageValue) && isPlainObject(initValue)
+        isPlainObject(storageValue) && isPlainObject(initValue)
           ? {
               ...initValue,
-              ...sanitizedStorageValue,
+              ...storageValue,
             }
-          : sanitizedStorageValue;
+          : storageValue;
       if (!isEqual(currentValue, nextValue)) {
         await jotaiDefaultStore.set(atomObj, nextValue);
       }

@@ -472,3 +472,44 @@ describe('JotaiStorageNativeMMKV', () => {
     });
   });
 });
+
+describe('mergeStoredValue', () => {
+  const { mergeStoredValue } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('./jotaiStorage') as typeof import('./jotaiStorage');
+
+  // lodash spreads a string into a character-indexed object, so a persisted
+  // trading mode used to read back as {0:'s',1:'p',...} and stop matching
+  // 'spot' anywhere in the app.
+  it('leaves a string value untouched', () => {
+    expect(mergeStoredValue('perp', 'spot', true)).toBe('spot');
+  });
+
+  // merge({}, undefined, 1712345678) collapses to {} — the timestamp is gone.
+  it('leaves a number value untouched', () => {
+    expect(mergeStoredValue(undefined, 1_712_345_678, true)).toBe(1_712_345_678);
+  });
+
+  it('leaves a boolean value untouched', () => {
+    expect(mergeStoredValue(true, false, true)).toBe(false);
+  });
+
+  it('still deep merges objects onto the initial value', () => {
+    expect(mergeStoredValue({ a: 1, b: 2 }, { b: 3 }, true)).toEqual({
+      a: 1,
+      b: 3,
+    });
+  });
+
+  // An atom declared with `initialValue: undefined` can still persist an object
+  // (firmwareUpdatesDetectStatusPersistAtom does), so the stored object must
+  // survive rather than be treated as a corrupted primitive.
+  it('keeps a stored object when the initial value is undefined', () => {
+    expect(mergeStoredValue(undefined, { deviceA: { hasUpgrade: true } }, true))
+      .toEqual({ deviceA: { hasUpgrade: true } });
+  });
+
+  it('skips merging entirely when the atom opted out', () => {
+    expect(mergeStoredValue({ a: 1 }, { b: 2 }, false)).toEqual({ b: 2 });
+  });
+});
