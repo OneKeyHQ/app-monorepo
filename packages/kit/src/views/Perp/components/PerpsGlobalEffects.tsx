@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
-  perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   tradingModeAtom,
   usePerpsAccountLoadingInfoAtom,
@@ -22,10 +21,7 @@ import {
   usePerpsWebSocketConnectedAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
-import {
-  spotActiveAssetAtom,
-  useSpotActiveAssetAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
