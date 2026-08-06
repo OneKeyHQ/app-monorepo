@@ -1,15 +1,15 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import {
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -71,6 +71,7 @@ export function getDeviceStateSnapshotFromEvent({
             currentState,
             incomingState: event.state,
             changedKeys: event.changedKeys ?? ['*'],
+            source: event.source,
           }),
         }
       : undefined;
@@ -82,6 +83,7 @@ export function getDeviceStateSnapshotFromEvent({
             currentState,
             incomingState: event.state,
             changedKeys: event.changedKeys ?? ['*'],
+            source: event.source,
           }),
         }
       : undefined;
@@ -94,6 +96,7 @@ export function getDeviceStateSnapshotFromEvent({
       currentState,
       incomingState: event.state,
       changedKeys: event.changedKeys ?? ['*'],
+      source: event.source,
     }),
   };
 }
@@ -145,7 +148,7 @@ export function mergeDeviceSettingState(
 export function shouldApplyDeviceSettingMutationLocally(
   deviceType?: EDeviceType,
 ) {
-  return deviceType !== EDeviceType.Pro2;
+  return !isProtocolV2ProductType(deviceType);
 }
 
 export function canEditPro2DeviceWideSettings({

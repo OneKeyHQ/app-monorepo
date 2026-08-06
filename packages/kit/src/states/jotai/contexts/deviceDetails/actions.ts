@@ -1,11 +1,10 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -62,7 +61,7 @@ async function buildDeviceMetaStatic(
     });
     let addWallpaperTitleId = ETranslations.global_wallpaper;
     if (
-      data.deviceType !== EDeviceType.Pro2 &&
+      !isProtocolV2ProductType(data.deviceType) &&
       deviceUtils.isTouchDevice(data.deviceType)
     ) {
       addWallpaperTitleId = ETranslations.global_wallpaper_add;
@@ -157,10 +156,9 @@ async function buildDeviceMetaState(
     if (state) {
       return buildDeviceMetaStateFromState({
         isVerified: Boolean(device.verifiedAtVersion),
-        pinOnAppEnabled:
-          device.deviceType === EDeviceType.Pro2
-            ? undefined
-            : Boolean(device.settings?.inputPinOnSoftware),
+        pinOnAppEnabled: isProtocolV2ProductType(device.deviceType)
+          ? undefined
+          : Boolean(device.settings?.inputPinOnSoftware),
         state,
       });
     }

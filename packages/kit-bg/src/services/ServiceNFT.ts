@@ -1,6 +1,5 @@
 import qs from 'querystring';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { debounce, isArray, isNil, isObject, omitBy } from 'lodash';
 
 import {
@@ -11,6 +10,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -61,7 +61,7 @@ class ServiceNFT extends ServiceBase {
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const device = deviceParams?.dbDevice;
-        if (device?.deviceType === EDeviceType.Pro2) {
+        if (device && isProtocolV2ProductType(device.deviceType)) {
           if (!pro2UploadParams) {
             throw new OneKeyLocalError(
               'Pro2 NFT upload parameters are required',

@@ -179,6 +179,45 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     expect(snapshot?.state.settings.language).toBe('en-US');
   });
 
+  it('refreshes all device settings in the page after a settings read', () => {
+    const currentState = {
+      revision: 3,
+      updatedAt: 300,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal', unlocked: false },
+      settings: { brightness: 30, autoLockDelayMs: 60_000 },
+      versions: { firmware: '1.0.0' },
+    };
+
+    const snapshot = getDeviceStateSnapshotFromEvent({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'SERIAL',
+        deviceId: 'DEVICE_ID',
+      },
+      currentState,
+      event: {
+        connectId: 'PRO2_USB',
+        revision: 4,
+        source: 'settings-read',
+        changedKeys: ['settings.brightness'],
+        state: {
+          ...currentState,
+          revision: 4,
+          updatedAt: 400,
+          status: { mode: 'normal', unlocked: true },
+          settings: { brightness: 70, autoLockDelayMs: 300_000 },
+        },
+      },
+    } as never);
+
+    expect(snapshot?.state.settings).toMatchObject({
+      brightness: 70,
+      autoLockDelayMs: 300_000,
+    });
+    expect(snapshot?.state.status.unlocked).toBe(false);
+  });
+
   it('rejects a new wallet identity even when the physical serial still matches', () => {
     expect(
       getDeviceStateSnapshotFromEvent({

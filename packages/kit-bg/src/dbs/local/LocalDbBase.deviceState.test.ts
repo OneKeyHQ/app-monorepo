@@ -320,6 +320,39 @@ describe('LocalDb DeviceState persistence', () => {
     expect(db.device.name).toBe('My Pro 2');
   });
 
+  it('persists the complete SDK settings snapshot after a settings read', async () => {
+    const current = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'My Pro 2',
+      language: 'en-US',
+    });
+    current.settings.brightness = 30;
+    current.settings.autoLockDelayMs = 60_000;
+
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'My Pro 2',
+      language: 'en-US',
+    });
+    incoming.settings.brightness = 70;
+    incoming.settings.autoLockDelayMs = 300_000;
+    const db = new DeviceStateTestLocalDb(current);
+
+    await db.updateDeviceState({
+      connectId: 'ABC-DEF',
+      state: incoming,
+      revision: incoming.revision,
+      source: 'settings-read',
+      changedKeys: ['settings.brightness'],
+    });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.settings.brightness).toBe(70);
+    expect(persisted.settings.autoLockDelayMs).toBe(300_000);
+  });
+
   it('ignores an event older than the persisted state', async () => {
     const current = createState({
       revision: 3,

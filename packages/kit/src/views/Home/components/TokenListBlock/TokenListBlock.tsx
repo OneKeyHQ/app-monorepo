@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniqBy } from 'lodash';
@@ -104,6 +103,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
@@ -1831,7 +1831,7 @@ function TokenListBlock({
       });
 
       if (
-        device?.deviceType === EDeviceType.Pro2 &&
+        isProtocolV2ProductType(device?.deviceType) &&
         wallet &&
         accountUtils.isHwWallet({ walletId: wallet.id })
       ) {

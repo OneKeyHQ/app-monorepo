@@ -44,6 +44,17 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isDesktop: true,
+    isJest: true,
+    isNative: false,
+    isSupportDesktopBle: true,
+    symbol: 'web',
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
   CoreSDKLoader: jest.fn(),
 }));
@@ -250,6 +261,60 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
         targetsToUpdate: ['resource'],
       }),
     );
+  });
+
+  it('keeps the BLE peripheral ID when the active transport is desktop BLE', async () => {
+    const firmwareUpdateV4 = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {},
+    });
+    const hardwareSDK = {
+      firmwareUpdateV4,
+      on: jest.fn(),
+      off: jest.fn(),
+    };
+    const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
+    const getSDKInstance = jest.fn().mockResolvedValue(hardwareSDK);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance,
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+        },
+        // 持久化值可能仍是上一轮 USB；升级必须以连接管理器的实际值为准。
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.updatingFirmwareV3({
+      connectId: bleConnectId,
+      bleVersion: undefined,
+      firmwareVersion: undefined,
+      bootloaderVersion: undefined,
+      firmwareType: undefined,
+      isPro2Device: true,
+      pro2TargetsToUpdate: ['app_v1'],
+    });
+
+    expect(firmwareUpdateV4).toHaveBeenCalledWith(
+      bleConnectId,
+      expect.objectContaining({ targetsToUpdate: ['app_v1'] }),
+    );
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: bleConnectId,
+      hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+    });
   });
 });
 

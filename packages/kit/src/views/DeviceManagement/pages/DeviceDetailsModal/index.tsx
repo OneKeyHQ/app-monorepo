@@ -109,7 +109,9 @@ function DeviceDetailsModalV2Cmp({
 
   const refreshCurrentDevice = useCallback(async () => {
     if (!walletId) return;
-    const data = await refresh(walletId);
+    // 设备详情页打开时优先展示已持久化的设备状态，避免页面聚焦就主动
+    // 建立连接，尤其是在没有已绑定 BLE connectId 时触发后台搜索/配对。
+    const data = await refresh(walletId, { skipDeviceStateSnapshot: true });
     if (!data) {
       void handleBackPress?.();
     }

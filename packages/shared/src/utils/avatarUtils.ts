@@ -1,5 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -37,6 +39,7 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
   [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
+  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
 };

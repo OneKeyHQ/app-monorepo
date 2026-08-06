@@ -21,6 +21,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
@@ -606,6 +607,13 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
+          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          await this.backgroundApi.serviceHardware.prepareHardwareTransport({
+            connectId,
+            connectProtocol: device?.connectProtocol,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
           await this.showCheckingDeviceDialog({
             connectId,
           });

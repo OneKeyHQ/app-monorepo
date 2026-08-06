@@ -26,9 +26,9 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 
@@ -454,6 +454,7 @@ export function ConfirmOnDeviceToastContent({
       case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
       case EDeviceType.Pro2:
+      case NEO_DEVICE_TYPE:
       case EDeviceType.Pro:
         return import('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json');
       default:
@@ -519,24 +520,12 @@ export function CommonDeviceLoading({
   bleName?: string;
 }) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
-  const { result: communicationMethod } = usePromiseResult<'bluetooth' | 'usb'>(
-    async () => {
-      if (platformEnv.isNative) {
-        return 'bluetooth';
-      }
-      if (platformEnv.isSupportDesktopBle) {
-        if (hardwareTransportType === EHardwareTransportType.DesktopWebBle) {
-          return 'bluetooth';
-        }
-        return 'usb';
-      }
-      return 'usb';
-    },
-    [hardwareTransportType],
-    {
-      initResult: 'usb',
-    },
-  );
+  const communicationMethod =
+    platformEnv.isNative ||
+    (platformEnv.isSupportDesktopBle &&
+      hardwareTransportType === EHardwareTransportType.DesktopWebBle)
+      ? 'bluetooth'
+      : 'usb';
   return (
     <>
       <CommunicatingLottieView
@@ -574,6 +563,7 @@ export function EnterPinOnDevice({
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-touch.json');
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
+      case NEO_DEVICE_TYPE:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
@@ -835,6 +825,7 @@ export function EnterPassphraseOnDevice({
         return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json');
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
+      case NEO_DEVICE_TYPE:
         return import('@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json');
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations

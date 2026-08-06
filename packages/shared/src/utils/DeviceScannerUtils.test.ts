@@ -18,13 +18,20 @@ async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
-function createScanner(searchDevices: jest.Mock) {
+function createScanner(
+  searchDevices: jest.Mock,
+  stopDeviceScan?: jest.Mock<Promise<void>, []>,
+) {
   return new DeviceScannerUtils({
     backgroundApi: {
       serviceHardware: {
         searchDevices,
+        ...(stopDeviceScan ? { stopDeviceScan } : {}),
       },
     },
   });
@@ -310,5 +317,34 @@ describe('DeviceScannerUtils', () => {
     search.resolve(successResponse('pro2'));
     await flushMicrotasks();
     scanner.stopScan();
+  });
+
+  it('waits for the active search and Noble scan cleanup before stopping', async () => {
+    const search = createDeferred<Success<SearchDevice[]>>();
+    const nobleStop = createDeferred<void>();
+    const searchDevices = jest.fn(() => search.promise);
+    const stopDeviceScan = jest.fn(() => nobleStop.promise);
+    const scanner = createScanner(searchDevices, stopDeviceScan);
+    const stopped = jest.fn();
+
+    scanner.startDeviceScan(jest.fn(), jest.fn(), 1, 60_000, 1);
+    await flushMicrotasks();
+
+    const stopPromise = scanner.stopScanAndWait().then(stopped);
+    await flushMicrotasks();
+
+    expect(stopDeviceScan).not.toHaveBeenCalled();
+    expect(stopped).not.toHaveBeenCalled();
+
+    search.resolve(successResponse('pro2'));
+    await flushMicrotasks();
+
+    expect(stopDeviceScan).toHaveBeenCalledTimes(1);
+    expect(stopped).not.toHaveBeenCalled();
+
+    nobleStop.resolve(undefined);
+    await stopPromise;
+
+    expect(stopped).toHaveBeenCalledTimes(1);
   });
 });

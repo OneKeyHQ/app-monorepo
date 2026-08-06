@@ -3,6 +3,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { OneKeyLocalError } from '../errors/errors/localError';
 import { defaultLogger } from '../logger/logger';
 
+import { isProtocolV2ProductType } from './hardwareDeviceTypes';
 import imageUtils from './imageUtils';
 
 import type { IResizeImageResult } from './imageUtils';
@@ -246,10 +247,10 @@ async function buildCustomScreenHex({
   // TODO: Remove the Pro2-specific conversion after Dashboard provides native
   // 604x1024 Pro2 wallpaper assets instead of the current 480x800 Pro assets.
   const shouldResizeFullScreen =
-    deviceType === EDeviceType.Pro2 || (!isUserUpload && hasConvertType);
+    isProtocolV2ProductType(deviceType) || (!isUserUpload && hasConvertType);
 
   if (shouldResizeFullScreen) {
-    const shouldDetectOriginSize = deviceType === EDeviceType.Pro2;
+    const shouldDetectOriginSize = isProtocolV2ProductType(deviceType);
     const imgScreen = await imageUtils.resizeImage({
       uri: base64Uri,
 

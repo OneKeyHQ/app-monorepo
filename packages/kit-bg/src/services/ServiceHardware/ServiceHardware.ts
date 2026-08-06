@@ -23,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -44,6 +45,7 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -151,6 +153,7 @@ const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
   EDeviceType.Touch,
   EDeviceType.Pro,
   EDeviceType.Pro2,
+  NEO_DEVICE_TYPE,
 ]);
 const SKIP_APP_FIRMWARE_UPDATE_EVENT = true;
 const MAX_PERSISTED_DEVICE_PROTOCOL_ENTRIES = 128;
@@ -183,6 +186,14 @@ type IProtocolAwareCoreApi = CoreApi & {
   ) => void;
 };
 
+type IGetSDKInstanceOptions = {
+  connectId: string | undefined;
+  connectProtocol?: HardwareConnectProtocol;
+  forceProtocolDetection?: boolean;
+  hardwareCallContext?: EHardwareCallContext;
+  hardwareTransportType?: EHardwareTransportType;
+};
+
 function isHardwareConnectProtocol(
   protocol: unknown,
 ): protocol is HardwareConnectProtocol {
@@ -197,6 +208,8 @@ export type IDeviceGetFeaturesOptions = {
   vendor?: EHardwareVendor;
   withHardwareProcessing?: boolean;
   silentMode?: boolean;
+  /** 与 connectId 同一次解析出的传输类型；传入后不得再次自动选路。 */
+  hardwareTransportType?: EHardwareTransportType;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
     forceProtocolDetection?: boolean;
@@ -228,13 +241,34 @@ export type IUploadPro2NftParams = {
 
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
 
+function getPersistedDesktopBleConnectId(
+  device:
+    | {
+        connectId?: string | null;
+        usbConnectId?: string | null;
+        bleConnectId?: string | null;
+      }
+    | undefined,
+): string | undefined {
+  const bleConnectId = device?.bleConnectId?.trim();
+  if (!bleConnectId) {
+    return undefined;
+  }
+  const normalizedBleConnectId = bleConnectId.toLowerCase();
+  const aliasesUsbConnectId = [device?.connectId, device?.usbConnectId].some(
+    (candidate) => candidate?.trim().toLowerCase() === normalizedBleConnectId,
+  );
+  return aliasesUsbConnectId ? undefined : bleConnectId;
+}
+
 const isOneKeyLoaderMode = (mode?: string | null) =>
   mode === EOneKeyDeviceMode.bootloader || mode === EOneKeyDeviceMode.romloader;
 
 const supportsDedicatedFirmwareFeatures = (deviceType: IDeviceType) =>
   deviceType === EDeviceType.Touch ||
   deviceType === EDeviceType.Pro ||
-  deviceType === EDeviceType.Pro2;
+  deviceType === EDeviceType.Pro2 ||
+  deviceType === NEO_DEVICE_TYPE;
 
 function buildOnekeyFeaturesFromState(
   state: IOneKeyDeviceState,
@@ -341,6 +375,10 @@ class ServiceHardware extends ServiceBase {
   private connectProtocolMigrationPromise: Promise<void> | undefined;
 
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
+
+  private activeHardwareTransportType: EHardwareTransportType | undefined;
+
+  private sdkInstanceMutex = new Semaphore(1);
 
   private bindDeviceProtocolToSDK({
     connectId,
@@ -495,8 +533,6 @@ class ServiceHardware extends ServiceBase {
     string,
     Promise<IDeviceManagementSnapshot>
   >();
-
-  private bridgeAvailabilityChecked = false;
 
   private linuxUdevRulesReadyPromise: Promise<boolean> | undefined;
 
@@ -716,6 +752,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private registeredSdkEventsInstance: CoreApi | undefined;
+
   private registeredSdkDebugLogging = false;
 
   private sdkInstanceEpoch = 0;
@@ -761,12 +799,15 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  async getSDKInstance(options: {
-    connectId: string | undefined;
-    connectProtocol?: HardwareConnectProtocol;
-    forceProtocolDetection?: boolean;
-    hardwareCallContext?: EHardwareCallContext;
-  }) {
+  async getSDKInstance(options: IGetSDKInstanceOptions) {
+    return this.sdkInstanceMutex.runExclusive(() =>
+      this.getSDKInstanceWithLifecycleLock(options),
+    );
+  }
+
+  private async getSDKInstanceWithLifecycleLock(
+    options: IGetSDKInstanceOptions,
+  ) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
@@ -808,12 +849,27 @@ class ServiceHardware extends ServiceBase {
     }
     this.registeredSdkDebugLogging = showSdkDebugLogs;
 
-    let hardwareTransportType =
+    const currentTransportType =
       await this.connectionManager.getCurrentTransportType();
+    const { forceTransportType } = await hardwareForceTransportAtom.get();
+    const normalizedForceTransportType = forceTransportType
+      ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
+          transportType: forceTransportType,
+          connectProtocol: resolvedConnectProtocol,
+        })
+      : undefined;
+    let hardwareTransportType =
+      normalizedForceTransportType ??
+      options.hardwareTransportType ??
+      currentTransportType;
     let shouldSwitch = false;
 
     // Desktop Auto switch transport type
-    if (platformEnv.isSupportDesktopBle) {
+    if (
+      platformEnv.isSupportDesktopBle &&
+      normalizedForceTransportType === undefined &&
+      options.hardwareTransportType === undefined
+    ) {
       // Check if we should switch transport type based on optimal connection strategy
       const result = await this.connectionManager.shouldSwitchTransportType({
         connectId: options?.connectId,
@@ -822,27 +878,29 @@ class ServiceHardware extends ServiceBase {
       });
       shouldSwitch = result.shouldSwitch;
       hardwareTransportType = result.targetType;
-      // If transport type needs to be switched, update it
-      if (shouldSwitch) {
-        const currentTransportType =
-          await this.connectionManager.getCurrentTransportType();
-        console.log(
-          `🔄 TRANSPORT SWITCH: ${
-            currentTransportType ?? 'null'
-          } → ${hardwareTransportType}`,
-        );
+    }
 
-        // Reset SDK instance to use new transport type
-        this.resetHardwareUiEventQueue();
-        await resetHardwareSDKInstance();
-        this.registeredEvents = false;
-
-        console.log('✅ TRANSPORT SWITCH: SDK reset completed');
-      }
+    // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
+    // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
+    // 保证显式传入的 transport + connectId 不会复用上一个 transport 实例。
+    const sdkTransportChanged =
+      this.activeHardwareTransportType !== undefined &&
+      this.activeHardwareTransportType !== hardwareTransportType;
+    if (shouldSwitch || sdkTransportChanged) {
+      console.log(
+        `🔄 TRANSPORT SWITCH: ${
+          this.activeHardwareTransportType ?? currentTransportType ?? 'null'
+        } → ${hardwareTransportType}`,
+      );
+      this.resetHardwareUiEventQueue();
+      await resetHardwareSDKInstance();
+      this.registeredEvents = false;
+      this.activeHardwareSDKInstance = undefined;
+      console.log('✅ TRANSPORT SWITCH: SDK reset completed');
     }
 
     // Update the connection manager's current transport type AFTER switch logic
-    this.connectionManager.setCurrentTransportType(hardwareTransportType);
+    await this.connectionManager.setCurrentTransportType(hardwareTransportType);
 
     try {
       const instance = await getHardwareSDKInstance({
@@ -854,10 +912,9 @@ class ServiceHardware extends ServiceBase {
         debugMode,
       });
 
+      this.activeHardwareTransportType = hardwareTransportType;
+
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
-      await this.checkBridgeAndFallbackToWebUSB({
-        hardwareSDKInstance: instance,
-      });
       await this.registerSdkEvents(instance, { showSdkDebugLogs });
 
       const protocolAwareInstance = instance as IProtocolAwareCoreApi;
@@ -1020,9 +1077,15 @@ class ServiceHardware extends ServiceBase {
       showSdkDebugLogs?: boolean;
     } = {},
   ) {
+    if (this.registeredSdkEventsInstance !== instance) {
+      this.resetHardwareUiEventQueue();
+      this.registeredEvents = false;
+    }
+
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
       this.registeredEvents = true;
+      this.registeredSdkEventsInstance = instance;
       this.registeredSdkDebugLogging = showSdkDebugLogs;
       this.sdkInstanceEpoch += 1;
       const sdkInstanceEpoch = this.sdkInstanceEpoch;
@@ -1473,9 +1536,15 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async resetHardwareSDK() {
-    this.resetHardwareUiEventQueue();
-    this.registeredEvents = false;
-    await resetHardwareSDKInstance();
+    await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(() =>
+      this.sdkInstanceMutex.runExclusive(async () => {
+        this.resetHardwareUiEventQueue();
+        this.registeredEvents = false;
+        await resetHardwareSDKInstance();
+        this.activeHardwareSDKInstance = undefined;
+        this.activeHardwareTransportType = undefined;
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -1557,6 +1626,14 @@ class ServiceHardware extends ServiceBase {
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
+  async stopDeviceScan() {
+    if (!platformEnv.isSupportDesktopBle) {
+      return;
+    }
+    await globalThis.desktopApi?.nobleBle?.stopScan();
+  }
+
+  @backgroundMethod()
   async searchDevices(params?: {
     connectProtocol?: HardwareConnectProtocol;
     vendor?: EHardwareVendor;
@@ -1577,9 +1654,21 @@ class ServiceHardware extends ServiceBase {
       });
     }
 
-    // Original OneKey SDK path
+    // OneKey 设备搜索也必须先通过统一连接管理器确定 transport。
+    // searchDevices 本身只枚举当前 SDK transport，不负责 USB -> BLE 切换；
+    // 因此必须在创建 SDK 实例前完成 USB 优先、无 USB 再 BLE 的预探测。
+    const hardwareTransportType = await this.prepareHardwareTransport({
+      connectProtocol: params?.connectProtocol,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      ...(params?.transportType
+        ? { requestedTransportType: params.transportType }
+        : {}),
+    });
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
+      connectProtocol: params?.connectProtocol,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      hardwareTransportType,
     });
     const response = await hardwareSDK?.searchDevices();
     defaultLogger.hardware.sdkLog.log(
@@ -1972,11 +2061,13 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext,
     connectProtocol,
     forceProtocolDetection,
+    hardwareTransportType,
   }: {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
     connectProtocol?: HardwareConnectProtocol;
     forceProtocolDetection?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
     if (vendor && vendor !== EHardwareVendor.onekey) {
@@ -2005,6 +2096,15 @@ class ServiceHardware extends ServiceBase {
     const isDesktopBleSearchDevice =
       platformEnv.isSupportDesktopBle &&
       deviceUtils.isBluetoothSearchDevice(device);
+    let resolvedHardwareTransportType = hardwareTransportType;
+    if (!resolvedHardwareTransportType && isDesktopBleSearchDevice) {
+      resolvedHardwareTransportType = EHardwareTransportType.DesktopWebBle;
+    } else if (
+      !resolvedHardwareTransportType &&
+      deviceUtils.isBluetoothSearchDevice(device)
+    ) {
+      resolvedHardwareTransportType = EHardwareTransportType.BLE;
+    }
     const compatibleConnectId = isDesktopBleSearchDevice
       ? connectId || undefined
       : await this.getCompatibleConnectId({
@@ -2025,7 +2125,7 @@ class ServiceHardware extends ServiceBase {
         (await this.getKnownDeviceProtocol(compatibleConnectId)));
 
     const knownFeatures = (device as KnownDevice).features;
-    if (!platformEnv.isNative && knownFeatures) {
+    if (!platformEnv.isNative && knownFeatures && !isDesktopBleSearchDevice) {
       // WebUSB 搜索已完成真实通讯；复用结果，并在成功后保存已确认协议。
       await this.rememberDeviceProtocol({
         connectIds: [
@@ -2057,6 +2157,7 @@ class ServiceHardware extends ServiceBase {
         return await this.connectDevice({
           connectId: compatibleConnectId,
           params,
+          hardwareTransportType: resolvedHardwareTransportType,
         });
       } catch (e: any) {
         this.handlerConnectError(e);
@@ -2065,6 +2166,7 @@ class ServiceHardware extends ServiceBase {
       return this.connectDevice({
         connectId: compatibleConnectId,
         params,
+        hardwareTransportType: resolvedHardwareTransportType,
       });
     }
   }
@@ -2221,7 +2323,13 @@ class ServiceHardware extends ServiceBase {
   }
 
   _getFeaturesLowLevel = async (options: IDeviceGetFeaturesOptions) => {
-    const { connectId, params, silentMode, hardwareCallContext } = options;
+    const {
+      connectId,
+      params,
+      silentMode,
+      hardwareCallContext,
+      hardwareTransportType,
+    } = options;
     const {
       allowEmptyConnectId,
       detectBootloaderDevice,
@@ -2243,6 +2351,7 @@ class ServiceHardware extends ServiceBase {
       connectProtocol: knownProtocol,
       forceProtocolDetection,
       hardwareCallContext,
+      hardwareTransportType,
     });
     const getFeaturesParams = {
       ...sdkParams,
@@ -2349,7 +2458,13 @@ class ServiceHardware extends ServiceBase {
   );
 
   _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
-    const { connectId, params, silentMode, hardwareCallContext } = options;
+    const {
+      connectId,
+      params,
+      silentMode,
+      hardwareCallContext,
+      hardwareTransportType,
+    } = options;
     const { allowEmptyConnectId, ...sdkParams } = params ?? {};
     serviceHardwareUtils.hardwareLog('call getDeviceState()', connectId);
     if (!allowEmptyConnectId && !connectId) {
@@ -2374,6 +2489,7 @@ class ServiceHardware extends ServiceBase {
       connectId,
       connectProtocol: knownProtocol,
       hardwareCallContext,
+      hardwareTransportType,
     });
     const state = await convertDeviceResponse(
       () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
@@ -2553,21 +2669,30 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
     });
     if (!dbDevice) {
-      // Onboarding / bootloader-mode flows hit this with a freshly-discovered
-      // device that has no local DB record yet — skip pre-flight and let the
-      // update modal proceed.
-      return;
+      // 首次连接或 Bootloader 模式下，本地数据库可能还没有设备记录。
+      // 此时跳过预检，把新发现的连接 ID 原样交给升级流程。
+      return params.connectId;
     }
-    const compatibleConnectId = await this.getCompatibleConnectId({
+    const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    const { connectId: compatibleConnectId, transportType } = resolvedTransport;
+    const forceProtocolDetection =
+      transportType === EHardwareTransportType.DesktopWebBle;
+    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
-          params: { retryCount: 1 },
+          params: {
+            retryCount: 1,
+            forceProtocolDetection,
+            ...(forceProtocolDetection
+              ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+              : {}),
+          },
+          hardwareTransportType: transportType,
         }),
       {
         deviceParams: {
@@ -2575,6 +2700,7 @@ class ServiceHardware extends ServiceBase {
         },
       },
     );
+    return compatibleConnectId;
   }
 
   @backgroundMethod()
@@ -3496,57 +3622,6 @@ class ServiceHardware extends ServiceBase {
     return result;
   }
 
-  private async _needCheckBridgeStatus() {
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
-    if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-      return false;
-    }
-    return platformEnv.isSupportWebUSB;
-  }
-
-  @backgroundMethod()
-  async checkBridgeAndFallbackToWebUSB({
-    hardwareSDKInstance,
-  }: {
-    hardwareSDKInstance: CoreApi;
-  }) {
-    try {
-      if (this.bridgeAvailabilityChecked) {
-        return;
-      }
-      if (!(await this._needCheckBridgeStatus())) {
-        return;
-      }
-      this.bridgeAvailabilityChecked = true;
-      const isBridgeAvailable = await new Promise<boolean>((resolve) => {
-        convertDeviceResponse(() => hardwareSDKInstance?.checkBridgeStatus())
-          .then((bridgeStatus) => {
-            console.log('bridgeStatus ===>>>:: ', bridgeStatus);
-            resolve(!!bridgeStatus);
-          })
-          .catch((error) => {
-            console.error('Bridge status check failed:', error);
-            resolve(false);
-          });
-      });
-
-      if (!isBridgeAvailable) {
-        await hardwareSDKInstance.switchTransport('webusb');
-        await this.fallbackToWebUSBTransport();
-      }
-    } catch (error) {
-      console.error('checkBridgeAndFallbackToWebUSB error', error);
-    }
-  }
-
-  private async fallbackToWebUSBTransport() {
-    await this.backgroundApi.serviceSetting.setHardwareTransportType(
-      EHardwareTransportType.WEBUSB,
-    );
-    await timerUtils.wait(0);
-  }
-
   @backgroundMethod()
   async switchTransport({
     transportType,
@@ -3573,33 +3648,31 @@ class ServiceHardware extends ServiceBase {
   }: {
     transportType: EHardwareTransportType;
   }) {
-    try {
-      // 1. Update transport type setting
-      await this.backgroundApi.serviceSetting.setHardwareTransportType(
-        transportType,
-      );
+    return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+      async () => {
+        try {
+          // 1. Update transport type setting
+          await this.backgroundApi.serviceSetting.setHardwareTransportType(
+            transportType,
+          );
 
-      // Reset event registration flag to allow re-registration
-      this.resetHardwareUiEventQueue();
-      this.registeredEvents = false;
+          // Recreate the SDK under the lifecycle lock when the transport changes.
+          const newInstance = await this.getSDKInstance({
+            connectId: undefined,
+            hardwareTransportType: transportType,
+          });
 
-      // 3. Reset SDK instance (clears memoizee cache and cleans up SDK instance)
-      await resetHardwareSDKInstance();
+          console.log(
+            `Successfully switched hardware transport type to: ${transportType}`,
+          );
 
-      // 4. Get new SDK instance with new transport type
-      const newInstance = await this.getSDKInstance({
-        connectId: undefined,
-      });
-
-      console.log(
-        `Successfully switched hardware transport type to: ${transportType}`,
-      );
-
-      return newInstance;
-    } catch (error) {
-      console.error('Failed to switch hardware transport type:', error);
-      throw error;
-    }
+          return newInstance;
+        } catch (error) {
+          console.error('Failed to switch hardware transport type:', error);
+          throw error;
+        }
+      },
+    );
   }
 
   @backgroundMethod()
@@ -3677,8 +3750,9 @@ class ServiceHardware extends ServiceBase {
     }
 
     try {
-      // Step 1: Search for available BLE devices
-      const searchResult = await this.searchDevices();
+      // Step 1: 绑定流程必须锁定 BLE，不得因为 USB 在扫描期间重新出现
+      // 而枚举 USB 设备，否则 USB serial 可能被误写入 bleConnectId。
+      const searchResult = await this.searchDevices({ transportType: 'ble' });
       if (!searchResult?.success || !searchResult?.payload?.length) {
         throw new deviceErrors.DeviceNotFound({
           payload: {
@@ -3693,10 +3767,12 @@ class ServiceHardware extends ServiceBase {
       const expectedDeviceName = features.bleName;
 
       // Step 3: Find matching device by name
-      const matchingDevice = searchResult.payload.find((device) => {
-        const nameMatch = device.name === expectedDeviceName;
-        return nameMatch;
-      });
+      const matchingDevice = searchResult.payload.find(
+        (device) =>
+          Boolean(device.connectId) &&
+          deviceUtils.isBluetoothSearchDevice(device) &&
+          device.name === expectedDeviceName,
+      );
 
       if (!matchingDevice) {
         throw new deviceErrors.DeviceNotFound({
@@ -3715,13 +3791,28 @@ class ServiceHardware extends ServiceBase {
           features,
         });
 
-      // Step 4: Try to connect and verify
+      const bleConnectId = matchingDevice.connectId;
+      if (!bleConnectId) {
+        throw new deviceErrors.DeviceNotFound({
+          payload: {
+            connectId,
+            deviceId: featuresDeviceId || undefined,
+            inBluetoothCommunication: true,
+          },
+        });
+      }
+
+      // Step 4: 使用同一个 BLE transport 连接并验证，不在候选设备上重新选路。
       const connectResult = await this.connect({
         device: {
           ...matchingDevice,
-          connectId: matchingDevice.connectId || '',
+          connectId: bleConnectId,
           deviceId: expectedDeviceId,
         },
+        forceProtocolDetection: true,
+        hardwareCallContext:
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
       });
 
       if (connectResult && connectResult.deviceId === expectedDeviceId) {
@@ -3736,10 +3827,10 @@ class ServiceHardware extends ServiceBase {
           // Update device with BLE connectId using the dedicated function
           await localDb.updateDeviceConnectId({
             dbDeviceId: device.id,
-            bleConnectId: matchingDevice.connectId || undefined,
+            bleConnectId,
           });
 
-          return matchingDevice.connectId || '';
+          return bleConnectId;
         }
       }
 
@@ -3773,11 +3864,13 @@ class ServiceHardware extends ServiceBase {
     connectId,
     featuresDeviceId,
     features,
+    vendor,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
+    vendor?: EHardwareVendor;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -3795,17 +3888,20 @@ class ServiceHardware extends ServiceBase {
 
     // A transport connect ID is already a precise device key. Do not let stale
     // device info or legacy feature projections veto a valid USB/BLE ID match.
-    let device = await localDb.getDeviceByQuery({ connectId });
+    let device = await localDb.getDeviceByQuery({ connectId, vendor });
     if (!device && featuresDeviceId) {
       device = await localDb.getDeviceByQuery({
         featuresDeviceId,
+        vendor,
       });
     }
     // Features are not an identity source for DeviceState-backed devices. This
     // final fallback only supports legacy records that have not connected yet.
     if (!device && features) {
-      device = await localDb.getDeviceByQuery({ features });
+      device = await localDb.getDeviceByQuery({ features, vendor });
     }
+    const persistedDesktopBleConnectId =
+      getPersistedDesktopBleConnectId(device);
 
     // Third-party devices keep USB as the primary connectId, but Trezor can
     // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE
@@ -3825,22 +3921,22 @@ class ServiceHardware extends ServiceBase {
           const currentTransportType = await this.getCurrentTransportType();
           if (
             currentTransportType === EHardwareTransportType.DesktopWebBle &&
-            device.bleConnectId
+            persistedDesktopBleConnectId
           ) {
-            return device.bleConnectId;
+            return persistedDesktopBleConnectId;
           }
           return device.connectId || connectId;
         }
 
-        const result = await this.connectionManager.shouldSwitchTransportType({
+        const result = await this.connectionManager.resolveTransportType({
           connectId: device.connectId || connectId,
           hardwareCallContext,
         });
         if (
           result.targetType === EHardwareTransportType.DesktopWebBle &&
-          device.bleConnectId
+          persistedDesktopBleConnectId
         ) {
-          return device.bleConnectId;
+          return persistedDesktopBleConnectId;
         }
         return device.connectId || connectId;
       }
@@ -3866,43 +3962,47 @@ class ServiceHardware extends ServiceBase {
       hardwareCallContext === EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
     ) {
       const currentTransportType = await this.getCurrentTransportType();
-      if (
-        currentTransportType === EHardwareTransportType.DesktopWebBle &&
-        device?.bleConnectId
-      ) {
-        return device.bleConnectId;
+      if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
+        if (persistedDesktopBleConnectId) {
+          return persistedDesktopBleConnectId;
+        }
       }
+      // 后台任务不能发起 BLE 配对，也不应把缺少 BLE 绑定误判为设备离线。
+      // 移除硬件钱包等纯本地操作仍需要读取设备参数，因此沿用已持久化的
+      // USB connectId；真正需要连接的硬件调用会在后续传输层完成可达性校验。
       return device?.connectId || connectId;
     }
 
-    const result = await this.connectionManager.shouldSwitchTransportType({
+    const result = await this.connectionManager.resolveTransportType({
       connectId: device?.connectId || connectId,
       connectProtocol,
       hardwareCallContext,
     });
     const targetTransportType = result.targetType;
-    const forceTransportType = (await hardwareForceTransportAtom.get())
-      .forceTransportType;
-
     // Handle connection logic based on transport type
     if (targetTransportType === EHardwareTransportType.DesktopWebBle) {
-      if (device?.bleConnectId) {
+      if (persistedDesktopBleConnectId) {
         // Device found in DB and has BLE connectId, use it
-        return device.bleConnectId;
+        return persistedDesktopBleConnectId;
       }
       if (!device) {
         return connectId;
       }
-      // onboarding flow
-      if (
-        device.connectId &&
-        forceTransportType === EHardwareTransportType.DesktopWebBle
-      ) {
-        return device.connectId;
-      }
-      if (device && !device.bleConnectId) {
+      if (device && !persistedDesktopBleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
-          return connectId;
+          return device.usbConnectId || device.connectId || connectId;
+        }
+        if (
+          hardwareCallContext ===
+          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+        ) {
+          throw new deviceErrors.DeviceNotFound({
+            payload: {
+              connectId,
+              deviceId: featuresDeviceId || device.deviceId || undefined,
+              inBluetoothCommunication: true,
+            },
+          });
         }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
@@ -3922,7 +4022,8 @@ class ServiceHardware extends ServiceBase {
                   features: device.featuresInfo,
                 }) ||
                 '',
-              usbConnectId: connectId,
+              usbConnectId:
+                device.usbConnectId || device.connectId || connectId,
               features: features || device.featuresInfo,
               promiseId,
             },
@@ -3945,6 +4046,61 @@ class ServiceHardware extends ServiceBase {
     }
 
     return device?.connectId || connectId;
+  }
+
+  /**
+   * 统一解析一次硬件调用所使用的传输类型与 connectId。
+   *
+   * 调用方不应先单独选传输、再自行在 USB/BLE ID 之间转换；那会在固件升级
+   * 等多阶段流程中把 BLE UUID 再次替换成 USB serial。该方法保证两者来自
+   * 同一次探测结果，并且在 UI 显示前提交运行时传输状态。
+   */
+  @backgroundMethod()
+  async resolveHardwareTransport(params: {
+    hardwareCallContext: EHardwareCallContext;
+    connectId?: string;
+    featuresDeviceId?: string | undefined | null;
+    features?: IOneKeyDeviceFeatures;
+  }): Promise<{
+    connectId: string;
+    transportType: EHardwareTransportType;
+  }> {
+    const resolvedConnectId = await this.getCompatibleConnectId(params);
+    return {
+      connectId: resolvedConnectId,
+      transportType: await this.getCurrentTransportType(),
+    };
+  }
+
+  /**
+   * 在通用硬件弹窗显示前确定并提交传输类型。
+   * connectId 的 USB/BLE 映射仍由 resolveHardwareTransport 统一完成。
+   */
+  @backgroundMethod()
+  async prepareHardwareTransport(params: {
+    connectId?: string;
+    connectProtocol?: HardwareConnectProtocol;
+    hardwareCallContext: EHardwareCallContext;
+    requestedTransportType?: 'usb' | 'ble';
+  }): Promise<EHardwareTransportType> {
+    const connectProtocol =
+      params.connectProtocol ??
+      (await this.getKnownDeviceProtocol(params.connectId));
+    if (params.requestedTransportType) {
+      const targetType =
+        await this.connectionManager.getTransportTypeForChannel({
+          transportType: params.requestedTransportType,
+          connectProtocol,
+        });
+      await this.connectionManager.setCurrentTransportType(targetType);
+      return targetType;
+    }
+    const result = await this.connectionManager.resolveTransportType({
+      connectId: params.connectId,
+      hardwareCallContext: params.hardwareCallContext,
+      connectProtocol,
+    });
+    return result.targetType;
   }
 
   @backgroundMethod()

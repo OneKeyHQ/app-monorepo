@@ -9,6 +9,7 @@ import {
   clearTrezorThpSettingsRaw,
   getThirdPartyDeviceAvatarImage,
   getThirdPartyDeviceModelName,
+  resolveBleConnectIdForPersistence,
 } from './LocalDbBase';
 
 describe('clearTrezorThpSettingsRaw', () => {
@@ -276,6 +277,47 @@ describe('buildTrezorDesktopBleUsbConnectId', () => {
         vendor: EHardwareVendor.onekey,
         transportType: EHardwareTransportType.DesktopWebBle,
         rawDeviceId: 'ONEKEY-DEVICE-ID',
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveBleConnectIdForPersistence', () => {
+  it('does not derive bleConnectId from a USB serial', () => {
+    expect(
+      resolveBleConnectIdForPersistence({
+        connectId: 'PRB09B0088A',
+        commType: 'webusb',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('accepts the peripheral ID from a BLE discovery result', () => {
+    expect(
+      resolveBleConnectIdForPersistence({
+        connectId: 'f7e440001d2c1c79509d55dfdc8201ff',
+        commType: 'electron-ble',
+      }),
+    ).toBe('f7e440001d2c1c79509d55dfdc8201ff');
+  });
+
+  it('keeps an existing explicit BLE binding', () => {
+    expect(
+      resolveBleConnectIdForPersistence({
+        connectId: 'PRB09B0088A',
+        explicitBleConnectId: 'BLE_PERIPHERAL_ID',
+        commType: 'webusb',
+      }),
+    ).toBe('BLE_PERIPHERAL_ID');
+  });
+
+  it('rejects a historical BLE binding that aliases the USB serial', () => {
+    expect(
+      resolveBleConnectIdForPersistence({
+        connectId: 'PRB09B0088A',
+        explicitBleConnectId: 'PRB09B0088A',
+        usbConnectId: 'PRB09B0088A',
+        commType: 'webusb',
       }),
     ).toBeUndefined();
   });

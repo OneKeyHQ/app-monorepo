@@ -43,6 +43,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
@@ -618,7 +619,7 @@ export default function HardwareHomeScreenModal({
     if ([EDeviceType.Touch].includes(deviceType)) {
       canUpload = true;
     }
-    if ([EDeviceType.Pro, EDeviceType.Pro2].includes(deviceType)) {
+    if (deviceType === EDeviceType.Pro || isProtocolV2ProductType(deviceType)) {
       canUpload = true;
     }
 

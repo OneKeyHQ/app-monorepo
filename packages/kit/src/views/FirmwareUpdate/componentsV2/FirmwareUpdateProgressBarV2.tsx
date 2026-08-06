@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -35,6 +34,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
@@ -48,6 +48,7 @@ import {
   PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
   calculateProgressInRange,
   getNextEstimatedFirmwareProgress,
+  normalizeFirmwareUpdateProgressType,
 } from './firmwareUpdateProgressUtils';
 
 interface IFirmwareUpdateVersionInfo {
@@ -266,6 +267,7 @@ export function FirmwareUpdateProgressBarV2({
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
+      const normalizedType = normalizeFirmwareUpdateProgressType(type);
       const progressConfig: IProgressConfigItem[] = [
         {
           type: ['checking'],
@@ -369,7 +371,9 @@ export function FirmwareUpdateProgressBarV2({
         },
       ];
 
-      const index = progressConfig.findIndex((c) => c.type.includes(type));
+      const index = progressConfig.findIndex((c) =>
+        c.type.includes(normalizedType),
+      );
       if (index >= 0) {
         const item = progressConfig[index];
         const itemProgress = item.progress();
@@ -381,7 +385,7 @@ export function FirmwareUpdateProgressBarV2({
             newProgress,
             itemProgress,
             currentProgress,
-            type,
+            type: normalizedType,
           });
           progressRef.current = newProgress;
           return newProgress;
@@ -443,7 +447,7 @@ export function FirmwareUpdateProgressBarV2({
   }, [firmwareProgress, firmwareProgressType]);
 
   const shouldEstimatePro2Progress =
-    result?.deviceType === EDeviceType.Pro2 &&
+    isProtocolV2ProductType(result?.deviceType) &&
     stepInfo.step === EFirmwareUpdateSteps.installing &&
     firmwareProgressType === 'installingFirmware' &&
     lastFirmwareTipMessage !==

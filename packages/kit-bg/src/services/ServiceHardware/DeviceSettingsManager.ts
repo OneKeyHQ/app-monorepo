@@ -5,7 +5,6 @@ import {
   type DeviceUploadResourceParams,
   type DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
@@ -17,6 +16,7 @@ import {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import {
@@ -171,8 +171,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     );
   }
 
-  private _isPro2Device(device: IDBDevice | undefined): boolean {
-    return device?.deviceType === EDeviceType.Pro2;
+  private _isProtocolV2Product(device: IDBDevice | undefined): boolean {
+    return isProtocolV2ProductType(device?.deviceType);
   }
 
   private async _withTrezorDeviceProcessing({
@@ -311,7 +311,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const result = await convertDeviceResponse(() =>
           action(hardwareSDK, compatibleConnectId, device),
         );
-        if (this._isPro2Device(device)) {
+        if (this._isProtocolV2Product(device)) {
           await this.serviceHardware.waitForDeviceStateSync({
             connectIds: [
               compatibleConnectId,
@@ -504,7 +504,10 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
   async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
     const device = await localDb.getWalletDevice({ walletId });
-    if (this._isPro2Device(device) && !isAsciiAlphanumericWithSpaces(label)) {
+    if (
+      this._isProtocolV2Product(device) &&
+      !isAsciiAlphanumericWithSpaces(label)
+    ) {
       throw new OneKeyLocalError(
         'OneKey Pro 2 device labels only support ASCII letters, numbers, and spaces',
       );
@@ -559,7 +562,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       async () => {
         // pro touch custom upload wallpaper
         if (needUploadResource) {
-          if (this._isPro2Device(device)) {
+          if (this._isProtocolV2Product(device)) {
             if (!finallyScreenHex) {
               throw new OneKeyLocalError(
                 'Upload Pro2 wallpaper error: screenHex not defined',

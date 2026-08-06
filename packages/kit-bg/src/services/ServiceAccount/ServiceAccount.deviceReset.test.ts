@@ -5,6 +5,8 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations, LOCALES } from '@onekeyhq/shared/src/locale';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
+import localDb from '../../dbs/local/localDb';
+
 import ServiceAccount from './ServiceAccount';
 
 const mockBatchGetAddresses = jest.fn();
@@ -37,6 +39,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    removeWallet: jest.fn(),
     updateDeviceConnectProtocol: jest.fn(),
   },
 }));
@@ -209,5 +212,38 @@ describe('ServiceAccount device reset isolation', () => {
 
     expect(error).toEqual(new Error('reached device lookup'));
     expect(getWalletDevice).toHaveBeenCalledWith({ walletId: 'hw-wallet-1' });
+  });
+
+  it('允许移除已被设备重置标记为 deprecated 的硬件钱包', async () => {
+    const promptPasswordVerifyByWallet = jest.fn();
+    const service = new ServiceAccount({
+      backgroundApi: {
+        servicePassword: {
+          promptPasswordVerifyByWallet,
+        },
+        serviceDApp: {
+          removeDappConnectionAfterWalletRemove: jest.fn(),
+        },
+        serviceDBBackup: {
+          removeBackupHDWallet: jest.fn(),
+        },
+      },
+    });
+    service.getWalletSafe = jest.fn().mockResolvedValue({
+      id: 'hw-wallet-1',
+      deprecated: true,
+      associatedDevice: 'db-device-1',
+    });
+    service.cleanupOrphanedHyperLiquidAgentCredentials = jest.fn();
+
+    await service.removeWallet({ walletId: 'hw-wallet-1' });
+
+    expect(promptPasswordVerifyByWallet).not.toHaveBeenCalled();
+    expect(jest.mocked(localDb).removeWallet.mock.calls).toContainEqual([
+      {
+        walletId: 'hw-wallet-1',
+        isRemoveToMocked: undefined,
+      },
+    ]);
   });
 });
