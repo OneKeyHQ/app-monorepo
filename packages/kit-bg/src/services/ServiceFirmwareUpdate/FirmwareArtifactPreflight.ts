@@ -2,10 +2,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
-import {
-  type ITrustedFirmwareArtifact,
-  getTrustedFirmwareArtifact,
-} from './trustedFirmwareCatalog';
 
 import type { IFirmwareArtifactReceipt } from './FirmwareArtifactAdapter.types';
 import type {
@@ -21,6 +17,7 @@ import type {
 
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_BRIDGE_BINARY_BYTES = 4 * 1024 * 1024;
+const MAX_ARTIFACT_BYTES = 512 * 1024 * 1024;
 const TOTAL_DEADLINE_MS = 30 * 60 * 1000;
 const NATIVE_ARTIFACT_STAGE_TIMEOUT_MS = 15_000;
 const activeArtifactDownloadCounts = new Map<string, number>();
@@ -32,7 +29,14 @@ const FIRMWARE_CAPABILITY_KEYS = [
   'supportsArtifactReader',
 ] as const;
 
-export type IFirmwareDownloadArtifact = ITrustedFirmwareArtifact;
+export type IFirmwareDownloadArtifact = {
+  url: string;
+  role: FirmwareUpdatePlan['artifacts'][number]['role'];
+  logicalName?: string;
+  expectedSize?: number;
+  expectedSha256?: string;
+  container: FirmwareUpdatePlan['artifacts'][number]['container'];
+};
 
 export const withFirmwareArtifactStageTimeout = async <T>(
   stage: string,
@@ -133,13 +137,16 @@ const assertReceipt = (
   if (
     !Number.isSafeInteger(receipt.size) ||
     receipt.size <= 0 ||
-    receipt.size !== artifact.expectedSize ||
+    receipt.size > (artifact.expectedSize ?? MAX_ARTIFACT_BYTES) ||
     !/^[a-f0-9]{64}$/iu.test(receipt.sha256) ||
     receipt.artifactRef !== `fw:${receipt.sha256.toLowerCase()}` ||
-    receipt.sha256.toLowerCase() !== artifact.expectedSha256.toLowerCase()
+    (artifact.expectedSize !== undefined &&
+      receipt.size !== artifact.expectedSize) ||
+    (artifact.expectedSha256 !== undefined &&
+      receipt.sha256.toLowerCase() !== artifact.expectedSha256.toLowerCase())
   ) {
     throw new OneKeyLocalError(
-      'Firmware artifact receipt does not match the bundled catalog',
+      'Firmware artifact receipt does not match the update plan',
     );
   }
   return receipt;
@@ -204,9 +211,13 @@ export const downloadFirmwareArtifact = async ({
         artifactId,
         url: artifact.url,
         route: { routeType: 'domain' },
-        expectedSize: artifact.expectedSize,
-        expectedSha256: artifact.expectedSha256,
-        maxBytes: artifact.expectedSize,
+        ...(artifact.expectedSize !== undefined
+          ? { expectedSize: artifact.expectedSize }
+          : {}),
+        ...(artifact.expectedSha256
+          ? { expectedSha256: artifact.expectedSha256 }
+          : {}),
+        maxBytes: artifact.expectedSize ?? MAX_ARTIFACT_BYTES,
         overallDeadlineSeconds: remainingMs / 1000,
       });
       const verifiedReceipt = assertReceipt(receipt, artifact);
@@ -303,34 +314,34 @@ const createArtifactReader = (): IFirmwareArtifactReader => {
   };
 };
 
-export const resolveFirmwarePlanArtifact = async (
+export const resolveFirmwarePlanArtifact = (
   planArtifact: FirmwareUpdatePlan['artifacts'][number],
-): Promise<IFirmwareDownloadArtifact> => {
+): IFirmwareDownloadArtifact => {
   if (planArtifact.container !== 'raw' && planArtifact.container !== 'zip') {
     throw new OneKeyLocalError(
       'Firmware update plan contains an unsupported artifact container',
     );
   }
-  const trustedArtifact = await getTrustedFirmwareArtifact(planArtifact.url);
-  const roleMatches =
-    planArtifact.role === trustedArtifact.role ||
-    (planArtifact.role === 'resource' &&
-      trustedArtifact.role === 'fullResource');
-  if (
-    !roleMatches ||
-    planArtifact.container !== trustedArtifact.container ||
-    planArtifact.logicalName !== trustedArtifact.logicalName ||
-    (planArtifact.expectedSize !== undefined &&
-      planArtifact.expectedSize !== trustedArtifact.expectedSize) ||
-    (planArtifact.expectedSha256 !== undefined &&
-      planArtifact.expectedSha256.toLowerCase() !==
-        trustedArtifact.expectedSha256.toLowerCase())
-  ) {
-    throw new OneKeyLocalError(
-      'Firmware update plan does not match the bundled catalog',
-    );
-  }
-  return trustedArtifact;
+  const expectedSize =
+    Number.isSafeInteger(planArtifact.expectedSize) &&
+    (planArtifact.expectedSize ?? 0) > 0
+      ? planArtifact.expectedSize
+      : undefined;
+  const expectedSha256 =
+    typeof planArtifact.expectedSha256 === 'string' &&
+    /^[a-f0-9]{64}$/iu.test(planArtifact.expectedSha256)
+      ? planArtifact.expectedSha256.toLowerCase()
+      : undefined;
+  return {
+    url: planArtifact.url,
+    role: planArtifact.role,
+    ...(planArtifact.logicalName
+      ? { logicalName: planArtifact.logicalName }
+      : {}),
+    ...(expectedSize !== undefined ? { expectedSize } : {}),
+    ...(expectedSha256 ? { expectedSha256 } : {}),
+    container: planArtifact.container,
+  };
 };
 
 const readFirmwareArtifact = async (
@@ -417,7 +428,7 @@ export async function prepareBridgeFirmwareBinaries(
     const targetBinaries: IBridgeFirmwareBinaries['targetBinaries'] = {};
     const deadlineAt = Date.now() + TOTAL_DEADLINE_MS;
     for (const [index, planArtifact] of planArtifacts.entries()) {
-      const artifact = await resolveFirmwarePlanArtifact(planArtifact);
+      const artifact = resolveFirmwarePlanArtifact(planArtifact);
       const receipt = await downloadFirmwareArtifact({
         artifact,
         artifactId: planArtifact.artifactId,
@@ -527,7 +538,7 @@ export async function prepareFirmwareArtifacts(
   await Promise.allSettled(
     plan.artifacts.map(async (planArtifact, index) => {
       try {
-        const artifact = await resolveFirmwarePlanArtifact(planArtifact);
+        const artifact = resolveFirmwarePlanArtifact(planArtifact);
         const receipt = await downloadFirmwareArtifact({
           artifact,
           artifactId: planArtifact.artifactId,
@@ -538,15 +549,9 @@ export async function prepareFirmwareArtifacts(
         });
         artifactsById[planArtifact.artifactId] = receipt;
         if (planArtifact.container === 'zip') {
-          if (!artifact.expectedEntries?.length) {
-            throw new OneKeyLocalError(
-              'Trusted firmware archive has no exact entry allow-list',
-            );
-          }
           const entries = await firmwareArtifactAdapter.materialize({
             leaseRef,
             archiveArtifactRef: receipt.artifactRef,
-            expectedEntries: artifact.expectedEntries,
           });
           resourceEntriesByArtifactId[planArtifact.artifactId] = entries.map(
             (entry) => ({

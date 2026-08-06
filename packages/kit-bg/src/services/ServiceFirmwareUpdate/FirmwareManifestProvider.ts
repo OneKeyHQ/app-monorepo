@@ -1,7 +1,6 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { fetchFirmwareConfig } from '@onekeyhq/shared/src/hardware/firmwareConfigProvider';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
-import { getTrustedFirmwareConfig } from './trustedFirmwareCatalog';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
@@ -39,7 +38,7 @@ async function refreshFirmwareManifestSnapshot({
       return remoteConfig;
     }
   } catch {
-    // Keep using the last known-good remote snapshot or bundled fallback below.
+    // Keep using the last known-good remote snapshot below.
   }
 
   if (cached) {
@@ -49,15 +48,7 @@ async function refreshFirmwareManifestSnapshot({
     return cached.config;
   }
 
-  defaultLogger.ipTable.request.info({
-    info: '[FirmwareManifest] config_fetch route=bundled outcome=fallback',
-  });
-  const bundledConfig = await getTrustedFirmwareConfig({ preRelease });
-  firmwareManifestCache.set(preRelease, {
-    config: bundledConfig,
-    expiresAt: Date.now() + FIRMWARE_MANIFEST_CACHE_TTL_MS,
-  });
-  return bundledConfig;
+  throw new OneKeyLocalError('Firmware manifest is unavailable');
 }
 
 export async function getFirmwareManifestSnapshot({

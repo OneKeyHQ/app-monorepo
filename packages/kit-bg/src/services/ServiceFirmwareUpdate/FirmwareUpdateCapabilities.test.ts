@@ -23,7 +23,6 @@ import {
   executePreparedFirmwareUpdateV2,
   executePreparedFirmwareUpdateV3,
 } from './FirmwarePreparedExecution';
-import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
 import type { IFirmwarePreparedArtifactReleaseResult } from './FirmwarePreparedArtifactController';
@@ -32,10 +31,6 @@ import type {
   FirmwareUpdatePlan,
   FirmwareUpdatePreparedPlan,
 } from '@onekeyfe/hd-core';
-
-jest.mock('./trustedFirmwareCatalog', () => ({
-  getTrustedFirmwareArtifact: jest.fn(),
-}));
 
 const ready = {
   planSchemaVersion: 2,
@@ -52,15 +47,6 @@ const testFirmwareArtifact = {
   expectedSha256: '1'.repeat(64),
   container: 'raw' as const,
 };
-const mockedGetTrustedFirmwareArtifact =
-  getTrustedFirmwareArtifact as jest.Mock;
-
-beforeEach(() => {
-  mockedGetTrustedFirmwareArtifact.mockImplementation(async (url: string) => ({
-    ...testFirmwareArtifact,
-    url,
-  }));
-});
 
 describe('isExternalFirmwareCapabilityReady', () => {
   test('requires the exact cross-repo capability contract', () => {
@@ -731,7 +717,7 @@ describe('Desktop Bridge firmware binaries', () => {
     });
   });
 
-  test('pins a plan without remote integrity metadata to the bundled catalog', async () => {
+  test('downloads a remote plan URL without requiring an App-bundled catalog', async () => {
     const { plan } = createBridgePlan();
     delete plan.artifacts[0].expectedSize;
     delete plan.artifacts[0].expectedSha256;
@@ -744,12 +730,13 @@ describe('Desktop Bridge firmware binaries', () => {
     jest
       .spyOn(firmwareArtifactAdapter, 'createLease')
       .mockResolvedValue({ leaseRef: 'fwlease:catalog' });
+    const actualSha256 = '2'.repeat(64);
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
       .mockResolvedValue({
-        artifactRef: `fw:${testFirmwareArtifact.expectedSha256}`,
+        artifactRef: `fw:${actualSha256}`,
         size: testFirmwareArtifact.expectedSize,
-        sha256: testFirmwareArtifact.expectedSha256,
+        sha256: actualSha256,
       });
     jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
       readerId: 'reader',
@@ -769,36 +756,12 @@ describe('Desktop Bridge firmware binaries', () => {
     expect(download).toHaveBeenCalledWith(
       expect.objectContaining({
         artifactId: 'bootloader',
-        expectedSize: testFirmwareArtifact.expectedSize,
-        expectedSha256: testFirmwareArtifact.expectedSha256,
-        maxBytes: testFirmwareArtifact.expectedSize,
+        url: plan.artifacts[0].url,
+        maxBytes: 512 * 1024 * 1024,
       }),
     );
-  });
-
-  test('rejects an artifact URL that is absent from the bundled catalog', async () => {
-    const { plan } = createBridgePlan();
-    jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
-      maxReadBytes: 256 * 1024,
-      supportsArchiveMaterialization: true,
-      supportedRouteTypes: ['domain'],
-    });
-    jest
-      .spyOn(firmwareArtifactAdapter, 'createLease')
-      .mockResolvedValue({ leaseRef: 'fwlease:untrusted' });
-    jest.spyOn(firmwareArtifactAdapter, 'releaseLease').mockResolvedValue();
-    const download = jest.spyOn(firmwareArtifactAdapter, 'download');
-    mockedGetTrustedFirmwareArtifact.mockRejectedValueOnce(
-      new OneKeyLocalError(
-        'Firmware artifact is not admitted by the bundled catalog',
-      ),
-    );
-
-    await expect(prepareBridgeFirmwareBinaries(plan)).rejects.toThrow(
-      'Firmware artifact is not admitted by the bundled catalog',
-    );
-    expect(download).not.toHaveBeenCalled();
+    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSize');
+    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSha256');
   });
 
   test('cancels an active preparation after a download failure', async () => {
@@ -946,7 +909,7 @@ describe('external firmware artifact preparation', () => {
     expect(cancel).toHaveBeenCalledWith('fwtx:test');
   });
 
-  test('materializes a ZIP with the bundled exact entry allow-list', async () => {
+  test('materializes a ZIP without remote entry metadata and passes actual receipts to the SDK', async () => {
     const plan = {
       schemaVersion: 2,
       planDigest: 'd'.repeat(64),
@@ -968,14 +931,6 @@ describe('external firmware artifact preparation', () => {
     } as unknown as FirmwareUpdatePlan;
     const archiveSha256 = '3'.repeat(64);
     const entrySha256 = '4'.repeat(64);
-    const expectedEntries = [
-      {
-        artifactId: 'resource-entry',
-        entryName: 'resource.bin',
-        expectedSize: 1024,
-        expectedSha256: entrySha256,
-      },
-    ];
     const preparePlan = jest.fn(() => ({
       preparedPlanDigest: 'e'.repeat(64),
       planDigest: plan.planDigest,
@@ -985,14 +940,6 @@ describe('external firmware artifact preparation', () => {
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
-    });
-    mockedGetTrustedFirmwareArtifact.mockResolvedValueOnce({
-      url: 'https://firmware.example/resources.zip',
-      role: 'resource',
-      expectedSize: 2048,
-      expectedSha256: archiveSha256,
-      container: 'zip',
-      expectedEntries,
     });
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
@@ -1031,14 +978,13 @@ describe('external firmware artifact preparation', () => {
       },
     });
     expect(download.mock.calls[0][0]).toMatchObject({
-      expectedSize: 2048,
-      expectedSha256: archiveSha256,
-      maxBytes: 2048,
+      maxBytes: 512 * 1024 * 1024,
     });
+    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSize');
+    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSha256');
     expect(materialize).toHaveBeenCalledWith({
       leaseRef: 'fwlease:zip-without-catalog',
       archiveArtifactRef: `fw:${archiveSha256}`,
-      expectedEntries,
     });
     expect(preparePlan).toHaveBeenCalledWith(
       expect.objectContaining({

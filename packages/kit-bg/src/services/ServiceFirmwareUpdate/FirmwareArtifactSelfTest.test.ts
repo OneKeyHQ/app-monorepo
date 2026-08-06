@@ -6,7 +6,6 @@ import {
   getFirmwareArtifactSelfTestErrorCode,
 } from './FirmwareArtifactSelfTest';
 import { getFirmwareManifestSnapshot } from './FirmwareManifestProvider';
-import { getTrustedFirmwareArtifact } from './trustedFirmwareCatalog';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
 import type {
@@ -24,19 +23,11 @@ jest.mock('./FirmwareManifestProvider', () => ({
   getFirmwareManifestSnapshot: jest.fn(),
 }));
 
-jest.mock('./trustedFirmwareCatalog', () => ({
-  getTrustedFirmwareArtifact: jest.fn(),
-}));
-
 const mockedGetFirmwareManifestSnapshot = jest.mocked(
   getFirmwareManifestSnapshot,
 );
-const mockedGetTrustedFirmwareArtifact = jest.mocked(
-  getTrustedFirmwareArtifact,
-);
 const mockFirmwareSha256 = '1'.repeat(64);
 const mockResourceSha256 = '2'.repeat(64);
-const mockResourceEntrySha256 = '3'.repeat(64);
 const mockRemoteConfig = {
   pro: {
     firmware: [],
@@ -221,49 +212,6 @@ const createController = async ({
 describe('FirmwareArtifactSelfTest', () => {
   beforeEach(() => {
     mockedGetFirmwareManifestSnapshot.mockResolvedValue(mockRemoteConfig);
-    mockedGetTrustedFirmwareArtifact.mockImplementation(async (url) => {
-      if (url === 'https://firmware.example/pro.bin') {
-        return {
-          url,
-          role: 'firmware',
-          expectedSize: 1024 * 1024,
-          expectedSha256: mockFirmwareSha256,
-          container: 'raw',
-        };
-      }
-      if (url === 'https://firmware.example/pro-resources.zip') {
-        return {
-          url,
-          role: 'resource',
-          expectedSize: 512 * 1024,
-          expectedSha256: mockResourceSha256,
-          container: 'zip',
-          expectedEntries: [
-            {
-              artifactId: 'resource-entry',
-              entryName: 'resource.bin',
-              expectedSize: 1024,
-              expectedSha256: mockResourceEntrySha256,
-            },
-          ],
-        };
-      }
-      return {
-        url,
-        role: 'fullResource',
-        expectedSize: 2 * 1024 * 1024,
-        expectedSha256: '4'.repeat(64),
-        container: 'zip',
-        expectedEntries: [
-          {
-            artifactId: 'full-resource-entry',
-            entryName: 'full-resource.bin',
-            expectedSize: 2048,
-            expectedSha256: '5'.repeat(64),
-          },
-        ],
-      };
-    });
   });
 
   it('runs the production firmware handoff and 50 cached preflight cycles', async () => {
@@ -322,7 +270,7 @@ describe('FirmwareArtifactSelfTest', () => {
     );
   });
 
-  it('uses bundled archive metadata when it is absent from config.json', async () => {
+  it('does not require archive metadata that is absent from config.json', async () => {
     const result = await getFirmwareArtifactSelfTestArtifact('pro-resource');
 
     expect(result).toEqual(
@@ -334,12 +282,7 @@ describe('FirmwareArtifactSelfTest', () => {
         }),
       }),
     );
-    expect(result.artifact.expectedEntries).toEqual([
-      expect.objectContaining({
-        entryName: 'resource.bin',
-        expectedSha256: mockResourceEntrySha256,
-      }),
-    ]);
+    expect(result.artifact).not.toHaveProperty('expectedEntries');
   });
 
   it('closes the production reader and releases with safeCancelled on failure', async () => {

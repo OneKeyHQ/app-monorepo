@@ -172,7 +172,7 @@ export const getFirmwareArtifactSelfTestArtifact = async (
   if (!url) {
     throw new OneKeyLocalError(`${label} URL is unavailable`);
   }
-  const artifact = await resolveFirmwarePlanArtifact({
+  const artifact = resolveFirmwarePlanArtifact({
     artifactId,
     role: artifactId,
     target: artifactId,
