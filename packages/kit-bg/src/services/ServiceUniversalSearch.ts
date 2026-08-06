@@ -54,6 +54,7 @@ import ServiceBase from './ServiceBase';
 const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
+const PERPS_ASSET_TYPE_VERSION = 2;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -1281,7 +1282,10 @@ class ServiceUniversalSearch extends ServiceBase {
             subtitle?: string;
           }>;
         }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
-          params: { query: input },
+          params: {
+            query: input,
+            assetTypeVersion: PERPS_ASSET_TYPE_VERSION,
+          },
         });
 
         const rawAssets = response?.data?.data;
