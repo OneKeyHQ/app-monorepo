@@ -1,5 +1,6 @@
 import { SystemDiskFullError } from '../errors';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import storageChecker from '../storageChecker/storageChecker';
 import resetUtils from '../utils/resetUtils';
 
 import WebStorage from './WebStorage';
@@ -45,5 +46,18 @@ describe('WebStorage.checkDiskFull', () => {
       EAppEventBusNames.ShowSystemDiskFullWarning,
       undefined,
     );
+  });
+
+  it('delegates to storageChecker so a blocked write schedules a re-measurement', () => {
+    // The shared guard is what schedules the debounced quota re-measurement.
+    // Re-implementing the throw here would leave the main app-storage write
+    // path unable to ever observe the user freeing space.
+    globalThis.$onekeySystemDiskIsFull = true;
+    const guardSpy = jest.spyOn(storageChecker, 'checkIfDiskIsFullSync');
+
+    expect(() => callCheckDiskFull({ method: 'setItem' })).toThrow(
+      SystemDiskFullError,
+    );
+    expect(guardSpy).toHaveBeenCalled();
   });
 });

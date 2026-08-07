@@ -167,15 +167,14 @@ class WebStorage implements AsyncStorageStatic {
       return;
     }
     if (globalThis.$onekeySystemDiskIsFull) {
-      // Forward the measured quota so the warning dialog can show whether this
-      // is a real quota exhaustion or a write that failed for another reason.
-      appEventBus.emit(
-        EAppEventBusNames.ShowSystemDiskFullWarning,
-        storageChecker.getLastDiagnostics(),
-      );
       console.error('WebStorage==>checkDiskFull ', payload);
-      throw new SystemDiskFullError();
     }
+    // Delegate rather than re-implement: `checkIfDiskIsFullSync` forwards the
+    // measured quota to the warning dialog AND schedules the re-measurement
+    // that lets a retry succeed once the user frees space. Throwing here
+    // directly would leave this path — the main app-storage write path —
+    // unable to ever observe recovery.
+    storageChecker.checkIfDiskIsFullSync();
   }
 
   isIndexedDB() {

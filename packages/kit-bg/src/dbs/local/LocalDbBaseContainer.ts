@@ -274,12 +274,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     params: ILocalDBRemoveRecordsParams<T>,
   ) {
     const bucketName = indexedUtils.getBucketNameByStoreName(params.name);
-    return this.withTransaction(bucketName, (tx) => {
-      return this.txRemoveRecords({
-        ...params,
-        tx,
-      });
-    });
+    return this.withTransaction(
+      bucketName,
+      (tx) => {
+        return this.txRemoveRecords({
+          ...params,
+          tx,
+        });
+      },
+      // Removing records frees space, so it must stay available while the
+      // disk-full guard is raised.
+      { allowWhenStorageFull: true },
+    );
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(

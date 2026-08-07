@@ -186,7 +186,9 @@ async function checkIfDiskIsFull() {
   }
 
   try {
-    if (platformEnv.isExtension || platformEnv.isDesktop) {
+    // Every runtime that persists through the browser quota must be able to
+    // clear its own guard. Web DApp mode already returned above.
+    if (platformEnv.isExtension || platformEnv.isDesktop || platformEnv.isWeb) {
       if (globalThis?.navigator?.storage?.estimate) {
         const estimate = await globalThis.navigator.storage.estimate();
         if (estimate && (estimate.quota || 0) > 1000) {
