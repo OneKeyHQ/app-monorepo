@@ -1263,7 +1263,7 @@ const hyperEvm: IServerNetwork = {
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
   'defaultEnabled': false,
-  'backendIndex': false,
+  'backendIndex': true,
 };
 
 const hoodi: IServerNetwork = {
