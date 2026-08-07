@@ -9658,15 +9658,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.9":
-  version: 3.0.81-alpha.9
-  resolution: "@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.9"
+"@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.10":
+  version: 3.0.81-alpha.10
+  resolution: "@onekeyfe/react-native-range-downloader@npm:3.0.81-alpha.10"
   peerDependencies:
     "@onekeyfe/react-native-sni-connect": 3.0.81-alpha.8
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.33.2
-  checksum: 10/9fa09662a47aadeab80a611a0f40216970e3dcc7185203a66deb569b754f19600142aee237cad695376a00ec109e759ea0b16a44da69d56cd2d50b71a9095081
+  checksum: 10/3d7d644ee7d50d734c5f366727aa5406bcc0090bb395c18095409aab6e8009910f7fd6b31e6183950ccfb57dff663141c4caae62a1841b11b74f5820038542ce
   languageName: node
   linkType: hard
 
@@ -10219,7 +10219,7 @@ __metadata:
     "@onekeyfe/react-native-perf-memory": "npm:3.0.78"
     "@onekeyfe/react-native-perf-stats": "npm:3.0.78"
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.78"
-    "@onekeyfe/react-native-range-downloader": "npm:3.0.81-alpha.9"
+    "@onekeyfe/react-native-range-downloader": "npm:3.0.81-alpha.10"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.78"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.78"
     "@onekeyfe/react-native-skeleton": "npm:3.0.78"
