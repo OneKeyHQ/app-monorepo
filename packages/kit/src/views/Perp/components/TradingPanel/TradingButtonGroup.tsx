@@ -2664,7 +2664,7 @@ function TradingButtonGroup({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_trade_deposit_to_trade__action,
+                id: ETranslations.global_top_up,
               })}
             </SizableText>
           </YStack>
