@@ -16,6 +16,7 @@ import {
 
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
+  supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -183,6 +184,24 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('supportsFirmwareUpdateWorkflowV2', () => {
+  it.each([
+    ['Pro', 'pro'],
+    ['Pro2', 'pro2'],
+    ['Neo', 'neo'],
+  ])('allows %s devices', (_name, deviceType) => {
+    expect(supportsFirmwareUpdateWorkflowV2(deviceType)).toBe(true);
+  });
+
+  it.each([
+    ['Classic', 'classic'],
+    ['Touch', 'touch'],
+    ['unknown', undefined],
+  ])('rejects %s devices', (_name, deviceType) => {
+    expect(supportsFirmwareUpdateWorkflowV2(deviceType)).toBe(false);
   });
 });
 

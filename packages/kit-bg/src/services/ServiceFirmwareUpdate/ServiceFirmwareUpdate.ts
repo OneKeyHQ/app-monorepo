@@ -139,6 +139,14 @@ export function buildPro2TargetsToUpdate({
   );
 }
 
+export function supportsFirmwareUpdateWorkflowV2(
+  deviceType: IDeviceType | string | null | undefined,
+): boolean {
+  // Workflow V2 是 App 的第二代升级流程，与设备的 Protocol V2 不是同一概念。
+  // Pro 使用该升级流程；Pro2、Neo 等 Protocol V2 产品也从该入口启动升级。
+  return deviceType === EDeviceType.Pro || isProtocolV2ProductType(deviceType);
+}
+
 export type IUpdateFirmwareTaskFn = ({
   id,
 }: {
@@ -2067,10 +2075,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await this.cancelUpdateWorkflowIfExit();
 
             const deviceType = params?.releaseResult?.deviceType;
-            if (
-              deviceType !== EDeviceType.Pro &&
-              !isProtocolV2ProductType(deviceType)
-            ) {
+            if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
+              serviceHardwareUtils.hardwareLog(
+                'startUpdateWorkflowV2: unsupported device type',
+                {
+                  deviceType: deviceType ?? 'unknown',
+                  isProtocolV2Product: isProtocolV2ProductType(deviceType),
+                },
+              );
               throw new OneKeyLocalError(
                 'Do not support update firmware for this device',
               );
