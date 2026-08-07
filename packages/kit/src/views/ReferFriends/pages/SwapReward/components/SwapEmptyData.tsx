@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Empty, YStack, useClipboard } from '@onekeyhq/components';
+import { Empty, useClipboard } from '@onekeyhq/components';
 import { useReferralUrl } from '@onekeyhq/kit/src/views/Perp/components/PositionShare/useReferralUrl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -16,25 +16,22 @@ export function SwapEmptyData() {
   }, [copyUrl, referralQrCodeUrl]);
 
   return (
-    <YStack ai="center">
-      <Empty
-        mt="$-10"
-        illustration="ShakeHands"
-        title={intl.formatMessage({
-          id: ETranslations.referral_referred_empty,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.referral_referred_empty_desc,
-        })}
-      />
-      <Button
-        testID="swap-reward-copy-link-btn"
-        variant="primary"
-        loading={!isReady}
-        onPress={handleCopyLink}
-      >
-        {intl.formatMessage({ id: ETranslations.browser_copy_link })}
-      </Button>
-    </YStack>
+    <Empty
+      mt="$-10"
+      illustration="ShakeHands"
+      title={intl.formatMessage({
+        id: ETranslations.referral_referred_empty,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.referral_referred_empty_desc,
+      })}
+      buttonProps={{
+        testID: 'swap-reward-copy-link-btn',
+        variant: 'primary',
+        loading: !isReady,
+        onPress: handleCopyLink,
+        children: intl.formatMessage({ id: ETranslations.browser_copy_link }),
+      }}
+    />
   );
 }
