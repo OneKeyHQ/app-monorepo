@@ -36,11 +36,31 @@ export const PERPS_IP_RESTRICTION_HELP_URL =
   'https://help.onekey.so/articles/15533117';
 
 // Multi-DEX support constants
-export const DEX_PREFIXES = ['xyz'] as const;
+// HIP-3 assetId = BASE + hlDexIndex * STRIDE + universeIndex
+const HIP3_ASSET_ID_BASE = 100_000;
+export const HIP3_ASSET_ID_STRIDE = 10_000;
+
+// `hlDexIndex` is the slot in the `perpDexs` response.
+// APPEND ONLY: array position is the local dexIndex, baked into the positional
+// `tradingUniverses` cache, which has no migration path.
+export const SUB_DEX_LIST = [
+  { prefix: 'xyz', hlDexIndex: 1 },
+  { prefix: 'para', hlDexIndex: 8 },
+] as const;
+
 export const DEX_SEPARATOR = ':';
-export const XYZ_DEX_PREFIX = `${DEX_PREFIXES[0]}${DEX_SEPARATOR}`;
-export const XYZ_ASSET_ID_OFFSET = 110_000;
-export const XYZ_ASSET_ID_LENGTH = `${XYZ_ASSET_ID_OFFSET}`.length;
+
+export const DEX_PREFIXES = SUB_DEX_LIST.map((item) => item.prefix);
+
+export const DEX_ASSET_ID_OFFSETS: readonly number[] = [
+  0,
+  ...SUB_DEX_LIST.map(
+    (item) => HIP3_ASSET_ID_BASE + item.hlDexIndex * HIP3_ASSET_ID_STRIDE,
+  ),
+];
+
+export const XYZ_DEX_PREFIX = `${SUB_DEX_LIST[0].prefix}${DEX_SEPARATOR}`;
+export const XYZ_ASSET_ID_OFFSET = DEX_ASSET_ID_OFFSETS[1];
 
 // Hyperliquid spot assetId = SPOT_ASSET_ID_OFFSET + spotUniverse.index
 export const SPOT_ASSET_ID_OFFSET = 10_000;

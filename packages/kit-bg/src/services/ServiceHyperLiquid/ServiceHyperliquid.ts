@@ -45,6 +45,10 @@ import {
   spotHasPositiveBalance,
   spotNeedsPrices,
 } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
+import {
+  getDexIndexByCoin,
+  toAssetId,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import type {
   IResolvedTokenSelectorFavoriteAction,
   ITokenSelectorFavoriteAction,
@@ -70,8 +74,6 @@ import {
   CACHE_TIME_QUANTIZE_MS,
   DEX_PREFIXES,
   SPOT_ASSET_ID_OFFSET,
-  XYZ_ASSET_ID_OFFSET,
-  XYZ_DEX_PREFIX,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
@@ -156,6 +158,10 @@ import {
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
+import {
+  mergePerpDexSlots,
+  selectPerpMetasByDex,
+} from './utils/perpMetaSelection';
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
@@ -572,10 +578,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.backgroundApi.serviceHyperliquidWallet;
   }
 
-  private detectDexIndexByCoin(coin: string): number {
-    return coin.startsWith(XYZ_DEX_PREFIX) ? 1 : 0;
-  }
-
   private resolveInfoRequestCoin(coin: string) {
     const { dexLabel } = parseDexCoin(coin);
     return {
@@ -595,19 +597,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       return undefined;
     }
     return assetCtxs[ctxIndex];
-  }
-
-  private getAssetIdWithDexPrefix({
-    dexIndex,
-    index,
-  }: {
-    dexIndex: number;
-    index: number;
-  }) {
-    if (dexIndex === 1) {
-      return XYZ_ASSET_ID_OFFSET + index;
-    }
-    return index;
   }
 
   private async init() {
@@ -1432,29 +1421,59 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshTradingMeta() {
+    // read-merge-write on the positional cache is not atomic, and independent
+    // main-runtime hooks do call this in parallel.
+    if (!this.refreshTradingMetaPromise) {
+      this.refreshTradingMetaPromise = this._refreshTradingMeta().finally(
+        () => {
+          this.refreshTradingMetaPromise = undefined;
+        },
+      );
+    }
+    return this.refreshTradingMetaPromise;
+  }
+
+  private refreshTradingMetaPromise: Promise<void> | undefined = undefined;
+
+  private async _refreshTradingMeta() {
     const { infoClient } = hyperLiquidApiClients;
     markPerpsColdStartPerf('service_refresh_trading_meta_start');
 
     // oxlint-disable-next-line @cspell/spellchecker
-    let perpMetaMultiDexList = await infoClient.allPerpMetas();
+    const allPerpMetas = await infoClient.allPerpMetas();
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
-      dexCount: perpMetaMultiDexList?.length ?? 0,
+      dexCount: allPerpMetas?.length ?? 0,
     });
-    if (perpMetaMultiDexList?.length) {
-      if (perpMetaMultiDexList.length >= 2) {
-        perpMetaMultiDexList = perpMetaMultiDexList.slice(0, 2);
-      }
-      const universes = perpMetaMultiDexList.map((meta, dexIndex) =>
-        (meta?.universe || []).map((item, index) => ({
-          ...item,
-          assetId: this.getAssetIdWithDexPrefix({ dexIndex, index }),
-        })),
-      );
-      const marginTablesMapList = perpMetaMultiDexList.map((meta) =>
-        meta?.marginTables?.reduce((acc, item) => {
-          acc[item[0]] = item[1];
-          return acc;
-        }, {} as IMarginTableMap),
+    const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
+    if (perpMetaByDex.length) {
+      const {
+        universesByDex: prevUniversesByDex,
+        marginTablesMapByDex: prevMarginTablesMapByDex,
+      } = await this.getTradingUniverse();
+      const universes = mergePerpDexSlots(
+        perpMetaByDex.map((meta, dexIndex) => {
+          const universe = meta?.universe;
+          if (!universe?.length) {
+            return undefined;
+          }
+          return universe.map((item, index) => ({
+            ...item,
+            assetId: toAssetId({ dexIndex, index }),
+          }));
+        }),
+        prevUniversesByDex,
+      ).map((items) => items ?? []);
+      const marginTablesMapList = mergePerpDexSlots(
+        perpMetaByDex.map((meta) => {
+          if (!meta?.marginTables?.length) {
+            return undefined;
+          }
+          return meta.marginTables.reduce((acc, item) => {
+            acc[item[0]] = item[1];
+            return acc;
+          }, {} as IMarginTableMap);
+        }),
+        prevMarginTablesMapByDex,
       );
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,
@@ -1506,7 +1525,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
         return;
       }
-      const dexIndex = this.detectDexIndexByCoin(coin);
+      const dexIndex = getDexIndexByCoin(coin);
       const universes = universesByDex?.[dexIndex];
       const marginTables = marginTablesMapByDex?.[dexIndex];
       const universe = universes?.find((item) => item.name === coin);
@@ -2682,16 +2701,31 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
 
-      const targetDexIndex = this.detectDexIndexByCoin(newCoin);
+      const targetDexIndex = getDexIndexByCoin(newCoin);
       const dexUniverses: IPerpsUniverse[] | undefined =
         universesByDex?.[targetDexIndex];
       const dexMarginTables: IMarginTableMap | undefined =
         marginTablesMapByDex?.[targetDexIndex];
 
+      // Seed from the first asset only when no coin was requested — substituting
+      // it for an absent coin silently opens a different market.
+      const selectedUniverse: IPerpsUniverse | undefined = newCoin
+        ? dexUniverses?.find((item) => item.name === newCoin)
+        : dexUniverses?.[0];
+      const isCoinMissingFromDex = Boolean(
+        newCoin && dexUniverses?.length && !selectedUniverse,
+      );
+      if (isCoinMissingFromDex) {
+        markPerpsColdStartPerf('service_change_active_asset_coin_not_found', {
+          coin: newCoin,
+          dexIndex: targetDexIndex,
+        });
+      }
+
       // `universesByDex` is `[]` before anything is cached, so the old
       // `?.length === 0` test was never true and `assetId: -1` got committed
-      // as a resolved asset.
-      if (!dexUniverses?.length) {
+      // as a resolved asset. An unresolvable coin takes the same path.
+      if (!dexUniverses?.length || isCoinMissingFromDex) {
         // perpsActiveAssetAtom is persisted, so matching on coin alone would
         // hand back an `assetId: -1` left by an older build.
         if (
@@ -2732,9 +2766,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return result;
       }
 
-      const selectedUniverse: IPerpsUniverse | undefined =
-        dexUniverses?.find((item) => item.name === newCoin) ||
-        dexUniverses?.[0];
       if (requestId !== this.activeAssetChangeRequestId) {
         const result = {
           coin: oldActiveAsset?.coin || newCoin || '',
@@ -2755,7 +2786,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           (token) => token.name === selectedUniverse?.name,
         ) ??
         -1;
-      const selectedMargin = dexMarginTables?.[selectedUniverse?.marginTableId];
+      const selectedMargin = isNil(selectedUniverse?.marginTableId)
+        ? undefined
+        : dexMarginTables?.[selectedUniverse.marginTableId];
       if (requestId !== this.activeAssetChangeRequestId) {
         const result = {
           coin: oldActiveAsset?.coin || newCoin || '',

@@ -85,7 +85,20 @@ export function usePerpTokenSelector() {
       })
     ) {
       lastRefreshTradingMetaTime = now;
-      void backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      // The refreshAllAssets() above serves the persisted universe, which is one
+      // dex short right after a release registers a new sub-DEX.
+      void backgroundApiProxy.serviceHyperliquid
+        .refreshTradingMeta()
+        .then(() => refreshAllAssets())
+        .catch((error) => {
+          // The throttle is claimed before the request, so a transient failure
+          // would pin the stale dex set for the full window.
+          lastRefreshTradingMetaTime = 0;
+          defaultLogger.perp.hyperliquid.coldStartInitializationError({
+            type: 'refresh_trading_meta',
+            error,
+          });
+        });
     }
     return () => {};
   }, [actions, refreshAllAssets]);
