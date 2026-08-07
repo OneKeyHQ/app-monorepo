@@ -40,6 +40,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
+import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -222,9 +223,14 @@ function AggregateTokenListItem({
       testID={AssetSelectorTestIDs.aggregateTokenListItem}
       key={token.$key}
       title={token.networkName || network?.name}
-      avatarProps={{
-        src: network?.logoURI,
-      }}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isCustomNetwork={network?.isCustomNetwork}
+          networkName={network?.name}
+          size="$10"
+        />
+      }
       onPress={handleOnPress}
       disabled={isOtherTokenProcessing}
       opacity={isOtherTokenProcessing ? 0.5 : 1}
