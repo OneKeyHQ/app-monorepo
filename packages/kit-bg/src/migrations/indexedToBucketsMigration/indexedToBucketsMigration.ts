@@ -150,7 +150,7 @@ async function migrateBackupedDataToBucket({
 
   await timerUtils.wait(1000);
 
-  const tx = accountBucket.transaction(
+  const tx = await accountBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
     'readwrite',
   );
@@ -254,7 +254,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
     indexedAccount: legacyIndexedAccounts,
     account: legacyAccounts,
   };
-  const accountBucketTx = accountBucket.transaction(
+  const accountBucketTx = await accountBucket.transactionAsync(
     objectStoreNames,
     'readwrite',
   );
@@ -280,7 +280,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   // #endregion
 
   // #region migrate address bucket
-  const addressBucketTx = addressBucket.transaction(
+  const addressBucketTx = await addressBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.address],
     'readwrite',
   );
@@ -294,7 +294,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   // #endregion
 
   // #region migrate archive bucket
-  const archiveBucketTx = archiveBucket.transaction(
+  const archiveBucketTx = await archiveBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.archive],
     'readwrite',
   );

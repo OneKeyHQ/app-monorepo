@@ -11,6 +11,13 @@ jest.mock('../platformEnv', () => ({
     isExtension: true,
     isDesktop: false,
   },
+  // Needed by appEventBus, which the isolated-module test pulls in through
+  // storageChecker's own imports.
+  ERuntimeRole: {
+    Main: 'main',
+    Background: 'background',
+    Standalone: 'standalone',
+  },
 }));
 
 const GB = 1024 * 1024 * 1024;
@@ -164,6 +171,37 @@ describe('storageChecker', () => {
       await storageChecker.checkIfDiskIsFull();
 
       expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
+    it('schedules a re-measurement from a blocked write so the guard can self-clear', async () => {
+      // Production path: a blocked write never reaches the IndexedDB shim that
+      // normally schedules the measurement. Without the scheduler in the
+      // raised branch, freeing space outside OneKey would never be observed.
+      jest.useFakeTimers();
+      try {
+        // Fresh module instance: earlier tests already armed the module-level
+        // debounce under real timers, and lodash keeps that (now replaced)
+        // timer id, so a shared instance would never re-arm here.
+        await jest.isolateModulesAsync(async () => {
+          const freshChecker = (await import('./storageChecker')).default;
+          globalThis.$onekeySystemDiskIsFull = true;
+          mockEstimate(40 * GB, 10 * GB);
+
+          // Matched by message, not constructor: the isolated module registry
+          // has its own SystemDiskFullError class identity.
+          expect(() => freshChecker.checkIfDiskIsFullSync()).toThrow(
+            'System Disk is full',
+          );
+
+          // Async variant: flushes the microtasks of the debounced async
+          // measurement between timer ticks.
+          await jest.advanceTimersByTimeAsync(1100);
+
+          expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+        });
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('never throws, so it can still run while the guard is raised', async () => {

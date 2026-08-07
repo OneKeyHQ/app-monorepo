@@ -147,6 +147,13 @@ function handleDiskFullError(error: unknown) {
   });
 }
 
+// Declared before its first use in `checkIfDiskIsFullSync`; `checkIfDiskIsFull`
+// itself is a hoisted function declaration.
+const checkIfDiskIsFullDebounced = debounce(checkIfDiskIsFull, 1000, {
+  leading: false,
+  trailing: true,
+});
+
 function checkIfDiskIsFullSync() {
   if (platformEnv.isWebDappMode) {
     return;
@@ -157,6 +164,12 @@ function checkIfDiskIsFullSync() {
     return;
   }
   if (globalThis.$onekeySystemDiskIsFull) {
+    // Schedule a re-measurement before rejecting. A blocked write never
+    // reaches the IndexedDB shim that normally schedules it, so without this
+    // the guard could never observe the user freeing space and would stay
+    // latched until the runtime restarts — the sticky failure this whole
+    // change set exists to remove.
+    void checkIfDiskIsFullDebounced();
     emitWarning(lastDiagnostics);
     throw new SystemDiskFullError();
   }
@@ -206,10 +219,6 @@ async function checkIfDiskIsFull() {
   }
 }
 
-const checkIfDiskIsFullDebounced = debounce(checkIfDiskIsFull, 1000, {
-  leading: false,
-  trailing: true,
-});
 export default {
   handleDiskFullError,
   isConnectionClosingError,

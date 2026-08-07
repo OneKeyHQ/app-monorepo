@@ -329,7 +329,20 @@ export async function getOrCreateCryptoKey({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<CryptoKey> {
-  // Same raw-write-path guard as `writeCryptoKeyRecord`.
+  // Returning an already-persisted key consumes no storage, so it must keep
+  // working while the disk-full guard is raised — the sealed-value codec
+  // resolves its device key through here, and blocking it would turn a
+  // readable session into repeated decrypt failures.
+  const existingKeyRecord = await readCryptoKeyRecord({
+    dbName,
+    indexedDBInstance,
+    keyRef,
+  });
+  if (existingKeyRecord?.key) {
+    return existingKeyRecord.key;
+  }
+  // Creating one does consume storage; the readwrite transaction below still
+  // re-checks atomically, so the cross-runtime race safety is unchanged.
   storageChecker.checkIfDiskIsFullSync();
   const candidateKey = await generateNonExtractableAesGcmKey({ cryptoGlobal });
   const db = await openCryptoKeyDb({ dbName, indexedDBInstance });

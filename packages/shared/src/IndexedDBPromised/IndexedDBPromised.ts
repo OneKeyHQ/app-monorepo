@@ -157,7 +157,25 @@ export class IndexedDBPromised<
     this.nativeDB?.deleteObjectStore(name);
   }
 
-  // use getTransactionAsync() if get bucket db transaction
+  /**
+   * Async counterpart of `transaction()` for ordinary bucket work such as DB
+   * backup and bucket migration. Prefer it over the sync path: it can reopen a
+   * connection the browser force-closed, whereas a sync API can only drop the
+   * dead handle and rethrow, leaving its caller stuck until something else
+   * reopens the database.
+   */
+  async transactionAsync<
+    Names extends ArrayLike<StoreNames<DBTypes>>,
+    Mode extends IDBTransactionMode = 'readonly',
+  >(
+    storeNames: Names,
+    mode: Mode,
+    options?: ICreateBucketTransactionOptions,
+  ): Promise<IDBPTransaction<DBTypes, Names, Mode>> {
+    return this.createBucketTransaction(storeNames, mode, options);
+  }
+
+  // use transactionAsync() for ordinary bucket db transactions
   // sync transaction() is only for sync createObjectStore()
   transaction<
     Names extends ArrayLike<StoreNames<DBTypes>>,

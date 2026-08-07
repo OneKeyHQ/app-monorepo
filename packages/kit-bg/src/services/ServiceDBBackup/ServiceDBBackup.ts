@@ -57,22 +57,24 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx.objectStore(ELocalDBStoreNames.Wallet)?.delete(walletId);
       } catch (error) {
         console.error('ServiceDBBackup removeBackupHDWallet error', error);
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(walletId);
@@ -112,15 +114,17 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Account)
           ?.delete(accountId);
@@ -132,7 +136,7 @@ class ServiceDBBackup extends ServiceBase {
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(accountId);
@@ -272,7 +276,7 @@ class ServiceDBBackup extends ServiceBase {
         ELocalDBStoreNames.Context,
       );
 
-      const backupTx = backupDB.transaction(
+      const backupTx = await backupDB.transactionAsync(
         INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
         'readwrite',
       );
