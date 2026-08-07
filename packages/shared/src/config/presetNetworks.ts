@@ -1259,7 +1259,7 @@ const hyperEvm: IServerNetwork = {
   'extensions': {
     'position': 999,
     'isTokenSupported': true,
-    'isNFTEnabled': false,
+    'isNFTEnabled': true,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
   'defaultEnabled': false,
@@ -2648,6 +2648,7 @@ export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
   polygon.id,
   etc.id,
   tron.id,
+  hyperEvm.id,
   ROBINHOOD_NETWORK_ID,
 ]);
 
@@ -2694,6 +2695,7 @@ export const getNetworksSupportBulkRevokeApproval = memoFn(
     [avalanche.id]: true,
     [optimism.id]: true,
     [base.id]: true,
+    [hyperEvm.id]: true,
     [ROBINHOOD_NETWORK_ID]: true,
   }),
 );
