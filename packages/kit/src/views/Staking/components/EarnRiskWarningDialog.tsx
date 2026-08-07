@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -8,32 +10,24 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import type { FormatXMLElementFn } from 'intl-messageformat';
 
 // Same OneKey user service agreement used across the app (see
 // hyperliquid perp.constants TERMS_OF_SERVICE_URL)
 const ONEKEY_TERMS_OF_USE_URL =
   'https://help.onekey.so/articles/11461297-user-service-agreement';
 
-// FIXME: Replace with product-approved i18n keys once available
-// (OK-59196: "i18n 稍后同步过来"). Copy mirrors figma 27404-41361.
-const RISK_WARNING_COPY = {
-  title: 'Risk Warning',
-  bullets: [
-    'OneKey DeFi includes multiple DeFi products operated independently by third parties, and OneKey only provides access without participating in their operation.',
-    'DeFi products are high-risk and may involve smart contract vulnerabilities, hacking incidents, and potential asset loss.',
-    'OneKey is not responsible for any losses caused by third-party products and does not provide compensation.',
-  ],
-  checkboxPrefix: 'I understand the above risks, agree to the OneKey ',
-  termsLink: 'Terms of Use',
-  checkboxSuffix: ', and confirm that I will do my own research (DYOR).',
-  cancel: 'Cancel',
-  confirm: 'Confirm',
-} as const;
+const RISK_WARNING_BULLET_IDS = [
+  ETranslations.onekey_defi_third_party_operation__desc,
+  ETranslations.defi_product_risk_warning__desc,
+  ETranslations.onekey_defi_third_party_loss_disclaimer__desc,
+] as const;
 
 function EarnRiskWarningContent({
   onConfirm,
@@ -42,19 +36,37 @@ function EarnRiskWarningContent({
   onConfirm: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const intl = useIntl();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // react-intl ships a different React type version here; match the rich-text
+  // callback typing already used by the shared terms controls.
+  const renderTermsTag: FormatXMLElementFn<string, any> = useCallback(
+    (chunks: string[]) => (
+      <SizableText
+        size="$bodyMd"
+        color="$textInfo"
+        textDecorationLine="underline"
+        onPress={() => {
+          openUrlExternal(ONEKEY_TERMS_OF_USE_URL);
+        }}
+      >
+        {chunks}
+      </SizableText>
+    ),
+    [],
+  );
 
   return (
     <YStack gap="$4">
       <YStack gap="$2.5">
-        {RISK_WARNING_COPY.bullets.map((bullet) => (
-          <XStack key={bullet.slice(0, 24)} gap="$2" ai="flex-start">
+        {RISK_WARNING_BULLET_IDS.map((messageId) => (
+          <XStack key={messageId} gap="$2" ai="flex-start">
             <SizableText size="$bodyMd" color="$textSubdued">
               •
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-              {bullet}
+              {intl.formatMessage({ id: messageId })}
             </SizableText>
           </XStack>
         ))}
@@ -74,18 +86,10 @@ function EarnRiskWarningContent({
           onChange={(value) => setAgreed(Boolean(value))}
         />
         <SizableText size="$bodyMd" flex={1}>
-          {RISK_WARNING_COPY.checkboxPrefix}
-          <SizableText
-            size="$bodyMd"
-            color="$textInfo"
-            textDecorationLine="underline"
-            onPress={() => {
-              openUrlExternal(ONEKEY_TERMS_OF_USE_URL);
-            }}
-          >
-            {RISK_WARNING_COPY.termsLink}
-          </SizableText>
-          {RISK_WARNING_COPY.checkboxSuffix}
+          {intl.formatMessage(
+            { id: ETranslations.defi_risk_acknowledgement__desc },
+            { termsTag: renderTermsTag },
+          )}
         </SizableText>
       </XStack>
       <XStack gap="$2.5" pt="$1">
@@ -96,7 +100,7 @@ function EarnRiskWarningContent({
           variant="secondary"
           onPress={onCancel}
         >
-          {RISK_WARNING_COPY.cancel}
+          {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
         <Button
           testID="earn-risk-warning-confirm"
@@ -114,7 +118,7 @@ function EarnRiskWarningContent({
             }
           }}
         >
-          {RISK_WARNING_COPY.confirm}
+          {intl.formatMessage({ id: ETranslations.global_confirm })}
         </Button>
       </XStack>
     </YStack>
@@ -129,10 +133,12 @@ export async function showEarnRiskWarningDialog({
   provider,
   symbol,
   networkId,
+  title,
 }: {
   provider: string;
   symbol: string;
   networkId?: string;
+  title: string;
 }): Promise<boolean> {
   const isAccepted =
     await backgroundApiProxy.simpleDb.earnExtra.getRiskDisclaimerAccepted();
@@ -162,7 +168,7 @@ export async function showEarnRiskWarningDialog({
     };
 
     const dialog = Dialog.show({
-      title: RISK_WARNING_COPY.title,
+      title,
       renderContent: (
         <EarnRiskWarningContent
           onConfirm={async () => {

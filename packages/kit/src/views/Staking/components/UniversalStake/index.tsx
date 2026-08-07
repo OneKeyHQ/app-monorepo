@@ -1225,6 +1225,7 @@ export function UniversalStake({
       provider: providerName,
       symbol: actionSymbol,
       networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
     });
     if (!earnRiskConfirmed) {
       return;
@@ -1612,6 +1613,7 @@ export function UniversalStake({
       provider: providerName,
       symbol: actionSymbol,
       networkId: approveTarget.networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
     });
     if (!riskConfirmed) {
       setApproving(false);
@@ -1763,6 +1765,7 @@ export function UniversalStake({
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
+    intl,
   ]);
 
   // Keep the ref pointing at the latest onApprove so the earlier-defined USDT

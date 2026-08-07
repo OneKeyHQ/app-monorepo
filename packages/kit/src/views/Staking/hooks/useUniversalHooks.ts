@@ -208,6 +208,7 @@ export function useUniversalStake({
         provider,
         symbol,
         networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
       });
       if (!riskConfirmed) {
         return;
