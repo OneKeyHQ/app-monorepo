@@ -552,6 +552,7 @@ function BasicEarnHome({
           isActive={isEarnContentActive}
           showContent={showContent !== false}
           isRefreshing={isOverviewRefreshing}
+          isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
           displayEarnings24h={displayEarnings24h}
           onRefresh={refreshEarnData}
@@ -592,7 +593,7 @@ function BasicEarnHome({
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isOverviewRefreshing}
+            refreshing={isManualRefreshing}
             onRefresh={refreshEarnData}
           />
         }

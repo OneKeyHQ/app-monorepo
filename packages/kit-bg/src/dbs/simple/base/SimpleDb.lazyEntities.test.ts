@@ -84,7 +84,7 @@ describe('SimpleDb lazy entities', () => {
       .filter(([, descriptor]) => typeof descriptor.get === 'function')
       .map(([name]) => name);
 
-    expect(entityNames).toHaveLength(63);
+    expect(entityNames).toHaveLength(64);
     entityNames.forEach((entityName) => {
       const first = Reflect.get(simpleDb, entityName) as Record<
         PropertyKey,

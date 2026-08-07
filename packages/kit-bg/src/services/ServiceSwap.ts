@@ -145,7 +145,9 @@ import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
+  mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
+  shouldShowSwapHistoryStatusToast,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
 
@@ -2866,7 +2868,6 @@ export default class ServiceSwap extends ServiceBase {
         })
       ) {
         const rawStatus = txStatusRes.state;
-        const previousStateDetail = previousSwapTxHistory.stateDetail;
         const shouldPreserveExistingExtraStatus =
           fetchResult?.shouldPreserveExistingExtraStatus &&
           !isSwapTxHistoryStatusTerminal(rawStatus);
@@ -2886,15 +2887,19 @@ export default class ServiceSwap extends ServiceBase {
               txStatusRes.chainFlipExplorerUrl ??
               currentSwapTxHistory.swapInfo?.chainFlipExplorerUrl,
           },
-          swapOrderHash:
-            txStatusRes.swapOrderHash ?? currentSwapTxHistory.swapOrderHash,
+          swapOrderHash: mergeSwapOrderHash(
+            currentSwapTxHistory.swapOrderHash,
+            txStatusRes.swapOrderHash,
+          ),
           crossChainStatus:
             txStatusRes.crossChainStatus ??
             currentSwapTxHistory?.crossChainStatus,
           txInfo: {
             ...currentSwapTxHistory.txInfo,
             txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
-            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+            receiverTransactionId:
+              txStatusRes.crossChainReceiveTxHash ||
+              currentSwapTxHistory.txInfo.receiverTransactionId,
             gasFeeInNative: txStatusRes.gasFee
               ? txStatusRes.gasFee
               : currentSwapTxHistory.txInfo.gasFeeInNative,
@@ -2910,7 +2915,11 @@ export default class ServiceSwap extends ServiceBase {
           },
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory, {
-          shouldShowToast,
+          shouldShowToast: shouldShowSwapHistoryStatusToast({
+            previousSwapTxHistory,
+            swapTxHistory: currentSwapTxHistory,
+            shouldShowToast,
+          }),
         });
         const finalStatus = currentSwapTxHistory.status;
         trackPrivateSendOrderFinalStatusIfNeeded({
@@ -2927,8 +2936,8 @@ export default class ServiceSwap extends ServiceBase {
         if (
           shouldEmitSwapHistoryBalanceUpdate({
             swapTxHistory: currentSwapTxHistory,
+            previousSwapTxHistory,
             txStatusRes,
-            previousStateDetail,
           })
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {

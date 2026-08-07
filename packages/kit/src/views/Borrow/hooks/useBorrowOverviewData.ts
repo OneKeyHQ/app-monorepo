@@ -38,7 +38,9 @@ export const useBorrowOverviewData = ({
 
   const {
     healthFactorData,
-    isLoading: isHealthFactorLoading,
+    isInitialLoading: isHealthFactorInitialLoading,
+    isLoading: isHealthFactorRequestLoading,
+    isError: isHealthFactorError,
     refresh: refreshHealthFactor,
   } = useBorrowHealthFactor({
     networkId,
@@ -50,15 +52,36 @@ export const useBorrowOverviewData = ({
 
   const {
     borrowRewards,
-    isLoading: isRewardsLoading,
+    isInitialLoading: isRewardsInitialLoading,
+    isLoading: isRewardsRequestLoading,
+    isError: isRewardsError,
     refresh: refreshBorrowRewards,
   } = useBorrowRewards({
     networkId,
     provider,
     marketAddress,
     accountId: earnAccountId,
-    enabled: hasMarketAndAccount,
+    enabled: isActive && hasMarketAndAccount,
   });
+
+  const isAccountPending = Boolean(
+    isActive &&
+    networkId &&
+    provider &&
+    marketAddress &&
+    earnAccount.loading &&
+    !earnAccountId,
+  );
+  const isHealthFactorLoading =
+    isAccountPending ||
+    isHealthFactorInitialLoading ||
+    (Boolean(isHealthFactorRequestLoading) &&
+      !healthFactorData &&
+      !isHealthFactorError);
+  const isRewardsLoading =
+    isAccountPending ||
+    isRewardsInitialLoading ||
+    (Boolean(isRewardsRequestLoading) && !borrowRewards && !isRewardsError);
 
   const refreshReserves = reserves.refresh;
   const requestRefresh = useCallback(async () => {

@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 export type ITokenDetailsMarketNavigationTarget =
   | {
       type: 'detail';
@@ -17,7 +19,29 @@ type ITokenDetailsMarketMetadata = {
   coingeckoId?: string;
   networkId?: string;
   tokenAddress?: string;
+  price?: number;
+  priceChange24h?: number;
 };
+
+// Every tab of a token-details page shows the same asset (aggregate members
+// or derive-type accounts), so metadata fetched for a previously active tab
+// is still this asset's market data. Keep it on screen while the new tab's
+// fetch is in flight (stale-while-revalidate) instead of unmounting the
+// footer, which reads as a flash on every tab switch. Hide only when there
+// is no metadata at all or the market data is confirmed empty.
+export function shouldHideTokenDetailsMarketFooter({
+  tokenMetadata,
+}: {
+  tokenMetadata?: ITokenDetailsMarketMetadata;
+}) {
+  if (!tokenMetadata) {
+    return true;
+  }
+  return (
+    new BigNumber(tokenMetadata.priceChange24h ?? 0).isZero() &&
+    new BigNumber(tokenMetadata.price ?? 0).isZero()
+  );
+}
 
 export function isTokenDetailsMarketMetadataForToken({
   networkId,

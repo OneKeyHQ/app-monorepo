@@ -2,6 +2,11 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import {
+  getOneKeyIdAuthFailureServerParams,
+  scrubSensitiveErrorMessageText,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { IOneKeyIdAuthFailureLogSource } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -94,6 +99,15 @@ export type IOneKeyIdAuthStateMigrationParams = {
   status: 'started' | 'succeeded' | 'failed' | 'blocked';
   operationId: string;
   reason?: string;
+};
+
+export type IOneKeyIdAuthStateRepairParams = {
+  stage: 'candidateDetected' | 'stateCommit';
+  status: 'started' | 'succeeded' | 'failed' | 'stateChanged';
+  repairType:
+    | 'legacyLoggedOutWithoutTombstone'
+    | 'invalidLoggedInProjection'
+    | 'incompleteLogoutProjection';
 };
 
 export class PrimeSubscriptionScene extends BaseScene {
@@ -334,6 +348,15 @@ export class PrimeSubscriptionScene extends BaseScene {
     return params;
   }
 
+  /**
+   * Sanitized diagnostics for repairing an inconsistent local OneKey ID projection.
+   */
+  @LogToLocal()
+  @LogToServer()
+  public onekeyIdAuthStateRepair(params: IOneKeyIdAuthStateRepairParams) {
+    return params;
+  }
+
   @LogToLocal()
   @LogToServer()
   public onekeyIdAtomNotLoggedIn({ reason }: { reason: string }) {
@@ -361,37 +384,49 @@ export class PrimeSubscriptionScene extends BaseScene {
   }
 
   // Local Supabase session persistence failed (e.g. setSession's internal
-  // GET /auth/v1/user was rejected). The reason carries the underlying auth
-  // error so exported logs can distinguish a gateway/WAF rejection from a
-  // GoTrue verdict without needing a toast screenshot.
-  @LogToLocal()
+  // GET /auth/v1/user was rejected). The scrubbed reason stays in exported
+  // local logs; the server event receives only structured safe fields.
   @LogToServer()
   public onekeyIdSessionPersistFailed({ reason }: { reason: string }) {
-    return {
-      reason,
-    };
+    const source = 'sessionPersist';
+    this.onekeyIdAuthFailureLocal({ source, reason });
+    return getOneKeyIdAuthFailureServerParams({ source, reason });
   }
 
   // The fallback login-failed toast was shown (errors NOT handled by the
-  // global auto toast). Mirrors the toast body into exported logs.
-  @LogToLocal()
+  // global auto toast). Mirrors the toast body into exported local logs.
   @LogToServer()
   public onekeyIdLoginFailedToast({ reason }: { reason: string }) {
-    return {
-      reason,
-    };
+    const source = 'fallbackToast';
+    this.onekeyIdAuthFailureLocal({ source, reason });
+    return getOneKeyIdAuthFailureServerParams({ source, reason });
   }
 
-  // A OneKey ID auth failure reason recorded at the throw site: the
-  // user-facing copy is localized/generic, so this keeps the stable English
-  // cause for server triage. Fires regardless of which toast (auto,
-  // fallback, or none) surfaces the failure — unlike onekeyIdLoginFailedToast
-  // above, which strictly means "the fallback toast was shown".
-  @LogToLocal()
+  // A OneKey ID auth failure reason recorded at the throw site. The scrubbed
+  // cause stays in local logs while a strict structured subset reaches the
+  // server. Fires regardless of which toast (auto, fallback, or none)
+  // surfaces the failure — unlike onekeyIdLoginFailedToast above, which
+  // strictly means "the fallback toast was shown".
   @LogToServer()
   public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
+    const source = 'throwSite';
+    this.onekeyIdAuthFailureLocal({ source, reason });
+    return getOneKeyIdAuthFailureServerParams({ source, reason });
+  }
+
+  // Keeps the scrubbed diagnostic text on the device. The corresponding
+  // server events above receive only strict structured fields.
+  @LogToLocal({ level: 'error' })
+  public onekeyIdAuthFailureLocal({
+    source,
+    reason,
+  }: {
+    source: IOneKeyIdAuthFailureLogSource;
+    reason: string;
+  }) {
     return {
-      reason,
+      source,
+      reason: scrubSensitiveErrorMessageText(reason),
     };
   }
 }

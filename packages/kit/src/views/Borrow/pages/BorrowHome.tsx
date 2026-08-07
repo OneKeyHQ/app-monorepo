@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
   Empty,
   ScrollView,
-  SegmentControl,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -60,8 +61,12 @@ type IBorrowManageAsset = {
   token: Pick<IBorrowToken, 'logoURI' | 'symbol'>;
 };
 
-const SECTION_TABS_MIN_WIDTH = 264;
-const SECTION_TABS_ITEM_STYLE = { flexGrow: 1 } as const;
+const SECTION_TAB_BAR_CONTAINER_STYLE = {
+  testID: BorrowTestIDs.sectionTabs,
+  position: 'relative',
+  zIndex: 0,
+  bg: 'transparent',
+} as const;
 
 type IBorrowHomeProps = {
   header?: React.ReactNode;
@@ -129,8 +134,11 @@ const BorrowHomeContent = memo(
       borrowDataStatus,
       refreshAllBorrowData,
     } = useBorrowContext();
-    const isReservesPending = isBorrowReservesPending(borrowDataStatus);
-    const isReservesError = borrowDataStatus === EBorrowDataStatus.Error;
+    const isReservesPending =
+      isBorrowReservesPending(borrowDataStatus) ||
+      (reserves.loading && !reserves.data);
+    const isReservesError =
+      !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
     const { activeAccount } = useActiveAccount({ num: 0 });
     const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
     const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
@@ -172,19 +180,16 @@ const BorrowHomeContent = memo(
         Boolean(walletId || accountId || indexedAccountId),
       [activeAccount.ready, walletId, accountId, indexedAccountId],
     );
-    const isEModeProviderUnresolved =
-      isReservesPending && !inferredEModeProvider;
     const isAaveEModeProvider =
       inferredEModeProvider?.toLowerCase() === EBorrowProviderEnum.Aave;
     const isEModeInitialLoading =
       !eModeStatus &&
       !isEModeStatusError &&
       isActive &&
-      (isEModeProviderUnresolved || isAaveEModeProvider) &&
+      isAaveEModeProvider &&
       (!activeAccount.ready ||
         (hasConnectedWallet &&
-          (isReservesPending ||
-            earnAccount.loading ||
+          (earnAccount.loading ||
             Boolean(earnAccountId && isEModeStatusInitialLoading))));
     const isEModeError =
       !eModeStatus && isActive && isAaveEModeProvider && isEModeStatusError;
@@ -205,7 +210,7 @@ const BorrowHomeContent = memo(
         earnAccount.data?.accountAddress,
       ],
     );
-    const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
+    const hasAlerts = Boolean(alerts.length) || showNoAddressWarning;
 
     const refreshEarnAccount = earnAccount.refresh;
     const refreshReserves = reserves.refresh;
@@ -220,22 +225,25 @@ const BorrowHomeContent = memo(
     const isMidWidth = gtMd && !gtXl;
     const isPhone = !gtMd;
 
-    const sectionTabOptions = useMemo(
+    const sectionTabNames = useMemo(
       () => [
-        {
-          label: intl.formatMessage({ id: ETranslations.defi_supply }),
-          value: 'supply' as const,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_borrow }),
-          value: 'borrow' as const,
-        },
+        intl.formatMessage({ id: ETranslations.defi_supply }),
+        intl.formatMessage({ id: ETranslations.global_borrow }),
       ],
       [intl],
     );
-    const handleSectionChange = useCallback((value: string | number) => {
-      setActiveSection(value as IBorrowSection);
-    }, []);
+    const focusedSectionTab = useSharedValue(sectionTabNames[0]);
+    useEffect(() => {
+      focusedSectionTab.value =
+        activeSection === 'supply' ? sectionTabNames[0] : sectionTabNames[1];
+    }, [activeSection, focusedSectionTab, sectionTabNames]);
+    const handleSectionChange = useCallback(
+      (name: string) => {
+        focusedSectionTab.value = name;
+        setActiveSection(name === sectionTabNames[1] ? 'borrow' : 'supply');
+      },
+      [focusedSectionTab, sectionTabNames],
+    );
 
     const supplyAssets = useMemo(
       () =>
@@ -426,13 +434,11 @@ const BorrowHomeContent = memo(
 
       return (
         <YStack flex={1} gap="$5">
-          <SegmentControl
-            testID={BorrowTestIDs.sectionTabs}
-            value={activeSection}
-            options={sectionTabOptions}
-            minWidth={SECTION_TABS_MIN_WIDTH}
-            onChange={handleSectionChange}
-            segmentControlItemStyleProps={SECTION_TABS_ITEM_STYLE}
+          <Tabs.TabBar
+            tabNames={sectionTabNames}
+            focusedTab={focusedSectionTab}
+            onTabPress={handleSectionChange}
+            containerStyle={SECTION_TAB_BAR_CONTAINER_STYLE}
           />
           {activeSection === 'supply' ? (
             <>

@@ -102,7 +102,10 @@ function BaseDesktopTabPageHeader({
   );
 
   const renderDesktopModeRightButtons = useCallback(() => {
-    if (tabRoute === ETabRoutes.Perp && customHeaderRightItems) {
+    if (
+      (tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.Swap) &&
+      customHeaderRightItems
+    ) {
       return (
         <>
           {customHeaderRightItems}
