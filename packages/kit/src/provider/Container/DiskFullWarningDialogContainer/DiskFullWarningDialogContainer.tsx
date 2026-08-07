@@ -26,9 +26,7 @@ export function DiskFullWarningDialogContainer() {
     };
     const showFn = debounce(
       async (
-        diagnostics: IAppEventBusPayload[
-          EAppEventBusNames.ShowSystemDiskFullWarning
-        ],
+        diagnostics: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
       ) => {
         await hideFn();
         // Measured numbers, deliberately untranslated: they are what tells a
