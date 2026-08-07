@@ -118,6 +118,27 @@ describe('storageChecker', () => {
       expect(storageChecker.getLastDiagnostics()).toBeUndefined();
     });
 
+    it('holds a raised guard inside the hysteresis band instead of flapping', async () => {
+      // 1.2 GB free: above the 0.936 GB raise threshold, below the ~1.87 GB
+      // clear threshold. A raised guard must stay raised — the measurement
+      // reruns every second under write load, and flipping here would emit a
+      // dialog and a log line per flip.
+      globalThis.$onekeySystemDiskIsFull = true;
+      mockEstimate(40 * GB, 40 * GB - 1.2 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+    });
+
+    it('keeps a healthy guard clear inside the hysteresis band', async () => {
+      mockEstimate(40 * GB, 40 * GB - 1.2 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);

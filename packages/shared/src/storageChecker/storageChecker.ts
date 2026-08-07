@@ -38,6 +38,13 @@ const connectionClosingErrorMessage = `The database connection is closing`;
 const warningAtGB = 0.936;
 // const warningAtGB = 1110.936;
 const warningAtBytes = warningAtGB * 1024 * 1024 * 1024;
+/**
+ * Headroom needed to release the guard again. The gap against `warningAtBytes`
+ * is deliberate: the measurement re-runs on every write (debounced to 1s), so
+ * a quota sitting near the threshold would otherwise flip the guard — and with
+ * it the warning dialog and a log line — once per second in both directions.
+ */
+const clearAtBytes = warningAtBytes * 2;
 
 /** Most recent successful measurement, regardless of the current flag state. */
 let lastQuotaInfo: IStorageQuotaInfo | undefined;
@@ -75,10 +82,13 @@ function raiseDiskFull(diagnostics: IStorageFullDiagnostics) {
   const wasAlreadyFull = Boolean(globalThis.$onekeySystemDiskIsFull);
   globalThis.$onekeySystemDiskIsFull = true;
   lastDiagnostics = diagnostics;
+  // Log and warn on the transition only. While the guard stays raised the
+  // debounced measurement re-runs on every write, and each blocked write
+  // already re-emits the warning via `checkIfDiskIsFullSync`.
   if (!wasAlreadyFull) {
     appGlobals?.$defaultLogger?.app.storage.diskFullDetected(diagnostics);
+    emitWarning(diagnostics);
   }
-  emitWarning(diagnostics);
 }
 
 /**
@@ -162,9 +172,10 @@ async function checkIfDiskIsFull() {
               reason: EStorageFullReason.QuotaExhausted,
               quotaInfo,
             });
-          } else {
+          } else if (quotaInfo.availableBytes >= clearAtBytes) {
             clearDiskFull(quotaInfo);
           }
+          // Between the two thresholds: keep the current state either way.
         }
       }
     }
