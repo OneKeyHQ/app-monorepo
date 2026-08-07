@@ -1288,6 +1288,69 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(1);
   });
 
+  it('does not run BLE prechecks for an explicit Android USB call after BLE was active', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.BLE,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_USB_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    ).resolves.toBe('ANDROID_USB_ID');
+
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
+  });
+
+  it('runs BLE prechecks for an explicit Android BLE call after USB was active', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.WEBUSB,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.BLE,
+      }),
+    ).rejects.toThrow('NeedBluetoothPermissions');
+
+    expect(mockedCheckBLEPermissions).toHaveBeenCalledTimes(1);
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+  });
+
   it('does not run BLE prechecks for Android third-party USB devices', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: false,

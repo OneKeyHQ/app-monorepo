@@ -57,7 +57,10 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { DESKTOP_API_ALLOWED_MODULES } from './libs/desktopApiModuleAllowlist';
+import {
+  DESKTOP_API_ALLOWED_MODULES,
+  isDesktopApiMethodAllowed,
+} from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -1161,14 +1164,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: unknown module "${module}"`,
         );
       }
-      // Block inherited prototype methods and private methods
-      if (
-        typeof method !== 'string' ||
-        method.startsWith('_') ||
-        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
-          method,
-        )
-      ) {
+      if (!isDesktopApiMethodAllowed(module, method)) {
         throw new OneKeyLocalError(
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );

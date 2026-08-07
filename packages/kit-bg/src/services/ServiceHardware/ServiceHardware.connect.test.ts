@@ -617,6 +617,41 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     },
   );
 
+  it('uses the explicit Android USB transport without running stale BLE prechecks', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isNativeAndroid = true;
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const connectDevice = jest
+      .spyOn(service, 'connectDevice')
+      .mockResolvedValue({ label: 'OneKey' } as Features);
+
+    await expect(
+      service.connect({
+        device: buildDevice({ connectProtocol: 'V1' }),
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    ).resolves.toEqual({ label: 'OneKey' });
+
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+    expect(connectDevice).toHaveBeenCalledWith({
+      connectId: 'USB_SERIAL',
+      params: { connectProtocol: 'V1' },
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    });
+  });
+
   it('按设备及 USB/BLE 端点隔离绑定已确认协议', async () => {
     const setDeviceConnectProtocol = jest.fn();
     const service = new ServiceHardware({

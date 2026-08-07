@@ -2196,6 +2196,7 @@ class ServiceHardware extends ServiceBase {
           featuresDeviceId: device.deviceId,
           hardwareCallContext:
             hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+          hardwareTransportType: resolvedHardwareTransportType,
         });
     const protocolAwareDevice = device as SearchDevice & {
       connectProtocol?: HardwareConnectProtocol;
@@ -3812,16 +3813,19 @@ class ServiceHardware extends ServiceBase {
   private async ensureNativeBleReadyForHardwareCall({
     connectId,
     hardwareCallContext,
+    hardwareTransportType,
   }: {
     connectId: string;
     hardwareCallContext: EHardwareCallContext;
+    hardwareTransportType?: EHardwareTransportType;
   }) {
     if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
       return;
     }
 
-    const currentTransportType = await this.getCurrentTransportType();
-    if (currentTransportType !== EHardwareTransportType.BLE) {
+    const transportType =
+      hardwareTransportType ?? (await this.getCurrentTransportType());
+    if (transportType !== EHardwareTransportType.BLE) {
       return;
     }
 
@@ -3993,12 +3997,14 @@ class ServiceHardware extends ServiceBase {
     featuresDeviceId,
     features,
     vendor,
+    hardwareTransportType,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
     vendor?: EHardwareVendor;
+    hardwareTransportType?: EHardwareTransportType;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -4073,6 +4079,7 @@ class ServiceHardware extends ServiceBase {
     await this.ensureNativeBleReadyForHardwareCall({
       connectId,
       hardwareCallContext,
+      hardwareTransportType,
     });
 
     if (!platformEnv.isSupportDesktopBle) {
