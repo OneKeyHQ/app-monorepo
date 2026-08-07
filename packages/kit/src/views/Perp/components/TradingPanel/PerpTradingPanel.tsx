@@ -7,6 +7,7 @@ import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  useActiveTradeInstrumentAtom,
   useTradingFormAtom,
   useTradingFormComputedSize,
   useTradingLoadingAtom,
@@ -22,8 +23,8 @@ import {
   usePerpsActiveAssetDataAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOrderConfirm } from '../../hooks';
@@ -68,7 +69,8 @@ function PerpTradingDisabledPlaceOrderButton({
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
 
   const disabledForAccountLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
@@ -217,7 +219,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const snapshotLookupIndexedAccountId = selectedWalletAccount.ready
@@ -341,6 +344,50 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     orderPanelEnableTradingMode,
     perpsAccountLoading.selectAccountLoading,
     perpsAccountStatus,
+  ]);
+
+  // Diagnostic only: separates a snapshot key mismatch (entries present but no
+  // hit) from the cached-path exclusion (a hit that !statusReady rejects).
+  useEffect(() => {
+    markPerpsColdStartPerfOnce(
+      canShowTradingButtons
+        ? 'trading_buttons_gate_visible_first'
+        : 'trading_buttons_gate_blocked_first',
+      {
+        isMobile,
+        snapshotEntries: Object.keys(displaySnapshot?.entries ?? {}).length,
+        hasLookupAddress: Boolean(snapshotLookupAccountAddress),
+        hasLookupAccountId: Boolean(snapshotLookupAccountId),
+        hasLookupIndexedAccountId: Boolean(snapshotLookupIndexedAccountId),
+        snapshotHit: Boolean(snapshotEntry),
+        snapshotHasAddress: Boolean(snapshotEntry?.account.accountAddress),
+        walletAccountReady: selectedWalletAccount.ready,
+        statusReady: displayReady.statusReady,
+        selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+        statusHasAddress: Boolean(perpsAccountStatus.accountAddress),
+        accountNotSupport: Boolean(perpsAccountStatus.accountNotSupport),
+        canCreateAddress: Boolean(perpsAccountStatus.canCreateAddress),
+        canTrade: Boolean(perpsAccountStatus.canTrade),
+        canShowCachedTradingButtons,
+        canShowTradingButtons,
+      },
+    );
+  }, [
+    canShowCachedTradingButtons,
+    canShowTradingButtons,
+    displayReady.statusReady,
+    displaySnapshot?.entries,
+    isMobile,
+    perpsAccountLoading.selectAccountLoading,
+    perpsAccountStatus.accountAddress,
+    perpsAccountStatus.accountNotSupport,
+    perpsAccountStatus.canCreateAddress,
+    perpsAccountStatus.canTrade,
+    selectedWalletAccount.ready,
+    snapshotEntry,
+    snapshotLookupAccountAddress,
+    snapshotLookupAccountId,
+    snapshotLookupIndexedAccountId,
   ]);
 
   const reserveMobileEnableTradingLayout = useMemo(

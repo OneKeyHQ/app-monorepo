@@ -15,11 +15,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useActiveTradeInstrumentAtom,
   usePerpsMaxBuilderFeeAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { useTradingModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -69,8 +69,10 @@ function PerpBadgesRow() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const requestedBuilderFeeRef = useRef(false);
-  const [tradingMode] = useTradingModeAtom();
-  const isSpot = tradingMode === 'spot';
+  // The instrument is what the price and order book already render, so reading
+  // the mode from it keeps this row from labelling a pair it is not showing.
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
   const [builderFeeRate, setBuilderFeeRate] = usePerpsMaxBuilderFeeAtom();
   const { baseName, rawBaseName, coin, dexLabel } = useActiveTradeDisplay();
   const [tokenSearchAliases, setTokenSearchAliases] =

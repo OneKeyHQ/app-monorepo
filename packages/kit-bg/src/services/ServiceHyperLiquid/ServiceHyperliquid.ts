@@ -152,6 +152,7 @@ import {
   spotPairDisplayMapAtom,
   spotPairDisplayNameMapAtom,
   spotTokenFavoritesPersistAtom,
+  tradingModeAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/depositTokenListUtils';
@@ -193,6 +194,7 @@ import type {
   IPerpsDepositToken,
   IPerpsDepositTokensAtom,
   ISpotBalanceItem,
+  ITradingMode,
 } from '../../states/jotai/atoms';
 import type {
   ISpotActiveAssetCtxAtom,
@@ -321,6 +323,30 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async cancelPendingActiveAssetChange(): Promise<void> {
     this.activeAssetChangeRequestId += 1;
+  }
+
+  // main only mirrors these atoms and its copy is refreshed by a broadcast whose
+  // delivery is not confirmed, so a resync that reads the mirror can converge on
+  // a mode and coin this runtime never chose. Reading them here keeps the
+  // authoritative side as the source for that decision.
+  @backgroundMethod()
+  async getActiveTradeInstrumentTarget(): Promise<{
+    mode: ITradingMode;
+    spotAsset: { coin: string; universe?: ISpotUniverse } | undefined;
+    perpAsset: { coin: string } | undefined;
+  }> {
+    const [mode, spotAsset, perpAsset] = await Promise.all([
+      tradingModeAtom.get(),
+      spotActiveAssetAtom.get(),
+      perpsActiveAssetAtom.get(),
+    ]);
+    return {
+      mode: mode ?? 'perp',
+      spotAsset: spotAsset?.coin
+        ? { coin: spotAsset.coin, universe: spotAsset.universe }
+        : undefined,
+      perpAsset: perpAsset?.coin ? { coin: perpAsset.coin } : undefined,
+    };
   }
 
   private rememberCommittedActiveAsset(
@@ -2641,6 +2667,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         try {
           await this.cacheService.hydratePerpsAccountDisplayCache(
             perpsAccount.accountAddress,
+            () => this.isLatestActivePerpsAccountChange(requestId),
           );
         } catch (error) {
           console.warn(
