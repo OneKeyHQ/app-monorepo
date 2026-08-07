@@ -970,11 +970,24 @@ class ServiceHardware extends ServiceBase {
         hardwareConnectSrc,
         debugMode,
         loadFirmwareConfig: async () => {
-          const config =
-            refreshedFirmwareManifest ??
-            (await getFirmwareManifestSnapshot({
-              preRelease: isPreRelease === true,
-            }));
+          let config = refreshedFirmwareManifest;
+          if (!config) {
+            try {
+              config = await getFirmwareManifestSnapshot({
+                preRelease: isPreRelease === true,
+              });
+            } catch {
+              this.loadedFirmwareManifestKey = stringUtils.stableStringify({
+                preRelease: isPreRelease === true,
+                config: null,
+              });
+              defaultLogger.hardware.sdkLog.log(
+                'firmware_manifest_unavailable',
+                isPreRelease === true ? 'pre-release' : 'stable',
+              );
+              return undefined;
+            }
+          }
           this.loadedFirmwareManifestKey = stringUtils.stableStringify({
             preRelease: isPreRelease === true,
             config,

@@ -78,7 +78,7 @@ const createHardwareSDKInstance = async (params: {
   hardwareConnectSrc?: EOnekeyDomain;
   debugMode?: boolean;
   hardwareTransportType?: EHardwareTransportType;
-  loadFirmwareConfig?: () => Promise<RemoteConfigResponse>;
+  loadFirmwareConfig?: () => Promise<RemoteConfigResponse | undefined>;
 }): Promise<CoreApi> => {
   if (HardwareSDK) {
     await cleanupHardwareSDKInstance();
@@ -112,7 +112,10 @@ const createHardwareSDKInstance = async (params: {
     }
     settings.fetchConfig = false;
     settings.firmwareManifestMode = 'external-only';
-    settings.preloadedConfig = await params.loadFirmwareConfig();
+    const firmwareConfig = await params.loadFirmwareConfig();
+    if (firmwareConfig) {
+      settings.preloadedConfig = firmwareConfig;
+    }
   } else {
     settings.fetchConfig = true;
     settings.firmwareManifestMode = 'sdk-managed';

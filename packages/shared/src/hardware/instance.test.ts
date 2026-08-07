@@ -144,6 +144,29 @@ describe('hardware SDK firmware config settings', () => {
     );
   });
 
+  it('keeps external-only SDK initialization offline when the manifest is unavailable', async () => {
+    const init = mockSdkLoaders();
+    const loadFirmwareConfig = jest.fn(
+      async (): Promise<RemoteConfigResponse | undefined> => undefined,
+    );
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      loadFirmwareConfig,
+    });
+
+    const settings = init.mock.calls[0]?.[0];
+    expect(loadFirmwareConfig).toHaveBeenCalledTimes(1);
+    expect(settings).toEqual(
+      expect.objectContaining({
+        fetchConfig: false,
+        firmwareManifestMode: 'external-only',
+      }),
+    );
+    expect(settings).not.toHaveProperty('preloadedConfig');
+  });
+
   it('fails closed when the App-managed manifest loader is missing', async () => {
     await expect(
       getHardwareSDKInstance({

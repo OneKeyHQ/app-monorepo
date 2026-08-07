@@ -1132,6 +1132,90 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('keeps ordinary hardware available without a manifest and reloads after recovery', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isSupportDesktopBle: false,
+    });
+    const recoveredManifest = { bridge: { version: 'recovered' } };
+    mockedGetFirmwareManifestSnapshot
+      .mockRejectedValueOnce(new Error('manifest unavailable'))
+      .mockResolvedValueOnce(
+        recoveredManifest as unknown as RemoteConfigResponse,
+      );
+    const loadedConfigs: Array<RemoteConfigResponse | undefined> = [];
+    mockedGetHardwareSDKInstance.mockImplementation(async (params) => {
+      loadedConfigs.push(await params.loadFirmwareConfig?.());
+      return {} as Awaited<ReturnType<typeof getHardwareSDKInstance>>;
+    });
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceApp: {
+          showToast: jest.fn(),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceSetting: {
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.connectionManager.getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(
+        service as unknown as {
+          registerSdkEvents: () => Promise<void>;
+        },
+        'registerSdkEvents',
+      )
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.getSDKInstance({ connectId: undefined }),
+    ).resolves.toBeDefined();
+    expect(loadedConfigs).toEqual([undefined]);
+    expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        forceFirmwareManifestRefresh: true,
+      }),
+    ).resolves.toBeDefined();
+    expect(mockedResetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+    expect(loadedConfigs).toEqual([undefined, recoveredManifest]);
+  });
+
+  it('keeps an explicit firmware manifest refresh fail-closed', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isSupportDesktopBle: false,
+    });
+    mockedGetFirmwareManifestSnapshot.mockRejectedValueOnce(
+      new Error('manifest unavailable'),
+    );
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        forceFirmwareManifestRefresh: true,
+      }),
+    ).rejects.toThrow('manifest unavailable');
+    expect(mockedGetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
   it('shows BLE permission guidance before Android user hardware calls when permission is missing', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: false,
