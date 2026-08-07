@@ -33,10 +33,7 @@ function setupEntity(initial: ISimpleDbIpTableData) {
   const entity = new SimpleDbEntityIpTable();
   let store = initial;
   jest.spyOn(entity, 'setRawData').mockImplementation(async (builder) => {
-    store =
-      typeof builder === 'function'
-        ? await builder(store)
-        : (builder as ISimpleDbIpTableData);
+    store = typeof builder === 'function' ? await builder(store) : builder;
     return store;
   });
   return { entity, getStore: () => store };

@@ -50,7 +50,7 @@ import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
-import { handleCustomInjectedDeepLink } from './handleCustomInjectedDeepLink';
+import { tryHandleDevelopmentDesktopDeepLink } from './developmentDesktopDeepLink';
 import { registerHandler } from './handler';
 import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
@@ -315,7 +315,16 @@ async function processDeepLinkUrlAccount(
         }, 1500);
         return;
       }
-      switch (getOneKeyDeepLinkPath(parsedUrl)) {
+      const deepLinkPath = getOneKeyDeepLinkPath(parsedUrl);
+      if (
+        await tryHandleDevelopmentDesktopDeepLink({
+          deepLinkPath,
+          queryParams,
+        })
+      ) {
+        return;
+      }
+      switch (deepLinkPath) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -387,12 +396,6 @@ async function processDeepLinkUrlAccount(
           if (webViewParams) {
             openWebView(webViewParams);
           }
-          break;
-        }
-        case EOneKeyDeepLinkPath.custom_injected: {
-          const query =
-            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.custom_injected];
-          await handleCustomInjectedDeepLink(query);
           break;
         }
         case EOneKeyDeepLinkPath.preview_featured_changelog: {

@@ -1,33 +1,10 @@
 import { Dialog } from '@onekeyhq/components';
-import { setActiveCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { activateCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
+import { showCustomInjectionSettingsDialog } from '@onekeyhq/kit/src/views/Discovery/components/CustomInjectionSettingsDialog';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
-function showConfirmation(description: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const settle = (confirmed: boolean) => {
-      if (!settled) {
-        settled = true;
-        resolve(confirmed);
-      }
-    };
-    Dialog.show({
-      title: 'Load custom injection workspace?',
-      description,
-      tone: 'warning',
-      icon: 'ErrorOutline',
-      dismissOnOverlayPress: false,
-      onConfirmText: 'Load workspace',
-      onCancelText: 'Cancel',
-      onConfirm: () => settle(true),
-      onCancel: () => settle(false),
-      onClose: () => settle(false),
-    });
-  });
-}
 
 function showError(title: string, description: string) {
   Dialog.show({
@@ -42,6 +19,7 @@ function showError(title: string, description: string) {
 
 export async function handleCustomInjectedDeepLink(query: {
   workspace?: unknown;
+  url?: unknown;
 }): Promise<void> {
   const devSettings =
     await backgroundApiProxy.serviceDevSetting.getDevSetting();
@@ -54,71 +32,47 @@ export async function handleCustomInjectedDeepLink(query: {
   }
   const workspace =
     typeof query.workspace === 'string' ? query.workspace.trim() : '';
-  if (!workspace) {
+  const targetUrl = typeof query.url === 'string' ? query.url.trim() : '';
+  if (targetUrl && !isAllowedWebViewUrl(targetUrl)) {
     showError(
       'Invalid custom injection link',
-      'The DeepLink must include an absolute workspace path.',
+      'The target URL must be a safe HTTP or HTTPS dapp URL.',
     );
     return;
   }
 
-  let sessionId: string | undefined;
-  let activated = false;
-  try {
-    const preview =
-      await globalThis.desktopApiProxy.webview.prepareCustomInjectedWorkspace(
-        workspace,
-        devSettings.enabled,
-      );
-    sessionId = preview.sessionId;
-    const confirmed = await showConfirmation(
-      [
-        `Workspace: ${preview.workspace}`,
-        `Registry: ${preview.protocolRegistry}`,
-        `Desktop preload: ${preview.desktopPreload}`,
-        `Protocols: ${String(preview.protocolCount)} (${String(
-          preview.pendingCount,
-        )} pending)`,
-        `Bundle SHA-256: ${preview.bundleSha256}`,
-        '',
-        'Local JavaScript will run inside real dapp WebViews with the OneKey provider bridge.',
-      ].join('\n'),
-    );
-    if (!confirmed) {
-      await globalThis.desktopApiProxy.webview.closeCustomInjectedWorkspace(
-        preview.sessionId,
-      );
+  const currentConfig = devSettings.settings?.customInjection;
+  const canReuseCurrentConfig = Boolean(
+    currentConfig?.enabled &&
+    currentConfig.workspace &&
+    ((workspace && currentConfig.workspace === workspace) ||
+      (!workspace && targetUrl)),
+  );
+  if (canReuseCurrentConfig && currentConfig) {
+    try {
+      await activateCustomInjectedWorkspace({
+        workspace: currentConfig.workspace,
+        devSettingsEnabled: devSettings.enabled,
+        customInjectionEnabled: currentConfig.enabled,
+      });
+      if (targetUrl) {
+        openUrlInDiscovery({ url: targetUrl });
+      }
       return;
-    }
-    const customSession =
-      await globalThis.desktopApiProxy.webview.activateCustomInjectedWorkspace(
-        preview.sessionId,
+    } catch (error) {
+      showError(
+        'Unable to load custom injection workspace',
+        error instanceof Error ? error.message : String(error),
       );
-    activated = true;
-    setActiveCustomInjectedWorkspace(customSession);
-    const initialProtocol =
-      customSession.protocols.find(
-        (protocol) => protocol.manualReview.state === 'pending',
-      ) || customSession.protocols[0];
-    if (!initialProtocol) {
-      throw new OneKeyLocalError('No supported protocol URL is available');
     }
-    openUrlInDiscovery({
-      url: initialProtocol.url,
-      title: initialProtocol.name,
-    });
-  } catch (error) {
-    if (sessionId) {
-      await globalThis.desktopApiProxy.webview
-        .closeCustomInjectedWorkspace(sessionId)
-        .catch(() => undefined);
-    }
-    if (activated) {
-      setActiveCustomInjectedWorkspace(undefined);
-    }
-    showError(
-      'Unable to load custom injection workspace',
-      error instanceof Error ? error.message : String(error),
-    );
   }
+
+  await showCustomInjectionSettingsDialog({
+    suggestedWorkspace: workspace || undefined,
+    onSaved: (config) => {
+      if (config.enabled && targetUrl) {
+        openUrlInDiscovery({ url: targetUrl });
+      }
+    },
+  });
 }

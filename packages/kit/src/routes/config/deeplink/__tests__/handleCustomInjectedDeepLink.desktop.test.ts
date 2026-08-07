@@ -1,6 +1,7 @@
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { setActiveCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
+import { activateCustomInjectedWorkspace } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
+import { showCustomInjectionSettingsDialog } from '@onekeyhq/kit/src/views/Discovery/components/CustomInjectionSettingsDialog';
 import { openUrlInDiscovery } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleCustomInjectedDeepLink } from '../handleCustomInjectedDeepLink.desktop';
@@ -20,149 +21,167 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
-  openUrlInDiscovery: jest.fn(),
+jest.mock('@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime', () => ({
+  activateCustomInjectedWorkspace: jest.fn(),
 }));
 
-jest.mock('@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime', () => ({
-  setActiveCustomInjectedWorkspace: jest.fn(),
+jest.mock(
+  '@onekeyhq/kit/src/views/Discovery/components/CustomInjectionSettingsDialog',
+  () => ({
+    showCustomInjectionSettingsDialog: jest.fn(),
+  }),
+);
+
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  openUrlInDiscovery: jest.fn(),
 }));
 
 const showDialog = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 const mockedOpenUrlInDiscovery = openUrlInDiscovery as jest.MockedFunction<
   typeof openUrlInDiscovery
 >;
-const mockedSetActiveCustomInjectedWorkspace =
-  setActiveCustomInjectedWorkspace as jest.MockedFunction<
-    typeof setActiveCustomInjectedWorkspace
+const mockedActivateCustomInjectedWorkspace =
+  activateCustomInjectedWorkspace as jest.MockedFunction<
+    typeof activateCustomInjectedWorkspace
+  >;
+const mockedShowCustomInjectionSettingsDialog =
+  showCustomInjectionSettingsDialog as jest.MockedFunction<
+    typeof showCustomInjectionSettingsDialog
   >;
 const mockedDevSettingService =
   backgroundApiProxy.serviceDevSetting as unknown as {
     getDevSetting: jest.Mock;
   };
 
-const customSession = {
-  sessionId: 'session-1',
-  workspace: '/workspace',
-  registrySha256: 'a'.repeat(64),
-  bundleSha256: 'b'.repeat(64),
-  preloadUrl: 'file:///workspace/injectedDesktopPreload.js?sha256=b',
-  protocols: [
-    {
-      id: 'processed',
-      name: 'Processed',
-      slug: 'processed',
-      url: 'https://processed.example',
-      urlSource: 'defillama' as const,
-      totalTvl: 20,
-      bestRank: 1,
-      manualReview: {
-        state: 'processed' as const,
-        reviewedAt: '2026-07-30T00:00:00.000Z',
-        reviewedUrl: 'https://processed.example',
-        injectedBundleSha256: 'c'.repeat(64),
-      },
-    },
-    {
-      id: 'pending',
-      name: 'Pending',
-      slug: 'pending',
-      url: 'https://pending.example',
-      urlSource: 'override' as const,
-      totalTvl: 10,
-      bestRank: 2,
-      manualReview: {
-        state: 'pending' as const,
-        reviewedAt: null,
-        reviewedUrl: null,
-        injectedBundleSha256: null,
-      },
-    },
-  ],
-};
-
 describe('handleCustomInjectedDeepLink', () => {
-  const prepareCustomInjectedWorkspace = jest.fn();
-  const activateCustomInjectedWorkspace = jest.fn();
-  const closeCustomInjectedWorkspace = jest.fn();
-  const createDialogInstance = () => ({
-    close: jest.fn(),
-    getForm: jest.fn(),
-    isExist: jest.fn(() => true),
-    preventClose: jest.fn(),
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
-    Object.defineProperty(globalThis, 'desktopApiProxy', {
-      configurable: true,
-      value: {
-        webview: {
-          activateCustomInjectedWorkspace,
-          closeCustomInjectedWorkspace,
-          prepareCustomInjectedWorkspace,
+    mockedActivateCustomInjectedWorkspace.mockResolvedValue({} as never);
+    mockedShowCustomInjectionSettingsDialog.mockResolvedValue(true);
+  });
+
+  it('blocks the shortcut while Developer Settings is disabled', async () => {
+    mockedDevSettingService.getDevSetting.mockResolvedValue({
+      enabled: false,
+      settings: {
+        customInjection: {
+          enabled: true,
+          workspace: '/workspace',
         },
       },
     });
-    prepareCustomInjectedWorkspace.mockResolvedValue({
-      sessionId: 'session-1',
-      workspace: '/workspace',
-      protocolRegistry: 'registry.json',
-      desktopPreload: 'injectedDesktopPreload.js',
-      protocolCount: 2,
-      pendingCount: 1,
-      bundleSha256: 'b'.repeat(64),
-    });
-    activateCustomInjectedWorkspace.mockResolvedValue(customSession);
-  });
 
-  it('requires enabled developer settings', async () => {
-    mockedDevSettingService.getDevSetting.mockResolvedValue({ enabled: false });
     await handleCustomInjectedDeepLink({ workspace: '/workspace' });
-    expect(prepareCustomInjectedWorkspace).not.toHaveBeenCalled();
+
+    expect(mockedActivateCustomInjectedWorkspace).not.toHaveBeenCalled();
+    expect(mockedShowCustomInjectionSettingsDialog).not.toHaveBeenCalled();
     expect(showDialog).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Developer settings required' }),
     );
   });
 
-  it('loads the first pending protocol only after confirmation', async () => {
-    mockedDevSettingService.getDevSetting.mockResolvedValue({ enabled: true });
-    showDialog.mockImplementation((options) => {
-      if (options.title === 'Load custom injection workspace?') {
-        void options.onConfirm?.(createDialogInstance());
-      }
-      return createDialogInstance();
+  it('opens the settings modal for a different workspace', async () => {
+    mockedDevSettingService.getDevSetting.mockResolvedValue({
+      enabled: true,
+      settings: {
+        customInjection: {
+          enabled: true,
+          workspace: '/old-workspace',
+        },
+      },
     });
 
-    await handleCustomInjectedDeepLink({ workspace: '/workspace' });
+    await handleCustomInjectedDeepLink({
+      workspace: '/new-workspace',
+      url: 'https://app.uniswap.org',
+    });
 
-    expect(prepareCustomInjectedWorkspace).toHaveBeenCalledWith(
-      '/workspace',
-      true,
+    expect(mockedActivateCustomInjectedWorkspace).not.toHaveBeenCalled();
+    expect(mockedShowCustomInjectionSettingsDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suggestedWorkspace: '/new-workspace',
+        onSaved: expect.any(Function),
+      }),
     );
-    expect(activateCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
-    expect(mockedSetActiveCustomInjectedWorkspace).toHaveBeenCalledWith(
-      customSession,
-    );
+    const options = mockedShowCustomInjectionSettingsDialog.mock.calls[0]?.[0];
+    await options?.onSaved?.({
+      enabled: true,
+      workspace: '/new-workspace',
+    });
     expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith({
-      url: 'https://pending.example',
-      title: 'Pending',
+      url: 'https://app.uniswap.org',
+    });
+    expect(showDialog).not.toHaveBeenCalled();
+  });
+
+  it('reuses a matching persisted config without opening the modal', async () => {
+    mockedDevSettingService.getDevSetting.mockResolvedValue({
+      enabled: true,
+      settings: {
+        customInjection: {
+          enabled: true,
+          workspace: '/workspace',
+        },
+      },
+    });
+
+    await handleCustomInjectedDeepLink({
+      workspace: '/workspace',
+      url: 'https://app.uniswap.org/swap',
+    });
+
+    expect(mockedActivateCustomInjectedWorkspace).toHaveBeenCalledWith({
+      workspace: '/workspace',
+      devSettingsEnabled: true,
+      customInjectionEnabled: true,
+    });
+    expect(mockedShowCustomInjectionSettingsDialog).not.toHaveBeenCalled();
+    expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith({
+      url: 'https://app.uniswap.org/swap',
     });
   });
 
-  it('closes the prepared session when confirmation is canceled', async () => {
-    mockedDevSettingService.getDevSetting.mockResolvedValue({ enabled: true });
-    showDialog.mockImplementation((options) => {
-      if (options.title === 'Load custom injection workspace?') {
-        options.onCancel?.(jest.fn());
-      }
-      return createDialogInstance();
+  it('uses the current persisted config for a URL-only shortcut', async () => {
+    mockedDevSettingService.getDevSetting.mockResolvedValue({
+      enabled: true,
+      settings: {
+        customInjection: {
+          enabled: true,
+          workspace: '/workspace',
+        },
+      },
     });
 
-    await handleCustomInjectedDeepLink({ workspace: '/workspace' });
+    await handleCustomInjectedDeepLink({
+      url: 'https://app.elk.finance/swap',
+    });
 
-    expect(closeCustomInjectedWorkspace).toHaveBeenCalledWith('session-1');
-    expect(activateCustomInjectedWorkspace).not.toHaveBeenCalled();
+    expect(mockedActivateCustomInjectedWorkspace).toHaveBeenCalledWith({
+      workspace: '/workspace',
+      devSettingsEnabled: true,
+      customInjectionEnabled: true,
+    });
+    expect(mockedOpenUrlInDiscovery).toHaveBeenCalledWith({
+      url: 'https://app.elk.finance/swap',
+    });
+    expect(mockedShowCustomInjectionSettingsDialog).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unsafe target URL before opening settings', async () => {
+    mockedDevSettingService.getDevSetting.mockResolvedValue({
+      enabled: true,
+      settings: {},
+    });
+
+    await handleCustomInjectedDeepLink({
+      workspace: '/workspace',
+      url: 'file:///tmp/dapp.html',
+    });
+
+    expect(mockedShowCustomInjectionSettingsDialog).not.toHaveBeenCalled();
     expect(mockedOpenUrlInDiscovery).not.toHaveBeenCalled();
+    expect(showDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Invalid custom injection link' }),
+    );
   });
 });

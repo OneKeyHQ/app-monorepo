@@ -337,549 +337,560 @@ export const UnifoldTransferContent = forwardRef<
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
   }
->(function UnifoldTransferContent(
-  {
-    expectedRecipient,
-    onPressExecution,
-    bodyMaxHeight,
-    statusCardsPlacement = 'overlay',
-    useDialogHeader = false,
-    useExternalHeader = false,
-    detailExecutionId: controlledDetailExecutionId,
-    onDetailExecutionIdChange,
-    sourceSelectorResult,
-    onSourceSelectorResultHandled,
-    onSourceSelectorReady,
-    onSourceSelectorUnavailable,
-    onOpenMobileTokenSelector,
-    onOpenMobileChainSelector,
-  },
-  ref,
-) {
-  const intl = useIntl();
-  const [dismissedExecutionStatuses, setDismissedExecutionStatuses] = useState<
-    Partial<Record<string, IUnifoldDepositExecution['status']>>
-  >({});
-  const [statusCardsHeight, setStatusCardsHeight] = useState(0);
-  const [internalDetailExecutionId, setInternalDetailExecutionId] = useState<
-    string | null
-  >(null);
-  const {
-    isHyperCoreDestination,
-    addressState,
-    sessionId,
-    supportedAssets,
-    assetsLoading,
-    selection,
-    selectToken,
-    selectChain,
-    selectSource,
-    qrAddress,
-    sessionExecutions,
-    acknowledgePresentedExecution,
-    activationFee,
-    showActivationWarning,
-    activationRetrying,
-  } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
-  const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
+>(
+  (
+    {
+      expectedRecipient,
+      onPressExecution,
+      bodyMaxHeight,
+      statusCardsPlacement = 'overlay',
+      useDialogHeader = false,
+      useExternalHeader = false,
+      detailExecutionId: controlledDetailExecutionId,
+      onDetailExecutionIdChange,
+      sourceSelectorResult,
+      onSourceSelectorResultHandled,
+      onSourceSelectorReady,
+      onSourceSelectorUnavailable,
+      onOpenMobileTokenSelector,
+      onOpenMobileChainSelector,
+    },
+    ref,
+  ) => {
+    const intl = useIntl();
+    const [dismissedExecutionStatuses, setDismissedExecutionStatuses] =
+      useState<Partial<Record<string, IUnifoldDepositExecution['status']>>>({});
+    const [statusCardsHeight, setStatusCardsHeight] = useState(0);
+    const [internalDetailExecutionId, setInternalDetailExecutionId] = useState<
+      string | null
+    >(null);
+    const {
+      isHyperCoreDestination,
+      addressState,
+      sessionId,
+      supportedAssets,
+      assetsLoading,
+      selection,
+      selectToken,
+      selectChain,
+      selectSource,
+      qrAddress,
+      sessionExecutions,
+      acknowledgePresentedExecution,
+      activationFee,
+      showActivationWarning,
+      activationRetrying,
+    } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
+    const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
 
-  useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
+    useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
 
-  useEffect(() => {
-    if (!supportedAssets || !selection) {
-      return;
-    }
-    onSourceSelectorReady?.({
-      assets: supportedAssets,
-      asset: selection.asset,
-      chain: selection.chain,
-    });
-  }, [onSourceSelectorReady, selection, supportedAssets]);
-
-  useEffect(() => {
-    if (
-      addressState.status === 'error' &&
-      addressState.errorType !== 'network'
-    ) {
-      onSourceSelectorUnavailable?.();
-    }
-  }, [addressState, onSourceSelectorUnavailable]);
-
-  useEffect(() => {
-    if (
-      !sourceSelectorResult ||
-      !supportedAssets ||
-      handledSourceSelectorRequestIdRef.current ===
-        sourceSelectorResult.requestId
-    ) {
-      return;
-    }
-    const asset = supportedAssets?.find(
-      (item) => item.symbol === sourceSelectorResult.assetSymbol,
-    );
-    const chain =
-      sourceSelectorResult.mode === 'chain'
-        ? asset?.chains.find(
-            (item) =>
-              item.chain_type === sourceSelectorResult.chainType &&
-              item.chain_id === sourceSelectorResult.chainId,
-          )
-        : undefined;
-    handledSourceSelectorRequestIdRef.current = sourceSelectorResult.requestId;
-    if (!asset || (sourceSelectorResult.mode === 'chain' && !chain)) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.provider_unavailable,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.global_unknown_error_retry_message,
-        }),
-      });
-      onSourceSelectorResultHandled?.();
-      return;
-    }
-    selectToken(asset);
-    if (chain) {
-      selectChain(chain);
-    }
-    onSourceSelectorResultHandled?.();
-  }, [
-    intl,
-    onSourceSelectorResultHandled,
-    selectChain,
-    selectToken,
-    sourceSelectorResult,
-    supportedAssets,
-  ]);
-
-  const handleDismiss = useCallback(
-    (executionId: string) => {
-      const execution = sessionExecutions.find(
-        (item) => item.executionId === executionId,
-      );
-      if (!execution) {
+    useEffect(() => {
+      if (!supportedAssets || !selection) {
         return;
       }
-      setDismissedExecutionStatuses((prev) => ({
-        ...prev,
-        [executionId]: execution.status,
-      }));
-    },
-    [sessionExecutions],
-  );
-
-  useEffect(() => {
-    setDismissedExecutionStatuses((prev) => {
-      const currentStatuses = new Map(
-        sessionExecutions.map(
-          (execution) => [execution.executionId, execution.status] as const,
-        ),
-      );
-      let changed = false;
-      const next = { ...prev };
-      Object.entries(next).forEach(([executionId, dismissedStatus]) => {
-        if (currentStatuses.get(executionId) !== dismissedStatus) {
-          delete next[executionId];
-          changed = true;
-        }
+      onSourceSelectorReady?.({
+        assets: supportedAssets,
+        asset: selection.asset,
+        chain: selection.chain,
       });
-      return changed ? next : prev;
-    });
-  }, [sessionExecutions]);
+    }, [onSourceSelectorReady, selection, supportedAssets]);
 
-  const detailExecutionId =
-    controlledDetailExecutionId === undefined
-      ? internalDetailExecutionId
-      : controlledDetailExecutionId;
-  const setDetailExecutionId = useCallback(
-    (executionId: string | null) => {
-      if (controlledDetailExecutionId === undefined) {
-        setInternalDetailExecutionId(executionId);
+    useEffect(() => {
+      if (
+        addressState.status === 'error' &&
+        addressState.errorType !== 'network'
+      ) {
+        onSourceSelectorUnavailable?.();
       }
-      onDetailExecutionIdChange?.(executionId);
-    },
-    [controlledDetailExecutionId, onDetailExecutionIdChange],
-  );
+    }, [addressState, onSourceSelectorUnavailable]);
 
-  useBackHandler(
-    useCallback(() => {
-      setDetailExecutionId(null);
-      return true;
-    }, [setDetailExecutionId]),
-    platformEnv.isNativeAndroid && Boolean(detailExecutionId),
-  );
-
-  const pendingSelection = useMemo(() => {
-    if (!sourceSelectorResult || !supportedAssets) {
-      return null;
-    }
-    const asset = supportedAssets.find(
-      (item) => item.symbol === sourceSelectorResult.assetSymbol,
-    );
-    if (!asset) {
-      return null;
-    }
-    const chain =
-      sourceSelectorResult.mode === 'chain'
-        ? asset.chains.find(
-            (item) =>
-              item.chain_type === sourceSelectorResult.chainType &&
-              item.chain_id === sourceSelectorResult.chainId,
-          )
-        : (asset.chains.find(
-            (item) => item.chain_id === selection?.chain.chain_id,
-          ) ?? asset.chains[0]);
-    return chain ? { asset, chain } : null;
-  }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
-  const displaySelection = pendingSelection ?? selection;
-  const chain = displaySelection?.chain;
-  const receiveAsset = supportedAssets?.find(
-    (asset) =>
-      asset.symbol.toUpperCase() === UNIFOLD_ARBITRUM_USDC_SYMBOL.toUpperCase(),
-  );
-  const receiveNetwork = isHyperCoreDestination
-    ? undefined
-    : receiveAsset?.chains.find(
-        (item) => item.chain_id === UNIFOLD_ARBITRUM_CHAIN_ID,
+    useEffect(() => {
+      if (
+        !sourceSelectorResult ||
+        !supportedAssets ||
+        handledSourceSelectorRequestIdRef.current ===
+          sourceSelectorResult.requestId
+      ) {
+        return;
+      }
+      const asset = supportedAssets?.find(
+        (item) => item.symbol === sourceSelectorResult.assetSymbol,
       );
-  const receiveNetworkIconUri = isHyperCoreDestination
-    ? HYPERLIQUID_NETWORK_ICON_URI
-    : receiveNetwork?.icon_url;
-  const receiveNetworkName = isHyperCoreDestination
-    ? 'HyperCore'
-    : receiveNetwork?.chain_name;
-  const receiveTokenSymbol = isHyperCoreDestination
-    ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
-    : UNIFOLD_ARBITRUM_USDC_SYMBOL;
-  const useCompactLayout = useDialogHeader || useExternalHeader;
-  const inPageFooter = statusCardsPlacement === 'pageFooter';
-  const visibleExecutions = useMemo(
-    () =>
-      sessionExecutions.filter(
-        (item) => dismissedExecutionStatuses[item.executionId] !== item.status,
-      ),
-    [dismissedExecutionStatuses, sessionExecutions],
-  );
-  const showStatusCards =
-    visibleExecutions.length > 0 && detailExecutionId === null;
-  const cardsReserve =
-    inPageFooter || !showStatusCards
+      const chain =
+        sourceSelectorResult.mode === 'chain'
+          ? asset?.chains.find(
+              (item) =>
+                item.chain_type === sourceSelectorResult.chainType &&
+                item.chain_id === sourceSelectorResult.chainId,
+            )
+          : undefined;
+      handledSourceSelectorRequestIdRef.current =
+        sourceSelectorResult.requestId;
+      if (!asset || (sourceSelectorResult.mode === 'chain' && !chain)) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.provider_unavailable,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          }),
+        });
+        onSourceSelectorResultHandled?.();
+        return;
+      }
+      selectToken(asset);
+      if (chain) {
+        selectChain(chain);
+      }
+      onSourceSelectorResultHandled?.();
+    }, [
+      intl,
+      onSourceSelectorResultHandled,
+      selectChain,
+      selectToken,
+      sourceSelectorResult,
+      supportedAssets,
+    ]);
+
+    const handleDismiss = useCallback(
+      (executionId: string) => {
+        const execution = sessionExecutions.find(
+          (item) => item.executionId === executionId,
+        );
+        if (!execution) {
+          return;
+        }
+        setDismissedExecutionStatuses((prev) => ({
+          ...prev,
+          [executionId]: execution.status,
+        }));
+      },
+      [sessionExecutions],
+    );
+
+    useEffect(() => {
+      setDismissedExecutionStatuses((prev) => {
+        const currentStatuses = new Map(
+          sessionExecutions.map(
+            (execution) => [execution.executionId, execution.status] as const,
+          ),
+        );
+        let changed = false;
+        const next = { ...prev };
+        Object.entries(next).forEach(([executionId, dismissedStatus]) => {
+          if (currentStatuses.get(executionId) !== dismissedStatus) {
+            delete next[executionId];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, [sessionExecutions]);
+
+    const detailExecutionId =
+      controlledDetailExecutionId === undefined
+        ? internalDetailExecutionId
+        : controlledDetailExecutionId;
+    const setDetailExecutionId = useCallback(
+      (executionId: string | null) => {
+        if (controlledDetailExecutionId === undefined) {
+          setInternalDetailExecutionId(executionId);
+        }
+        onDetailExecutionIdChange?.(executionId);
+      },
+      [controlledDetailExecutionId, onDetailExecutionIdChange],
+    );
+
+    useBackHandler(
+      useCallback(() => {
+        setDetailExecutionId(null);
+        return true;
+      }, [setDetailExecutionId]),
+      platformEnv.isNativeAndroid && Boolean(detailExecutionId),
+    );
+
+    const pendingSelection = useMemo(() => {
+      if (!sourceSelectorResult || !supportedAssets) {
+        return null;
+      }
+      const asset = supportedAssets.find(
+        (item) => item.symbol === sourceSelectorResult.assetSymbol,
+      );
+      if (!asset) {
+        return null;
+      }
+      const chain =
+        sourceSelectorResult.mode === 'chain'
+          ? asset.chains.find(
+              (item) =>
+                item.chain_type === sourceSelectorResult.chainType &&
+                item.chain_id === sourceSelectorResult.chainId,
+            )
+          : (asset.chains.find(
+              (item) => item.chain_id === selection?.chain.chain_id,
+            ) ?? asset.chains[0]);
+      return chain ? { asset, chain } : null;
+    }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
+    const displaySelection = pendingSelection ?? selection;
+    const chain = displaySelection?.chain;
+    const receiveAsset = supportedAssets?.find(
+      (asset) =>
+        asset.symbol.toUpperCase() ===
+        UNIFOLD_ARBITRUM_USDC_SYMBOL.toUpperCase(),
+    );
+    const receiveNetwork = isHyperCoreDestination
       ? undefined
-      : statusCardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP;
-  const detailExecution = detailExecutionId
-    ? sessionExecutions.find((item) => item.executionId === detailExecutionId)
-    : undefined;
+      : receiveAsset?.chains.find(
+          (item) => item.chain_id === UNIFOLD_ARBITRUM_CHAIN_ID,
+        );
+    const receiveNetworkIconUri = isHyperCoreDestination
+      ? HYPERLIQUID_NETWORK_ICON_URI
+      : receiveNetwork?.icon_url;
+    const receiveNetworkName = isHyperCoreDestination
+      ? 'HyperCore'
+      : receiveNetwork?.chain_name;
+    const receiveTokenSymbol = isHyperCoreDestination
+      ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+      : UNIFOLD_ARBITRUM_USDC_SYMBOL;
+    const useCompactLayout = useDialogHeader || useExternalHeader;
+    const inPageFooter = statusCardsPlacement === 'pageFooter';
+    const visibleExecutions = useMemo(
+      () =>
+        sessionExecutions.filter(
+          (item) =>
+            dismissedExecutionStatuses[item.executionId] !== item.status,
+        ),
+      [dismissedExecutionStatuses, sessionExecutions],
+    );
+    const showStatusCards =
+      visibleExecutions.length > 0 && detailExecutionId === null;
+    const cardsReserve =
+      inPageFooter || !showStatusCards
+        ? undefined
+        : statusCardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP;
+    const detailExecution = detailExecutionId
+      ? sessionExecutions.find((item) => item.executionId === detailExecutionId)
+      : undefined;
 
-  useEffect(() => {
-    let presentedTerminalExecutions: IUnifoldDepositExecution[] = [];
-    if (detailExecution?.terminal) {
-      presentedTerminalExecutions = [detailExecution];
-    } else if (detailExecutionId === null) {
-      presentedTerminalExecutions = visibleExecutions.filter(
-        (item) => item.terminal,
-      );
-    }
-    presentedTerminalExecutions.forEach(acknowledgePresentedExecution);
-  }, [
-    acknowledgePresentedExecution,
-    detailExecution,
-    detailExecutionId,
-    visibleExecutions,
-  ]);
+    useEffect(() => {
+      let presentedTerminalExecutions: IUnifoldDepositExecution[] = [];
+      if (detailExecution?.terminal) {
+        presentedTerminalExecutions = [detailExecution];
+      } else if (detailExecutionId === null) {
+        presentedTerminalExecutions = visibleExecutions.filter(
+          (item) => item.terminal,
+        );
+      }
+      presentedTerminalExecutions.forEach(acknowledgePresentedExecution);
+    }, [
+      acknowledgePresentedExecution,
+      detailExecution,
+      detailExecutionId,
+      visibleExecutions,
+    ]);
 
-  const statusCards = showStatusCards ? (
-    <UnifoldExecutionStatusCards
-      executions={visibleExecutions}
-      sessionId={sessionId}
-      estimatedProcessingTimeSeconds={chain?.estimated_processing_time}
-      onPressExecution={(execution) => {
-        setDetailExecutionId(execution.executionId);
-        onPressExecution?.(execution);
-      }}
-      onDismiss={handleDismiss}
-      onHeightChange={inPageFooter ? undefined : setStatusCardsHeight}
-      floating={!inPageFooter}
-    />
-  ) : null;
-
-  let dialogHeader: React.ReactNode = null;
-  if (useDialogHeader) {
-    dialogHeader = detailExecutionId ? (
-      <Dialog.Header>
-        <XStack
-          alignItems="center"
-          gap="$2"
-          cursor="pointer"
-          onPress={() => setDetailExecutionId(null)}
-        >
-          <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-          <Dialog.Title>
-            {intl.formatMessage({
-              id: ETranslations.perp_unifold_deposit_details__title,
-            })}
-          </Dialog.Title>
-        </XStack>
-      </Dialog.Header>
-    ) : (
-      <Dialog.Header
-        title={intl.formatMessage({
-          id: ETranslations.perp_unifold_transfer_crypto__title,
-        })}
+    const statusCards = showStatusCards ? (
+      <UnifoldExecutionStatusCards
+        executions={visibleExecutions}
+        sessionId={sessionId}
+        estimatedProcessingTimeSeconds={chain?.estimated_processing_time}
+        onPressExecution={(execution) => {
+          setDetailExecutionId(execution.executionId);
+          onPressExecution?.(execution);
+        }}
+        onDismiss={handleDismiss}
+        onHeightChange={inPageFooter ? undefined : setStatusCardsHeight}
+        floating={!inPageFooter}
       />
-    );
-  }
+    ) : null;
 
-  // Give every content branch the same overlay host. When cards are visible,
-  // reserve their measured height inside the desktop scroll body so bottom
-  // rows can scroll fully above them.
-  const withStatusCards = (body: React.ReactNode) => (
-    <>
-      {dialogHeader}
-      <Stack pb={inPageFooter ? undefined : '$3'}>
-        <BodyFrame maxHeight={bodyMaxHeight}>
-          <Stack pb={cardsReserve}>{body}</Stack>
-        </BodyFrame>
-        {inPageFooter ? null : statusCards}
-      </Stack>
-      {inPageFooter && statusCards ? (
-        <Page.Footer>
-          <Stack px="$4" pb="$6">
-            {statusCards}
-          </Stack>
-        </Page.Footer>
-      ) : null}
-    </>
-  );
-
-  if (addressState.status === 'error' && addressState.errorType !== 'network') {
-    return withStatusCards(
-      <YStack py="$8">
-        <ErrorState errorType={addressState.errorType} sessionId={sessionId} />
-      </YStack>,
-    );
-  }
-
-  if (detailExecution) {
-    return withStatusCards(
-      <YStack>
-        {useDialogHeader || useExternalHeader ? null : (
+    let dialogHeader: React.ReactNode = null;
+    if (useDialogHeader) {
+      dialogHeader = detailExecutionId ? (
+        <Dialog.Header>
           <XStack
-            pb="$2"
             alignItems="center"
-            gap="$1"
+            gap="$2"
             cursor="pointer"
             onPress={() => setDetailExecutionId(null)}
           >
             <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-            <SizableText size="$bodyMdMedium" color="$text">
+            <Dialog.Title>
               {intl.formatMessage({
                 id: ETranslations.perp_unifold_deposit_details__title,
               })}
-            </SizableText>
+            </Dialog.Title>
           </XStack>
-        )}
-        {/* Derived from the live poll result by id, so the detail keeps
+        </Dialog.Header>
+      ) : (
+        <Dialog.Header
+          title={intl.formatMessage({
+            id: ETranslations.perp_unifold_transfer_crypto__title,
+          })}
+        />
+      );
+    }
+
+    // Give every content branch the same overlay host. When cards are visible,
+    // reserve their measured height inside the desktop scroll body so bottom
+    // rows can scroll fully above them.
+    const withStatusCards = (body: React.ReactNode) => (
+      <>
+        {dialogHeader}
+        <Stack pb={inPageFooter ? undefined : '$3'}>
+          <BodyFrame maxHeight={bodyMaxHeight}>
+            <Stack pb={cardsReserve}>{body}</Stack>
+          </BodyFrame>
+          {inPageFooter ? null : statusCards}
+        </Stack>
+        {inPageFooter && statusCards ? (
+          <Page.Footer>
+            <Stack px="$4" pb="$6">
+              {statusCards}
+            </Stack>
+          </Page.Footer>
+        ) : null}
+      </>
+    );
+
+    if (
+      addressState.status === 'error' &&
+      addressState.errorType !== 'network'
+    ) {
+      return withStatusCards(
+        <YStack py="$8">
+          <ErrorState
+            errorType={addressState.errorType}
+            sessionId={sessionId}
+          />
+        </YStack>,
+      );
+    }
+
+    if (detailExecution) {
+      return withStatusCards(
+        <YStack>
+          {useDialogHeader || useExternalHeader ? null : (
+            <XStack
+              pb="$2"
+              alignItems="center"
+              gap="$1"
+              cursor="pointer"
+              onPress={() => setDetailExecutionId(null)}
+            >
+              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
+              <SizableText size="$bodyMdMedium" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_deposit_details__title,
+                })}
+              </SizableText>
+            </XStack>
+          )}
+          {/* Derived from the live poll result by id, so the detail keeps
             updating instead of freezing at the moment it was opened. */}
-        {/* The estimate belongs to the SELECTED chain, but this execution may
+          {/* The estimate belongs to the SELECTED chain, but this execution may
             have been paid on a different one (the user can switch the source
             dropdown after depositing). Pass it only when the two provably
             match — otherwise the row is omitted rather than quoting one
             chain's timing for another chain's deposit. */}
-        <UnifoldExecutionDetail
-          execution={detailExecution}
-          estimatedProcessingTimeSeconds={
-            chain && detailExecution.sourceChainId === chain.chain_id
-              ? chain.estimated_processing_time
-              : undefined
-          }
+          <UnifoldExecutionDetail
+            execution={detailExecution}
+            estimatedProcessingTimeSeconds={
+              chain && detailExecution.sourceChainId === chain.chain_id
+                ? chain.estimated_processing_time
+                : undefined
+            }
+          />
+        </YStack>,
+      );
+    }
+
+    return withStatusCards(
+      <YStack gap="$3">
+        <UnifoldSourceSelector
+          assets={supportedAssets}
+          selection={displaySelection}
+          loading={Boolean(assetsLoading && !selection)}
+          onSelectToken={selectToken}
+          onSelectChain={selectChain}
+          onOpenMobileTokenSelector={onOpenMobileTokenSelector}
+          onOpenMobileChainSelector={onOpenMobileChainSelector}
         />
-      </YStack>,
-    );
-  }
 
-  return withStatusCards(
-    <YStack gap="$3">
-      <UnifoldSourceSelector
-        assets={supportedAssets}
-        selection={displaySelection}
-        loading={Boolean(assetsLoading && !selection)}
-        onSelectToken={selectToken}
-        onSelectChain={selectChain}
-        onOpenMobileTokenSelector={onOpenMobileTokenSelector}
-        onOpenMobileChainSelector={onOpenMobileChainSelector}
-      />
+        {addressState.status === 'error' &&
+        addressState.errorType === 'network' ? (
+          <YStack bg="$bgCriticalSubdued" borderRadius="$3" p="$3" gap="$1.5">
+            <XStack alignItems="center" gap="$1.5">
+              <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
+              <SizableText size="$bodySmMedium" color="$textCritical">
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_failed_create_address__title,
+                })}
+              </SizableText>
+            </XStack>
+            <XStack alignItems="center" gap="$1.5">
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$3"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.perp_unifold_retry_automatically__desc,
+                  },
+                  { seconds: 5 },
+                )}
+              </SizableText>
+            </XStack>
+          </YStack>
+        ) : null}
 
-      {addressState.status === 'error' &&
-      addressState.errorType === 'network' ? (
-        <YStack bg="$bgCriticalSubdued" borderRadius="$3" p="$3" gap="$1.5">
-          <XStack alignItems="center" gap="$1.5">
-            <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText size="$bodySmMedium" color="$textCritical">
-              {intl.formatMessage({
-                id: ETranslations.perp_unifold_failed_create_address__title,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack alignItems="center" gap="$1.5">
-            <Icon
-              name="ClockTimeHistoryOutline"
-              size="$3"
-              color="$iconSubdued"
-            />
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.perp_unifold_retry_automatically__desc,
-                },
-                { seconds: 5 },
-              )}
-            </SizableText>
-          </XStack>
-        </YStack>
-      ) : null}
-
-      {/* The address exists but its eligibility screen has not answered yet,
+        {/* The address exists but its eligibility screen has not answered yet,
           so it stays hidden behind the QR skeleton. Says so rather than
           shimmering silently — and never claims the address itself failed. */}
-      {activationRetrying && addressState.status !== 'error' ? (
-        <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
-          <XStack alignItems="center" gap="$1.5">
-            <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />
-            <SizableText size="$bodySmMedium" color="$textCaution">
-              {intl.formatMessage({
-                id: ETranslations.perp_unifold_verifying_eligibility__title,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack alignItems="center" gap="$1.5">
-            <Icon
-              name="ClockTimeHistoryOutline"
-              size="$3"
-              color="$iconSubdued"
-            />
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.perp_unifold_retry_automatically__desc,
-                },
-                { seconds: 5 },
-              )}
-            </SizableText>
-          </XStack>
-        </YStack>
-      ) : null}
-
-      <UnifoldDepositQRCard
-        address={qrAddress}
-        chainIconUri={chain?.icon_url}
-        sourceTokenSymbol={displaySelection?.asset.symbol}
-        sourceTokenIconUri={displaySelection?.asset.icon_url}
-        receiveTokenSymbol={receiveTokenSymbol}
-        receiveTokenIconUri={receiveAsset?.icon_url}
-        receiveNetworkIconUri={receiveNetworkIconUri}
-        showConversionRoute={!useCompactLayout}
-        // The QR needs both the address and a chain selection. Scoped to
-        // 'ready' so a genuine address failure still shows its terminal
-        // message instead of shimmering forever.
-        loading={
-          Boolean(assetsLoading) ||
-          Boolean(sourceSelectorResult) ||
-          addressState.status === 'loading' ||
-          (addressState.status === 'ready' && !displaySelection)
-        }
-      />
-
-      {showActivationWarning ? (
-        <XStack
-          testID="perps-unifold-activation-warning"
-          bg="$bgInfoSubdued"
-          borderRadius="$3"
-          p="$3"
-          gap="$2"
-          alignItems="center"
-        >
-          <Icon name="InfoCircleOutline" size="$4" color="$iconInfo" />
-          <SizableText size="$bodySm" color="$textInfo" flex={1}>
-            {activationFee
-              ? intl.formatMessage(
-                  {
-                    id: ETranslations.perp_unifold_account_activation_fee__desc,
-                  },
-                  { amount: formatUnifoldUsd(activationFee) },
-                )
-              : intl.formatMessage({
-                  id: ETranslations.perp_unifold_account_activation_fee_unknown__desc,
+        {activationRetrying && addressState.status !== 'error' ? (
+          <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
+            <XStack alignItems="center" gap="$1.5">
+              <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />
+              <SizableText size="$bodySmMedium" color="$textCaution">
+                {intl.formatMessage({
+                  id: ETranslations.perp_unifold_verifying_eligibility__title,
                 })}
-          </SizableText>
-        </XStack>
-      ) : null}
-
-      <YStack
-        testID="perps-unifold-processing-details"
-        bg={useCompactLayout ? undefined : '$bgStrong'}
-        borderWidth={useCompactLayout ? '$px' : undefined}
-        borderColor={useCompactLayout ? '$borderSubdued' : undefined}
-        borderRadius="$3"
-        py="$2"
-        overflow="hidden"
-      >
-        {useCompactLayout && displaySelection?.asset.symbol ? (
-          <DepositRouteRow
-            sourceTokenSymbol={displaySelection.asset.symbol}
-            sourceNetworkName={chain?.chain_name}
-            sourceTokenIconUri={displaySelection.asset.icon_url}
-            sourceNetworkIconUri={chain?.icon_url}
-            receiveTokenSymbol={receiveTokenSymbol}
-            receiveNetworkName={receiveNetworkName}
-            receiveTokenIconUri={receiveAsset?.icon_url}
-            receiveNetworkIconUri={receiveNetworkIconUri}
-          />
+              </SizableText>
+            </XStack>
+            <XStack alignItems="center" gap="$1.5">
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$3"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.perp_unifold_retry_automatically__desc,
+                  },
+                  { seconds: 5 },
+                )}
+              </SizableText>
+            </XStack>
+          </YStack>
         ) : null}
-        {useCompactLayout ? (
+
+        <UnifoldDepositQRCard
+          address={qrAddress}
+          chainIconUri={chain?.icon_url}
+          sourceTokenSymbol={displaySelection?.asset.symbol}
+          sourceTokenIconUri={displaySelection?.asset.icon_url}
+          receiveTokenSymbol={receiveTokenSymbol}
+          receiveTokenIconUri={receiveAsset?.icon_url}
+          receiveNetworkIconUri={receiveNetworkIconUri}
+          showConversionRoute={!useCompactLayout}
+          // The QR needs both the address and a chain selection. Scoped to
+          // 'ready' so a genuine address failure still shows its terminal
+          // message instead of shimmering forever.
+          loading={
+            Boolean(assetsLoading) ||
+            Boolean(sourceSelectorResult) ||
+            addressState.status === 'loading' ||
+            (addressState.status === 'ready' && !displaySelection)
+          }
+        />
+
+        {showActivationWarning ? (
+          <XStack
+            testID="perps-unifold-activation-warning"
+            bg="$bgInfoSubdued"
+            borderRadius="$3"
+            p="$3"
+            gap="$2"
+            alignItems="center"
+          >
+            <Icon name="InfoCircleOutline" size="$4" color="$iconInfo" />
+            <SizableText size="$bodySm" color="$textInfo" flex={1}>
+              {activationFee
+                ? intl.formatMessage(
+                    {
+                      id: ETranslations.perp_unifold_account_activation_fee__desc,
+                    },
+                    { amount: formatUnifoldUsd(activationFee) },
+                  )
+                : intl.formatMessage({
+                    id: ETranslations.perp_unifold_account_activation_fee_unknown__desc,
+                  })}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        <YStack
+          testID="perps-unifold-processing-details"
+          bg={useCompactLayout ? undefined : '$bgStrong'}
+          borderWidth={useCompactLayout ? '$px' : undefined}
+          borderColor={useCompactLayout ? '$borderSubdued' : undefined}
+          borderRadius="$3"
+          py="$2"
+          overflow="hidden"
+        >
+          {useCompactLayout && displaySelection?.asset.symbol ? (
+            <DepositRouteRow
+              sourceTokenSymbol={displaySelection.asset.symbol}
+              sourceNetworkName={chain?.chain_name}
+              sourceTokenIconUri={displaySelection.asset.icon_url}
+              sourceNetworkIconUri={chain?.icon_url}
+              receiveTokenSymbol={receiveTokenSymbol}
+              receiveNetworkName={receiveNetworkName}
+              receiveTokenIconUri={receiveAsset?.icon_url}
+              receiveNetworkIconUri={receiveNetworkIconUri}
+            />
+          ) : null}
+          {useCompactLayout ? (
+            <DetailRow
+              compact
+              label={intl.formatMessage({
+                id: ETranslations.perp_unifold_third_party_conversion_fee__title,
+              })}
+              value={THIRD_PARTY_CONVERSION_FEE}
+              tooltip={intl.formatMessage(
+                {
+                  id: ETranslations.perp_unifold_deposit_route__desc,
+                },
+                { fee: THIRD_PARTY_CONVERSION_FEE },
+              )}
+            />
+          ) : null}
           <DetailRow
-            compact
+            compact={useCompactLayout}
             label={intl.formatMessage({
-              id: ETranslations.perp_unifold_third_party_conversion_fee__title,
+              id: ETranslations.perp_unifold_processing_time__title,
             })}
-            value={THIRD_PARTY_CONVERSION_FEE}
-            tooltip={intl.formatMessage(
-              {
-                id: ETranslations.perp_unifold_deposit_route__desc,
-              },
-              { fee: THIRD_PARTY_CONVERSION_FEE },
+            value={formatUnifoldProcessingTime(
+              chain?.estimated_processing_time,
+              intl,
             )}
           />
-        ) : null}
-        <DetailRow
-          compact={useCompactLayout}
-          label={intl.formatMessage({
-            id: ETranslations.perp_unifold_processing_time__title,
-          })}
-          value={formatUnifoldProcessingTime(
-            chain?.estimated_processing_time,
-            intl,
-          )}
-        />
-        <DetailRow
-          compact={useCompactLayout}
-          label={intl.formatMessage({
-            id: ETranslations.perp_unifold_max_slippage__title,
-          })}
-          value={`${intl.formatMessage({
-            id: ETranslations.global_auto,
-          })} • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
-        />
-        <DetailRow
-          compact={useCompactLayout}
-          label={intl.formatMessage({
-            id: ETranslations.perp_unifold_price_impact__title,
-          })}
-          value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(2)}%`}
-          tooltip={intl.formatMessage({
-            id: ETranslations.perp_unifold_price_impact__desc,
-          })}
-        />
-      </YStack>
-    </YStack>,
-  );
-});
+          <DetailRow
+            compact={useCompactLayout}
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_max_slippage__title,
+            })}
+            value={`${intl.formatMessage({
+              id: ETranslations.global_auto,
+            })} • ${(chain?.max_slippage_percent ?? 0.25).toFixed(2)}%`}
+          />
+          <DetailRow
+            compact={useCompactLayout}
+            label={intl.formatMessage({
+              id: ETranslations.perp_unifold_price_impact__title,
+            })}
+            value={`${(chain?.estimated_price_impact_percent ?? 0).toFixed(2)}%`}
+            tooltip={intl.formatMessage({
+              id: ETranslations.perp_unifold_price_impact__desc,
+            })}
+          />
+        </YStack>
+      </YStack>,
+    );
+  },
+);
+UnifoldTransferContent.displayName = 'UnifoldTransferContent';

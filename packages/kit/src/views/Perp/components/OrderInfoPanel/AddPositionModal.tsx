@@ -63,6 +63,7 @@ import {
 
 import type { IAddPositionValidationError } from './utils/addPosition';
 import type { IntlShape } from 'react-intl';
+
 type IAddPositionOrderType = 'market' | 'limit';
 
 export interface IAddPositionParams {

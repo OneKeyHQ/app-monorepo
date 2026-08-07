@@ -9,6 +9,9 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 import type {
+  ICustomInjectionAutoReviewEvent,
+  ICustomInjectionRecordingCommand,
+  ICustomInjectionRecordingEvent,
   IElectronWebViewEvents,
   IWebViewOnScroll,
   IWebViewRef,
@@ -95,6 +98,22 @@ export interface IWebViewProps
    * @description Confirmed developer-only Electron preload override.
    */
   desktopPreloadUrl?: string;
+  /** @platform desktop
+   * @description Receives a trusted Custom Injection repository-icon detection.
+   */
+  onCustomInjectionAutoReview?: (
+    event: ICustomInjectionAutoReviewEvent,
+  ) => void;
+  /** @platform desktop
+   * @description Controls the isolated Custom Injection recorder.
+   */
+  customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
+  /** @platform desktop
+   * @description Receives isolated Custom Injection recorder events.
+   */
+  onCustomInjectionRecordingEvent?: (
+    event: ICustomInjectionRecordingEvent,
+  ) => void;
 }
 
 const WebView: FC<IWebViewProps> = ({

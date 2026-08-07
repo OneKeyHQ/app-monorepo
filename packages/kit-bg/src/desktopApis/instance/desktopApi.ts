@@ -2,9 +2,6 @@
 import { buildCallRemoteApiMethod } from '@onekeyhq/kit-bg/src/apis/RemoteApiProxyBase';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
-import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
-
 import type {
   IDesktopApi,
   IDesktopApiKeys,
@@ -197,17 +194,4 @@ const callDesktopApiMethod =
     'desktopApi',
   );
 
-function desktopApiSetup() {
-  const bridge = new JsBridgeDesktopApiOfMain({
-    receiveHandler: async (payload) => {
-      const msg = payload.data as IDesktopApiMessagePayload | undefined;
-      if (msg && msg.type === DESKTOP_API_MESSAGE_TYPE) {
-        const result: unknown = await callDesktopApiMethod(msg);
-        return result;
-      }
-    },
-  });
-  return bridge;
-}
-
-export default { callDesktopApiMethod, desktopApiSetup };
+export default { callDesktopApiMethod };

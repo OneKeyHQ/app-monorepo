@@ -4008,12 +4008,7 @@ describe('computeUpdateTargetKey consistency', () => {
     test('a new desktop native runtime does not inherit an exhausted budget', async () => {
       const { BundleUpdate: bundleUpdateMock } = jest.requireMock(
         '@onekeyhq/shared/src/modules3rdParty/auto-update',
-      ) as {
-        BundleUpdate: {
-          getNativeAppVersion: jest.Mock;
-          getNativeBuildNumber: jest.Mock;
-        };
-      };
+      );
       platformEnv.isDesktop = true;
       bundleUpdateMock.getNativeAppVersion.mockResolvedValue('6.5.0');
       bundleUpdateMock.getNativeBuildNumber.mockResolvedValue('100');
@@ -4048,12 +4043,7 @@ describe('computeUpdateTargetKey consistency', () => {
     test('native-info failures keep a stable desktop runtime budget', async () => {
       const { BundleUpdate: bundleUpdateMock } = jest.requireMock(
         '@onekeyhq/shared/src/modules3rdParty/auto-update',
-      ) as {
-        BundleUpdate: {
-          getNativeAppVersion: jest.Mock;
-          getNativeBuildNumber: jest.Mock;
-        };
-      };
+      );
       const previousVersion = platformEnv.version;
       const previousBuildNumber = platformEnv.buildNumber;
       platformEnv.isDesktop = true;

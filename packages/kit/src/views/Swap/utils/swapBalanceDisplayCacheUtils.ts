@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+
 export const SWAP_BALANCE_DISPLAY_CACHE_VERSION = 1;
 export const SWAP_BALANCE_DISPLAY_CACHE_MAX_ENTRIES = 48;
 

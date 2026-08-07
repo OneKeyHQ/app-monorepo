@@ -30,8 +30,12 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       disableBridge,
       partition,
       desktopPreloadUrl,
+      onCustomInjectionAutoReview,
+      customInjectionRecordingCommand,
+      onCustomInjectionRecordingEvent,
       onDidStartLoading,
       onDidStartNavigation,
+      onDidRedirectNavigation,
       onDidFinishLoad,
       onDidStopLoading,
       onDidFailLoad,
@@ -145,6 +149,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           disableBridge={disableBridge}
           partition={partition}
           desktopPreloadUrl={desktopPreloadUrl}
+          onCustomInjectionAutoReview={onCustomInjectionAutoReview}
+          customInjectionRecordingCommand={customInjectionRecordingCommand}
+          onCustomInjectionRecordingEvent={onCustomInjectionRecordingEvent}
           // Warning: any string work, any bool not work
           // @ts-expect-error
           allowpopups={allowpopups.toString()}
@@ -154,6 +161,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           }
           onDidStartLoading={innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
+          onDidRedirectNavigation={onDidRedirectNavigation}
           onDidFinishLoad={onDidFinishLoad}
           onLoadEnd={onLoadEnd}
           onDidStopLoading={innerOnStopLoading}

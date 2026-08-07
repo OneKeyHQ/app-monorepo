@@ -14,6 +14,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import type {
+  ICustomInjectionAutoReviewEvent,
+  ICustomInjectionRecordingCommand,
+  ICustomInjectionRecordingEvent,
+  IElectronWebViewEvents,
+} from '@onekeyhq/kit/src/components/WebView/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -238,22 +244,79 @@ const DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS = 200;
 function BasicDesktopBrowserContent({
   id,
   activeTabId,
+  customInjectionUrl,
+  customInjectionWebViewKey,
+  customInjectionE2EPassKey,
   desktopPreloadUrl,
+  onCustomInjectionAutoReview,
+  partition,
+  customInjectionRecordingCommand,
+  onCustomInjectionRecordingEvent,
+  onCustomInjectionDidStartNavigation,
+  onCustomInjectionDidRedirectNavigation,
+  onCustomInjectionNavigationSettled,
+  onCustomInjectionDomReady,
 }: {
   id: string;
   activeTabId: string | null;
+  customInjectionUrl?: string;
+  customInjectionWebViewKey?: string;
   desktopPreloadUrl?: string;
+  onCustomInjectionAutoReview?: (
+    event: ICustomInjectionAutoReviewEvent,
+    instanceKey?: string,
+    e2ePassKey?: string,
+  ) => void;
+  customInjectionE2EPassKey?: string;
+  partition?: string;
+  customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
+  onCustomInjectionRecordingEvent?: (
+    event: ICustomInjectionRecordingEvent,
+  ) => void;
+  onCustomInjectionDidStartNavigation?: (
+    event: Parameters<
+      NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
+    >[0],
+    instanceKey?: string,
+  ) => void;
+  onCustomInjectionDidRedirectNavigation?: (
+    event: Parameters<
+      NonNullable<IElectronWebViewEvents['onDidRedirectNavigation']>
+    >[0],
+    instanceKey?: string,
+  ) => void;
+  onCustomInjectionNavigationSettled?: (
+    loaded: boolean,
+    instanceKey?: string,
+  ) => void;
+  onCustomInjectionDomReady?: (
+    instanceKey?: string,
+    e2ePassKey?: string,
+  ) => void;
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
-  const isHomeTab = !tab?.url;
+  const effectiveUrl = customInjectionUrl || tab?.url;
+  const isHomeTab = !effectiveUrl;
   const [homePageReady, setHomePageReady] = useState(!isHomeTab);
+  const webViewInstanceKey =
+    customInjectionWebViewKey || desktopPreloadUrl || partition
+      ? `custom-injected-${
+          customInjectionWebViewKey || id
+        }-${desktopPreloadUrl || 'default'}-${partition || 'persist:onekey'}`
+      : id;
+  const latestWebViewInstanceKeyRef = useRef(webViewInstanceKey);
+  latestWebViewInstanceKeyRef.current = webViewInstanceKey;
+  const isWebViewInstanceCurrent = useCallback(
+    () => latestWebViewInstanceKeyRef.current === webViewInstanceKey,
+    [webViewInstanceKey],
+  );
 
   // Keep-alive LRU: only the most-recently-active window of tabs keeps its
   // WebView mounted. Evicted (cold) tabs unmount their WebView to free memory;
   // the home/dashboard tab has no WebView and is unaffected.
   const keepAlive = useShouldKeepWebViewAlive(id);
-  const shouldMountWebView = Boolean(tab?.url) && keepAlive;
+  const shouldMountWebView = Boolean(effectiveUrl) && keepAlive;
 
   // Aggressively release the webview's resources when this tab closes OR when it
   // is evicted from the keep-alive window.
@@ -281,9 +344,58 @@ function BasicDesktopBrowserContent({
   }, [isHomeTab]);
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
+  const handleCustomInjectionAutoReview = useCallback(
+    (event: ICustomInjectionAutoReviewEvent) =>
+      onCustomInjectionAutoReview?.(
+        event,
+        customInjectionWebViewKey,
+        customInjectionE2EPassKey,
+      ),
+    [
+      customInjectionE2EPassKey,
+      customInjectionWebViewKey,
+      onCustomInjectionAutoReview,
+    ],
+  );
+  const handleCustomInjectionDidStartNavigation = useCallback<
+    NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
+  >(
+    (event) =>
+      onCustomInjectionDidStartNavigation?.(event, customInjectionWebViewKey),
+    [customInjectionWebViewKey, onCustomInjectionDidStartNavigation],
+  );
+  const handleCustomInjectionDidRedirectNavigation = useCallback<
+    NonNullable<IElectronWebViewEvents['onDidRedirectNavigation']>
+  >(
+    (event) =>
+      onCustomInjectionDidRedirectNavigation?.(
+        event,
+        customInjectionWebViewKey,
+      ),
+    [customInjectionWebViewKey, onCustomInjectionDidRedirectNavigation],
+  );
+  const handleCustomInjectionNavigationSettled = useCallback(
+    (loaded: boolean) =>
+      onCustomInjectionNavigationSettled?.(loaded, customInjectionWebViewKey),
+    [customInjectionWebViewKey, onCustomInjectionNavigationSettled],
+  );
+  const handleCustomInjectionDomReady = useCallback(() => {
+    if (customInjectionE2EPassKey) {
+      onCustomInjectionDomReady?.(
+        customInjectionWebViewKey,
+        customInjectionE2EPassKey,
+      );
+      return;
+    }
+    onCustomInjectionDomReady?.(customInjectionWebViewKey);
+  }, [
+    customInjectionE2EPassKey,
+    customInjectionWebViewKey,
+    onCustomInjectionDomReady,
+  ]);
 
   let body: ReactNode = null;
-  if (!tab?.url) {
+  if (!effectiveUrl) {
     body = (
       <Stack flex={1} opacity={homePageReady ? 1 : 0}>
         <DashboardContent tabId={id} />
@@ -292,9 +404,25 @@ function BasicDesktopBrowserContent({
   } else if (shouldMountWebView) {
     body = (
       <WebContent
+        key={webViewInstanceKey}
         id={id}
-        url={tab.url}
+        url={effectiveUrl}
+        isWebViewInstanceCurrent={isWebViewInstanceCurrent}
+        partition={partition}
         desktopPreloadUrl={desktopPreloadUrl}
+        onCustomInjectionAutoReview={handleCustomInjectionAutoReview}
+        customInjectionRecordingCommand={customInjectionRecordingCommand}
+        onCustomInjectionRecordingEvent={onCustomInjectionRecordingEvent}
+        onCustomInjectionDidStartNavigation={
+          handleCustomInjectionDidStartNavigation
+        }
+        onCustomInjectionDidRedirectNavigation={
+          handleCustomInjectionDidRedirectNavigation
+        }
+        onCustomInjectionNavigationSettled={
+          handleCustomInjectionNavigationSettled
+        }
+        onCustomInjectionDomReady={handleCustomInjectionDomReady}
         isCurrent={isActive}
         customReceiveHandler={customReceiveHandler}
       />

@@ -3,6 +3,12 @@ import { useCallback, useMemo } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { tryDispatchTranslateMessage } from '@onekeyhq/kit/src/components/WebView/translateBridge';
+import type {
+  ICustomInjectionAutoReviewEvent,
+  ICustomInjectionRecordingCommand,
+  ICustomInjectionRecordingEvent,
+  IElectronWebViewEvents,
+} from '@onekeyhq/kit/src/components/WebView/types';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import { webviewRefs } from '../../utils/explorerUtils';
@@ -16,16 +22,24 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled?: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
-    desktopPreloadUrl?: string;
     customReceiveHandler?: IJsBridgeReceiveHandler;
+    desktopPreloadUrl?: string;
+    partition?: string;
+    onCustomInjectionAutoReview?: (
+      event: ICustomInjectionAutoReviewEvent,
+    ) => void;
+    customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
+    onCustomInjectionRecordingEvent?: (
+      event: ICustomInjectionRecordingEvent,
+    ) => void;
+    onCustomInjectionDidStartNavigation?: IElectronWebViewEvents['onDidStartNavigation'];
+    onCustomInjectionDidRedirectNavigation?: IElectronWebViewEvents['onDidRedirectNavigation'];
+    onCustomInjectionNavigationSettled?: (loaded: boolean) => void;
+    onCustomInjectionDomReady?: () => void;
+    isWebViewInstanceCurrent?: () => boolean;
   };
 
-function WebContent({
-  id,
-  url,
-  desktopPreloadUrl,
-  customReceiveHandler,
-}: IWebContentProps) {
+function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const { setWebTabData } = useBrowserTabActions().current;
 
   const handleMessage = useCallback(
@@ -40,7 +54,6 @@ function WebContent({
       <WebView
         id={id}
         src={url}
-        desktopPreloadUrl={desktopPreloadUrl}
         customReceiveHandler={customReceiveHandler}
         onMessage={handleMessage}
         onWebViewRef={(ref) => {
@@ -58,7 +71,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, customReceiveHandler, desktopPreloadUrl],
+    [id, customReceiveHandler],
   );
 
   return webview;

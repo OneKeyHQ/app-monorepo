@@ -1,5 +1,8 @@
+import type { ICustomInjectedRecordingCapture } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+
 import type {
   DidFailLoadEvent,
+  DidRedirectNavigationEvent,
   DidStartNavigationEvent,
   Event,
   PageFaviconUpdatedEvent,
@@ -28,6 +31,37 @@ export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
 
 export type IWebViewOnScrollEvent =
   IFirstParameterOrUndefined<IWebViewOnScroll>;
+
+export type ICustomInjectionAutoReviewDetection = {
+  iconKey: string;
+  iconLabel: string;
+  sourceKind: 'asset' | 'inline' | 'wallet-id';
+  walletId?: string;
+};
+
+export type ICustomInjectionAutoReviewEvent =
+  ICustomInjectionAutoReviewDetection & {
+    pageUrl: string;
+    webContentsId: number;
+  };
+
+export type ICustomInjectionRecordingCommand = {
+  token: string;
+  action: 'start' | 'stop';
+};
+
+export type ICustomInjectionRecordingEvent = {
+  token: string;
+  pageUrl: string;
+  webContentsId: number;
+} & (
+  | { status: 'started' }
+  | {
+      status: 'completed';
+      recording: ICustomInjectedRecordingCapture;
+    }
+  | { status: 'error'; error: string }
+);
 
 export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents, InpageWebViewProps {
@@ -116,6 +150,23 @@ export interface IInpageProviderWebViewProps
    * remount the WebView when this URL changes.
    */
   desktopPreloadUrl?: string;
+  /** @platform desktop
+   * @description Receives a capability-authenticated repository-icon
+   * detection from the isolated Custom Injection preload.
+   */
+  onCustomInjectionAutoReview?: (
+    event: ICustomInjectionAutoReviewEvent,
+  ) => void;
+  /** @platform desktop
+   * @description Sends start/stop commands to the isolated manual recorder.
+   */
+  customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
+  /** @platform desktop
+   * @description Receives authenticated recorder lifecycle events and captures.
+   */
+  onCustomInjectionRecordingEvent?: (
+    event: ICustomInjectionRecordingEvent,
+  ) => void;
 }
 
 export type IWebViewRef = {
@@ -148,6 +199,7 @@ export type IElectronWebView = {
 export type IElectronWebViewEventNames =
   | 'did-start-loading'
   | 'did-start-navigation'
+  | 'did-redirect-navigation'
   | 'did-finish-load'
   | 'did-stop-loading'
   | 'did-fail-load'
@@ -159,6 +211,7 @@ export type IElectronWebViewEventNames =
 export type IElectronWebViewEvents = {
   onDidStartLoading?: (e: Event) => void;
   onDidStartNavigation?: (e: DidStartNavigationEvent) => void;
+  onDidRedirectNavigation?: (e: DidRedirectNavigationEvent) => void;
   onDidFinishLoad?: () => void;
   onDidStopLoading?: () => void;
   onDidFailLoad?: (e: DidFailLoadEvent) => void;

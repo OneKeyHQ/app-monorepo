@@ -69,6 +69,7 @@ import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { rejectDevelopmentDesktopConnectionRequestIfNeeded } from './utils/developmentDesktopFeatures';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
@@ -328,6 +329,11 @@ class ServiceDApp extends ServiceBase {
     request: IJsBridgeMessagePayload,
     params?: Record<string, any>,
   ) {
+    await rejectDevelopmentDesktopConnectionRequestIfNeeded({
+      request,
+      backgroundApi: this.backgroundApi,
+    });
+
     const result = await this.openModal({
       request,
       screens: [

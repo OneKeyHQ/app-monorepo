@@ -101,7 +101,9 @@ function RenderLines({
           key={index}
           color={color}
           textTransform="none"
-          userSelect="none"
+          userSelect={
+            platformEnv.isDesktop && platformEnv.isDev ? 'text' : 'none'
+          }
           underlineTextProps={underlineTextPropsStatic}
           size={size}
           wordWrap="break-word"

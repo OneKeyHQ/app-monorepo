@@ -50,97 +50,100 @@ const PAD_SCALE_ROW = (
   </XStack>
 );
 
-export const KeyTagRowPad = memo(function KeyTagRowPadBase({
-  rowIndex,
-  value,
-  totalRows,
-  onToggleHole,
-  onStep,
-}: {
-  // Global row index of the active row.
-  rowIndex: number;
-  value: number;
-  totalRows: number;
-  onToggleHole: IKeyTagHoleToggleHandler;
-  // Move the active row by +1 / -1 (the host clamps and flips faces).
-  onStep: (delta: 1 | -1) => void;
-}) {
-  const line = useKeyTagLine();
-  // `touched` only distinguishes Empty from Unverified, neither of which the
-  // pad paints, so an untouched read is enough to surface an impossible value.
-  const { status } = decodeKeyTagRow(value, { touched: false });
-  const invalid = status === EKeyTagRowStatus.Invalid;
+export const KeyTagRowPad = memo(
+  ({
+    rowIndex,
+    value,
+    totalRows,
+    onToggleHole,
+    onStep,
+  }: {
+    // Global row index of the active row.
+    rowIndex: number;
+    value: number;
+    totalRows: number;
+    onToggleHole: IKeyTagHoleToggleHandler;
+    // Move the active row by +1 / -1 (the host clamps and flips faces).
+    onStep: (delta: 1 | -1) => void;
+  }) => {
+    const line = useKeyTagLine();
+    // `touched` only distinguishes Empty from Unverified, neither of which the
+    // pad paints, so an untouched read is enough to surface an impossible value.
+    const { status } = decodeKeyTagRow(value, { touched: false });
+    const invalid = status === EKeyTagRowStatus.Invalid;
 
-  return (
-    // Same corner radius as the plate frame, and the same fill as the map's
-    // highlighted row band — the card reads as "that row, brought down here".
-    <YStack
-      alignSelf="stretch"
-      borderRadius={KEYTAG_PLATE_RADIUS}
-      borderWidth={1}
-      borderColor={line.frame}
-      bg="$bgHover"
-      px="$4"
-      py="$3"
-      gap="$2"
-      mb="$3"
-    >
-      <XStack alignItems="center" justifyContent="space-between">
-        <IconButton
-          icon="ChevronLeftOutline"
-          size="small"
-          variant="tertiary"
-          disabled={rowIndex === 0}
-          onPress={() => onStep(-1)}
-          testID="keytag-row-pad-prev"
-        />
-        <XStack alignItems="baseline" gap="$1">
-          <SizableText
-            size="$headingXl"
-            color={invalid ? '$textCritical' : '$text'}
-          >
-            {rowIndex + 1}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            / {totalRows}
-          </SizableText>
-        </XStack>
-        <IconButton
-          icon="ChevronRightOutline"
-          size="small"
-          variant="tertiary"
-          disabled={rowIndex === totalRows - 1}
-          onPress={() => onStep(1)}
-          testID="keytag-row-pad-next"
-        />
-      </XStack>
-      <YStack gap="$1">
-        {PAD_SCALE_ROW}
-        <XStack gap={PAD_CELL_GAP}>
-          {keyTagRowValueToBits(value).map((on, col) => (
-            <Stack
-              key={KEY_TAG_ROW_WEIGHTS[col]}
-              flexGrow={1}
-              flexBasis={0}
-              height={PAD_CELL_H}
-              borderRadius="$2"
-              borderWidth={1}
-              borderColor={on ? '$borderActive' : line.grid}
-              alignItems="center"
-              justifyContent="center"
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={() => onToggleHole(rowIndex, col)}
+    return (
+      // Same corner radius as the plate frame, and the same fill as the map's
+      // highlighted row band — the card reads as "that row, brought down here".
+      <YStack
+        alignSelf="stretch"
+        borderRadius={KEYTAG_PLATE_RADIUS}
+        borderWidth={1}
+        borderColor={line.frame}
+        bg="$bgHover"
+        px="$4"
+        py="$3"
+        gap="$2"
+        mb="$3"
+      >
+        <XStack alignItems="center" justifyContent="space-between">
+          <IconButton
+            icon="ChevronLeftOutline"
+            size="small"
+            variant="tertiary"
+            disabled={rowIndex === 0}
+            onPress={() => onStep(-1)}
+            testID="keytag-row-pad-prev"
+          />
+          <XStack alignItems="baseline" gap="$1">
+            <SizableText
+              size="$headingXl"
+              color={invalid ? '$textCritical' : '$text'}
             >
-              <KeyTagHoleDot
-                on={on}
-                invalid={invalid}
-                size={PAD_DOT_BASIS}
-                line={line}
-              />
-            </Stack>
-          ))}
+              {rowIndex + 1}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              / {totalRows}
+            </SizableText>
+          </XStack>
+          <IconButton
+            icon="ChevronRightOutline"
+            size="small"
+            variant="tertiary"
+            disabled={rowIndex === totalRows - 1}
+            onPress={() => onStep(1)}
+            testID="keytag-row-pad-next"
+          />
         </XStack>
+        <YStack gap="$1">
+          {PAD_SCALE_ROW}
+          <XStack gap={PAD_CELL_GAP}>
+            {keyTagRowValueToBits(value).map((on, col) => (
+              <Stack
+                key={KEY_TAG_ROW_WEIGHTS[col]}
+                flexGrow={1}
+                flexBasis={0}
+                height={PAD_CELL_H}
+                borderRadius="$2"
+                borderWidth={1}
+                borderColor={on ? '$borderActive' : line.grid}
+                alignItems="center"
+                justifyContent="center"
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={() => onToggleHole(rowIndex, col)}
+              >
+                <KeyTagHoleDot
+                  on={on}
+                  invalid={invalid}
+                  size={PAD_DOT_BASIS}
+                  line={line}
+                />
+              </Stack>
+            ))}
+          </XStack>
+        </YStack>
       </YStack>
-    </YStack>
-  );
-});
+    );
+  },
+);
+KeyTagRowPad.displayName = 'KeyTagRowPad';

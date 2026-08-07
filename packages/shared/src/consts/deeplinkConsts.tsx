@@ -13,7 +13,6 @@ export enum EOneKeyDeepLinkPath {
   redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   cross_device_transfer = 'cross_device_transfer',
   webview = 'webview',
-  custom_injected = 'custom-injected',
   // Value MUST equal the on-wire URL segment (compared as a raw string in the
   // deeplink switch); hence the hyphenated literal, not an underscore alias.
   preview_featured_changelog = 'preview-featured-changelog',
@@ -50,9 +49,6 @@ export type IEOneKeyDeepLinkParams = {
     hideHeader?: '0' | '1';
     /** Address bar is hidden by default; pass '1' to show it. */
     showAddressBar?: '0' | '1';
-  };
-  [EOneKeyDeepLinkPath.custom_injected]: {
-    workspace: string;
   };
   [EOneKeyDeepLinkPath.preview_featured_changelog]: {
     version?: string;

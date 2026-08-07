@@ -82,6 +82,32 @@ module.exports = __localeData;
   },
 };
 
+const productionModuleReplacementPlugin = {
+  name: 'production-module-replacement',
+  setup(pluginBuild) {
+    if (!isProduction) return;
+    pluginBuild.onResolve(
+      { filter: /(?:DesktopApiWebview|desktopApiAccess)$/ },
+      (args) => {
+        if (args.path.endsWith('DesktopApiWebview')) {
+          return {
+            path: path.join(
+              __dirname,
+              '../../../packages/kit-bg/src/desktopApis/DesktopApiWebview.production.ts',
+            ),
+          };
+        }
+        return {
+          path: path.join(
+            __dirname,
+            '../app/libs/desktopApiAccess.production.ts',
+          ),
+        };
+      },
+    );
+  },
+};
+
 // Get all .js files in service directory
 const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
@@ -114,7 +140,7 @@ build({
   bundle: true,
   target: 'node16',
   metafile: !!process.env.ESBUILD_METAFILE,
-  plugins: [externalizeLocaleJsonPlugin],
+  plugins: [externalizeLocaleJsonPlugin, productionModuleReplacementPlugin],
   loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
@@ -240,6 +266,38 @@ build({
   },
 })
   .then((result) => {
+    if (isProduction) {
+      const mainBundleFile = path.join(__dirname, '..', 'app/dist/app.js');
+      const mainBundle = fs.readFileSync(mainBundleFile, 'utf8');
+      const forbiddenDevelopmentMarkers = [
+        'CustomInjected',
+        'CustomInjection',
+        'customInjection',
+        'custom-injected',
+        'custom_injected',
+        'CUSTOM_INJECTION',
+        'desktopPreloadUrl',
+        'onekey_custom_injection_enabled',
+        'onekey-app-custom-injected',
+        'onekey-connect-button-recording-capture',
+        'onekey-connect-button-desktop-e2e-result',
+        'Custom Injection',
+      ];
+      const leakedMarkers = forbiddenDevelopmentMarkers.filter((marker) =>
+        mainBundle.includes(marker),
+      );
+      if (leakedMarkers.length > 0) {
+        // eslint-disable-next-line onekey/no-raw-error
+        throw new Error(
+          `Production Desktop main bundle contains development-only markers: ${leakedMarkers.join(
+            ', ',
+          )}`,
+        );
+      }
+      console.log(
+        '[Electron Build] Verified production main bundle excludes development-only modules',
+      );
+    }
     // Copy static assets (recovery.html) to dist
     if (result && result.metafile) {
       fs.writeFileSync(
@@ -265,4 +323,7 @@ build({
       (hrend[1] / 1_000_000 + hrend[0] * 1000).toFixed(1),
     );
   })
-  .catch(() => process.exit(1));
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
