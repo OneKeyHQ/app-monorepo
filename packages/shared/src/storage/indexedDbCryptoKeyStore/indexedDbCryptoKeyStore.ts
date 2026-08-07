@@ -66,6 +66,22 @@ function requestToPromise<TResult>(request: IDBRequest<TResult>) {
   });
 }
 
+/**
+ * Feed an async write failure back into the storage state machine before
+ * rethrowing. These raw paths bypass `IndexedDBTransactionPromised`, which is
+ * what normally reports quota failures, so without this a CryptoKey write that
+ * is the first operation to exhaust storage would surface a low-level error and
+ * leave the guard — and the user-facing diagnostics — untouched.
+ */
+async function reportStorageWriteFailure<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    storageChecker.handleDiskFullError(error);
+    throw error;
+  }
+}
+
 function transactionDone(transaction: IDBTransaction) {
   return new Promise<void>((resolve, reject) => {
     transaction.onabort = () => {
@@ -254,15 +270,17 @@ export async function writeCryptoKeyRecord({
     );
     const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
     const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
+    await reportStorageWriteFailure(async () => {
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
+      await transactionDone(transaction);
+    });
   } finally {
     db.close();
   }
@@ -360,15 +378,17 @@ export async function getOrCreateCryptoKey({
       return existingRecord.key;
     }
     const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key: candidateKey,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
+    await reportStorageWriteFailure(async () => {
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key: candidateKey,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
+      await transactionDone(transaction);
+    });
     return candidateKey;
   } finally {
     db.close();
