@@ -110,7 +110,7 @@ const REFERRAL_LINKS = [
   },
   {
     pathSuffix: '/app/swap',
-    titleId: ETranslations.swap_referral_link__title,
+    titleId: ETranslations.global_trade,
     descId: ETranslations.swap_referral_link__desc,
     useWebAppUrl: true,
   },
