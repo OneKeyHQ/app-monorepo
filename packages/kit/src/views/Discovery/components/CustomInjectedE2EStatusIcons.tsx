@@ -141,7 +141,7 @@ export function CustomInjectedE2EStatusIcons({
         <CustomInjectedE2EStatusIcon
           key={status}
           active={statuses[status]}
-          failed={status === 'validated' && failed}
+          failed={status === 'validated' ? failed : false}
           status={status}
           testID={testID ? `${testID}-${status}` : undefined}
         />

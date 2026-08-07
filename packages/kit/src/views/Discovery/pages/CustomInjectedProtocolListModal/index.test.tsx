@@ -194,6 +194,7 @@ jest.mock('@onekeyhq/kit/src/utils/customInjectedProtocolRuntime', () => ({
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Container = ({
+    'aria-label': ariaLabel,
     backgroundColor,
     children,
     color,
@@ -201,10 +202,12 @@ jest.mock('@onekeyhq/components', () => {
     opacity,
     onPress,
     p,
+    role,
     testID,
     w,
     width,
   }: {
+    'aria-label'?: string;
     backgroundColor?: string;
     children?: React.ReactNode;
     color?: string;
@@ -212,6 +215,7 @@ jest.mock('@onekeyhq/components', () => {
     opacity?: number;
     onPress?: () => void;
     p?: string;
+    role?: string;
     testID?: string;
     w?: number | string;
     width?: number | string;
@@ -219,6 +223,7 @@ jest.mock('@onekeyhq/components', () => {
     React.createElement(
       'div',
       {
+        'aria-label': ariaLabel,
         'data-background-color': backgroundColor,
         'data-color': color,
         'data-height': h,
@@ -227,6 +232,7 @@ jest.mock('@onekeyhq/components', () => {
         'data-testid': testID,
         'data-width': w ?? width,
         onClick: onPress,
+        role,
       },
       children,
     );
@@ -564,6 +570,7 @@ describe('CustomInjectedProtocolListModal', () => {
         generated: true,
         resultPresent: false,
         validated: false,
+        failed: true,
       },
     });
     Object.defineProperty(globalThis, 'desktopApiProxy', {
@@ -780,6 +787,17 @@ describe('CustomInjectedProtocolListModal', () => {
         )
         .getAttribute('data-opacity'),
     ).toBe('0.5');
+    expect(
+      screen
+        .getByTestId('custom-injected-protocol-e2e-custom-aave-validated')
+        .getAttribute('data-background-color'),
+    ).toBe('$bgCritical');
+    expect(
+      screen
+        .getByTestId('custom-injected-protocol-e2e-custom-aave-validated')
+        .querySelector('[data-icon-name="PlayCircleOutline"]')
+        ?.getAttribute('data-icon-color'),
+    ).toBe('$iconCritical');
   });
 
   test('validates generated E2Es that have not passed sequentially', async () => {

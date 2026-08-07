@@ -915,10 +915,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.webContents.on('will-navigate', guardMainRendererNavigation);
   browserWindow.webContents.on('will-redirect', guardMainRendererNavigation);
 
-  if (isDevServer && !isDesktopE2EMode) {
-    browserWindow.webContents.openDevTools();
-  }
-
   void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
