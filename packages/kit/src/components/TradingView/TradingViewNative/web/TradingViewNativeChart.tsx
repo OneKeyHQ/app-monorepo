@@ -30,6 +30,7 @@ import {
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
 } from '../utils/chartLayout';
+import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -108,6 +109,7 @@ interface IDrawKLineChartOptions {
 interface ICanvasPriceAxisLabels {
   currentPrice: string;
   widestPrice: string;
+  widestVolume: string;
 }
 
 function getCanvasFont(font: ITradingViewNativeChartSceneFont) {
@@ -132,6 +134,7 @@ function getCanvasPriceAxisWidth(
   return getTradingViewNativePriceAxisWidth({
     currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
     widestPriceLabelWidth: context.measureText(labels.widestPrice).width,
+    widestVolumeLabelWidth: context.measureText(labels.widestVolume).width,
   });
 }
 
@@ -358,6 +361,7 @@ export const TradingViewNativeChart = memo(
       () => ({
         currentPrice: getTradingViewNativeCurrentPriceLabel(points),
         widestPrice: getTradingViewNativePriceAxisLabel(points),
+        widestVolume: getTradingViewNativeVolumeAxisLabel(points),
       }),
       [points],
     );

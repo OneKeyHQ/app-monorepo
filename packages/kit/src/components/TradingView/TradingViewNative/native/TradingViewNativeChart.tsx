@@ -40,6 +40,7 @@ import {
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
 } from '../utils/chartLayout';
+import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -208,6 +209,10 @@ export const TradingViewNativeChart = memo(
       () => getTradingViewNativePriceAxisLabel(points),
       [points],
     );
+    const widestVolumeLabel = useMemo(
+      () => getTradingViewNativeVolumeAxisLabel(points),
+      [points],
+    );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
     const resources = useDerivedValue(
@@ -233,6 +238,8 @@ export const TradingViewNativeChart = memo(
         measuredPriceAxisFont.measureText(currentPriceLabel);
       const widestPriceLabelBounds =
         measuredPriceAxisFont.measureText(widestPriceLabel);
+      const widestVolumeLabelBounds =
+        measuredPriceAxisFont.measureText(widestVolumeLabel);
       return getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: Math.max(
           currentPriceLabelBounds.x + currentPriceLabelBounds.width,
@@ -242,8 +249,12 @@ export const TradingViewNativeChart = memo(
           widestPriceLabelBounds.x + widestPriceLabelBounds.width,
           0,
         ),
+        widestVolumeLabelWidth: Math.max(
+          widestVolumeLabelBounds.x + widestVolumeLabelBounds.width,
+          0,
+        ),
       });
-    }, [currentPriceLabel, resources, widestPriceLabel]);
+    }, [currentPriceLabel, resources, widestPriceLabel, widestVolumeLabel]);
 
     const picture = useDerivedValue(() => {
       const runtime = chartRuntime.value;
