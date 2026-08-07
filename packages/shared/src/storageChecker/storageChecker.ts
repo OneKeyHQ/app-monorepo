@@ -39,21 +39,40 @@ const warningAtGB = 0.936;
 // const warningAtGB = 1110.936;
 const warningAtBytes = warningAtGB * 1024 * 1024 * 1024;
 /**
- * Headroom needed to release the guard again. The gap against `warningAtBytes`
- * is deliberate: the measurement re-runs on every write (debounced to 1s), so
- * a quota sitting near the threshold would otherwise flip the guard — and with
- * it the warning dialog and a log line — once per second in both directions.
+ * Fraction of the granted quota to fall back on when the quota is too small
+ * for the fixed floor to make sense.
+ */
+const warningQuotaRatio = 0.1;
+
+/**
+ * Headroom below which the guard is raised.
+ *
+ * The fixed floor was calibrated against extension-sized quotas (tens of GB).
+ * Applied verbatim to a browser that grants an origin less than that, it would
+ * mark an almost-empty origin as full and never let it recover. Taking the
+ * smaller of the floor and a fraction of the quota keeps the threshold both
+ * proportional and continuous: quotas at or above ~9.4 GB are unaffected.
+ */
+function getWarningAtBytes(quotaBytes: number): number {
+  return Math.min(warningAtBytes, quotaBytes * warningQuotaRatio);
+}
+
+/**
+ * Headroom needed to release the guard again. The gap against the warning
+ * threshold is deliberate: the measurement re-runs on every write (debounced
+ * to 1s), so a quota sitting near the threshold would otherwise flip the guard
+ * — and with it the warning dialog and a log line — once per second in both
+ * directions.
  *
  * The band must stay reachable: `availableBytes` can never exceed the quota,
- * so on a small quota a fixed 2× threshold would latch the guard forever. For
- * large quotas this returns 2× the warning floor; for small ones it shrinks to
- * the midpoint between the warning floor and the quota itself. A quota at or
- * below the warning floor keeps the guard latched — storage that small cannot
- * hold the app's data anyway.
+ * so a fixed 2× threshold would latch the guard forever on a small quota. This
+ * returns 2× the warning threshold when the quota affords it, and otherwise
+ * the midpoint between that threshold and the quota itself.
  */
 function getClearAtBytes(quotaBytes: number): number {
-  const reachableHeadroom = Math.max(0, (quotaBytes - warningAtBytes) / 2);
-  return warningAtBytes + Math.min(warningAtBytes, reachableHeadroom);
+  const warnAtBytes = getWarningAtBytes(quotaBytes);
+  const reachableHeadroom = Math.max(0, (quotaBytes - warnAtBytes) / 2);
+  return warnAtBytes + Math.min(warnAtBytes, reachableHeadroom);
 }
 
 /** Most recent successful measurement, regardless of the current flag state. */
@@ -152,6 +171,10 @@ function handleDiskFullError(error: unknown) {
 const checkIfDiskIsFullDebounced = debounce(checkIfDiskIsFull, 1000, {
   leading: false,
   trailing: true,
+  // Without maxWait, sustained write traffic (every blocked write schedules
+  // this) would push the timer forward indefinitely and the measurement would
+  // never run — starving the very recovery path that clears the guard.
+  maxWait: 1000,
 });
 
 function checkIfDiskIsFullSync() {
@@ -204,7 +227,7 @@ async function checkIfDiskIsFull() {
             hasLoggedFirstMeasurement = true;
             appGlobals?.$defaultLogger?.app.storage.quotaMeasured(quotaInfo);
           }
-          if (quotaInfo.availableBytes < warningAtBytes) {
+          if (quotaInfo.availableBytes < getWarningAtBytes(quotaBytes)) {
             raiseDiskFull({
               reason: EStorageFullReason.QuotaExhausted,
               quotaInfo,

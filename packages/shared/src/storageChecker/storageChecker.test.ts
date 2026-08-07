@@ -204,6 +204,43 @@ describe('storageChecker', () => {
       }
     });
 
+    it('still measures under write traffic faster than the debounce window', async () => {
+      // Every blocked write re-schedules the debounce. Without maxWait a
+      // sustained write stream would push the timer forward forever and the
+      // measurement — the only thing that clears the guard — would starve.
+      jest.useFakeTimers();
+      try {
+        await jest.isolateModulesAsync(async () => {
+          const freshChecker = (await import('./storageChecker')).default;
+          globalThis.$onekeySystemDiskIsFull = true;
+          mockEstimate(40 * GB, 10 * GB);
+
+          // The first blocked write rejects and arms the measurement.
+          expect(() => freshChecker.checkIfDiskIsFullSync()).toThrow(
+            'System Disk is full',
+          );
+
+          // Keep writing every 400ms — always inside the 1000ms window, so a
+          // plain trailing debounce would be pushed forward forever. Later
+          // calls stop throwing once maxWait lets the measurement run, which
+          // is the behavior under test.
+          for (let i = 0; i < 6; i += 1) {
+            try {
+              freshChecker.checkIfDiskIsFullSync();
+            } catch {
+              // Still blocked; the traffic keeps re-arming the debounce.
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await jest.advanceTimersByTimeAsync(400);
+          }
+
+          expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);

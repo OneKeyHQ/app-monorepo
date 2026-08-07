@@ -61,4 +61,36 @@ describe('storageChecker in web wallet mode', () => {
 
     expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
   });
+
+  describe('quota smaller than the fixed warning floor', () => {
+    // A browser may grant an origin less than the 0.936 GB floor. Compared
+    // against it verbatim, an almost-empty origin would read as full and could
+    // never recover, because available bytes cannot exceed the quota.
+    const smallQuota = 0.5 * GB;
+
+    it('leaves a mostly empty small quota writable', async () => {
+      mockEstimate(smallQuota, 0.05 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
+    it('still enters the warning band when the small quota runs low', async () => {
+      mockEstimate(smallQuota, smallQuota - 0.01 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+    });
+
+    it('can leave the warning band again on a small quota', async () => {
+      globalThis.$onekeySystemDiskIsFull = true;
+      mockEstimate(smallQuota, 0.05 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+  });
 });
