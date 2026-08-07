@@ -23,12 +23,16 @@ const STAGING_CREDENTIALS = {
   clientId: '01KJD2DBBGF9Q8G133QK2A3DC1',
   apiKey: 'pk_test_01KWHMBRP4ABPB5DE4EB0CHNC6',
 };
-// TODO(onramper): fill once Onramper issues the production pair (post
-// Coinbase KYB). While empty, hasOnramperCredentials() keeps production
-// builds on the web widget instead of crashing at client creation.
+// Production pair is injected at bundle time (OK-59538 forbids committing it
+// in plaintext): CI appends ONRAMPER_CLIENT_ID / ONRAMPER_API_KEY from GitHub
+// secrets to .env.expo (release-ios.yml → shared-env action) before the EAS
+// upload; local production-profile builds read them from the git-ignored root
+// .env. Both names must stay in envExposedToClient.js for the babel inline to
+// happen. When unset, hasOnramperCredentials() keeps production builds on the
+// web widget instead of crashing at client creation.
 const PRODUCTION_CREDENTIALS = {
-  clientId: '',
-  apiKey: '',
+  clientId: process.env.ONRAMPER_CLIENT_ID ?? '',
+  apiKey: process.env.ONRAMPER_API_KEY ?? '',
 };
 
 function getCredentials() {

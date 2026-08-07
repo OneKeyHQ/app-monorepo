@@ -39,18 +39,23 @@ against 0.35.x. If the iOS native build fails on one of them, this is why.
    ```
    Commit the `Podfile.lock` diff (an autolinked `OnramperReactNative` pod +
    `NitroModules` dependency).
-5. **App Attest entitlement** on the iOS app target (Xcode → Signing &
-   Capabilities → App Attest, or add the entitlement):
-   ```xml
-   <key>com.apple.developer.devicecheck.appattest-environment</key>
-   <string>production</string>
-   ```
-6. **Fill the credentials** in `realClient.native.ts` → `ONRAMPER_CLIENT_ID`
-   and `ONRAMPER_API_KEY`. Verified against SDK 1.1.1: `configure()` requires
-   BOTH — `apiKey` is the *publishable* `pk_...` key (the hosted widget embeds
-   the same key in its URL), not the backend partner secret. `environment`
-   only accepts `'development' | 'production'` (anything else is coerced to
-   production on the Swift side).
+5. **App Attest entitlement** — already wired per build configuration: the
+   entitlements file carries `$(ONEKEY_APPATTEST_ENVIRONMENT)` and the app
+   target defines it as `development` (Debug) / `production` (Release, which
+   every EAS profile uses). Ad hoc QA builds are NOT on Apple's list of
+   always-production distributions, so the explicit Release value matters.
+6. **Production credentials** are injected at bundle time, never committed
+   (OK-59538): `realClient.native.ts` reads `process.env.ONRAMPER_CLIENT_ID`
+   / `ONRAMPER_API_KEY` (allowlisted in `development/envExposedToClient.js`).
+   CI: GitHub secrets appended to `.env.expo` by `release-ios.yml` before the
+   EAS upload. Local production-profile build: put both in the git-ignored
+   root `.env` (never `.env.expo` / `.env.version` — those are committed).
+   Verified against SDK 1.1.1: `configure()` requires BOTH — `apiKey` is the
+   *publishable* `pk_...` key (the hosted widget embeds the same key in its
+   URL), not the backend partner secret. `environment` only accepts
+   `'development' | 'production'` (anything else is coerced to production on
+   the Swift side). Unset values keep production builds on the web widget
+   (`hasOnramperCredentials()` fail-closed).
 7. **Verify the SDK surface** against the installed types
    (`node_modules/@onramper/onramper-react-native/lib/typescript/...`): confirm
    the `OnramperClient` export name + method signatures in `realClient.native.ts`,

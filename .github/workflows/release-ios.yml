@@ -46,6 +46,8 @@ jobs:
           additional_env: |
             NO_FLIPPER=1
             SENTRY_DISABLE_AUTO_UPLOAD=false
+            ONRAMPER_CLIENT_ID=${{ secrets.ONRAMPER_CLIENT_ID }}
+            ONRAMPER_API_KEY=${{ secrets.ONRAMPER_API_KEY }}
           env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
