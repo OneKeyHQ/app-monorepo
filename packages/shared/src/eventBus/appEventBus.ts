@@ -62,6 +62,7 @@ import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
+import type { IStorageFullDiagnostics } from '../storageChecker/types';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
 
@@ -410,7 +411,9 @@ export interface IAppEventBusPayload {
         };
       };
   [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
-  [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowSystemDiskFullWarning]:
+    | IStorageFullDiagnostics
+    | undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;

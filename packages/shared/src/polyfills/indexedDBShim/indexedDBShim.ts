@@ -17,16 +17,12 @@ if (!globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
     const self = this;
     try {
       const isWriteMode = mode !== 'readonly';
-      if (isWriteMode && globalThis.$onekeySystemDiskIsFull) {
-        console.error('IndexedDB==>checkDiskFull ', self, {
-          name: self.name,
-          storeNames,
-          mode,
-          options,
-        });
-      }
       if (isWriteMode) {
-        storageChecker.checkIfDiskIsFullSync();
+        // Measurement only. The blocking guard lives in
+        // `IndexedDBPromised.createBucketTransaction`, which is OneKey's own
+        // choke point and can tell a space-consuming write apart from a
+        // space-freeing delete. Throwing here blocked deletes too, so a raised
+        // guard also destroyed the only way out of a full disk.
         void storageChecker.checkIfDiskIsFullDebounced();
       }
       const tx =

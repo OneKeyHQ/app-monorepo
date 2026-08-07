@@ -4,7 +4,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, SizableText } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import storageQuotaUtils from '@onekeyhq/shared/src/storageChecker/storageQuotaUtils';
 
 export function DiskFullWarningDialogContainer() {
   const intl = useIntl();
@@ -25,9 +26,15 @@ export function DiskFullWarningDialogContainer() {
     };
     const showFn = debounce(
       async (
-        _: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
+        diagnostics: IAppEventBusPayload[
+          EAppEventBusNames.ShowSystemDiskFullWarning
+        ],
       ) => {
         await hideFn();
+        // Measured numbers, deliberately untranslated: they are what tells a
+        // real quota exhaustion apart from a write that failed for some other
+        // reason, and users report them back verbatim.
+        const detail = storageQuotaUtils.formatDiagnosticsDetail(diagnostics);
         dialogRef.current = Dialog.show({
           icon: 'Disk2Outline',
           tone: 'destructive',
@@ -37,6 +44,11 @@ export function DiskFullWarningDialogContainer() {
           description: intl.formatMessage({
             id: ETranslations.extension_disk_full_desc,
           }),
+          renderContent: detail ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {detail}
+            </SizableText>
+          ) : undefined,
           dismissOnOverlayPress: false,
           disableDrag: true,
           showCancelButton: false,

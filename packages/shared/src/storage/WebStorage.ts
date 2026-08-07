@@ -6,6 +6,7 @@ import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
 import platformEnv from '../platformEnv';
+import storageChecker from '../storageChecker/storageChecker';
 import resetUtils from '../utils/resetUtils';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
@@ -166,7 +167,12 @@ class WebStorage implements AsyncStorageStatic {
       return;
     }
     if (globalThis.$onekeySystemDiskIsFull) {
-      appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
+      // Forward the measured quota so the warning dialog can show whether this
+      // is a real quota exhaustion or a write that failed for another reason.
+      appEventBus.emit(
+        EAppEventBusNames.ShowSystemDiskFullWarning,
+        storageChecker.getLastDiagnostics(),
+      );
       console.error('WebStorage==>checkDiskFull ', payload);
       throw new SystemDiskFullError();
     }
