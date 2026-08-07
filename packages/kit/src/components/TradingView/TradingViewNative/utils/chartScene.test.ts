@@ -186,6 +186,39 @@ describe('TradingViewNative shared chart scene', () => {
     expect(volumeBarHeights).toContain(1);
   });
 
+  it('renders volume-axis ticks and a volume crosshair label', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: true, x: 352, y: 250.8 },
+      hasVolume: true,
+      height: 300,
+      measureTextWidth: (text) => text.length * 6,
+      points: POINTS,
+      priceAxisWidth: 44,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 402,
+    });
+    const volumeAxisText = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'priceAxis' &&
+      command.paint === 'axisText' &&
+      command.y > 225.6
+        ? [command.text]
+        : [],
+    );
+    const crosshairValueText = scene.commands.find(
+      (command) =>
+        command.kind === 'text' &&
+        command.font === 'priceAxis' &&
+        command.paint === 'crosshairLabelText',
+    );
+
+    expect(volumeAxisText).toEqual(['13.3333', '6.66667']);
+    expect(crosshairValueText).toMatchObject({ text: '10' });
+  });
+
   it('hides the volume legend when the token has no volume', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,

@@ -86,6 +86,7 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -625,6 +626,8 @@ const DetailsPartComponent = ({
                 provider={provider}
                 vault={vault}
               />
+              {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
+              <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             </YStack>
             <EarnPlatformBonusSection
               appearance="alert"
