@@ -140,7 +140,7 @@ export function SwapRewardHeader({
         value: data.totalFeeFiatValue,
       })}
       isWide={isWideScreen}
-      fullWidth={!isWideScreen && !md}
+      fullWidth={!isWideScreen ? !md : false}
     />
   );
 
@@ -159,7 +159,7 @@ export function SwapRewardHeader({
         { number: walletCount },
       )}
       isWide={isWideScreen}
-      fullWidth={!isWideScreen && !md}
+      fullWidth={!isWideScreen ? !md : false}
     />
   );
 

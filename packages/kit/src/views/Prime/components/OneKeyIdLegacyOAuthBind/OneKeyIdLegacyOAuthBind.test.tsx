@@ -133,7 +133,7 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
   const actual = jest.requireActual(
     '@onekeyhq/shared/src/utils/timerUtils',
-  ) as { default: Record<string, unknown> };
+  );
   return {
     __esModule: true,
     default: {

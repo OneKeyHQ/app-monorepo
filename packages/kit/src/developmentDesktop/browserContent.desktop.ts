@@ -5,7 +5,7 @@ import type {
   IElectronWebViewEvents,
 } from '@onekeyhq/kit/src/components/WebView/types';
 
-import type { IDevelopmentDesktopBrowserContentProps } from './developmentDesktopBrowserContentTypes';
+import type { IDevelopmentDesktopBrowserContentProps } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowserContentTypes';
 
 export function useDevelopmentDesktopBrowserContent({
   id,
@@ -45,53 +45,32 @@ export function useDevelopmentDesktopBrowserContent({
   );
   const handleAutoReview = useCallback(
     (event: ICustomInjectionAutoReviewEvent) =>
-      onCustomInjectionAutoReview?.(
-        event,
-        customInjectionWebViewKey,
-        customInjectionE2EPassKey,
-      ),
-    [
-      customInjectionE2EPassKey,
-      customInjectionWebViewKey,
-      onCustomInjectionAutoReview,
-    ],
+      onCustomInjectionAutoReview?.(event, customInjectionWebViewKey, customInjectionE2EPassKey),
+    [customInjectionE2EPassKey, customInjectionWebViewKey, onCustomInjectionAutoReview],
   );
   const handleDidStartNavigation = useCallback<
     NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
   >(
-    (event) =>
-      onCustomInjectionDidStartNavigation?.(event, customInjectionWebViewKey),
+    (event) => onCustomInjectionDidStartNavigation?.(event, customInjectionWebViewKey),
     [customInjectionWebViewKey, onCustomInjectionDidStartNavigation],
   );
   const handleDidRedirectNavigation = useCallback<
     NonNullable<IElectronWebViewEvents['onDidRedirectNavigation']>
   >(
-    (event) =>
-      onCustomInjectionDidRedirectNavigation?.(
-        event,
-        customInjectionWebViewKey,
-      ),
+    (event) => onCustomInjectionDidRedirectNavigation?.(event, customInjectionWebViewKey),
     [customInjectionWebViewKey, onCustomInjectionDidRedirectNavigation],
   );
   const handleNavigationSettled = useCallback(
-    (loaded: boolean) =>
-      onCustomInjectionNavigationSettled?.(loaded, customInjectionWebViewKey),
+    (loaded: boolean) => onCustomInjectionNavigationSettled?.(loaded, customInjectionWebViewKey),
     [customInjectionWebViewKey, onCustomInjectionNavigationSettled],
   );
   const handleDomReady = useCallback(() => {
     if (customInjectionE2EPassKey) {
-      onCustomInjectionDomReady?.(
-        customInjectionWebViewKey,
-        customInjectionE2EPassKey,
-      );
+      onCustomInjectionDomReady?.(customInjectionWebViewKey, customInjectionE2EPassKey);
       return;
     }
     onCustomInjectionDomReady?.(customInjectionWebViewKey);
-  }, [
-    customInjectionE2EPassKey,
-    customInjectionWebViewKey,
-    onCustomInjectionDomReady,
-  ]);
+  }, [customInjectionE2EPassKey, customInjectionWebViewKey, onCustomInjectionDomReady]);
 
   return {
     effectiveUrl,

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { IDevelopmentDesktopWebContentProps } from './developmentDesktopWebContentTypes';
+import type { IDevelopmentDesktopWebContentProps } from '@onekeyhq/kit/src/views/Discovery/components/WebContent/developmentDesktopWebContentTypes';
 
 const noOp = () => undefined;
 

@@ -4916,8 +4916,7 @@ function PrimeInfiniWalletPaymentRoot({
         isPaymentContextRetrying={Boolean(isLoading)}
         onRetryPaymentContext={handleRetryPaymentContext}
         shouldCreatePayment={
-          !paymentContextErrorTitle &&
-          (result.shouldCreatePayment || paymentCreationIntentRef.current)
+          !paymentContextErrorTitle ? result.shouldCreatePayment || paymentCreationIntentRef.current : false
         }
       />
     );

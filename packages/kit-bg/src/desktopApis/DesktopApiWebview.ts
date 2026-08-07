@@ -6,7 +6,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 
-import { dialog, webContents } from 'electron';
+import { app, dialog, webContents } from 'electron';
 import logger from 'electron-log/main';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -257,10 +257,11 @@ export type ICustomInjectedE2EFocusRequest = {
   protocolId: string;
   pageUrl: string;
   webContentsId: number;
+  token: string;
 };
 
 export type ICustomInjectedE2EFocusResult = {
-  focused: true;
+  focused: boolean;
   webContentsId: number;
 };
 
@@ -395,6 +396,7 @@ type ICustomInjectedWorkspaceSession = {
   bundleSha256: string;
   protocols: ICustomInjectedProtocol[];
   e2ePreloadDirectories: Set<string>;
+  activeE2EAdapterControlToken?: string;
   active: boolean;
 };
 
@@ -1166,6 +1168,7 @@ async function cleanupCustomInjectedE2EPreloads(
 ): Promise<void> {
   const directories = [...customSession.e2ePreloadDirectories];
   customSession.e2ePreloadDirectories.clear();
+  customSession.activeE2EAdapterControlToken = undefined;
   await Promise.all(
     directories.map((directory) =>
       fs.rm(directory, { force: true, recursive: true }).catch(() => undefined),
@@ -1202,6 +1205,62 @@ function getCustomInjectedHostname(url: string): string {
   } catch {
     return '';
   }
+}
+
+async function resolveCustomInjectedE2EGuest(
+  request: ICustomInjectedE2EFocusRequest,
+) {
+  const customSession = customInjectedSessions.get(request.sessionId);
+  if (
+    !customSession?.active ||
+    activeCustomInjectedSessionId !== request.sessionId
+  ) {
+    throw new OneKeyLocalError('Custom injection session is not active');
+  }
+  if (
+    !Number.isSafeInteger(request.webContentsId) ||
+    request.webContentsId <= 0
+  ) {
+    throw new OneKeyLocalError('Custom injection WebView is not available');
+  }
+  if (
+    typeof request.token !== 'string' ||
+    request.token.length < 16 ||
+    request.token.length > 128 ||
+    request.token !== customSession.activeE2EAdapterControlToken
+  ) {
+    throw new OneKeyLocalError('Custom injection E2E focus token is invalid');
+  }
+  await refreshCustomInjectedSession(customSession);
+  const protocol = findCustomInjectedProtocol(
+    customSession,
+    request.protocolId,
+  );
+  if (!protocol) {
+    throw new OneKeyLocalError('Custom injection protocol not found');
+  }
+  const guest = webContents.fromId(request.webContentsId);
+  if (!guest || guest.isDestroyed() || guest.getType() !== 'webview') {
+    throw new OneKeyLocalError('Custom injection WebView is not available');
+  }
+  if (guest.session.isPersistent()) {
+    throw new OneKeyLocalError(
+      'Custom injection E2E requires a private WebView session',
+    );
+  }
+  const currentHostname = getCustomInjectedHostname(guest.getURL());
+  const reportedHostname = getCustomInjectedHostname(request.pageUrl);
+  const protocolHostname = getCustomInjectedHostname(protocol.url);
+  if (
+    !currentHostname ||
+    currentHostname !== reportedHostname ||
+    currentHostname !== protocolHostname
+  ) {
+    throw new OneKeyLocalError(
+      `Custom injection E2E hostname mismatch for "${protocol.key}"`,
+    );
+  }
+  return guest;
 }
 
 class DesktopApiNetwork extends DesktopApiWebviewBase {
@@ -1485,6 +1544,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
     );
     const controlledPreload = Buffer.concat([bootstrap, preload.content]);
     await fs.writeFile(file, controlledPreload, { flag: 'wx', mode: 0o600 });
+    customSession.activeE2EAdapterControlToken = request.token;
     return {
       mode: request.mode,
       token: request.token,
@@ -1497,59 +1557,25 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
   async focusCustomInjectedE2EWebView(
     request: ICustomInjectedE2EFocusRequest,
   ): Promise<ICustomInjectedE2EFocusResult> {
-    const customSession = customInjectedSessions.get(request.sessionId);
-    if (
-      !customSession?.active ||
-      activeCustomInjectedSessionId !== request.sessionId
-    ) {
-      throw new OneKeyLocalError('Custom injection session is not active');
+    const guest = await resolveCustomInjectedE2EGuest(request);
+    if (process.platform === 'darwin') {
+      app.focus({ steal: true });
     }
-    if (
-      !Number.isSafeInteger(request.webContentsId) ||
-      request.webContentsId <= 0
-    ) {
-      throw new OneKeyLocalError('Custom injection WebView is not available');
-    }
-    await refreshCustomInjectedSession(customSession);
-    const protocol = findCustomInjectedProtocol(
-      customSession,
-      request.protocolId,
-    );
-    if (!protocol) {
-      throw new OneKeyLocalError('Custom injection protocol not found');
-    }
-    const guest = webContents.fromId(request.webContentsId);
-    if (!guest || guest.isDestroyed() || guest.getType() !== 'webview') {
-      throw new OneKeyLocalError('Custom injection WebView is not available');
-    }
-    if (guest.session.isPersistent()) {
-      throw new OneKeyLocalError(
-        'Custom injection E2E focus requires a private WebView session',
-      );
-    }
-    const partition = guest.session.getPartition();
-    if (!/^onekey-custom-e2e-[a-z0-9]+$/u.test(partition)) {
-      throw new OneKeyLocalError(
-        'Custom injection E2E focus requires a clean-session partition',
-      );
-    }
-    const currentHostname = getCustomInjectedHostname(guest.getURL());
-    const reportedHostname = getCustomInjectedHostname(request.pageUrl);
-    const protocolHostname = getCustomInjectedHostname(protocol.url);
-    if (
-      !currentHostname ||
-      currentHostname !== reportedHostname ||
-      currentHostname !== protocolHostname
-    ) {
-      throw new OneKeyLocalError(
-        `Custom injection E2E focus hostname mismatch for "${protocol.key}"`,
-      );
-    }
+    globalThis.$desktopMainAppFunctions?.showMainWindow?.();
+    globalThis.$desktopMainAppFunctions
+      ?.getSafelyBrowserWindow?.()
+      ?.webContents.focus();
     guest.focus();
-    if (!guest.isFocused()) {
-      throw new OneKeyLocalError('Custom injection E2E WebView did not receive focus');
+    const focusDeadline = Date.now() + 2000;
+    while (!guest.isFocused() && Date.now() < focusDeadline) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 16);
+      });
     }
-    return { focused: true, webContentsId: request.webContentsId };
+    return {
+      focused: guest.isFocused(),
+      webContentsId: request.webContentsId,
+    };
   }
 
   async getCustomInjectedE2EState(

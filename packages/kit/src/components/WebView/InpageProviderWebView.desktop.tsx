@@ -13,7 +13,7 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopWebView } from './DesktopWebView';
-import { getDevelopmentDesktopInpageProviderProps } from './developmentDesktopInpageProviderProps.desktop';
+import { getDevelopmentDesktopInpageProviderProps } from '@onekeyhq/kit/src/developmentDesktop/inpageProviderProps.desktop';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';

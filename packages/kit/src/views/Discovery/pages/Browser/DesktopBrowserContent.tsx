@@ -30,7 +30,7 @@ import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanu
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
-import { useDevelopmentDesktopBrowserContent } from './developmentDesktopBrowserContent.desktop';
+import { useDevelopmentDesktopBrowserContent } from '@onekeyhq/kit/src/developmentDesktop/browserContent.desktop';
 
 import type { IDevelopmentDesktopBrowserContentProps } from './developmentDesktopBrowserContentTypes';
 

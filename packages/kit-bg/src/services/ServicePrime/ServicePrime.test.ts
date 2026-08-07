@@ -813,7 +813,7 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
     );
     simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
     service.getPrimeClient = jest.fn(async () => ({ post }));
-    (service as any).apiOAuthLoginWithPersistedSession =
+    (service).apiOAuthLoginWithPersistedSession =
       refreshPersistedKeylessSession;
     service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
 

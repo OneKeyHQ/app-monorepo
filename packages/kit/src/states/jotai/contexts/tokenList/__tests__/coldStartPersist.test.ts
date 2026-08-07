@@ -66,7 +66,7 @@ const mockWriteColdStartSnapshotKey = jest.fn();
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
   const actual = jest.requireActual(
     '@onekeyhq/kit-bg/src/states/jotai/utils',
-  ) as Record<string, unknown>;
+  );
   return {
     ...actual,
     writeColdStartSnapshotKey: (args: unknown): void => {

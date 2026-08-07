@@ -31,7 +31,7 @@ import {
   getDevelopmentDesktopSettingsAfterDisable,
   syncDevelopmentDesktopSettings,
   validateDevelopmentDesktopSettingUpdate,
-} from './utils/developmentDesktopFeatures';
+} from '../developmentDesktop/features';
 
 import type {
   IDevSettings,

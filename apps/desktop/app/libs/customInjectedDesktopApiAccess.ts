@@ -6,6 +6,11 @@ import {
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+const CUSTOM_INJECTION_APP_SYNC_STORAGE_KEY =
+  'onekey_custom_injection_enabled' as EAppSyncStorageKeys;
+const CUSTOM_INJECTION_DEV_SETTING_SYNC_STORAGE_KEY =
+  'onekey_custom_injection_enabled' as EDevSettingSyncStorageKeys;
+
 const CUSTOM_INJECTED_WEBVIEW_API_METHODS = new Set([
   'activateCustomInjectedWorkspace',
   'closeCustomInjectedWorkspace',
@@ -58,11 +63,9 @@ export function getCustomInjectedDesktopApiAccessState(): ICustomInjectedDesktop
     ),
     customInjectionEnabled: resolveCustomInjectedDesktopApiAccessFlag(
       devSettingSyncStorage.getBoolean(
-        EDevSettingSyncStorageKeys.onekey_custom_injection_enabled,
+        CUSTOM_INJECTION_DEV_SETTING_SYNC_STORAGE_KEY,
       ),
-      syncStorage.getBoolean(
-        EAppSyncStorageKeys.onekey_custom_injection_enabled,
-      ),
+      syncStorage.getBoolean(CUSTOM_INJECTION_APP_SYNC_STORAGE_KEY),
     ),
   };
 }

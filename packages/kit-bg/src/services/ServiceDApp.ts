@@ -69,7 +69,7 @@ import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { rejectDevelopmentDesktopConnectionRequestIfNeeded } from './utils/developmentDesktopFeatures';
+import { rejectDevelopmentDesktopConnectionRequestIfNeeded } from '../developmentDesktop/features';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';

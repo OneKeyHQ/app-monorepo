@@ -76,7 +76,7 @@ export function BorrowInfoSectionSkeleton({
           {Array.from({ length: secondaryRowCount }).map((_, index) => (
             <InfoRowSkeleton
               key={`secondary-${index}`}
-              tall={hasTallLastRow && index === secondaryRowCount - 1}
+              tall={hasTallLastRow ? index === secondaryRowCount - 1 : false}
             />
           ))}
         </YStack>

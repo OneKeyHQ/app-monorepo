@@ -10,7 +10,6 @@ export enum EAppSyncStorageKeys {
   onekey_dev_settings_search_history = 'onekey_dev_settings_search_history',
   onekey_db_perf_monitor = 'onekey_db_perf_monitor',
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
-  onekey_custom_injection_enabled = 'onekey_custom_injection_enabled',
   onekey_pending_install_task = 'onekey_pending_install_task',
   last_onekey_id_login_email = 'last_onekey_id_login_email',
   last_scan_qr_code_text = 'last_scan_qr_code_text',
@@ -35,7 +34,6 @@ export enum EAppSyncStorageKeys {
 // readable by native code (app update / bundle update) to control verification behavior.
 export enum EDevSettingSyncStorageKeys {
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
-  onekey_custom_injection_enabled = 'onekey_custom_injection_enabled',
   onekey_bundle_skip_gpg_verification = 'onekey_bundle_skip_gpg_verification',
   onekey_native_network_throttle_enabled = 'onekey_native_network_throttle_enabled',
 }

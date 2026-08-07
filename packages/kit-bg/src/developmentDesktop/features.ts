@@ -1,9 +1,9 @@
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type {
   IDevSettings,
   IDevSettingsKeys,
   IDevSettingsPersistAtom,
-} from '../../states/jotai/atoms/devSettings';
+} from '../states/jotai/atoms/devSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export function syncDevelopmentDesktopSettings(_params: {

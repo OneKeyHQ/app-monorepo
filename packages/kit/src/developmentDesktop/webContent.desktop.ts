@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 
-import type { IDevelopmentDesktopWebContentProps } from './developmentDesktopWebContentTypes';
-import type {
-  DidRedirectNavigationEvent,
-  DidStartNavigationEvent,
-} from 'electron';
+import type { IDevelopmentDesktopWebContentProps } from '@onekeyhq/kit/src/views/Discovery/components/WebContent/developmentDesktopWebContentTypes';
+import type { DidRedirectNavigationEvent, DidStartNavigationEvent } from 'electron';
 
 export function useDevelopmentDesktopWebContent(
   props: IDevelopmentDesktopWebContentProps & { id: string },
@@ -29,8 +26,7 @@ export function useDevelopmentDesktopWebContent(
         onCustomInjectionDidStartNavigation?.(event),
       domReady: () => onCustomInjectionDomReady?.(),
       isCurrent: () => isWebViewInstanceCurrent?.() !== false,
-      navigationSettled: (loaded: boolean) =>
-        onCustomInjectionNavigationSettled?.(loaded),
+      navigationSettled: (loaded: boolean) => onCustomInjectionNavigationSettled?.(loaded),
       webViewKey:
         desktopPreloadUrl || partition
           ? `custom-injected-${props.id}-${desktopPreloadUrl || 'default'}-${

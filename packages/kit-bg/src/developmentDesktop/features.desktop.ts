@@ -3,22 +3,27 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
-import {
+import type {
   EAppSyncStorageKeys,
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
-import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
-import { shouldMuteCustomInjectionConnectionRequest } from './customInjectionConnectionRequest';
+import { shouldMuteCustomInjectionConnectionRequest } from '../services/utils/customInjectionConnectionRequest';
 
-import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type {
   IDevSettings,
   IDevSettingsKeys,
   IDevSettingsPersistAtom,
-} from '../../states/jotai/atoms/devSettings';
+} from '../states/jotai/atoms/devSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+const CUSTOM_INJECTION_APP_SYNC_STORAGE_KEY =
+  'onekey_custom_injection_enabled' as EAppSyncStorageKeys;
+const CUSTOM_INJECTION_DEV_SETTING_SYNC_STORAGE_KEY =
+  'onekey_custom_injection_enabled' as EDevSettingSyncStorageKeys;
 
 export function syncDevelopmentDesktopSettings({
   devSettings,
@@ -26,17 +31,13 @@ export function syncDevelopmentDesktopSettings({
   devSettings: IDevSettingsPersistAtom;
 }): void {
   const enabled = Boolean(
-    devSettings.enabled &&
-      devSettings.settings?.customInjection?.enabled === true,
+    devSettings.enabled && devSettings.settings?.customInjection?.enabled === true,
   );
   devSettingSyncStorage.set(
-    EDevSettingSyncStorageKeys.onekey_custom_injection_enabled,
+    CUSTOM_INJECTION_DEV_SETTING_SYNC_STORAGE_KEY,
     enabled,
   );
-  syncStorage.set(
-    EAppSyncStorageKeys.onekey_custom_injection_enabled,
-    enabled,
-  );
+  syncStorage.set(CUSTOM_INJECTION_APP_SYNC_STORAGE_KEY, enabled);
 }
 
 export async function getDevelopmentDesktopSettingsAfterDisable({
@@ -73,9 +74,7 @@ export function validateDevelopmentDesktopSettingUpdate({
     return;
   }
   if (!previousDevSettings.enabled) {
-    throw new OneKeyLocalError(
-      'Custom injection requires enabled developer settings',
-    );
+    throw new OneKeyLocalError('Custom injection requires enabled developer settings');
   }
   const customInjection = value as IDevSettings['customInjection'] | undefined;
   if (
@@ -103,8 +102,7 @@ export async function rejectDevelopmentDesktopConnectionRequestIfNeeded({
   await backgroundApi.serviceApp.showToast({
     method: 'message',
     title: 'Connection request muted',
-    message:
-      'To show it again, turn off “Mute connection requests” in Custom Injection Settings.',
+    message: 'To show it again, turn off “Mute connection requests” in Custom Injection Settings.',
     toastId: 'custom-injection-connection-request-muted',
   });
   throw web3Errors.provider.userRejectedRequest();

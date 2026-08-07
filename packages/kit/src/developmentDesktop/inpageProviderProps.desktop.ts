@@ -1,8 +1,6 @@
-import type { IInpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps } from '@onekeyhq/kit/src/components/WebView/types';
 
-export function getDevelopmentDesktopInpageProviderProps(
-  props: IInpageProviderWebViewProps,
-) {
+export function getDevelopmentDesktopInpageProviderProps(props: IInpageProviderWebViewProps) {
   return {
     desktopPreloadUrl: props.desktopPreloadUrl,
     onCustomInjectionAutoReview: props.onCustomInjectionAutoReview,

@@ -1,9 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { developmentDesktopModalRoutes } from '@onekeyhq/kit/src/developmentDesktop/modalRoutes';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes';
-
-import { developmentDesktopModalRoutes } from './developmentDesktopModalRoutes';
 
 const SearchModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/SearchModal'),

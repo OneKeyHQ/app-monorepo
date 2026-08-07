@@ -28,7 +28,7 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
-import { useDevelopmentDesktopWebContent } from './developmentDesktopWebContent.desktop';
+import { useDevelopmentDesktopWebContent } from '@onekeyhq/kit/src/developmentDesktop/webContent.desktop';
 import { getDesktopNavigationState } from './desktopNavigationState';
 
 import type { IWebTab } from '../../types';

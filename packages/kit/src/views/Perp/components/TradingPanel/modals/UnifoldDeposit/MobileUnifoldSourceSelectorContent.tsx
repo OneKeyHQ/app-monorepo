@@ -191,8 +191,7 @@ export function MobileUnifoldSourceSelectorContent({
           id: ETranslations.perp_unifold_minimum_deposit__title,
         })} $${chain.minimum_deposit_amount_usd ?? 3}`}
         selected={
-          chain.chain_type === selectedChainType &&
-          chain.chain_id === selectedChainId
+          chain.chain_type === selectedChainType ? chain.chain_id === selectedChainId : false
         }
         onPress={() => {
           onSelectChain(selectedAsset, chain);

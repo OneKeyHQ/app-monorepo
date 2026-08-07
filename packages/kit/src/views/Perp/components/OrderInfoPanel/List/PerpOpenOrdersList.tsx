@@ -723,7 +723,7 @@ function PerpOpenOrdersList({
         columnConfigs={columnsConfig}
         handleCancelOrder={() => void handleCancelOrder(item.order)}
         handleChaseOrder={() => void handleChaseOrderPress(item.order)}
-        canChaseOrder={canMutateScopedOrders && canChasePerpsOrder(item.order)}
+        canChaseOrder={canMutateScopedOrders ? canChasePerpsOrder(item.order) : false}
         isChasingOrder={chasingOrderIds.has(item.order.oid)}
         index={_index}
         renderMode={renderMode}

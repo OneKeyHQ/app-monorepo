@@ -10,6 +10,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import DesktopApiWebview from './DesktopApiWebview';
 
 jest.mock('electron', () => ({
+  app: {
+    focus: jest.fn(),
+  },
   dialog: {
     showOpenDialog: jest.fn(),
   },
@@ -276,7 +279,6 @@ describe('DesktopApiWebview custom injection', () => {
         isDestroyed: jest.fn(() => false),
         isFocused: jest.fn(() => true),
         session: {
-          getPartition: jest.fn(() => 'onekey-custom-e2e-test123'),
           isPersistent: jest.fn(() => false),
         },
       };
@@ -287,6 +289,7 @@ describe('DesktopApiWebview custom injection', () => {
           protocolId: 'custom:shared',
           pageUrl: 'https://custom-shared.example/connect',
           webContentsId: 42,
+          token: 'clean-session-control-token',
         }),
       ).resolves.toEqual({ focused: true, webContentsId: 42 });
       expect(focus).toHaveBeenCalledTimes(1);

@@ -1,8 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
-import type { ICustomInjectedModalParamList } from './customInjectedModalRoutes';
-import { ECustomInjectedModalRoutes } from './customInjectedModalRoutes';
+import type { ICustomInjectedModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import { ECustomInjectedModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
 
 const CustomInjectedProtocolListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/CustomInjectedProtocolListModal'),

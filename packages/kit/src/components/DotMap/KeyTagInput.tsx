@@ -224,12 +224,12 @@ const KeyTagGridRow = memo(
           {Array.from({ length: KEY_TAG_ROW_BITS }).map((_, col) => (
             <GridCell
               key={col}
-              on={editable && isKeyTagRowBitOn(value, col)}
+              on={editable ? isKeyTagRowBitOn(value, col) : false}
               invalid={invalid}
               size={cellSize}
               isFirstRow={isFirstRow}
               isFirstCol={col === 0}
-              banded={editable && (rowActive || hoverCol === col)}
+              banded={editable ? rowActive || hoverCol === col : false}
               line={line}
               onPress={
                 editable && !selectMode && onToggleHole

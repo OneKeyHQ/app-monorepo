@@ -21,7 +21,7 @@ import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContain
 import { withBrowserProvider } from './WithBrowserProvider';
 import DevelopmentDesktopBrowserEntry, {
   DevelopmentDesktopBrowser as DevelopmentDesktopBrowserComponent,
-} from './developmentDesktopBrowser.desktop';
+} from '@onekeyhq/kit/src/developmentDesktop/browser.desktop';
 
 function StandardDesktopBrowser() {
   const { tabs } = useWebTabs();

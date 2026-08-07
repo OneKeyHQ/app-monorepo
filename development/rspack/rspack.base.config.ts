@@ -8,6 +8,7 @@ import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
 import { DevelopmentDesktopBuildScopePlugin } from './plugins/DevelopmentDesktopBuildScopePlugin';
+import { ProductionDevelopmentDesktopModulePlugin } from './plugins/ProductionDevelopmentDesktopModulePlugin';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -285,74 +286,12 @@ function buildDefineMap(
 
 function buildProductionDesktopModuleReplacementPlugins(
   platform: string,
-  basePath: string,
 ): RspackPluginInstance[] {
   if (isDev || platform !== 'desktop') {
     return [];
   }
 
-  // Custom Injection is a development-build capability. Keep its source and
-  // tests available to development builds, while resolving each production
-  // extension point to its feature-free implementation. This keeps shared UI
-  // in one file and removes development modules from the production graph.
-  const replacements: Array<[RegExp, string]> = [
-    [
-      /[\\/]components[\\/]WebView(?:[\\/]index(?:\.desktop)?)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/components/WebView/index.tsx',
-    ],
-    [
-      /[\\/]developmentDesktopInpageProviderProps(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/components/WebView/developmentDesktopInpageProviderProps.ts',
-    ],
-    [
-      /[\\/]developmentDesktopWebView(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/components/WebView/developmentDesktopWebView.ts',
-    ],
-    [
-      /[\\/]developmentDesktopWebContent(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/components/WebContent/developmentDesktopWebContent.ts',
-    ],
-    [
-      /[\\/]developmentDesktopBrowser(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowser.ts',
-    ],
-    [
-      /[\\/]developmentDesktopBrowserContent(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowserContent.ts',
-    ],
-    [
-      /[\\/]developmentDesktopModalRoutes(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/router/developmentDesktopModalRoutes.ts',
-    ],
-    [
-      /[\\/]developmentDesktopDeepLink(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/routes/config/deeplink/developmentDesktopDeepLink.ts',
-    ],
-    [
-      /[\\/]routes[\\/]discovery(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/shared/src/routes/discovery.ts',
-    ],
-    [
-      /[\\/]consts[\\/]deeplinkConsts(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/shared/src/consts/deeplinkConsts.tsx',
-    ],
-    [
-      /[\\/]storage[\\/]syncStorageKeys(?:\.[jt]sx?)?$/,
-      '../../packages/shared/src/storage/syncStorageKeys.ts',
-    ],
-    [
-      /[\\/]developmentDesktopFeatures(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit-bg/src/services/utils/developmentDesktopFeatures.ts',
-    ],
-  ];
-
-  return replacements.map(
-    ([request, replacement]) =>
-      new rspack.NormalModuleReplacementPlugin(
-        request,
-        path.join(basePath, replacement),
-      ),
-  );
+  return [new ProductionDevelopmentDesktopModulePlugin()];
 }
 
 const buildBasePlugins: (
@@ -363,7 +302,7 @@ const buildBasePlugins: (
   basePath,
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
-  ...buildProductionDesktopModuleReplacementPlugins(platform, basePath),
+  ...buildProductionDesktopModuleReplacementPlugins(platform),
   platform !== 'desktop'
     ? new DevelopmentDesktopBuildScopePlugin(platform)
     : undefined,

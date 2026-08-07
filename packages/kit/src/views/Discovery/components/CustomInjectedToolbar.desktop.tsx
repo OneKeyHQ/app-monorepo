@@ -1496,7 +1496,7 @@ export default function CustomInjectedToolbar({
         disabled={Boolean(recordingPhase)}
         display="none"
         testID="custom-injected-e2e-reset"
-        onPress={(event) => {
+        onPress={(event: unknown) => {
           const element =
             (event as { currentTarget?: HTMLElement } | undefined)
               ?.currentTarget ||

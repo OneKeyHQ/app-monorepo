@@ -26,7 +26,7 @@ import {
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
-import { DevelopmentDesktopWebView } from './developmentDesktopWebView.desktop';
+import { DevelopmentDesktopWebView } from '@onekeyhq/kit/src/developmentDesktop/webView.desktop';
 import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type {

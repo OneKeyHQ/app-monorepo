@@ -1,4 +1,4 @@
-import type { IDevelopmentDesktopBrowserContentProps } from './developmentDesktopBrowserContentTypes';
+import type { IDevelopmentDesktopBrowserContentProps } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowserContentTypes';
 
 export function useDevelopmentDesktopBrowserContent({
   id,
