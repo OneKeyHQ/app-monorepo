@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import type { FormatXMLElementFn } from 'intl-messageformat';
 
 // Same OneKey user service agreement used across the app (see
