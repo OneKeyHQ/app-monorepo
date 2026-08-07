@@ -112,6 +112,71 @@ function getLastDiagnostics(): IStorageFullDiagnostics | undefined {
   return lastDiagnostics;
 }
 
+const probeDbName = 'OneKeyStorageProbe';
+const probeStoreName = 'probe';
+
+/**
+ * Commit a tiny write-then-delete against a dedicated database.
+ *
+ * A guard raised by an actual write failure must not be released on the
+ * strength of `navigator.storage.estimate()` alone: that failure is itself
+ * evidence the estimate is not predictive of whether a write can commit.
+ * Without real evidence, a healthy-looking estimate would clear the guard,
+ * the next write would hit the same backing-store failure, and the runtime
+ * would flap between raised and cleared — re-showing the warning each time.
+ *
+ * Never throws, always closes, and leaves no data behind.
+ */
+function probeWriteCanCommit(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const indexedDb = globalThis?.indexedDB;
+    if (!indexedDb) {
+      resolve(false);
+      return;
+    }
+    let settled = false;
+    const finish = (canCommit: boolean, db?: IDBDatabase) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      try {
+        db?.close();
+      } catch {
+        // Closing is best-effort; the probe result already stands.
+      }
+      resolve(canCommit);
+    };
+
+    try {
+      const openRequest = indexedDb.open(probeDbName, 1);
+      openRequest.onupgradeneeded = () => {
+        const db = openRequest.result;
+        if (!db.objectStoreNames.contains(probeStoreName)) {
+          db.createObjectStore(probeStoreName);
+        }
+      };
+      openRequest.onerror = () => finish(false);
+      openRequest.onsuccess = () => {
+        const db = openRequest.result;
+        try {
+          const tx = db.transaction(probeStoreName, 'readwrite');
+          const store = tx.objectStore(probeStoreName);
+          store.put(1, probeStoreName);
+          store.delete(probeStoreName);
+          tx.oncomplete = () => finish(true, db);
+          tx.onerror = () => finish(false, db);
+          tx.onabort = () => finish(false, db);
+        } catch {
+          finish(false, db);
+        }
+      };
+    } catch {
+      finish(false);
+    }
+  });
+}
+
 function emitWarning(diagnostics: IStorageFullDiagnostics | undefined) {
   appGlobals?.$appEventBus?.emit(
     EAppEventBusNames.ShowSystemDiskFullWarning,
@@ -233,7 +298,13 @@ async function checkIfDiskIsFull() {
               quotaInfo,
             });
           } else if (quotaInfo.availableBytes >= getClearAtBytes(quotaBytes)) {
-            clearDiskFull(quotaInfo);
+            // Quota-derived state can be released by the quota estimate, but a
+            // write-failure state needs proof that a write commits again.
+            const needsWriteProof =
+              lastDiagnostics?.reason === EStorageFullReason.WriteFailed;
+            if (!needsWriteProof || (await probeWriteCanCommit())) {
+              clearDiskFull(quotaInfo);
+            }
           }
           // Between the two thresholds: keep the current state either way.
         }

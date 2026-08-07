@@ -241,6 +241,39 @@ describe('storageChecker', () => {
       }
     });
 
+    it('does not clear a write-failure guard on a healthy estimate alone', async () => {
+      // The write failure is itself evidence the estimate is not predictive.
+      // Clearing on the estimate would let the next write hit the same
+      // backing-store failure and re-raise, flapping the warning dialog.
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+      expect(storageChecker.getLastDiagnostics()?.reason).toBe(
+        EStorageFullReason.WriteFailed,
+      );
+      // No indexedDB in this environment, so the write probe cannot commit.
+      mockEstimate(40 * GB, 10 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+    });
+
+    it('still clears a quota-derived guard on a healthy estimate', async () => {
+      // Contrast with the case above: quota-derived state is exactly what the
+      // estimate is authoritative about, so no write proof is required.
+      mockEstimate(40 * GB, 40 * GB - 0.5 * GB);
+      await storageChecker.checkIfDiskIsFull();
+      expect(storageChecker.getLastDiagnostics()?.reason).toBe(
+        EStorageFullReason.QuotaExhausted,
+      );
+
+      mockEstimate(40 * GB, 10 * GB);
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);

@@ -13,6 +13,44 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import storageQuotaUtils from '@onekeyhq/shared/src/storageChecker/storageQuotaUtils';
+import type { IStorageFullDiagnostics } from '@onekeyhq/shared/src/storageChecker/types';
+
+/**
+ * Compose the diagnostic detail line shown under the warning copy.
+ *
+ * Presentation lives here rather than in `shared` so the UI layer owns it, but
+ * the labels stay technical on purpose: there are no ETranslations keys for
+ * "quota" / "used" / the reason values, and the locale files are generated —
+ * they cannot be hand-edited to add them. Numbers plus a stable reason token
+ * are also what users copy verbatim into support reports, so they are worth
+ * keeping unambiguous. `available` uses the one key that does exist.
+ */
+function buildDiagnosticsDetail(
+  diagnostics: IStorageFullDiagnostics | undefined,
+  availableLabel: string,
+): string | undefined {
+  if (!diagnostics) {
+    return undefined;
+  }
+  const lines: string[] = [];
+  const { quotaInfo } = diagnostics;
+  if (quotaInfo) {
+    lines.push(
+      [
+        `Quota ${storageQuotaUtils.formatGB(quotaInfo.quotaBytes)}`,
+        `Used ${storageQuotaUtils.formatGB(quotaInfo.usageBytes)}`,
+        `${availableLabel} ${storageQuotaUtils.formatGB(
+          quotaInfo.availableBytes,
+        )}`,
+      ].join(' · '),
+    );
+  }
+  lines.push(`Reason: ${diagnostics.reason}`);
+  if (diagnostics.errorMessage) {
+    lines.push(`Error: ${diagnostics.errorMessage}`);
+  }
+  return lines.join('\n');
+}
 
 export function DiskFullWarningDialogContainer() {
   const intl = useIntl();
@@ -29,10 +67,12 @@ export function DiskFullWarningDialogContainer() {
         diagnostics: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
       ) => {
         await hideFn();
-        // Measured numbers, deliberately untranslated: they are what tells a
-        // real quota exhaustion apart from a write that failed for some other
-        // reason, and users report them back verbatim.
-        const detail = storageQuotaUtils.formatDiagnosticsDetail(diagnostics);
+        // Tells a real quota exhaustion apart from a write that failed for
+        // some other reason — the translated copy alone cannot express that.
+        const detail = buildDiagnosticsDetail(
+          diagnostics,
+          intl.formatMessage({ id: ETranslations.global_available }),
+        );
         dialogRef.current = Dialog.show({
           icon: 'Disk2Outline',
           tone: 'destructive',
