@@ -16,7 +16,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -209,7 +208,6 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
       // Note this is the token logo, not the page's `logoURI` route param,
       // which is the protocol's.
       const tokenLogoURI = assetLogoMap.get(row.symbol.toLowerCase());
-      prewarmTokenImages({ tokenImageUri: tokenLogoURI });
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: row.item.network.networkId,
         symbol: row.symbol,

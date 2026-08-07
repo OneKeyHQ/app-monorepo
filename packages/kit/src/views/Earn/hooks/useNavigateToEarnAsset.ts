@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { prewarmTokenImages } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -23,14 +22,6 @@ export function useNavigateToEarnAsset() {
       categoryType?: EAvailableAssetsTypeEnum,
     ) => {
       defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
-
-      // OK-59304: the protocol list / detail page renders the same logo as the
-      // row that was just tapped. Warm it here — this is the single funnel for
-      // every earn asset list — so the destination does not start from a cold
-      // async image load and flash a placeholder. Fire-and-forget; the
-      // single-protocol branch below also awaits a request first, which gives
-      // the decode extra head start.
-      prewarmTokenImages({ tokenImageUri: asset.logoURI });
 
       const defaultCategory =
         categoryType === EAvailableAssetsTypeEnum.SimpleEarn ||
