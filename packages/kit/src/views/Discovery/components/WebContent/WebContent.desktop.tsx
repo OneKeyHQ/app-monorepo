@@ -8,11 +8,7 @@ import {
   notifyTabNavigationEnd,
 } from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import type {
-  ICustomInjectionAutoReviewEvent,
-  ICustomInjectionRecordingCommand,
-  ICustomInjectionRecordingEvent,
   IElectronWebView,
-  IElectronWebViewEvents,
   IWebViewRef,
 } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -32,9 +28,11 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
+import { useDevelopmentDesktopWebContent } from './developmentDesktopWebContent.desktop';
 import { getDesktopNavigationState } from './desktopNavigationState';
 
 import type { IWebTab } from '../../types';
+import type { IDevelopmentDesktopWebContentProps } from './developmentDesktopWebContentTypes';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   DidFailLoadEvent,
@@ -47,22 +45,8 @@ import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTyp
 type IWebContentProps = IWebTab &
   WebViewProps & {
     isCurrent?: boolean;
-    desktopPreloadUrl?: string;
-    partition?: string;
     customReceiveHandler?: IJsBridgeReceiveHandler;
-    onCustomInjectionAutoReview?: (
-      event: ICustomInjectionAutoReviewEvent,
-    ) => void;
-    customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
-    onCustomInjectionRecordingEvent?: (
-      event: ICustomInjectionRecordingEvent,
-    ) => void;
-    onCustomInjectionDidStartNavigation?: IElectronWebViewEvents['onDidStartNavigation'];
-    onCustomInjectionDidRedirectNavigation?: IElectronWebViewEvents['onDidRedirectNavigation'];
-    onCustomInjectionNavigationSettled?: (loaded: boolean) => void;
-    onCustomInjectionDomReady?: () => void;
-    isWebViewInstanceCurrent?: () => boolean;
-  };
+  } & IDevelopmentDesktopWebContentProps;
 
 function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   return (
@@ -72,21 +56,9 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   );
 }
 
-function WebContent({
-  id,
-  url,
-  desktopPreloadUrl,
-  partition,
-  customReceiveHandler,
-  onCustomInjectionAutoReview,
-  customInjectionRecordingCommand,
-  onCustomInjectionRecordingEvent,
-  onCustomInjectionDidStartNavigation,
-  onCustomInjectionDidRedirectNavigation,
-  onCustomInjectionNavigationSettled,
-  onCustomInjectionDomReady,
-  isWebViewInstanceCurrent,
-}: IWebContentProps) {
+function WebContent(props: IWebContentProps) {
+  const { id, url, customReceiveHandler } = props;
+  const development = useDevelopmentDesktopWebContent(props);
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
@@ -131,7 +103,7 @@ function WebContent({
   }, [id, shouldBlockCurrentUrl]);
 
   const getNavStatusInfo = useCallback(() => {
-    if (isWebViewInstanceCurrent?.() === false) {
+    if (!development.isCurrent()) {
       return;
     }
     const ref = webviewRefs[id];
@@ -149,16 +121,16 @@ function WebContent({
     } catch {
       return undefined;
     }
-  }, [id, isWebViewInstanceCurrent]);
+  }, [development, id]);
   const onDidStartLoading = useCallback(() => {
-    if (isWebViewInstanceCurrent?.() === false) {
+    if (!development.isCurrent()) {
       return;
     }
     onNavigation({ id, loading: true });
-  }, [id, isWebViewInstanceCurrent, onNavigation]);
+  }, [development, id, onNavigation]);
   const onDidStartNavigation = useCallback(
     (event: DidStartNavigationEvent) => {
-      if (isWebViewInstanceCurrent?.() === false) {
+      if (!development.isCurrent()) {
         return;
       }
       const { url: willNavigationUrl, isMainFrame, isInPlace } = event;
@@ -182,18 +154,12 @@ function WebContent({
         });
         urlRef.current = willNavigationUrl;
       }
-      onCustomInjectionDidStartNavigation?.(event);
+      development.didStartNavigation(event);
     },
-    [
-      getNavStatusInfo,
-      id,
-      isWebViewInstanceCurrent,
-      onCustomInjectionDidStartNavigation,
-      onNavigation,
-    ],
+    [getNavStatusInfo, id, development, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
-    if (isWebViewInstanceCurrent?.() === false) {
+    if (!development.isCurrent()) {
       return;
     }
     notifyTabNavigationEnd(id);
@@ -202,16 +168,10 @@ function WebContent({
       loading: false,
       ...getNavStatusInfo(),
     });
-    onCustomInjectionNavigationSettled?.(true);
-  }, [
-    getNavStatusInfo,
-    id,
-    isWebViewInstanceCurrent,
-    onCustomInjectionNavigationSettled,
-    onNavigation,
-  ]);
+    development.navigationSettled(true);
+  }, [getNavStatusInfo, id, development, onNavigation]);
   const onDidStopLoading = useCallback(() => {
-    if (isWebViewInstanceCurrent?.() === false) {
+    if (!development.isCurrent()) {
       return;
     }
     notifyTabNavigationEnd(id);
@@ -220,37 +180,33 @@ function WebContent({
       loading: false,
       ...getNavStatusInfo(),
     });
-  }, [getNavStatusInfo, id, isWebViewInstanceCurrent, onNavigation]);
+  }, [development, getNavStatusInfo, id, onNavigation]);
   const onDidFailLoad = useCallback(
     (event: DidFailLoadEvent) => {
-      if (isWebViewInstanceCurrent?.() === false) {
+      if (!development.isCurrent()) {
         return;
       }
       onDidStopLoading();
       if (event.isMainFrame) {
-        onCustomInjectionNavigationSettled?.(false);
+        development.navigationSettled(false);
       }
     },
-    [
-      isWebViewInstanceCurrent,
-      onCustomInjectionNavigationSettled,
-      onDidStopLoading,
-    ],
+    [development, onDidStopLoading],
   );
   const onPageTitleUpdated = useCallback(
     ({ title }: PageTitleUpdatedEvent) => {
-      if (isWebViewInstanceCurrent?.() === false) {
+      if (!development.isCurrent()) {
         return;
       }
       if (title && title.length) {
         onNavigation({ id, title });
       }
     },
-    [id, isWebViewInstanceCurrent, onNavigation],
+    [development, id, onNavigation],
   );
   const onPageFaviconUpdated = useCallback(
     (e: PageFaviconUpdatedEvent) => {
-      if (isWebViewInstanceCurrent?.() === false) {
+      if (!development.isCurrent()) {
         return;
       }
       if (e.favicons.length > 0) {
@@ -265,11 +221,11 @@ function WebContent({
         }
       }
     },
-    [getWebTabById, id, isWebViewInstanceCurrent, setWebTabData],
+    [development, getWebTabById, id, setWebTabData],
   );
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: ShouldStartLoadRequest) => {
-      if (isWebViewInstanceCurrent?.() === false) {
+      if (!development.isCurrent()) {
         return false;
       }
       const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
@@ -290,7 +246,7 @@ function WebContent({
       phishingUrlRef.current = navUrl;
       return false;
     },
-    [isWebViewInstanceCurrent, validateWebviewSrc],
+    [development, validateWebviewSrc],
   );
   // Keep a ref to the latest url so onDomReady can read it without depending
   // on `url`. Making `url` a dep of onDomReady invalidates the `webview`
@@ -304,7 +260,7 @@ function WebContent({
   }, [url]);
 
   const onDomReady = useCallback(() => {
-    if (isWebViewInstanceCurrent?.() === false) {
+    if (!development.isCurrent()) {
       return;
     }
     const ref = webviewRefs[id];
@@ -312,7 +268,7 @@ function WebContent({
       // @ts-expect-error
       ref.__domReady = true;
     }
-    onCustomInjectionDomReady?.();
+    development.domReady();
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.
@@ -330,7 +286,7 @@ function WebContent({
         // best-effort injection
       }
     }
-  }, [id, isWebViewInstanceCurrent, onCustomInjectionDomReady]);
+  }, [development, id]);
 
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
@@ -372,26 +328,16 @@ function WebContent({
       }
       return (
         <WebView
-          key={
-            desktopPreloadUrl || partition
-              ? `custom-injected-${id}-${desktopPreloadUrl || 'default'}-${
-                  partition || 'persist:onekey'
-                }`
-              : id
-          }
+          key={development.webViewKey || id}
           id={id}
           src={url}
-          partition={partition}
-          desktopPreloadUrl={desktopPreloadUrl}
+          {...development.webViewProps}
           customReceiveHandler={customReceiveHandler}
-          onCustomInjectionAutoReview={onCustomInjectionAutoReview}
-          customInjectionRecordingCommand={customInjectionRecordingCommand}
-          onCustomInjectionRecordingEvent={onCustomInjectionRecordingEvent}
           onWebViewRef={handleWebViewRef}
           allowpopups
           onDidStartLoading={onDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
-          onDidRedirectNavigation={onCustomInjectionDidRedirectNavigation}
+          onDidRedirectNavigation={development.didRedirectNavigation}
           onDidFinishLoad={onDidFinishLoad}
           onDidStopLoading={onDidStopLoading}
           onDidFailLoad={onDidFailLoad}
@@ -415,13 +361,8 @@ function WebContent({
       onDomReady,
       shouldBlockCurrentUrl,
       customReceiveHandler,
-      desktopPreloadUrl,
+      development,
       handleWebViewRef,
-      onCustomInjectionAutoReview,
-      customInjectionRecordingCommand,
-      onCustomInjectionRecordingEvent,
-      onCustomInjectionDidRedirectNavigation,
-      partition,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],

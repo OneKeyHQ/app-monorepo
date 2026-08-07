@@ -6,9 +6,7 @@ import { dialog, webContents } from 'electron';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import DesktopApiWebview, {
-  parseCustomInjectedProtocols,
-} from './DesktopApiWebview';
+import DesktopApiWebview from './DesktopApiWebview';
 
 jest.mock('electron', () => ({
   dialog: {
@@ -55,6 +53,18 @@ jest.mock('./injectedDesktopCode.text-js', () => '', { virtual: true });
 
 function registry(protocols: unknown[]) {
   return JSON.stringify({ protocols });
+}
+
+async function installWorkspaceCli(workspace: string): Promise<void> {
+  const directory = path.join(
+    workspace,
+    'packages/connect-button-workbench/src/cli',
+  );
+  await fs.mkdir(directory, { recursive: true });
+  await fs.copyFile(
+    path.join(__dirname, '__fixtures__/customInjectedWorkspaceCli.mjs'),
+    path.join(directory, 'custom-injected-workspace.mjs'),
+  );
 }
 
 async function waitForFile(file: string): Promise<void> {
@@ -162,134 +172,6 @@ describe('DesktopApiWebview custom injection', () => {
     });
   });
 
-  test('filters unsafe URLs, deduplicates hostnames, and prefers URL overrides', () => {
-    const protocols = parseCustomInjectedProtocols(
-      registry([
-        {
-          id: 'uniswap',
-          name: 'Uniswap',
-          slug: 'uniswap',
-          totalTvl: 10,
-          sourceUrl: 'https://uniswap.org',
-          target: {
-            resolvedDappUrl: 'https://app.uniswap.org/swap',
-            urlOverride: 'https://app.uniswap.org/#/swap',
-          },
-        },
-        {
-          id: 'uniswap-duplicate',
-          sourceUrl: 'https://www.app.uniswap.org/duplicate',
-        },
-        {
-          id: 'unsafe',
-          sourceUrl: 'http://127.0.0.1/admin',
-        },
-        {
-          id: '',
-          sourceUrl: 'https://missing-id.example',
-        },
-      ]),
-    );
-
-    expect(protocols).toHaveLength(1);
-    expect(protocols[0]).toEqual(
-      expect.objectContaining({
-        id: 'uniswap',
-        url: 'https://app.uniswap.org/#/swap',
-        urlSource: 'override',
-        registryUrl: 'https://uniswap.org',
-      }),
-    );
-  });
-
-  test('sorts by protocol TVL and does not substitute ranked chain TVL', () => {
-    const protocols = parseCustomInjectedProtocols(
-      registry([
-        {
-          id: 'legacy-2',
-          name: 'Legacy Two',
-          sourceUrl: 'https://legacy-two.example',
-          priority: { bestRank: 2 },
-          rankings: [{ chainTvl: 600 }, { chainTvl: 300 }],
-        },
-        {
-          id: 'direct',
-          name: 'Direct',
-          sourceUrl: 'https://direct.example',
-          totalTvl: 100,
-          priority: { bestRank: 3 },
-          rankings: [{ chainTvl: 1000 }],
-        },
-        {
-          id: 'direct-lower',
-          name: 'Direct Lower',
-          sourceUrl: 'https://direct-lower.example',
-          totalTvl: 90,
-          priority: { bestRank: 1 },
-          rankings: [{ chainTvl: 9000 }],
-        },
-        {
-          id: 'global-only',
-          name: 'Global Only',
-          sourceUrl: 'https://global-only.example',
-          totalTvl: 95,
-          priority: { bestRank: null },
-          rankings: [],
-        },
-        {
-          id: 'unavailable',
-          name: 'Unavailable',
-          sourceUrl: 'https://unavailable.example',
-          rankings: [{ chainTvl: 'unknown' }],
-        },
-      ]),
-    );
-
-    expect(
-      protocols.map((protocol) => ({
-        id: protocol.id,
-        totalTvl: protocol.totalTvl,
-      })),
-    ).toEqual([
-      { id: 'direct', totalTvl: 100 },
-      { id: 'global-only', totalTvl: 95 },
-      { id: 'direct-lower', totalTvl: 90 },
-      { id: 'legacy-2', totalTvl: 0 },
-      { id: 'unavailable', totalTvl: 0 },
-    ]);
-    expect(
-      protocols.find((protocol) => protocol.id === 'global-only')?.bestRank,
-    ).toBeNull();
-  });
-
-  test('preserves unsupported manual review and defaults unknown states to pending', () => {
-    const protocols = parseCustomInjectedProtocols(
-      registry([
-        {
-          id: 'unsupported',
-          name: 'Unsupported',
-          sourceUrl: 'https://unsupported.example',
-          manualReview: { state: 'unsupported' },
-        },
-        {
-          id: 'unknown',
-          name: 'Unknown',
-          sourceUrl: 'https://unknown.example',
-          manualReview: { state: 'unexpected' },
-        },
-      ]),
-    );
-
-    expect(
-      protocols.find((protocol) => protocol.id === 'unsupported')?.manualReview
-        .state,
-    ).toBe('unsupported');
-    expect(
-      protocols.find((protocol) => protocol.id === 'unknown')?.manualReview
-        .state,
-    ).toBe('pending');
-  });
-
   test('loads multiple protocol sources without collapsing duplicate IDs', async () => {
     const temporaryRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'onekey-custom-injected-sources-'),
@@ -350,6 +232,7 @@ describe('DesktopApiWebview custom injection', () => {
         }),
       ),
     ]);
+    await installWorkspaceCli(workspace);
 
     try {
       const api = new DesktopApiWebview({ desktopApi: {} as never });
@@ -472,6 +355,7 @@ describe('DesktopApiWebview custom injection', () => {
         }),
       ),
     ]);
+    await installWorkspaceCli(workspace);
 
     try {
       const api = new DesktopApiWebview({ desktopApi: {} as never });
@@ -680,6 +564,7 @@ describe('DesktopApiWebview custom injection', () => {
         }),
       ),
     ]);
+    await installWorkspaceCli(workspace);
 
     try {
       const api = new DesktopApiWebview({ desktopApi: {} as never });
@@ -1014,9 +899,7 @@ describe('DesktopApiWebview custom injection', () => {
       );
       const hangingE2ESource = [
         "import fsForCancellationTest from 'node:fs';",
-        `fsForCancellationTest.writeFileSync(${JSON.stringify(
-          cancellationMarker,
-        )}, 'ready');`,
+        `fsForCancellationTest.writeFileSync(${JSON.stringify(cancellationMarker)}, 'ready');`,
         'setInterval(() => undefined, 1_000);',
         'await new Promise(() => undefined);',
         generatedE2ESource,

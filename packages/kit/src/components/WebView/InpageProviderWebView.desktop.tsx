@@ -13,13 +13,14 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopWebView } from './DesktopWebView';
+import { getDevelopmentDesktopInpageProviderProps } from './developmentDesktopInpageProviderProps.desktop';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
-  (
-    {
+  (props: IInpageProviderWebViewProps, ref: any) => {
+    const {
       id,
       src = '',
       onSrcChange,
@@ -29,13 +30,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       disableBridge,
       partition,
-      desktopPreloadUrl,
-      onCustomInjectionAutoReview,
-      customInjectionRecordingCommand,
-      onCustomInjectionRecordingEvent,
       onDidStartLoading,
       onDidStartNavigation,
-      onDidRedirectNavigation,
       onDidFinishLoad,
       onDidStopLoading,
       onDidFailLoad,
@@ -45,9 +41,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onDomReady,
       onOpenWindow,
       onShouldStartLoadWithRequest,
-    }: IInpageProviderWebViewProps,
-    ref: any,
-  ) => {
+    } = props;
+    const developmentProps = getDevelopmentDesktopInpageProviderProps(props);
     const [progress, setProgress] = useState(5);
     const [showProgress, setShowProgress] = useState(true);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -148,10 +143,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           receiveHandler={receiveHandler}
           disableBridge={disableBridge}
           partition={partition}
-          desktopPreloadUrl={desktopPreloadUrl}
-          onCustomInjectionAutoReview={onCustomInjectionAutoReview}
-          customInjectionRecordingCommand={customInjectionRecordingCommand}
-          onCustomInjectionRecordingEvent={onCustomInjectionRecordingEvent}
+          {...developmentProps}
           // Warning: any string work, any bool not work
           // @ts-expect-error
           allowpopups={allowpopups.toString()}
@@ -161,7 +153,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           }
           onDidStartLoading={innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
-          onDidRedirectNavigation={onDidRedirectNavigation}
           onDidFinishLoad={onDidFinishLoad}
           onLoadEnd={onLoadEnd}
           onDidStopLoading={innerOnStopLoading}

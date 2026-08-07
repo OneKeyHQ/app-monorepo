@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
-import type {
-  ComponentProps,
-  PointerEvent as ReactPointerEvent,
-  Ref,
-} from 'react';
+import type { ComponentProps, Ref } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -19,7 +15,7 @@ import {
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 
-import { Icon, Stack, useTheme } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -29,18 +25,11 @@ import {
   needEraseElectronFeatureUrl,
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
-import {
-  CUSTOM_INJECTION_AUTO_REVIEW_CONFIG_CHANNEL,
-  CUSTOM_INJECTION_AUTO_REVIEW_RESULT_CHANNEL,
-  CUSTOM_INJECTION_RECORDING_COMMAND_CHANNEL,
-  CUSTOM_INJECTION_RECORDING_EVENT_CHANNEL,
-} from './customInjectionChannels';
 import ErrorView from './ErrorView';
+import { DevelopmentDesktopWebView } from './developmentDesktopWebView.desktop';
 import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type {
-  ICustomInjectionAutoReviewDetection,
-  ICustomInjectionRecordingEvent,
   IElectronWebView,
   IElectronWebViewEvents,
   IInpageProviderWebViewProps,
@@ -70,127 +59,10 @@ const isDev = process.env.NODE_ENV !== 'production';
 type IDesktopDidFailLoadEvent = DidFailLoadEvent & {
   url?: string;
 };
-type IDevToolsButtonPosition = {
-  xRatio: number;
-  yRatio: number;
-};
-type IDevToolsButtonDragState = {
-  containerLeft: number;
-  containerTop: number;
-  maxX: number;
-  maxY: number;
-  offsetX: number;
-  offsetY: number;
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-};
-type ICustomInjectionAutoReviewPayload = {
-  version: 1;
-  token: string;
-  detection: ICustomInjectionAutoReviewDetection;
-};
-type ICustomInjectionRecordingPayload =
-  | {
-      version: 1;
-      token: string;
-      status: 'started';
-    }
-  | {
-      version: 1;
-      token: string;
-      status: 'completed';
-      recording: unknown;
-    }
-  | {
-      version: 1;
-      token: string;
-      status: 'error';
-      error: string;
-    };
-
-function parseCustomInjectionAutoReviewPayload(
-  value: unknown,
-): ICustomInjectionAutoReviewPayload | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined;
-  }
-  const payload = value as Partial<ICustomInjectionAutoReviewPayload>;
-  const detection = payload.detection;
-  const walletIdDetection = detection?.sourceKind === 'wallet-id';
-  if (
-    payload.version !== 1 ||
-    typeof payload.token !== 'string' ||
-    payload.token.length < 16 ||
-    payload.token.length > 128 ||
-    !detection ||
-    typeof detection.iconKey !== 'string' ||
-    !/^[a-z0-9-]{1,40}$/.test(detection.iconKey) ||
-    typeof detection.iconLabel !== 'string' ||
-    !/^OneKey(?:\s*&\s*.+)?$/.test(detection.iconLabel) ||
-    (detection.sourceKind !== 'asset' &&
-      detection.sourceKind !== 'inline' &&
-      !walletIdDetection) ||
-    (walletIdDetection &&
-      (typeof detection.walletId !== 'string' ||
-        !/^[a-z0-9]+-onekey-[a-z0-9-]+$/.test(detection.walletId))) ||
-    (!walletIdDetection && detection.walletId !== undefined)
-  ) {
-    return undefined;
-  }
-  return payload as ICustomInjectionAutoReviewPayload;
-}
-
-function parseCustomInjectionRecordingPayload(
-  value: unknown,
-): ICustomInjectionRecordingPayload | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined;
-  }
-  const payload = value as Partial<ICustomInjectionRecordingPayload>;
-  if (
-    payload.version !== 1 ||
-    typeof payload.token !== 'string' ||
-    payload.token.length < 16 ||
-    payload.token.length > 128
-  ) {
-    return undefined;
-  }
-  if (payload.status === 'started') {
-    return payload as ICustomInjectionRecordingPayload;
-  }
-  if (payload.status === 'error') {
-    if (
-      typeof payload.error !== 'string' ||
-      !payload.error ||
-      payload.error.length > 1000
-    ) {
-      return undefined;
-    }
-    return payload as ICustomInjectionRecordingPayload;
-  }
-  if (payload.status === 'completed') {
-    if (!payload.recording || typeof payload.recording !== 'object') {
-      return undefined;
-    }
-    try {
-      if (JSON.stringify(payload.recording).length > 1024 * 1024) {
-        return undefined;
-      }
-    } catch {
-      return undefined;
-    }
-    return payload as ICustomInjectionRecordingPayload;
-  }
-  return undefined;
-}
 
 let preloadJsUrl = '';
 let preloadJsUrlPromise: Promise<string> | undefined;
 const preloadJsUrlListeners = new Set<() => void>();
-let sharedDevToolsButtonPosition: IDevToolsButtonPosition | undefined;
-let sharedDevToolsVisibility: boolean | undefined;
-const sharedDevToolsButtonPositionListeners = new Set<() => void>();
 
 function emitPreloadJsUrlChange() {
   preloadJsUrlListeners.forEach((listener) => {
@@ -207,26 +79,6 @@ function subscribePreloadJsUrl(listener: () => void) {
 
 function getPreloadJsUrlSnapshot() {
   return preloadJsUrl;
-}
-
-function subscribeSharedDevToolsButtonPosition(listener: () => void) {
-  sharedDevToolsButtonPositionListeners.add(listener);
-  return () => {
-    sharedDevToolsButtonPositionListeners.delete(listener);
-  };
-}
-
-function getSharedDevToolsButtonPositionSnapshot() {
-  return sharedDevToolsButtonPosition;
-}
-
-function setSharedDevToolsButtonPosition(
-  position: IDevToolsButtonPosition | undefined,
-) {
-  sharedDevToolsButtonPosition = position;
-  sharedDevToolsButtonPositionListeners.forEach((listener) => {
-    listener();
-  });
 }
 
 function getPreloadJsUrl() {
@@ -251,7 +103,7 @@ function getPreloadJsUrl() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const WEBVIEW_TAG = 'webview';
 
-const DesktopWebView = forwardRef(
+const StandardDesktopWebView = forwardRef(
   (
     {
       src,
@@ -260,13 +112,8 @@ const DesktopWebView = forwardRef(
       allowpopups,
       disableBridge,
       partition: partitionProp,
-      desktopPreloadUrl,
-      onCustomInjectionAutoReview,
-      customInjectionRecordingCommand,
-      onCustomInjectionRecordingEvent,
       onDidStartLoading,
       onDidStartNavigation,
-      onDidRedirectNavigation,
       onDidFinishLoad,
       onDidStopLoading,
       onDidFailLoad,
@@ -294,29 +141,8 @@ const DesktopWebView = forwardRef(
     }, []);
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
-    const customInjectionAutoReviewTokenRef = useRef<string | undefined>(
-      undefined,
-    );
-    const customInjectionRecordingCommandRef = useRef<string | undefined>(
-      undefined,
-    );
-    const devToolsButtonPosition = useSyncExternalStore(
-      subscribeSharedDevToolsButtonPosition,
-      getSharedDevToolsButtonPositionSnapshot,
-      getSharedDevToolsButtonPositionSnapshot,
-    );
-    const devToolsButtonDragRef = useRef<IDevToolsButtonDragState | null>(null);
-    const devToolsButtonDidDragRef = useRef(false);
-    const devToolsButtonFeedbackTimerRef = useRef<ReturnType<
-      typeof setTimeout
-    > | null>(null);
-    const [isDevToolsButtonFeedbackActive, setIsDevToolsButtonFeedbackActive] =
-      useState(false);
+    const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
-    const theme = useTheme();
-    const showWebviewDevTools = Boolean(
-      devSettings.enabled && devSettings.settings?.showWebviewDevTools,
-    );
     const isUnmountingRef = useRef(false);
     const resolvedPreloadJsUrl = useSyncExternalStore(
       subscribePreloadJsUrl,
@@ -324,36 +150,6 @@ const DesktopWebView = forwardRef(
       getPreloadJsUrlSnapshot,
     );
     const [preloadJsUrlError, setPreloadJsUrlError] = useState(false);
-    const allowedDesktopPreloadUrl =
-      devSettings.enabled &&
-      devSettings.settings?.customInjection?.enabled === true
-        ? desktopPreloadUrl
-        : undefined;
-    const effectivePreloadJsUrl =
-      allowedDesktopPreloadUrl || resolvedPreloadJsUrl;
-    const customInjectionAutoReviewEnabled = Boolean(
-      !disableBridge &&
-      devSettings.enabled &&
-      devSettings.settings?.customInjection?.enabled &&
-      allowedDesktopPreloadUrl &&
-      onCustomInjectionAutoReview,
-    );
-    const customInjectionRecordingEnabled = Boolean(
-      !disableBridge &&
-      devSettings.enabled &&
-      devSettings.settings?.customInjection?.enabled &&
-      allowedDesktopPreloadUrl &&
-      customInjectionRecordingCommand &&
-      onCustomInjectionRecordingEvent,
-    );
-
-    useEffect(() => {
-      if (isDev && allowedDesktopPreloadUrl) {
-        console.warn(
-          'DesktopWebView: using a confirmed developer preload override',
-        );
-      }
-    }, [allowedDesktopPreloadUrl]);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [desktopLoadErrorCode, setDesktopLoadErrorCode] = useState<number>();
@@ -403,12 +199,7 @@ const DesktopWebView = forwardRef(
     }, [isDomReady]);
 
     useEffect(() => {
-      if (
-        disableBridge ||
-        allowedDesktopPreloadUrl ||
-        preloadJsUrlError ||
-        resolvedPreloadJsUrl
-      ) {
+      if (disableBridge || preloadJsUrlError || resolvedPreloadJsUrl) {
         return undefined;
       }
 
@@ -424,12 +215,7 @@ const DesktopWebView = forwardRef(
       return () => {
         isMounted = false;
       };
-    }, [
-      allowedDesktopPreloadUrl,
-      disableBridge,
-      preloadJsUrlError,
-      resolvedPreloadJsUrl,
-    ]);
+    }, [disableBridge, preloadJsUrlError, resolvedPreloadJsUrl]);
 
     useEffect(() => {
       if (resolvedPreloadJsUrl && preloadJsUrlError) {
@@ -514,18 +300,11 @@ const DesktopWebView = forwardRef(
             }
           }
           if (isMainFrame) {
-            // A cross-document navigation recreates the isolated preload world.
-            // Allow the active recorder command to be delivered to that new
-            // document when its next dom-ready event fires.
-            if (!event.isInPlace) {
-              customInjectionAutoReviewTokenRef.current = undefined;
-              customInjectionRecordingCommandRef.current = undefined;
-              updateIsDomReady(false);
-              startLoadTimeout();
-            }
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
+            updateIsDomReady(false);
+            startLoadTimeout();
           }
           checkGoogleOauth(url);
           checkEraseElectronFeature(url);
@@ -553,7 +332,7 @@ const DesktopWebView = forwardRef(
         // redirected request, so re-run the URL guard and stop the load if
         // the target is not allowed.
         const innerHandleDidRedirectNavigation = (
-          event: DidRedirectNavigationEvent,
+          event: DidStartNavigationEvent,
         ) => {
           const { isMainFrame, url } = event ?? {};
           if (
@@ -563,9 +342,7 @@ const DesktopWebView = forwardRef(
             !onShouldStartLoadWithRequest({ url, isTopFrame: true })
           ) {
             webviewRef.current?.stop();
-            return;
           }
-          onDidRedirectNavigation?.(event);
         };
 
         webview.addEventListener('did-start-loading', onDidStartLoading);
@@ -634,17 +411,19 @@ const DesktopWebView = forwardRef(
       onPageFaviconUpdated,
       onPageTitleUpdated,
       onDidStartNavigation,
-      onDidRedirectNavigation,
       onLoadEnd,
       onShouldStartLoadWithRequest,
     ]);
+    if (isDev && props.preload) {
+      console.warn(
+        'DesktopWebView:  custom preload url may disable built-in injected function',
+      );
+    }
+
     useEffect(
       () => () => {
         isUnmountingRef.current = true;
         clearLoadTimeout();
-        if (devToolsButtonFeedbackTimerRef.current) {
-          clearTimeout(devToolsButtonFeedbackTimerRef.current);
-        }
         // not working, ref is null after unmount
         webviewRef.current?.closeDevTools();
       },
@@ -723,116 +502,6 @@ const DesktopWebView = forwardRef(
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isWebviewReady || !customInjectionAutoReviewEnabled) {
-        customInjectionAutoReviewTokenRef.current = undefined;
-        return;
-      }
-
-      const configureAutoReview = () => {
-        const currentUrl = webview.getURL() || webview.src || src;
-        try {
-          if (
-            !currentUrl ||
-            !src ||
-            new URL(currentUrl).hostname.toLowerCase() !==
-              new URL(src).hostname.toLowerCase()
-          ) {
-            customInjectionAutoReviewTokenRef.current = undefined;
-            return;
-          }
-        } catch {
-          customInjectionAutoReviewTokenRef.current = undefined;
-          return;
-        }
-        const token = stringUtils.generateUUID();
-        customInjectionAutoReviewTokenRef.current = token;
-        try {
-          void webview
-            .send(CUSTOM_INJECTION_AUTO_REVIEW_CONFIG_CHANNEL, {
-              version: 1,
-              token,
-            })
-            .catch(() => {
-              if (customInjectionAutoReviewTokenRef.current === token) {
-                customInjectionAutoReviewTokenRef.current = undefined;
-              }
-            });
-        } catch {
-          if (customInjectionAutoReviewTokenRef.current === token) {
-            customInjectionAutoReviewTokenRef.current = undefined;
-          }
-        }
-      };
-
-      webview.addEventListener('dom-ready', configureAutoReview);
-      if (isDomReadyRef.current) {
-        configureAutoReview();
-      }
-      return () => {
-        customInjectionAutoReviewTokenRef.current = undefined;
-        webview.removeEventListener('dom-ready', configureAutoReview);
-      };
-    }, [
-      customInjectionAutoReviewEnabled,
-      isWebviewReady,
-      onCustomInjectionAutoReview,
-      src,
-    ]);
-
-    useEffect(() => {
-      const webview = webviewRef.current;
-      if (
-        !webview ||
-        !isWebviewReady ||
-        !customInjectionRecordingEnabled ||
-        !customInjectionRecordingCommand
-      ) {
-        if (!customInjectionRecordingEnabled) {
-          customInjectionRecordingCommandRef.current = undefined;
-        }
-        return;
-      }
-
-      const sendRecordingCommand = () => {
-        const commandKey = `${customInjectionRecordingCommand.token}:${customInjectionRecordingCommand.action}`;
-        if (customInjectionRecordingCommandRef.current === commandKey) {
-          return;
-        }
-        customInjectionRecordingCommandRef.current = commandKey;
-        try {
-          void webview
-            .send(CUSTOM_INJECTION_RECORDING_COMMAND_CHANNEL, {
-              version: 1,
-              token: customInjectionRecordingCommand.token,
-              action: customInjectionRecordingCommand.action,
-            })
-            .catch(() => {
-              if (customInjectionRecordingCommandRef.current === commandKey) {
-                customInjectionRecordingCommandRef.current = undefined;
-              }
-            });
-        } catch {
-          if (customInjectionRecordingCommandRef.current === commandKey) {
-            customInjectionRecordingCommandRef.current = undefined;
-          }
-        }
-      };
-
-      webview.addEventListener('dom-ready', sendRecordingCommand);
-      if (isDomReadyRef.current) {
-        sendRecordingCommand();
-      }
-      return () => {
-        webview.removeEventListener('dom-ready', sendRecordingCommand);
-      };
-    }, [
-      customInjectionRecordingCommand,
-      customInjectionRecordingEnabled,
-      isWebviewReady,
-    ]);
-
-    useEffect(() => {
-      const webview = webviewRef.current;
       if (!webview || !isWebviewReady || disableBridge) {
         return;
       }
@@ -844,75 +513,11 @@ const DesktopWebView = forwardRef(
 
       const handleMessage = async (event: {
         channel: string;
-        args: unknown[];
+        args: Array<string>;
         target: IElectronWebView;
       }) => {
-        if (
-          event.channel === CUSTOM_INJECTION_RECORDING_EVENT_CHANNEL &&
-          customInjectionRecordingEnabled &&
-          customInjectionRecordingCommand &&
-          onCustomInjectionRecordingEvent
-        ) {
-          const payload = parseCustomInjectionRecordingPayload(event.args?.[0]);
-          if (
-            payload &&
-            payload.token === customInjectionRecordingCommand.token
-          ) {
-            if (payload.status !== 'started') {
-              customInjectionRecordingCommandRef.current = undefined;
-            }
-            const context = {
-              token: payload.token,
-              pageUrl: event.target.getURL() || event.target.src || src,
-              webContentsId: event.target.getWebContentsId(),
-            };
-            if (payload.status === 'completed') {
-              onCustomInjectionRecordingEvent({
-                ...context,
-                status: 'completed',
-                recording: payload.recording,
-              } as ICustomInjectionRecordingEvent);
-            } else if (payload.status === 'error') {
-              onCustomInjectionRecordingEvent({
-                ...context,
-                status: 'error',
-                error: payload.error,
-              });
-            } else {
-              onCustomInjectionRecordingEvent({
-                ...context,
-                status: 'started',
-              });
-            }
-          }
-          return;
-        }
-        if (
-          event.channel === CUSTOM_INJECTION_AUTO_REVIEW_RESULT_CHANNEL &&
-          customInjectionAutoReviewEnabled &&
-          onCustomInjectionAutoReview
-        ) {
-          const payload = parseCustomInjectionAutoReviewPayload(
-            event.args?.[0],
-          );
-          if (
-            payload &&
-            payload.token === customInjectionAutoReviewTokenRef.current
-          ) {
-            customInjectionAutoReviewTokenRef.current = undefined;
-            onCustomInjectionAutoReview({
-              ...payload.detection,
-              pageUrl: event.target.getURL() || event.target.src || src,
-              webContentsId: event.target.getWebContentsId(),
-            });
-          }
-          return;
-        }
         if (event.channel === consts.JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
-          const data = event?.args?.[0];
-          if (typeof data !== 'string') {
-            return;
-          }
+          const data: string = event?.args?.[0];
           let originInRequest = '';
           let origin = '';
           try {
@@ -968,178 +573,11 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [
-      customInjectionAutoReviewEnabled,
-      customInjectionRecordingCommand,
-      customInjectionRecordingEnabled,
-      disableBridge,
-      isWebviewReady,
-      jsBridgeHost,
-      onCustomInjectionAutoReview,
-      onCustomInjectionRecordingEvent,
-      src,
-    ]);
+    }, [jsBridgeHost, isWebviewReady, src, disableBridge]);
 
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
-
-    const handleDevToolsPointerDown = useCallback(
-      (event: ReactPointerEvent<HTMLButtonElement>) => {
-        if (event.button !== 0) {
-          return;
-        }
-        const button = event.currentTarget;
-        const container = button.parentElement;
-        if (!container) {
-          return;
-        }
-        const buttonRect = button.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const maxX = Math.max(0, containerRect.width - buttonRect.width);
-        const maxY = Math.max(0, containerRect.height - buttonRect.height);
-        try {
-          button.setPointerCapture(event.pointerId);
-        } catch {
-          return;
-        }
-        event.preventDefault();
-        devToolsButtonDidDragRef.current = false;
-        devToolsButtonDragRef.current = {
-          containerLeft: containerRect.left,
-          containerTop: containerRect.top,
-          maxX,
-          maxY,
-          offsetX: event.clientX - buttonRect.left,
-          offsetY: event.clientY - buttonRect.top,
-          pointerId: event.pointerId,
-          startClientX: event.clientX,
-          startClientY: event.clientY,
-        };
-        setSharedDevToolsButtonPosition({
-          xRatio:
-            maxX > 0
-              ? Math.min(
-                  1,
-                  Math.max(0, (buttonRect.left - containerRect.left) / maxX),
-                )
-              : 0,
-          yRatio:
-            maxY > 0
-              ? Math.min(
-                  1,
-                  Math.max(0, (buttonRect.top - containerRect.top) / maxY),
-                )
-              : 0,
-        });
-      },
-      [],
-    );
-
-    const handleDevToolsPointerMove = useCallback(
-      (event: ReactPointerEvent<HTMLButtonElement>) => {
-        const dragState = devToolsButtonDragRef.current;
-        if (!dragState || dragState.pointerId !== event.pointerId) {
-          return;
-        }
-        if (
-          Math.abs(event.clientX - dragState.startClientX) > 3 ||
-          Math.abs(event.clientY - dragState.startClientY) > 3
-        ) {
-          devToolsButtonDidDragRef.current = true;
-        }
-        const x = Math.min(
-          dragState.maxX,
-          Math.max(
-            0,
-            event.clientX - dragState.containerLeft - dragState.offsetX,
-          ),
-        );
-        const y = Math.min(
-          dragState.maxY,
-          Math.max(
-            0,
-            event.clientY - dragState.containerTop - dragState.offsetY,
-          ),
-        );
-        setSharedDevToolsButtonPosition({
-          xRatio: dragState.maxX > 0 ? x / dragState.maxX : 0,
-          yRatio: dragState.maxY > 0 ? y / dragState.maxY : 0,
-        });
-      },
-      [],
-    );
-
-    const handleDevToolsPointerEnd = useCallback(
-      (event: ReactPointerEvent<HTMLButtonElement>) => {
-        const dragState = devToolsButtonDragRef.current;
-        if (!dragState || dragState.pointerId !== event.pointerId) {
-          return;
-        }
-        devToolsButtonDragRef.current = null;
-        try {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        } catch {
-          // The pointer may already have been released by Chromium.
-        }
-      },
-      [],
-    );
-
-    const handleToggleDevTools = useCallback(() => {
-      if (devToolsButtonDidDragRef.current) {
-        devToolsButtonDidDragRef.current = false;
-        return;
-      }
-      const webview = webviewRef.current;
-      if (!webview) {
-        return;
-      }
-      if (devToolsButtonFeedbackTimerRef.current) {
-        clearTimeout(devToolsButtonFeedbackTimerRef.current);
-      }
-      setIsDevToolsButtonFeedbackActive(true);
-      devToolsButtonFeedbackTimerRef.current = setTimeout(() => {
-        devToolsButtonFeedbackTimerRef.current = null;
-        if (!isUnmountingRef.current) {
-          setIsDevToolsButtonFeedbackActive(false);
-        }
-      }, 160);
-      void globalThis.desktopApiProxy.webview
-        .toggleDevTools(
-          webview.getWebContentsId(),
-          devSettings.enabled === true,
-        )
-        .catch((error: unknown) => {
-          console.error('DesktopWebView: failed to toggle DevTools', error);
-        });
-    }, [devSettings.enabled]);
-
-    useEffect(() => {
-      if (sharedDevToolsVisibility !== showWebviewDevTools) {
-        sharedDevToolsVisibility = showWebviewDevTools;
-        setSharedDevToolsButtonPosition(undefined);
-      }
-      devToolsButtonDragRef.current = null;
-      devToolsButtonDidDragRef.current = false;
-      setIsDevToolsButtonFeedbackActive(false);
-      if (devToolsButtonFeedbackTimerRef.current) {
-        clearTimeout(devToolsButtonFeedbackTimerRef.current);
-        devToolsButtonFeedbackTimerRef.current = null;
-      }
-    }, [showWebviewDevTools]);
-
-    let devToolsButtonTransform = '';
-    if (devToolsButtonPosition) {
-      devToolsButtonTransform = `translate(-${
-        devToolsButtonPosition.xRatio * 100
-      }%, -${devToolsButtonPosition.yRatio * 100}%)`;
-    }
-    if (isDevToolsButtonFeedbackActive) {
-      devToolsButtonTransform = `${devToolsButtonTransform}${
-        devToolsButtonTransform ? ' ' : ''
-      }scale(0.88)`;
-    }
 
     if (preloadJsUrlError && !disableBridge) {
       return (
@@ -1153,62 +591,34 @@ const DesktopWebView = forwardRef(
       );
     }
 
-    if (!effectivePreloadJsUrl && !disableBridge) {
+    if (!resolvedPreloadJsUrl && !disableBridge) {
       return null;
     }
     return (
       <Stack flex={1} position="relative" bg="$bgApp">
-        {showWebviewDevTools ? (
+        {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
           <button
             data-testid="webview-dev-tools"
             type="button"
-            aria-label="Toggle WebView DevTools; drag to reposition"
-            title="Toggle WebView DevTools; drag to reposition"
             style={{
-              position: 'absolute',
-              zIndex: 1,
-              top: devToolsButtonPosition
-                ? `${devToolsButtonPosition.yRatio * 100}%`
-                : 8,
-              right: devToolsButtonPosition ? undefined : 8,
-              left: devToolsButtonPosition
-                ? `${devToolsButtonPosition.xRatio * 100}%`
-                : undefined,
-              transform: devToolsButtonTransform || undefined,
-              width: 26,
-              height: 26,
+              fontSize: 12,
               padding: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: theme.iconOnColor.val,
-              backgroundColor: isDevToolsButtonFeedbackActive
-                ? theme.bgAccentActive.val
-                : theme.bgAccent.val,
-              border: `1px solid ${theme.bgAccentActive.val}`,
-              borderRadius: 8,
-              boxShadow: isDevToolsButtonFeedbackActive
-                ? `0 1px 4px ${theme.bgBackdrop.val}`
-                : `0 2px 10px ${theme.bgBackdrop.val}`,
-              transition:
-                'transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease',
-              cursor: 'grab',
-              userSelect: 'none',
-              touchAction: 'none',
-              appearance: 'none',
+              opacity: 0.6,
+              position: 'absolute',
+              right: devToolsAtLeft ? undefined : 0,
+              left: devToolsAtLeft ? 0 : undefined,
             }}
-            onClick={handleToggleDevTools}
-            onPointerDown={handleDevToolsPointerDown}
-            onPointerMove={handleDevToolsPointerMove}
-            onPointerUp={handleDevToolsPointerEnd}
-            onPointerCancel={handleDevToolsPointerEnd}
+            onClick={() => {
+              setDevToolsAtLeft(!devToolsAtLeft);
+              webviewRef.current?.openDevTools();
+            }}
           >
-            <Icon name="BugOutline" size="$3.5" color="$iconOnColor" />
+            DevTools
           </button>
         ) : null}
         <webview
           ref={initWebviewByRef}
-          {...(disableBridge ? {} : { preload: effectivePreloadJsUrl })}
+          {...(disableBridge ? {} : { preload: resolvedPreloadJsUrl })}
           src={src}
           partition={partitionProp ?? 'persist:onekey'}
           style={{
@@ -1254,6 +664,8 @@ const DesktopWebView = forwardRef(
     );
   },
 );
-DesktopWebView.displayName = 'DesktopWebView';
+StandardDesktopWebView.displayName = 'StandardDesktopWebView';
+
+const DesktopWebView = DevelopmentDesktopWebView || StandardDesktopWebView;
 
 export { DesktopWebView };

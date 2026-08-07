@@ -72,7 +72,7 @@ export function getFiatPaySiteWhitelistDomainKeys(): Set<string> {
   return fiatPaySiteWhitelistDomainKeys;
 }
 
-class DesktopApiNetwork {
+class DesktopApiWebviewBase {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
   }
@@ -156,4 +156,4 @@ class DesktopApiNetwork {
   }
 }
 
-export default DesktopApiNetwork;
+export default DesktopApiWebviewBase;

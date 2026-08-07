@@ -93,15 +93,12 @@ const productionModuleReplacementPlugin = {
           return {
             path: path.join(
               __dirname,
-              '../../../packages/kit-bg/src/desktopApis/DesktopApiWebview.production.ts',
+              '../../../packages/kit-bg/src/desktopApis/DesktopApiWebviewBase.ts',
             ),
           };
         }
         return {
-          path: path.join(
-            __dirname,
-            '../app/libs/desktopApiAccess.production.ts',
-          ),
+          path: path.join(__dirname, '../app/libs/desktopApiAccessDisabled.ts'),
         };
       },
     );

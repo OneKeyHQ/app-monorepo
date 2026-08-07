@@ -5,18 +5,9 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 
-import { dialog, session, webContents } from 'electron';
-import isDev from 'electron-is-dev';
+import { dialog, webContents } from 'electron';
 import logger from 'electron-log/main';
 
-import {
-  checkFileHash,
-  getBundleDirPath,
-  getDriveLetter,
-  getMetadata,
-} from '@onekeyhq/desktop/app/bundle';
-import * as store from '@onekeyhq/desktop/app/libs/store';
-import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
@@ -26,19 +17,23 @@ import {
   readCustomInjectedOperationLogs,
   selectCustomInjectedRecentOperationLogs,
 } from './customInjectedOperationLog';
-// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
-import injectedDesktopCode from './injectedDesktopCode.text-js';
+import DesktopApiWebviewBase from './DesktopApiWebviewBase';
 
 import type { ICustomInjectedOperationLogRecord } from './customInjectedOperationLog';
-import type { IDesktopApi } from './instance/IDesktopApi';
 
 export type { ICustomInjectedOperationLogRecord } from './customInjectedOperationLog';
+export {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from './DesktopApiWebviewBase';
 
 const execFileAsync = promisify(execFile);
 const CUSTOM_INJECTED_OPERATION_LOG_APP_STARTED_AT =
   Date.now() - Math.floor(process.uptime() * 1000);
-const CUSTOM_INJECTED_MANIFEST = 'onekey-app-custom-injected.json';
-const CUSTOM_INJECTED_MANIFEST_MAX_BYTES = 128 * 1024;
+const CUSTOM_INJECTED_WORKSPACE_CLI =
+  'packages/connect-button-workbench/src/cli/custom-injected-workspace.mjs';
 const CUSTOM_INJECTED_REGISTRY_MAX_BYTES = 32 * 1024 * 1024;
 const CUSTOM_INJECTED_PRELOAD_MAX_BYTES = 64 * 1024 * 1024;
 const CUSTOM_INJECTED_UPDATER_MAX_BYTES = 1024 * 1024;
@@ -53,38 +48,7 @@ const CUSTOM_INJECTED_E2E_RESULT_FILE_MAX_BYTES = 256 * 1024;
 const CUSTOM_INJECTED_E2E_LOG_MAX_BYTES = 1024 * 1024;
 const CUSTOM_INJECTED_E2E_MAX_ATTEMPTS = 5;
 const CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS = 450_000;
-
-type ICustomInjectedProtocolSourceManifest = {
-  source: string;
-  protocolRegistry: string;
-  registryUpdater: string;
-  registryRefresher?: string;
-};
-
-type ICustomInjectedManifestV2 = {
-  schemaVersion: 2;
-  kind: 'onekey-app-custom-injected';
-  protocolRegistry: string;
-  registryUpdater: string;
-  registryRefresher: string;
-  desktopPreload: string;
-  dappSource: string;
-  dappsDirectory: string;
-  recordingE2EGenerator?: string;
-};
-
-type ICustomInjectedManifestV3 = {
-  schemaVersion: 3;
-  kind: 'onekey-app-custom-injected';
-  protocolSources: ICustomInjectedProtocolSourceManifest[];
-  desktopPreload: string;
-  dappsDirectory: string;
-  recordingE2EGenerator?: string;
-};
-
-type ICustomInjectedManifest =
-  | ICustomInjectedManifestV2
-  | ICustomInjectedManifestV3;
+const CUSTOM_INJECTED_WORKSPACE_CLI_OUTPUT_MAX_BYTES = 48 * 1024 * 1024;
 
 export type ICustomInjectedRecordingSelector = {
   kind:
@@ -354,6 +318,7 @@ export type ICustomInjectedClientOperationLogRequest = {
 type ICustomInjectedWorkspaceSession = {
   sessionId: string;
   workspace: string;
+  workspaceCliFile: string;
   protocolSources: Array<{
     source: string;
     registryFile: string;
@@ -371,6 +336,26 @@ type ICustomInjectedWorkspaceSession = {
   bundleSha256: string;
   protocols: ICustomInjectedProtocol[];
   active: boolean;
+};
+
+type ICustomInjectedWorkspaceCliSnapshot = {
+  schemaVersion: 1;
+  kind: 'onekey-custom-injection-workspace-snapshot';
+  workspace: string;
+  manifest: string;
+  desktopPreload: string;
+  dappsDirectory: string;
+  recordingE2EGenerator: string | null;
+  registrySha256: string;
+  bundleSha256: string;
+  protocolSources: Array<{
+    source: string;
+    protocolRegistry: string;
+    registryUpdater: string;
+    registryRefresher: string | null;
+    registrySha256: string;
+  }>;
+  protocols: ICustomInjectedProtocol[];
 };
 
 const customInjectedSessions = new Map<
@@ -1035,9 +1020,7 @@ async function readRegularFileIfExists(
     fileStat.size > maxBytes
   ) {
     throw new OneKeyLocalError(
-      `${label} must be a regular file no larger than ${String(
-        maxBytes,
-      )} bytes`,
+      `${label} must be a regular file no larger than ${String(maxBytes)} bytes`,
     );
   }
   return fs.readFile(file);
@@ -1174,6 +1157,7 @@ async function getCustomInjectedE2EWorkflowStateForProtocol(
   );
   let validation: ICustomInjectedE2EWorkflowState['validation'];
   if (validationContent) {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const value = parseCustomInjectedE2EOutput(
       validationContent.toString('utf8'),
     ) as {
@@ -1190,6 +1174,7 @@ async function getCustomInjectedE2EWorkflowStateForProtocol(
         'Persisted E2E result has invalid artifact SHA-256 values',
       );
     }
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const result = normalizeCustomInjectedE2EResult(
       value,
       protocol.source,
@@ -1622,134 +1607,255 @@ async function writeJsonAtomic(
   return content;
 }
 
-export function parseCustomInjectedProtocols(
-  registryText: string,
-  protocolSource = 'defillama',
-  registrySha256 = sha256(registryText),
-): ICustomInjectedProtocol[] {
-  const registry = JSON.parse(registryText) as {
-    kind?: unknown;
-    source?: unknown;
-    protocols?: Array<{
-      id?: unknown;
-      name?: unknown;
-      slug?: unknown;
-      totalTvl?: unknown;
-      sourceUrl?: unknown;
-      priority?: { bestRank?: unknown };
-      target?: {
-        urlOverride?: unknown;
-        resolvedDappUrl?: unknown;
-      };
-      manualReview?: {
-        state?: unknown;
-        reviewedAt?: unknown;
-        reviewedUrl?: unknown;
-        injectedBundleSha256?: unknown;
-      };
-    }>;
+function parseCustomInjectedWorkspaceCliOutput(
+  stdout: string,
+): ICustomInjectedWorkspaceCliSnapshot {
+  let value: {
+    ok?: unknown;
+    result?: unknown;
+    error?: unknown;
   };
-  if (!Array.isArray(registry.protocols)) {
+  try {
+    value = JSON.parse(stdout.trim()) as typeof value;
+  } catch {
     throw new OneKeyLocalError(
-      'Custom injection registry must contain a protocols array',
+      'Custom injection workspace CLI returned invalid JSON',
     );
   }
+  if (value.ok !== true || !value.result || typeof value.result !== 'object') {
+    throw new OneKeyLocalError(
+      typeof value.error === 'string'
+        ? value.error
+        : 'Custom injection workspace CLI failed',
+    );
+  }
+  return value.result as ICustomInjectedWorkspaceCliSnapshot;
+}
+
+async function inspectCustomInjectedWorkspaceWithCli({
+  workspace,
+  workspaceCliFile,
+}: {
+  workspace: string;
+  workspaceCliFile: string;
+}): Promise<
+  Pick<
+    ICustomInjectedWorkspaceSession,
+    | 'protocolSources'
+    | 'preloadFile'
+    | 'dappsDirectory'
+    | 'recordingE2EGeneratorFile'
+    | 'preloadStamp'
+    | 'registrySha256'
+    | 'bundleSha256'
+    | 'protocols'
+  >
+> {
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      process.execPath,
+      [workspaceCliFile, '--action', 'inspect', '--workspace', workspace],
+      {
+        cwd: workspace,
+        encoding: 'utf8',
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        maxBuffer: CUSTOM_INJECTED_WORKSPACE_CLI_OUTPUT_MAX_BYTES,
+        timeout: 60_000,
+        windowsHide: true,
+      },
+    ));
+  } catch (error) {
+    const stderr = (error as { stderr?: unknown }).stderr;
+    const message =
+      typeof stderr === 'string' && stderr.trim()
+        ? customInjectedE2EErrorFromOutput(stderr)
+        : undefined;
+    throw new OneKeyLocalError(
+      message ||
+        (error instanceof Error
+          ? error.message
+          : 'Custom injection workspace CLI failed'),
+    );
+  }
+  const snapshot = parseCustomInjectedWorkspaceCliOutput(stdout);
   if (
-    registry.kind === 'onekey-custom-protocol-registry' &&
-    registry.source !== protocolSource
+    snapshot.schemaVersion !== 1 ||
+    snapshot.kind !== 'onekey-custom-injection-workspace-snapshot' ||
+    path.resolve(snapshot.workspace || '') !== workspace ||
+    !Array.isArray(snapshot.protocolSources) ||
+    snapshot.protocolSources.length < 1 ||
+    snapshot.protocolSources.length > 20 ||
+    !Array.isArray(snapshot.protocols) ||
+    snapshot.protocols.length === 0 ||
+    !/^[a-f0-9]{64}$/u.test(snapshot.registrySha256 || '') ||
+    !/^[a-f0-9]{64}$/u.test(snapshot.bundleSha256 || '')
   ) {
     throw new OneKeyLocalError(
-      'Custom injection registry source does not match its manifest source',
+      'Custom injection workspace CLI returned an invalid snapshot',
     );
   }
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(protocolSource)) {
+  const sourceNames = new Set<string>();
+  const protocolSources = await Promise.all(
+    snapshot.protocolSources.map(async (sourceSnapshot) => {
+      if (
+        typeof sourceSnapshot?.source !== 'string' ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(sourceSnapshot.source) ||
+        sourceNames.has(sourceSnapshot.source) ||
+        !/^[a-f0-9]{64}$/u.test(sourceSnapshot.registrySha256 || '')
+      ) {
+        throw new OneKeyLocalError(
+          'Custom injection workspace CLI returned an invalid protocol source',
+        );
+      }
+      sourceNames.add(sourceSnapshot.source);
+      const [registryFile, updaterFile, refresherFile] = await Promise.all([
+        resolveWorkspaceFile(
+          workspace,
+          sourceSnapshot.protocolRegistry,
+          `${sourceSnapshot.source}.protocolRegistry`,
+        ),
+        resolveWorkspaceFile(
+          workspace,
+          sourceSnapshot.registryUpdater,
+          `${sourceSnapshot.source}.registryUpdater`,
+        ),
+        sourceSnapshot.registryRefresher
+          ? resolveWorkspaceFile(
+              workspace,
+              sourceSnapshot.registryRefresher,
+              `${sourceSnapshot.source}.registryRefresher`,
+            )
+          : Promise.resolve(null),
+      ]);
+      const registryContent = await readLimitedFile(
+        registryFile,
+        CUSTOM_INJECTED_REGISTRY_MAX_BYTES,
+        `${sourceSnapshot.source} protocol registry`,
+      );
+      if (sha256(registryContent.content) !== sourceSnapshot.registrySha256) {
+        throw new OneKeyLocalError(
+          `${sourceSnapshot.source} protocol registry changed during workspace inspection`,
+        );
+      }
+      await readLimitedFile(
+        updaterFile,
+        CUSTOM_INJECTED_UPDATER_MAX_BYTES,
+        `${sourceSnapshot.source} registry updater`,
+      );
+      if (refresherFile) {
+        await readLimitedFile(
+          refresherFile,
+          CUSTOM_INJECTED_REFRESHER_MAX_BYTES,
+          `${sourceSnapshot.source} registry refresher`,
+        );
+      }
+      return {
+        source: sourceSnapshot.source,
+        registryFile,
+        updaterFile,
+        refresherFile,
+        registryStamp: registryContent.stamp,
+        registrySha256: sourceSnapshot.registrySha256,
+        protocols: [] as ICustomInjectedProtocol[],
+      };
+    }),
+  );
+  const sourceDigests = new Map(
+    protocolSources.map(({ source, registrySha256 }) => [
+      source,
+      registrySha256,
+    ]),
+  );
+  const protocolKeys = new Set<string>();
+  const protocols = snapshot.protocols.map((protocol) => {
+    if (
+      !protocol ||
+      typeof protocol.key !== 'string' ||
+      protocol.key !== `${protocol.source}:${protocol.id}` ||
+      protocolKeys.has(protocol.key) ||
+      !sourceDigests.has(protocol.source) ||
+      protocol.registrySha256 !== sourceDigests.get(protocol.source) ||
+      !isAllowedWebViewUrl(protocol.url) ||
+      (protocol.registryUrl !== null &&
+        !isAllowedWebViewUrl(protocol.registryUrl)) ||
+      !['override', 'resolved', 'registry'].includes(protocol.urlSource) ||
+      !['pending', 'processed', 'unsupported'].includes(
+        protocol.manualReview?.state,
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'Custom injection workspace CLI returned an invalid protocol',
+      );
+    }
+    protocolKeys.add(protocol.key);
+    return protocol;
+  });
+  for (const protocolSource of protocolSources) {
+    protocolSource.protocols = protocols.filter(
+      (protocol) => protocol.source === protocolSource.source,
+    );
+  }
+  const expectedRegistrySha256 =
+    protocolSources.length === 1
+      ? protocolSources[0]?.registrySha256 || ''
+      : sha256(
+          JSON.stringify(
+            protocolSources.map(({ source, registrySha256: digest }) => [
+              source,
+              digest,
+            ]),
+          ),
+        );
+  if (snapshot.registrySha256 !== expectedRegistrySha256) {
     throw new OneKeyLocalError(
-      'Custom injection protocol source must be normalized',
+      'Custom injection workspace CLI returned an invalid registry digest',
     );
   }
-  const seenHostnames = new Set<string>();
-  return registry.protocols
-    .flatMap((protocol) => {
-      const id = String(protocol.id || '').trim();
-      if (!id) {
-        return [];
-      }
-      const override = String(protocol.target?.urlOverride || '');
-      const resolved = String(protocol.target?.resolvedDappUrl || '');
-      const source = String(protocol.sourceUrl || '');
-      const url = override || resolved || source;
-      if (!isAllowedWebViewUrl(url)) {
-        return [];
-      }
-      const hostname = new URL(url).hostname
-        .toLowerCase()
-        .replace(/^www\./u, '');
-      if (seenHostnames.has(hostname)) {
-        return [];
-      }
-      seenHostnames.add(hostname);
-      const rawManualState = protocol.manualReview?.state;
-      const manualState =
-        rawManualState === 'processed' || rawManualState === 'unsupported'
-          ? rawManualState
-          : 'pending';
-      let urlSource: ICustomInjectedProtocol['urlSource'] = 'registry';
-      if (override) {
-        urlSource = 'override';
-      } else if (resolved) {
-        urlSource = 'resolved';
-      }
-      const registryTotalTvl = Number(protocol.totalTvl);
-      const totalTvl =
-        Number.isFinite(registryTotalTvl) && registryTotalTvl > 0
-          ? registryTotalTvl
-          : 0;
-      return [
-        {
-          key: `${protocolSource}:${id}`,
-          source: protocolSource,
-          id,
-          name: String(protocol.name || protocol.slug || protocol.id || ''),
-          slug: String(protocol.slug || protocol.name || protocol.id || ''),
-          url,
-          urlSource,
-          registryUrl: isAllowedWebViewUrl(source) ? source : null,
-          registrySha256,
-          totalTvl,
-          bestRank:
-            protocol.priority?.bestRank !== null &&
-            protocol.priority?.bestRank !== undefined &&
-            Number.isFinite(Number(protocol.priority.bestRank))
-              ? Number(protocol.priority.bestRank)
-              : null,
-          manualReview: {
-            state: manualState,
-            reviewedAt:
-              typeof protocol.manualReview?.reviewedAt === 'string'
-                ? protocol.manualReview.reviewedAt
-                : null,
-            reviewedUrl:
-              typeof protocol.manualReview?.reviewedUrl === 'string'
-                ? protocol.manualReview.reviewedUrl
-                : null,
-            injectedBundleSha256:
-              typeof protocol.manualReview?.injectedBundleSha256 === 'string'
-                ? protocol.manualReview.injectedBundleSha256
-                : null,
-          },
-        } satisfies ICustomInjectedProtocol,
-      ];
-    })
-    .toSorted(
-      (left, right) =>
-        right.totalTvl - left.totalTvl ||
-        (left.bestRank ?? Number.MAX_SAFE_INTEGER) -
-          (right.bestRank ?? Number.MAX_SAFE_INTEGER) ||
-        left.id.localeCompare(right.id, 'en', {
-          numeric: true,
-          sensitivity: 'base',
-        }),
+  const preloadFile = await resolveWorkspaceFile(
+    workspace,
+    snapshot.desktopPreload,
+    'desktopPreload',
+  );
+  const preload = await readLimitedFile(
+    preloadFile,
+    CUSTOM_INJECTED_PRELOAD_MAX_BYTES,
+    'Desktop preload',
+  );
+  if (sha256(preload.content) !== snapshot.bundleSha256) {
+    throw new OneKeyLocalError(
+      'Desktop preload changed during workspace inspection',
     );
+  }
+  const dappsDirectory = await resolveWorkspaceOutputDirectory(
+    workspace,
+    snapshot.dappsDirectory,
+    'dappsDirectory',
+  );
+  const recordingE2EGeneratorFile = snapshot.recordingE2EGenerator
+    ? await resolveWorkspaceFile(
+        workspace,
+        snapshot.recordingE2EGenerator,
+        'recordingE2EGenerator',
+      )
+    : null;
+  if (recordingE2EGeneratorFile) {
+    await readLimitedFile(
+      recordingE2EGeneratorFile,
+      CUSTOM_INJECTED_E2E_GENERATOR_MAX_BYTES,
+      'Custom injection recording E2E generator',
+    );
+  }
+  return {
+    protocolSources,
+    preloadFile,
+    dappsDirectory,
+    recordingE2EGeneratorFile,
+    preloadStamp: preload.stamp,
+    registrySha256: snapshot.registrySha256,
+    bundleSha256: snapshot.bundleSha256,
+    protocols,
+  };
 }
 
 function findCustomInjectedProtocol(
@@ -1769,69 +1875,13 @@ function findCustomInjectedProtocol(
 async function refreshCustomInjectedSession(
   customSession: ICustomInjectedWorkspaceSession,
 ): Promise<void> {
-  const [registryFiles, preloadFile] = await Promise.all([
-    Promise.all(
-      customSession.protocolSources.map((protocolSource) =>
-        statLimitedFile(
-          protocolSource.registryFile,
-          CUSTOM_INJECTED_REGISTRY_MAX_BYTES,
-          `${protocolSource.source} protocol registry`,
-        ),
-      ),
-    ),
-    statLimitedFile(
-      customSession.preloadFile,
-      CUSTOM_INJECTED_PRELOAD_MAX_BYTES,
-      'Desktop preload',
-    ),
-  ]);
-  for (const [
-    index,
-    protocolSource,
-  ] of customSession.protocolSources.entries()) {
-    const registryFile = registryFiles[index];
-    if (registryFile && registryFile.stamp !== protocolSource.registryStamp) {
-      const registryText = await fs.readFile(
-        protocolSource.registryFile,
-        'utf8',
-      );
-      protocolSource.registrySha256 = sha256(registryText);
-      protocolSource.protocols = parseCustomInjectedProtocols(
-        registryText,
-        protocolSource.source,
-        protocolSource.registrySha256,
-      );
-      protocolSource.registryStamp = registryFile.stamp;
-    }
-  }
-  customSession.protocols = customSession.protocolSources
-    .flatMap((protocolSource) => protocolSource.protocols)
-    .toSorted(
-      (left, right) =>
-        right.totalTvl - left.totalTvl ||
-        (left.bestRank ?? Number.MAX_SAFE_INTEGER) -
-          (right.bestRank ?? Number.MAX_SAFE_INTEGER) ||
-        left.key.localeCompare(right.key, 'en', {
-          numeric: true,
-          sensitivity: 'base',
-        }),
-    );
-  customSession.registrySha256 =
-    customSession.protocolSources.length === 1
-      ? customSession.protocolSources[0]?.registrySha256 || ''
-      : sha256(
-          JSON.stringify(
-            customSession.protocolSources.map(
-              ({ source, registrySha256: digest }) => [source, digest],
-            ),
-          ),
-        );
-  if (preloadFile.stamp !== customSession.preloadStamp) {
-    customSession.bundleSha256 = sha256(
-      await fs.readFile(customSession.preloadFile),
-    );
-    customSession.preloadStamp = preloadFile.stamp;
-  }
+  Object.assign(
+    customSession,
+    await inspectCustomInjectedWorkspaceWithCli({
+      workspace: customSession.workspace,
+      workspaceCliFile: customSession.workspaceCliFile,
+    }),
+  );
 }
 
 function publicCustomInjectedSession(
@@ -1865,137 +1915,8 @@ function getCustomInjectedHostname(url: string): string {
   }
 }
 
-let templatePhishingUrls: string[] = [];
-
-export function getTemplatePhishingUrls(): string[] {
-  return templatePhishingUrls;
-}
-
-let fiatPaySiteWhitelistOrigins: Set<string> = new Set();
-let fiatPaySiteWhitelistDomainKeys: Set<string> = new Set();
-
-function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/\.+$/u, '');
-}
-
-function isIpHostname(hostname: string): boolean {
-  return /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
-}
-
-function getHostnameDomainKey(hostname: string): string {
-  const normalized = normalizeHostname(hostname);
-  if (!normalized) {
-    return '';
-  }
-  if (isIpHostname(normalized)) {
-    return normalized;
-  }
-
-  const labels = normalized.split('.').filter(Boolean);
-  if (labels.length <= 2) {
-    return normalized;
-  }
-
-  const tld = labels[labels.length - 1];
-  const sld = labels[labels.length - 2];
-  // Country-code TLD with short second-level (e.g., "co.uk", "com.au")
-  if (tld.length === 2 && sld.length <= 3) {
-    return labels.slice(-3).join('.');
-  }
-
-  return labels.slice(-2).join('.');
-}
-
-export function getOriginDomainKey(origin: string): string {
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-      return '';
-    }
-
-    const domainKey = getHostnameDomainKey(url.hostname);
-    return domainKey ? `${url.protocol}//${domainKey}` : '';
-  } catch {
-    return '';
-  }
-}
-
-export function getFiatPaySiteWhitelistOrigins(): Set<string> {
-  return fiatPaySiteWhitelistOrigins;
-}
-
-export function getFiatPaySiteWhitelistDomainKeys(): Set<string> {
-  return fiatPaySiteWhitelistDomainKeys;
-}
-
-class DesktopApiNetwork {
-  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
-    this.desktopApi = desktopApi;
-  }
-
-  desktopApi: IDesktopApi;
-
-  // WEBVIEW_NEW_WINDOW: 'webview/newWindow',
-  // SET_ALLOWED_PHISHING_URLS: 'webview/setAllowedPhishingUrls',
-  // CLEAR_WEBVIEW_CACHE: 'webview/clearCache',
-
-  async setAllowedPhishingUrls(urls: string[]): Promise<string[]> {
-    if (Array.isArray(urls)) {
-      templatePhishingUrls = urls;
-    }
-    return templatePhishingUrls;
-  }
-
-  async setFiatPaySiteWhitelist(origins: string[]): Promise<void> {
-    fiatPaySiteWhitelistOrigins = new Set(
-      Array.isArray(origins) ? origins : [],
-    );
-    fiatPaySiteWhitelistDomainKeys = new Set(
-      [...fiatPaySiteWhitelistOrigins].map(getOriginDomainKey).filter(Boolean),
-    );
-  }
-
-  async clearWebViewCache(): Promise<void> {
-    await session.defaultSession.clearStorageData({
-      storages: ['cookies', 'cachestorage'],
-    });
-  }
-
-  async getPreloadJsContent(): Promise<string> {
-    const staticPath = getStaticPath();
-    const preloadJsPath = path.join(staticPath, 'preload.js');
-    logger.info('getPreloadJsContent', preloadJsPath);
-    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
-      const bundleDirPath = getBundleDirPath();
-      const bundleData = store.getUpdateBundleData();
-      const metadata = bundleDirPath
-        ? await getMetadata({
-            bundleDir: bundleDirPath,
-            appVersion: bundleData.appVersion,
-            bundleVersion: bundleData.bundleVersion,
-            signature: bundleData.signature,
-          })
-        : {};
-      const driveLetter = getDriveLetter();
-      checkFileHash({
-        bundleDirPath,
-        metadata,
-        driveLetter,
-        url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
-      });
-    }
-    // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
-    // Add timestamp to prevent Node.js require cache from loading the same file only once
-    return isDev
-      ? `file://${preloadJsPath}?t=${Date.now()}`
-      : `file://${preloadJsPath}`;
-  }
-
-  async getInjectedJsContent(): Promise<string> {
-    return injectedDesktopCode as string;
-  }
-
-  async toggleDevTools(
+class DesktopApiNetwork extends DesktopApiWebviewBase {
+  override async toggleDevTools(
     webContentsId: number,
     devSettingsEnabled: boolean,
   ): Promise<'closed' | 'opened'> {
@@ -2075,157 +1996,34 @@ class DesktopApiNetwork {
     return runCustomInjectedLoggedOperation({
       workspace,
       operation: 'workspace.prepare',
-      input: { manifest: CUSTOM_INJECTED_MANIFEST },
+      input: { workspaceCli: CUSTOM_INJECTED_WORKSPACE_CLI },
       run: async () => {
-        const manifestFile = path.join(workspace, CUSTOM_INJECTED_MANIFEST);
-        const manifestContent = await readLimitedFile(
-          manifestFile,
-          CUSTOM_INJECTED_MANIFEST_MAX_BYTES,
-          'Custom injection manifest',
+        const workspaceCliFile = await resolveWorkspaceFile(
+          workspace,
+          CUSTOM_INJECTED_WORKSPACE_CLI,
+          'workspace CLI',
         );
-        const manifest = JSON.parse(
-          manifestContent.content.toString('utf8'),
-        ) as ICustomInjectedManifest;
-        if (
-          ![2, 3].includes(manifest.schemaVersion) ||
-          manifest.kind !== 'onekey-app-custom-injected'
-        ) {
-          throw new OneKeyLocalError('Unsupported custom injection manifest');
-        }
-        const sourceManifests: ICustomInjectedProtocolSourceManifest[] =
-          manifest.schemaVersion === 2
-            ? [
-                {
-                  source: manifest.dappSource,
-                  protocolRegistry: manifest.protocolRegistry,
-                  registryUpdater: manifest.registryUpdater,
-                  registryRefresher: manifest.registryRefresher,
-                },
-              ]
-            : manifest.protocolSources;
-        if (
-          !Array.isArray(sourceManifests) ||
-          sourceManifests.length === 0 ||
-          sourceManifests.length > 20
-        ) {
-          throw new OneKeyLocalError(
-            'Custom injection manifest protocolSources must contain 1 to 20 sources',
-          );
-        }
-        const sourceNames = new Set<string>();
-        for (const sourceManifest of sourceManifests) {
-          if (
-            typeof sourceManifest?.source !== 'string' ||
-            sourceManifest.source.length > 100 ||
-            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(sourceManifest.source) ||
-            sourceNames.has(sourceManifest.source)
-          ) {
-            throw new OneKeyLocalError(
-              'Custom injection manifest protocol source must be unique and normalized',
-            );
-          }
-          sourceNames.add(sourceManifest.source);
-        }
-        const [
-          protocolSources,
-          preloadFile,
-          dappsDirectory,
-          recordingE2EGeneratorFile,
-        ] = await Promise.all([
-          Promise.all(
-            sourceManifests.map(async (sourceManifest) => {
-              const [registryFile, updaterFile, refresherFile] =
-                await Promise.all([
-                  resolveWorkspaceFile(
-                    workspace,
-                    sourceManifest.protocolRegistry,
-                    `${sourceManifest.source}.protocolRegistry`,
-                  ),
-                  resolveWorkspaceFile(
-                    workspace,
-                    sourceManifest.registryUpdater,
-                    `${sourceManifest.source}.registryUpdater`,
-                  ),
-                  sourceManifest.registryRefresher
-                    ? resolveWorkspaceFile(
-                        workspace,
-                        sourceManifest.registryRefresher,
-                        `${sourceManifest.source}.registryRefresher`,
-                      )
-                    : Promise.resolve(null),
-                ]);
-              await readLimitedFile(
-                updaterFile,
-                CUSTOM_INJECTED_UPDATER_MAX_BYTES,
-                `${sourceManifest.source} registry updater`,
-              );
-              if (refresherFile) {
-                await readLimitedFile(
-                  refresherFile,
-                  CUSTOM_INJECTED_REFRESHER_MAX_BYTES,
-                  `${sourceManifest.source} registry refresher`,
-                );
-              }
-              return {
-                source: sourceManifest.source,
-                registryFile,
-                updaterFile,
-                refresherFile,
-                registryStamp: '',
-                registrySha256: '',
-                protocols: [],
-              };
-            }),
-          ),
-          resolveWorkspaceFile(
-            workspace,
-            manifest.desktopPreload,
-            'desktopPreload',
-          ),
-          resolveWorkspaceOutputDirectory(
-            workspace,
-            manifest.dappsDirectory,
-            'dappsDirectory',
-          ),
-          manifest.recordingE2EGenerator
-            ? resolveWorkspaceFile(
-                workspace,
-                manifest.recordingE2EGenerator,
-                'recordingE2EGenerator',
-              )
-            : Promise.resolve(null),
-        ]);
-        if (recordingE2EGeneratorFile) {
-          await readLimitedFile(
-            recordingE2EGeneratorFile,
-            CUSTOM_INJECTED_E2E_GENERATOR_MAX_BYTES,
-            'Custom injection recording E2E generator',
-          );
-        }
+        await readLimitedFile(
+          workspaceCliFile,
+          CUSTOM_INJECTED_E2E_GENERATOR_MAX_BYTES,
+          'Custom injection workspace CLI',
+        );
+        const snapshot = await inspectCustomInjectedWorkspaceWithCli({
+          workspace,
+          workspaceCliFile,
+        });
         const customSession: ICustomInjectedWorkspaceSession = {
           sessionId: crypto.randomUUID(),
           workspace,
-          protocolSources,
-          preloadFile,
-          dappsDirectory,
-          recordingE2EGeneratorFile,
-          preloadStamp: '',
-          registrySha256: '',
-          bundleSha256: '',
-          protocols: [],
+          workspaceCliFile,
+          ...snapshot,
           active: false,
         };
-        await refreshCustomInjectedSession(customSession);
-        if (customSession.protocols.length === 0) {
-          throw new OneKeyLocalError(
-            'Custom injection registry has no supported active protocols',
-          );
-        }
         customInjectedSessions.set(customSession.sessionId, customSession);
         return {
           sessionId: customSession.sessionId,
           workspace,
-          protocolSources: protocolSources.map(
+          protocolSources: customSession.protocolSources.map(
             ({ source, registryFile, refresherFile }) => ({
               source,
               protocolRegistry: path.relative(workspace, registryFile),
@@ -2234,8 +2032,11 @@ class DesktopApiNetwork {
                 : null,
             }),
           ),
-          desktopPreload: path.relative(workspace, preloadFile),
-          dappsDirectory: path.relative(workspace, dappsDirectory),
+          desktopPreload: path.relative(workspace, customSession.preloadFile),
+          dappsDirectory: path.relative(
+            workspace,
+            customSession.dappsDirectory,
+          ),
           protocolCount: customSession.protocols.length,
           pendingCount: customSession.protocols.filter(
             (protocol) => protocol.manualReview.state === 'pending',
@@ -3198,9 +2999,7 @@ class DesktopApiNetwork {
         }
         if (currentHostname !== reportedHostname) {
           throw new OneKeyLocalError(
-            `Custom injection review page hostname mismatch for "${
-              protocol.key
-            }": actual="${
+            `Custom injection review page hostname mismatch for "${protocol.key}": actual="${
               reportedHostname || '<invalid>'
             }" (reported page), expected="${currentHostname}" (active WebView)`,
           );

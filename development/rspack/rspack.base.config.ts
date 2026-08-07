@@ -292,41 +292,41 @@ function buildProductionDesktopModuleReplacementPlugins(
   }
 
   // Custom Injection is a development-build capability. Keep its source and
-  // tests available to development builds, while resolving every production
-  // entry point to the last feature-free implementation. This removes the
-  // implementation from the module graph instead of relying on runtime flags.
+  // tests available to development builds, while resolving each production
+  // extension point to its feature-free implementation. This keeps shared UI
+  // in one file and removes development modules from the production graph.
   const replacements: Array<[RegExp, string]> = [
     [
       /[\\/]components[\\/]WebView(?:[\\/]index(?:\.desktop)?)?(?:\.[jt]sx?)?$/,
       '../../packages/kit/src/components/WebView/index.tsx',
     ],
     [
-      /[\\/]InpageProviderWebView(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/components/WebView/InpageProviderWebView.production.desktop.tsx',
+      /[\\/]developmentDesktopInpageProviderProps(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/components/WebView/developmentDesktopInpageProviderProps.ts',
     ],
     [
-      /[\\/]DesktopWebView(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/components/WebView/DesktopWebView.production.tsx',
+      /[\\/]developmentDesktopWebView(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/components/WebView/developmentDesktopWebView.ts',
     ],
     [
-      /[\\/]WebContent[\\/]WebContent(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/components/WebContent/WebContent.production.desktop.tsx',
+      /[\\/]developmentDesktopWebContent(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/views/Discovery/components/WebContent/developmentDesktopWebContent.ts',
     ],
     [
-      /[\\/]Browser[\\/]Browser(?:\.desktop)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/pages/Browser/Browser.production.desktop.tsx',
+      /[\\/]developmentDesktopBrowser(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowser.ts',
     ],
     [
-      /[\\/]DesktopBrowserContent(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/pages/Browser/DesktopBrowserContent.production.tsx',
+      /[\\/]developmentDesktopBrowserContent(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/views/Discovery/pages/Browser/developmentDesktopBrowserContent.ts',
     ],
     [
-      /[\\/]views[\\/]Discovery[\\/]router(?:[\\/]index)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/views/Discovery/router/index.production.tsx',
+      /[\\/]developmentDesktopModalRoutes(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/views/Discovery/router/developmentDesktopModalRoutes.ts',
     ],
     [
-      /[\\/]routes[\\/]config[\\/]deeplink(?:[\\/]index)?(?:\.[jt]sx?)?$/,
-      '../../packages/kit/src/routes/config/deeplink/index.production.ts',
+      /[\\/]developmentDesktopDeepLink(?:\.desktop)?(?:\.[jt]sx?)?$/,
+      '../../packages/kit/src/routes/config/deeplink/developmentDesktopDeepLink.ts',
     ],
     [
       /[\\/]routes[\\/]discovery(?:\.desktop)?(?:\.[jt]sx?)?$/,
