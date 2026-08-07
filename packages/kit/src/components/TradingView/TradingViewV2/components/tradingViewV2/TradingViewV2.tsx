@@ -689,6 +689,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
         maxSubIndicatorCount={maxNativeSubIndicatorCount}
+        splitSections={nativeControlsLayoutMode === 'mobile'}
         onIndicatorSelect={handleNativeIndicatorSelect}
         onControlInteraction={handleNativeControlInteraction}
       />
@@ -700,6 +701,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     maxNativeSubIndicatorCount,
     nativeChartControlsConfig,
     nativeIndicatorState,
+    nativeControlsLayoutMode,
     showNativeIndicatorQuickBar,
   ]);
 
