@@ -468,11 +468,16 @@ export class IndexedDBPromised<
   }
 
   async open(): Promise<IDBDatabase> {
-    if (this.nativeDB) {
-      return this.nativeDB;
-    }
+    // Check the in-flight promise BEFORE the cached handle: `onupgradeneeded`
+    // publishes `this.nativeDB` early (the upgrade callback needs it for
+    // `this.transaction()`), so while an upgrade is running the cached handle
+    // is a half-open connection. Callers must wait for `onsuccess` instead of
+    // starting normal transactions against it.
     if (this.openPromise) {
       return this.openPromise;
+    }
+    if (this.nativeDB) {
+      return this.nativeDB;
     }
     this.openPromise = this.doOpen();
     try {

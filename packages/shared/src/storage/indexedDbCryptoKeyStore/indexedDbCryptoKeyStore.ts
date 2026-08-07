@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import storageChecker from '../../storageChecker/storageChecker';
 import appStorage from '../appStorage';
 
 /**
@@ -241,6 +242,10 @@ export async function writeCryptoKeyRecord({
   key: CryptoKey;
   keyRef: string;
 }): Promise<void> {
+  // Raw write path (bypasses IndexedDBPromised): apply the same disk-full
+  // guard contract so it fails fast with the typed error instead of an opaque
+  // aborted transaction. Deletes stay unguarded — they free space.
+  storageChecker.checkIfDiskIsFullSync();
   const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
   try {
     const transaction = db.transaction(
@@ -324,6 +329,8 @@ export async function getOrCreateCryptoKey({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<CryptoKey> {
+  // Same raw-write-path guard as `writeCryptoKeyRecord`.
+  storageChecker.checkIfDiskIsFullSync();
   const candidateKey = await generateNonExtractableAesGcmKey({ cryptoGlobal });
   const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
   try {
