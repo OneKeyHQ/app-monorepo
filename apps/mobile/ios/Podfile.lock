@@ -4711,7 +4711,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - SniConnect (3.0.81-alpha.8):
+  - SniConnect (3.0.81-alpha.9):
     - boost
     - DoubleConversion
     - EMASCurl (= 1.5.5)
@@ -5589,7 +5589,7 @@ SPEC CHECKSUMS:
   SegmentSlider: e3507345e9bf6a48fd301181765d056a70420512
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
   Skeleton: e04f3e3d91865cdb03ef256a095d128688acf3fb
-  SniConnect: eedfc71592e4f908f6a08f95db07796b9ea77229
+  SniConnect: eb28a03028065e205739894cb10be4c80b8cabd5
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
