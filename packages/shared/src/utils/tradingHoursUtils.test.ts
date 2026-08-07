@@ -230,7 +230,18 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBeUndefined();
   });
 
-  it('prioritizes halt over everything', () => {
+  it('keeps an explicitly non-tradable paused instrument halted', () => {
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: false,
+        isPaused: true,
+        status: status('REGULAR'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
+  it('marks a paused but explicitly tradable instrument as ClosedTradable', () => {
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
@@ -238,7 +249,7 @@ describe('resolveUSMarketStatusVariant', () => {
         isPaused: true,
         status: status('REGULAR'),
       }),
-    ).toBe(EUSMarketStatusVariant.Halted);
+    ).toBe(EUSMarketStatusVariant.ClosedTradable);
   });
 
   it('honors the per-stock closed signal', () => {
@@ -292,7 +303,7 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.ClosedTradable);
   });
 
-  it('marks inter-session gaps as halted', () => {
+  it('keeps explicitly tradable instruments tradable during session gaps', () => {
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSMarketStatusVariant({
@@ -301,7 +312,7 @@ describe('resolveUSMarketStatusVariant', () => {
         status: status('REGULAR'),
         now: GAP_NOW,
       }),
-    ).toBe(EUSMarketStatusVariant.Halted);
+    ).toBe(EUSMarketStatusVariant.ClosedTradable);
     // …and applies on the pure clock fallback as well.
     expect(
       resolveUSMarketStatusVariant({
@@ -309,7 +320,7 @@ describe('resolveUSMarketStatusVariant', () => {
         isOpen: true,
         now: GAP_NOW,
       }),
-    ).toBe(EUSMarketStatusVariant.Halted);
+    ).toBe(EUSMarketStatusVariant.ClosedTradable);
   });
 
   it('falls back to clock math when the status API is unavailable', () => {

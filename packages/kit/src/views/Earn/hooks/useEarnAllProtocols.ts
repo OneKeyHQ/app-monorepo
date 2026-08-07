@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { parseFormattedLiquidityValue } from '../utils/availableAssetsUtils';
@@ -15,7 +16,7 @@ export type IEarnProtocolTokenRow = {
 export type IEarnAggregatedProvider = {
   /** Provider identifier (server-issued name, lowercased) */
   provider: string;
-  /** Display name (taken from the first protocol row's provider.name) */
+  /** Display name in canonical casing (OK-59245) */
   providerName: string;
   logoURI: string;
   /** Total TVL across all vaults/tokens (USD number, for sorting/display only) */
@@ -61,6 +62,9 @@ async function fetchListsBySymbol(
             symbol,
             await backgroundApiProxy.serviceStaking.getProtocolList({
               symbol,
+              // Keep parity with the fast path (OK-59305): withdraw-only
+              // protocols must stay reachable for users holding positions
+              includeWithdrawOnly: true,
             }),
           );
         } catch {
@@ -91,7 +95,8 @@ function mergeItemIntoProviderMap(
   } else {
     providerMap.set(providerKey, {
       provider: providerKey,
-      providerName: item.provider.name,
+      // OK-59245: canonical display casing, same as the token protocol list
+      providerName: getEarnProviderDisplayName(item.provider.name),
       logoURI: item.provider.logoURI,
       tvlValue,
       tokens: [{ symbol, item, tvlValue }],
