@@ -293,6 +293,15 @@ describe('TradingViewNative shared chart scene', () => {
     const text = scene.commands.flatMap((command) =>
       command.kind === 'text' ? [command.text] : [],
     );
+    const linePrice = scene.commands.find(
+      (command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        command.text === '110.00',
+    );
+    const linePriceChange = scene.commands.find(
+      (command) => command.kind === 'text' && command.text === '+10 (+10%)',
+    );
 
     expect(line).toMatchObject({
       kind: 'polyline',
@@ -306,6 +315,8 @@ describe('TradingViewNative shared chart scene', () => {
       paint: 'line',
       radius: 2.5,
     });
+    expect(linePrice).toMatchObject({ paint: 'line' });
+    expect(linePriceChange).toMatchObject({ paint: 'up' });
     expect(text).toEqual(expect.arrayContaining(['Price', '+10 (+10%)']));
     expect(text).not.toEqual(expect.arrayContaining(['O', 'H', 'L', 'C']));
     expect(
@@ -319,6 +330,38 @@ describe('TradingViewNative shared chart scene', () => {
         (command) => command.kind === 'line' && command.paint === 'axisText',
       ),
     ).toBe(false);
+  });
+
+  it('colors a negative line price change with the down paint', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'line',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      points: [
+        { c: 100, h: 100, l: 100, o: 100, t: 1_700_000_000, v: 0 },
+        { c: 90, h: 100, l: 90, o: 100, t: 1_700_003_600, v: 0 },
+      ],
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(
+      scene.commands.find(
+        (command) =>
+          command.kind === 'text' &&
+          command.font === 'legend' &&
+          command.text === '90.00',
+      ),
+    ).toMatchObject({ paint: 'line' });
+    expect(
+      scene.commands.find(
+        (command) => command.kind === 'text' && command.text === '-10 (-10%)',
+      ),
+    ).toMatchObject({ paint: 'down' });
   });
 
   it('keeps a long price change visible on narrow charts', () => {
