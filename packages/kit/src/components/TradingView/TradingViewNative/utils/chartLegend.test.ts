@@ -25,7 +25,11 @@ describe('TradingViewNative chart legend', () => {
         { label: 'H', value: '125.00' },
         { label: 'L', value: '119.50' },
         { label: 'C', value: '123.46' },
-        { label: '', value: '+3.45679 (+2.88%)' },
+        {
+          label: '',
+          value: '+3.45679 (+2.88%)',
+          valueColorRole: 'trend',
+        },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
     });
@@ -61,7 +65,7 @@ describe('TradingViewNative chart legend', () => {
       isUp: false,
       priceItems: [
         { label: 'Price', value: '9.00' },
-        { label: '', value: '-1 (-10%)' },
+        { label: '', value: '-1 (-10%)', valueColorRole: 'trend' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
     });
@@ -85,6 +89,7 @@ describe('TradingViewNative chart legend', () => {
     expect(legend.priceItems.at(-1)).toEqual({
       label: '',
       value: '+1 (+1%)',
+      valueColorRole: 'trend',
     });
   });
 
