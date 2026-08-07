@@ -16,8 +16,7 @@ export type IDeviceStageStep =
   | 'connecting'
   | 'enterPin'
   | 'enterPassphrase'
-  | 'confirm'
-  | 'done';
+  | 'confirm';
 
 export interface IDeviceStageProps {
   /** Controlled visibility, passed straight through to the dialog. */
