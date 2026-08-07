@@ -64,6 +64,19 @@ describe('storageChecker', () => {
         EStorageFullReason.WriteFailed,
       );
     });
+
+    it('matches a standard DOMException by name, not only by message', () => {
+      // The spec-shaped quota failure: the type lives in `name`, while the
+      // message is a generic sentence that never mentions the error type.
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+      expect(storageChecker.getLastDiagnostics()?.errorMessage).toBe(
+        'QuotaExceededError: The quota has been exceeded.',
+      );
+    });
   });
 
   describe('isConnectionClosingError', () => {
@@ -76,7 +89,9 @@ describe('storageChecker', () => {
         ),
       ).toBe(true);
       expect(
-        storageChecker.isConnectionClosingError(new Error('QuotaExceededError')),
+        storageChecker.isConnectionClosingError(
+          new Error('QuotaExceededError'),
+        ),
       ).toBe(false);
     });
   });

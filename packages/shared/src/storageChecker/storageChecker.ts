@@ -57,6 +57,18 @@ function getErrorMessage(error: unknown): string | undefined {
 }
 
 /**
+ * `name` + `message` combined. A standard quota failure is a `DOMException`
+ * whose `name` is `QuotaExceededError` while its `message` is often just
+ * "The quota has been exceeded." — matching on the message alone misses it.
+ */
+function getErrorText(error: unknown): string {
+  const err = error as Partial<DOMException> | undefined;
+  const name = typeof err?.name === 'string' ? err.name : '';
+  const message = typeof err?.message === 'string' ? err.message : '';
+  return [name, message].filter(Boolean).join(': ');
+}
+
+/**
  * A dead cached `IDBDatabase` handle, not a storage-space problem. Exposed so
  * `IndexedDBPromised` can drop the handle and reopen instead of surfacing it
  * to the user as "disk is full".
@@ -111,16 +123,16 @@ function handleDiskFullError(error: unknown) {
   if (platformEnv.isWebDappMode) {
     return;
   }
-  const errorMessage = getErrorMessage(error);
-  if (!errorMessage) {
+  const errorText = getErrorText(error);
+  if (!errorText) {
     return;
   }
-  if (!diskFullErrorMessages.some((message) => errorMessage.includes(message))) {
+  if (!diskFullErrorMessages.some((message) => errorText.includes(message))) {
     return;
   }
   raiseDiskFull({
     reason: EStorageFullReason.WriteFailed,
-    errorMessage,
+    errorMessage: errorText,
     quotaInfo: lastQuotaInfo,
   });
 }
