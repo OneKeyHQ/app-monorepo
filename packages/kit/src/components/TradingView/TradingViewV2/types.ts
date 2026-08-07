@@ -3,6 +3,7 @@ export interface ITradingViewHistoryData {
   resolution: string;
   from: number;
   to: number;
+  countBack?: number;
   firstDataRequest: boolean;
 }
 

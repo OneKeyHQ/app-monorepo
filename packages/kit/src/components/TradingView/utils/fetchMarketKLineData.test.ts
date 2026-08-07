@@ -3,7 +3,10 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { fetchMarketKLineData } from './fetchMarketKLineData';
+import {
+  fetchMarketKLineData,
+  fetchMarketKLineDataWithSlicing,
+} from './fetchMarketKLineData';
 
 type IFetchMarketTokenKline = (params: {
   tokenAddress: string;
@@ -30,6 +33,17 @@ function asRuntimeKLineResponse(points: unknown[]): IMarketTokenKLineResponse {
   return {
     points: points as IMarketTokenKLineDataPoint[],
     total: points.length,
+  };
+}
+
+function buildKLinePoint(t: number): IMarketTokenKLineDataPoint {
+  return {
+    o: t,
+    h: t,
+    l: t,
+    c: t,
+    v: 1,
+    t,
   };
 }
 
@@ -154,5 +168,50 @@ describe('fetchMarketKLineData', () => {
       total: 1,
     });
     expect(onFallbackKLineData).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fetchMarketKLineDataWithSlicing', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('backfills points before timeFrom to satisfy countBack', async () => {
+    mockFetchMarketTokenKline
+      .mockResolvedValueOnce(
+        asRuntimeKLineResponse([buildKLinePoint(700), buildKLinePoint(900)]),
+      )
+      .mockResolvedValueOnce(asRuntimeKLineResponse([buildKLinePoint(1020)]));
+
+    const result = await fetchMarketKLineDataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1060,
+      countBack: 3,
+    });
+
+    expect(result?.points.map((point) => point.t)).toEqual([700, 900, 1020]);
+    expect(result?.total).toBe(3);
+  });
+
+  it('keeps the original time range when countBack is unavailable', async () => {
+    mockFetchMarketTokenKline
+      .mockResolvedValueOnce(
+        asRuntimeKLineResponse([buildKLinePoint(700), buildKLinePoint(900)]),
+      )
+      .mockResolvedValueOnce(asRuntimeKLineResponse([buildKLinePoint(1020)]));
+
+    const result = await fetchMarketKLineDataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1060,
+    });
+
+    expect(result?.points.map((point) => point.t)).toEqual([1020]);
+    expect(result?.total).toBe(1);
   });
 });

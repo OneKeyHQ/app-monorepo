@@ -77,6 +77,7 @@ Chart requests history with:
     resolution,
     from,
     to,
+    countBack,
     firstDataRequest,
   },
 }

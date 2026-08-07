@@ -284,6 +284,13 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+    const rawCountBack = safeData.countBack;
+    const countBack =
+      typeof rawCountBack === 'number' &&
+      Number.isFinite(rawCountBack) &&
+      rawCountBack > 0
+        ? Math.floor(rawCountBack)
+        : undefined;
     const isFirstDataRequest = safeData.firstDataRequest === true;
 
     if (context.onCurrentKLineResolutionChange) {
@@ -317,6 +324,7 @@ export async function handleKLineDataRequest({
             interval: resolution,
             timeFrom: from,
             timeTo: to,
+            countBack,
             autoHandleError: shouldSuppressKLineError ? false : undefined,
             kLineDataFallback: context.kLineDataFallback,
             primaryKLineDataUnavailable: context.primaryKLineDataUnavailable,

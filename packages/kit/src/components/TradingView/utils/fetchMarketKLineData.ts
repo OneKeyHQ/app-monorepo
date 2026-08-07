@@ -52,6 +52,7 @@ export interface IFetchMarketKLineDataParams {
   interval: string;
   timeFrom: number;
   timeTo: number;
+  countBack?: number;
   autoHandleError?: boolean;
   kLineDataFallback?: IMarketKLineDataFallback;
   onPointType?: (pointType: IMarketKLinePointType) => void;
@@ -64,20 +65,26 @@ function normalizeKLinePoints({
   points,
   timeFrom = Number.NEGATIVE_INFINITY,
   timeTo = Number.POSITIVE_INFINITY,
+  countBack,
 }: {
   points: IMarketTokenKLineDataPoint[];
   timeFrom?: number;
   timeTo?: number;
+  countBack?: number;
 }): {
   pointType: IMarketKLinePointType;
   points: IMarketTokenKLineDataPoint[];
 } {
+  const normalizedCountBack =
+    typeof countBack === 'number' && Number.isFinite(countBack) && countBack > 0
+      ? Math.floor(countBack)
+      : undefined;
   const pointsByTimestamp = new Map<number, INormalizedKLineValues>();
 
   for (const point of points) {
     const normalizedValues = getNormalizedKLineValues({
       point,
-      timeFrom,
+      timeFrom: normalizedCountBack ? Number.NEGATIVE_INFINITY : timeFrom,
       timeTo,
     });
     if (normalizedValues) {
@@ -85,9 +92,25 @@ function normalizeKLinePoints({
     }
   }
 
-  const normalizedValues = Array.from(pointsByTimestamp.values()).toSorted(
+  let normalizedValues = Array.from(pointsByTimestamp.values()).toSorted(
     (a, b) => a.t - b.t,
   );
+  if (normalizedCountBack) {
+    const requestedValues = normalizedValues.filter(
+      (point) => point.t >= timeFrom,
+    );
+    const missingCount = Math.max(
+      normalizedCountBack - requestedValues.length,
+      0,
+    );
+    const earlierValues =
+      missingCount > 0
+        ? normalizedValues
+            .filter((point) => point.t < timeFrom)
+            .slice(-missingCount)
+        : [];
+    normalizedValues = [...earlierValues, ...requestedValues];
+  }
   const pointType =
     normalizedValues.length > 0 &&
     normalizedValues.every((point) => point.pointType === 'single')
@@ -375,6 +398,7 @@ export async function fetchMarketKLineDataWithSlicing({
   interval,
   timeFrom,
   timeTo,
+  countBack,
   autoHandleError,
   kLineDataFallback,
   onPointType,
@@ -433,6 +457,7 @@ export async function fetchMarketKLineDataWithSlicing({
         points: mergedPoints,
         timeFrom,
         timeTo,
+        countBack,
       });
       mergedData = {
         ...mergedData,

@@ -33,8 +33,10 @@ const mockFetchTradingViewV2DataWithSlicing =
 
 function buildHistoryMessage({
   firstDataRequest,
+  countBack = 300,
 }: {
   firstDataRequest: boolean;
+  countBack?: number;
 }): ICustomReceiveHandlerData['data'] {
   return {
     scope: '$private',
@@ -45,6 +47,7 @@ function buildHistoryMessage({
       resolution: '1',
       from: 1000,
       to: 2000,
+      countBack,
       firstDataRequest,
     },
   };
@@ -91,6 +94,9 @@ describe('handleKLineDataRequest', () => {
 
     expect(context.onKLineLoadError).not.toHaveBeenCalled();
     expect(context.onKLineDataReady).not.toHaveBeenCalled();
+    expect(mockFetchTradingViewV2DataWithSlicing).toHaveBeenCalledWith(
+      expect.objectContaining({ countBack: 300 }),
+    );
     expect(sendMessageViaInjectedScript).toHaveBeenCalledWith({
       type: 'kLineData',
       payload: expect.objectContaining({
