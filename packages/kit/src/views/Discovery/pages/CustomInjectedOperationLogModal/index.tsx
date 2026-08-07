@@ -17,11 +17,11 @@ import {
   setCustomInjectedOperationLogAppStartedAt,
   setCustomInjectedOperationLogVisibleAfter,
 } from '@onekeyhq/kit/src/utils/customInjectedOperationLogRuntime';
-import type { ICustomInjectedOperationLogRecord } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import type {
-  EDiscoveryModalRoutes,
-  IDiscoveryModalParamList,
-} from '@onekeyhq/shared/src/routes/discovery.desktop';
+  ECustomInjectedModalRoutes,
+  ICustomInjectedModalParamList,
+} from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import type { ICustomInjectedOperationLogRecord } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -144,8 +144,7 @@ function coreMessage(record: ICustomInjectedOperationLogRecord): string {
 function getLogLevel(record: ICustomInjectedOperationLogRecord): ILogLevel {
   if (
     record.status === 'error' ||
-    (record.status === 'result' &&
-      objectField(record.result, 'passed') === false)
+    (record.status === 'result' && objectField(record.result, 'passed') === false)
   ) {
     return 'error';
   }
@@ -158,19 +157,12 @@ function emptyResultsMessage(loading: boolean, hasRecords: boolean): string {
   return 'No new logs.';
 }
 
-function isAfterCursor(
-  record: ICustomInjectedOperationLogRecord,
-  cursor: number,
-): boolean {
+function isAfterCursor(record: ICustomInjectedOperationLogRecord, cursor: number): boolean {
   const timestamp = Date.parse(record.timestamp);
   return Number.isFinite(timestamp) && timestamp > cursor;
 }
 
-function LogRecordCard({
-  record,
-}: {
-  record: ICustomInjectedOperationLogRecord;
-}) {
+function LogRecordCard({ record }: { record: ICustomInjectedOperationLogRecord }) {
   const [expanded, setExpanded] = useState(false);
   const logLevel = getLogLevel(record);
   const levelConfig = LOG_LEVEL_CONFIG[logLevel];
@@ -200,25 +192,11 @@ function LogRecordCard({
         testID={`custom-injected-operation-log-${record.operationId}-${logLevel}-toggle`}
         onPress={() => setExpanded((value) => !value)}
       >
-        <Icon
-          color={levelConfig.iconColor}
-          name={levelConfig.icon}
-          size="$3.5"
-        />
-        <SizableText
-          color="$textSubdued"
-          flexShrink={0}
-          fontFamily="$monoRegular"
-          size="$bodyXs"
-        >
+        <Icon color={levelConfig.iconColor} name={levelConfig.icon} size="$3.5" />
+        <SizableText color="$textSubdued" flexShrink={0} fontFamily="$monoRegular" size="$bodyXs">
           {formattedTimestamp}
         </SizableText>
-        <SizableText
-          flexShrink={0}
-          maxWidth={176}
-          numberOfLines={1}
-          size="$bodySmMedium"
-        >
+        <SizableText flexShrink={0} maxWidth={176} numberOfLines={1} size="$bodySmMedium">
           {OPERATION_LABELS[record.operation] || record.operation}
         </SizableText>
         {message ? (
@@ -236,12 +214,7 @@ function LogRecordCard({
           <XStack flex={1} />
         )}
         {record.protocol ? (
-          <SizableText
-            color="$textSubdued"
-            maxWidth={120}
-            numberOfLines={1}
-            size="$bodyXs"
-          >
+          <SizableText color="$textSubdued" maxWidth={120} numberOfLines={1} size="$bodyXs">
             {record.protocol.name}
           </SizableText>
         ) : null}
@@ -282,16 +255,9 @@ function LogRecordCard({
 
 export default function CustomInjectedOperationLogModal() {
   const route =
-    useRoute<
-      RouteProp<
-        IDiscoveryModalParamList,
-        EDiscoveryModalRoutes.CustomInjectedOperationLogs
-      >
-    >();
+    useRoute<RouteProp<ICustomInjectedModalParamList, ECustomInjectedModalRoutes.OperationLogs>>();
   const { sessionId } = route.params;
-  const [records, setRecords] = useState<ICustomInjectedOperationLogRecord[]>(
-    [],
-  );
+  const [records, setRecords] = useState<ICustomInjectedOperationLogRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingLog, setOpeningLog] = useState(false);
   const [error, setError] = useState<string>();
@@ -313,19 +279,11 @@ export default function CustomInjectedOperationLogModal() {
       }
       try {
         const nextRecords =
-          await globalThis.desktopApiProxy.webview.getCustomInjectedRecentOperationLogs(
-            sessionId,
-          );
-        setRecords(
-          nextRecords.filter((record) =>
-            isAfterCursor(record, visibleAfterRef.current),
-          ),
-        );
+          await globalThis.desktopApiProxy.webview.getCustomInjectedRecentOperationLogs(sessionId);
+        setRecords(nextRecords.filter((record) => isAfterCursor(record, visibleAfterRef.current)));
       } catch (loadError) {
         if (showLoading) {
-          setError(
-            loadError instanceof Error ? loadError.message : String(loadError),
-          );
+          setError(loadError instanceof Error ? loadError.message : String(loadError));
         }
       } finally {
         if (showLoading) setLoading(false);
@@ -339,14 +297,9 @@ export default function CustomInjectedOperationLogModal() {
     const initializeLogs = async () => {
       const webviewApi = globalThis.desktopApiProxy?.webview;
       try {
-        if (
-          typeof webviewApi?.getCustomInjectedOperationLogAppStartedAt ===
-          'function'
-        ) {
+        if (typeof webviewApi?.getCustomInjectedOperationLogAppStartedAt === 'function') {
           setCustomInjectedOperationLogAppStartedAt(
-            await Promise.resolve(
-              webviewApi.getCustomInjectedOperationLogAppStartedAt(),
-            ),
+            await Promise.resolve(webviewApi.getCustomInjectedOperationLogAppStartedAt()),
           );
         }
       } catch {
@@ -378,10 +331,7 @@ export default function CustomInjectedOperationLogModal() {
     setCustomInjectedOperationLogVisibleAfter(sessionId, cursor);
   }, [sessionId]);
 
-  const visibleRecords = useMemo(
-    () => records.filter(isVisibleRecord),
-    [records],
-  );
+  const visibleRecords = useMemo(() => records.filter(isVisibleRecord), [records]);
   const levelCounts = useMemo(
     () =>
       visibleRecords.reduce<Record<ILogLevel, number>>(
@@ -394,18 +344,13 @@ export default function CustomInjectedOperationLogModal() {
     [visibleRecords],
   );
   const newestFirstRecords = useMemo(
-    () =>
-      visibleRecords
-        .filter((record) => levelFilter.includes(getLogLevel(record)))
-        .toReversed(),
+    () => visibleRecords.filter((record) => levelFilter.includes(getLogLevel(record))).toReversed(),
     [levelFilter, visibleRecords],
   );
 
   const toggleLevelFilter = useCallback((level: ILogLevel) => {
     setLevelFilter((current) =>
-      current.includes(level)
-        ? current.filter((value) => value !== level)
-        : [...current, level],
+      current.includes(level) ? current.filter((value) => value !== level) : [...current, level],
     );
   }, []);
 
@@ -414,14 +359,10 @@ export default function CustomInjectedOperationLogModal() {
     setOpeningLog(true);
     setError(undefined);
     try {
-      await globalThis.desktopApiProxy.webview.openCustomInjectedOperationLogFile(
-        sessionId,
-      );
+      await globalThis.desktopApiProxy.webview.openCustomInjectedOperationLogFile(sessionId);
       await refresh();
     } catch (openError) {
-      setError(
-        openError instanceof Error ? openError.message : String(openError),
-      );
+      setError(openError instanceof Error ? openError.message : String(openError));
     } finally {
       setOpeningLog(false);
     }
@@ -441,14 +382,10 @@ export default function CustomInjectedOperationLogModal() {
             <Button
               aria-pressed={levelFilter.length === LOG_FILTER_ORDER.length}
               backgroundColor={
-                levelFilter.length === LOG_FILTER_ORDER.length
-                  ? '$bgInfoSubdued'
-                  : '$bgStrong'
+                levelFilter.length === LOG_FILTER_ORDER.length ? '$bgInfoSubdued' : '$bgStrong'
               }
               borderColor={
-                levelFilter.length === LOG_FILTER_ORDER.length
-                  ? '$borderInfo'
-                  : '$transparent'
+                levelFilter.length === LOG_FILTER_ORDER.length ? '$borderInfo' : '$transparent'
               }
               h="$6"
               px="$1.5"
@@ -467,9 +404,7 @@ export default function CustomInjectedOperationLogModal() {
                 <Button
                   key={level}
                   aria-pressed={selected}
-                  backgroundColor={
-                    selected ? config.backgroundColor : '$bgStrong'
-                  }
+                  backgroundColor={selected ? config.backgroundColor : '$bgStrong'}
                   borderColor={selected ? config.borderColor : '$transparent'}
                   childrenAsText={false}
                   h="$6"
@@ -481,11 +416,7 @@ export default function CustomInjectedOperationLogModal() {
                   onPress={() => toggleLevelFilter(level)}
                 >
                   <XStack alignItems="center" gap="$1">
-                    <Icon
-                      color={config.iconColor}
-                      name={config.icon}
-                      size="$3"
-                    />
+                    <Icon color={config.iconColor} name={config.icon} size="$3" />
                     <SizableText
                       color={selected ? config.textColor : '$textSubdued'}
                       size="$bodyXsMedium"
@@ -524,11 +455,7 @@ export default function CustomInjectedOperationLogModal() {
               {error}
             </SizableText>
           ) : null}
-          <ScrollView
-            flex={1}
-            minHeight={400}
-            testID="custom-injected-operation-logs-scroll"
-          >
+          <ScrollView flex={1} minHeight={400} testID="custom-injected-operation-logs-scroll">
             <YStack gap="$1" testID="custom-injected-operation-logs">
               {newestFirstRecords.map((record) => (
                 <LogRecordCard

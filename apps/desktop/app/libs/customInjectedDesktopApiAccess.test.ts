@@ -4,10 +4,21 @@ import path from 'path';
 import {
   assertCustomInjectedDesktopApiAccess,
   isAllowedCustomInjectedWebviewApiMethod,
+  resolveCustomInjectedDesktopApiAccessFlag,
 } from './customInjectedDesktopApiAccess';
 import { isTrustedDesktopApiRendererUrl } from './trustedDesktopApiRenderer';
 
 describe('Custom Injection Desktop API access', () => {
+  test('falls back only when the primary cross-process setting is unavailable', () => {
+    expect(resolveCustomInjectedDesktopApiAccessFlag(undefined, true)).toBe(
+      true,
+    );
+    expect(resolveCustomInjectedDesktopApiAccessFlag(undefined, false)).toBe(
+      false,
+    );
+    expect(resolveCustomInjectedDesktopApiAccessFlag(false, true)).toBe(false);
+  });
+
   test('requires both developer mode and the Custom Injection switch', () => {
     expect(() =>
       assertCustomInjectedDesktopApiAccess({

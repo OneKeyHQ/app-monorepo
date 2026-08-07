@@ -3,29 +3,17 @@ import { useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { setStringAsync } from 'expo-clipboard';
 
-import {
-  Button,
-  Page,
-  ScrollView,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Page, ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type {
-  EDiscoveryModalRoutes,
-  IDiscoveryModalParamList,
-} from '@onekeyhq/shared/src/routes/discovery.desktop';
+  ECustomInjectedModalRoutes,
+  ICustomInjectedModalParamList,
+} from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
 
 import type { RouteProp } from '@react-navigation/core';
 
 export default function CustomInjectedE2EErrorDetailModal() {
   const route =
-    useRoute<
-      RouteProp<
-        IDiscoveryModalParamList,
-        EDiscoveryModalRoutes.CustomInjectedE2EErrorDetail
-      >
-    >();
+    useRoute<RouteProp<ICustomInjectedModalParamList, ECustomInjectedModalRoutes.E2EErrorDetail>>();
   const { errorLog, protocolName } = route.params;
   const [copyStatus, setCopyStatus] = useState<{
     error: boolean;

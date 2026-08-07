@@ -2,7 +2,11 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
-import type { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
@@ -16,20 +20,22 @@ import type {
 } from '../../states/jotai/atoms/devSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
-const developmentDesktopSyncStorageKey =
-  'onekey_custom_injection_enabled' as EDevSettingSyncStorageKeys;
-
 export function syncDevelopmentDesktopSettings({
   devSettings,
 }: {
   devSettings: IDevSettingsPersistAtom;
 }): void {
-  devSettingSyncStorage.set(
-    developmentDesktopSyncStorageKey,
-    Boolean(
-      devSettings.enabled &&
+  const enabled = Boolean(
+    devSettings.enabled &&
       devSettings.settings?.customInjection?.enabled === true,
-    ),
+  );
+  devSettingSyncStorage.set(
+    EDevSettingSyncStorageKeys.onekey_custom_injection_enabled,
+    enabled,
+  );
+  syncStorage.set(
+    EAppSyncStorageKeys.onekey_custom_injection_enabled,
+    enabled,
   );
 }
 

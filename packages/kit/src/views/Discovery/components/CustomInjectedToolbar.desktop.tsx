@@ -51,13 +51,16 @@ import type {
   ICustomInjectedE2EWorkflowSummary,
   ICustomInjectedSession,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ICustomInjectedE2EOutcome,
-  IDiscoveryModalParamList,
-} from '@onekeyhq/shared/src/routes/discovery.desktop';
-import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery.desktop';
+  ICustomInjectedModalParamList,
+} from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import {
+  ECustomInjectedModalRoutes,
+  buildCustomInjectedModalParams,
+} from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
@@ -248,7 +251,7 @@ export default function CustomInjectedToolbar({
   onReload,
 }: ICustomInjectedToolbarProps) {
   const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+    useAppNavigation<IPageNavigationProp<ICustomInjectedModalParamList>>();
   const [customSession, setCustomSession] =
     useState<ICustomInjectedSession>(activeSession);
   const [e2eState, setE2EState] = useState<ICustomInjectedE2EWorkflowState>();
@@ -580,13 +583,13 @@ export default function CustomInjectedToolbar({
 
   const showProtocolList = useCallback(() => {
     if (!customSession || protocolSwitchingLocked) return;
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.CustomInjectedProtocolList,
-      params: {
+    navigation.pushModal(
+      EModalRoutes.DiscoveryModal,
+      buildCustomInjectedModalParams(ECustomInjectedModalRoutes.ProtocolList, {
         sessionId: customSession.sessionId,
         selectedProtocolId,
-      },
-    });
+      }),
+    );
   }, [customSession, navigation, protocolSwitchingLocked, selectedProtocolId]);
 
   const editUrl = useCallback(() => {
@@ -839,7 +842,9 @@ export default function CustomInjectedToolbar({
       }
       const { log, result } = outcome;
       if (result.passed) {
-        const attemptSummary = `attempt ${String(result.passes.length)} of 5`;
+        const attemptSummary = `attempt ${String(result.passes.length)} of ${String(
+          result.maximumAttempts,
+        )}`;
         setE2EOutcome({
           passed: true,
           text: `Passed · ${attemptSummary}`,
@@ -1227,16 +1232,16 @@ export default function CustomInjectedToolbar({
       status: 'start',
     });
     try {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: EDiscoveryModalRoutes.CustomInjectedE2EWorkflow,
-        params: {
+      navigation.pushModal(
+        EModalRoutes.DiscoveryModal,
+        buildCustomInjectedModalParams(ECustomInjectedModalRoutes.E2EWorkflow, {
           sessionId,
           protocolId: selectedProtocol.key,
           protocolName: selectedProtocol.name,
           recordingPhase,
           e2eOutcome,
-        },
-      });
+        }),
+      );
       logCustomInjectedClientOperation({
         sessionId,
         protocolId: selectedProtocol.key,
@@ -1261,10 +1266,12 @@ export default function CustomInjectedToolbar({
   };
 
   const showOperationLogs = () => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.CustomInjectedOperationLogs,
-      params: { sessionId },
-    });
+    navigation.pushModal(
+      EModalRoutes.DiscoveryModal,
+      buildCustomInjectedModalParams(ECustomInjectedModalRoutes.OperationLogs, {
+        sessionId,
+      }),
+    );
   };
 
   return (
@@ -1402,9 +1409,7 @@ export default function CustomInjectedToolbar({
         <CustomInjectedToolbarIconButton
           aria-label={
             newOperationErrorCount
-              ? `View operation logs · ${String(
-                  newOperationErrorCount,
-                )} new errors`
+              ? `View operation logs · ${String(newOperationErrorCount)} new errors`
               : 'View operation logs'
           }
           icon="FileTextOutline"
@@ -1491,7 +1496,21 @@ export default function CustomInjectedToolbar({
         disabled={Boolean(recordingPhase)}
         display="none"
         testID="custom-injected-e2e-reset"
-        onPress={onPrepareE2EPass}
+        onPress={(event) => {
+          const element =
+            (event as { currentTarget?: HTMLElement } | undefined)
+              ?.currentTarget ||
+            document.querySelector<HTMLElement>(
+              '[data-testid="custom-injected-e2e-reset"]',
+            );
+          const mode = element?.getAttribute('data-adapter-mode');
+          const token = element?.getAttribute('data-adapter-token');
+          return onPrepareE2EPass(
+            (mode === 'enabled' || mode === 'disabled') && token
+              ? { mode, token }
+              : undefined,
+          );
+        }}
       >
         Prepare clean E2E pass
       </Button>

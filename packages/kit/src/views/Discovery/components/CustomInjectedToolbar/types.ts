@@ -1,5 +1,6 @@
 import type { ICustomInjectedProtocolRuntimeScope } from '@onekeyhq/kit/src/utils/customInjectedProtocolRuntime';
 import type {
+  ICustomInjectedE2EAdapterControl,
   ICustomInjectedE2EStopResult,
   ICustomInjectedProtocol,
   ICustomInjectedSession,
@@ -18,7 +19,9 @@ export type ICustomInjectedToolbarProps = {
   onStartRecording: () => void;
   onStopRecording: () => void;
   onStopE2EGeneration?: () => Promise<ICustomInjectedE2EStopResult>;
-  onPrepareE2EPass: () => Promise<boolean>;
+  onPrepareE2EPass: (
+    adapterControl?: ICustomInjectedE2EAdapterControl,
+  ) => Promise<boolean>;
   onSelectProtocol: (
     protocol: ICustomInjectedProtocol,
     customSession: ICustomInjectedSession,

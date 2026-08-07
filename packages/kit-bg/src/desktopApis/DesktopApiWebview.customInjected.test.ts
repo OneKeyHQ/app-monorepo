@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { dialog, webContents } from 'electron';
 
@@ -257,6 +258,46 @@ describe('DesktopApiWebview custom injection', () => {
         'custom:shared',
         'defillama:shared',
       ]);
+      const controlledPreload = await api.prepareCustomInjectedE2EPreload({
+        sessionId: session.sessionId,
+        bundleSha256: session.bundleSha256,
+        mode: 'disabled',
+        token: 'clean-session-control-token',
+      });
+      const controlledPreloadFile = fileURLToPath(controlledPreload.preloadUrl);
+      await expect(fs.readFile(controlledPreloadFile, 'utf8')).resolves.toContain(
+        '__ONEKEY_CONNECT_BUTTON_HACK_PRELOAD_CONTROL__',
+      );
+      const focus = jest.fn();
+      const guest = {
+        focus,
+        getType: jest.fn(() => 'webview'),
+        getURL: jest.fn(() => 'https://custom-shared.example/connect'),
+        isDestroyed: jest.fn(() => false),
+        isFocused: jest.fn(() => true),
+        session: {
+          getPartition: jest.fn(() => 'onekey-custom-e2e-test123'),
+          isPersistent: jest.fn(() => false),
+        },
+      };
+      jest.spyOn(webContents, 'fromId').mockReturnValue(guest as never);
+      await expect(
+        api.focusCustomInjectedE2EWebView({
+          sessionId: session.sessionId,
+          protocolId: 'custom:shared',
+          pageUrl: 'https://custom-shared.example/connect',
+          webContentsId: 42,
+        }),
+      ).resolves.toEqual({ focused: true, webContentsId: 42 });
+      expect(focus).toHaveBeenCalledTimes(1);
+      await expect(
+        api.prepareCustomInjectedE2EPreload({
+          sessionId: session.sessionId,
+          bundleSha256: session.bundleSha256,
+          mode: 'disabled',
+          token: 'short',
+        }),
+      ).rejects.toThrow('adapter control is invalid');
       await expect(
         api.getCustomInjectedE2EState(session.sessionId, 'shared'),
       ).rejects.toThrow('protocol not found');
@@ -269,6 +310,7 @@ describe('DesktopApiWebview custom injection', () => {
         canValidate: false,
       });
       await api.closeCustomInjectedWorkspace(session.sessionId);
+      await expect(fs.access(controlledPreloadFile)).rejects.toThrow();
     } finally {
       await fs.rm(temporaryRoot, { recursive: true, force: true });
     }
@@ -800,17 +842,23 @@ describe('DesktopApiWebview custom injection', () => {
         log: expect.stringContaining('--- stdout ---'),
         result: expect.objectContaining({
           passed: true,
+          validationMode: 'native-then-adapter',
+          classification: 'native-onekey',
+          maximumAttempts: 6,
+          maximumAttemptsPerPhase: 3,
           source: dappSource,
           protocolId: 'uniswap',
           recordingSha256: savedRecording.sha256,
           passes: [
             expect.objectContaining({
               name: 'clean-session-1',
+              adapterMode: 'disabled',
               freshWebView: true,
               passed: true,
             }),
             expect.objectContaining({
               name: 'clean-session-2',
+              adapterMode: 'disabled',
               freshWebView: true,
               passed: true,
             }),
@@ -953,6 +1001,15 @@ describe('DesktopApiWebview custom injection', () => {
               name: 'clean-session-2',
               passed: false,
             }),
+            expect.objectContaining({
+              name: 'clean-session-3',
+              passed: false,
+            }),
+            expect.objectContaining({
+              name: 'clean-session-4',
+              adapterMode: 'enabled',
+              passed: false,
+            }),
           ],
         }),
       });
@@ -969,7 +1026,7 @@ describe('DesktopApiWebview custom injection', () => {
         expect.objectContaining({
           status: 'error',
           error: expect.objectContaining({
-            message: 'E2E validation failed after 2 attempts',
+            message: 'E2E validation failed after 4 attempts',
           }),
           result: expect.objectContaining({
             passed: false,

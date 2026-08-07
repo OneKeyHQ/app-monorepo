@@ -1,10 +1,15 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
-import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 const CUSTOM_INJECTED_WEBVIEW_API_METHODS = new Set([
   'activateCustomInjectedWorkspace',
   'closeCustomInjectedWorkspace',
+  'focusCustomInjectedE2EWebView',
   'generateCustomInjectedE2E',
   'getActiveCustomInjectedWorkspace',
   'getCustomInjectedDappDirectory',
@@ -16,6 +21,7 @@ const CUSTOM_INJECTED_WEBVIEW_API_METHODS = new Set([
   'logCustomInjectedClientOperation',
   'openCustomInjectedDappDirectory',
   'openCustomInjectedOperationLogFile',
+  'prepareCustomInjectedE2EPreload',
   'prepareCustomInjectedE2EValidation',
   'prepareCustomInjectedWorkspace',
   'processCustomInjectedAutoReview',
@@ -33,16 +39,31 @@ export type ICustomInjectedDesktopApiAccessState = {
   developerModeEnabled: boolean;
 };
 
+export function resolveCustomInjectedDesktopApiAccessFlag(
+  primary: boolean | undefined,
+  fallback: boolean | undefined,
+): boolean {
+  return (primary ?? fallback) === true;
+}
+
 export function getCustomInjectedDesktopApiAccessState(): ICustomInjectedDesktopApiAccessState {
   return {
-    developerModeEnabled:
+    developerModeEnabled: resolveCustomInjectedDesktopApiAccessFlag(
       devSettingSyncStorage.getBoolean(
         EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
-      ) === true,
-    customInjectionEnabled:
+      ),
+      syncStorage.getBoolean(
+        EAppSyncStorageKeys.onekey_developer_mode_enabled,
+      ),
+    ),
+    customInjectionEnabled: resolveCustomInjectedDesktopApiAccessFlag(
       devSettingSyncStorage.getBoolean(
-        'onekey_custom_injection_enabled' as EDevSettingSyncStorageKeys,
-      ) === true,
+        EDevSettingSyncStorageKeys.onekey_custom_injection_enabled,
+      ),
+      syncStorage.getBoolean(
+        EAppSyncStorageKeys.onekey_custom_injection_enabled,
+      ),
+    ),
   };
 }
 

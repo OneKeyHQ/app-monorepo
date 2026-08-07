@@ -3,23 +3,15 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  Button,
-  Page,
-  Progress,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Page, Progress, SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   getCustomInjectedE2EWorkflowActions,
   subscribeCustomInjectedE2EWorkflowActions,
 } from '@onekeyhq/kit/src/utils/customInjectedE2EWorkflowRuntime';
+import type { ICustomInjectedModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import { ECustomInjectedModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
 import type { ICustomInjectedE2EWorkflowState } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes/discovery.desktop';
-import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery.desktop';
 
 import { CustomInjectedE2EStatusIcon } from '../../components/CustomInjectedE2EStatusIcons';
 
@@ -82,11 +74,7 @@ function WorkflowStepRow({
         </SizableText>
         <YStack flex={1} gap="$2" minWidth={0}>
           <SizableText size="$bodyLgMedium">{title}</SizableText>
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            testID={`${testID}-description`}
-          >
+          <XStack alignItems="center" gap="$1.5" testID={`${testID}-description`}>
             <CustomInjectedE2EStatusIcon
               active={complete}
               status={statusIcon}
@@ -111,17 +99,10 @@ function WorkflowStepRow({
 }
 
 export default function CustomInjectedE2EWorkflowModal() {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ICustomInjectedModalParamList>>();
   const route =
-    useRoute<
-      RouteProp<
-        IDiscoveryModalParamList,
-        EDiscoveryModalRoutes.CustomInjectedE2EWorkflow
-      >
-    >();
-  const { e2eOutcome, protocolId, protocolName, recordingPhase, sessionId } =
-    route.params;
+    useRoute<RouteProp<ICustomInjectedModalParamList, ECustomInjectedModalRoutes.E2EWorkflow>>();
+  const { e2eOutcome, protocolId, protocolName, recordingPhase, sessionId } = route.params;
   const [e2eState, setE2EState] = useState<ICustomInjectedE2EWorkflowState>();
   const [dappDirectory, setDappDirectory] = useState<string>();
   const [loadError, setLoadError] = useState<string>();
@@ -141,14 +122,8 @@ export default function CustomInjectedE2EWorkflowModal() {
     const refresh = async () => {
       try {
         const [next, directory] = await Promise.all([
-          globalThis.desktopApiProxy.webview.getCustomInjectedE2EState(
-            sessionId,
-            protocolId,
-          ),
-          globalThis.desktopApiProxy.webview.getCustomInjectedDappDirectory(
-            sessionId,
-            protocolId,
-          ),
+          globalThis.desktopApiProxy.webview.getCustomInjectedE2EState(sessionId, protocolId),
+          globalThis.desktopApiProxy.webview.getCustomInjectedDappDirectory(sessionId, protocolId),
         ]);
         if (!disposed) {
           setE2EState(next);
@@ -187,14 +162,10 @@ export default function CustomInjectedE2EWorkflowModal() {
   const recordingInProgress = recordingPhase === 'recording';
   const hasRecording = Boolean(e2eState?.recording);
   const hasCurrentE2E = Boolean(e2eState?.e2e?.current);
-  const persistedValidation = e2eState?.validation?.current
-    ? e2eState.validation
-    : undefined;
+  const persistedValidation = e2eState?.validation?.current ? e2eState.validation : undefined;
   const hasAdapter = Boolean(e2eState?.adapter);
   const needsE2EGeneration = hasRecording && !hasCurrentE2E;
-  const validationPassed = e2eOutcome
-    ? e2eOutcome.passed
-    : Boolean(persistedValidation?.passed);
+  const validationPassed = e2eOutcome ? e2eOutcome.passed : Boolean(persistedValidation?.passed);
   const requiredCompletedCount =
     Number(hasRecording) + Number(hasCurrentE2E) + Number(validationPassed);
   const completionPercentage = Math.round((requiredCompletedCount / 3) * 100);
@@ -231,11 +202,8 @@ export default function CustomInjectedE2EWorkflowModal() {
 
   const generateDetail = 'e2e.mjs';
   let generateDetailStatus = 'not generated.';
-  let generateDetailStatusColor:
-    | '$textCaution'
-    | '$textCritical'
-    | '$textInfo'
-    | '$textSubdued' = '$textSubdued';
+  let generateDetailStatusColor: '$textCaution' | '$textCritical' | '$textInfo' | '$textSubdued' =
+    '$textSubdued';
   if (generationRunning) {
     generateDetailStatus = 'generating and validating…';
     generateDetailStatusColor = '$textInfo';
@@ -249,24 +217,17 @@ export default function CustomInjectedE2EWorkflowModal() {
 
   const validationDetail = 'E2E';
   let validationDetailStatus = 'not validated.';
-  let validationDetailStatusColor:
-    | '$textCritical'
-    | '$textInfo'
-    | '$textSubdued'
-    | '$textSuccess' = '$textSubdued';
+  let validationDetailStatusColor: '$textCritical' | '$textInfo' | '$textSubdued' | '$textSuccess' =
+    '$textSubdued';
   if (validationRunning) {
     validationDetailStatus = 'validating…';
     validationDetailStatusColor = '$textInfo';
   } else if (e2eOutcome) {
     validationDetailStatus = e2eOutcome.passed ? 'passed.' : 'failed.';
-    validationDetailStatusColor = e2eOutcome.passed
-      ? '$textSuccess'
-      : '$textCritical';
+    validationDetailStatusColor = e2eOutcome.passed ? '$textSuccess' : '$textCritical';
   } else if (persistedValidation) {
     validationDetailStatus = persistedValidation.passed ? 'passed.' : 'failed.';
-    validationDetailStatusColor = persistedValidation.passed
-      ? '$textSuccess'
-      : '$textCritical';
+    validationDetailStatusColor = persistedValidation.passed ? '$textSuccess' : '$textCritical';
   } else if (e2eState?.canValidate) {
     validationDetailStatus = 'ready to validate.';
     validationDetailStatusColor = '$textInfo';
@@ -283,8 +244,7 @@ export default function CustomInjectedE2EWorkflowModal() {
     navigation.pop();
     action();
   };
-  const errorLog =
-    e2eOutcome && !e2eOutcome.passed ? e2eOutcome.errorLog : undefined;
+  const errorLog = e2eOutcome && !e2eOutcome.passed ? e2eOutcome.errorLog : undefined;
   const openDappDirectory = useCallback(async () => {
     if (openingDirectory) return;
     setOpeningDirectory(true);
@@ -327,19 +287,12 @@ export default function CustomInjectedE2EWorkflowModal() {
               {!e2eState && !loadError ? (
                 <Spinner size="small" />
               ) : (
-                <SizableText
-                  color="$textSubdued"
-                  flexShrink={0}
-                  size="$bodySmMedium"
-                >
+                <SizableText color="$textSubdued" flexShrink={0} size="$bodySmMedium">
                   {`${String(requiredCompletedCount)} / 3 complete`}
                 </SizableText>
               )}
             </XStack>
-            <Progress
-              testID="custom-injected-e2e-progress"
-              value={completionPercentage}
-            />
+            <Progress testID="custom-injected-e2e-progress" value={completionPercentage} />
           </YStack>
           {loadError ? (
             <SizableText color="$textCritical" size="$bodySm">
@@ -364,11 +317,7 @@ export default function CustomInjectedE2EWorkflowModal() {
                     validationRunning ||
                     Boolean(recordingPhase && recordingPhase !== 'recording')
                   }
-                  icon={
-                    recordingInProgress
-                      ? 'StopCircleSolid'
-                      : 'RecordCircleOutline'
-                  }
+                  icon={recordingInProgress ? 'StopCircleSolid' : 'RecordCircleOutline'}
                   iconColor={recordingInProgress ? undefined : '$iconInfo'}
                   loading={Boolean(recordingPhase && !recordingInProgress)}
                   size="small"
@@ -440,13 +389,10 @@ export default function CustomInjectedE2EWorkflowModal() {
                         testID="custom-injected-e2e-view-error"
                         variant="tertiary"
                         onPress={() =>
-                          navigation.push(
-                            EDiscoveryModalRoutes.CustomInjectedE2EErrorDetail,
-                            {
-                              errorLog,
-                              protocolName,
-                            },
-                          )
+                          navigation.push(ECustomInjectedModalRoutes.E2EErrorDetail, {
+                            errorLog,
+                            protocolName,
+                          })
                         }
                       >
                         View error
@@ -462,18 +408,10 @@ export default function CustomInjectedE2EWorkflowModal() {
                           />
                         ) : null}
                         <Button
-                          color={
-                            validationRunning ? '$textCritical' : '$textSuccess'
-                          }
+                          color={validationRunning ? '$textCritical' : '$textSuccess'}
                           disabled={!workflowActions || generationRunning}
-                          icon={
-                            validationRunning
-                              ? 'StopCircleSolid'
-                              : 'PlayCircleOutline'
-                          }
-                          iconColor={
-                            validationRunning ? '$iconCritical' : '$iconSuccess'
-                          }
+                          icon={validationRunning ? 'StopCircleSolid' : 'PlayCircleOutline'}
+                          iconColor={validationRunning ? '$iconCritical' : '$iconSuccess'}
                           size="small"
                           testID="custom-injected-e2e-workflow-validate"
                           variant="secondary"
@@ -509,9 +447,7 @@ export default function CustomInjectedE2EWorkflowModal() {
               active={false}
               artifact="adapter.ts"
               artifactStatus={hasAdapter ? 'generated.' : 'not generated.'}
-              artifactStatusColor={
-                hasAdapter ? '$textInteractive' : '$textSubdued'
-              }
+              artifactStatusColor={hasAdapter ? '$textInteractive' : '$textSubdued'}
               complete={hasAdapter}
               isLast
               statusIcon="adapter"

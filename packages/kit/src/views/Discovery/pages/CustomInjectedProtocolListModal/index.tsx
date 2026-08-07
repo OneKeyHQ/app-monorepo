@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -51,14 +44,14 @@ import {
   subscribeActiveCustomInjectedWorkspace,
 } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
 import type {
+  ECustomInjectedModalRoutes,
+  ICustomInjectedModalParamList,
+} from '@onekeyhq/kit/src/views/Discovery/router/customInjectedModalRoutes';
+import type {
   ICustomInjectedE2EWorkflowSummary,
   ICustomInjectedSession,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type {
-  EDiscoveryModalRoutes,
-  IDiscoveryModalParamList,
-} from '@onekeyhq/shared/src/routes/discovery.desktop';
 
 import {
   CustomInjectedE2EStatusIcon,
@@ -116,18 +109,12 @@ function getInitialSession(sessionId: string) {
 }
 
 export default function CustomInjectedProtocolListModal() {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ICustomInjectedModalParamList>>();
   const route =
-    useRoute<
-      RouteProp<
-        IDiscoveryModalParamList,
-        EDiscoveryModalRoutes.CustomInjectedProtocolList
-      >
-    >();
+    useRoute<RouteProp<ICustomInjectedModalParamList, ECustomInjectedModalRoutes.ProtocolList>>();
   const { selectedProtocolId, sessionId } = route.params;
-  const [session, setSession] = useState<ICustomInjectedSession | undefined>(
-    () => getInitialSession(sessionId),
+  const [session, setSession] = useState<ICustomInjectedSession | undefined>(() =>
+    getInitialSession(sessionId),
   );
   const [loadError, setLoadError] = useState<string>();
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -150,19 +137,14 @@ export default function CustomInjectedProtocolListModal() {
     () => getCustomInjectedProtocolListFilter().e2eFilter,
   );
   const [isFilterPanelExpanded, setIsFilterPanelExpanded] = useState(false);
-  const [selectedProtocolKey, setSelectedProtocolKey] =
-    useState(selectedProtocolId);
-  const [e2eStates, setE2EStates] = useState<
-    Record<string, ICustomInjectedE2EWorkflowSummary>
-  >({});
+  const [selectedProtocolKey, setSelectedProtocolKey] = useState(selectedProtocolId);
+  const [e2eStates, setE2EStates] = useState<Record<string, ICustomInjectedE2EWorkflowSummary>>({});
   const [e2eBatchProgress, setE2EBatchProgress] = useState<{
     current: number;
     total: number;
   }>();
   const e2eBatchRunningRef = useRef(false);
-  const listRef = useRef<IListViewRef<ICustomInjectedProtocolFilterRow> | null>(
-    null,
-  );
+  const listRef = useRef<IListViewRef<ICustomInjectedProtocolFilterRow> | null>(null);
   const locateAfterFilterResetRef = useRef(false);
 
   useEffect(() => {
@@ -189,9 +171,7 @@ export default function CustomInjectedProtocolListModal() {
     const load = async () => {
       try {
         const [nextSession, nextE2EStates] = await Promise.all([
-          globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(
-            sessionId,
-          ),
+          globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(sessionId),
           globalThis.desktopApiProxy.webview
             .getCustomInjectedE2EStates(sessionId)
             .catch(() => ({})),
@@ -250,9 +230,7 @@ export default function CustomInjectedProtocolListModal() {
     () =>
       !statusFilter.length
         ? sourceRows
-        : sourceRows.filter(({ protocol }) =>
-            statusFilter.includes(protocol.manualReview.state),
-          ),
+        : sourceRows.filter(({ protocol }) => statusFilter.includes(protocol.manualReview.state)),
     [sourceRows, statusFilter],
   );
 
@@ -282,14 +260,7 @@ export default function CustomInjectedProtocolListModal() {
         },
         e2eStates,
       }),
-    [
-      deferredSearchValue,
-      e2eFilter,
-      e2eStates,
-      rows,
-      sourceFilter,
-      statusFilter,
-    ],
+    [deferredSearchValue, e2eFilter, e2eStates, rows, sourceFilter, statusFilter],
   );
 
   const completedCount = statusCounts.processed + statusCounts.unsupported;
@@ -307,22 +278,15 @@ export default function CustomInjectedProtocolListModal() {
 
   const toggleSourceFilter = useCallback((source: string) => {
     setSourceFilter((current) =>
-      current.includes(source)
-        ? current.filter((value) => value !== source)
-        : [...current, source],
+      current.includes(source) ? current.filter((value) => value !== source) : [...current, source],
     );
   }, []);
 
-  const toggleStatusFilter = useCallback(
-    (status: ICustomInjectedReviewState) => {
-      setStatusFilter((current) =>
-        current.includes(status)
-          ? current.filter((value) => value !== status)
-          : [...current, status],
-      );
-    },
-    [],
-  );
+  const toggleStatusFilter = useCallback((status: ICustomInjectedReviewState) => {
+    setStatusFilter((current) =>
+      current.includes(status) ? current.filter((value) => value !== status) : [...current, status],
+    );
+  }, []);
 
   const toggleE2EFilter = useCallback((status: ICustomInjectedE2EStatusKey) => {
     setE2EFilter((current) => {
@@ -339,10 +303,7 @@ export default function CustomInjectedProtocolListModal() {
   }, []);
 
   const currentIndex = useMemo(
-    () =>
-      filteredRows.findIndex(
-        ({ protocol }) => protocol.key === selectedProtocolKey,
-      ),
+    () => filteredRows.findIndex(({ protocol }) => protocol.key === selectedProtocolKey),
     [filteredRows, selectedProtocolKey],
   );
 
@@ -424,9 +385,7 @@ export default function CustomInjectedProtocolListModal() {
     setRefreshing(true);
     try {
       const next =
-        await globalThis.desktopApiProxy.webview.refreshCustomInjectedProtocols(
-          sessionId,
-        );
+        await globalThis.desktopApiProxy.webview.refreshCustomInjectedProtocols(sessionId);
       const nextE2EStates = await globalThis.desktopApiProxy.webview
         .getCustomInjectedE2EStates(sessionId)
         .catch(() => ({}));
@@ -457,18 +416,13 @@ export default function CustomInjectedProtocolListModal() {
   );
 
   const validatePendingE2Es = useCallback(async () => {
-    if (!session || e2eBatchRunningRef.current || !pendingE2EProtocols.length)
-      return;
+    if (!session || e2eBatchRunningRef.current || !pendingE2EProtocols.length) return;
     e2eBatchRunningRef.current = true;
     const candidates = [...pendingE2EProtocols];
     const originalScope = getActiveCustomInjectedProtocolRuntime();
     const originalProtocolId =
-      originalScope?.sessionId === sessionId
-        ? originalScope.protocolId
-        : undefined;
-    let selectionLock:
-      | ReturnType<typeof acquireCustomInjectedProtocolSelectionLock>
-      | undefined;
+      originalScope?.sessionId === sessionId ? originalScope.protocolId : undefined;
+    let selectionLock: ReturnType<typeof acquireCustomInjectedProtocolSelectionLock> | undefined;
     let passed = 0;
     let failed = 0;
     let firstFailure: string | undefined;
@@ -481,9 +435,7 @@ export default function CustomInjectedProtocolListModal() {
         setE2EBatchProgress({ current: index + 1, total: candidates.length });
         try {
           const latestSession =
-            await globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(
-              sessionId,
-            );
+            await globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(sessionId);
           const latestProtocol = latestSession.protocols.find(
             (candidate) => candidate.key === protocol.key,
           );
@@ -491,15 +443,13 @@ export default function CustomInjectedProtocolListModal() {
             throw new OneKeyLocalError('Custom injection protocol not found');
           }
           const pendingSession =
-            await globalThis.desktopApiProxy.webview.updateCustomInjectedProtocol(
-              {
-                action: 'set-review',
-                sessionId,
-                protocolId: latestProtocol.key,
-                expectedRegistrySha256: latestProtocol.registrySha256,
-                state: 'pending',
-              },
-            );
+            await globalThis.desktopApiProxy.webview.updateCustomInjectedProtocol({
+              action: 'set-review',
+              sessionId,
+              protocolId: latestProtocol.key,
+              expectedRegistrySha256: latestProtocol.registrySha256,
+              state: 'pending',
+            });
           const pendingProtocol = pendingSession.protocols.find(
             (candidate) => candidate.key === protocol.key,
           );
@@ -515,22 +465,18 @@ export default function CustomInjectedProtocolListModal() {
             { lockToken: selectionLock.token },
           );
           if (!runtimeScope) {
-            throw new OneKeyLocalError(
-              'Unable to create an isolated protocol runtime',
-            );
+            throw new OneKeyLocalError('Unable to create an isolated protocol runtime');
           }
-          const ready =
-            await waitForCustomInjectedProtocolRuntimeReady(runtimeScope);
+          const ready = await waitForCustomInjectedProtocolRuntimeReady(runtimeScope);
           if (!ready || !isCustomInjectedProtocolRuntimeActive(runtimeScope)) {
             throw new OneKeyLocalError(
               'The protocol page was replaced before E2E validation started',
             );
           }
-          const outcome =
-            await globalThis.desktopApiProxy.webview.runCustomInjectedE2E(
-              sessionId,
-              protocol.key,
-            );
+          const outcome = await globalThis.desktopApiProxy.webview.runCustomInjectedE2E(
+            sessionId,
+            protocol.key,
+          );
           if (!outcome.ok) {
             failed += 1;
             firstFailure ??= `${protocol.name}: ${outcome.error}`;
@@ -601,9 +547,7 @@ export default function CustomInjectedProtocolListModal() {
       ) {
         try {
           const latestSession =
-            await globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(
-              sessionId,
-            );
+            await globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(sessionId);
           const originalProtocol = latestSession.protocols.find(
             (protocol) => protocol.key === originalProtocolId,
           );
@@ -629,12 +573,8 @@ export default function CustomInjectedProtocolListModal() {
                 text: 'E2E validation finished, but the original protocol runtime could not be restored',
               });
             } else {
-              const restoredReady =
-                await waitForCustomInjectedProtocolRuntimeReady(restoredScope);
-              if (
-                !restoredReady ||
-                !isCustomInjectedProtocolRuntimeActive(restoredScope)
-              ) {
+              const restoredReady = await waitForCustomInjectedProtocolRuntimeReady(restoredScope);
+              if (!restoredReady || !isCustomInjectedProtocolRuntimeActive(restoredScope)) {
                 logCustomInjectedClientError({
                   sessionId,
                   protocolId: originalProtocol.key,
@@ -675,8 +615,7 @@ export default function CustomInjectedProtocolListModal() {
       const { position, protocol } = item;
       const isCurrent = protocol.key === selectedProtocolKey;
       const e2eState = e2eStates[protocol.key];
-      const reviewStatusConfig =
-        CUSTOM_INJECTED_REVIEW_STATE_CONFIG[protocol.manualReview.state];
+      const reviewStatusConfig = CUSTOM_INJECTED_REVIEW_STATE_CONFIG[protocol.manualReview.state];
       return (
         <XStack
           aria-current={isCurrent ? 'true' : undefined}
@@ -721,11 +660,7 @@ export default function CustomInjectedProtocolListModal() {
                       role="img"
                       testID={`custom-injected-protocol-current-${protocol.source}-${protocol.id}`}
                     >
-                      <Icon
-                        color="$iconInfo"
-                        name="TargetCircleSolid"
-                        size="$3.5"
-                      />
+                      <Icon color="$iconInfo" name="TargetCircleSolid" size="$3.5" />
                     </XStack>
                   }
                 />
@@ -743,17 +678,11 @@ export default function CustomInjectedProtocolListModal() {
           </XStack>
           <YStack flex={1} gap="$0.5" minWidth={0}>
             <XStack alignItems="center" gap="$1.5">
-              <SizableText
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodyMdMedium"
-              >
+              <SizableText flexShrink={1} numberOfLines={1} size="$bodyMdMedium">
                 {protocol.name}
               </SizableText>
               <Tooltip
-                renderContent={`Source: ${getProtocolSourceLabel(
-                  protocol.source,
-                )}`}
+                renderContent={`Source: ${getProtocolSourceLabel(protocol.source)}`}
                 renderTrigger={
                   <CustomInjectedProtocolSourceIcon
                     source={protocol.source}
@@ -764,12 +693,7 @@ export default function CustomInjectedProtocolListModal() {
               />
             </XStack>
             <XStack alignItems="center" gap="$1.5">
-              <SizableText
-                color="$textSubdued"
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodySm"
-              >
+              <SizableText color="$textSubdued" flexShrink={1} numberOfLines={1} size="$bodySm">
                 {protocol.url}
               </SizableText>
               {protocol.urlSource === 'override' ? (
@@ -783,23 +707,14 @@ export default function CustomInjectedProtocolListModal() {
                       role="img"
                       testID={`custom-injected-protocol-override-${protocol.source}-${protocol.id}`}
                     >
-                      <Icon
-                        color="$iconInfo"
-                        name="LayerBehindOutline"
-                        size="$3.5"
-                      />
+                      <Icon color="$iconInfo" name="LayerBehindOutline" size="$3.5" />
                     </XStack>
                   }
                 />
               ) : null}
             </XStack>
           </YStack>
-          <SizableText
-            color="$textSubdued"
-            size="$bodySmMedium"
-            textAlign="right"
-            width={88}
-          >
+          <SizableText color="$textSubdued" size="$bodySmMedium" textAlign="right" width={88}>
             {compactUsd.format(protocol.totalTvl)}
           </SizableText>
           <XStack justifyContent="flex-end" width={STATUS_COLUMN_WIDTH}>
@@ -844,11 +759,7 @@ export default function CustomInjectedProtocolListModal() {
                 justifyContent="center"
                 role="img"
               >
-                <Icon
-                  color="$iconSubdued"
-                  name="ChevronRightSmallOutline"
-                  size="$4"
-                />
+                <Icon color="$iconSubdued" name="ChevronRightSmallOutline" size="$4" />
               </XStack>
             }
           />
@@ -877,11 +788,7 @@ export default function CustomInjectedProtocolListModal() {
           h="$7"
           icon="Filter2Outline"
           iconColor={activeFacetCount ? '$iconInfo' : '$icon'}
-          iconAfter={
-            isFilterPanelExpanded
-              ? 'ChevronUpSmallOutline'
-              : 'ChevronDownSmallOutline'
-          }
+          iconAfter={isFilterPanelExpanded ? 'ChevronUpSmallOutline' : 'ChevronDownSmallOutline'}
           px="$2"
           py="$0"
           size="small"
@@ -889,13 +796,8 @@ export default function CustomInjectedProtocolListModal() {
           variant="secondary"
           onPress={() => setIsFilterPanelExpanded((expanded) => !expanded)}
         >
-          <SizableText
-            color={activeFacetCount ? '$textInfo' : '$text'}
-            size="$bodySmMedium"
-          >
-            {activeFacetCount
-              ? `Filters · ${String(activeFacetCount)}`
-              : 'Filters'}
+          <SizableText color={activeFacetCount ? '$textInfo' : '$text'} size="$bodySmMedium">
+            {activeFacetCount ? `Filters · ${String(activeFacetCount)}` : 'Filters'}
           </SizableText>
         </Button>
         <IconButton
@@ -926,9 +828,7 @@ export default function CustomInjectedProtocolListModal() {
     ? `Validating ${String(e2eBatchProgress.current)} / ${String(e2eBatchProgress.total)}`
     : `Validate pending E2E (${String(pendingE2EProtocols.length)})`;
 
-  const initialScrollIndex = rows.findIndex(
-    ({ protocol }) => protocol.key === selectedProtocolKey,
-  );
+  const initialScrollIndex = rows.findIndex(({ protocol }) => protocol.key === selectedProtocolKey);
 
   return (
     <Page lazyLoad>
@@ -946,23 +846,14 @@ export default function CustomInjectedProtocolListModal() {
               testID="custom-injected-filter-panel"
             >
               <XStack alignItems="center" gap="$1.5" minHeight="$6">
-                <SizableText
-                  color="$textSubdued"
-                  flexShrink={0}
-                  size="$bodyXsMedium"
-                  width={64}
-                >
+                <SizableText color="$textSubdued" flexShrink={0} size="$bodyXsMedium" width={64}>
                   Source
                 </SizableText>
                 <XStack flex={1} flexWrap="wrap" gap="$1">
                   <Button
                     aria-pressed={!sourceFilter.length}
-                    backgroundColor={
-                      !sourceFilter.length ? '$bgInfoSubdued' : '$bgStrong'
-                    }
-                    borderColor={
-                      !sourceFilter.length ? '$borderInfo' : '$transparent'
-                    }
+                    backgroundColor={!sourceFilter.length ? '$bgInfoSubdued' : '$bgStrong'}
+                    borderColor={!sourceFilter.length ? '$borderInfo' : '$transparent'}
                     childrenAsText={false}
                     h="$6"
                     px="$1.5"
@@ -973,9 +864,7 @@ export default function CustomInjectedProtocolListModal() {
                     onPress={() => setSourceFilter([])}
                   >
                     <SizableText
-                      color={
-                        !sourceFilter.length ? '$textInfo' : '$textSubdued'
-                      }
+                      color={!sourceFilter.length ? '$textInfo' : '$textSubdued'}
                       size="$bodyXsMedium"
                     >
                       {`All ${integer.format(rows.length)}`}
@@ -989,12 +878,8 @@ export default function CustomInjectedProtocolListModal() {
                         <Button
                           key={source}
                           aria-pressed={isActive}
-                          backgroundColor={
-                            isActive ? '$bgInfoSubdued' : '$bgStrong'
-                          }
-                          borderColor={
-                            isActive ? '$borderInfo' : '$transparent'
-                          }
+                          backgroundColor={isActive ? '$bgInfoSubdued' : '$bgStrong'}
+                          borderColor={isActive ? '$borderInfo' : '$transparent'}
                           childrenAsText={false}
                           h="$6"
                           px="$1.5"
@@ -1048,23 +933,14 @@ export default function CustomInjectedProtocolListModal() {
                 minHeight="$6"
                 testID="custom-injected-status-filters"
               >
-                <SizableText
-                  color="$textSubdued"
-                  flexShrink={0}
-                  size="$bodyXsMedium"
-                  width={64}
-                >
+                <SizableText color="$textSubdued" flexShrink={0} size="$bodyXsMedium" width={64}>
                   Status
                 </SizableText>
                 <XStack flex={1} flexWrap="wrap" gap="$1">
                   <Button
                     aria-pressed={!statusFilter.length}
-                    backgroundColor={
-                      !statusFilter.length ? '$bgInfoSubdued' : '$bgStrong'
-                    }
-                    borderColor={
-                      !statusFilter.length ? '$borderInfo' : '$transparent'
-                    }
+                    backgroundColor={!statusFilter.length ? '$bgInfoSubdued' : '$bgStrong'}
+                    borderColor={!statusFilter.length ? '$borderInfo' : '$transparent'}
                     childrenAsText={false}
                     h="$6"
                     px="$1.5"
@@ -1075,9 +951,7 @@ export default function CustomInjectedProtocolListModal() {
                     onPress={() => setStatusFilter([])}
                   >
                     <SizableText
-                      color={
-                        !statusFilter.length ? '$textInfo' : '$textSubdued'
-                      }
+                      color={!statusFilter.length ? '$textInfo' : '$textSubdued'}
                       size="$bodyXsMedium"
                     >
                       {`All ${integer.format(sourceRows.length)}`}
@@ -1090,9 +964,7 @@ export default function CustomInjectedProtocolListModal() {
                       <Button
                         key={state}
                         aria-pressed={isActive}
-                        backgroundColor={
-                          isActive ? config.backgroundColor : '$bgStrong'
-                        }
+                        backgroundColor={isActive ? config.backgroundColor : '$bgStrong'}
                         borderColor={isActive ? '$borderInfo' : '$transparent'}
                         childrenAsText={false}
                         h="$6"
@@ -1104,18 +976,12 @@ export default function CustomInjectedProtocolListModal() {
                         onPress={() => toggleStatusFilter(state)}
                       >
                         <XStack alignItems="center" gap="$1">
-                          <Icon
-                            color={config.iconColor}
-                            name={config.icon}
-                            size="$3"
-                          />
+                          <Icon color={config.iconColor} name={config.icon} size="$3" />
                           <SizableText
                             color={isActive ? config.textColor : '$textSubdued'}
                             size="$bodyXsMedium"
                           >
-                            {`${config.label} ${integer.format(
-                              statusCounts[state],
-                            )}`}
+                            {`${config.label} ${integer.format(statusCounts[state])}`}
                           </SizableText>
                         </XStack>
                       </Button>
@@ -1130,27 +996,16 @@ export default function CustomInjectedProtocolListModal() {
                 minHeight="$6"
                 testID="custom-injected-e2e-filters"
               >
-                <SizableText
-                  color="$textSubdued"
-                  flexShrink={0}
-                  size="$bodyXsMedium"
-                  width={64}
-                >
+                <SizableText color="$textSubdued" flexShrink={0} size="$bodyXsMedium" width={64}>
                   E2E ±
                 </SizableText>
                 <XStack flex={1} flexWrap="wrap" gap="$1">
                   <Button
                     aria-pressed={!Object.keys(e2eFilter).length}
                     backgroundColor={
-                      !Object.keys(e2eFilter).length
-                        ? '$bgInfoSubdued'
-                        : '$bgStrong'
+                      !Object.keys(e2eFilter).length ? '$bgInfoSubdued' : '$bgStrong'
                     }
-                    borderColor={
-                      !Object.keys(e2eFilter).length
-                        ? '$borderInfo'
-                        : '$transparent'
-                    }
+                    borderColor={!Object.keys(e2eFilter).length ? '$borderInfo' : '$transparent'}
                     childrenAsText={false}
                     h="$6"
                     px="$1.5"
@@ -1161,11 +1016,7 @@ export default function CustomInjectedProtocolListModal() {
                     onPress={() => setE2EFilter({})}
                   >
                     <SizableText
-                      color={
-                        !Object.keys(e2eFilter).length
-                          ? '$textInfo'
-                          : '$textSubdued'
-                      }
+                      color={!Object.keys(e2eFilter).length ? '$textInfo' : '$textSubdued'}
                       size="$bodyXsMedium"
                     >
                       Any
@@ -1180,18 +1031,12 @@ export default function CustomInjectedProtocolListModal() {
                       : e2eCounts[option.value];
                     let filterLabel = option.label;
                     let filterDescription = 'not filtered';
-                    let filterBackgroundColor:
-                      | '$bgCritical'
-                      | '$bgInfoSubdued'
-                      | '$bgStrong' = '$bgStrong';
-                    let filterBorderColor:
-                      | '$borderCritical'
-                      | '$borderInfo'
-                      | '$transparent' = '$transparent';
-                    let filterTextColor:
-                      | '$textCritical'
-                      | '$textInfo'
-                      | '$textSubdued' = '$textSubdued';
+                    let filterBackgroundColor: '$bgCritical' | '$bgInfoSubdued' | '$bgStrong' =
+                      '$bgStrong';
+                    let filterBorderColor: '$borderCritical' | '$borderInfo' | '$transparent' =
+                      '$transparent';
+                    let filterTextColor: '$textCritical' | '$textInfo' | '$textSubdued' =
+                      '$textSubdued';
                     if (isIncluded) {
                       filterLabel = `+ ${option.label}`;
                       filterDescription = 'must be complete';
@@ -1243,13 +1088,8 @@ export default function CustomInjectedProtocolListModal() {
                                 showTooltip={false}
                                 status={option.value}
                               />
-                              <SizableText
-                                color={filterTextColor}
-                                size="$bodyXsMedium"
-                              >
-                                {`${filterLabel} ${integer.format(
-                                  matchingCount,
-                                )}`}
+                              <SizableText color={filterTextColor} size="$bodyXsMedium">
+                                {`${filterLabel} ${integer.format(matchingCount)}`}
                               </SizableText>
                             </XStack>
                           </Button>
@@ -1282,11 +1122,7 @@ export default function CustomInjectedProtocolListModal() {
         </YStack>
         {actionStatus ? (
           <SizableText
-            color={
-              actionStatus.tone === 'critical'
-                ? '$textCritical'
-                : '$textSuccess'
-            }
+            color={actionStatus.tone === 'critical' ? '$textCritical' : '$textSuccess'}
             numberOfLines={2}
             size="$bodySm"
             testID="custom-injected-protocol-action-status"
@@ -1325,12 +1161,7 @@ export default function CustomInjectedProtocolListModal() {
               height={36}
               px="$4"
             >
-              <SizableText
-                color="$textSubdued"
-                size="$bodyXsMedium"
-                textAlign="right"
-                width={48}
-              >
+              <SizableText color="$textSubdued" size="$bodyXsMedium" textAlign="right" width={48}>
                 #
               </SizableText>
               <SizableText color="$textSubdued" flex={1} size="$bodyXsMedium">
@@ -1340,12 +1171,7 @@ export default function CustomInjectedProtocolListModal() {
                     )}`
                   : `Protocol · ${integer.format(rows.length)}`}
               </SizableText>
-              <SizableText
-                color="$textSubdued"
-                size="$bodyXsMedium"
-                textAlign="right"
-                width={88}
-              >
+              <SizableText color="$textSubdued" size="$bodyXsMedium" textAlign="right" width={88}>
                 TVL ↓
               </SizableText>
               <SizableText
@@ -1421,11 +1247,7 @@ export default function CustomInjectedProtocolListModal() {
         >
           <IconButton
             aria-label={validatePendingE2ELabel}
-            disabled={
-              refreshing ||
-              Boolean(e2eBatchProgress) ||
-              !pendingE2EProtocols.length
-            }
+            disabled={refreshing || Boolean(e2eBatchProgress) || !pendingE2EProtocols.length}
             icon="PlayCircleOutline"
             loading={Boolean(e2eBatchProgress)}
             size="small"
@@ -1468,20 +1290,14 @@ export default function CustomInjectedProtocolListModal() {
           />
           <IconButton
             aria-label="Previous protocol"
-            disabled={
-              Boolean(e2eBatchProgress) ||
-              !filteredRows.length ||
-              currentIndex === 0
-            }
+            disabled={Boolean(e2eBatchProgress) || !filteredRows.length || currentIndex === 0}
             icon="ChevronLeftSmallOutline"
             size="small"
             testID="custom-injected-filtered-previous"
             title="Previous protocol"
             variant="secondary"
             onPress={() => {
-              selectFilteredRow(
-                currentIndex < 0 ? filteredRows.length - 1 : currentIndex - 1,
-              );
+              selectFilteredRow(currentIndex < 0 ? filteredRows.length - 1 : currentIndex - 1);
             }}
           />
           <SizableText

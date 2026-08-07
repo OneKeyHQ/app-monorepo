@@ -1369,6 +1369,12 @@ describe('CustomInjectedToolbar automatic review state', () => {
         kind: 'onekey-connect-button-desktop-e2e-result',
         passed: true,
         verdict: 'deterministic-repository-icon-source',
+        validationMode: 'native-then-adapter',
+        classification: 'native-onekey',
+        maximumAttempts: 6,
+        maximumAttemptsPerPhase: 3,
+        nativeOneKeyAttempts: 2,
+        adapterEnabledAttempts: 0,
         protocolId: 'protocol-1',
         site: 'example.com',
         recordingSha256: 'e'.repeat(64),
@@ -1498,7 +1504,7 @@ describe('CustomInjectedToolbar automatic review state', () => {
     expect(
       prepareCustomInjectedE2EValidation.mock.invocationCallOrder[0] ?? 0,
     ).toBeLessThan(runCustomInjectedE2E.mock.invocationCallOrder[0] ?? 0);
-    await screen.findByText('Passed · attempt 2 of 5');
+    await screen.findByText('Passed · attempt 2 of 6');
     const completedValidationIcon = screen.getByTestId(
       'custom-injected-e2e-workflow-summary-status-icon',
     );
@@ -1522,7 +1528,7 @@ describe('CustomInjectedToolbar automatic review state', () => {
       params: {
         e2eOutcome: {
           passed: true,
-          text: 'Passed · attempt 2 of 5',
+          text: 'Passed · attempt 2 of 6',
         },
         protocolId: 'defillama:protocol-1',
         protocolName: 'Example',
@@ -1545,6 +1551,12 @@ describe('CustomInjectedToolbar automatic review state', () => {
         kind: 'onekey-connect-button-desktop-e2e-result',
         passed: false,
         verdict: 'deterministic-repository-icon-source',
+        validationMode: 'native-then-adapter',
+        classification: 'failed',
+        maximumAttempts: 6,
+        maximumAttemptsPerPhase: 3,
+        nativeOneKeyAttempts: 2,
+        adapterEnabledAttempts: 0,
         protocolId: 'protocol-1',
         site: 'example.com',
         recordingSha256: 'e'.repeat(64),

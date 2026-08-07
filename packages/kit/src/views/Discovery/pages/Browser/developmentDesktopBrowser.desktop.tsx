@@ -43,6 +43,7 @@ import {
 } from '@onekeyhq/kit/src/utils/customInjectedWorkspaceRuntime';
 import type {
   ICustomInjectedClientOperationLogRequest,
+  ICustomInjectedE2EAdapterControl,
   ICustomInjectedProtocol,
   ICustomInjectedSession,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
@@ -92,6 +93,7 @@ type ICustomInjectionRecordingState = {
 type ICustomInjectionE2EPassState = {
   operationId: string;
   partition: string;
+  preloadUrl: string;
   tabId: string;
 };
 
@@ -1084,7 +1086,15 @@ export function DevelopmentDesktopBrowser() {
     setWebTabData,
   ]);
 
-  const prepareCustomInjectionE2EPass = useCallback(async () => {
+  const prepareCustomInjectionE2EPass = useCallback(async (
+    adapterControl?: ICustomInjectedE2EAdapterControl,
+  ) => {
+    const normalizedAdapterControl =
+      (adapterControl?.mode === 'enabled' ||
+        adapterControl?.mode === 'disabled') &&
+      typeof adapterControl.token === 'string'
+        ? adapterControl
+        : undefined;
     const currentSession = effectiveCustomSession;
     const currentProtocol = currentSession?.protocols.find(
       (candidate) => candidate.key === selectedProtocolId,
@@ -1141,11 +1151,23 @@ export function DevelopmentDesktopBrowser() {
     });
 
     let session: ICustomInjectedSession;
+    let preloadUrl: string;
     try {
       session =
         await globalThis.desktopApiProxy.webview.getCustomInjectedWorkspace(
           currentSession.sessionId,
         );
+      preloadUrl = normalizedAdapterControl
+        ? (
+            await globalThis.desktopApiProxy.webview.prepareCustomInjectedE2EPreload(
+              {
+                ...normalizedAdapterControl,
+                sessionId: session.sessionId,
+                bundleSha256: session.bundleSha256,
+              },
+            )
+          ).preloadUrl
+        : session.preloadUrl;
     } catch (error) {
       logPreparationError(error);
       return false;
@@ -1190,6 +1212,7 @@ export function DevelopmentDesktopBrowser() {
     setE2EPassState({
       operationId,
       partition: `onekey-custom-e2e-${token.replace(/[^a-z0-9]/giu, '')}`,
+      preloadUrl,
       tabId: expectedTabId,
     });
     const isReady = await ready;
@@ -1574,7 +1597,9 @@ export function DevelopmentDesktopBrowser() {
                 customInjectionWebViewInstance?.tabId === t.id &&
                 customInjectionWebViewInstance.sessionId ===
                   effectiveCustomSession.sessionId
-                  ? effectiveCustomSession.preloadUrl
+                  ? e2ePassState?.tabId === t.id
+                    ? e2ePassState.preloadUrl
+                    : effectiveCustomSession.preloadUrl
                   : undefined
               }
               onCustomInjectionAutoReview={

@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
@@ -39,16 +40,12 @@ const CUSTOM_INJECTED_PRELOAD_MAX_BYTES = 64 * 1024 * 1024;
 const CUSTOM_INJECTED_UPDATER_MAX_BYTES = 1024 * 1024;
 const CUSTOM_INJECTED_REFRESHER_MAX_BYTES = 1024 * 1024;
 const CUSTOM_INJECTED_E2E_GENERATOR_MAX_BYTES = 1024 * 1024;
-const CUSTOM_INJECTED_RECORDING_MAX_BYTES = 1024 * 1024;
-const CUSTOM_INJECTED_ADAPTER_MAX_BYTES = 1024 * 1024;
 const CUSTOM_INJECTED_RECORDING_MAX_STEPS = 100;
-const CUSTOM_INJECTED_E2E_MAX_BYTES = 256 * 1024;
-const CUSTOM_INJECTED_E2E_RESULT_MAX_BYTES = 1024 * 1024;
-const CUSTOM_INJECTED_E2E_RESULT_FILE_MAX_BYTES = 256 * 1024;
-const CUSTOM_INJECTED_E2E_LOG_MAX_BYTES = 1024 * 1024;
-const CUSTOM_INJECTED_E2E_MAX_ATTEMPTS = 5;
 const CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS = 450_000;
 const CUSTOM_INJECTED_WORKSPACE_CLI_OUTPUT_MAX_BYTES = 48 * 1024 * 1024;
+const CUSTOM_INJECTED_WORKSPACE_CLI_REQUEST_MAX_BYTES = 2 * 1024 * 1024;
+const CUSTOM_INJECTED_E2E_PRELOAD_CONTROL_KEY =
+  '__ONEKEY_CONNECT_BUTTON_HACK_PRELOAD_CONTROL__';
 
 export type ICustomInjectedRecordingSelector = {
   kind:
@@ -62,8 +59,22 @@ export type ICustomInjectedRecordingSelector = {
     | 'css';
   value: string;
   unique: boolean;
+  matchCount?: number;
+  visibleMatchCount?: number;
+  strength?: 'stable' | 'anchored' | 'class' | 'semantic' | 'structural';
   role?: string;
   name?: string;
+};
+
+export type ICustomInjectedRecordingScope = {
+  relation: 'ancestor';
+  tag: string;
+  locator: ICustomInjectedRecordingSelector;
+};
+
+export type ICustomInjectedRecordingShadowHost = {
+  tag: string;
+  selectors: ICustomInjectedRecordingSelector[];
 };
 
 export type ICustomInjectedRecordingTarget = {
@@ -71,6 +82,16 @@ export type ICustomInjectedRecordingTarget = {
   text: string | null;
   role: string | null;
   ariaLabel: string | null;
+  inputType?: string | null;
+  stableClassTokens?: string[];
+  scopes?: ICustomInjectedRecordingScope[];
+  shadowHosts?: ICustomInjectedRecordingShadowHost[];
+  geometry?: {
+    centerXRatio: number;
+    centerYRatio: number;
+    widthRatio: number;
+    heightRatio: number;
+  } | null;
   selectors: ICustomInjectedRecordingSelector[];
 };
 
@@ -83,7 +104,7 @@ export type ICustomInjectedRecordingStep = {
 };
 
 export type ICustomInjectedRecordingCapture = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   kind: 'onekey-connect-button-recording-capture';
   startedAt: string;
   finishedAt: string;
@@ -176,8 +197,18 @@ export type ICustomInjectedE2EResult = {
   protocolId: string;
   site: string;
   recordingSha256: string;
+  validationMode: 'native-then-adapter';
+  classification: 'native-onekey' | 'adapter-required' | 'failed';
+  maximumAttempts: 6;
+  maximumAttemptsPerPhase: 3;
+  nativeOneKeyAttempts: number;
+  adapterEnabledAttempts: number;
   passes: Array<{
     name: string;
+    phaseAttempt: number;
+    adapterMode: 'disabled' | 'enabled';
+    adapterControlVerified: boolean;
+    adapterExecuted: boolean | null;
     freshWebView: boolean;
     passed: boolean;
     repositoryIconDetected: boolean;
@@ -203,6 +234,34 @@ export type ICustomInjectedE2ERunOutcome =
 
 export type ICustomInjectedE2EStopResult = {
   stopped: boolean;
+};
+
+export type ICustomInjectedE2EAdapterControl = {
+  mode: 'enabled' | 'disabled';
+  token: string;
+};
+
+export type ICustomInjectedE2EPreloadRequest =
+  ICustomInjectedE2EAdapterControl & {
+    sessionId: string;
+    bundleSha256: string;
+  };
+
+export type ICustomInjectedE2EPreloadResult =
+  ICustomInjectedE2EAdapterControl & {
+    preloadUrl: string;
+  };
+
+export type ICustomInjectedE2EFocusRequest = {
+  sessionId: string;
+  protocolId: string;
+  pageUrl: string;
+  webContentsId: number;
+};
+
+export type ICustomInjectedE2EFocusResult = {
+  focused: true;
+  webContentsId: number;
 };
 
 export type ICustomInjectedProtocol = {
@@ -335,6 +394,7 @@ type ICustomInjectedWorkspaceSession = {
   registrySha256: string;
   bundleSha256: string;
   protocols: ICustomInjectedProtocol[];
+  e2ePreloadDirectories: Set<string>;
   active: boolean;
 };
 
@@ -356,6 +416,47 @@ type ICustomInjectedWorkspaceCliSnapshot = {
     registrySha256: string;
   }>;
   protocols: ICustomInjectedProtocol[];
+};
+
+type ICustomInjectedWorkspaceCliProcess = {
+  exitCode: number | string;
+  signal?: string;
+  stdout: string;
+  stderr: string;
+  processError?: string;
+};
+
+type ICustomInjectedWorkspaceCliProtocolUpdateResult = {
+  schemaVersion: 1;
+  kind: 'onekey-custom-injection-protocol-update-result';
+  ok: boolean;
+  error?: string;
+  protocol?: ICustomInjectedProtocol;
+  process?: ICustomInjectedWorkspaceCliProcess;
+};
+
+type ICustomInjectedWorkspaceCliProtocolRefreshResult = {
+  schemaVersion: 1;
+  kind: 'onekey-custom-injection-protocol-refresh-result';
+  ok: boolean;
+  error?: string;
+  processes: Array<ICustomInjectedWorkspaceCliProcess & { source: string }>;
+};
+
+type ICustomInjectedWorkspaceCliRecordingSaveResult =
+  ICustomInjectedSaveRecordingResult & {
+    schemaVersion: 1;
+    kind: 'onekey-custom-injection-recording-save-result';
+  };
+
+type ICustomInjectedWorkspaceCliE2EGenerationResult =
+  ICustomInjectedE2EGenerationResult & {
+    process?: ICustomInjectedWorkspaceCliProcess;
+  };
+
+type ICustomInjectedWorkspaceCliE2EStatesResult = {
+  states: Record<string, ICustomInjectedE2EWorkflowSummary>;
+  errors: Array<{ protocolId: string; error: string }>;
 };
 
 const customInjectedSessions = new Map<
@@ -627,305 +728,6 @@ async function resolveWorkspaceOutputDirectory(
   return resolved;
 }
 
-function boundedString(
-  value: unknown,
-  label: string,
-  maxLength: number,
-): string {
-  if (typeof value !== 'string') {
-    throw new OneKeyLocalError(`${label} must be a string`);
-  }
-  const result = value.trim();
-  if (!result || result.length > maxLength) {
-    throw new OneKeyLocalError(
-      `${label} length must be between 1 and ${String(maxLength)}`,
-    );
-  }
-  return result;
-}
-
-function nullableBoundedString(
-  value: unknown,
-  label: string,
-  maxLength: number,
-): string | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  return boundedString(value, label, maxLength);
-}
-
-function boundedNumber(
-  value: unknown,
-  label: string,
-  minimum: number,
-  maximum: number,
-): number {
-  const result = Number(value);
-  if (!Number.isFinite(result) || result < minimum || result > maximum) {
-    throw new OneKeyLocalError(
-      `${label} must be between ${String(minimum)} and ${String(maximum)}`,
-    );
-  }
-  return result;
-}
-
-function isoTimestamp(value: unknown, label: string): string {
-  const result = boundedString(value, label, 40);
-  if (Number.isNaN(Date.parse(result))) {
-    throw new OneKeyLocalError(`${label} must be an ISO timestamp`);
-  }
-  return result;
-}
-
-const CUSTOM_INJECTED_RECORDING_SELECTOR_KINDS = new Set<
-  ICustomInjectedRecordingSelector['kind']
->(['testId', 'dataTest', 'dataCy', 'id', 'ariaLabel', 'role', 'text', 'css']);
-const CUSTOM_INJECTED_RECORDING_KEYS = new Set([
-  'Enter',
-  'Escape',
-  'Tab',
-  ' ',
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-]);
-
-function normalizeRecordingSelector(
-  value: unknown,
-  index: number,
-): ICustomInjectedRecordingSelector {
-  if (!value || typeof value !== 'object') {
-    throw new OneKeyLocalError(
-      `recording selector ${String(index)} must be an object`,
-    );
-  }
-  const selector = value as Partial<ICustomInjectedRecordingSelector>;
-  if (
-    !selector.kind ||
-    !CUSTOM_INJECTED_RECORDING_SELECTOR_KINDS.has(selector.kind)
-  ) {
-    throw new OneKeyLocalError(
-      `recording selector ${String(index)} has an unsupported kind`,
-    );
-  }
-  const normalized: ICustomInjectedRecordingSelector = {
-    kind: selector.kind,
-    value: boundedString(
-      selector.value,
-      `recording selector ${String(index)} value`,
-      512,
-    ),
-    unique: selector.unique === true,
-  };
-  if (selector.kind === 'role') {
-    normalized.role = boundedString(
-      selector.role,
-      `recording selector ${String(index)} role`,
-      80,
-    );
-    normalized.name = boundedString(
-      selector.name,
-      `recording selector ${String(index)} name`,
-      240,
-    );
-  }
-  return normalized;
-}
-
-function normalizeRecordingTarget(
-  value: unknown,
-  stepIndex: number,
-): ICustomInjectedRecordingTarget {
-  if (!value || typeof value !== 'object') {
-    throw new OneKeyLocalError(
-      `recording step ${String(stepIndex)} target must be an object`,
-    );
-  }
-  const target = value as Partial<ICustomInjectedRecordingTarget>;
-  if (!Array.isArray(target.selectors) || target.selectors.length === 0) {
-    throw new OneKeyLocalError(
-      `recording step ${String(stepIndex)} requires selectors`,
-    );
-  }
-  if (target.selectors.length > 8) {
-    throw new OneKeyLocalError(
-      `recording step ${String(stepIndex)} has too many selectors`,
-    );
-  }
-  const tag = boundedString(
-    target.tag,
-    `recording step ${String(stepIndex)} target tag`,
-    40,
-  ).toLowerCase();
-  if (!/^[a-z][a-z0-9-]*$/u.test(tag)) {
-    throw new OneKeyLocalError(
-      `recording step ${String(stepIndex)} target tag is invalid`,
-    );
-  }
-  return {
-    tag,
-    text: nullableBoundedString(
-      target.text,
-      `recording step ${String(stepIndex)} target text`,
-      240,
-    ),
-    role: nullableBoundedString(
-      target.role,
-      `recording step ${String(stepIndex)} target role`,
-      80,
-    ),
-    ariaLabel: nullableBoundedString(
-      target.ariaLabel,
-      `recording step ${String(stepIndex)} target ariaLabel`,
-      240,
-    ),
-    selectors: target.selectors.map(normalizeRecordingSelector),
-  };
-}
-
-export function normalizeCustomInjectedRecordingCapture(
-  value: unknown,
-): ICustomInjectedRecordingCapture {
-  const serialized = JSON.stringify(value);
-  if (
-    !serialized ||
-    Buffer.byteLength(serialized) > CUSTOM_INJECTED_RECORDING_MAX_BYTES
-  ) {
-    throw new OneKeyLocalError('Custom injection recording is too large');
-  }
-  if (!value || typeof value !== 'object') {
-    throw new OneKeyLocalError('Custom injection recording must be an object');
-  }
-  const capture = value as Partial<ICustomInjectedRecordingCapture>;
-  if (
-    capture.schemaVersion !== 1 ||
-    capture.kind !== 'onekey-connect-button-recording-capture'
-  ) {
-    throw new OneKeyLocalError('Unsupported custom injection recording');
-  }
-  const startedAt = isoTimestamp(capture.startedAt, 'recording startedAt');
-  const finishedAt = isoTimestamp(capture.finishedAt, 'recording finishedAt');
-  const durationMs = Date.parse(finishedAt) - Date.parse(startedAt);
-  if (durationMs < 0 || durationMs > 30 * 60 * 1000) {
-    throw new OneKeyLocalError(
-      'Custom injection recording duration is invalid',
-    );
-  }
-  if (
-    !Array.isArray(capture.steps) ||
-    capture.steps.length === 0 ||
-    capture.steps.length > CUSTOM_INJECTED_RECORDING_MAX_STEPS
-  ) {
-    throw new OneKeyLocalError(
-      `Custom injection recording must contain 1-${String(
-        CUSTOM_INJECTED_RECORDING_MAX_STEPS,
-      )} steps`,
-    );
-  }
-  let previousElapsedMs = -1;
-  const steps = capture.steps.map((stepValue, index) => {
-    if (!stepValue || typeof stepValue !== 'object') {
-      throw new OneKeyLocalError(
-        `recording step ${String(index)} must be an object`,
-      );
-    }
-    const step = stepValue as Partial<ICustomInjectedRecordingStep>;
-    if (step.action !== 'click' && step.action !== 'press') {
-      throw new OneKeyLocalError(
-        `recording step ${String(index)} has an unsupported action`,
-      );
-    }
-    const elapsedMs = boundedNumber(
-      step.elapsedMs,
-      `recording step ${String(index)} elapsedMs`,
-      0,
-      30 * 60 * 1000,
-    );
-    if (elapsedMs < previousElapsedMs) {
-      throw new OneKeyLocalError(
-        `recording step ${String(index)} is out of order`,
-      );
-    }
-    previousElapsedMs = elapsedMs;
-    const normalizedStep: ICustomInjectedRecordingStep = {
-      action: step.action,
-      elapsedMs,
-      pageUrl: boundedString(
-        step.pageUrl,
-        `recording step ${String(index)} pageUrl`,
-        2048,
-      ),
-      target: normalizeRecordingTarget(step.target, index),
-    };
-    if (step.action === 'press') {
-      const key = boundedString(
-        step.key,
-        `recording step ${String(index)} key`,
-        20,
-      );
-      if (!CUSTOM_INJECTED_RECORDING_KEYS.has(key)) {
-        throw new OneKeyLocalError(
-          `recording step ${String(index)} key is not allowed`,
-        );
-      }
-      normalizedStep.key = key;
-    }
-    return normalizedStep;
-  });
-  const viewport = capture.viewport;
-  if (!viewport || typeof viewport !== 'object') {
-    throw new OneKeyLocalError('recording viewport is required');
-  }
-  let outcome: ICustomInjectedRecordingCapture['outcome'] = null;
-  if (capture.outcome !== null && capture.outcome !== undefined) {
-    if (
-      capture.outcome.kind !== 'repository-wallet-icon' ||
-      !Number.isInteger(capture.outcome.afterStep) ||
-      capture.outcome.afterStep < 1 ||
-      capture.outcome.afterStep > steps.length
-    ) {
-      throw new OneKeyLocalError('recording wallet-picker outcome is invalid');
-    }
-    outcome = {
-      kind: 'repository-wallet-icon',
-      afterStep: capture.outcome.afterStep,
-    };
-  }
-  return {
-    schemaVersion: 1,
-    kind: 'onekey-connect-button-recording-capture',
-    startedAt,
-    finishedAt,
-    initialUrl: boundedString(capture.initialUrl, 'recording initialUrl', 2048),
-    finalUrl: boundedString(capture.finalUrl, 'recording finalUrl', 2048),
-    title: nullableBoundedString(capture.title, 'recording title', 256) || '',
-    viewport: {
-      width: boundedNumber(
-        viewport.width,
-        'recording viewport width',
-        1,
-        10_000,
-      ),
-      height: boundedNumber(
-        viewport.height,
-        'recording viewport height',
-        1,
-        10_000,
-      ),
-      deviceScaleFactor: boundedNumber(
-        viewport.deviceScaleFactor,
-        'recording viewport deviceScaleFactor',
-        0.1,
-        10,
-      ),
-    },
-    outcome,
-    steps,
-  };
-}
-
 function safeRecordingSlug(value: string): string {
   const result = value
     .toLowerCase()
@@ -999,617 +801,23 @@ function workspaceRelativeFile(workspace: string, file: string): string {
   return path.relative(workspace, file).split(path.sep).join('/');
 }
 
-async function readRegularFileIfExists(
-  file: string,
-  maxBytes: number,
-  label: string,
-): Promise<Buffer | null> {
-  let fileStat;
+function customInjectedWorkspaceCliErrorFromOutput(
+  output: string,
+): string | undefined {
   try {
-    fileStat = await fs.lstat(file);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
-  if (
-    fileStat.isSymbolicLink() ||
-    !fileStat.isFile() ||
-    fileStat.size <= 0 ||
-    fileStat.size > maxBytes
-  ) {
-    throw new OneKeyLocalError(
-      `${label} must be a regular file no larger than ${String(maxBytes)} bytes`,
-    );
-  }
-  return fs.readFile(file);
-}
-
-function parseCustomInjectedE2EString(
-  source: string,
-  field: 'source' | 'protocolId' | 'recordingSha256' | 'site',
-): string {
-  const matcher = new RegExp(
-    `\\b${field}\\s*:\\s*(['"])([^'"\\r\\n]+)\\1`,
-    'gu',
-  );
-  const matches = Array.from(source.matchAll(matcher));
-  if (matches.length !== 1 || !matches[0]?.[2]) {
-    throw new OneKeyLocalError(
-      `Generated E2E must contain exactly one static ${field}`,
-    );
-  }
-  return matches[0][2];
-}
-
-async function getCustomInjectedE2EWorkflowStateForProtocol(
-  customSession: ICustomInjectedWorkspaceSession,
-  protocol: ICustomInjectedProtocol,
-): Promise<ICustomInjectedE2EWorkflowState> {
-  const dappDirectory = await resolveCustomInjectedDappDirectory(
-    customSession,
-    protocol,
-    false,
-  );
-  if (!dappDirectory) {
-    return {
-      recording: null,
-      e2e: null,
-      adapter: null,
-      canValidate: false,
-    };
-  }
-  const recordingFile = path.join(dappDirectory, 'recording.json');
-  const recordingContent = await readRegularFileIfExists(
-    recordingFile,
-    CUSTOM_INJECTED_RECORDING_MAX_BYTES,
-    'Custom injection recording',
-  );
-  let recording: ICustomInjectedE2EWorkflowState['recording'] = null;
-  if (recordingContent) {
-    let value: {
-      schemaVersion?: unknown;
-      kind?: unknown;
-      protocol?: { source?: unknown; id?: unknown };
-      runtime?: { privateSession?: unknown };
-      finishedAt?: unknown;
-      steps?: unknown;
-    };
-    try {
-      value = JSON.parse(recordingContent.toString('utf8')) as typeof value;
-    } catch {
-      throw new OneKeyLocalError(
-        'Custom injection recording is not valid JSON',
-      );
-    }
-    if (
-      value.schemaVersion !== 1 ||
-      value.kind !== 'onekey-connect-button-recording' ||
-      value.protocol?.source !== protocol.source ||
-      value.protocol?.id !== protocol.id ||
-      value.runtime?.privateSession !== true ||
-      typeof value.finishedAt !== 'string' ||
-      Number.isNaN(Date.parse(value.finishedAt)) ||
-      !Array.isArray(value.steps) ||
-      value.steps.length === 0 ||
-      value.steps.length > CUSTOM_INJECTED_RECORDING_MAX_STEPS
-    ) {
-      throw new OneKeyLocalError(
-        'Custom injection recording does not match the selected protocol',
-      );
-    }
-    recording = {
-      relativeFile: workspaceRelativeFile(
-        customSession.workspace,
-        recordingFile,
-      ),
-      sha256: sha256(recordingContent),
-      stepCount: value.steps.length,
-      finishedAt: value.finishedAt,
-    };
-  }
-
-  const e2eFile = path.join(dappDirectory, 'e2e.mjs');
-  const e2eContent = await readRegularFileIfExists(
-    e2eFile,
-    CUSTOM_INJECTED_E2E_MAX_BYTES,
-    'Generated E2E',
-  );
-  let e2e: ICustomInjectedE2EWorkflowState['e2e'] = null;
-  if (e2eContent) {
-    const source = e2eContent.toString('utf8');
-    if (
-      !source.includes('onekey-connect-button-desktop-e2e') ||
-      !source.includes('../../../src/lib/desktop-recording-e2e.mjs')
-    ) {
-      throw new OneKeyLocalError(
-        'Generated E2E does not use the shared driver',
-      );
-    }
-    const dappSource = parseCustomInjectedE2EString(source, 'source');
-    const protocolId = parseCustomInjectedE2EString(source, 'protocolId');
-    const recordingSha256 = parseCustomInjectedE2EString(
-      source,
-      'recordingSha256',
-    );
-    parseCustomInjectedE2EString(source, 'site');
-    if (
-      dappSource !== protocol.source ||
-      protocolId !== protocol.id ||
-      !/^[a-f0-9]{64}$/u.test(recordingSha256)
-    ) {
-      throw new OneKeyLocalError(
-        'Generated E2E does not match the selected protocol',
-      );
-    }
-    e2e = {
-      relativeFile: workspaceRelativeFile(customSession.workspace, e2eFile),
-      recordingSha256,
-      current: recording?.sha256 === recordingSha256,
-    };
-  }
-  const validationFile = path.join(dappDirectory, 'e2e-result.json');
-  const validationContent = await readRegularFileIfExists(
-    validationFile,
-    CUSTOM_INJECTED_E2E_RESULT_FILE_MAX_BYTES,
-    'Persisted E2E result',
-  );
-  let validation: ICustomInjectedE2EWorkflowState['validation'];
-  if (validationContent) {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const value = parseCustomInjectedE2EOutput(
-      validationContent.toString('utf8'),
-    ) as {
-      e2eSha256?: unknown;
-      recordingSha256?: unknown;
-    };
-    if (
-      typeof value.e2eSha256 !== 'string' ||
-      !/^[a-f0-9]{64}$/u.test(value.e2eSha256) ||
-      typeof value.recordingSha256 !== 'string' ||
-      !/^[a-f0-9]{64}$/u.test(value.recordingSha256)
-    ) {
-      throw new OneKeyLocalError(
-        'Persisted E2E result has invalid artifact SHA-256 values',
-      );
-    }
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const result = normalizeCustomInjectedE2EResult(
-      value,
-      protocol.source,
-      protocol,
-      value.recordingSha256,
-    );
-    validation = {
-      relativeFile: workspaceRelativeFile(
-        customSession.workspace,
-        validationFile,
-      ),
-      recordingSha256: result.recordingSha256,
-      passed: result.passed,
-      current: Boolean(
-        recording &&
-        e2e?.current &&
-        e2eContent &&
-        value.e2eSha256 === sha256(e2eContent) &&
-        result.recordingSha256 === recording.sha256,
-      ),
-    };
-  }
-  const adapterFile = path.join(dappDirectory, 'adapter.ts');
-  const adapterContent = await readRegularFileIfExists(
-    adapterFile,
-    CUSTOM_INJECTED_ADAPTER_MAX_BYTES,
-    'Custom injection adapter',
-  );
-  return {
-    recording,
-    e2e,
-    adapter: adapterContent
-      ? {
-          relativeFile: workspaceRelativeFile(
-            customSession.workspace,
-            adapterFile,
-          ),
-        }
-      : null,
-    ...(validation ? { validation } : {}),
-    canValidate: Boolean(recording && e2e?.current),
-  };
-}
-
-function emptyCustomInjectedE2EWorkflowSummary(): ICustomInjectedE2EWorkflowSummary {
-  return {
-    adapter: false,
-    recorded: false,
-    generated: false,
-    resultPresent: false,
-    validated: false,
-  };
-}
-
-async function getCustomInjectedE2EWorkflowSummaries(
-  customSession: ICustomInjectedWorkspaceSession,
-): Promise<Record<string, ICustomInjectedE2EWorkflowSummary>> {
-  const summaries = Object.fromEntries(
-    customSession.protocols.map((protocol) => [
-      protocol.key,
-      emptyCustomInjectedE2EWorkflowSummary(),
-    ]),
-  );
-
-  await Promise.all(
-    customSession.protocolSources.map(async ({ source }) => {
-      const sourceDirectory = await resolveCustomInjectedChildDirectory(
-        customSession.dappsDirectory,
-        source,
-        false,
-        'Custom injection DApp source path',
-      );
-      if (!sourceDirectory) return;
-      const entries = await fs.readdir(sourceDirectory, {
-        withFileTypes: true,
-      });
-      const existingDappDirectories = new Set(
-        entries
-          .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
-          .map((entry) => entry.name),
-      );
-      const candidates = customSession.protocols.filter(
-        (protocol) =>
-          protocol.source === source &&
-          existingDappDirectories.has(
-            safeRecordingSlug(protocol.slug || protocol.id),
-          ),
-      );
-      await Promise.all(
-        candidates.map(async (protocol) => {
-          try {
-            const state = await getCustomInjectedE2EWorkflowStateForProtocol(
-              customSession,
-              protocol,
-            );
-            summaries[protocol.key] = {
-              adapter: Boolean(state.adapter),
-              recorded: Boolean(state.recording),
-              generated: Boolean(state.e2e?.current),
-              resultPresent: Boolean(state.validation),
-              validated: Boolean(
-                state.validation?.current && state.validation.passed,
-              ),
-            };
-          } catch (error) {
-            summaries[protocol.key] = emptyCustomInjectedE2EWorkflowSummary();
-            await writeCustomInjectedOperationLog(customSession.workspace, {
-              operationId: crypto.randomUUID(),
-              operation: 'e2e.state.read',
-              status: 'error',
-              sessionId: customSession.sessionId,
-              protocol: customInjectedOperationProtocol(protocol),
-              input: { mode: 'summary' },
-              error,
-            });
-          }
-        }),
-      );
-    }),
-  );
-
-  return summaries;
-}
-
-function normalizeCustomInjectedE2EResult(
-  value: unknown,
-  protocolSource: string,
-  protocol: ICustomInjectedProtocol,
-  recordingSha256: string,
-): ICustomInjectedE2EResult {
-  if (!value || typeof value !== 'object') {
-    throw new OneKeyLocalError('Generated E2E returned an invalid result');
-  }
-  const result = value as Partial<ICustomInjectedE2EResult>;
-  if (
-    result.schemaVersion !== 1 ||
-    result.kind !== 'onekey-connect-button-desktop-e2e-result' ||
-    typeof result.passed !== 'boolean' ||
-    result.verdict !== 'deterministic-repository-icon-source' ||
-    result.source !== protocolSource ||
-    result.protocolId !== protocol.id ||
-    result.recordingSha256 !== recordingSha256 ||
-    typeof result.site !== 'string' ||
-    !Array.isArray(result.passes) ||
-    result.passes.length < 1 ||
-    result.passes.length > CUSTOM_INJECTED_E2E_MAX_ATTEMPTS
-  ) {
-    throw new OneKeyLocalError(
-      'Generated E2E result does not match the latest recording',
-    );
-  }
-  const passes = result.passes.map((pass, index) => {
-    const repositoryWalletDetected =
-      pass?.repositoryIconDetected === true ||
-      pass?.oneKeyWalletIdDetected === true;
-    if (
-      !pass ||
-      pass.name !== `clean-session-${String(index + 1)}` ||
-      typeof pass.freshWebView !== 'boolean' ||
-      typeof pass.passed !== 'boolean' ||
-      typeof pass.repositoryIconDetected !== 'boolean' ||
-      (pass.oneKeyWalletIdDetected !== undefined &&
-        typeof pass.oneKeyWalletIdDetected !== 'boolean') ||
-      (pass.oneKeyWalletIdDetected === true &&
-        (typeof pass.walletId !== 'string' ||
-          !/^[a-z0-9]+-onekey-[a-z0-9-]+$/.test(pass.walletId))) ||
-      (pass.passed && (!pass.freshWebView || !repositoryWalletDetected))
-    ) {
-      throw new OneKeyLocalError('Generated E2E returned an invalid pass');
-    }
-    return {
-      name: pass.name,
-      freshWebView: pass.freshWebView,
-      passed: pass.passed,
-      repositoryIconDetected: pass.repositoryIconDetected,
-      oneKeyWalletIdDetected: pass.oneKeyWalletIdDetected === true,
-      walletId:
-        typeof pass.walletId === 'string' &&
-        /^[a-z0-9]+-onekey-[a-z0-9-]+$/.test(pass.walletId)
-          ? pass.walletId
-          : null,
-      iconKey: typeof pass.iconKey === 'string' ? pass.iconKey : null,
-      iconLabel: typeof pass.iconLabel === 'string' ? pass.iconLabel : null,
-    };
-  });
-  const passed = passes.some((pass) => pass.passed);
-  return {
-    schemaVersion: 1,
-    kind: 'onekey-connect-button-desktop-e2e-result',
-    passed,
-    verdict: 'deterministic-repository-icon-source',
-    source: protocolSource,
-    protocolId: protocol.id,
-    site: result.site,
-    recordingSha256,
-    passes,
-  };
-}
-
-function parseCustomInjectedE2EOutput(output: string): unknown {
-  const trimmed = output.trim();
-  if (!trimmed) {
-    throw new OneKeyLocalError('Generated E2E returned no JSON output');
-  }
-  const lines = trimmed.split(/\r?\n/u);
-  const candidates = [trimmed];
-  for (let index = 1; index < lines.length; index += 1) {
-    if (lines[index]?.startsWith('{')) {
-      candidates.push(lines.slice(index).join('\n'));
-    }
-  }
-  for (const candidate of candidates) {
-    try {
-      return JSON.parse(candidate) as unknown;
-    } catch {
-      // Try the next root-level JSON candidate after process warnings.
-    }
-  }
-  throw new OneKeyLocalError('Generated E2E returned invalid JSON');
-}
-
-function customInjectedE2EErrorFromOutput(output: string): string | undefined {
-  try {
-    const value = parseCustomInjectedE2EOutput(output) as {
+    const value = JSON.parse(output.trim()) as {
       ok?: unknown;
       error?: unknown;
     };
-    if (value.ok === false && typeof value.error === 'string') {
-      return value.error.trim().slice(0, 2000) || undefined;
-    }
+    return value.ok === false && typeof value.error === 'string'
+      ? value.error.trim().slice(0, 2000) || undefined
+      : undefined;
   } catch {
-    // The full unparsed output remains available in the process log.
-  }
-  return undefined;
-}
-
-function normalizeCustomInjectedE2EGenerationResult(
-  value: unknown,
-  protocol: ICustomInjectedProtocol,
-  recordingSha256: string,
-  expectedRelativeFile: string,
-): Extract<ICustomInjectedE2EGenerationResult, { ok: true }> {
-  if (!value || typeof value !== 'object') {
-    throw new OneKeyLocalError('E2E generator returned an invalid result');
-  }
-  const result = value as {
-    schemaVersion?: unknown;
-    kind?: unknown;
-    ok?: unknown;
-    source?: unknown;
-    protocolId?: unknown;
-    recordingSha256?: unknown;
-    actionCount?: unknown;
-    validated?: unknown;
-    validationPasses?: unknown;
-    relativeFile?: unknown;
-  };
-  if (
-    result.schemaVersion !== 1 ||
-    result.kind !== 'onekey-connect-button-e2e-generation-result' ||
-    result.ok !== true ||
-    result.source !== protocol.source ||
-    result.protocolId !== protocol.id ||
-    result.recordingSha256 !== recordingSha256 ||
-    result.relativeFile !== expectedRelativeFile ||
-    result.validated !== true ||
-    typeof result.validationPasses !== 'number' ||
-    !Number.isSafeInteger(result.validationPasses) ||
-    result.validationPasses < 1 ||
-    result.validationPasses > CUSTOM_INJECTED_E2E_MAX_ATTEMPTS ||
-    typeof result.actionCount !== 'number' ||
-    !Number.isSafeInteger(result.actionCount) ||
-    result.actionCount < 2 ||
-    result.actionCount > CUSTOM_INJECTED_RECORDING_MAX_STEPS + 1
-  ) {
-    throw new OneKeyLocalError(
-      'E2E generator result does not match the saved recording',
-    );
-  }
-  return {
-    ok: true,
-    relativeFile: expectedRelativeFile,
-    recordingSha256,
-    actionCount: result.actionCount,
-    validated: true,
-    validationPasses: result.validationPasses,
-  };
-}
-
-async function executeCustomInjectedE2EGenerator(
-  customSession: ICustomInjectedWorkspaceSession,
-  protocol: ICustomInjectedProtocol,
-  recordingFile: string,
-  recordingSha256: string,
-  signal: AbortSignal,
-  onProcessLog?: (processLog: {
-    exitCode: number | string;
-    signal?: string;
-    stdout: string;
-    stderr: string;
-    processError?: string;
-  }) => void,
-): Promise<ICustomInjectedE2EGenerationResult> {
-  if (!customSession.recordingE2EGeneratorFile) {
-    return { ok: false, error: 'Recording E2E generator is not configured' };
-  }
-  const expectedRelativeFile = workspaceRelativeFile(
-    customSession.workspace,
-    path.join(path.dirname(recordingFile), 'e2e.mjs'),
-  );
-  try {
-    await readLimitedFile(
-      customSession.recordingE2EGeneratorFile,
-      CUSTOM_INJECTED_E2E_GENERATOR_MAX_BYTES,
-      'Custom injection recording E2E generator',
-    );
-    const { stdout, stderr } = await execFileAsync(
-      process.execPath,
-      [
-        customSession.recordingE2EGeneratorFile,
-        '--file',
-        workspaceRelativeFile(customSession.workspace, recordingFile),
-      ],
-      {
-        cwd: customSession.workspace,
-        encoding: 'utf8',
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-        maxBuffer: CUSTOM_INJECTED_E2E_RESULT_MAX_BYTES,
-        signal,
-        timeout: CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS,
-        windowsHide: true,
-      },
-    );
-    onProcessLog?.({ exitCode: 0, stdout, stderr });
-    return normalizeCustomInjectedE2EGenerationResult(
-      parseCustomInjectedE2EOutput(stdout),
-      protocol,
-      recordingSha256,
-      expectedRelativeFile,
-    );
-  } catch (error) {
-    const failure = error as Error & {
-      code?: number | string;
-      signal?: string;
-      stderr?: string;
-      stdout?: string;
-    };
-    onProcessLog?.({
-      exitCode: failure.code ?? 'unknown',
-      ...(failure.signal ? { signal: failure.signal } : undefined),
-      stdout: failure.stdout || '',
-      stderr: failure.stderr || '',
-      processError: failure.message,
-    });
-    if (signal.aborted) {
-      return {
-        ok: false,
-        cancelled: true,
-        error: 'E2E generation stopped by user',
-      };
-    }
-    const detail =
-      customInjectedE2EErrorFromOutput(failure.stderr || '') ||
-      customInjectedE2EErrorFromOutput(failure.stdout || '') ||
-      failure.message.split(/\r?\n/u).find(Boolean) ||
-      'Unknown E2E generation failure';
-    return { ok: false, error: detail.slice(0, 2000) };
+    return undefined;
   }
 }
 
-function formatCustomInjectedE2EProcessLog({
-  e2eFile,
-  exitCode,
-  processError,
-  signal,
-  stderr,
-  stdout,
-}: {
-  e2eFile: string;
-  exitCode: number | string;
-  processError?: string;
-  signal?: string;
-  stderr: string;
-  stdout: string;
-}): string {
-  const sections = [
-    'OneKey Desktop E2E validation',
-    `Script: ${e2eFile}`,
-    `Exit code: ${String(exitCode)}`,
-    ...(signal ? [`Signal: ${signal}`] : []),
-    ...(stdout.trim() ? [`\n--- stdout ---\n${stdout.trim()}`] : []),
-    ...(stderr.trim() ? [`\n--- stderr ---\n${stderr.trim()}`] : []),
-    ...(processError?.trim()
-      ? [`\n--- process error ---\n${processError.trim()}`]
-      : []),
-  ];
-  const log = `${sections.join('\n')}\n`;
-  const buffer = Buffer.from(log, 'utf8');
-  if (buffer.byteLength <= CUSTOM_INJECTED_E2E_LOG_MAX_BYTES) {
-    return log;
-  }
-  const retained = buffer
-    .subarray(buffer.byteLength - CUSTOM_INJECTED_E2E_LOG_MAX_BYTES)
-    .toString('utf8');
-  return `[Earlier log output truncated at ${String(
-    CUSTOM_INJECTED_E2E_LOG_MAX_BYTES,
-  )} bytes]\n${retained}`;
-}
-
-async function writeJsonAtomic(
-  file: string,
-  value: unknown,
-  {
-    label = 'Custom injection recording',
-    maxBytes = CUSTOM_INJECTED_RECORDING_MAX_BYTES,
-  }: { label?: string; maxBytes?: number } = {},
-): Promise<string> {
-  const content = `${JSON.stringify(value, null, 2)}\n`;
-  if (Buffer.byteLength(content) > maxBytes) {
-    throw new OneKeyLocalError(`${label} is too large`);
-  }
-  const temporaryFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  try {
-    await fs.writeFile(temporaryFile, content, { flag: 'wx', mode: 0o600 });
-    await fs.rename(temporaryFile, file);
-  } catch (error) {
-    await fs.unlink(temporaryFile).catch(() => undefined);
-    throw error;
-  }
-  return content;
-}
-
-function parseCustomInjectedWorkspaceCliOutput(
-  stdout: string,
-): ICustomInjectedWorkspaceCliSnapshot {
+function parseCustomInjectedWorkspaceCliOutput<T>(stdout: string): T {
   let value: {
     ok?: unknown;
     result?: unknown;
@@ -1629,7 +837,95 @@ function parseCustomInjectedWorkspaceCliOutput(
         : 'Custom injection workspace CLI failed',
     );
   }
-  return value.result as ICustomInjectedWorkspaceCliSnapshot;
+  return value.result as T;
+}
+
+async function runCustomInjectedWorkspaceCliAction<T>({
+  action,
+  args = [],
+  maxBuffer = CUSTOM_INJECTED_WORKSPACE_CLI_OUTPUT_MAX_BYTES,
+  request,
+  signal,
+  timeout,
+  workspace,
+  workspaceCliFile,
+}: {
+  action: string;
+  args?: string[];
+  maxBuffer?: number;
+  request?: unknown;
+  signal?: AbortSignal;
+  timeout: number;
+  workspace: string;
+  workspaceCliFile: string;
+}): Promise<T> {
+  let requestDirectory: string | undefined;
+  const cliArgs = [
+    workspaceCliFile,
+    '--action',
+    action,
+    '--workspace',
+    workspace,
+    ...args,
+  ];
+  try {
+    if (request !== undefined) {
+      const content = `${JSON.stringify(request)}\n`;
+      if (
+        Buffer.byteLength(content) >
+        CUSTOM_INJECTED_WORKSPACE_CLI_REQUEST_MAX_BYTES
+      ) {
+        throw new OneKeyLocalError(
+          'Custom injection workspace CLI request is too large',
+        );
+      }
+      requestDirectory = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'onekey-custom-injection-request-'),
+      );
+      const requestFile = path.join(requestDirectory, 'request.json');
+      await fs.writeFile(requestFile, content, { mode: 0o600 });
+      cliArgs.push('--request-file', requestFile);
+    }
+    const { stdout } = await execFileAsync(process.execPath, cliArgs, {
+      cwd: workspace,
+      encoding: 'utf8',
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      maxBuffer,
+      signal,
+      timeout,
+      windowsHide: true,
+    });
+    return parseCustomInjectedWorkspaceCliOutput<T>(stdout);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const failure = error as Error & {
+      code?: number | string;
+      signal?: string;
+      stderr?: string;
+      stdout?: string;
+    };
+    const message =
+      customInjectedWorkspaceCliErrorFromOutput(failure.stderr || '') ||
+      failure.message ||
+      'Custom injection workspace CLI failed';
+    const wrappedError = new OneKeyLocalError(message);
+    Object.assign(wrappedError, {
+      process: {
+        exitCode: failure.code ?? 'unknown',
+        ...(failure.signal ? { signal: failure.signal } : undefined),
+        stderr: failure.stderr || '',
+        stdout: failure.stdout || '',
+        processError: failure.message,
+      },
+    });
+    throw wrappedError;
+  } finally {
+    if (requestDirectory) {
+      await fs
+        .rm(requestDirectory, { recursive: true, force: true })
+        .catch(() => undefined);
+    }
+  }
 }
 
 async function inspectCustomInjectedWorkspaceWithCli({
@@ -1651,34 +947,15 @@ async function inspectCustomInjectedWorkspaceWithCli({
     | 'protocols'
   >
 > {
-  let stdout: string;
-  try {
-    ({ stdout } = await execFileAsync(
-      process.execPath,
-      [workspaceCliFile, '--action', 'inspect', '--workspace', workspace],
+  const snapshot =
+    await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliSnapshot>(
       {
-        cwd: workspace,
-        encoding: 'utf8',
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-        maxBuffer: CUSTOM_INJECTED_WORKSPACE_CLI_OUTPUT_MAX_BYTES,
+        action: 'inspect',
         timeout: 60_000,
-        windowsHide: true,
+        workspace,
+        workspaceCliFile,
       },
-    ));
-  } catch (error) {
-    const stderr = (error as { stderr?: unknown }).stderr;
-    const message =
-      typeof stderr === 'string' && stderr.trim()
-        ? customInjectedE2EErrorFromOutput(stderr)
-        : undefined;
-    throw new OneKeyLocalError(
-      message ||
-        (error instanceof Error
-          ? error.message
-          : 'Custom injection workspace CLI failed'),
     );
-  }
-  const snapshot = parseCustomInjectedWorkspaceCliOutput(stdout);
   if (
     snapshot.schemaVersion !== 1 ||
     snapshot.kind !== 'onekey-custom-injection-workspace-snapshot' ||
@@ -1884,6 +1161,18 @@ async function refreshCustomInjectedSession(
   );
 }
 
+async function cleanupCustomInjectedE2EPreloads(
+  customSession: ICustomInjectedWorkspaceSession,
+): Promise<void> {
+  const directories = [...customSession.e2ePreloadDirectories];
+  customSession.e2ePreloadDirectories.clear();
+  await Promise.all(
+    directories.map((directory) =>
+      fs.rm(directory, { force: true, recursive: true }).catch(() => undefined),
+    ),
+  );
+}
+
 function publicCustomInjectedSession(
   customSession: ICustomInjectedWorkspaceSession,
 ): ICustomInjectedSession {
@@ -2017,6 +1306,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           workspace,
           workspaceCliFile,
           ...snapshot,
+          e2ePreloadDirectories: new Set(),
           active: false,
         };
         customInjectedSessions.set(customSession.sessionId, customSession);
@@ -2078,6 +1368,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           );
           if (previousSession) {
             previousSession.active = false;
+            await cleanupCustomInjectedE2EPreloads(previousSession);
           }
           customInjectedSessions.delete(activeCustomInjectedSessionId);
         }
@@ -2139,6 +1430,128 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
     });
   }
 
+  async prepareCustomInjectedE2EPreload(
+    request: ICustomInjectedE2EPreloadRequest,
+  ): Promise<ICustomInjectedE2EPreloadResult> {
+    const customSession = customInjectedSessions.get(request.sessionId);
+    if (
+      !customSession?.active ||
+      activeCustomInjectedSessionId !== request.sessionId
+    ) {
+      throw new OneKeyLocalError('Custom injection session is not active');
+    }
+    if (
+      (request.mode !== 'enabled' && request.mode !== 'disabled') ||
+      typeof request.token !== 'string' ||
+      request.token.length < 16 ||
+      request.token.length > 128
+    ) {
+      throw new OneKeyLocalError('Custom injection E2E adapter control is invalid');
+    }
+    await refreshCustomInjectedSession(customSession);
+    if (
+      !/^[a-f0-9]{64}$/u.test(request.bundleSha256) ||
+      request.bundleSha256 !== customSession.bundleSha256
+    ) {
+      throw new OneKeyLocalError('Custom injection bundle has changed');
+    }
+    const preload = await readLimitedFile(
+      customSession.preloadFile,
+      CUSTOM_INJECTED_PRELOAD_MAX_BYTES,
+      'Desktop preload',
+    );
+    if (sha256(preload.content) !== customSession.bundleSha256) {
+      throw new OneKeyLocalError('Custom injection bundle has changed');
+    }
+
+    await cleanupCustomInjectedE2EPreloads(customSession);
+    const temporaryRoot = await fs.realpath(os.tmpdir());
+    const directory = await fs.mkdtemp(
+      path.join(temporaryRoot, 'onekey-custom-injection-e2e-'),
+    );
+    customSession.e2ePreloadDirectories.add(directory);
+    const file = path.join(directory, 'injectedDesktopPreload.js');
+    const bootstrap = Buffer.from(
+      `Object.defineProperty(globalThis, ${JSON.stringify(
+        CUSTOM_INJECTED_E2E_PRELOAD_CONTROL_KEY,
+      )}, { configurable: false, enumerable: false, writable: false, value: Object.freeze(${JSON.stringify(
+        {
+          version: 1,
+          mode: request.mode,
+          token: request.token,
+        },
+      )}) });\n`,
+      'utf8',
+    );
+    const controlledPreload = Buffer.concat([bootstrap, preload.content]);
+    await fs.writeFile(file, controlledPreload, { flag: 'wx', mode: 0o600 });
+    return {
+      mode: request.mode,
+      token: request.token,
+      preloadUrl: `${pathToFileURL(file).href}?sha256=${sha256(
+        controlledPreload,
+      )}`,
+    };
+  }
+
+  async focusCustomInjectedE2EWebView(
+    request: ICustomInjectedE2EFocusRequest,
+  ): Promise<ICustomInjectedE2EFocusResult> {
+    const customSession = customInjectedSessions.get(request.sessionId);
+    if (
+      !customSession?.active ||
+      activeCustomInjectedSessionId !== request.sessionId
+    ) {
+      throw new OneKeyLocalError('Custom injection session is not active');
+    }
+    if (
+      !Number.isSafeInteger(request.webContentsId) ||
+      request.webContentsId <= 0
+    ) {
+      throw new OneKeyLocalError('Custom injection WebView is not available');
+    }
+    await refreshCustomInjectedSession(customSession);
+    const protocol = findCustomInjectedProtocol(
+      customSession,
+      request.protocolId,
+    );
+    if (!protocol) {
+      throw new OneKeyLocalError('Custom injection protocol not found');
+    }
+    const guest = webContents.fromId(request.webContentsId);
+    if (!guest || guest.isDestroyed() || guest.getType() !== 'webview') {
+      throw new OneKeyLocalError('Custom injection WebView is not available');
+    }
+    if (guest.session.isPersistent()) {
+      throw new OneKeyLocalError(
+        'Custom injection E2E focus requires a private WebView session',
+      );
+    }
+    const partition = guest.session.getPartition();
+    if (!/^onekey-custom-e2e-[a-z0-9]+$/u.test(partition)) {
+      throw new OneKeyLocalError(
+        'Custom injection E2E focus requires a clean-session partition',
+      );
+    }
+    const currentHostname = getCustomInjectedHostname(guest.getURL());
+    const reportedHostname = getCustomInjectedHostname(request.pageUrl);
+    const protocolHostname = getCustomInjectedHostname(protocol.url);
+    if (
+      !currentHostname ||
+      currentHostname !== reportedHostname ||
+      currentHostname !== protocolHostname
+    ) {
+      throw new OneKeyLocalError(
+        `Custom injection E2E focus hostname mismatch for "${protocol.key}"`,
+      );
+    }
+    guest.focus();
+    if (!guest.isFocused()) {
+      throw new OneKeyLocalError('Custom injection E2E WebView did not receive focus');
+    }
+    return { focused: true, webContentsId: request.webContentsId };
+  }
+
   async getCustomInjectedE2EState(
     sessionId: string,
     protocolId: string,
@@ -2165,9 +1578,14 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
         if (!protocol) {
           throw new OneKeyLocalError('Custom injection protocol not found');
         }
-        return getCustomInjectedE2EWorkflowStateForProtocol(
-          customSession,
-          protocol,
+        return runCustomInjectedWorkspaceCliAction<ICustomInjectedE2EWorkflowState>(
+          {
+            action: 'e2e-state',
+            args: ['--protocol-id', protocol.key],
+            timeout: 60_000,
+            workspace: customSession.workspace,
+            workspaceCliFile: customSession.workspaceCliFile,
+          },
         );
       },
     });
@@ -2192,7 +1610,35 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           throw new OneKeyLocalError('Custom injection session is not active');
         }
         await refreshCustomInjectedSession(customSession);
-        return getCustomInjectedE2EWorkflowSummaries(customSession);
+        const result =
+          await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliE2EStatesResult>(
+            {
+              action: 'e2e-states',
+              timeout: 120_000,
+              workspace: customSession.workspace,
+              workspaceCliFile: customSession.workspaceCliFile,
+            },
+          );
+        await Promise.all(
+          result.errors.map(async ({ error, protocolId }) => {
+            const protocol = findCustomInjectedProtocol(
+              customSession,
+              protocolId,
+            );
+            await writeCustomInjectedOperationLog(customSession.workspace, {
+              operationId: crypto.randomUUID(),
+              operation: 'e2e.state.read',
+              status: 'error',
+              sessionId: customSession.sessionId,
+              protocol: protocol
+                ? customInjectedOperationProtocol(protocol)
+                : undefined,
+              input: { mode: 'summary' },
+              error: new Error(error),
+            });
+          }),
+        );
+        return result.states;
       },
     });
   }
@@ -2317,36 +1763,11 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
         ) {
           throw new OneKeyLocalError('Custom injection session is not active');
         }
-        let protocol = findCustomInjectedProtocol(customSession, protocolId);
+        const protocol = findCustomInjectedProtocol(customSession, protocolId);
         if (!protocol) {
           throw new OneKeyLocalError('Custom injection protocol not found');
         }
-        const state = await getCustomInjectedE2EWorkflowStateForProtocol(
-          customSession,
-          protocol,
-        );
-        if (!state.recording || !state.e2e?.current || !state.canValidate) {
-          throw new OneKeyLocalError(
-            'Generate an E2E script from the latest recording before validating',
-          );
-        }
-        const recording = state.recording;
         await this.prepareCustomInjectedE2EValidation(sessionId, protocol.key);
-        protocol = findCustomInjectedProtocol(customSession, protocol.key);
-        if (!protocol) {
-          throw new OneKeyLocalError('Custom injection protocol not found');
-        }
-        const dappDirectory = await resolveCustomInjectedDappDirectory(
-          customSession,
-          protocol,
-          false,
-        );
-        if (!dappDirectory) {
-          throw new OneKeyLocalError('Generated E2E directory is unavailable');
-        }
-        const e2eFile = path.join(dappDirectory, 'e2e.mjs');
-        const resultFile = path.join(dappDirectory, 'e2e-result.json');
-        const e2eSha256 = sha256(await fs.readFile(e2eFile));
         const runKey = `${sessionId}:${protocol.key}`;
         if (
           customInjectedE2ERuns.has(runKey) ||
@@ -2359,120 +1780,28 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
         const abortController = new AbortController();
         customInjectedE2ERuns.add(runKey);
         customInjectedE2ERunAbortControllers.set(runKey, abortController);
-        const normalizeAndPersistOutput = async (output: string) => {
-          const value = parseCustomInjectedE2EOutput(output);
-          const result = normalizeCustomInjectedE2EResult(
-            value,
-            protocol.source,
-            protocol,
-            recording.sha256,
-          );
-          await writeJsonAtomic(
-            resultFile,
-            { ...result, e2eSha256 },
-            {
-              label: 'Persisted E2E result',
-              maxBytes: CUSTOM_INJECTED_E2E_RESULT_FILE_MAX_BYTES,
-            },
-          );
-          return result;
-        };
         try {
-          await fs.unlink(resultFile).catch((error: NodeJS.ErrnoException) => {
-            if (error.code !== 'ENOENT') throw error;
-          });
-          const relativeE2EFile = workspaceRelativeFile(
-            customSession.workspace,
-            e2eFile,
-          );
           try {
-            const { stderr, stdout } = await execFileAsync(
-              process.execPath,
-              [e2eFile],
+            return await runCustomInjectedWorkspaceCliAction<ICustomInjectedE2ERunOutcome>(
               {
-                cwd: customSession.workspace,
-                encoding: 'utf8',
-                env: {
-                  ...process.env,
-                  ELECTRON_RUN_AS_NODE: '1',
-                  ONEKEY_DESKTOP_CDP_ENDPOINT: 'http://127.0.0.1:9222',
-                },
-                maxBuffer: CUSTOM_INJECTED_E2E_RESULT_MAX_BYTES,
+                action: 'e2e-run',
+                args: ['--protocol-id', protocol.key],
                 signal: abortController.signal,
-                timeout: CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS,
+                timeout: CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS + 30_000,
+                workspace: customSession.workspace,
+                workspaceCliFile: customSession.workspaceCliFile,
               },
             );
-            const log = formatCustomInjectedE2EProcessLog({
-              e2eFile: relativeE2EFile,
-              exitCode: 0,
-              stderr,
-              stdout,
-            });
-            if (abortController.signal.aborted) {
-              return {
-                ok: false,
-                cancelled: true,
-                error: 'E2E validation stopped by user',
-                log,
-              };
-            }
-            try {
-              return {
-                ok: true,
-                result: await normalizeAndPersistOutput(stdout),
-                log,
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                error: error instanceof Error ? error.message : String(error),
-                log,
-              };
-            }
           } catch (error) {
-            const processFailure = error as Error & {
-              code?: number | string;
-              signal?: string;
-              stderr?: string;
-              stdout?: string;
-            };
-            const stderr = processFailure.stderr || '';
-            const stdout = processFailure.stdout || '';
-            const log = formatCustomInjectedE2EProcessLog({
-              e2eFile: relativeE2EFile,
-              exitCode: processFailure.code ?? 'unknown',
-              processError: processFailure.message,
-              signal: processFailure.signal,
-              stderr,
-              stdout,
-            });
             if (abortController.signal.aborted) {
               return {
                 ok: false,
                 cancelled: true,
                 error: 'E2E validation stopped by user',
-                log,
+                log: '',
               };
             }
-            for (const output of [stderr, stdout]) {
-              if (output.trim()) {
-                try {
-                  return {
-                    ok: true,
-                    result: await normalizeAndPersistOutput(output),
-                    log,
-                  };
-                } catch {
-                  // A runner exception may emit an error envelope instead of a result.
-                }
-              }
-            }
-            const detail =
-              customInjectedE2EErrorFromOutput(stderr) ||
-              customInjectedE2EErrorFromOutput(stdout) ||
-              processFailure.message.split(/\r?\n/u).find(Boolean) ||
-              'Unknown E2E failure';
-            return { ok: false, error: detail, log };
+            throw error;
           }
         } finally {
           customInjectedE2ERuns.delete(runKey);
@@ -2646,83 +1975,43 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           );
         }
 
-        const capture = normalizeCustomInjectedRecordingCapture(
-          request.recording,
-        );
         const currentUrl = guest.getURL();
-        const expectedHostname = getCustomInjectedHostname(protocol.url);
-        const recordingUrls = [
-          request.pageUrl,
-          currentUrl,
-          capture.initialUrl,
-          capture.finalUrl,
-          ...capture.steps.map((step) => step.pageUrl),
-        ];
+        const result =
+          await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliRecordingSaveResult>(
+            {
+              action: 'recording-save',
+              request: {
+                bundleSha256: request.bundleSha256,
+                currentUrl,
+                expectedRegistrySha256: request.expectedRegistrySha256,
+                pageUrl: request.pageUrl,
+                privateSession: true,
+                protocolId: protocol.key,
+                recording: request.recording,
+              },
+              timeout: 60_000,
+              workspace: customSession.workspace,
+              workspaceCliFile: customSession.workspaceCliFile,
+            },
+          );
         if (
-          !expectedHostname ||
-          recordingUrls.some(
-            (url) => getCustomInjectedHostname(url) !== expectedHostname,
-          )
+          result.schemaVersion !== 1 ||
+          result.kind !== 'onekey-custom-injection-recording-save-result' ||
+          !/^[a-f0-9]{64}$/u.test(result.sha256) ||
+          !Number.isSafeInteger(result.stepCount) ||
+          result.stepCount < 1 ||
+          result.stepCount > CUSTOM_INJECTED_RECORDING_MAX_STEPS ||
+          typeof result.relativeFile !== 'string' ||
+          !result.relativeFile.endsWith('/recording.json')
         ) {
           throw new OneKeyLocalError(
-            'Custom injection recording URL does not match the selected protocol',
+            'Custom injection workspace CLI returned an invalid recording result',
           );
         }
-
-        const persistedRecording = {
-          schemaVersion: 1,
-          kind: 'onekey-connect-button-recording',
-          protocol: {
-            source: protocol.source,
-            id: protocol.id,
-            name: protocol.name,
-            slug: protocol.slug,
-            url: protocol.url,
-          },
-          runtime: {
-            bundleSha256: customSession.bundleSha256,
-            privateSession: true,
-          },
-          startedAt: capture.startedAt,
-          finishedAt: capture.finishedAt,
-          initialUrl: capture.initialUrl,
-          finalUrl: capture.finalUrl,
-          title: capture.title,
-          viewport: capture.viewport,
-          outcome: capture.outcome,
-          steps: capture.steps,
-        } as const;
-        const dappDirectory = await resolveCustomInjectedDappDirectory(
-          customSession,
-          protocol,
-          true,
-        );
-        if (!dappDirectory) {
-          throw new OneKeyLocalError(
-            'Custom injection DApp directory is unavailable',
-          );
-        }
-        const file = path.join(dappDirectory, 'recording.json');
-        const content = await writeJsonAtomic(file, persistedRecording);
-        const recordingSha256 = sha256(content);
-        const recordingFiles = await fs.readdir(dappDirectory, {
-          withFileTypes: true,
-        });
-        await Promise.all(
-          recordingFiles.map(async (entry) => {
-            if (
-              entry.isFile() &&
-              entry.name.startsWith('recording-') &&
-              entry.name.endsWith('.json')
-            ) {
-              await fs.unlink(path.join(dappDirectory, entry.name));
-            }
-          }),
-        );
         return {
-          relativeFile: workspaceRelativeFile(customSession.workspace, file),
-          sha256: recordingSha256,
-          stepCount: capture.steps.length,
+          relativeFile: result.relativeFile,
+          sha256: result.sha256,
+          stepCount: result.stepCount,
         };
       },
       completion: (result) => ({ result }),
@@ -2738,15 +2027,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
       throw new OneKeyLocalError('Custom injection session is not active');
     }
     const logProtocol = findCustomInjectedProtocol(customSession, protocolId);
-    let generatorProcessLog:
-      | {
-          exitCode: number | string;
-          signal?: string;
-          stdout: string;
-          stderr: string;
-          processError?: string;
-        }
-      | undefined;
+    let generatorProcessLog: ICustomInjectedWorkspaceCliProcess | undefined;
     return runCustomInjectedLoggedOperation({
       workspace: customSession.workspace,
       sessionId,
@@ -2798,53 +2079,47 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           if (!protocol) {
             throw new OneKeyLocalError('Custom injection protocol not found');
           }
-          const state = await getCustomInjectedE2EWorkflowStateForProtocol(
-            customSession,
-            protocol,
-          );
-          if (!state.recording) {
-            throw new OneKeyLocalError(
-              'Save a recording before generating its E2E',
-            );
-          }
-          const dappDirectory = await resolveCustomInjectedDappDirectory(
-            customSession,
-            protocol,
-            false,
-          );
-          if (!dappDirectory) {
-            throw new OneKeyLocalError(
-              'Custom injection DApp directory is unavailable',
-            );
-          }
           await this.prepareCustomInjectedE2EValidation(
             sessionId,
             protocol.key,
           );
-          if (abortController.signal.aborted) {
-            return {
-              ok: false,
-              cancelled: true,
-              error: 'E2E generation stopped by user',
-            } as const;
+          try {
+            const result =
+              await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliE2EGenerationResult>(
+                {
+                  action: 'e2e-generate',
+                  args: ['--protocol-id', protocol.key],
+                  signal: abortController.signal,
+                  timeout: CUSTOM_INJECTED_E2E_PROCESS_TIMEOUT_MS + 30_000,
+                  workspace: customSession.workspace,
+                  workspaceCliFile: customSession.workspaceCliFile,
+                },
+              );
+            generatorProcessLog = result.process;
+            return result.ok
+              ? {
+                  ok: true,
+                  relativeFile: result.relativeFile,
+                  recordingSha256: result.recordingSha256,
+                  actionCount: result.actionCount,
+                  validated: result.validated,
+                  validationPasses: result.validationPasses,
+                }
+              : {
+                  ok: false,
+                  ...(result.cancelled ? { cancelled: true } : undefined),
+                  error: result.error,
+                };
+          } catch (error) {
+            if (abortController.signal.aborted) {
+              return {
+                ok: false,
+                cancelled: true,
+                error: 'E2E generation stopped by user',
+              } as const;
+            }
+            throw error;
           }
-          const validationProtocol = findCustomInjectedProtocol(
-            customSession,
-            protocol.key,
-          );
-          if (!validationProtocol) {
-            throw new OneKeyLocalError('Custom injection protocol not found');
-          }
-          return await executeCustomInjectedE2EGenerator(
-            customSession,
-            validationProtocol,
-            path.join(dappDirectory, 'recording.json'),
-            state.recording.sha256,
-            abortController.signal,
-            (processLog) => {
-              generatorProcessLog = processLog;
-            },
-          );
         } finally {
           customInjectedE2EGenerations.delete(runKey);
           if (
@@ -3107,15 +2382,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
       update.protocolId,
     );
     let updatedProtocolKey = logProtocol?.key;
-    let updaterProcessLog:
-      | {
-          exitCode: number | string;
-          signal?: string;
-          stdout: string;
-          stderr: string;
-          processError?: string;
-        }
-      | undefined;
+    let updaterProcessLog: ICustomInjectedWorkspaceCliProcess | undefined;
     return runCustomInjectedLoggedOperation({
       workspace: customSession.workspace,
       sessionId: update.sessionId,
@@ -3146,93 +2413,60 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
           throw new OneKeyLocalError('Custom injection protocol not found');
         }
         updatedProtocolKey = protocol.key;
-        const protocolSource = customSession.protocolSources.find(
-          (candidate) => candidate.source === protocol.source,
-        );
-        if (!protocolSource) {
-          throw new OneKeyLocalError(
-            'Custom injection protocol source not found',
-          );
-        }
-        if (update.expectedRegistrySha256 !== protocolSource.registrySha256) {
+        if (update.expectedRegistrySha256 !== protocol.registrySha256) {
           throw new OneKeyLocalError('Custom injection registry has changed');
         }
-        const args = [
-          protocolSource.updaterFile,
-          '--file',
-          protocolSource.registryFile,
-          '--protocol-id',
-          protocol.id,
-          '--expected-sha256',
-          update.expectedRegistrySha256,
-          '--action',
-          update.action,
-        ];
         if (update.action === 'set-url') {
-          if (update.url) {
-            if (!isAllowedWebViewUrl(update.url)) {
-              throw new OneKeyLocalError(
-                'Custom injection protocol URL must be a safe HTTPS URL',
-              );
-            }
-            args.push('--url', update.url);
-          } else {
-            args.push('--clear-url');
-          }
-        } else {
-          args.push('--state', update.state);
-          if (update.state === 'processed') {
-            if (!update.reviewedUrl || !update.bundleSha256) {
-              throw new OneKeyLocalError(
-                'Processed review requires reviewed URL and bundle SHA-256',
-              );
-            }
-            args.push(
-              '--reviewed-url',
-              update.reviewedUrl,
-              '--bundle-sha256',
-              update.bundleSha256,
+          if (update.url && !isAllowedWebViewUrl(update.url)) {
+            throw new OneKeyLocalError(
+              'Custom injection protocol URL must be a safe HTTPS URL',
             );
           }
+        } else if (
+          update.state === 'processed' &&
+          (!update.reviewedUrl || !update.bundleSha256)
+        ) {
+          throw new OneKeyLocalError(
+            'Processed review requires reviewed URL and bundle SHA-256',
+          );
         }
-        try {
-          const { stderr, stdout } = await execFileAsync(
-            process.execPath,
-            args,
+        const result =
+          await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliProtocolUpdateResult>(
             {
-              cwd: customSession.workspace,
-              encoding: 'utf8',
-              env: {
-                ...process.env,
-                ELECTRON_RUN_AS_NODE: '1',
-              },
-              maxBuffer: CUSTOM_INJECTED_UPDATER_MAX_BYTES,
-              timeout: 30_000,
+              action: 'protocol-update',
+              request: { ...update, protocolId: protocol.key },
+              timeout: 60_000,
+              workspace: customSession.workspace,
+              workspaceCliFile: customSession.workspaceCliFile,
             },
           );
-          updaterProcessLog = { exitCode: 0, stdout, stderr };
-        } catch (error) {
-          const failure = error as Error & {
-            code?: number | string;
-            signal?: string;
-            stderr?: string;
-            stdout?: string;
-          };
-          updaterProcessLog = {
-            exitCode: failure.code ?? 'unknown',
-            ...(failure.signal ? { signal: failure.signal } : undefined),
-            stdout: failure.stdout || '',
-            stderr: failure.stderr || '',
-            processError: failure.message,
-          };
-          const detail = failure.stderr || failure.message;
-          const wrappedError = new OneKeyLocalError(
-            `Failed to update custom injection registry: ${detail}`,
+        if (
+          result.schemaVersion !== 1 ||
+          result.kind !== 'onekey-custom-injection-protocol-update-result'
+        ) {
+          throw new OneKeyLocalError(
+            'Custom injection workspace CLI returned an invalid protocol update result',
           );
-          Object.assign(wrappedError, { process: updaterProcessLog });
+        }
+        updaterProcessLog = result.process;
+        if (!result.ok) {
+          const wrappedError = new OneKeyLocalError(
+            result.error || 'Failed to update custom injection registry',
+          );
+          if (updaterProcessLog) {
+            Object.assign(wrappedError, { process: updaterProcessLog });
+          }
           throw wrappedError;
         }
-        protocolSource.registryStamp = '';
+        if (
+          !result.protocol ||
+          result.protocol.key !== protocol.key ||
+          !/^[a-f0-9]{64}$/u.test(result.protocol.registrySha256)
+        ) {
+          throw new OneKeyLocalError(
+            'Custom injection workspace CLI returned an invalid updated protocol',
+          );
+        }
         await refreshCustomInjectedSession(customSession);
         return publicCustomInjectedSession(customSession);
       },
@@ -3255,14 +2489,9 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
     if (!customSession) {
       throw new OneKeyLocalError('Custom injection session is not active');
     }
-    const refresherProcessLogs: Array<{
-      source: string;
-      exitCode: number | string;
-      signal?: string;
-      stdout: string;
-      stderr: string;
-      processError?: string;
-    }> = [];
+    let refresherProcessLogs: Array<
+      ICustomInjectedWorkspaceCliProcess & { source: string }
+    > = [];
     return runCustomInjectedLoggedOperation({
       workspace: customSession.workspace,
       sessionId,
@@ -3276,62 +2505,37 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
         if (!customSession.active) {
           throw new OneKeyLocalError('Custom injection session is not active');
         }
-        const protocolSourcesToRefresh = customSession.protocolSources.filter(
-          (protocolSource) => protocolSource.refresherFile,
-        );
-        await Promise.all(
-          protocolSourcesToRefresh.map(async (protocolSource) => {
-            try {
-              const { stderr, stdout } = await execFileAsync(
-                process.execPath,
-                [
-                  protocolSource.refresherFile as string,
-                  '--file',
-                  protocolSource.registryFile,
-                ],
-                {
-                  cwd: customSession.workspace,
-                  encoding: 'utf8',
-                  env: {
-                    ...process.env,
-                    ELECTRON_RUN_AS_NODE: '1',
-                  },
-                  maxBuffer: CUSTOM_INJECTED_REFRESHER_MAX_BYTES,
-                  timeout: 120_000,
-                },
-              );
-              refresherProcessLogs.push({
-                source: protocolSource.source,
-                exitCode: 0,
-                stdout,
-                stderr,
-              });
-              protocolSource.registryStamp = '';
-            } catch (error) {
-              const failure = error as Error & {
-                code?: number | string;
-                signal?: string;
-                stderr?: string;
-                stdout?: string;
-              };
-              const processLog = {
-                source: protocolSource.source,
-                exitCode: failure.code ?? 'unknown',
-                ...(failure.signal ? { signal: failure.signal } : undefined),
-                stdout: failure.stdout || '',
-                stderr: failure.stderr || '',
-                processError: failure.message,
-              };
-              refresherProcessLogs.push(processLog);
-              const detail = failure.stderr || failure.message;
-              const wrappedError = new OneKeyLocalError(
-                `Failed to refresh ${protocolSource.source} registry: ${detail}`,
-              );
-              Object.assign(wrappedError, { process: processLog });
-              throw wrappedError;
-            }
-          }),
-        );
+        const result =
+          await runCustomInjectedWorkspaceCliAction<ICustomInjectedWorkspaceCliProtocolRefreshResult>(
+            {
+              action: 'protocols-refresh',
+              timeout: 150_000,
+              workspace: customSession.workspace,
+              workspaceCliFile: customSession.workspaceCliFile,
+            },
+          );
+        if (
+          result.schemaVersion !== 1 ||
+          result.kind !== 'onekey-custom-injection-protocol-refresh-result' ||
+          !Array.isArray(result.processes)
+        ) {
+          throw new OneKeyLocalError(
+            'Custom injection workspace CLI returned an invalid protocol refresh result',
+          );
+        }
+        refresherProcessLogs = result.processes;
+        if (!result.ok) {
+          const wrappedError = new OneKeyLocalError(
+            result.error || 'Failed to refresh custom injection protocols',
+          );
+          const failedProcess = refresherProcessLogs.find(
+            ({ exitCode }) => exitCode !== 0,
+          );
+          if (failedProcess) {
+            Object.assign(wrappedError, { process: failedProcess });
+          }
+          throw wrappedError;
+        }
         await refreshCustomInjectedSession(customSession);
         return publicCustomInjectedSession(customSession);
       },
@@ -3467,6 +2671,7 @@ class DesktopApiNetwork extends DesktopApiWebviewBase {
         if (activeCustomInjectedSessionId === sessionId) {
           activeCustomInjectedSessionId = undefined;
         }
+        await cleanupCustomInjectedE2EPreloads(customSession);
         customInjectedSessions.delete(sessionId);
       },
       completion: () => ({ result: { closed: true } }),

@@ -12,9 +12,7 @@ describe('Desktop production renderer verification', () => {
   let fixtureDir;
 
   beforeEach(() => {
-    fixtureDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'onekey-desktop-renderer-'),
-    );
+    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-desktop-renderer-'));
   });
 
   afterEach(() => {
@@ -29,21 +27,29 @@ describe('Desktop production renderer verification', () => {
     fs.writeFileSync(path.join(nestedDir, 'ignored.css'), 'CustomInjection');
 
     expect(collectJavaScriptFiles(fixtureDir)).toHaveLength(2);
-    expect(() =>
-      verifyProductionRendererExcludesDevelopmentModules(fixtureDir),
-    ).not.toThrow();
+    expect(() => verifyProductionRendererExcludesDevelopmentModules(fixtureDir)).not.toThrow();
   });
 
   test('rejects a development-only marker in a nested chunk', () => {
     const nestedDir = path.join(fixtureDir, 'static', 'js');
     fs.mkdirSync(nestedDir, { recursive: true });
+    fs.writeFileSync(path.join(nestedDir, 'chunk.js'), 'const feature = "custom-injected";');
+
+    expect(() => verifyProductionRendererExcludesDevelopmentModules(fixtureDir)).toThrow(
+      'static/js/chunk.js: custom-injected',
+    );
+  });
+
+  test('rejects a Custom Injection modal route in a nested chunk', () => {
+    const nestedDir = path.join(fixtureDir, 'static', 'js');
+    fs.mkdirSync(nestedDir, { recursive: true });
     fs.writeFileSync(
       path.join(nestedDir, 'chunk.js'),
-      'const feature = "custom-injected";',
+      'const route = "CustomInjectedProtocolList";',
     );
 
-    expect(() =>
-      verifyProductionRendererExcludesDevelopmentModules(fixtureDir),
-    ).toThrow('static/js/chunk.js: custom-injected');
+    expect(() => verifyProductionRendererExcludesDevelopmentModules(fixtureDir)).toThrow(
+      'static/js/chunk.js: CustomInjected',
+    );
   });
 });
