@@ -17,6 +17,7 @@ import type { ITradingViewNativeChartType } from '../types';
 export interface ITradingViewNativeLegendItem {
   label: string;
   value: string;
+  valueColorRole?: 'trend';
 }
 
 export interface ITradingViewNativeChartLegend {
@@ -228,12 +229,13 @@ export function getTradingViewNativeChartLegend(
   // TradingView compares each close with the prior bar's close and falls back
   // to the current bar's open when there is no prior bar.
   const changeReference = previousClose ?? point.o;
-  const priceChangeItem = {
+  const priceChangeItem: ITradingViewNativeLegendItem = {
     label: '',
     value: formatTradingViewNativePriceChange({
       close: point.c,
       open: changeReference,
     }),
+    valueColorRole: 'trend',
   };
   return {
     isUp: point.c >= changeReference,
