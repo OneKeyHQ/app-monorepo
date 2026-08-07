@@ -13,6 +13,7 @@ export type IFirmwareArtifactReceipt = {
   artifactRef: string;
   size: number;
   sha256: string;
+  expectedSha256Verified: boolean;
 };
 
 export type IFirmwareArtifactLeaseDisposition =

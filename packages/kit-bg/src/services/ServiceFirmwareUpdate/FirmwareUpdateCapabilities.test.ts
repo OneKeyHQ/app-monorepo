@@ -67,7 +67,7 @@ describe('isExternalFirmwareCapabilityReady', () => {
 
   test('requires the exact native artifact protocol and bounded reader contract', () => {
     const nativeReady = {
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -386,7 +386,7 @@ describe('prepared firmware execution', () => {
         .spyOn(loggerUtils, 'consoleFunc')
         .mockImplementation(() => undefined);
       jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-        firmwareArtifactProtocolVersion: 3,
+        firmwareArtifactProtocolVersion: 4,
         maxReadBytes: 256 * 1024,
         supportsArchiveMaterialization: true,
         supportedRouteTypes: ['domain'],
@@ -437,7 +437,7 @@ describe('prepared firmware execution', () => {
     });
     try {
       jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-        firmwareArtifactProtocolVersion: 3,
+        firmwareArtifactProtocolVersion: 4,
         maxReadBytes: 256 * 1024,
         supportsArchiveMaterialization: true,
         supportedRouteTypes: ['domain'],
@@ -490,7 +490,7 @@ describe('prepared firmware execution', () => {
         .spyOn(loggerUtils, 'consoleFunc')
         .mockImplementation(() => undefined);
       jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-        firmwareArtifactProtocolVersion: 3,
+        firmwareArtifactProtocolVersion: 4,
         maxReadBytes: 256 * 1024,
         supportsArchiveMaterialization: true,
         supportedRouteTypes: ['domain'],
@@ -563,6 +563,7 @@ describe('downloadFirmwareArtifact', () => {
         artifactRef: `fw:${artifact.expectedSha256}`,
         size: artifact.expectedSize,
         sha256: artifact.expectedSha256,
+        expectedSha256Verified: true,
       });
     const deadlineAt = Date.now() + 20 * 60 * 1000;
 
@@ -627,6 +628,30 @@ describe('downloadFirmwareArtifact', () => {
     );
   });
 
+  test('rejects a receipt that did not verify the expected SHA-256', async () => {
+    jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
+    const artifact = testFirmwareArtifact;
+    jest.spyOn(firmwareArtifactAdapter, 'download').mockResolvedValue({
+      artifactRef: `fw:${artifact.expectedSha256}`,
+      size: artifact.expectedSize,
+      sha256: artifact.expectedSha256,
+      expectedSha256Verified: false,
+    });
+
+    await expect(
+      downloadFirmwareArtifact({
+        artifact,
+        artifactId: 'bootloader',
+        taskId: 'bootloader-download',
+        transactionId: 'fwtx:unverified-receipt',
+        leaseRef: 'fwlease:unverified-receipt',
+        deadlineAt: Date.now() + 20 * 60 * 1000,
+      }),
+    ).rejects.toThrow(
+      'Firmware artifact receipt does not match the update plan',
+    );
+  });
+
   test('does not start a download after the preparation deadline', async () => {
     const artifact = testFirmwareArtifact;
     const download = jest.spyOn(firmwareArtifactAdapter, 'download');
@@ -678,7 +703,7 @@ describe('Desktop Bridge firmware binaries', () => {
   test('downloads and reads a small admitted artifact before releasing its lease', async () => {
     const { artifact, plan } = createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -690,6 +715,7 @@ describe('Desktop Bridge firmware binaries', () => {
       artifactRef: `fw:${artifact.expectedSha256}`,
       size: artifact.expectedSize,
       sha256: artifact.expectedSha256,
+      expectedSha256Verified: true,
     });
     jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
       readerId: 'reader',
@@ -722,7 +748,7 @@ describe('Desktop Bridge firmware binaries', () => {
     delete plan.artifacts[0].expectedSize;
     delete plan.artifacts[0].expectedSha256;
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -737,6 +763,7 @@ describe('Desktop Bridge firmware binaries', () => {
         artifactRef: `fw:${actualSha256}`,
         size: testFirmwareArtifact.expectedSize,
         sha256: actualSha256,
+        expectedSha256Verified: false,
       });
     jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
       readerId: 'reader',
@@ -767,7 +794,7 @@ describe('Desktop Bridge firmware binaries', () => {
   test('cancels an active preparation after a download failure', async () => {
     const { plan } = createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -874,7 +901,7 @@ describe('external firmware artifact preparation', () => {
       targetsToUpdate: ['bootloader'],
     } as unknown as FirmwareUpdatePlan;
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -936,7 +963,7 @@ describe('external firmware artifact preparation', () => {
       planDigest: plan.planDigest,
     })) as unknown as CoreApi['prepareFirmwareUpdatePlan'];
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -947,6 +974,7 @@ describe('external firmware artifact preparation', () => {
         artifactRef: `fw:${archiveSha256}`,
         size: 2048,
         sha256: archiveSha256,
+        expectedSha256Verified: false,
       });
     const materialize = jest
       .spyOn(firmwareArtifactAdapter, 'materialize')
@@ -957,6 +985,7 @@ describe('external firmware artifact preparation', () => {
             artifactRef: `fw:${entrySha256}`,
             size: 1024,
             sha256: entrySha256,
+            expectedSha256Verified: false,
           },
         },
       ]);
@@ -998,6 +1027,7 @@ describe('external firmware artifact preparation', () => {
                   artifactRef: `fw:${entrySha256}`,
                   size: 1024,
                   sha256: entrySha256,
+                  expectedSha256Verified: false,
                 },
               },
             ],
@@ -1043,7 +1073,7 @@ describe('external firmware artifact preparation', () => {
     } as unknown as CoreApi;
     jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
       supportsArchiveMaterialization: true,
       supportedRouteTypes: ['domain'],
@@ -1055,6 +1085,7 @@ describe('external firmware artifact preparation', () => {
       artifactRef: `fw:${testFirmwareArtifact.expectedSha256}`,
       size: testFirmwareArtifact.expectedSize,
       sha256: testFirmwareArtifact.expectedSha256,
+      expectedSha256Verified: true,
     });
     const releaseLease = jest
       .spyOn(firmwareArtifactAdapter, 'releaseLease')

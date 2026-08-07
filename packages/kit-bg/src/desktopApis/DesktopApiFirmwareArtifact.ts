@@ -200,7 +200,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
 
   getCapabilities() {
     return {
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       supportedRouteTypes: ['domain'],
       supportsArchiveMaterialization: true,
       maxReadBytes: MAX_READ_BYTES,
@@ -298,6 +298,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
           artifactRef: `fw:${entry.sha256}`,
           size: entry.size,
           sha256: entry.sha256,
+          expectedSha256Verified: input.expectedEntries !== undefined,
         };
         await this.retainExpected({
           leaseRef: input.leaseRef,
@@ -544,6 +545,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
           artifactRef: `fw:${expectedSha256}`,
           size: fileStat.size,
           sha256: expectedSha256,
+          expectedSha256Verified: true,
         };
       }
     }
@@ -584,6 +586,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
         artifactRef: `fw:${actualSha256}`,
         size: input.expectedSize,
         sha256: actualSha256,
+        expectedSha256Verified: expectedSha256 !== undefined,
       };
     } else if (
       input.expectedSize !== undefined &&
@@ -618,6 +621,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
       artifactRef: `fw:${actualSha256}`,
       size: completedStat.size,
       sha256: actualSha256,
+      expectedSha256Verified: expectedSha256 !== undefined,
     };
   }
 

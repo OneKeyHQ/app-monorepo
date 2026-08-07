@@ -51,7 +51,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       desktopApi: {} as never,
     });
     expect(adapter.getCapabilities()).toMatchObject({
-      firmwareArtifactProtocolVersion: 3,
+      firmwareArtifactProtocolVersion: 4,
       supportedRouteTypes: ['domain'],
       maxReadBytes: 256 * 1024,
     });
@@ -199,6 +199,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       artifactRef: `fw:${actualSha256}`,
       size: artifact.byteLength,
       sha256: actualSha256,
+      expectedSha256Verified: false,
     });
     expect(resumeOffsets).toEqual([0]);
   });

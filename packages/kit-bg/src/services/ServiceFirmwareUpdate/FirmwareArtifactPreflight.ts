@@ -140,6 +140,8 @@ const assertReceipt = (
     receipt.size > (artifact.expectedSize ?? MAX_ARTIFACT_BYTES) ||
     !/^[a-f0-9]{64}$/iu.test(receipt.sha256) ||
     receipt.artifactRef !== `fw:${receipt.sha256.toLowerCase()}` ||
+    receipt.expectedSha256Verified !==
+      (artifact.expectedSha256 !== undefined) ||
     (artifact.expectedSize !== undefined &&
       receipt.size !== artifact.expectedSize) ||
     (artifact.expectedSha256 !== undefined &&
@@ -660,7 +662,7 @@ export const isFirmwareArtifactCapabilityReadyValue = (
   const value = capabilities as Record<string, unknown>;
   const routeTypes = value.supportedRouteTypes;
   return (
-    value.firmwareArtifactProtocolVersion === 3 &&
+    value.firmwareArtifactProtocolVersion === 4 &&
     value.maxReadBytes === MAX_READ_BYTES &&
     value.supportsArchiveMaterialization === true &&
     Array.isArray(routeTypes) &&
