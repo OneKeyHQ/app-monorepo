@@ -169,8 +169,25 @@ export class IndexedDBPromised<
   ): IDBPTransaction<DBTypes, Names, Mode> {
     this.ensureDBOpened();
 
+    // Ordinary writes made through this sync path (DB backup, bucket
+    // migration) share the disk-full guard of `createBucketTransaction`.
+    // `versionchange` stays exempt: schema upgrades must never be blocked.
+    if (mode === 'readwrite') {
+      storageChecker.checkIfDiskIsFullSync();
+    }
+
     const storeNamesArray = Array.from(storeNames) as unknown as string[];
-    const tx = this.nativeDB?.transaction(storeNamesArray, mode, options);
+    let tx: IDBTransaction | undefined;
+    try {
+      tx = this.nativeDB?.transaction(storeNamesArray, mode, options);
+    } catch (error) {
+      if (storageChecker.isConnectionClosingError(error)) {
+        // A sync API cannot reopen; drop the dead cached handle so the next
+        // `open()` recovers instead of failing every later call.
+        this.invalidateNativeDB('syncTransactionOnClosingConnection');
+      }
+      throw error;
+    }
     if (!tx) {
       throw new OneKeyLocalError(
         `IndexedDBPromised ERROR: DB Transaction create failed: ${

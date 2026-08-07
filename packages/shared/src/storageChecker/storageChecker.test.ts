@@ -154,6 +154,18 @@ describe('storageChecker', () => {
       expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
     });
 
+    it('can still clear on a quota smaller than the large-quota band', async () => {
+      // Quota 1.5 GB: the fixed 2×-warning threshold (~1.87 GB) would exceed
+      // the quota itself and latch the guard forever. The quota-aware band
+      // clears at the midpoint (~1.22 GB), which freed-up space can reach.
+      globalThis.$onekeySystemDiskIsFull = true;
+      mockEstimate(1.5 * GB, 0.1 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);

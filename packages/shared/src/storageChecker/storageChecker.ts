@@ -43,8 +43,18 @@ const warningAtBytes = warningAtGB * 1024 * 1024 * 1024;
  * is deliberate: the measurement re-runs on every write (debounced to 1s), so
  * a quota sitting near the threshold would otherwise flip the guard — and with
  * it the warning dialog and a log line — once per second in both directions.
+ *
+ * The band must stay reachable: `availableBytes` can never exceed the quota,
+ * so on a small quota a fixed 2× threshold would latch the guard forever. For
+ * large quotas this returns 2× the warning floor; for small ones it shrinks to
+ * the midpoint between the warning floor and the quota itself. A quota at or
+ * below the warning floor keeps the guard latched — storage that small cannot
+ * hold the app's data anyway.
  */
-const clearAtBytes = warningAtBytes * 2;
+function getClearAtBytes(quotaBytes: number): number {
+  const reachableHeadroom = Math.max(0, (quotaBytes - warningAtBytes) / 2);
+  return warningAtBytes + Math.min(warningAtBytes, reachableHeadroom);
+}
 
 /** Most recent successful measurement, regardless of the current flag state. */
 let lastQuotaInfo: IStorageQuotaInfo | undefined;
@@ -184,7 +194,7 @@ async function checkIfDiskIsFull() {
               reason: EStorageFullReason.QuotaExhausted,
               quotaInfo,
             });
-          } else if (quotaInfo.availableBytes >= clearAtBytes) {
+          } else if (quotaInfo.availableBytes >= getClearAtBytes(quotaBytes)) {
             clearDiskFull(quotaInfo);
           }
           // Between the two thresholds: keep the current state either way.
