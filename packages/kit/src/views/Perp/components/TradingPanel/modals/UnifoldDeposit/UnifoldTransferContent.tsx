@@ -23,7 +23,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useBackHandler,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
@@ -36,22 +35,24 @@ import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
-  IUnifoldDepositExecution,
+  TPerpDepositAddressSelectionSource,
+  TPerpDepositEntrySource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/type';
+import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
+import { parseUnifoldExecutionCreatedAtMs } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
+import { UnifoldDepositHistoryCard } from './UnifoldDepositHistoryCard';
 import { UnifoldDepositQRCard } from './UnifoldDepositQRCard';
-import {
-  UNIFOLD_STATUS_CARDS_CONTENT_GAP,
-  UnifoldExecutionStatusCards,
-} from './UnifoldExecutionStatusCards';
 import {
   formatUnifoldProcessingTime,
   formatUnifoldRouteAssetDescription,
@@ -59,7 +60,6 @@ import {
   normalizeUnifoldIconUrl,
 } from './unifoldFormat';
 import { UnifoldSourceSelector } from './UnifoldSourceSelector';
-import { UnifoldExecutionDetail } from './UnifoldTrackerContent';
 
 // HyperCore uses the same Hyperliquid brand mark as the preset HyperEVM
 // network, while dev's plain-chain destination keeps its own chain icon.
@@ -69,6 +69,8 @@ const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
 const THIRD_PARTY_CONVERSION_FEE = `${UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT.toFixed(
   2,
 )}%`;
+const HISTORY_CARD_CONTENT_GAP = 4;
+const RECENT_TERMINAL_WINDOW_MS = 2 * 60 * 1000;
 
 function DetailRow({
   label,
@@ -312,16 +314,12 @@ export const UnifoldTransferContent = forwardRef<
   IUnifoldTransferContentRef,
   {
     expectedRecipient: string | null | undefined;
-    onPressExecution?: (execution: IUnifoldDepositExecution) => void;
+    onOpenTracker?: () => void;
+    onTrackedExecutionCountChange?: (count: number) => void;
     bodyMaxHeight?: number;
-    // 'pageFooter' pins the cards to a mobile Page footer; the default overlay
-    // mode floats them over the panel. Only a host that owns a <Page> may ask
-    // for the footer, so this must stay a prop rather than a platform check.
-    statusCardsPlacement?: 'overlay' | 'pageFooter';
+    historyCardPlacement?: 'overlay' | 'pageFooter' | 'hidden';
     useDialogHeader?: boolean;
     useExternalHeader?: boolean;
-    detailExecutionId?: string | null;
-    onDetailExecutionIdChange?: (executionId: string | null) => void;
     sourceSelectorResult?: IUnifoldSourceSelectorResult;
     onSourceSelectorResultHandled?: () => void;
     onSourceSelectorReady?: ({
@@ -336,35 +334,35 @@ export const UnifoldTransferContent = forwardRef<
     onSourceSelectorUnavailable?: () => void;
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
+    analyticsEntrySource?: TPerpDepositEntrySource;
+    trackDefaultSourceSelection?: boolean;
   }
 >(
   (
     {
       expectedRecipient,
-      onPressExecution,
+      onOpenTracker,
+      onTrackedExecutionCountChange,
       bodyMaxHeight,
-      statusCardsPlacement = 'overlay',
+      historyCardPlacement = 'overlay',
       useDialogHeader = false,
       useExternalHeader = false,
-      detailExecutionId: controlledDetailExecutionId,
-      onDetailExecutionIdChange,
       sourceSelectorResult,
       onSourceSelectorResultHandled,
       onSourceSelectorReady,
       onSourceSelectorUnavailable,
       onOpenMobileTokenSelector,
       onOpenMobileChainSelector,
+      analyticsEntrySource,
+      trackDefaultSourceSelection = false,
     },
     ref,
   ) => {
     const intl = useIntl();
-    const [dismissedExecutionStatuses, setDismissedExecutionStatuses] =
-      useState<Partial<Record<string, IUnifoldDepositExecution['status']>>>({});
-    const [statusCardsHeight, setStatusCardsHeight] = useState(0);
-    const [internalDetailExecutionId, setInternalDetailExecutionId] = useState<
-      string | null
-    >(null);
+    const [activePerpsAccount] = usePerpsActiveAccountAtom();
     const {
+      recipientAddress,
+      isLiveAccountAligned,
       isHyperCoreDestination,
       addressState,
       sessionId,
@@ -382,8 +380,85 @@ export const UnifoldTransferContent = forwardRef<
       activationRetrying,
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
+    const [historyCardHeight, setHistoryCardHeight] = useState(0);
+    const previousExecutionTerminalRef = useRef(new Map<string, boolean>());
+    const [terminalObservedAt, setTerminalObservedAt] = useState(
+      () => new Map<string, number>(),
+    );
+    const [historyCardNow, setHistoryCardNow] = useState(() => Date.now());
 
-    useImperativeHandle(ref, () => ({ selectSource }), [selectSource]);
+    const lastTrackedSourceRef = useRef<string | null>(null);
+    const trackSourceSelection = useCallback(
+      (
+        asset: IUnifoldSupportedAsset,
+        chain: IUnifoldSupportedAssetChain,
+        selectionSource: TPerpDepositAddressSelectionSource,
+      ) => {
+        if (!analyticsEntrySource) {
+          return;
+        }
+        const sourceKey = [asset.symbol, chain.chain_type, chain.chain_id].join(
+          ':',
+        );
+        if (lastTrackedSourceRef.current === sourceKey) {
+          return;
+        }
+        lastTrackedSourceRef.current = sourceKey;
+        defaultLogger.perp.deposit.perpDepositAddressSourceSelect({
+          entrySource: analyticsEntrySource,
+          walletType: activePerpsAccount.walletType ?? 'unknown',
+          sourceTokenSymbol: asset.symbol,
+          sourceChainType: chain.chain_type,
+          sourceChainId: chain.chain_id,
+          sourceChainName: chain.chain_name,
+          selectionSource,
+        });
+      },
+      [activePerpsAccount.walletType, analyticsEntrySource],
+    );
+
+    const handleSelectToken = useCallback(
+      (asset: IUnifoldSupportedAsset) => {
+        const chain =
+          asset.chains.find(
+            (item) => item.chain_id === selection?.chain.chain_id,
+          ) ?? asset.chains[0];
+        selectToken(asset);
+        if (chain) {
+          trackSourceSelection(asset, chain, 'user');
+        }
+      },
+      [selectToken, selection?.chain.chain_id, trackSourceSelection],
+    );
+
+    const handleSelectChain = useCallback(
+      (chain: IUnifoldSupportedAssetChain) => {
+        selectChain(chain);
+        if (selection?.asset) {
+          trackSourceSelection(selection.asset, chain, 'user');
+        }
+      },
+      [selectChain, selection?.asset, trackSourceSelection],
+    );
+
+    const handleSelectSource = useCallback(
+      (asset: IUnifoldSupportedAsset, chain: IUnifoldSupportedAssetChain) => {
+        selectSource(asset, chain);
+        trackSourceSelection(asset, chain, 'user');
+      },
+      [selectSource, trackSourceSelection],
+    );
+
+    useImperativeHandle(ref, () => ({ selectSource: handleSelectSource }), [
+      handleSelectSource,
+    ]);
+
+    useEffect(() => {
+      if (!trackDefaultSourceSelection || !selection) {
+        return;
+      }
+      trackSourceSelection(selection.asset, selection.chain, 'default');
+    }, [selection, trackDefaultSourceSelection, trackSourceSelection]);
 
     useEffect(() => {
       if (!supportedAssets || !selection) {
@@ -439,76 +514,20 @@ export const UnifoldTransferContent = forwardRef<
         onSourceSelectorResultHandled?.();
         return;
       }
-      selectToken(asset);
       if (chain) {
-        selectChain(chain);
+        handleSelectSource(asset, chain);
+      } else {
+        handleSelectToken(asset);
       }
       onSourceSelectorResultHandled?.();
     }, [
+      handleSelectSource,
+      handleSelectToken,
       intl,
       onSourceSelectorResultHandled,
-      selectChain,
-      selectToken,
       sourceSelectorResult,
       supportedAssets,
     ]);
-
-    const handleDismiss = useCallback(
-      (executionId: string) => {
-        const execution = sessionExecutions.find(
-          (item) => item.executionId === executionId,
-        );
-        if (!execution) {
-          return;
-        }
-        setDismissedExecutionStatuses((prev) => ({
-          ...prev,
-          [executionId]: execution.status,
-        }));
-      },
-      [sessionExecutions],
-    );
-
-    useEffect(() => {
-      setDismissedExecutionStatuses((prev) => {
-        const currentStatuses = new Map(
-          sessionExecutions.map(
-            (execution) => [execution.executionId, execution.status] as const,
-          ),
-        );
-        let changed = false;
-        const next = { ...prev };
-        Object.entries(next).forEach(([executionId, dismissedStatus]) => {
-          if (currentStatuses.get(executionId) !== dismissedStatus) {
-            delete next[executionId];
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }, [sessionExecutions]);
-
-    const detailExecutionId =
-      controlledDetailExecutionId === undefined
-        ? internalDetailExecutionId
-        : controlledDetailExecutionId;
-    const setDetailExecutionId = useCallback(
-      (executionId: string | null) => {
-        if (controlledDetailExecutionId === undefined) {
-          setInternalDetailExecutionId(executionId);
-        }
-        onDetailExecutionIdChange?.(executionId);
-      },
-      [controlledDetailExecutionId, onDetailExecutionIdChange],
-    );
-
-    useBackHandler(
-      useCallback(() => {
-        setDetailExecutionId(null);
-        return true;
-      }, [setDetailExecutionId]),
-      platformEnv.isNativeAndroid && Boolean(detailExecutionId),
-    );
 
     const pendingSelection = useMemo(() => {
       if (!sourceSelectorResult || !supportedAssets) {
@@ -554,100 +573,155 @@ export const UnifoldTransferContent = forwardRef<
       ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
       : UNIFOLD_ARBITRUM_USDC_SYMBOL;
     const useCompactLayout = useDialogHeader || useExternalHeader;
-    const inPageFooter = statusCardsPlacement === 'pageFooter';
-    const visibleExecutions = useMemo(
-      () =>
-        sessionExecutions.filter(
-          (item) =>
-            dismissedExecutionStatuses[item.executionId] !== item.status,
-        ),
-      [dismissedExecutionStatuses, sessionExecutions],
+    const historyCardEnabled = Boolean(
+      onOpenTracker && recipientAddress && isLiveAccountAligned,
     );
-    const showStatusCards =
-      visibleExecutions.length > 0 && detailExecutionId === null;
-    const cardsReserve =
-      inPageFooter || !showStatusCards
-        ? undefined
-        : statusCardsHeight + UNIFOLD_STATUS_CARDS_CONTENT_GAP;
-    const detailExecution = detailExecutionId
-      ? sessionExecutions.find((item) => item.executionId === detailExecutionId)
-      : undefined;
+    const historyCardVisible =
+      historyCardEnabled && historyCardPlacement !== 'hidden';
 
     useEffect(() => {
-      let presentedTerminalExecutions: IUnifoldDepositExecution[] = [];
-      if (detailExecution?.terminal) {
-        presentedTerminalExecutions = [detailExecution];
-      } else if (detailExecutionId === null) {
-        presentedTerminalExecutions = visibleExecutions.filter(
-          (item) => item.terminal,
-        );
+      const previousExecutionTerminal = previousExecutionTerminalRef.current;
+      const nextExecutionTerminal = new Map<string, boolean>();
+      const newlyTerminalExecutionIds: string[] = [];
+      sessionExecutions.forEach((item) => {
+        if (
+          item.terminal &&
+          previousExecutionTerminal.get(item.executionId) === false
+        ) {
+          newlyTerminalExecutionIds.push(item.executionId);
+        }
+        nextExecutionTerminal.set(item.executionId, item.terminal);
+      });
+      previousExecutionTerminalRef.current = nextExecutionTerminal;
+      if (newlyTerminalExecutionIds.length) {
+        const observedAt = Date.now();
+        setTerminalObservedAt((current) => {
+          const next = new Map(current);
+          newlyTerminalExecutionIds.forEach((executionId) => {
+            next.set(executionId, observedAt);
+          });
+          return next;
+        });
       }
-      presentedTerminalExecutions.forEach(acknowledgePresentedExecution);
+    }, [sessionExecutions]);
+
+    useEffect(() => {
+      previousExecutionTerminalRef.current.clear();
+      setTerminalObservedAt(new Map());
+    }, [recipientAddress]);
+
+    const { trackedExecutions, nextTerminalExpiryAt } = useMemo(() => {
+      if (!historyCardEnabled) {
+        return {
+          trackedExecutions: [],
+          nextTerminalExpiryAt: null,
+        };
+      }
+      const now = Math.max(historyCardNow, Date.now());
+      const recentTerminalCutoff = now - RECENT_TERMINAL_WINDOW_MS;
+      const seenExecutionIds = new Set<string>();
+      let nextExpiryAt: number | null = null;
+      const executions = sessionExecutions.filter((item) => {
+        if (seenExecutionIds.has(item.executionId)) {
+          return false;
+        }
+        seenExecutionIds.add(item.executionId);
+        if (!item.terminal) {
+          return true;
+        }
+        const presentedAt =
+          terminalObservedAt.get(item.executionId) ??
+          parseUnifoldExecutionCreatedAtMs(item.createdAt);
+        if (presentedAt === null || presentedAt < recentTerminalCutoff) {
+          return false;
+        }
+        const expiresAt = presentedAt + RECENT_TERMINAL_WINDOW_MS;
+        nextExpiryAt =
+          nextExpiryAt === null ? expiresAt : Math.min(nextExpiryAt, expiresAt);
+        return true;
+      });
+      return {
+        trackedExecutions: executions,
+        nextTerminalExpiryAt: nextExpiryAt,
+      };
     }, [
-      acknowledgePresentedExecution,
-      detailExecution,
-      detailExecutionId,
-      visibleExecutions,
+      historyCardEnabled,
+      historyCardNow,
+      sessionExecutions,
+      terminalObservedAt,
     ]);
 
-    const statusCards = showStatusCards ? (
-      <UnifoldExecutionStatusCards
-        executions={visibleExecutions}
-        sessionId={sessionId}
-        estimatedProcessingTimeSeconds={chain?.estimated_processing_time}
-        onPressExecution={(execution) => {
-          setDetailExecutionId(execution.executionId);
-          onPressExecution?.(execution);
-        }}
-        onDismiss={handleDismiss}
-        onHeightChange={inPageFooter ? undefined : setStatusCardsHeight}
-        floating={!inPageFooter}
+    useEffect(() => {
+      if (nextTerminalExpiryAt === null) {
+        return;
+      }
+      const timer = setTimeout(
+        () => setHistoryCardNow(Date.now()),
+        Math.max(0, nextTerminalExpiryAt - Date.now() + 1),
+      );
+      return () => clearTimeout(timer);
+    }, [nextTerminalExpiryAt]);
+
+    const trackedExecutionCount = trackedExecutions.length;
+
+    useEffect(() => {
+      if (!historyCardVisible) {
+        return;
+      }
+      trackedExecutions
+        .filter((item) => item.status === 'succeeded')
+        .forEach(acknowledgePresentedExecution);
+    }, [acknowledgePresentedExecution, historyCardVisible, trackedExecutions]);
+
+    const historyCard = onOpenTracker ? (
+      <UnifoldDepositHistoryCard
+        trackedCount={trackedExecutionCount}
+        onPress={onOpenTracker}
       />
     ) : null;
+    const inPageFooter = historyCardPlacement === 'pageFooter';
+    const historyCardHidden = historyCardPlacement === 'hidden';
+    const historyCardReserve =
+      historyCard && !inPageFooter && !historyCardHidden
+        ? historyCardHeight + HISTORY_CARD_CONTENT_GAP
+        : undefined;
 
-    let dialogHeader: React.ReactNode = null;
-    if (useDialogHeader) {
-      dialogHeader = detailExecutionId ? (
-        <Dialog.Header>
-          <XStack
-            alignItems="center"
-            gap="$2"
-            cursor="pointer"
-            onPress={() => setDetailExecutionId(null)}
-          >
-            <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-            <Dialog.Title>
-              {intl.formatMessage({
-                id: ETranslations.perp_unifold_deposit_details__title,
-              })}
-            </Dialog.Title>
-          </XStack>
-        </Dialog.Header>
-      ) : (
-        <Dialog.Header
-          title={intl.formatMessage({
-            id: ETranslations.perp_unifold_transfer_crypto__title,
-          })}
-        />
-      );
-    }
+    useEffect(() => {
+      onTrackedExecutionCountChange?.(trackedExecutionCount);
+    }, [onTrackedExecutionCountChange, trackedExecutionCount]);
 
-    // Give every content branch the same overlay host. When cards are visible,
-    // reserve their measured height inside the desktop scroll body so bottom
-    // rows can scroll fully above them.
-    const withStatusCards = (body: React.ReactNode) => (
+    const withContentFrame = (body: React.ReactNode) => (
       <>
-        {dialogHeader}
+        {useDialogHeader ? (
+          <Dialog.Header
+            title={intl.formatMessage({
+              id: ETranslations.perp_unifold_transfer_crypto__title,
+            })}
+          />
+        ) : null}
         <Stack pb={inPageFooter ? undefined : '$3'}>
           <BodyFrame maxHeight={bodyMaxHeight}>
-            <Stack pb={cardsReserve}>{body}</Stack>
+            <Stack pb={historyCardReserve}>{body}</Stack>
           </BodyFrame>
-          {inPageFooter ? null : statusCards}
+          {!inPageFooter && !historyCardHidden && historyCard ? (
+            <Stack
+              position="absolute"
+              left="$0"
+              right="$0"
+              bottom="$0"
+              pb="$3"
+              onLayout={(event) =>
+                setHistoryCardHeight(Math.ceil(event.nativeEvent.layout.height))
+              }
+            >
+              {historyCard}
+            </Stack>
+          ) : null}
         </Stack>
-        {inPageFooter && statusCards ? (
+        {inPageFooter && historyCard ? (
           <Page.Footer>
             <Stack px="$4" pb="$6">
-              {statusCards}
+              {historyCard}
             </Stack>
           </Page.Footer>
         ) : null}
@@ -658,7 +732,7 @@ export const UnifoldTransferContent = forwardRef<
       addressState.status === 'error' &&
       addressState.errorType !== 'network'
     ) {
-      return withStatusCards(
+      return withContentFrame(
         <YStack py="$8">
           <ErrorState
             errorType={addressState.errorType}
@@ -668,52 +742,14 @@ export const UnifoldTransferContent = forwardRef<
       );
     }
 
-    if (detailExecution) {
-      return withStatusCards(
-        <YStack>
-          {useDialogHeader || useExternalHeader ? null : (
-            <XStack
-              pb="$2"
-              alignItems="center"
-              gap="$1"
-              cursor="pointer"
-              onPress={() => setDetailExecutionId(null)}
-            >
-              <Icon name="ChevronLeftSmallOutline" size="$5" color="$icon" />
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.perp_unifold_deposit_details__title,
-                })}
-              </SizableText>
-            </XStack>
-          )}
-          {/* Derived from the live poll result by id, so the detail keeps
-            updating instead of freezing at the moment it was opened. */}
-          {/* The estimate belongs to the SELECTED chain, but this execution may
-            have been paid on a different one (the user can switch the source
-            dropdown after depositing). Pass it only when the two provably
-            match — otherwise the row is omitted rather than quoting one
-            chain's timing for another chain's deposit. */}
-          <UnifoldExecutionDetail
-            execution={detailExecution}
-            estimatedProcessingTimeSeconds={
-              chain && detailExecution.sourceChainId === chain.chain_id
-                ? chain.estimated_processing_time
-                : undefined
-            }
-          />
-        </YStack>,
-      );
-    }
-
-    return withStatusCards(
+    return withContentFrame(
       <YStack gap="$3">
         <UnifoldSourceSelector
           assets={supportedAssets}
           selection={displaySelection}
           loading={Boolean(assetsLoading && !selection)}
-          onSelectToken={selectToken}
-          onSelectChain={selectChain}
+          onSelectToken={handleSelectToken}
+          onSelectChain={handleSelectChain}
           onOpenMobileTokenSelector={onOpenMobileTokenSelector}
           onOpenMobileChainSelector={onOpenMobileChainSelector}
         />
@@ -893,4 +929,5 @@ export const UnifoldTransferContent = forwardRef<
     );
   },
 );
+
 UnifoldTransferContent.displayName = 'UnifoldTransferContent';

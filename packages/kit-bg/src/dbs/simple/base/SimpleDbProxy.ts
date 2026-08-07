@@ -1,5 +1,7 @@
 import { BackgroundServiceProxyBase } from '../../../apis/BackgroundServiceProxyBase';
 
+import { getXpubOrAddressFromAccountKey } from './simpleDbFacadeCompatibility';
+
 import type { SimpleDb } from './SimpleDb';
 import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBase';
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
@@ -25,7 +27,6 @@ import type { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainR
 import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
-import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityDeFi } from '../entity/SimpleDbEntityDeFi';
@@ -50,8 +51,8 @@ import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntit
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
-import type { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
@@ -194,9 +195,9 @@ export class SimpleDbProxy
     'universalSearch',
   ) as SimpleDbEntityUniversalSearch;
 
-  customTokens = this._createProxyService(
-    'customTokens',
-  ) as SimpleDbEntityCustomTokens;
+  customTokens = this._createProxyService('customTokens', {
+    getXpubOrAddressFromAccountKey,
+  }) as SimpleDb['customTokens'];
 
   customRpc = this._createProxyService('customRpc') as SimpleDbEntityCustomRpc;
 
@@ -264,7 +265,7 @@ export class SimpleDbProxy
 
   recentRecipients = this._createProxyService(
     'recentRecipients',
-  ) as SimpleDbEntityRecentRecipients;
+  ) as SimpleDb['recentRecipients'];
 
   riskTokenManagement = this._createProxyService(
     'riskTokenManagement',
@@ -289,6 +290,10 @@ export class SimpleDbProxy
   chainResource = this._createProxyService(
     'chainResource',
   ) as SimpleDbEntityChainResource;
+
+  receiveArrivalConfig = this._createProxyService(
+    'receiveArrivalConfig',
+  ) as SimpleDbEntityReceiveArrivalConfig;
 
   btcFreshAddress = this._createProxyService(
     'btcFreshAddress',

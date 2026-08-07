@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { UnifoldDepositHistoryCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositHistoryCard';
 import { UnifoldDepositQRCard } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/UnifoldDepositQRCard';
 import { getUnifoldDesktopDialogBodyMaxHeight } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/unifoldDialogLayout';
 import {
@@ -39,10 +40,13 @@ import { Layout } from './utils/Layout';
 // can be reviewed on every platform before shipping.
 
 const USDC_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/usdc.svg';
+const SOL_ICON = 'https://api.unifold.io/api/public/icons/tokens/svg/sol.svg';
 // Chain icons live under /networks/, not /chains/ — the wrong path 404s and
 // the QR centre logo renders as a broken image.
 const ARB_ICON =
   'https://api.unifold.io/api/public/icons/networks/svg/arbitrum.svg';
+const SOLANA_ICON =
+  'https://api.unifold.io/api/public/icons/networks/svg/solana.svg';
 const SYNTHETIC_RECIPIENT = '0x1111111111111111111111111111111111111111';
 const SYNTHETIC_DEPOSIT_ADDRESS = '0x8dE690AcD6A938d0aE3bE6e08Ce80a54Bb0b928D';
 const SYNTHETIC_TX =
@@ -269,6 +273,35 @@ const SUPPORTED_ASSETS: IUnifoldSupportedAsset[] = [
 const SELECTION = {
   asset: SUPPORTED_ASSETS[0],
   chain: SUPPORTED_ASSETS[0].chains[0],
+};
+
+const NATIVE_ASSETS: IUnifoldSupportedAsset[] = [
+  {
+    symbol: 'SOL',
+    name: 'Solana',
+    icon_url: SOL_ICON,
+    is_newly_added: false,
+    is_stablecoin: false,
+    chains: [
+      {
+        chain_id: 'solana',
+        chain_name: 'Solana',
+        chain_type: 'solana',
+        icon_url: SOLANA_ICON,
+        token_address: 'native',
+        decimals: 9,
+        estimated_price_impact_percent: 0.1,
+        max_slippage_percent: 0.25,
+        estimated_processing_time: 60,
+        minimum_deposit_amount_usd: 3,
+      },
+    ],
+  },
+];
+
+const NATIVE_SELECTION = {
+  asset: NATIVE_ASSETS[0],
+  chain: NATIVE_ASSETS[0].chains[0],
 };
 
 // Production widths: the desktop dialog gives the body 360pt (400 panel − 2×$5)
@@ -598,7 +631,10 @@ function CompositePanelGallery() {
           appear
         </SizableText>
         <Stack width={MOBILE_BODY_WIDTH}>
-          <UnifoldExecutionDetail execution={invalidLinks} />
+          <UnifoldExecutionDetail
+            execution={invalidLinks}
+            supportedAssets={SUPPORTED_ASSETS}
+          />
         </Stack>
       </YStack>
       <YStack gap="$2">
@@ -608,10 +644,16 @@ function CompositePanelGallery() {
         </SizableText>
         <XStack gap="$4" flexWrap="wrap">
           <Stack width={MOBILE_BODY_WIDTH}>
-            <UnifoldExecutionDetail execution={PENDING} />
+            <UnifoldExecutionDetail
+              execution={PENDING}
+              supportedAssets={SUPPORTED_ASSETS}
+            />
           </Stack>
           <Stack width={MOBILE_BODY_WIDTH}>
-            <UnifoldExecutionDetail execution={SUCCEEDED} />
+            <UnifoldExecutionDetail
+              execution={SUCCEEDED}
+              supportedAssets={SUPPORTED_ASSETS}
+            />
           </Stack>
         </XStack>
       </YStack>
@@ -781,7 +823,10 @@ function ExecutionDetailGallery() {
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {label}
           </SizableText>
-          <UnifoldExecutionDetail execution={execution} />
+          <UnifoldExecutionDetail
+            execution={execution}
+            supportedAssets={SUPPORTED_ASSETS}
+          />
         </YStack>
       ))}
     </YStack>
@@ -817,6 +862,18 @@ function TransferPiecesGallery() {
       </YStack>
       <YStack gap="$2">
         <SizableText size="$bodySmMedium" color="$textSubdued">
+          Source selector · native token
+        </SizableText>
+        <UnifoldSourceSelector
+          assets={NATIVE_ASSETS}
+          selection={NATIVE_SELECTION}
+          loading={false}
+          onSelectToken={() => {}}
+          onSelectChain={() => {}}
+        />
+      </YStack>
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
           QR card · ready
         </SizableText>
         <UnifoldDepositQRCard
@@ -824,6 +881,15 @@ function TransferPiecesGallery() {
           chainIconUri={ARB_ICON}
           loading={false}
         />
+      </YStack>
+      <YStack gap="$2">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          Deposit history · persistent link card
+        </SizableText>
+        <YStack width={DESKTOP_BODY_WIDTH} gap="$2">
+          <UnifoldDepositHistoryCard trackedCount={0} onPress={() => {}} />
+          <UnifoldDepositHistoryCard trackedCount={2} onPress={() => {}} />
+        </YStack>
       </YStack>
       <YStack gap="$2">
         <SizableText size="$bodySmMedium" color="$textSubdued">

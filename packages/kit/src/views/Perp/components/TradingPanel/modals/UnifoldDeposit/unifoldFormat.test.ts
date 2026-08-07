@@ -1,6 +1,7 @@
 import {
   formatUnifoldRouteAssetDescription,
   formatUnifoldTokenAmount,
+  isUnifoldNativeTokenAddress,
   normalizeUnifoldExplorerUrl,
 } from './unifoldFormat';
 
@@ -32,6 +33,16 @@ describe('normalizeUnifoldExplorerUrl', () => {
 });
 
 describe('Unifold destination labels', () => {
+  it('uses the standard numeric placeholder for a missing amount', () => {
+    expect(
+      formatUnifoldTokenAmount({
+        baseUnit: null,
+        decimals: 6,
+        currency: 'usdc',
+      }),
+    ).toBe('--');
+  });
+
   it('preserves the HyperCore account suffix in received amounts', () => {
     expect(
       formatUnifoldTokenAmount({
@@ -66,4 +77,20 @@ describe('Unifold destination labels', () => {
       }),
     ).toBe('USDC (Arbitrum)');
   });
+});
+
+describe('isUnifoldNativeTokenAddress', () => {
+  it.each(['native', ' NATIVE '])(
+    'recognizes the Unifold native-token marker: %s',
+    (tokenAddress) => {
+      expect(isUnifoldNativeTokenAddress(tokenAddress)).toBe(true);
+    },
+  );
+
+  it.each(['0x1234', '', '   ', null, undefined])(
+    'does not treat a contract address or missing value as native: %s',
+    (tokenAddress) => {
+      expect(isUnifoldNativeTokenAddress(tokenAddress)).toBe(false);
+    },
+  );
 });

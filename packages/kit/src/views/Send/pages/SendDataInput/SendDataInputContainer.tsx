@@ -188,6 +188,37 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
+
+  // Prefetch the private-send support flag while the user is still picking a
+  // recipient, so the Regular/Private switch on the amount page can render
+  // without a visible delay. Fire-and-forget: the result lands in the
+  // ServiceSwap memo cache and the amount page issues the same (deduped)
+  // call; failures are silent because the amount page retries on its own.
+  useEffect(() => {
+    if (
+      isNFT ||
+      !tokenInfo ||
+      !account?.address ||
+      networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
+    ) {
+      return;
+    }
+    void backgroundApiProxy.serviceSwap
+      .checkTokenPrivateSendSupported({
+        networkId: currentAccount.networkId,
+        contractAddress: tokenInfo.address,
+        accountAddress: account.address,
+        accountId: currentAccount.accountId,
+      })
+      .catch(() => {});
+  }, [
+    account?.address,
+    currentAccount.accountId,
+    currentAccount.networkId,
+    isNFT,
+    tokenInfo,
+  ]);
+
   const [
     displayMemoForm,
     displayPaymentIdForm,

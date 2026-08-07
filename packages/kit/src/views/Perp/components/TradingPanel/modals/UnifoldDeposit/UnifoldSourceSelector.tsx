@@ -27,7 +27,10 @@ import type {
   IUnifoldSupportedAssetChain,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
-import { normalizeUnifoldIconUrl } from './unifoldFormat';
+import {
+  isUnifoldNativeTokenAddress,
+  normalizeUnifoldIconUrl,
+} from './unifoldFormat';
 
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
@@ -178,6 +181,7 @@ function TokenContractContent({
   const intl = useIntl();
   const { copyText } = useClipboard();
   const { chain } = selection;
+  const isNativeToken = isUnifoldNativeTokenAddress(chain.token_address);
 
   return (
     <YStack gap="$4">
@@ -218,16 +222,22 @@ function TokenContractContent({
             wordWrap="break-word"
             selectable
           >
-            {chain.token_address}
+            {isNativeToken
+              ? intl.formatMessage({
+                  id: ETranslations.perp_unifold_native_token__title,
+                })
+              : chain.token_address}
           </SizableText>
-          <IconButton
-            testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
-            icon="Copy3Outline"
-            variant="tertiary"
-            size="small"
-            flexShrink={0}
-            onPress={() => copyText(chain.token_address)}
-          />
+          {isNativeToken ? null : (
+            <IconButton
+              testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
+              icon="Copy3Outline"
+              variant="tertiary"
+              size="small"
+              flexShrink={0}
+              onPress={() => copyText(chain.token_address)}
+            />
+          )}
         </XStack>
       </YStack>
     </YStack>
@@ -250,6 +260,7 @@ function TokenContractDisclosure({
   });
   const trigger = (
     <DashText
+      testID={`perps-unifold-token-contract-${selection.chain.chain_type}-${selection.chain.chain_id}`}
       size="$bodySm"
       color="$textSubdued"
       dashColor="$textDisabled"
@@ -449,9 +460,12 @@ export function UnifoldSourceSelector({
             dashThickness={0.5}
             textAlign="right"
             flexShrink={0}
-            tooltip={intl.formatMessage({
-              id: ETranslations.perp_unifold_minimum_deposit_network__desc,
-            })}
+            tooltip={intl.formatMessage(
+              {
+                id: ETranslations.perp_unifold_minimum_deposit_network__desc,
+              },
+              { amount: `$${minUsd}` },
+            )}
             tooltipTitle={intl.formatMessage({
               id: ETranslations.perp_unifold_minimum_deposit__title,
             })}

@@ -218,6 +218,7 @@ function OneKeyIDLoginPage() {
             await checkKeylessWalletCreatedOnServer({
               token: result.session.accessToken,
               refreshToken: result.session.refreshToken,
+              provider,
               mode,
             });
           }

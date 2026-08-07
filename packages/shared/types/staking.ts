@@ -880,7 +880,7 @@ export interface IEarnRewardClaimItem {
   title: IEarnText;
   description?: IEarnText;
   token: IEarnRewardTokenSummary;
-  button: IEarnRewardClaimButton;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardClaimGroup {
@@ -900,8 +900,9 @@ export interface IEarnBorrowUnclaimableReward {
 }
 
 export interface IEarnRewardsDetail {
-  claimable: IEarnRewardClaimGroup[];
-  unclaimable: IEarnBorrowUnclaimableReward[];
+  claimable?: IEarnRewardClaimGroup[] | null;
+  unclaimable?: IEarnBorrowUnclaimableReward[] | null;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardsDetailsData {
@@ -1651,6 +1652,14 @@ export interface IStakeTransactionConfirmation {
     description: IEarnText;
     tooltip?: IEarnTooltip;
   };
+  // Server-driven "Available liquidity" row (e.g. Bitway withdraw: instant
+  // withdrawal is capped by the flash pool balance; amounts above it must go
+  // through the queued path). Rendered like `receive` when present.
+  availableLiquidity?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
   transactionDetails?: {
     type: string;
     text?: IEarnText;
@@ -1767,6 +1776,8 @@ export enum EBorrowProviderEnum {
 }
 
 export type IStakeProtocolListItem = {
+  // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
+  symbol?: string;
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
@@ -2836,9 +2847,9 @@ export type IBorrowEModeHfRow = NonNullable<
 export interface IBorrowEModeSwitchCheck {
   canSwitch: boolean;
   reasons: string[];
-  disableCollateralAssets: IBorrowEModeBlockerAsset[];
-  repayAssets: IBorrowEModeBlockerAsset[];
-  additionalRepayAssets: IBorrowEModeBlockerAsset[];
+  disableCollateralAssets?: IBorrowEModeBlockerAsset[];
+  repayAssets?: IBorrowEModeBlockerAsset[];
+  additionalRepayAssets?: IBorrowEModeBlockerAsset[];
   additionalRepayFiatValue?: string; // server-formatted fiat total, e.g. "< $0.01"
   collateral: IBorrowEModeConfirmRow;
   debt: IBorrowEModeConfirmRow;

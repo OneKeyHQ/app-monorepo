@@ -1,5 +1,7 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 
+import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
+
 export enum EModalPerpRoutes {
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
@@ -68,9 +70,11 @@ export type IModalPerpParamList = {
     expectedRecipient: string;
     sourceSelectorResult?: IUnifoldSourceSelectorResult;
     openSourceSelectorOnReady?: boolean;
+    analyticsEntrySource?: TPerpDepositEntrySource;
   };
   [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
     expectedRecipient: string;
+    openedFromTransfer?: boolean;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;

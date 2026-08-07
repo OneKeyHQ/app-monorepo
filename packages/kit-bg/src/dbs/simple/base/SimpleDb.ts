@@ -1,568 +1,831 @@
+import { createLazyServiceProxy } from '../../../apis/lazyServiceProxy';
+
+import {
+  getSimpleDbEntityKey,
+  getXpubOrAddressFromAccountKey,
+} from './simpleDbFacadeCompatibility';
+
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+
 export class SimpleDb {
   // Lazy load entities using getters
   get prime() {
-    const SimpleDbEntityPrime = (
-      require('../entity/SimpleDbEntityPrime') as unknown as typeof import('../entity/SimpleDbEntityPrime')
-    ).SimpleDbEntityPrime;
-    const value = new SimpleDbEntityPrime();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@prime',
+      loader: () =>
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityPrime'
+        ).then(({ SimpleDbEntityPrime }) => new SimpleDbEntityPrime()),
+    });
     Object.defineProperty(this, 'prime', { value });
     return value;
   }
 
   get primeTransfer() {
-    const SimpleDbEntityPrimeTransfer = (
-      require('../entity/SimpleDbEntityPrimeTransfer') as unknown as typeof import('../entity/SimpleDbEntityPrimeTransfer')
-    ).SimpleDbEntityPrimeTransfer;
-    const value = new SimpleDbEntityPrimeTransfer();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@primeTransfer',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrimeTransfer').then(
+          ({ SimpleDbEntityPrimeTransfer }) =>
+            new SimpleDbEntityPrimeTransfer(),
+        ),
+    });
     Object.defineProperty(this, 'primeTransfer', { value });
     return value;
   }
 
   get referralCode() {
-    const SimpleDbEntityReferralCode = (
-      require('../entity/SimpleDbEntityReferralCode') as unknown as typeof import('../entity/SimpleDbEntityReferralCode')
-    ).SimpleDbEntityReferralCode;
-    const value = new SimpleDbEntityReferralCode();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@referralCode',
+      loader: () =>
+        import('../entity/SimpleDbEntityReferralCode').then(
+          ({ SimpleDbEntityReferralCode }) => new SimpleDbEntityReferralCode(),
+        ),
+    });
     Object.defineProperty(this, 'referralCode', { value });
     return value;
   }
 
   get browserTabs() {
-    const SimpleDbEntityBrowserTabs = (
-      require('../entity/SimpleDbEntityBrowserTabs') as unknown as typeof import('../entity/SimpleDbEntityBrowserTabs')
-    ).SimpleDbEntityBrowserTabs;
-    const value = new SimpleDbEntityBrowserTabs();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@browserTabs',
+      loader: () =>
+        import('../entity/SimpleDbEntityBrowserTabs').then(
+          ({ SimpleDbEntityBrowserTabs }) => new SimpleDbEntityBrowserTabs(),
+        ),
+    });
     Object.defineProperty(this, 'browserTabs', { value });
     return value;
   }
 
   get browserBookmarks() {
-    const SimpleDbEntityBrowserBookmarks = (
-      require('../entity/SimpleDbEntityBrowserBookmarks') as unknown as typeof import('../entity/SimpleDbEntityBrowserBookmarks')
-    ).SimpleDbEntityBrowserBookmarks;
-    const value = new SimpleDbEntityBrowserBookmarks();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@browserBookmarks',
+      loader: () =>
+        import('../entity/SimpleDbEntityBrowserBookmarks').then(
+          ({ SimpleDbEntityBrowserBookmarks }) =>
+            new SimpleDbEntityBrowserBookmarks(),
+        ),
+    });
     Object.defineProperty(this, 'browserBookmarks', { value });
     return value;
   }
 
   get browserClosedTabs() {
-    const SimpleDbEntityBrowserClosedTabs = (
-      require('../entity/SimpleDbEntityBrowserClosedTabs') as unknown as typeof import('../entity/SimpleDbEntityBrowserClosedTabs')
-    ).SimpleDbEntityBrowserClosedTabs;
-    const value = new SimpleDbEntityBrowserClosedTabs();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@browserClosedTabs',
+      loader: () =>
+        import('../entity/SimpleDbEntityBrowserClosedTabs').then(
+          ({ SimpleDbEntityBrowserClosedTabs }) =>
+            new SimpleDbEntityBrowserClosedTabs(),
+        ),
+    });
     Object.defineProperty(this, 'browserClosedTabs', { value });
     return value;
   }
 
   get browserRiskWhiteList() {
-    const SimpleDbEntityBrowserRiskWhiteList = (
-      require('../entity/SimpleDbEntityBrowserRiskWhiteList') as unknown as typeof import('../entity/SimpleDbEntityBrowserRiskWhiteList')
-    ).SimpleDbEntityBrowserRiskWhiteList;
-    const value = new SimpleDbEntityBrowserRiskWhiteList();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@browserRiskWhiteList',
+      loader: () =>
+        import('../entity/SimpleDbEntityBrowserRiskWhiteList').then(
+          ({ SimpleDbEntityBrowserRiskWhiteList }) =>
+            new SimpleDbEntityBrowserRiskWhiteList(),
+        ),
+    });
     Object.defineProperty(this, 'browserRiskWhiteList', { value });
     return value;
   }
 
   get dappConnection() {
-    const SimpleDbEntityDappConnection = (
-      require('../entity/SimpleDbEntityDappConnection') as unknown as typeof import('../entity/SimpleDbEntityDappConnection')
-    ).SimpleDbEntityDappConnection;
-    const value = new SimpleDbEntityDappConnection();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@dappConnection',
+      loader: () =>
+        import('../entity/SimpleDbEntityDappConnection').then(
+          ({ SimpleDbEntityDappConnection }) =>
+            new SimpleDbEntityDappConnection(),
+        ),
+    });
     Object.defineProperty(this, 'dappConnection', { value });
     return value;
   }
 
   get browserHistory() {
-    const SimpleDbEntityBrowserHistory = (
-      require('../entity/SimpleDbEntityBrowserHistory') as unknown as typeof import('../entity/SimpleDbEntityBrowserHistory')
-    ).SimpleDbEntityBrowserHistory;
-    const value = new SimpleDbEntityBrowserHistory();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@browserHistory',
+      loader: () =>
+        import('../entity/SimpleDbEntityBrowserHistory').then(
+          ({ SimpleDbEntityBrowserHistory }) =>
+            new SimpleDbEntityBrowserHistory(),
+        ),
+    });
     Object.defineProperty(this, 'browserHistory', { value });
     return value;
   }
 
   get accountSelector() {
-    const SimpleDbEntityAccountSelector = (
-      require('../entity/SimpleDbEntityAccountSelector') as unknown as typeof import('../entity/SimpleDbEntityAccountSelector')
-    ).SimpleDbEntityAccountSelector;
-    const value = new SimpleDbEntityAccountSelector();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@accountSelector',
+      loader: () =>
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityAccountSelector'
+        ).then(
+          ({ SimpleDbEntityAccountSelector }) =>
+            new SimpleDbEntityAccountSelector(),
+        ),
+    });
     Object.defineProperty(this, 'accountSelector', { value });
     return value;
   }
 
   get appCleanup() {
-    const SimpleDbEntityAppCleanup = (
-      require('../entity/SimpleDbEntityAppCleanup') as unknown as typeof import('../entity/SimpleDbEntityAppCleanup')
-    ).SimpleDbEntityAppCleanup;
-    const value = new SimpleDbEntityAppCleanup();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@appCleanup',
+      loader: () =>
+        import('../entity/SimpleDbEntityAppCleanup').then(
+          ({ SimpleDbEntityAppCleanup }) => new SimpleDbEntityAppCleanup(),
+        ),
+    });
     Object.defineProperty(this, 'appCleanup', { value });
     return value;
   }
 
   get swapNetworksSort() {
-    const SimpleDbEntitySwapNetworksSort = (
-      require('../entity/SimpleDbEntitySwapNetworksSort') as unknown as typeof import('../entity/SimpleDbEntitySwapNetworksSort')
-    ).SimpleDbEntitySwapNetworksSort;
-    const value = new SimpleDbEntitySwapNetworksSort();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@swapNetworksSort',
+      loader: () =>
+        import('../entity/SimpleDbEntitySwapNetworksSort').then(
+          ({ SimpleDbEntitySwapNetworksSort }) =>
+            new SimpleDbEntitySwapNetworksSort(),
+        ),
+    });
     Object.defineProperty(this, 'swapNetworksSort', { value });
     return value;
   }
 
   get swapHistory() {
-    const SimpleDbEntitySwapHistory = (
-      require('../entity/SimpleDbEntitySwapHistory') as unknown as typeof import('../entity/SimpleDbEntitySwapHistory')
-    ).SimpleDbEntitySwapHistory;
-    const value = new SimpleDbEntitySwapHistory();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@swapHistory',
+      loader: () =>
+        import('../entity/SimpleDbEntitySwapHistory').then(
+          ({ SimpleDbEntitySwapHistory }) => new SimpleDbEntitySwapHistory(),
+        ),
+    });
     Object.defineProperty(this, 'swapHistory', { value });
     return value;
   }
 
   get swapConfigs() {
-    const SimpleDbEntitySwapConfigs = (
-      require('../entity/SimpleDbEntitySwapConfigs') as unknown as typeof import('../entity/SimpleDbEntitySwapConfigs')
-    ).SimpleDbEntitySwapConfigs;
-    const value = new SimpleDbEntitySwapConfigs();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@swapConfigs',
+      loader: () =>
+        import('../entity/SimpleDbEntitySwapConfigs').then(
+          ({ SimpleDbEntitySwapConfigs }) => new SimpleDbEntitySwapConfigs(),
+        ),
+    });
     Object.defineProperty(this, 'swapConfigs', { value });
     return value;
   }
 
   get swapProSelectToken() {
-    const SimpleDbEntitySwapProSelectToken = (
-      require('../entity/SimpleDbEntitySwapProSelectToken') as unknown as typeof import('../entity/SimpleDbEntitySwapProSelectToken')
-    ).SimpleDbEntitySwapProSelectToken;
-    const value = new SimpleDbEntitySwapProSelectToken();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@swapProSelectToken',
+      loader: () =>
+        import('../entity/SimpleDbEntitySwapProSelectToken').then(
+          ({ SimpleDbEntitySwapProSelectToken }) =>
+            new SimpleDbEntitySwapProSelectToken(),
+        ),
+    });
     Object.defineProperty(this, 'swapProSelectToken', { value });
     return value;
   }
 
   get localTokens() {
-    const SimpleDbEntityLocalTokens = (
-      require('../entity/SimpleDbEntityLocalTokens') as unknown as typeof import('../entity/SimpleDbEntityLocalTokens')
-    ).SimpleDbEntityLocalTokens;
-    const value = new SimpleDbEntityLocalTokens();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@localTokens',
+      loader: () =>
+        import('../entity/SimpleDbEntityLocalTokens').then(
+          ({ SimpleDbEntityLocalTokens }) => new SimpleDbEntityLocalTokens(),
+        ),
+    });
     Object.defineProperty(this, 'localTokens', { value });
     return value;
   }
 
   get addressBook() {
-    const SimpleDbEntityAddressBook = (
-      require('../entity/SimpleDbEntityAddressBook') as unknown as typeof import('../entity/SimpleDbEntityAddressBook')
-    ).SimpleDbEntityAddressBook;
-    const value = new SimpleDbEntityAddressBook();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@addressBook',
+      loader: () =>
+        import('../entity/SimpleDbEntityAddressBook').then(
+          ({ SimpleDbEntityAddressBook }) => new SimpleDbEntityAddressBook(),
+        ),
+    });
     Object.defineProperty(this, 'addressBook', { value });
     return value;
   }
 
   get localHistory() {
-    const SimpleDbEntityLocalHistory = (
-      require('../entity/SimpleDbEntityLocalHistory') as unknown as typeof import('../entity/SimpleDbEntityLocalHistory')
-    ).SimpleDbEntityLocalHistory;
-    const value = new SimpleDbEntityLocalHistory();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@localHistory',
+      loader: () =>
+        import('../entity/SimpleDbEntityLocalHistory').then(
+          ({ SimpleDbEntityLocalHistory }) => new SimpleDbEntityLocalHistory(),
+        ),
+    });
     Object.defineProperty(this, 'localHistory', { value });
     return value;
   }
 
   get riskyTokens() {
-    const SimpleDbEntityRiskyTokens = (
-      require('../entity/SimpleDbEntityRiskyTokens') as unknown as typeof import('../entity/SimpleDbEntityRiskyTokens')
-    ).SimpleDbEntityRiskyTokens;
-    const value = new SimpleDbEntityRiskyTokens();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@riskyTokens',
+      loader: () =>
+        import('../entity/SimpleDbEntityRiskyTokens').then(
+          ({ SimpleDbEntityRiskyTokens }) => new SimpleDbEntityRiskyTokens(),
+        ),
+    });
     Object.defineProperty(this, 'riskyTokens', { value });
     return value;
   }
 
   get defaultWalletSettings() {
-    const SimpleDbEntityDefaultWalletSettings = (
-      require('../entity/SimpleDbEntityDefaultWalletSettings') as unknown as typeof import('../entity/SimpleDbEntityDefaultWalletSettings')
-    ).SimpleDbEntityDefaultWalletSettings;
-    const value = new SimpleDbEntityDefaultWalletSettings();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@defaultWalletSettings',
+      loader: () =>
+        import('../entity/SimpleDbEntityDefaultWalletSettings').then(
+          ({ SimpleDbEntityDefaultWalletSettings }) =>
+            new SimpleDbEntityDefaultWalletSettings(),
+        ),
+    });
     Object.defineProperty(this, 'defaultWalletSettings', { value });
     return value;
   }
 
   get networkSelector() {
-    const SimpleDbEntityNetworkSelector = (
-      require('../entity/SimpleDbEntityNetworkSelector') as unknown as typeof import('../entity/SimpleDbEntityNetworkSelector')
-    ).SimpleDbEntityNetworkSelector;
-    const value = new SimpleDbEntityNetworkSelector();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@networkSelector',
+      loader: () =>
+        import('../entity/SimpleDbEntityNetworkSelector').then(
+          ({ SimpleDbEntityNetworkSelector }) =>
+            new SimpleDbEntityNetworkSelector(),
+        ),
+    });
     Object.defineProperty(this, 'networkSelector', { value });
     return value;
   }
 
   get notificationSettings() {
-    const SimpleDbEntityNotificationSettings = (
-      require('../entity/SimpleDbEntityNotificationSettings') as unknown as typeof import('../entity/SimpleDbEntityNotificationSettings')
-    ).SimpleDbEntityNotificationSettings;
-    const value = new SimpleDbEntityNotificationSettings();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@notificationSettings',
+      loader: () =>
+        import('../entity/SimpleDbEntityNotificationSettings').then(
+          ({ SimpleDbEntityNotificationSettings }) =>
+            new SimpleDbEntityNotificationSettings(),
+        ),
+    });
     Object.defineProperty(this, 'notificationSettings', { value });
     return value;
   }
 
   get lightning() {
-    const SimpleDbEntityLightning = (
-      require('../entity/SimpleDbEntityLightning') as unknown as typeof import('../entity/SimpleDbEntityLightning')
-    ).SimpleDbEntityLightning;
-    const value = new SimpleDbEntityLightning();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@lightning',
+      loader: () =>
+        import('../entity/SimpleDbEntityLightning').then(
+          ({ SimpleDbEntityLightning }) => new SimpleDbEntityLightning(),
+        ),
+    });
     Object.defineProperty(this, 'lightning', { value });
     return value;
   }
 
   get feeInfo() {
-    const SimpleDbEntityFeeInfo = (
-      require('../entity/SimpleDbEntityFeeInfo') as unknown as typeof import('../entity/SimpleDbEntityFeeInfo')
-    ).SimpleDbEntityFeeInfo;
-    const value = new SimpleDbEntityFeeInfo();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@feeInfo',
+      loader: () =>
+        import('../entity/SimpleDbEntityFeeInfo').then(
+          ({ SimpleDbEntityFeeInfo }) => new SimpleDbEntityFeeInfo(),
+        ),
+    });
     Object.defineProperty(this, 'feeInfo', { value });
     return value;
   }
 
   get marketWatchList() {
-    const SimpleDbEntityMarketWatchList = (
-      require('../entity/SimpleDbEntityMarketWatchList') as unknown as typeof import('../entity/SimpleDbEntityMarketWatchList')
-    ).SimpleDbEntityMarketWatchList;
-    const value = new SimpleDbEntityMarketWatchList();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@marketWatchList',
+      loader: () =>
+        import('../entity/SimpleDbEntityMarketWatchList').then(
+          ({ SimpleDbEntityMarketWatchList }) =>
+            new SimpleDbEntityMarketWatchList(),
+        ),
+    });
     Object.defineProperty(this, 'marketWatchList', { value });
     return value;
   }
 
   get marketPresetSettings() {
-    const SimpleDbEntityMarketPresetSettings = (
-      require('../entity/SimpleDbEntityMarketPresetSettings') as unknown as typeof import('../entity/SimpleDbEntityMarketPresetSettings')
-    ).SimpleDbEntityMarketPresetSettings;
-    const value = new SimpleDbEntityMarketPresetSettings();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@marketPresetSettings',
+      loader: () =>
+        import('../entity/SimpleDbEntityMarketPresetSettings').then(
+          ({ SimpleDbEntityMarketPresetSettings }) =>
+            new SimpleDbEntityMarketPresetSettings(),
+        ),
+    });
     Object.defineProperty(this, 'marketPresetSettings', { value });
     return value;
   }
 
   get marketWatchListV2() {
-    const SimpleDbEntityMarketWatchListV2 = (
-      require('../entity/SimpleDbEntityMarketWatchListV2') as unknown as typeof import('../entity/SimpleDbEntityMarketWatchListV2')
-    ).SimpleDbEntityMarketWatchListV2;
-    const value = new SimpleDbEntityMarketWatchListV2();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@marketWatchListV2',
+      loader: () =>
+        import('../entity/SimpleDbEntityMarketWatchListV2').then(
+          ({ SimpleDbEntityMarketWatchListV2 }) =>
+            new SimpleDbEntityMarketWatchListV2(),
+        ),
+    });
     Object.defineProperty(this, 'marketWatchListV2', { value });
     return value;
   }
 
   get floatingIconDomainBlockList() {
-    const SimpleDbEntityFloatingIconDomainBlockList = (
-      require('../entity/SimpleDbEntityFloatingIconDomainBlockList') as unknown as typeof import('../entity/SimpleDbEntityFloatingIconDomainBlockList')
-    ).SimpleDbEntityFloatingIconDomainBlockList;
-    const value = new SimpleDbEntityFloatingIconDomainBlockList();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@floatingIconDomainBlockList',
+      loader: () =>
+        import('../entity/SimpleDbEntityFloatingIconDomainBlockList').then(
+          ({ SimpleDbEntityFloatingIconDomainBlockList }) =>
+            new SimpleDbEntityFloatingIconDomainBlockList(),
+        ),
+    });
     Object.defineProperty(this, 'floatingIconDomainBlockList', { value });
     return value;
   }
 
   get floatingIconSettings() {
-    const SimpleDbEntityFloatingIconSettings = (
-      require('../entity/SimpleDbEntityFloatingIconSettings') as unknown as typeof import('../entity/SimpleDbEntityFloatingIconSettings')
-    ).SimpleDbEntityFloatingIconSettings;
-    const value = new SimpleDbEntityFloatingIconSettings();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@floatingIconSettings',
+      loader: () =>
+        import('../entity/SimpleDbEntityFloatingIconSettings').then(
+          ({ SimpleDbEntityFloatingIconSettings }) =>
+            new SimpleDbEntityFloatingIconSettings(),
+        ),
+    });
     Object.defineProperty(this, 'floatingIconSettings', { value });
     return value;
   }
 
   get earn() {
-    const SimpleDbEntityEarn = (
-      require('../entity/SimpleDbEntityEarn') as unknown as typeof import('../entity/SimpleDbEntityEarn')
-    ).SimpleDbEntityEarn;
-    const value = new SimpleDbEntityEarn();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@earn',
+      loader: () =>
+        import('../entity/SimpleDbEntityEarn').then(
+          ({ SimpleDbEntityEarn }) => new SimpleDbEntityEarn(),
+        ),
+    });
     Object.defineProperty(this, 'earn', { value });
     return value;
   }
 
   get earnExtra() {
-    const SimpleDbEntityEarnExtra = (
-      require('../entity/SimpleDbEntityEarnExtra') as unknown as typeof import('../entity/SimpleDbEntityEarnExtra')
-    ).SimpleDbEntityEarnExtra;
-    const value = new SimpleDbEntityEarnExtra();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@earnExtra',
+      loader: () =>
+        import('../entity/SimpleDbEntityEarnExtra').then(
+          ({ SimpleDbEntityEarnExtra }) => new SimpleDbEntityEarnExtra(),
+        ),
+    });
     Object.defineProperty(this, 'earnExtra', { value });
     return value;
   }
 
   get earnOrders() {
-    const SimpleDbEntityEarnOrders = (
-      require('../entity/SimpleDbEntityEarnOrders') as unknown as typeof import('../entity/SimpleDbEntityEarnOrders')
-    ).SimpleDbEntityEarnOrders;
-    const value = new SimpleDbEntityEarnOrders();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@earnOrders',
+      loader: () =>
+        import('../entity/SimpleDbEntityEarnOrders').then(
+          ({ SimpleDbEntityEarnOrders }) => new SimpleDbEntityEarnOrders(),
+        ),
+    });
     Object.defineProperty(this, 'earnOrders', { value });
     return value;
   }
 
   get universalSearch() {
-    const SimpleDbEntityUniversalSearch = (
-      require('../entity/SimpleDbEntityUniversalSearch') as unknown as typeof import('../entity/SimpleDbEntityUniversalSearch')
-    ).SimpleDbEntityUniversalSearch;
-    const value = new SimpleDbEntityUniversalSearch();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@universalSearch',
+      loader: () =>
+        import('../entity/SimpleDbEntityUniversalSearch').then(
+          ({ SimpleDbEntityUniversalSearch }) =>
+            new SimpleDbEntityUniversalSearch(),
+        ),
+    });
     Object.defineProperty(this, 'universalSearch', { value });
     return value;
   }
 
   get customTokens() {
-    const SimpleDbEntityCustomTokens = (
-      require('../entity/SimpleDbEntityCustomTokens') as unknown as typeof import('../entity/SimpleDbEntityCustomTokens')
-    ).SimpleDbEntityCustomTokens;
-    const value = new SimpleDbEntityCustomTokens();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@customTokens',
+      loader: () =>
+        import('../entity/SimpleDbEntityCustomTokens').then(
+          ({ SimpleDbEntityCustomTokens }) => new SimpleDbEntityCustomTokens(),
+        ),
+      createImmediateMembers: () => ({
+        getXpubOrAddressFromAccountKey,
+      }),
+    });
     Object.defineProperty(this, 'customTokens', { value });
     return value;
   }
 
   get customRpc() {
-    const SimpleDbEntityCustomRpc = (
-      require('../entity/SimpleDbEntityCustomRPC') as unknown as typeof import('../entity/SimpleDbEntityCustomRPC')
-    ).SimpleDbEntityCustomRpc;
-    const value = new SimpleDbEntityCustomRpc();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@customRpc',
+      loader: () =>
+        import('../entity/SimpleDbEntityCustomRPC').then(
+          ({ SimpleDbEntityCustomRpc }) => new SimpleDbEntityCustomRpc(),
+        ),
+    });
     Object.defineProperty(this, 'customRpc', { value });
     return value;
   }
 
   get customNetwork() {
-    const SimpleDbEntityCustomNetwork = (
-      require('../entity/SimpleDbEntityCustomNetwork') as unknown as typeof import('../entity/SimpleDbEntityCustomNetwork')
-    ).SimpleDbEntityCustomNetwork;
-    const value = new SimpleDbEntityCustomNetwork();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@customNetwork',
+      loader: () =>
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityCustomNetwork'
+        ).then(
+          ({ SimpleDbEntityCustomNetwork }) =>
+            new SimpleDbEntityCustomNetwork(),
+        ),
+    });
     Object.defineProperty(this, 'customNetwork', { value });
     return value;
   }
 
   get serverNetwork() {
-    const SimpleDbEntityServerNetwork = (
-      require('../entity/SimpleDbEntityServerNetwork') as unknown as typeof import('../entity/SimpleDbEntityServerNetwork')
-    ).SimpleDbEntityServerNetwork;
-    const value = new SimpleDbEntityServerNetwork();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@serverNetwork',
+      loader: () =>
+        import(
+          /* webpackChunkName: "simpledb-startup-core" */ '../entity/SimpleDbEntityServerNetwork'
+        ).then(
+          ({ SimpleDbEntityServerNetwork }) =>
+            new SimpleDbEntityServerNetwork(),
+        ),
+    });
     Object.defineProperty(this, 'serverNetwork', { value });
     return value;
   }
 
   get v4MigrationResult() {
-    const SimpleDbEntityV4MigrationResult = (
-      require('../entity/SimpleDbEntityV4MigrationResult') as unknown as typeof import('../entity/SimpleDbEntityV4MigrationResult')
-    ).SimpleDbEntityV4MigrationResult;
-    const value = new SimpleDbEntityV4MigrationResult();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@v4MigrationResult',
+      loader: () =>
+        import('../entity/SimpleDbEntityV4MigrationResult').then(
+          ({ SimpleDbEntityV4MigrationResult }) =>
+            new SimpleDbEntityV4MigrationResult(),
+        ),
+    });
     Object.defineProperty(this, 'v4MigrationResult', { value });
     return value;
   }
 
   get accountValue() {
-    const SimpleDbEntityAccountValue = (
-      require('../entity/SimpleDbEntityAccountValue') as unknown as typeof import('../entity/SimpleDbEntityAccountValue')
-    ).SimpleDbEntityAccountValue;
-    const value = new SimpleDbEntityAccountValue();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@accountValue',
+      loader: () =>
+        import('../entity/SimpleDbEntityAccountValue').then(
+          ({ SimpleDbEntityAccountValue }) => new SimpleDbEntityAccountValue(),
+        ),
+    });
     Object.defineProperty(this, 'accountValue', { value });
     return value;
   }
 
   get legacyWalletNames() {
-    const SimpleDbEntityLegacyWalletNames = (
-      require('../entity/SimpleDbEntityLegacyWalletNames') as unknown as typeof import('../entity/SimpleDbEntityLegacyWalletNames')
-    ).SimpleDbEntityLegacyWalletNames;
-    const value = new SimpleDbEntityLegacyWalletNames();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@legacyWalletNames',
+      loader: () =>
+        import('../entity/SimpleDbEntityLegacyWalletNames').then(
+          ({ SimpleDbEntityLegacyWalletNames }) =>
+            new SimpleDbEntityLegacyWalletNames(),
+        ),
+    });
     Object.defineProperty(this, 'legacyWalletNames', { value });
     return value;
   }
 
   get localNFTs() {
-    const SimpleDbEntityLocalNFTs = (
-      require('../entity/SimpleDbEntityLocalNFTs') as unknown as typeof import('../entity/SimpleDbEntityLocalNFTs')
-    ).SimpleDbEntityLocalNFTs;
-    const value = new SimpleDbEntityLocalNFTs();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@localNFTs',
+      loader: () =>
+        import('../entity/SimpleDbEntityLocalNFTs').then(
+          ({ SimpleDbEntityLocalNFTs }) => new SimpleDbEntityLocalNFTs(),
+        ),
+    });
     Object.defineProperty(this, 'localNFTs', { value });
     return value;
   }
 
   get botWallet() {
-    const SimpleDbEntityBotWallet = (
-      require('../entity/SimpleDbEntityBotWallet') as unknown as typeof import('../entity/SimpleDbEntityBotWallet')
-    ).SimpleDbEntityBotWallet;
-    const value = new SimpleDbEntityBotWallet();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@botWallet',
+      loader: () =>
+        import('../entity/SimpleDbEntityBotWallet').then(
+          ({ SimpleDbEntityBotWallet }) => new SimpleDbEntityBotWallet(),
+        ),
+    });
     Object.defineProperty(this, 'botWallet', { value });
     return value;
   }
 
   get babylonSync() {
-    const SimpleDbEntityBabylonSync = (
-      require('../entity/SimpleDbEntityBabylonSync') as unknown as typeof import('../entity/SimpleDbEntityBabylonSync')
-    ).SimpleDbEntityBabylonSync;
-    const value = new SimpleDbEntityBabylonSync();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@babylonSync',
+      loader: () =>
+        import('../entity/SimpleDbEntityBabylonSync').then(
+          ({ SimpleDbEntityBabylonSync }) => new SimpleDbEntityBabylonSync(),
+        ),
+    });
     Object.defineProperty(this, 'babylonSync', { value });
     return value;
   }
 
   get appStatus() {
-    const SimpleDbEntityAppStatus = (
-      require('../entity/SimpleDbEntityAppStatus') as unknown as typeof import('../entity/SimpleDbEntityAppStatus')
-    ).SimpleDbEntityAppStatus;
-    const value = new SimpleDbEntityAppStatus();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@appStatus',
+      loader: () =>
+        import('../entity/SimpleDbEntityAppStatus').then(
+          ({ SimpleDbEntityAppStatus }) => new SimpleDbEntityAppStatus(),
+        ),
+      createImmediateMembers: (loadEntity) => ({
+        entityKey: getSimpleDbEntityKey('appStatus'),
+        appStorage: {
+          getItem: (
+            ...args: Parameters<AsyncStorageStatic['getItem']>
+          ): ReturnType<AsyncStorageStatic['getItem']> =>
+            loadEntity().then((loadedEntity) =>
+              loadedEntity.appStorage.getItem(...args),
+            ),
+        },
+      }),
+    });
     Object.defineProperty(this, 'appStatus', { value });
     return value;
   }
 
   get allNetworks() {
-    const SimpleDbEntityAllNetworks = (
-      require('../entity/SimpleDbEntityAllNetworks') as unknown as typeof import('../entity/SimpleDbEntityAllNetworks')
-    ).SimpleDbEntityAllNetworks;
-    const value = new SimpleDbEntityAllNetworks();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@allNetworks',
+      loader: () =>
+        import('../entity/SimpleDbEntityAllNetworks').then(
+          ({ SimpleDbEntityAllNetworks }) => new SimpleDbEntityAllNetworks(),
+        ),
+    });
     Object.defineProperty(this, 'allNetworks', { value });
     return value;
   }
 
   get changeHistory() {
-    const SimpleDbEntityChangeHistory = (
-      require('../entity/SimpleDbEntityChangeHistory') as unknown as typeof import('../entity/SimpleDbEntityChangeHistory')
-    ).SimpleDbEntityChangeHistory;
-    const value = new SimpleDbEntityChangeHistory();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@changeHistory',
+      loader: () =>
+        import('../entity/SimpleDbEntityChangeHistory').then(
+          ({ SimpleDbEntityChangeHistory }) =>
+            new SimpleDbEntityChangeHistory(),
+        ),
+    });
     Object.defineProperty(this, 'changeHistory', { value });
     return value;
   }
 
   get recentNetworks() {
-    const SimpleDbEntityRecentNetworks = (
-      require('../entity/SimpleDbEntityRecentNetworks') as unknown as typeof import('../entity/SimpleDbEntityRecentNetworks')
-    ).SimpleDbEntityRecentNetworks;
-    const value = new SimpleDbEntityRecentNetworks();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@recentNetworks',
+      loader: () =>
+        import('../entity/SimpleDbEntityRecentNetworks').then(
+          ({ SimpleDbEntityRecentNetworks }) =>
+            new SimpleDbEntityRecentNetworks(),
+        ),
+    });
     Object.defineProperty(this, 'recentNetworks', { value });
     return value;
   }
 
   get addressRiskCheck() {
-    const SimpleDbEntityAddressRiskCheck = (
-      require('../entity/SimpleDbEntityAddressRiskCheck') as unknown as typeof import('../entity/SimpleDbEntityAddressRiskCheck')
-    ).SimpleDbEntityAddressRiskCheck;
-    const value = new SimpleDbEntityAddressRiskCheck();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@addressRiskCheck',
+      loader: () =>
+        import('../entity/SimpleDbEntityAddressRiskCheck').then(
+          ({ SimpleDbEntityAddressRiskCheck }) =>
+            new SimpleDbEntityAddressRiskCheck(),
+        ),
+    });
     Object.defineProperty(this, 'addressRiskCheck', { value });
     return value;
   }
 
   get addressInfo() {
-    const SimpleDbEntityAddressInfo = (
-      require('../entity/SimpleDbEntityAddressInfo') as unknown as typeof import('../entity/SimpleDbEntityAddressInfo')
-    ).SimpleDbEntityAddressInfo;
-    const value = new SimpleDbEntityAddressInfo();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@addressInfo',
+      loader: () =>
+        import('../entity/SimpleDbEntityAddressInfo').then(
+          ({ SimpleDbEntityAddressInfo }) => new SimpleDbEntityAddressInfo(),
+        ),
+    });
     Object.defineProperty(this, 'addressInfo', { value });
     return value;
   }
 
   get recentRecipients() {
-    const SimpleDbEntityRecentRecipients = (
-      require('../entity/SimpleDbEntityRecentRecipients') as unknown as typeof import('../entity/SimpleDbEntityRecentRecipients')
-    ).SimpleDbEntityRecentRecipients;
-    const value = new SimpleDbEntityRecentRecipients();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@recentRecipients',
+      loader: () =>
+        import('../entity/SimpleDbEntityRecentRecipientsImpl').then(
+          ({ SimpleDbEntityRecentRecipients }) =>
+            new SimpleDbEntityRecentRecipients(),
+        ),
+    });
     Object.defineProperty(this, 'recentRecipients', { value });
     return value;
   }
 
   get riskTokenManagement() {
-    const SimpleDbEntityRiskTokenManagement = (
-      require('../entity/SimpleDbEntityRiskTokenManagement') as unknown as typeof import('../entity/SimpleDbEntityRiskTokenManagement')
-    ).SimpleDbEntityRiskTokenManagement;
-    const value = new SimpleDbEntityRiskTokenManagement();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@riskTokenManagement',
+      loader: () =>
+        import('../entity/SimpleDbEntityRiskTokenManagement').then(
+          ({ SimpleDbEntityRiskTokenManagement }) =>
+            new SimpleDbEntityRiskTokenManagement(),
+        ),
+    });
     Object.defineProperty(this, 'riskTokenManagement', { value });
     return value;
   }
 
   get walletBanner() {
-    const SimpleDbEntityWalletBanner = (
-      require('../entity/SimpleDbEntityWalletBanner') as unknown as typeof import('../entity/SimpleDbEntityWalletBanner')
-    ).SimpleDbEntityWalletBanner;
-    const value = new SimpleDbEntityWalletBanner();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletBanner',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletBanner').then(
+          ({ SimpleDbEntityWalletBanner }) => new SimpleDbEntityWalletBanner(),
+        ),
+    });
     Object.defineProperty(this, 'walletBanner', { value });
     return value;
   }
 
   get perp() {
-    const SimpleDbEntityPerp = (
-      require('../entity/SimpleDbEntityPerp') as unknown as typeof import('../entity/SimpleDbEntityPerp')
-    ).SimpleDbEntityPerp;
-    const value = new SimpleDbEntityPerp();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@perp',
+      loader: () =>
+        import('../entity/SimpleDbEntityPerp').then(
+          ({ SimpleDbEntityPerp }) => new SimpleDbEntityPerp(),
+        ),
+    });
     Object.defineProperty(this, 'perp', { value });
     return value;
   }
 
   get approval() {
-    const SimpleDbEntityApproval = (
-      require('../entity/SimpleDbEntityApproval') as unknown as typeof import('../entity/SimpleDbEntityApproval')
-    ).SimpleDbEntityApproval;
-    const value = new SimpleDbEntityApproval();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@approval',
+      loader: () =>
+        import('../entity/SimpleDbEntityApproval').then(
+          ({ SimpleDbEntityApproval }) => new SimpleDbEntityApproval(),
+        ),
+    });
     Object.defineProperty(this, 'approval', { value });
     return value;
   }
 
   get aggregateToken() {
-    const SimpleDbEntityAggregateToken = (
-      require('../entity/SimpleDbEntityAggregateToken') as unknown as typeof import('../entity/SimpleDbEntityAggregateToken')
-    ).SimpleDbEntityAggregateToken;
-    const value = new SimpleDbEntityAggregateToken();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@aggregateToken',
+      loader: () =>
+        import('../entity/SimpleDbEntityAggregateToken').then(
+          ({ SimpleDbEntityAggregateToken }) =>
+            new SimpleDbEntityAggregateToken(),
+        ),
+    });
     Object.defineProperty(this, 'aggregateToken', { value });
     return value;
   }
 
   get chainResource() {
-    const SimpleDbEntityChainResource = (
-      require('../entity/SimpleDbEntityChainResource') as unknown as typeof import('../entity/SimpleDbEntityChainResource')
-    ).SimpleDbEntityChainResource;
-    const value = new SimpleDbEntityChainResource();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@chainResource',
+      loader: () =>
+        import('../entity/SimpleDbEntityChainResource').then(
+          ({ SimpleDbEntityChainResource }) =>
+            new SimpleDbEntityChainResource(),
+        ),
+    });
     Object.defineProperty(this, 'chainResource', { value });
     return value;
   }
 
+  get receiveArrivalConfig() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@receiveArrivalConfig',
+      loader: () =>
+        import('../entity/SimpleDbEntityReceiveArrivalConfig').then(
+          ({ SimpleDbEntityReceiveArrivalConfig }) =>
+            new SimpleDbEntityReceiveArrivalConfig(),
+        ),
+    });
+    Object.defineProperty(this, 'receiveArrivalConfig', { value });
+    return value;
+  }
+
   get btcFreshAddress() {
-    const SimpleDbEntityBTCFreshAddress = (
-      require('../entity/SimpleDbEntityBTCFreshAddress') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddress')
-    ).SimpleDbEntityBTCFreshAddress;
-    const value = new SimpleDbEntityBTCFreshAddress();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@btcFreshAddress',
+      loader: () =>
+        import('../entity/SimpleDbEntityBTCFreshAddress').then(
+          ({ SimpleDbEntityBTCFreshAddress }) =>
+            new SimpleDbEntityBTCFreshAddress(),
+        ),
+    });
     Object.defineProperty(this, 'btcFreshAddress', { value });
     return value;
   }
 
   get btcFreshAddressMeta() {
-    const SimpleDbEntityBTCFreshAddressMeta = (
-      require('../entity/SimpleDbEntityBTCFreshAddressMeta') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddressMeta')
-    ).SimpleDbEntityBTCFreshAddressMeta;
-    const value = new SimpleDbEntityBTCFreshAddressMeta();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@btcFreshAddressMeta',
+      loader: () =>
+        import('../entity/SimpleDbEntityBTCFreshAddressMeta').then(
+          ({ SimpleDbEntityBTCFreshAddressMeta }) =>
+            new SimpleDbEntityBTCFreshAddressMeta(),
+        ),
+    });
     Object.defineProperty(this, 'btcFreshAddressMeta', { value });
     return value;
   }
 
   get walletStatus() {
-    const SimpleDbEntityWalletStatus = (
-      require('../entity/SimpleDbEntityWalletStatus') as unknown as typeof import('../entity/SimpleDbEntityWalletStatus')
-    ).SimpleDbEntityWalletStatus;
-    const value = new SimpleDbEntityWalletStatus();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletStatus',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletStatus').then(
+          ({ SimpleDbEntityWalletStatus }) => new SimpleDbEntityWalletStatus(),
+        ),
+    });
     Object.defineProperty(this, 'walletStatus', { value });
     return value;
   }
 
   get ipTable() {
-    const SimpleDbEntityIpTable = (
-      require('../entity/SimpleDbEntityIpTable') as unknown as typeof import('../entity/SimpleDbEntityIpTable')
-    ).SimpleDbEntityIpTable;
-    const value = new SimpleDbEntityIpTable();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@ipTable',
+      loader: () =>
+        import('../entity/SimpleDbEntityIpTable').then(
+          ({ SimpleDbEntityIpTable }) => new SimpleDbEntityIpTable(),
+        ),
+    });
     Object.defineProperty(this, 'ipTable', { value });
     return value;
   }
 
   get deFi() {
-    const SimpleDbEntityDeFi = (
-      require('../entity/SimpleDbEntityDeFi') as unknown as typeof import('../entity/SimpleDbEntityDeFi')
-    ).SimpleDbEntityDeFi;
-    const value = new SimpleDbEntityDeFi();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@deFi',
+      loader: () =>
+        import('../entity/SimpleDbEntityDeFi').then(
+          ({ SimpleDbEntityDeFi }) => new SimpleDbEntityDeFi(),
+        ),
+    });
     Object.defineProperty(this, 'deFi', { value });
     return value;
   }
 
   get marketTokenPreference() {
-    const SimpleDbEntityMarketTokenPreference = (
-      require('../entity/SimpleDbEntityMarketTokenPreference') as unknown as typeof import('../entity/SimpleDbEntityMarketTokenPreference')
-    ).SimpleDbEntityMarketTokenPreference;
-    const value = new SimpleDbEntityMarketTokenPreference();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@marketTokenPreference',
+      loader: () =>
+        import('../entity/SimpleDbEntityMarketTokenPreference').then(
+          ({ SimpleDbEntityMarketTokenPreference }) =>
+            new SimpleDbEntityMarketTokenPreference(),
+        ),
+    });
     Object.defineProperty(this, 'marketTokenPreference', { value });
     return value;
   }
 
   get rookieGuide() {
-    const SimpleDbEntityRookieGuide = (
-      require('../entity/SimpleDbEntityRookieGuide') as unknown as typeof import('../entity/SimpleDbEntityRookieGuide')
-    ).SimpleDbEntityRookieGuide;
-    const value = new SimpleDbEntityRookieGuide();
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@rookieGuide',
+      loader: () =>
+        import('../entity/SimpleDbEntityRookieGuide').then(
+          ({ SimpleDbEntityRookieGuide }) => new SimpleDbEntityRookieGuide(),
+        ),
+    });
     Object.defineProperty(this, 'rookieGuide', { value });
     return value;
   }

@@ -1,18 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   Dialog,
+  Icon,
   OTPInput,
   SizableText,
   Stack,
   Toast,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,7 +32,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
-import { getSanitizedAuthErrorText } from '../oneKeyIdLoginToastUtils';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+  wasOneKeyIdFailureServerLogged,
+} from '../oneKeyIdLoginToastUtils';
 import { DevOTPAutoFill } from '../PrimeDevUtils/DevOTPAutoFill';
 
 export function PrimeLoginEmailCodeDialogV2(props: {
@@ -59,8 +74,13 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     status: 'initial',
   });
   const intl = useIntl();
+  const { copyText } = useClipboard();
   const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
+
+  const handleCopyEmailSender = useCallback(() => {
+    copyText('OneKey');
+  }, [copyText]);
 
   const sendEmailVerificationCode = useCallback(async () => {
     if (isAuthActionInProgressRef.current) {
@@ -83,20 +103,23 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       setIsApiReady(true);
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
+      logOneKeyIdLoginFailureReason(
+        `Prime email verification code request failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
       if (!isMountedRef.current) {
         return;
       }
-      console.error(
-        'Prime email verification code request failed:',
-        getSanitizedAuthErrorText(error),
-      );
+      const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
       const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
       if (errorMessage) {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
       setState({ status: 'initial' });
-      setCountdown(0);
+      setCountdown(retryAfterSeconds ?? 0);
       return;
     } finally {
       if (isMountedRef.current) {
@@ -130,10 +153,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     // "Sent to {email}" on re-entry, so re-entering it must actually send one.
     // Reset only while inactive so a failed send while the step is visible
     // still requires an explicit Resend press.
-    if (!active && !didSendCodeSucceedRef.current) {
+    if (!active && countdown <= 0 && !didSendCodeSucceedRef.current) {
       didRequestInitialCodeRef.current = false;
     }
-  }, [active]);
+  }, [active, countdown]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -195,10 +218,17 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           email,
         });
       } catch (error) {
-        console.error(
-          'Prime email login failed:',
-          getSanitizedAuthErrorText(error),
-        );
+        // Background-owned failures carry a serialized marker across RPC.
+        // Bridge/call failures that never reached the background still need
+        // one UI-side diagnostic event.
+        if (!wasOneKeyIdFailureServerLogged(error)) {
+          logOneKeyIdLoginFailureReason(
+            `Prime email OTP login failed before background diagnostics: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
+        }
         defaultLogger.referral.page.signupOneKeyIDResult(false);
         if (!isMountedRef.current) {
           return;
@@ -238,9 +268,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       try {
         await onLoginSuccess?.();
       } catch (error) {
-        console.error(
-          'Prime email post-login continuation failed:',
-          getSanitizedAuthErrorText(error),
+        logOneKeyIdLoginFailureReason(
+          `Prime email post-login continuation failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
         );
         // The OTP has already been consumed and the bg runtime has committed
         // the OneKey ID login. Keep this step completed even if closing the
@@ -307,6 +339,46 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       </Dialog.Header>
 
       <YStack gap="$2">
+        <Alert
+          type="info"
+          icon="InfoCircleOutline"
+          borderWidth={0}
+          alignItems="flex-start"
+          descriptionComponent={
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.onekey_id_verification_email_hint__desc,
+                },
+                {
+                  onekey: (chunks: ReactNode[]) => (
+                    <SizableText
+                      testID="prime-login-email-sender-copy"
+                      size="$bodyMdMedium"
+                      color="$text"
+                      cursor="pointer"
+                      hoverStyle={{ opacity: 0.8 }}
+                      pressStyle={{ opacity: 0.6 }}
+                      role="button"
+                      onPress={handleCopyEmailSender}
+                    >
+                      {chunks}
+                      {'\u00A0'}
+                      <Icon
+                        name="Copy3Outline"
+                        size="$3.5"
+                        color="$iconSubdued"
+                        pointerEvents="none"
+                        transform={[{ translateY: 2 }]}
+                      />
+                    </SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          }
+        />
+
         <XStack>
           <Button
             testID="prime-btn"

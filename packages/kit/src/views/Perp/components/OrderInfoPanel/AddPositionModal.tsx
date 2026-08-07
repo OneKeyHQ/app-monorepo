@@ -1,33 +1,41 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
   Checkbox,
+  DashText,
   Dialog,
   Divider,
   Icon,
+  NumberSizeableText,
   SizableText,
   Toast,
   XStack,
   YStack,
   getFontSize,
+  useKeyboardHeight,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useConnectionStateAtom,
   useHyperliquidActions,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  calculateLiquidationPrice,
   formatPriceToSignificantDigits,
   parseDexCoin,
   resolveTradingSize,
@@ -38,21 +46,29 @@ import type {
   IHex,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
+import { getAggressiveLimitPriceWarning } from '../../utils/aggressiveLimitPrice';
 import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import { buildDefaultTpSlPercent } from '../../utils/tpslSeed';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
-import { SizeInput } from '../TradingPanel/inputs/SizeInput';
+import {
+  type ISizeInputMinimumOrderAction,
+  SizeInput,
+  getMinimumOrderToastActionProps,
+} from '../TradingPanel/inputs/SizeInput';
 import { TpSlFormInput } from '../TradingPanel/inputs/TpSlFormInput';
+import { AggressiveLimitPriceWarning } from '../TradingPanel/modals/AggressiveLimitPriceWarning';
 
 import {
   buildAddPositionMinimumAmountLabel,
@@ -62,7 +78,6 @@ import {
 } from './utils/addPosition';
 
 import type { IAddPositionValidationError } from './utils/addPosition';
-import type { IntlShape } from 'react-intl';
 
 type IAddPositionOrderType = 'market' | 'limit';
 
@@ -79,10 +94,14 @@ interface IAddPositionFormProps extends IAddPositionParams {
 const AddPositionForm = memo(
   ({ coin, isBuy, accountAddress, onClose }: IAddPositionFormProps) => {
     const intl = useIntl();
+    const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
     const [activeAccount] = usePerpsActiveAccountAtom();
+    const [{ isConnected }] = useConnectionStateAtom();
+    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
+    const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
     const [allMids] = usePerpsAllMidsAtom();
     const activePositions = usePerpsAccountScopedActivePositions();
     const currentPosition = useMemo(
@@ -110,9 +129,16 @@ const AddPositionForm = memo(
     const [assetData, setAssetData] = useState<IActiveAssetData>();
     const [targetAsset, setTargetAsset] = useState<IPerpsActiveAssetAtom>();
     const [isLoadingAssetData, setIsLoadingAssetData] = useState(true);
+    const [hasAssetDataError, setHasAssetDataError] = useState(false);
+    const [assetDataRetryNonce, setAssetDataRetryNonce] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const orderBookTop = useCoinOrderBookTop(coin);
     const requestIdRef = useRef(0);
     const isLimitPriceInitializedRef = useRef(false);
+    const sizeInputRef = useRef<IInputRef>(null);
+    const minimumOrderActionRef = useRef<
+      ISizeInputMinimumOrderAction | undefined
+    >(undefined);
 
     const midPrice = allMids?.mids?.[coin] ?? '';
     const displayName = parseDexCoin(coin).displayName;
@@ -159,12 +185,14 @@ const AddPositionForm = memo(
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(result.data);
             setTargetAsset(result.targetAsset);
+            setHasAssetDataError(false);
           }
         })
         .catch(() => {
           if (!disposed && requestId === requestIdRef.current) {
             setAssetData(undefined);
             setTargetAsset(undefined);
+            setHasAssetDataError(true);
           }
         })
         .finally(() => {
@@ -175,7 +203,19 @@ const AddPositionForm = memo(
       return () => {
         disposed = true;
       };
-    }, [fetchTargetAssetData]);
+    }, [fetchTargetAssetData, assetDataRetryNonce]);
+
+    // Opening this dialog offline leaves the target asset unresolved, and the
+    // fetch above only re-runs on a coin/account change — so without this the
+    // dialog stays permanently unusable even after the socket comes back.
+    const wasConnectedRef = useRef(isConnected);
+    useEffect(() => {
+      const reconnected = isConnected && !wasConnectedRef.current;
+      wasConnectedRef.current = isConnected;
+      if (reconnected && hasAssetDataError) {
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+      }
+    }, [hasAssetDataError, isConnected]);
 
     useEffect(() => {
       if (midPrice && !isLimitPriceInitializedRef.current) {
@@ -211,6 +251,24 @@ const AddPositionForm = memo(
       szDecimals !== undefined &&
       isAddPositionAssetDataScoped({ data: assetData, coin, accountAddress }),
     );
+    const aggressiveLimitPriceWarning = useMemo(
+      () =>
+        orderType === 'limit'
+          ? getAggressiveLimitPriceWarning({
+              side: isBuy ? 'long' : 'short',
+              limitPrice,
+              bestBid: orderBookTop.bestBid,
+              bestAsk: orderBookTop.bestAsk,
+            })
+          : undefined,
+      [
+        isBuy,
+        limitPrice,
+        orderBookTop.bestAsk,
+        orderBookTop.bestBid,
+        orderType,
+      ],
+    );
     const resolvedSize = useMemo(
       () =>
         resolveTradingSize({
@@ -223,6 +281,80 @@ const AddPositionForm = memo(
         }),
       [amount, isBuy, maxSize, sizeInputMode, sizePercent, szDecimals],
     );
+
+    // Margin this add consumes, and where the position would be liquidated once
+    // it fills. Both are previews of the position AFTER the add, so the
+    // liquidation price blends the existing position with the new size.
+    const addPositionPreview = useMemo(() => {
+      const sizeBN = new BigNumber(resolvedSize || 0);
+      const priceBN = new BigNumber(effectivePrice || 0);
+      if (
+        !sizeBN.isFinite() ||
+        sizeBN.lte(0) ||
+        !priceBN.isFinite() ||
+        priceBN.lte(0)
+      ) {
+        return { marginRequired: null, liquidationPrice: null };
+      }
+
+      const totalValue = sizeBN.multipliedBy(priceBN);
+      const safeLeverage = leverage > 0 ? leverage : 1;
+      const marginRequired = totalValue.dividedBy(safeLeverage);
+
+      const marginMode = assetData?.leverage?.type;
+      const maxLeverage = targetAsset?.universe?.maxLeverage;
+      if (!marginMode || !maxLeverage) {
+        return { marginRequired, liquidationPrice: null };
+      }
+
+      const side = isBuy ? 'long' : 'short';
+      const liquidationPrice = calculateLiquidationPrice({
+        totalValue,
+        referencePrice: priceBN,
+        // An aggressive limit fills near the mark, so the preview must
+        // converge on it instead of the extreme limit price — mirrors
+        // useLiquidationPrice and the chart limit ticket.
+        clampToCurrentMark: true,
+        markPrice: assetData?.markPx
+          ? new BigNumber(assetData.markPx)
+          : undefined,
+        positionSize: sizeBN,
+        side,
+        leverage: safeLeverage,
+        mode: marginMode,
+        marginTiers: targetAsset?.margin?.marginTiers,
+        maxLeverage,
+        crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || 0),
+        crossMaintenanceMarginUsed: new BigNumber(
+          accountSummary?.crossMaintenanceMarginUsed || 0,
+        ),
+        existingPositionSize: currentPosition
+          ? new BigNumber(currentPosition.szi)
+          : undefined,
+        existingEntryPrice: currentPosition
+          ? new BigNumber(currentPosition.entryPx)
+          : undefined,
+        newOrderSide: side,
+      });
+
+      return {
+        marginRequired,
+        liquidationPrice:
+          liquidationPrice && liquidationPrice.gt(0) ? liquidationPrice : null,
+      };
+    }, [
+      accountSummary?.crossAccountValue,
+      accountSummary?.crossMaintenanceMarginUsed,
+      assetData?.leverage?.type,
+      assetData?.markPx,
+      currentPosition,
+      effectivePrice,
+      isBuy,
+      leverage,
+      resolvedSize,
+      targetAsset?.margin?.marginTiers,
+      targetAsset?.universe?.maxLeverage,
+    ]);
 
     const handleManualSizeChange = useCallback((value: string) => {
       setAmount(value);
@@ -245,6 +377,11 @@ const AddPositionForm = memo(
       setSizePercent(0);
       setAmount('');
     }, [sizeInputMode]);
+
+    const requestSizeInputFocus = useCallback(() => {
+      if (!platformEnv.isNative) return;
+      requestAnimationFrame(() => sizeInputRef.current?.focus());
+    }, []);
 
     // Size problems keep the button pressable and surface a toast on press,
     // matching the main trading panel instead of silently disabling it.
@@ -274,6 +411,7 @@ const AddPositionForm = memo(
           });
           return;
         }
+        const minimumOrderAction = minimumOrderActionRef.current;
         Toast.message({
           title: intl.formatMessage(
             { id: ETranslations.perp_size_least },
@@ -287,9 +425,16 @@ const AddPositionForm = memo(
               }),
             },
           ),
+          ...getMinimumOrderToastActionProps(
+            minimumOrderAction,
+            intl.formatMessage({
+              id: ETranslations.fill_minimum_amount__action,
+            }),
+          ),
         });
+        requestSizeInputFocus();
       },
-      [displayName, intl, leverage, sizeInputUnit],
+      [displayName, intl, leverage, requestSizeInputFocus, sizeInputUnit],
     );
 
     const handleTpslCheckboxChange = useCallback(
@@ -312,7 +457,22 @@ const AddPositionForm = memo(
     );
 
     const handleSubmit = useCallback(async () => {
-      if (isSubmitting || !isTargetAssetReady) {
+      if (isSubmitting) {
+        return;
+      }
+      // The market data this ticket needs failed to load (typically offline).
+      // Say so and retry instead of leaving a dead button, matching how the size
+      // validations below keep the button pressable and explain themselves.
+      if (hasAssetDataError) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
+          }),
+        });
+        setAssetDataRetryNonce((nonce) => nonce + 1);
+        return;
+      }
+      if (!isTargetAssetReady) {
         return;
       }
       if (!isScopeValid) {
@@ -402,7 +562,7 @@ const AddPositionForm = memo(
           szDecimals: latestSzDecimals,
         });
 
-        await actions.current.placeOrderByCoin({
+        const orderParams = {
           coin,
           expectedAccountAddress: accountAddress,
           isBuy,
@@ -412,8 +572,12 @@ const AddPositionForm = memo(
           tif: orderType === 'limit' ? 'Gtc' : undefined,
           tpTriggerPx,
           slTriggerPx,
-        });
-        onClose();
+        } as const;
+        const placeOrder = async () => {
+          await actions.current.placeOrderByCoin(orderParams);
+          onClose();
+        };
+        await placeOrder();
       } catch (error) {
         Toast.error({
           title:
@@ -433,6 +597,7 @@ const AddPositionForm = memo(
       coin,
       effectivePrice,
       fetchTargetAssetData,
+      hasAssetDataError,
       hasTpsl,
       intl,
       isBuy,
@@ -457,6 +622,10 @@ const AddPositionForm = memo(
 
     return (
       <YStack gap="$4">
+        {aggressiveLimitPriceWarning ? (
+          <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+        ) : null}
+
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -527,9 +696,6 @@ const AddPositionForm = memo(
             })}
             value={limitPrice}
             onChange={setLimitPrice}
-            onUseMidPrice={() =>
-              setLimitPrice(formatPriceToSignificantDigits(midPrice))
-            }
             disabled={!midPrice}
             szDecimals={szDecimals ?? 0}
             ifOnDialog
@@ -550,75 +716,153 @@ const AddPositionForm = memo(
           leverage={leverage}
           allowMarginInput
           ifOnDialog
+          inputRef={sizeInputRef}
+          minimumOrderActionRef={minimumOrderActionRef}
         />
-        <PerpsSlider
-          min={0}
-          max={100}
-          value={sizeInputMode === EPerpsSizeInputMode.SLIDER ? sizePercent : 0}
-          onChange={handleSliderPercentChange}
-          disabled={isSubmitting || !isTargetAssetReady}
-          segments={4}
-          snapTapToSegment
-          showBubble={false}
-          sliderHeight={4}
-        />
-        <Checkbox
-          testID="perp-add-position-tpsl-checkbox"
-          value={hasTpsl}
-          onChange={(checked) => handleTpslCheckboxChange(Boolean(checked))}
-          label={intl.formatMessage({
-            id: ETranslations.perp_position_tp_sl,
-          })}
-          labelProps={{
-            fontSize: getFontSize('$bodyMd'),
-            color: '$textSubdued',
-          }}
-          containerProps={{ alignItems: 'center' }}
-          width="$4"
-          height="$4"
-        />
-        {hasTpsl ? (
-          <YStack gap="$2">
-            <TpSlFormInput
-              type="tp"
-              label={intl.formatMessage({
-                id: ETranslations.perp_trade_tp_price,
-              })}
-              value={tpValue}
-              inputType={tpType}
-              referencePrice={effectivePrice}
-              szDecimals={szDecimals ?? 0}
-              onChange={setTpValue}
-              onTypeChange={setTpType}
-            />
-            <TpSlFormInput
-              type="sl"
-              label={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price,
-              })}
-              value={slValue}
-              inputType={slType}
-              referencePrice={effectivePrice}
-              szDecimals={szDecimals ?? 0}
-              onChange={setSlValue}
-              onTypeChange={setSlType}
-            />
-          </YStack>
-        ) : null}
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-          <Button
-            testID={PerpTestIDs.AddPositionConfirmButton}
-            size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
+        <YStack gap="$1.5">
+          <PerpsSlider
+            min={0}
+            max={100}
+            value={
+              sizeInputMode === EPerpsSizeInputMode.SLIDER ? sizePercent : 0
+            }
+            onChange={handleSliderPercentChange}
             disabled={isSubmitting || !isTargetAssetReady}
-            loading={isSubmitting}
-            onPress={handleSubmit}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_confirm_order_action,
-            })}
-          </Button>
-        </TradingGuardWrapper>
+            segments={4}
+            snapTapToSegment
+            showBubble={false}
+            sliderHeight={4}
+          />
+          <YStack gap="$2">
+            <Checkbox
+              testID="perp-add-position-tpsl-checkbox"
+              value={hasTpsl}
+              onChange={(checked) => handleTpslCheckboxChange(Boolean(checked))}
+              label={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+              labelProps={{
+                fontSize: getFontSize('$bodyMd'),
+                color: '$textSubdued',
+              }}
+              containerProps={{ alignItems: 'center' }}
+              width="$4"
+              height="$4"
+            />
+            {hasTpsl ? (
+              <YStack gap="$4">
+                <TpSlFormInput
+                  type="tp"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_trade_tp_price,
+                  })}
+                  value={tpValue}
+                  inputType={tpType}
+                  referencePrice={effectivePrice}
+                  szDecimals={szDecimals ?? 0}
+                  onChange={setTpValue}
+                  onTypeChange={setTpType}
+                />
+                <TpSlFormInput
+                  type="sl"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_trade_sl_price,
+                  })}
+                  value={slValue}
+                  inputType={slType}
+                  referencePrice={effectivePrice}
+                  szDecimals={szDecimals ?? 0}
+                  onChange={setSlValue}
+                  onTypeChange={setSlType}
+                />
+              </YStack>
+            ) : null}
+          </YStack>
+        </YStack>
+        <YStack gap="$2">
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.3}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_cost })}
+            </DashText>
+            {addPositionPreview.marginRequired ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.marginRequired.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
+
+          <XStack justifyContent="space-between">
+            <DashText
+              size="$bodySm"
+              color="$textSubdued"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              tooltipDisplayMode="popover"
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
+            </DashText>
+            {addPositionPreview.liquidationPrice ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$text"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
+                {addPositionPreview.liquidationPrice.toFixed()}
+              </NumberSizeableText>
+            ) : (
+              <SizableText size="$bodySm" color="$textSubdued">
+                --
+              </SizableText>
+            )}
+          </XStack>
+        </YStack>
+        <YStack pt={hasTpsl ? tpslButtonPaddingTop : undefined}>
+          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+            <Button
+              testID={PerpTestIDs.AddPositionConfirmButton}
+              size={PERP_DIALOG_BUTTON_SIZE}
+              variant="primary"
+              // Stays pressable on a load failure so the press can explain
+              // itself and retry, instead of leaving a dead button after
+              // going offline.
+              disabled={
+                isSubmitting || (!isTargetAssetReady && !hasAssetDataError)
+              }
+              loading={isSubmitting}
+              onPress={handleSubmit}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_confirm_order_action,
+              })}
+            </Button>
+          </TradingGuardWrapper>
+        </YStack>
       </YStack>
     );
   },
@@ -642,16 +886,18 @@ export function showAddPositionDialog({
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <AddPositionForm
-            coin={coin}
-            isBuy={isBuy}
-            accountAddress={accountAddress}
-            onClose={() => dialogInstance.close()}
-          />
+          <PerpKeyboardAwareDialogContent>
+            <AddPositionForm
+              coin={coin}
+              isBuy={isBuy}
+              accountAddress={accountAddress}
+              onClose={() => dialogInstance.close()}
+            />
+          </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
   return dialogInstance;

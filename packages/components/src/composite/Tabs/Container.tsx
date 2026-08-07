@@ -44,30 +44,60 @@ export function ContainerChild({
   containerWidth,
   focusedTab,
   tabNames,
+  disableWebTabContentVisibility,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
   containerWidth: number | string | undefined;
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
+  disableWebTabContentVisibility: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
   const syncFocusedTabVisibility = useCallback(
     (tabName: string) => {
       const focusedIndex = tabNames.findIndex((name) => name === tabName);
-      if (focusedIndex < 0 || !listContainerRef.current) return;
+      if (
+        (!disableWebTabContentVisibility && focusedIndex < 0) ||
+        !listContainerRef.current
+      ) {
+        return;
+      }
       listContainerRef.current.childNodes.forEach((element, index) => {
         if (!element) return;
-        const style = (element as HTMLElement).style;
-        const next = focusedIndex === index ? 'visible' : 'hidden';
+        const htmlElement = element as HTMLElement;
+        const style = htmlElement.style;
+        const isFocused = focusedIndex === index;
+        let next = '';
+        if (!disableWebTabContentVisibility) {
+          next = isFocused ? 'visible' : 'hidden';
+        }
         // Avoid redundant style writes during rapid focus changes.
         if (style.getPropertyValue('content-visibility') !== next) {
-          style.setProperty('content-visibility', next);
+          if (next) {
+            style.setProperty('content-visibility', next);
+          } else {
+            style.removeProperty('content-visibility');
+          }
+        }
+        // content-visibility:hidden used to keep inactive tab controls out of
+        // keyboard and accessibility navigation. Preserve that behavior when
+        // Home disables the rendering optimization.
+        if (disableWebTabContentVisibility) {
+          htmlElement.inert = !isFocused;
+          if (isFocused) {
+            htmlElement.removeAttribute('aria-hidden');
+          } else {
+            htmlElement.setAttribute('aria-hidden', 'true');
+          }
+        } else {
+          htmlElement.inert = false;
+          htmlElement.removeAttribute('aria-hidden');
         }
       });
     },
-    [listContainerRef, tabNames],
+    [disableWebTabContentVisibility, listContainerRef, tabNames],
   );
 
   useAnimatedReaction(
@@ -142,6 +172,11 @@ export interface ITabContainerProps {
   initialTabName?: string;
   allowHeaderOverscroll?: boolean;
   disableScroll?: boolean;
+  /**
+   * Disables content-visibility on web tab wrappers. Use this for shared scroll
+   * containers with dynamic content or header heights.
+   */
+  disableWebTabContentVisibility?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
 }
@@ -161,11 +196,15 @@ export function Container({
   ref: containerRef,
   initialTabName,
   disableScroll,
+  disableWebTabContentVisibility = false,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
-    'disableScroll' | 'useNativeHeaderAnimation' | 'renderSubHeader'
+    | 'disableScroll'
+    | 'disableWebTabContentVisibility'
+    | 'useNativeHeaderAnimation'
+    | 'renderSubHeader'
   >) {
   const getTabContentHeight = useCallback((element: Element | null) => {
     const htmlElement = element as HTMLElement | null;
@@ -275,69 +314,8 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const observedElementRef = useRef<HTMLElement | null>(null);
-  // Last height written to listContainerRef. Because listContainerRef is the
-  // single shared scroll content whose height always tracks the focused tab,
-  // this is "the previous tab's height" — comparing the next tab against it
-  // tells us whether we just switched to a TALLER tab.
-  const lastListContainerHeightRef = useRef(0);
-  // Armed during a settle window after each tab switch (see the reaction
-  // below). While armed, any growth of the focused tab's content (re)arms a
-  // debounced refresh; the window auto-expires so post-settle load-more
-  // growth never toggles display mid-scroll.
-  const extentRefreshArmedRef = useRef(false);
-  // Hard cap that disarms the settle window.
-  const extentRefreshWindowTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  // Debounce so progressive restoration and any row-measure jitter collapse
-  // into a single refresh at the final settled height — no magnitude
-  // threshold and no per-grow toggling needed.
-  const extentRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-
-  // A scroll container whose content first shrinks (the previously-focused
-  // taller tab is hidden by react-freeze, so listContainerRef height drops to
-  // the shorter tab) and then grows back (switching to the taller tab again)
-  // can keep a STALE, too-small scroll extent: scrollHeight and programmatic
-  // `scrollTop = n` are correct, but compositor/async-driven wheel scrolling
-  // clamps to the previous, shorter tab's extent — so the user cannot scroll
-  // to the bottom. We reproduced this on Chromium (the Electron desktop
-  // surface), whose threaded scrolling makes it easy to hit; this is NOT
-  // assumed to be Chromium-only — engines with async scrolling (WebKit/Gecko)
-  // can behave the same, so the refresh is intentionally not gated by browser.
-  // Neither a reflow, an overflow toggle, a content-height change, nor a
-  // window resize refreshes the cached extent; only tearing down and
-  // rebuilding the list container's layout box does. The rebuild reads the
-  // CURRENT layout, so it is correct regardless of which tab we came from, and
-  // is a cheap no-op where the extent was already correct. Toggle display
-  // synchronously so no frame is painted in between (no visible flash), and
-  // restore scrollTop because display:none collapses it to 0.
-  const refreshScrollExtent = useCallback(() => {
-    const lc = listContainerRef.current as HTMLElement | null;
-    const scroller = scrollElement as HTMLElement | null;
-    if (!lc) return;
-    const prevScrollTop = scroller?.scrollTop ?? 0;
-    const prevDisplay = lc.style.display;
-    // Collapsing the list box momentarily clamps the scroller to 0, which the
-    // WindowScroller scroll handler would persist into scrollTopRef. Borrow
-    // the same flag tab-switch uses to suppress that bookkeeping while we tear
-    // the box down and restore it.
-    const prevSwitching = isSwitchingTabRef.current;
-    isSwitchingTabRef.current = true;
-    lc.style.display = 'none';
-    // Force a synchronous reflow so the box is actually torn down before it is
-    // restored on the next line.
-    void lc.offsetHeight;
-    lc.style.display = prevDisplay;
-    // Restoring scrollTop reads layout, which flushes the rebuilt box, so the
-    // assignment clamps against the fresh (full) extent rather than 0.
-    if (scroller && scroller.scrollTop !== prevScrollTop) {
-      scroller.scrollTop = prevScrollTop;
-    }
-    isSwitchingTabRef.current = prevSwitching;
-  }, [scrollElement]);
+  const mutationObserverRef = useRef<MutationObserver | null>(null);
+  const observedElementsRef = useRef<HTMLElement[]>([]);
   // Attach (or re-attach) a ResizeObserver to the focused tab's scroll
   // element so listContainerRef height follows it. Replaces the previous
   // 250ms-polling retry loop entirely:
@@ -357,6 +335,8 @@ export function Container({
       tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
     const element = (registeredElement ??
       fallbackElement) as HTMLElement | null;
+    const isRegisteredScrollView =
+      registeredElement?.classList.contains('onekey-tabs-scroll-view') ?? false;
     // Fallback-measured tabs (no registered Tabs.List/ScrollView element)
     // observe the page div, but that div is a flex item stretched to the
     // pinned container height — its border box never resizes when inner
@@ -369,6 +349,27 @@ export function Container({
       !registeredElement && element
         ? ((element.firstElementChild as HTMLElement | null) ?? element)
         : element;
+    // A registered ScrollView can temporarily keep the same border-box while
+    // its thawed/async content makes scrollHeight grow. Observing only the
+    // root misses that transition, which leaves the shared list container at
+    // the shorter tab's height. Keep the root as the measurement source, but
+    // also observe its direct content nodes as generic change signals.
+    const getObservedElements = () =>
+      element
+        ? [
+            observedElement,
+            ...(isRegisteredScrollView && registeredElement
+              ? Array.from(registeredElement.children).filter(
+                  (child): child is HTMLElement => child instanceof HTMLElement,
+                )
+              : []),
+          ].filter(
+            (candidate, index, elements): candidate is HTMLElement =>
+              candidate instanceof HTMLElement &&
+              elements.indexOf(candidate) === index,
+          )
+        : [];
+    const observedElements = getObservedElements();
     const apply = (targetElement: HTMLElement) => {
       const containerElement = listContainerRef.current as HTMLElement | null;
       if (!containerElement) return;
@@ -387,31 +388,23 @@ export function Container({
           ? registeredHeight
           : getTabContentHeight(targetElement);
       if (h > 0) {
-        const grew = h > lastListContainerHeightRef.current;
         containerElement.style.height = `${h}px`;
-        lastListContainerHeightRef.current = h;
-        // Any growth that follows a tab switch can strand the stale compositor
-        // extent (arriving at a tab taller than the one just left — for any
-        // pair, not only the tallest tab). Debounce so progressive react-freeze
-        // / content-visibility restoration and row-measure jitter collapse into
-        // a single refresh once the height stops changing, at the final height.
-        // The window auto-expires (see the tab-switch reaction) so later
-        // load-more growth on the settled tab never toggles display mid-scroll.
-        if (grew && extentRefreshArmedRef.current) {
-          if (extentRefreshDebounceRef.current) {
-            clearTimeout(extentRefreshDebounceRef.current);
-          }
-          extentRefreshDebounceRef.current = setTimeout(() => {
-            extentRefreshDebounceRef.current = null;
-            refreshScrollExtent();
-          }, 150);
-        }
       } else {
         containerElement.style.height = '';
       }
     };
-    // Same element + already observing -> nothing to do.
-    if (element && observedElementRef.current === observedElement) {
+    const isObservingSameElements =
+      observedElements.length === observedElementsRef.current.length &&
+      observedElements.every(
+        (candidate, index) => candidate === observedElementsRef.current[index],
+      );
+    const canReuseObservers =
+      resizeObserverRef.current !== null &&
+      isObservingSameElements &&
+      (!isRegisteredScrollView || mutationObserverRef.current !== null);
+    // Same measurement source, signal elements, and required observers ->
+    // nothing to re-attach.
+    if (element && canReuseObservers) {
       apply(element);
       return;
     }
@@ -419,17 +412,59 @@ export function Container({
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
     }
-    observedElementRef.current = observedElement;
-    if (!element || !observedElement) {
+    if (mutationObserverRef.current) {
+      mutationObserverRef.current.disconnect();
+      mutationObserverRef.current = null;
+    }
+    observedElementsRef.current = observedElements;
+    if (!element || observedElements.length === 0) {
       return;
     }
     // Synchronous initial measurement so the container doesn't flicker
     // between 0-height and the first observer callback.
     apply(element);
     const ro = new ResizeObserver(() => apply(element));
-    ro.observe(observedElement);
+    observedElements.forEach((candidate) => ro.observe(candidate));
     resizeObserverRef.current = ro;
-  }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
+
+    // React can replace the focused ScrollView's direct content node after
+    // the initial skeleton/data render. The old node remains the RO target,
+    // while the ScrollView's pinned border box can stay unchanged even though
+    // its scrollHeight has grown. Observe structural changes so the RO target
+    // set follows the live children and remeasure the registered root. This is
+    // intentionally generic to Tabs.ScrollView; business tabs do not need to
+    // report their loading phases or schedule delayed retries.
+    if (
+      isRegisteredScrollView &&
+      registeredElement &&
+      typeof MutationObserver !== 'undefined'
+    ) {
+      const mo = new MutationObserver(() => {
+        if (
+          !isEffectValid.current ||
+          scrollTabElementsRef.current?.[focusedTab.value]?.element !==
+            registeredElement
+        ) {
+          return;
+        }
+        const nextObservedElements = getObservedElements();
+        const targetsChanged =
+          nextObservedElements.length !== observedElementsRef.current.length ||
+          nextObservedElements.some(
+            (candidate, index) =>
+              candidate !== observedElementsRef.current[index],
+          );
+        if (targetsChanged) {
+          ro.disconnect();
+          nextObservedElements.forEach((candidate) => ro.observe(candidate));
+          observedElementsRef.current = nextObservedElements;
+        }
+        apply(element);
+      });
+      mo.observe(registeredElement, { childList: true, subtree: true });
+      mutationObserverRef.current = mo;
+    }
+  }, [focusedTab, getTabContentHeight, tabNames]);
 
   // Keep the requestRemeasure context callback pointing at the latest
   // attach function. We use an indirection ref so contextValue identity
@@ -448,7 +483,11 @@ export function Container({
         resizeObserverRef.current.disconnect();
         resizeObserverRef.current = null;
       }
-      observedElementRef.current = null;
+      if (mutationObserverRef.current) {
+        mutationObserverRef.current.disconnect();
+        mutationObserverRef.current = null;
+      }
+      observedElementsRef.current = [];
     };
   }, [attachObserverForFocusedTab]);
 
@@ -458,14 +497,6 @@ export function Container({
   useEffect(
     () => () => {
       isEffectValid.current = false;
-      if (extentRefreshWindowTimerRef.current) {
-        clearTimeout(extentRefreshWindowTimerRef.current);
-        extentRefreshWindowTimerRef.current = null;
-      }
-      if (extentRefreshDebounceRef.current) {
-        clearTimeout(extentRefreshDebounceRef.current);
-        extentRefreshDebounceRef.current = null;
-      }
     },
     [],
   );
@@ -518,23 +549,6 @@ export function Container({
     (tabName, prevTabName) => {
       if (isEffectValid.current && prevTabName && tabName !== prevTabName) {
         isSwitchingTabRef.current = true;
-        // Arm the stale-scroll-extent refresh for a settle window: while armed,
-        // `apply` debounces a refresh as the newly-focused tab's content grows
-        // back to its full height. A fresh switch drops any debounce queued for
-        // the previous tab. The window auto-expires so later (load-more) growth
-        // on the settled tab does not toggle display mid-scroll.
-        extentRefreshArmedRef.current = true;
-        if (extentRefreshDebounceRef.current) {
-          clearTimeout(extentRefreshDebounceRef.current);
-          extentRefreshDebounceRef.current = null;
-        }
-        if (extentRefreshWindowTimerRef.current) {
-          clearTimeout(extentRefreshWindowTimerRef.current);
-        }
-        extentRefreshWindowTimerRef.current = setTimeout(() => {
-          extentRefreshArmedRef.current = false;
-          extentRefreshWindowTimerRef.current = null;
-        }, 1000);
         const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
@@ -710,6 +724,9 @@ export function Container({
                   listContainerRef={listContainerRef as any}
                   focusedTab={focusedTab}
                   tabNames={tabNames}
+                  disableWebTabContentVisibility={
+                    disableWebTabContentVisibility
+                  }
                 >
                   {children}
                 </ContainerChild>

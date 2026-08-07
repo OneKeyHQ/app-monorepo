@@ -1,6 +1,10 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
-import { fetchSpecifiedTokenSelectorTokens } from './utils';
+import {
+  fetchSpecifiedTokenSelectorTokens,
+  resolveIsSelectorAllNetworks,
+} from './utils';
 
 const globalMockBag = globalThis as typeof globalThis & {
   __specifiedTokenSelectorMocks?: {
@@ -48,6 +52,52 @@ function buildTokenResponse(networkId: string): IFetchAccountTokensResp {
   };
 }
 
+describe('resolveIsSelectorAllNetworks', () => {
+  // Regression: TokenSelector used to derive all-networks mode from the
+  // async-loaded network object, so the mount-frame self-fetch ran in
+  // single-network mode and POSTed networkId `onekeyall--0` +
+  // `AllNetworkMockAddress` to /wallet/v1/account/token/list (server 40003).
+  // The mode must be derivable synchronously from the networkId alone.
+  it('derives all-networks mode from the network id when the route param is missing', () => {
+    expect(
+      resolveIsSelectorAllNetworks({
+        isAllNetworks: undefined,
+        networkId: getNetworkIdsMap().onekeyall,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps single-network mode for real network ids', () => {
+    expect(
+      resolveIsSelectorAllNetworks({
+        isAllNetworks: undefined,
+        networkId: 'evm--1',
+      }),
+    ).toBe(false);
+    expect(
+      resolveIsSelectorAllNetworks({
+        isAllNetworks: undefined,
+        networkId: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('never lets a stale false param force single-network mode on the all-network id', () => {
+    expect(
+      resolveIsSelectorAllNetworks({
+        isAllNetworks: false,
+        networkId: getNetworkIdsMap().onekeyall,
+      }),
+    ).toBe(true);
+    expect(
+      resolveIsSelectorAllNetworks({
+        isAllNetworks: true,
+        networkId: 'evm--1',
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('fetchSpecifiedTokenSelectorTokens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -85,6 +135,7 @@ describe('fetchSpecifiedTokenSelectorTokens', () => {
     });
     expect(result.expectedResponseCount).toBe(1);
     expect(Object.keys(result.responsesByNetworkId)).toEqual(['evm--1']);
+    expect(result.issues).toEqual([]);
   });
 
   it('keeps the expected network count when one network refresh fails', async () => {
@@ -131,5 +182,7 @@ describe('fetchSpecifiedTokenSelectorTokens', () => {
     });
     expect(result.expectedResponseCount).toBe(2);
     expect(Object.keys(result.responsesByNetworkId)).toEqual(['evm--1']);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]).toEqual(new Error('network unavailable'));
   });
 });

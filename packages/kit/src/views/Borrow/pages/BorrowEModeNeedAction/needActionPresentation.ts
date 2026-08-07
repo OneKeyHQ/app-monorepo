@@ -63,6 +63,7 @@ export function getPrimaryLineKind({
   waitingSwitchUnlock,
   kind,
   hasWalletBalance,
+  hasShortfall,
 }: {
   active: boolean;
   approveSubStatus: IApproveSubStatus;
@@ -70,6 +71,7 @@ export function getPrimaryLineKind({
   waitingSwitchUnlock: boolean;
   kind: ICompactStepKind;
   hasWalletBalance: boolean;
+  hasShortfall: boolean;
 }): IPrimaryLineKind {
   if (!active) {
     return null;
@@ -83,7 +85,9 @@ export function getPrimaryLineKind({
   if (waitingSwitchUnlock) {
     return 'waitingSwitchUnlock';
   }
-  if (kind === 'repay' && hasWalletBalance) {
+  // A shortfall hands the balance figures to the funding card, which prints
+  // them next to the fix. Keeping this line too would state them twice.
+  if (kind === 'repay' && hasWalletBalance && !hasShortfall) {
     return 'walletBalance';
   }
   return null;

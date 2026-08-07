@@ -22,6 +22,7 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
@@ -163,9 +164,11 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                     await dialog.close({ flag: 'loginSuccess' });
                     isDialogClosed = true;
                   } catch (closeError) {
-                    console.error(
-                      'OneKey ID login: dialog close failed after a committed login:',
-                      getSanitizedAuthErrorText(closeError),
+                    logOneKeyIdLoginFailureReason(
+                      `OneKey ID login dialog close failed after committed login: ${getSanitizedAuthErrorText(
+                        closeError,
+                      )}`,
+                      closeError,
                     );
                   }
                   await onLoginSuccess?.();
@@ -179,7 +182,16 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   throw error;
                 } finally {
                   if (!isDialogClosed) {
-                    await dialog.close();
+                    try {
+                      await dialog.close();
+                    } catch (closeError) {
+                      logOneKeyIdLoginFailureReason(
+                        `OneKey ID login dialog final close retry failed: ${getSanitizedAuthErrorText(
+                          closeError,
+                        )}`,
+                        closeError,
+                      );
+                    }
                   }
                 }
               }}
@@ -227,9 +239,11 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     try {
       await onComplete();
     } catch (closeError) {
-      console.error(
-        'OneKey ID login: host dialog close failed after a committed login:',
-        getSanitizedAuthErrorText(closeError),
+      logOneKeyIdLoginFailureReason(
+        `OneKey ID login host dialog close failed after committed login: ${getSanitizedAuthErrorText(
+          closeError,
+        )}`,
+        closeError,
       );
     }
     await onLoginSuccess?.();
@@ -319,6 +333,9 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   size="large"
+                  placeholder={intl.formatMessage({
+                    id: ETranslations.email_address_example__desc,
+                  })}
                   flex={1}
                   disabled={disabled || isSubmitting}
                   onChangeText={(text) => text?.trim() ?? text}

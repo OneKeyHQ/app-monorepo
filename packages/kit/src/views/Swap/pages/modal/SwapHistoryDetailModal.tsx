@@ -76,6 +76,11 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
+  type ISwapHistoryTransactionIdKind,
+  type ISwapHistoryTransactionIdRow,
+  getSwapHistoryTransactionIdRows,
+} from '../../utils/swapHistoryTransactionIds';
+import {
   type ISwapOrderProgressStepLabel,
   getSwapOrderProgressSteps,
 } from '../../utils/swapOrderProgress';
@@ -280,6 +285,18 @@ const swapOrderProgressLabelKeys: Record<
   done: ETranslations.private_send_done,
   failed: ETranslations.private_send_failed,
   refund: ETranslations.refund__title,
+};
+
+const swapHistoryTransactionIdLabelKeys: Record<
+  ISwapHistoryTransactionIdKind,
+  ETranslations
+> = {
+  transaction: ETranslations.swap_history_detail_transaction_hash,
+  sent: ETranslations.transaction_sent_transaction_id,
+  received: ETranslations.transaction_received_transaction_id,
+  source: ETranslations.transaction_source_chain_transaction_id,
+  target: ETranslations.transaction_target_chain_transaction_id,
+  refund: ETranslations.transaction_refund_transaction_id,
 };
 
 function SwapHistoryOrderProgress({
@@ -857,6 +874,17 @@ const SwapHistoryDetailModal = () => {
         : undefined,
     [shouldShowSwapLocalData, txHistoryListState, txHistoryOrderId],
   );
+  const transactionIdRows = useMemo(
+    () => (txHistory ? getSwapHistoryTransactionIdRows(txHistory) : []),
+    [txHistory],
+  );
+  const hasProviderExplorer = Boolean(
+    (txHistory?.swapInfo.socketBridgeScanUrl && txHistory.txInfo.txId) ||
+    txHistory?.swapInfo.chainFlipExplorerUrl,
+  );
+  const shouldShowStatusExplorer =
+    hasProviderExplorer ||
+    (transactionIdRows.length === 1 && !transactionIdRows[0].showExplorer);
   const [longPendingWarningNow, setLongPendingWarningNow] = useState(() =>
     Date.now(),
   );
@@ -1163,6 +1191,52 @@ const SwapHistoryDetailModal = () => {
     ],
   );
 
+  const viewTransactionIdInBrowser = useCallback(
+    async (row: ISwapHistoryTransactionIdRow) => {
+      if (!row.networkId || !row.transactionId) {
+        return;
+      }
+      const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+        networkId: row.networkId,
+        type: 'transaction',
+        param: row.transactionId,
+      });
+      if (url) {
+        onViewInBrowser(url);
+      }
+    },
+    [onViewInBrowser],
+  );
+
+  const renderSwapTransactionIdRows = useCallback(
+    () =>
+      transactionIdRows.map((row) => (
+        <InfoItem
+          key={row.kind}
+          testID={`swap-history-${row.kind}-transaction-id`}
+          label={intl.formatMessage({
+            id: swapHistoryTransactionIdLabelKeys[row.kind],
+          })}
+          renderContent={
+            row.showPendingNote
+              ? intl.formatMessage({
+                  id: ETranslations.transaction_funds_arrival_note,
+                })
+              : row.transactionId
+          }
+          showCopy={Boolean(row.transactionId)}
+          openWithUrl={
+            row.showExplorer && row.networkId && row.transactionId
+              ? () => {
+                  void viewTransactionIdInBrowser(row);
+                }
+              : undefined
+          }
+        />
+      )),
+    [intl, transactionIdRows, viewTransactionIdInBrowser],
+  );
+
   const renderSwapOrderStatus = useCallback(() => {
     const { crossChainStatus, extraStatus, status } = txHistory ?? {};
     if (isPrivateSendHistory) {
@@ -1176,7 +1250,7 @@ const SwapHistoryDetailModal = () => {
           <SizableText size={16} color={statusTextProps.color}>
             {intl.formatMessage({ id: statusTextProps.key })}
           </SizableText>
-          {txHistory?.txInfo.txId ? (
+          {shouldShowStatusExplorer && txHistory?.txInfo.txId ? (
             <SwapTxHistoryViewInBrowser
               item={txHistory}
               onViewInBrowser={onViewInBrowser}
@@ -1196,7 +1270,7 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory?.txInfo.txId ? (
+        {shouldShowStatusExplorer && txHistory?.txInfo.txId ? (
           <SwapTxHistoryViewInBrowser
             item={txHistory}
             onViewInBrowser={onViewInBrowser}
@@ -1211,6 +1285,7 @@ const SwapHistoryDetailModal = () => {
     intl,
     isPrivateSendHistory,
     onViewInBrowser,
+    shouldShowStatusExplorer,
     toTxExplorer,
     txHistory,
   ]);
@@ -1225,7 +1300,8 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory?.swapOrderHash?.refundHash ? (
+        {txHistory?.swapOrderHash?.refundHash &&
+        !transactionIdRows.some((row) => row.kind === 'refund') ? (
           <XStack
             onPress={async () => {
               const explorerInfo = await fromTxExplorer(
@@ -1250,7 +1326,7 @@ const SwapHistoryDetailModal = () => {
         ) : null}
       </XStack>
     );
-  }, [fromTxExplorer, intl, onViewInBrowser, txHistory]);
+  }, [fromTxExplorer, intl, onViewInBrowser, transactionIdRows, txHistory]);
   const renderSwapDate = useCallback(() => {
     const { created } = txHistory?.date ?? {};
     const dateObj = new Date(created ?? 0);
@@ -1550,15 +1626,7 @@ const SwapHistoryDetailModal = () => {
                 showCopy
               />
             ) : null}
-            {txHistory.txInfo.txId ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.swap_history_detail_transaction_hash,
-                })}
-                renderContent={txHistory.txInfo.txId}
-                showCopy
-              />
-            ) : null}
+            {renderSwapTransactionIdRows()}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,
@@ -1618,6 +1686,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapLongPendingWarning,
     renderSwapOrderStatus,
     renderSwapProvider,
+    renderSwapTransactionIdRows,
     isPrivateSendHistory,
     txHistory,
   ]);

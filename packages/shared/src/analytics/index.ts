@@ -6,13 +6,14 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
 import { getDeviceInfo } from './deviceInfo';
 import { type TAnalyticsTier, getAnalyticsTier } from './tier';
 
-import type { IAnalyticsUserProfile } from './type';
+import type { IAnalyticsUserProfile, IDeviceInfo } from './type';
 import type { AxiosInstance } from 'axios';
 
 export const ANALYTICS_EVENT_PATH = '/utility/v1/track';
@@ -121,24 +122,62 @@ export class Analytics {
     }
   }
 
+  async trackEventAsync(
+    eventName: string,
+    eventProps?: Record<string, any>,
+  ): Promise<void> {
+    if (eventProps?.pageName) {
+      this.basicInfo.pageName = eventProps.pageName;
+    }
+    if (!this.instanceId || !this.baseURL) {
+      throw new OneKeyLocalError('Analytics is not initialized');
+    }
+    if (platformEnv.isWebEmbed) {
+      postMessage({
+        type: EWebEmbedPostMessageType.TrackEvent,
+        data: {
+          eventName,
+          eventProps,
+        },
+      });
+      return;
+    }
+    await this.requestEvent(eventName, eventProps);
+  }
+
   private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
     let deviceInfoPromise = this.deviceInfoPromise;
     if (!deviceInfoPromise) {
       deviceInfoPromise = (async () => {
-        const deviceInfo = await getDeviceInfo();
-        const { getDeviceCpuTier } =
-          await import('../performance/devicePerformanceTier');
+        let deviceInfo: IDeviceInfo = {};
+        let tier: TAnalyticsTier = 2;
+
+        try {
+          deviceInfo = await getDeviceInfo();
+        } catch (error) {
+          console.warn('[Analytics] Failed to load device info:', error);
+        }
+
+        try {
+          const { getDeviceCpuTier } =
+            await import('../performance/devicePerformanceTier');
+          tier = getAnalyticsTier(getDeviceCpuTier());
+        } catch (error) {
+          // Optional enrichment must never block the analytics request.
+          console.warn(
+            '[Analytics] Failed to load device performance tier:',
+            error,
+          );
+        }
+
         return {
           ...deviceInfo,
-          tier: getAnalyticsTier(getDeviceCpuTier()),
+          tier,
           platform: headerPlatform,
           appBuildNumber: platformEnv.buildNumber,
           appVersion: platformEnv.version,
         };
-      })().catch((error) => {
-        this.deviceInfoPromise = null;
-        throw error;
-      });
+      })();
       this.deviceInfoPromise = deviceInfoPromise;
     }
     const deviceInfo = await deviceInfoPromise;

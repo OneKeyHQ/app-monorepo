@@ -14,9 +14,9 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EModalPerpRoutes,
-  IModalPerpParamList,
+  type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import type {
   IUnifoldSupportedAsset,
@@ -42,9 +42,6 @@ export default function MobileUnifoldDepositTransferModal() {
   const intl = useIntl();
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const transferContentRef = useRef<IUnifoldTransferContentRef>(null);
-  const [detailExecutionId, setDetailExecutionId] = useState<string | null>(
-    null,
-  );
   const route =
     useRoute<
       RouteProp<
@@ -68,13 +65,7 @@ export default function MobileUnifoldDepositTransferModal() {
   const [initialSelectedChain, setInitialSelectedChain] = useState<
     IUnifoldSupportedAssetChain | undefined
   >(undefined);
-  const closeDetail = useCallback(() => {
-    setDetailExecutionId(null);
-  }, []);
-  const renderDetailHeaderLeft = useCallback(
-    () => <NavBackButton onPress={closeDetail} />,
-    [closeDetail],
-  );
+  const expectedRecipient = route.params?.expectedRecipient;
   const goBack = useCallback(() => {
     if (flowHistory.length > 1) {
       setFlowHistory((current) => current.slice(0, -1));
@@ -89,7 +80,6 @@ export default function MobileUnifoldDepositTransferModal() {
   useBackHandler(
     handleSystemBackPress,
     platformEnv.isNativeAndroid &&
-      !detailExecutionId &&
       (Boolean(initialSelectorMode) || flowHistory.length > 1),
   );
   const renderBackHeaderLeft = useCallback(
@@ -126,6 +116,15 @@ export default function MobileUnifoldDepositTransferModal() {
   const clearSourceSelectorResult = useCallback(() => {
     navigation.setParams({ sourceSelectorResult: undefined });
   }, [navigation]);
+  const openTracker = useCallback(() => {
+    if (!expectedRecipient) {
+      return;
+    }
+    navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
+      expectedRecipient,
+      openedFromTransfer: true,
+    });
+  }, [expectedRecipient, navigation]);
   const prepareInitialSourceSelector = useCallback(
     ({
       assets,
@@ -149,11 +148,8 @@ export default function MobileUnifoldDepositTransferModal() {
   );
   const isInitialSelectorVisible = initialSelectorMode !== null;
   let headerTitleId = ETranslations.perp_unifold_transfer_crypto__title;
-  let headerLeft = renderBackHeaderLeft;
-  if (detailExecutionId) {
-    headerTitleId = ETranslations.perp_unifold_deposit_details__title;
-    headerLeft = renderDetailHeaderLeft;
-  } else if (initialSelectorMode === 'token') {
+  const headerLeft = renderBackHeaderLeft;
+  if (initialSelectorMode === 'token') {
     headerTitleId = ETranslations.token_selector_title;
   } else if (initialSelectorMode === 'chain') {
     headerTitleId = ETranslations.global_select_network;
@@ -183,7 +179,12 @@ export default function MobileUnifoldDepositTransferModal() {
         <Stack px="$4">
           <UnifoldTransferContent
             ref={transferContentRef}
-            expectedRecipient={route.params?.expectedRecipient}
+            expectedRecipient={expectedRecipient}
+            onOpenTracker={openTracker}
+            analyticsEntrySource={route.params?.analyticsEntrySource}
+            trackDefaultSourceSelection={
+              !route.params?.openSourceSelectorOnReady
+            }
             sourceSelectorResult={route.params?.sourceSelectorResult}
             onSourceSelectorResultHandled={clearSourceSelectorResult}
             onSourceSelectorReady={prepareInitialSourceSelector}
@@ -192,12 +193,7 @@ export default function MobileUnifoldDepositTransferModal() {
                 ? showTransferUnavailableState
                 : undefined
             }
-            statusCardsPlacement={
-              isInitialSelectorVisible ? 'overlay' : 'pageFooter'
-            }
             useExternalHeader
-            detailExecutionId={detailExecutionId}
-            onDetailExecutionIdChange={setDetailExecutionId}
             onOpenMobileTokenSelector={showInitialTokenSelector}
             onOpenMobileChainSelector={showInitialChainSelector}
           />

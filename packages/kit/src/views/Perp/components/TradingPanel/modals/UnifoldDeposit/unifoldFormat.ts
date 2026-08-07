@@ -52,8 +52,9 @@ export function formatUnifoldProcessingTime(
   );
 }
 
-// Amount discipline (contract §4-3): strings end-to-end, null renders as an
-// em dash, never 0. Implementation is shared with the bg terminal toast.
+// Amount discipline (contract §4-3): strings end-to-end, null renders as the
+// standard numeric placeholder, never 0. Implementation is shared with the bg
+// terminal toast.
 export { formatUnifoldUsdAmount as formatUnifoldUsd } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 
 export function formatUnifoldTokenAmount({
@@ -67,7 +68,7 @@ export function formatUnifoldTokenAmount({
 }): string {
   const rendered = formatUnifoldTokenAmountValue({ baseUnit, decimals });
   if (rendered === null) {
-    return '—';
+    return '--';
   }
   if (!currency) {
     return rendered;
@@ -89,6 +90,12 @@ export function formatUnifoldRouteAssetDescription({
   return networkName && !tokenSymbol.includes('(')
     ? `${tokenSymbol} (${networkName})`
     : tokenSymbol;
+}
+
+export function isUnifoldNativeTokenAddress(
+  tokenAddress: string | null | undefined,
+): boolean {
+  return tokenAddress?.trim().toLowerCase() === 'native';
 }
 
 // The vendor serves every icon as both SVG and PNG under parallel paths

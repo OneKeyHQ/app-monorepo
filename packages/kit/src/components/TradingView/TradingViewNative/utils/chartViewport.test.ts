@@ -289,6 +289,23 @@ describe('TradingViewNative chart viewport', () => {
     });
   });
 
+  it('derives line price ranges from close prices', () => {
+    const points: IMarketTokenKLineDataPoint[] = [
+      { c: 10, h: 1000, l: 1, o: 9, t: 1, v: 0 },
+      { c: 30, h: 500, l: 2, o: 10, t: 2, v: 0 },
+      { c: 20, h: 800, l: 3, o: 30, t: 3, v: 0 },
+    ];
+
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+  });
+
   it('includes candle bodies that intersect either viewport edge', () => {
     expect(
       getTradingViewNativeVisiblePointRange({
@@ -413,6 +430,20 @@ describe('TradingViewNative chart viewport', () => {
     expect(nextContentRight - anchorDistance * viewport.zoomScale).toBe(
       anchorX,
     );
+  });
+
+  it('keeps the right edge fixed when zooming without a focused anchor', () => {
+    const chartWidth = 100;
+    const viewport = getTradingViewNativeZoomedViewport({
+      anchorX: chartWidth,
+      chartWidth,
+      currentOffset: 24,
+      currentZoomScale: 1,
+      nextZoomScale: 2,
+      pointCount: 100,
+    });
+
+    expect(viewport).toEqual({ offset: 48, zoomScale: 2 });
   });
 
   it('resolves timestamp and time-range targets to candle indices', () => {

@@ -106,7 +106,7 @@ function SpotBalanceList({
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('balance');
   const { spotUniverses, universeByBaseName, tokenContractMap } =
     useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
@@ -386,11 +386,7 @@ function SpotBalanceList({
           pb="$2"
         >
           <YStack flex={1} minWidth={0} gap="$1">
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
             </SizableText>
             <NumberSizeableText
@@ -446,25 +442,13 @@ function SpotBalanceList({
         </XStack>
         <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$0.5">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_name })}
             </SizableText>
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               /
             </SizableText>
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_balance })}
             </SizableText>
           </XStack>
@@ -472,20 +456,14 @@ function SpotBalanceList({
             flexGrow={1}
             flexBasis={0}
             justifyContent="flex-end"
-            gap="$1"
             alignItems="center"
           >
-            <SizableText
-              size="$bodyXs"
-              color="$textSubdued"
-              textTransform="uppercase"
-            >
+            <SizableText size="$bodyXs" color="$textSubdued">
               {`${intl.formatMessage({ id: ETranslations.global_value })} / `}
             </SizableText>
             <DashText
               size="$bodyXs"
               color="$textSubdued"
-              textTransform="uppercase"
               dashThickness={0.5}
               tooltip={intl.formatMessage({
                 id: ETranslations.marketdex_un_pnl,

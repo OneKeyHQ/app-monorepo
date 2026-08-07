@@ -13,7 +13,9 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { OAuthPopupBase } from './OAuthPopupBase';
 
@@ -61,7 +63,12 @@ export class OAuthPopup extends OAuthPopupBase {
       const serverResult =
         await globalThis.desktopApiProxy.oauthLocalServer.startServer();
       port = serverResult.port;
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `Desktop OAuth local server start failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+      });
       throw new OneKeyLocalError(
         'Failed to start OAuth local server. Please try again.',
       );
@@ -195,7 +202,7 @@ export class OAuthPopup extends OAuthPopupBase {
     });
 
     if (error) {
-      throw new OneKeyLocalError(error.message);
+      throw error;
     }
 
     if (!data.session) {
@@ -312,7 +319,15 @@ export class OAuthPopup extends OAuthPopupBase {
               session: { accessToken, refreshToken },
             });
           } catch (error) {
-            await cleanupFn.cleanup();
+            try {
+              await cleanupFn.cleanup();
+            } catch (cleanupError) {
+              defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+                reason: `Desktop OAuth cleanup failed while preserving the original failure: ${getSanitizedErrorLogText(
+                  cleanupError,
+                )}`,
+              });
+            }
             reject(OAuthPopup.wrapError(error, 'OAuth failed'));
           }
         };

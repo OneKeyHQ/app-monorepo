@@ -20,6 +20,8 @@ export const SwapTestIDs = {
   kLineChart: 'swap-kline-chart',
   kLineModal: 'swap-kline-modal',
   settingsButton: 'swap-settings-button',
+  inviteeRewardButton: 'swap-invitee-reward-button',
+  inviteeRewardSettingsItem: 'swap-invitee-reward-settings-item',
 
   // Slippage
   slippageSelector: 'swap-slippage-selector',
@@ -30,6 +32,7 @@ export const SwapTestIDs = {
   providerSelector: 'swap-provider-selector',
   quoteDetailsToggle: 'swap-quote-details-toggle',
   providerItem: (name: string) => `swap-provider-${name}`,
+  tipsContainer: 'swap-tips-container',
 
   // Pro
   proContainer: 'swap-pro-container',
@@ -46,6 +49,19 @@ export const SwapTestIDs = {
   stockMarketTokenHeader: 'swap-stock-market-token-header',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
+  stockTokenDetails: 'swap-stock-token-details',
+  stockTokenIssuerOpen: 'swap-stock-token-issuer-open',
+  stockTokenContractCopy: 'swap-stock-token-contract-copy',
+  stockTokenContractOpen: 'swap-stock-token-contract-open',
+  stockTokenRatioInfo: 'swap-stock-token-ratio-info',
+  stockTokenRatioDialog: 'swap-stock-token-ratio-dialog',
+  stockTokenRatioDialogClose: 'swap-stock-token-ratio-dialog-close',
+  stockTokenDetailsLoading: 'swap-stock-token-details-loading',
+  stockChartLoading: 'swap-stock-chart-loading',
+  stockChartContent: 'swap-stock-chart-content',
+  stockChartEmpty: 'swap-stock-chart-empty',
+  stockChartError: 'swap-stock-chart-error',
+  stockChartRetry: 'swap-stock-chart-retry',
   stockTradeStatusAlert: 'swap-stock-trade-status-alert',
 
   // Limit order

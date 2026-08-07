@@ -26,13 +26,14 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   ECheckAmountActionType,
   type ICheckAmountAlert,
   type IEarnEstimateFeeResp,
 } from '@onekeyhq/shared/types/staking';
 
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import { EarnText } from '../ProtocolDetails/EarnText';
@@ -357,7 +358,7 @@ export const UniversalClaim = ({
                   borderRadius="$2"
                 />
                 <SizableText size="$bodyLgMedium">
-                  {capitalizeString(providerName)}
+                  {getEarnProviderDisplayName(providerName)}
                 </SizableText>
               </XStack>
             </XStack>

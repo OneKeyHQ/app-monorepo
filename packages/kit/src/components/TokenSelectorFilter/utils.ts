@@ -1,6 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { filterTokenSelectorTokensByBackendIndexedNetworks } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type {
@@ -58,11 +59,27 @@ export type ISpecifiedTokenSelectorTarget = {
 export type IFetchSpecifiedTokenSelectorTokensResult = {
   responsesByNetworkId: Record<string, IFetchAccountTokensResp>;
   expectedResponseCount: number;
+  issues: unknown[];
 };
 
 type ITokenSelectorAccountTokensParams = IFetchAccountTokensParams & {
   dbAccount?: IAllNetworkAccountInfo['dbAccount'];
 };
+
+// All-networks mode must be derivable synchronously from the networkId:
+// deriving it from the async-loaded network object let the selector's
+// mount-frame fetch run in single-network mode and POST the all-network mock
+// id to the wallet API. A stale `false` route param must not win over an
+// all-network id for the same reason.
+export function resolveIsSelectorAllNetworks({
+  isAllNetworks,
+  networkId,
+}: {
+  isAllNetworks: boolean | undefined;
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(isAllNetworks) || networkUtils.isAllNetwork({ networkId });
+}
 
 export async function fetchTokenSelectorAccountTokens(
   params: ITokenSelectorAccountTokensParams,
@@ -301,6 +318,7 @@ export async function fetchSpecifiedTokenSelectorTokens({
     return {
       responsesByNetworkId: {},
       expectedResponseCount: 0,
+      issues: [],
     };
   }
 
@@ -357,19 +375,37 @@ export async function fetchSpecifiedTokenSelectorTokens({
     },
   );
 
-  const responseEntries = (
-    await promiseAllSettledEnhanced(requestFactories, {
-      continueOnError: true,
+  const requestResults = await promiseAllSettledEnhanced(
+    requestFactories.map((request) => async () => {
+      try {
+        return {
+          status: 'fulfilled' as const,
+          value: await request(),
+        };
+      } catch (error) {
+        return {
+          status: 'rejected' as const,
+          error,
+        };
+      }
+    }),
+    {
       concurrency: 10,
-    })
-  ).filter(
-    (
-      item,
-    ): item is {
-      networkId: string;
-      response: IFetchAccountTokensResp;
-    } => Boolean(item),
+    },
   );
+  const responseEntries = requestResults
+    .filter(
+      (
+        item,
+      ): item is {
+        status: 'fulfilled';
+        value: {
+          networkId: string;
+          response: IFetchAccountTokensResp;
+        };
+      } => item?.status === 'fulfilled',
+    )
+    .map((item) => item.value);
 
   return {
     responsesByNetworkId: Object.fromEntries(
@@ -379,6 +415,9 @@ export async function fetchSpecifiedTokenSelectorTokens({
       ]),
     ),
     expectedResponseCount,
+    issues: requestResults.flatMap((item) =>
+      item?.status === 'rejected' ? [item.error] : [],
+    ),
   };
 }
 

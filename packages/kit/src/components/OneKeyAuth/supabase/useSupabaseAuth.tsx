@@ -6,6 +6,7 @@ import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   throwLocalizedOneKeyIdLoginError,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -17,6 +18,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
+import {
+  createEmailOtpRateLimitError,
+  parseEmailOtpRateLimitRetryAfterSeconds,
+} from '../emailOtpRateLimitError';
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
@@ -37,6 +42,12 @@ const loadSupabaseClientUtils = () => {
           if (supabaseClientUtilsPromise === promise) {
             supabaseClientUtilsPromise = undefined;
           }
+          logOneKeyIdLoginFailureReason(
+            `Supabase client module load failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
           throw error;
         },
       );
@@ -90,10 +101,22 @@ export function useSupabaseAuth() {
       identityLifecycleRevision: number;
       rollbackHandle: IKeylessOAuthSessionRollbackHandle;
     }> => {
-      return backgroundApiProxy.servicePrime.persistKeylessOAuthSession({
-        accessToken,
-        refreshToken,
-      });
+      try {
+        return await backgroundApiProxy.servicePrime.persistKeylessOAuthSession(
+          {
+            accessToken,
+            refreshToken,
+          },
+        );
+      } catch (error) {
+        logOneKeyIdLoginFailureReason(
+          `Keyless OAuth session persistence failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
+          error,
+        );
+        throw error;
+      }
     },
     [],
   );
@@ -145,7 +168,7 @@ export function useSupabaseAuth() {
       });
 
       if (oauthUrlResult.error) {
-        throw new OneKeyLocalError(oauthUrlResult.error.message);
+        throw oauthUrlResult.error;
       }
 
       const authUrl = oauthUrlResult.data.url;
@@ -230,29 +253,20 @@ export function useSupabaseAuth() {
         },
       });
       if (res.error && res.error.message) {
-        // For security purposes, you can only request this after 48 seconds.
-        if (
-          res.error.message?.includes(
-            'For security purposes, you can only request this after',
-          )
-        ) {
-          const rateLimitMatch = res.error.message.match(
-            /you can only request this after (\d+) seconds?/i,
+        const retryAfterSeconds = parseEmailOtpRateLimitRetryAfterSeconds(
+          res.error,
+        );
+        if (retryAfterSeconds !== undefined) {
+          const rateLimitMessage = intl.formatMessage(
+            {
+              id: ETranslations.email_verification_rate_limit,
+            },
+            { rest: String(retryAfterSeconds) },
           );
-          if (rateLimitMatch) {
-            const seconds = rateLimitMatch[1];
-            const rateLimitMessage = intl.formatMessage(
-              {
-                id: ETranslations.email_verification_rate_limit,
-              },
-              { rest: seconds },
-            );
-            throw new OneKeyLocalError({
-              message: rateLimitMessage,
-              key: ETranslations.email_verification_rate_limit,
-              info: { rest: seconds },
-            });
-          }
+          throw createEmailOtpRateLimitError({
+            message: rateLimitMessage,
+            retryAfterSeconds,
+          });
         }
 
         throwLocalizedOneKeyIdLoginError({
@@ -295,7 +309,13 @@ export function useSupabaseAuth() {
     const result = await (await getSupabaseClient()).client.auth.getSession();
 
     if (result.error) {
-      throw new OneKeyLocalError(result.error.message);
+      logOneKeyIdLoginFailureReason(
+        `Supabase debug session read failed: ${getSanitizedAuthErrorText(
+          result.error,
+        )}`,
+        result.error,
+      );
+      throw result.error;
     }
 
     const session = result.data.session;
@@ -332,7 +352,13 @@ export function useSupabaseAuth() {
       if (result.error.message?.includes('not authenticated')) {
         return null;
       }
-      throw new OneKeyLocalError(result.error.message);
+      logOneKeyIdLoginFailureReason(
+        `Supabase debug user read failed: ${getSanitizedAuthErrorText(
+          result.error,
+        )}`,
+        result.error,
+      );
+      throw result.error;
     }
 
     const user = result.data.user;
@@ -360,7 +386,13 @@ export function useSupabaseAuth() {
     ).client.auth.refreshSession();
 
     if (result.error) {
-      throw new OneKeyLocalError(result.error.message);
+      logOneKeyIdLoginFailureReason(
+        `Supabase debug session refresh failed: ${getSanitizedAuthErrorText(
+          result.error,
+        )}`,
+        result.error,
+      );
+      throw result.error;
     }
 
     return {
