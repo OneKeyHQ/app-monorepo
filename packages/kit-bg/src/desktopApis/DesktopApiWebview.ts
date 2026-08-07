@@ -177,6 +177,14 @@ export type ICustomInjectedE2EWorkflowState = {
     passed: boolean;
     current: boolean;
   };
+  failure?: {
+    relativeFile: string;
+    recordingSha256: string;
+    failedAt: string;
+    phase: 'recording' | 'generation' | 'validation';
+    reason: string;
+    current: boolean;
+  };
   canValidate: boolean;
 };
 
@@ -186,6 +194,7 @@ export type ICustomInjectedE2EWorkflowSummary = {
   generated: boolean;
   resultPresent: boolean;
   validated: boolean;
+  failed?: boolean;
 };
 
 export type ICustomInjectedE2EResult = {

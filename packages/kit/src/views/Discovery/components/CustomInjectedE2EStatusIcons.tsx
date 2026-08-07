@@ -49,32 +49,40 @@ const CUSTOM_INJECTED_E2E_STATUS_ORDER: ICustomInjectedE2EStatusKey[] = [
 export function CustomInjectedE2EStatusIcon({
   active,
   compact = false,
+  failed = false,
   showTooltip = true,
   status,
   testID,
 }: {
   active: boolean;
   compact?: boolean;
+  failed?: boolean;
   showTooltip?: boolean;
   status: ICustomInjectedE2EStatusKey;
   testID?: string;
 }) {
   const config = CUSTOM_INJECTED_E2E_STATUS_CONFIG[status];
+  const validationFailed = status === 'validated' && failed;
+  const stateLabel = validationFailed ? 'failed' : active ? 'complete' : 'incomplete';
   const icon = (
     <Stack
       alignItems="center"
-      aria-label={`${config.label}: ${active ? 'complete' : 'incomplete'}`}
-      backgroundColor={active ? config.activeBackgroundColor : '$bgSubdued'}
+      aria-label={`${config.label}: ${stateLabel}`}
+      backgroundColor={
+        validationFailed ? '$bgCritical' : active ? config.activeBackgroundColor : '$bgSubdued'
+      }
       borderRadius={compact ? '$1' : '$2'}
       h={compact ? '$5' : '$7'}
       justifyContent="center"
-      opacity={active ? 1 : 0.5}
+      opacity={active || validationFailed ? 1 : 0.5}
       role="img"
       testID={testID}
       w={compact ? '$5' : '$7'}
     >
       <Icon
-        color={active ? config.activeIconColor : '$iconSubdued'}
+        color={
+          validationFailed ? '$iconCritical' : active ? config.activeIconColor : '$iconSubdued'
+        }
         name={config.icon}
         size={compact ? '$3.5' : '$4'}
       />
@@ -95,12 +103,14 @@ export function getCustomInjectedE2EStatusDescription(
 
 export function CustomInjectedE2EStatusIcons({
   adapter,
+  failed = false,
   generated,
   recorded,
   testID,
   validated,
 }: {
   adapter: boolean;
+  failed?: boolean;
   generated: boolean;
   recorded: boolean;
   testID?: string;
@@ -110,7 +120,11 @@ export function CustomInjectedE2EStatusIcons({
   const statusLabel = CUSTOM_INJECTED_E2E_STATUS_ORDER.map(
     (status) =>
       `${CUSTOM_INJECTED_E2E_STATUS_CONFIG[status].label} ${
-        statuses[status] ? 'complete' : 'incomplete'
+        status === 'validated' && failed
+          ? 'failed'
+          : statuses[status]
+            ? 'complete'
+            : 'incomplete'
       }`,
   ).join(', ');
 
@@ -127,6 +141,7 @@ export function CustomInjectedE2EStatusIcons({
         <CustomInjectedE2EStatusIcon
           key={status}
           active={statuses[status]}
+          failed={status === 'validated' && failed}
           status={status}
           testID={testID ? `${testID}-${status}` : undefined}
         />

@@ -744,6 +744,7 @@ export default function CustomInjectedProtocolListModal() {
           <XStack justifyContent="flex-end" width={E2E_COLUMN_WIDTH}>
             <CustomInjectedE2EStatusIcons
               adapter={Boolean(e2eState?.adapter)}
+              failed={Boolean(e2eState?.failed)}
               generated={Boolean(e2eState?.generated)}
               recorded={Boolean(e2eState?.recorded)}
               testID={`custom-injected-protocol-e2e-${protocol.source}-${protocol.id}`}

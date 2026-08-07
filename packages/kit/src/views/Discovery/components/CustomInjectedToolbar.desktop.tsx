@@ -1458,6 +1458,10 @@ export default function CustomInjectedToolbar({
       <Stack bg="$borderSubdued" flexShrink={0} h="$5" w="$px" />
       <CustomInjectedE2EStatusIcons
         adapter={Boolean(e2eState?.adapter)}
+        failed={Boolean(
+          e2eState?.failure?.current ||
+            (e2eState?.validation?.current && !e2eState.validation.passed),
+        )}
         generated={Boolean(e2eState?.e2e?.current)}
         recorded={Boolean(e2eState?.recording)}
         testID="custom-injected-toolbar-e2e-statuses"
