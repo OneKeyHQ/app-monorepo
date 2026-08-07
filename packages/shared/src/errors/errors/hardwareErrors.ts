@@ -1088,10 +1088,9 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       normalizeErrorProps(
         {
           // Keep the raw payload so downstream UI can reach connectId/deviceId.
-          // `message` is passed explicitly so payload presence cannot change
-          // how the message is resolved.
+          // Not `message`: setting it skips the i18n branch and drops the
+          // translated wallet_action_failed guidance.
           payload: props?.payload,
-          message,
           info: { 'message': message },
         },
         {
