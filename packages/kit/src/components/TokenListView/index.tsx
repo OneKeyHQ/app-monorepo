@@ -632,6 +632,9 @@ function TokenListViewCmp(props: IProps) {
         useNetworkSearch && !showActiveAccountTokenList
           ? tokenSelectorAggregateTokenListMap
           : undefined,
+      // `searchAll` is only produced by the main Receive entry, so this is a
+      // Receive-scoped switch; Send would need its own decoupled param.
+      flattenAggregateTokens: useNetworkSearch,
     });
 
     if (!isTokenSelector) {
