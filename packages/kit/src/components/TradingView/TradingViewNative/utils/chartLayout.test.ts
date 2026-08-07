@@ -26,6 +26,7 @@ import {
   getTradingViewNativePriceY,
   getTradingViewNativeTimeAxisLayout,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeAtY,
   getTradingViewNativeVolumeBarHeight,
   getTradingViewNativeWatermarkLayout,
   hasTradingViewNativeVolume,
@@ -172,6 +173,16 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
+  it('reserves enough width for volume-axis labels', () => {
+    expect(
+      getTradingViewNativePriceAxisWidth({
+        currentPriceLabelWidth: 30,
+        widestPriceLabelWidth: 30,
+        widestVolumeLabelWidth: 42,
+      }),
+    ).toBe(50);
+  });
+
   it('covers the plain-decimal label regime only when the price range reaches it', () => {
     const crossingPoints = buildPoints({
       count: 1,
@@ -304,6 +315,22 @@ describe('TradingViewNative chart layout', () => {
     expect(getTradingViewNativePriceAtY({ ...range, y: 125 })).toBeNull();
   });
 
+  it('maps crosshair height to the visible volume scale', () => {
+    const range = {
+      maxVolume: 10,
+      volumeBottom: 200,
+      volumeHeight: 100,
+      volumeTop: 100,
+    };
+    expect(getTradingViewNativeVolumeAtY({ ...range, y: 100 })).toBe(10);
+    expect(getTradingViewNativeVolumeAtY({ ...range, y: 150 })).toBe(5);
+    expect(getTradingViewNativeVolumeAtY({ ...range, y: 200 })).toBe(0);
+    expect(getTradingViewNativeVolumeAtY({ ...range, y: 99 })).toBeNull();
+    expect(
+      getTradingViewNativeVolumeAtY({ ...range, maxVolume: 0, y: 150 }),
+    ).toBeNull();
+  });
+
   it('builds the shared rendering layout for native and web charts', () => {
     const points = buildPoints({
       count: 5,
@@ -348,6 +375,11 @@ describe('TradingViewNative chart layout', () => {
         (TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight),
     ).toBe(TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING);
     expect(layout.priceTicks).toHaveLength(7);
+    expect(layout.volumeTicks).toHaveLength(2);
+    expect(layout.volumeTicks[0]?.volume).toBeCloseTo(10 * (2 / 3));
+    expect(layout.volumeTicks[0]?.y).toBeCloseTo(242.4);
+    expect(layout.volumeTicks[1]?.volume).toBeCloseTo(10 * (1 / 3));
+    expect(layout.volumeTicks[1]?.y).toBeCloseTo(259.2);
     expect(layout.timeTicks.length).toBeGreaterThan(0);
     expect(getTradingViewNativePriceY(layout.maxPrice, layout)).toBe(24);
   });
@@ -405,6 +437,7 @@ describe('TradingViewNative chart layout', () => {
       priceChartHeight: 244,
       volumeBottom: 276,
       volumeHeight: 0,
+      volumeTicks: [],
       volumeTop: 276,
     });
     expect(
