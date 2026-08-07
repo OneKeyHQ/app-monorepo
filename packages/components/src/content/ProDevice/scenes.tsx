@@ -33,7 +33,11 @@ import type { SharedValue } from 'react-native-reanimated';
  * brand green, holds, and fades back while the entry row grows a dot.
  * All tap feedback is opacity cross-fades, never color animation.
  */
-export type IProDeviceScene = 'confirm' | 'enterPin' | 'enterPassphrase';
+export type IProDeviceScene =
+  | 'connecting'
+  | 'confirm'
+  | 'enterPin'
+  | 'enterPassphrase';
 
 interface ISceneProps {
   width?: number;
@@ -860,7 +864,16 @@ function EnterPassphraseScene({ width }: ISceneProps) {
   );
 }
 
+/* ------------------------- connecting ------------------------- *
+ * While the app is reaching for the device the physical screen shows
+ * nothing, so the scene is the still shell with the panel dark. */
+
+function ConnectingScene({ width }: ISceneProps) {
+  return <ProDeviceShell width={width} />;
+}
+
 export const SCENES: Record<IProDeviceScene, ComponentType<ISceneProps>> = {
+  connecting: ConnectingScene,
   confirm: ConfirmScene,
   enterPin: EnterPinScene,
   enterPassphrase: EnterPassphraseScene,

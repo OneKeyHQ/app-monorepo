@@ -28,7 +28,7 @@ const meta = {
     },
     animation: {
       control: 'radio',
-      options: ['confirm', 'enterPin', 'enterPassphrase'],
+      options: ['connecting', 'enterPin', 'enterPassphrase', 'confirm'],
     },
     width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
   },
@@ -41,9 +41,8 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {};
 
 // How the app calls it: the scenario is fixed here, the model arrives with
-// the connected device. The Classic family shares one replica, a model
-// without one (mini) renders nothing rather than a placeholder, and the
-// scene-less Slate stays a static shell whatever scenario is asked.
+// the connected device. The Classic family shares one replica, and a model
+// without one (mini) renders nothing rather than a placeholder.
 const ROUTED: IHardwareDeviceType[] = [
   'classic',
   'classicpure',

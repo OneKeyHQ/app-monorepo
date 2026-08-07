@@ -16,7 +16,11 @@ import { ClassicDeviceShell } from './shell';
  * (shell, wake/sleep, key presses) is the shared vocabulary. Switching scenes
  * remounts, so the loop restarts from the top.
  */
-export type IClassicDeviceScene = 'confirm' | 'enterPin' | 'enterPassphrase';
+export type IClassicDeviceScene =
+  | 'connecting'
+  | 'confirm'
+  | 'enterPin'
+  | 'enterPassphrase';
 
 interface ISceneProps {
   width?: number;
@@ -184,7 +188,16 @@ function EnterPassphraseScene({ width }: ISceneProps) {
   );
 }
 
+/* ------------------------- connecting ------------------------- *
+ * While the app is reaching for the device the physical screen shows
+ * nothing, so the scene is the still shell with the OLED dark. */
+
+function ConnectingScene({ width }: ISceneProps) {
+  return <ClassicDeviceShell width={width} />;
+}
+
 export const SCENES: Record<IClassicDeviceScene, ComponentType<ISceneProps>> = {
+  connecting: ConnectingScene,
   confirm: ConfirmScene,
   enterPin: EnterPinScene,
   enterPassphrase: EnterPassphraseScene,
