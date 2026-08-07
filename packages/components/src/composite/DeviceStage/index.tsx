@@ -9,7 +9,6 @@ import { REPLICA_WIDTH } from './consts';
 import { ReplicaPort } from './ReplicaPort';
 
 import type { IDeviceStageProps, IDeviceStageStep } from './type';
-import type { IHardwareDeviceScene } from '../../content/HardwareDevice';
 
 /**
  * A dark theater in both app themes, built two ways. Over a light app the
@@ -30,17 +29,6 @@ const STEP_TEXT: Record<IDeviceStageStep, { title: string; sub?: string }> = {
   enterPin: { title: 'Enter PIN on your device' },
   enterPassphrase: { title: 'Enter passphrase on your device' },
   confirm: { title: 'Confirm on your device' },
-  done: { title: 'Confirmed' },
-};
-
-/**
- * Steps with no scene leave the replica as-is: a still device with a dark
- * screen, which is exactly what the physical device shows at those moments.
- */
-const STEP_SCENE: Partial<Record<IDeviceStageStep, IHardwareDeviceScene>> = {
-  enterPin: 'enterPin',
-  enterPassphrase: 'enterPassphrase',
-  confirm: 'confirm',
 };
 
 export function DeviceStage({
@@ -68,9 +56,13 @@ export function DeviceStage({
       >
         <YStack pt="$4" px="$3">
           <ReplicaPort>
+            {/* Step names and scene names deliberately coincide: every step
+                is also the scene each replica plays of it (for some, a still
+                device with a dark screen — exactly what the physical device
+                shows at that moment). */}
             <HardwareDevice
               deviceType={deviceType}
-              animation={STEP_SCENE[step]}
+              animation={step}
               width={REPLICA_WIDTH}
             />
           </ReplicaPort>
