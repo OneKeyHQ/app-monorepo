@@ -49,7 +49,7 @@ const meta = {
     },
     step: {
       control: 'inline-radio',
-      options: ['connecting', 'enterPin', 'enterPassphrase', 'confirm', 'done'],
+      options: ['connecting', 'enterPin', 'enterPassphrase', 'confirm'],
     },
     locked: { control: 'boolean' },
   },

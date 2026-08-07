@@ -4,6 +4,7 @@ import { SlateDevice } from '../SlateDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IProDeviceScene } from '../ProDevice';
+import type { ISlateDeviceScene } from '../SlateDevice';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
@@ -46,13 +47,16 @@ export type IHardwareDeviceType =
   | 'slate';
 
 /**
- * The scenes every scene-capable replica implements. Intersecting the
- * per-device unions keeps this honest without a second list to maintain: a
- * scene added to only one device drops out of the shared set instead of
- * being wrongly offered. The Slate has no scenes yet and renders its static
- * shell whatever is asked, so it stays out of the intersection.
+ * The scenes every replica implements. Intersecting the per-device unions
+ * keeps this honest without a second list to maintain: a scene added to
+ * only one device drops out of the shared set instead of being wrongly
+ * offered. A device may implement a scene as a dark screen when that is
+ * what the physical device shows at that moment (connecting on the
+ * Classic and Pro, enterPassphrase on the not-yet-designed Slate).
  */
-export type IHardwareDeviceScene = IClassicDeviceScene & IProDeviceScene;
+export type IHardwareDeviceScene = IClassicDeviceScene &
+  IProDeviceScene &
+  ISlateDeviceScene;
 
 export interface IHardwareDeviceProps {
   /**
@@ -60,7 +64,7 @@ export interface IHardwareDeviceProps {
    * unknown) render nothing, as does a missing device.
    */
   deviceType?: IHardwareDeviceType | null;
-  /** Built-in scene loop. Omitted: a static device with a dark screen. */
+  /** Built-in scene. Omitted: a static device with a dark screen. */
   animation?: IHardwareDeviceScene;
   /** Rendered width in points; height follows each model's aspect ratio. */
   width?: number;
@@ -79,10 +83,7 @@ export function HardwareDevice({
     case 'pro':
       return <ProDevice width={width} animation={animation} />;
     case 'slate':
-      // Static shell only: the Slate has no scene loops yet, so the shared
-      // scene names have nothing to map to and are ignored rather than
-      // played wrong.
-      return <SlateDevice width={width} />;
+      return <SlateDevice width={width} animation={animation} />;
     default:
       return null;
   }
