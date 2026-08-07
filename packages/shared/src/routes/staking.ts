@@ -49,6 +49,40 @@ interface IDetailPageInfoParams extends IBaseRouteParams {
   symbol?: string;
   provider?: string;
 }
+
+type IBorrowManagePositionRouteParams = IBaseRouteParams & {
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  symbol: string;
+  logoURI?: string;
+  providerDisplayName?: string;
+  providerLogoURI?: string;
+  type?: EManagePositionType;
+};
+
+type IBorrowTokenSelectAction =
+  | {
+      navigateOnSelect: {
+        screen: EModalStakingRoutes.BorrowManagePosition;
+        params: Pick<
+          IBorrowManagePositionRouteParams,
+          'providerDisplayName' | 'providerLogoURI'
+        > & {
+          type: EManagePositionType;
+        };
+      };
+      onSelect?: never;
+      closeOnSelect?: never;
+    }
+  | {
+      navigateOnSelect?: never;
+      onSelect?: (asset: IBorrowAsset) => void;
+      /** Defaults to true. Set false when onSelect navigates onward itself, so
+       * the list stays underneath and Back returns to it. */
+      closeOnSelect?: boolean;
+    };
+
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
   [EModalStakingRoutes.ProtocolDetails]: IBaseRouteParams & {
@@ -81,16 +115,7 @@ export type IModalStakingParamList = {
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
   };
-  [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
-    provider: string;
-    marketAddress: string;
-    reserveAddress: string;
-    symbol: string;
-    logoURI?: string;
-    providerDisplayName?: string;
-    providerLogoURI?: string;
-    type?: EManagePositionType;
-  };
+  [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
@@ -106,8 +131,7 @@ export type IModalStakingParamList = {
     marketAddress: string;
     action: 'supply' | 'borrow';
     currentReserveAddress?: string;
-    onSelect?: (asset: IBorrowAsset) => void;
-  };
+  } & IBorrowTokenSelectAction;
   [EModalStakingRoutes.BorrowReserveDetails]: {
     networkId: string;
     provider: string;

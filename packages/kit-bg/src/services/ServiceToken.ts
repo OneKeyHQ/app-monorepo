@@ -242,6 +242,19 @@ class ServiceToken extends ServiceBase {
     } = params;
     const { networkId } = rest;
 
+    // All-network flows must fan out per real network before reaching this
+    // method; the wallet API always rejects the all-network mock id, so a
+    // direct request with it is a caller bug — drop it before the network layer.
+    if (networkUtils.isAllNetwork({ networkId })) {
+      defaultLogger.token.request.fetchAccountTokensBlockedAllNetworkRequest({
+        params,
+      });
+      return {
+        ...getEmptyTokenData(),
+        networkId,
+      };
+    }
+
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
     const currentNetworkId = isUrlAccount
@@ -851,15 +864,20 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    // The dedupe key and the row `$key` must stay identical, so derive both
+    // from one builder. networkId is part of it because native tokens across
+    // chains share uniqueKey 'native' and an empty address: a bare
+    // `uniqueKey ?? address` collides and downstream $key-keyed maps
+    // (TokenListView tokenByKey) collapse them into one row.
+    const buildSearchTokenKey = (info: IToken) =>
+      `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
+
     return uniqBy(
       fulfilledResponses.flatMap((resp) => resp.data.data),
-      (item) =>
-        `${item.info.networkId ?? ''}_${
-          item.info.uniqueKey ?? item.info.address
-        }`,
+      (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,
-      $key: item.info.uniqueKey ?? item.info.address,
+      $key: buildSearchTokenKey(item.info),
     }));
   }
 

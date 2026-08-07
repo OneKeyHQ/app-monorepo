@@ -172,6 +172,7 @@ import {
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
+import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
   isCurrentStockMarketClosedQuoteEventError,
@@ -1315,6 +1316,12 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const isModalPage = useIsOverlayPage();
+  const { md } = useMedia();
+  // The desktop modal action renders through Page.Footer. Keep its portal
+  // placeholder outside this gapped stack so channel readiness cannot add an
+  // empty gap above Recent Trades.
+  const renderActionGateOutsideTicket = isModalPage && !md;
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const hasPositiveInputAmount = new BigNumber(
     amountInputState.inputValue || 0,
@@ -1339,50 +1346,56 @@ function StockTradeTicket({
     quoteMarketClosed: isCurrentQuoteMarketClosed,
     scopeKey: quoteScopeKey,
   });
+  const stockActionGate = (
+    <StockActionGate
+      alerts={alerts}
+      balanceActionsReady={amountInputState.balanceActionsReady}
+      stockChannel={stockChannel}
+      onPreSwap={onPreSwap}
+      onToAnotherAddressModal={onToAnotherAddressModal}
+      onSelectPercentageStage={amountInputState.onSelectPercentageStage}
+    />
+  );
 
   return (
-    <YStack gap={compact ? '$3' : '$4'}>
-      <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
-      <StockAmountInput
-        fetchLoading={fetchLoading}
-        amountInputState={amountInputState}
-        storeName={storeName}
-      />
-      <StockEstimatedReceive
-        quoteResult={quoteResult}
-        quoteLoading={quoteLoading}
-        quoteEventFetching={quoteEventFetching}
-        stockChannel={stockChannel}
-      />
-      <StockActionGate
-        alerts={alerts}
-        balanceActionsReady={amountInputState.balanceActionsReady}
-        stockChannel={stockChannel}
-        onPreSwap={onPreSwap}
-        onToAnotherAddressModal={onToAnotherAddressModal}
-        onSelectPercentageStage={amountInputState.onSelectPercentageStage}
-      />
-      <SwapStockTradeAlert
-        alerts={alerts}
-        quoteEventFetching={quoteEventFetching}
-        quoteLoading={quoteLoading}
-        quoteResult={quoteResult}
-        stockChannel={stockChannel}
-      />
-      {stockChannel.readyForQuote ? (
-        <SwapQuoteResult
-          refreshAction={refreshAction}
-          onOpenProviderList={onOpenProviderList}
-          quoteResult={quoteResult}
+    <>
+      <YStack gap={compact ? '$3' : '$4'}>
+        <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
+        <StockAmountInput
+          fetchLoading={fetchLoading}
+          amountInputState={amountInputState}
+          storeName={storeName}
         />
-      ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={recentTokenPairs}
-        fromTokenAmount={amountInputState.inputValue}
-        visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
-      />
-    </YStack>
+        <StockEstimatedReceive
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          stockChannel={stockChannel}
+        />
+        {renderActionGateOutsideTicket ? null : stockActionGate}
+        <SwapStockTradeAlert
+          alerts={alerts}
+          quoteEventFetching={quoteEventFetching}
+          quoteLoading={quoteLoading}
+          quoteResult={quoteResult}
+          stockChannel={stockChannel}
+        />
+        {stockChannel.readyForQuote ? (
+          <SwapQuoteResult
+            refreshAction={refreshAction}
+            onOpenProviderList={onOpenProviderList}
+            quoteResult={quoteResult}
+          />
+        ) : null}
+        <SwapRecentTokenPairsGroup
+          onSelectTokenPairs={onSelectRecentTokenPairs}
+          tokenPairs={recentTokenPairs}
+          fromTokenAmount={amountInputState.inputValue}
+          visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
+        />
+      </YStack>
+      {renderActionGateOutsideTicket ? stockActionGate : null}
+    </>
   );
 }
 
@@ -2311,6 +2324,11 @@ function StockMarketContextPanel({
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid tokenDetail={tokenDetail} />
+      <SwapStockTokenDetails
+        tokenDetail={tokenDetail}
+        networkId={networkId}
+        loading={marketPanelLoading}
+      />
     </YStack>
   );
 }

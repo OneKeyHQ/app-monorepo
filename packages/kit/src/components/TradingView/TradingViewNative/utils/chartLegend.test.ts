@@ -4,6 +4,7 @@ import {
   getTradingViewNativeChartLegend,
   getTradingViewNativeChartLegendRowLayout,
   getTradingViewNativeChartLegendRowLayouts,
+  getTradingViewNativeVolumeAxisLabel,
 } from './chartLegend';
 
 describe('TradingViewNative chart legend', () => {
@@ -20,10 +21,10 @@ describe('TradingViewNative chart legend', () => {
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: 'O', value: '120' },
-        { label: 'H', value: '125' },
-        { label: 'L', value: '119.5' },
-        { label: 'C', value: '123.457' },
+        { label: 'O', value: '120.00' },
+        { label: 'H', value: '125.00' },
+        { label: 'L', value: '119.50' },
+        { label: 'C', value: '123.46' },
         { label: '', value: '+3.45679 (+2.88%)' },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
@@ -59,7 +60,7 @@ describe('TradingViewNative chart legend', () => {
     ).toEqual({
       isUp: false,
       priceItems: [
-        { label: 'Price', value: '9' },
+        { label: 'Price', value: '9.00' },
         { label: '', value: '-1 (-10%)' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
@@ -142,6 +143,19 @@ describe('TradingViewNative chart legend', () => {
     expect(formatTradingViewNativeVolume(0)).toBe('0');
     expect(formatTradingViewNativeVolume(Number.NaN)).toBe('--');
     expect(formatTradingViewNativeVolume(-1)).toBe('--');
+  });
+
+  it('reserves a stable volume-axis label across compact units', () => {
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 1500 },
+      ]),
+    ).toBe('888.888');
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 0 },
+      ]),
+    ).toBe('');
   });
 
   it('lays out a renderer-independent legend row', () => {

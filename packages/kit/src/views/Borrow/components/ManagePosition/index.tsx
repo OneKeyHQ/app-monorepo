@@ -128,6 +128,7 @@ export function ManagePosition(props: IManagePositionProps) {
     action,
     amountValue,
     repayAll: baseState.isRepayAll,
+    withdrawAll: baseState.isWithdrawAll,
     approveType,
     approveTarget,
     borrowDelegationApproveTarget,

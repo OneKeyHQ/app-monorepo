@@ -3,13 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Accordion,
   Button,
   Dialog,
-  Divider,
+  HeightTransition,
+  Icon,
   SizableText,
   Stack,
   Toast,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,6 +29,7 @@ import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
 import type {
   IIdentityExitOAuthHandoff,
@@ -36,6 +38,7 @@ import type {
 
 import {
   getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
   scrubSensitiveErrorMessageText,
   showOneKeyIdLoginFailedToast,
   showOneKeyIdLoginSuccessToast,
@@ -52,10 +55,16 @@ import {
   getOneKeyIdLoginMethods,
 } from './oneKeyIdLoginMethods';
 
+const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
+
 function PrimeLoginOAuthDialog(props: {
   onComplete: () => Promise<void>;
   onLoginSuccess?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
+  onReopenAfterOAuthFailure?: (options?: {
+    showKeylessLogoutAction?: boolean;
+  }) => void | Promise<void>;
+  initialShowKeylessLogoutAction?: boolean;
   localKeylessLoginPrepareResult?: IOneKeyIdLoginWithLocalKeylessPrepareResult;
   localKeylessLoginPrepareErrorMessage?: string;
   toOneKeyIdPageOnLoginSuccess?: boolean;
@@ -64,6 +73,8 @@ function PrimeLoginOAuthDialog(props: {
     onComplete,
     onLoginSuccess,
     onCancel,
+    onReopenAfterOAuthFailure,
+    initialShowKeylessLogoutAction,
     localKeylessLoginPrepareResult,
     localKeylessLoginPrepareErrorMessage,
     toOneKeyIdPageOnLoginSuccess,
@@ -76,9 +87,16 @@ function PrimeLoginOAuthDialog(props: {
   const [emailVerificationEmail, setEmailVerificationEmail] = useState<
     string | undefined
   >();
-  const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(false);
+  const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
+  const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
+    initialShowKeylessLogoutAction ?? false,
+  );
   const loggingInProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
   const isEmailLoginStartingRef = useRef(false);
+  const accountMismatchDetectedRef = useRef(
+    initialShowKeylessLogoutAction ?? false,
+  );
+  const isDialogClosedForOAuthRef = useRef(false);
   loggingInProviderRef.current = loggingInProvider;
   const handleEmailSubmittingChange = useCallback(
     (nextIsEmailLoginStarting: boolean) => {
@@ -88,7 +106,16 @@ function PrimeLoginOAuthDialog(props: {
     [],
   );
   const handleAccountMismatch = useCallback(() => {
-    setShowKeylessLogoutAction(true);
+    accountMismatchDetectedRef.current = true;
+    if (!isDialogClosedForOAuthRef.current) {
+      setShowKeylessLogoutAction(true);
+    }
+  }, []);
+  const resetAccountMismatch = useCallback(() => {
+    accountMismatchDetectedRef.current = false;
+    if (!isDialogClosedForOAuthRef.current) {
+      setShowKeylessLogoutAction(false);
+    }
   }, []);
   const {
     localKeylessProvider,
@@ -111,6 +138,11 @@ function PrimeLoginOAuthDialog(props: {
     localKeylessProvider,
   });
   const isEmailVerificationStep = emailVerificationEmail !== undefined;
+  const signInMethodsAccordionValue = isEmailVerificationStep
+    ? MORE_SIGN_IN_METHODS_VALUE
+    : expandedSignInMethod;
+  const isSignInMethodsExpanded =
+    signInMethodsAccordionValue === MORE_SIGN_IN_METHODS_VALUE;
   const isLoginBusy = Boolean(loggingInProvider) || isEmailLoginStarting;
 
   // Fallback guard: the showOneKeyIdLoginDialog funnel already redirects the
@@ -159,8 +191,16 @@ function PrimeLoginOAuthDialog(props: {
     }) => {
       let isOneKeyIdLoginCommitted = false;
       let didUseOAuthSignIn = false;
+      let didCloseDialogBeforeOAuth = false;
       let rollbackHandle: IKeylessOAuthSessionRollbackHandle | undefined;
       try {
+        if (platformEnv.isNativeIOS && closeDialogOnSuccess) {
+          // The iOS FullWindowOverlay sits above native auth controllers.
+          // Wait for the dialog to disappear before presenting OAuth.
+          await onComplete();
+          didCloseDialogBeforeOAuth = true;
+          isDialogClosedForOAuthRef.current = true;
+        }
         let accessToken = '';
         let refreshToken = '';
         if (useRegularOAuthLogin) {
@@ -213,13 +253,22 @@ function PrimeLoginOAuthDialog(props: {
           throw error;
         }
         showOneKeyIdLoginSuccessToast(intl);
-        if (closeDialogOnSuccess) {
+        if (closeDialogOnSuccess && !didCloseDialogBeforeOAuth) {
           await onComplete();
         }
         await onLoginSuccess?.();
       } catch (error) {
         if (!isOneKeyIdLoginCommitted) {
           showOneKeyIdLoginFailedToast({ error, intl });
+        }
+        if (didCloseDialogBeforeOAuth && !isOneKeyIdLoginCommitted) {
+          if (onReopenAfterOAuthFailure) {
+            await onReopenAfterOAuthFailure({
+              showKeylessLogoutAction: accountMismatchDetectedRef.current,
+            });
+          } else {
+            await onCancel?.();
+          }
         }
         throw error;
       }
@@ -228,8 +277,10 @@ function PrimeLoginOAuthDialog(props: {
       getFreshOAuthTokensForRegularLogin,
       getOAuthAccessToken,
       intl,
+      onCancel,
       onComplete,
       onLoginSuccess,
+      onReopenAfterOAuthFailure,
       rollbackProvisionalOAuthSession,
     ],
   );
@@ -241,19 +292,21 @@ function PrimeLoginOAuthDialog(props: {
       }
       loggingInProviderRef.current = provider;
       try {
-        setShowKeylessLogoutAction(false);
+        resetAccountMismatch();
         setLoggingInProvider(provider);
         await performOAuthLogin({
           provider,
           useRegularOAuthLogin: false,
           closeDialogOnSuccess: true,
         });
+      } catch {
+        // performOAuthLogin owns user feedback and restores the iOS dialog.
       } finally {
         loggingInProviderRef.current = null;
         setLoggingInProvider(null);
       }
     },
-    [performOAuthLogin],
+    [performOAuthLogin, resetAccountMismatch],
   );
 
   const handleSwitchOAuthProvider = useCallback(
@@ -277,7 +330,7 @@ function PrimeLoginOAuthDialog(props: {
       let didCloseDialogForNextStep = false;
       let didCompleteOAuthContinuation = false;
       try {
-        setShowKeylessLogoutAction(false);
+        resetAccountMismatch();
         setLoggingInProvider(provider);
         const result = await runIdentityExit(
           {
@@ -341,6 +394,7 @@ function PrimeLoginOAuthDialog(props: {
       onCancel,
       onComplete,
       performOAuthLogin,
+      resetAccountMismatch,
       runIdentityExit,
     ],
   );
@@ -351,7 +405,7 @@ function PrimeLoginOAuthDialog(props: {
         return;
       }
       loggingInProviderRef.current = provider;
-      setShowKeylessLogoutAction(false);
+      resetAccountMismatch();
       setLoggingInProvider(provider);
 
       let inspection;
@@ -359,15 +413,15 @@ function PrimeLoginOAuthDialog(props: {
         inspection =
           await backgroundApiProxy.serviceKeylessWallet.inspectLocalKeylessWalletForOAuth();
       } catch (error) {
-        console.error(
-          'PrimeLoginOAuthDialog: failed to inspect local Keyless wallet:',
-          getSanitizedAuthErrorText(error),
-          scrubSensitiveErrorMessageText(
+        logOneKeyIdLoginFailureReason(
+          `PrimeLoginOAuthDialog failed to inspect local Keyless wallet: ${getSanitizedAuthErrorText(
+            error,
+          )} prepareResult=${scrubSensitiveErrorMessageText(
             localKeylessLoginPrepareResult?.errorMessage || '',
-          ),
-          scrubSensitiveErrorMessageText(
+          )} prepareError=${scrubSensitiveErrorMessageText(
             localKeylessLoginPrepareErrorMessage || '',
-          ),
+          )}`,
+          error,
         );
         Toast.error({
           title: intl.formatMessage({
@@ -486,6 +540,7 @@ function PrimeLoginOAuthDialog(props: {
       onCancel,
       onComplete,
       performOAuthLogin,
+      resetAccountMismatch,
       runIdentityExit,
     ],
   );
@@ -573,9 +628,9 @@ function PrimeLoginOAuthDialog(props: {
               id: ETranslations.sign_in_to_onekey_id__title,
             })}
           </Dialog.Title>
-          <Dialog.Description>
+          <Dialog.Description color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.onekey_id_auto_create__desc,
+              id: ETranslations.prime_onekeyid_continue_description,
             })}
           </Dialog.Description>
         </Dialog.Header>
@@ -592,27 +647,91 @@ function PrimeLoginOAuthDialog(props: {
                 )}
               </SizableText>
             ) : null}
-            <XStack alignItems="center" gap="$3" py="$1">
-              <Divider flex={1} />
-              <SizableText size="$bodySmMedium" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.or__label,
-                })}
-              </SizableText>
-              <Divider flex={1} />
-            </XStack>
           </>
         )}
-        <PrimeLoginEmailDialogV2
-          embedded
-          embeddedVerificationEmail={emailVerificationEmail}
-          onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
-          disabled={Boolean(loggingInProvider)}
-          onSubmittingChange={handleEmailSubmittingChange}
-          onComplete={onComplete}
-          onLoginSuccess={onLoginSuccess}
-          onCancel={onCancel}
-        />
+        <Accordion
+          type="single"
+          collapsible
+          value={signInMethodsAccordionValue}
+          onValueChange={setExpandedSignInMethod}
+        >
+          <Accordion.Item value={MORE_SIGN_IN_METHODS_VALUE}>
+            {isEmailVerificationStep ? null : (
+              <Accordion.Trigger
+                unstyled
+                testID="prime-login-more-methods-trigger"
+                disabled={isLoginBusy}
+                alignSelf="center"
+                minHeight={44}
+                px="$1"
+                py="$2"
+                borderWidth={0}
+                bg="$transparent"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="center"
+                gap="$1"
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.7 }}
+                focusVisibleStyle={{
+                  outlineColor: '$focusRing',
+                  outlineStyle: 'solid',
+                  outlineWidth: 2,
+                }}
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color="$textSubdued"
+                      textAlign="center"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.more_sign_in_methods__action,
+                      })}
+                    </SizableText>
+                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </Stack>
+                  </>
+                )}
+              </Accordion.Trigger>
+            )}
+            <HeightTransition hide={!isSignInMethodsExpanded}>
+              <Accordion.Content
+                unstyled
+                forceMount
+                testID="prime-login-more-methods-content"
+                p={0}
+                pt={isEmailVerificationStep ? 0 : '$3'}
+                pointerEvents={isSignInMethodsExpanded ? 'auto' : 'none'}
+                aria-hidden={!isSignInMethodsExpanded}
+                accessibilityElementsHidden={!isSignInMethodsExpanded}
+                importantForAccessibility={
+                  isSignInMethodsExpanded ? 'auto' : 'no-hide-descendants'
+                }
+                {...(platformEnv.isNative
+                  ? {}
+                  : { inert: !isSignInMethodsExpanded })}
+              >
+                <PrimeLoginEmailDialogV2
+                  embedded
+                  embeddedVerificationEmail={emailVerificationEmail}
+                  onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
+                  disabled={Boolean(loggingInProvider)}
+                  onSubmittingChange={handleEmailSubmittingChange}
+                  onComplete={onComplete}
+                  onLoginSuccess={onLoginSuccess}
+                  onCancel={onCancel}
+                />
+              </Accordion.Content>
+            </HeightTransition>
+          </Accordion.Item>
+        </Accordion>
         {!isEmailVerificationStep &&
         showKeylessLogoutAction &&
         isLocalKeylessOAuthMode ? (

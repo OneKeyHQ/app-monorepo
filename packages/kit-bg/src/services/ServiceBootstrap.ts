@@ -11,6 +11,7 @@ import {
   markIdentityRecoveryFailed,
   markIdentityRecoveryReady,
 } from './ServiceIdentityExit/identityLifecycleMutex';
+import { recoverInterruptedIdentityLifecycleOperations } from './ServiceIdentityExit/recoverInterruptedIdentityLifecycleOperations';
 import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsScheduler';
 
 @backgroundClass()
@@ -52,8 +53,8 @@ class ServiceBootstrap extends ServiceBase {
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     try {
-      await this.timed('serviceIdentityExit.recoverInterruptedOperations', () =>
-        this.backgroundApi.serviceIdentityExit.recoverInterruptedIdentityExitOperations(),
+      await this.timed('identityLifecycle.recoverInterruptedOperations', () =>
+        recoverInterruptedIdentityLifecycleOperations(this.backgroundApi),
       );
       markIdentityRecoveryReady();
     } catch (_error) {

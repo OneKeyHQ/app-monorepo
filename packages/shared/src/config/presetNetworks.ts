@@ -1259,11 +1259,11 @@ const hyperEvm: IServerNetwork = {
   'extensions': {
     'position': 999,
     'isTokenSupported': true,
-    'isNFTEnabled': false,
+    'isNFTEnabled': true,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
   'defaultEnabled': false,
-  'backendIndex': false,
+  'backendIndex': true,
 };
 
 const hoodi: IServerNetwork = {
@@ -2631,22 +2631,26 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   return networks;
 });
 
-export const getNetworksSupportFilterScamHistory = memoFn(
-  (): IServerNetwork[] => [
-    eth,
-    sol,
-    sepolia,
-    hoodi,
-    base,
-    optimism,
-    avalanche,
-    arbitrum,
-    bsc,
-    polygon,
-    etc,
-    tron,
-  ],
-);
+// Robinhood Chain is delivered via the server network list instead of
+// presetNetworks, so feature switches below reference it by network id.
+const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
+  eth.id,
+  sol.id,
+  sepolia.id,
+  hoodi.id,
+  base.id,
+  optimism.id,
+  avalanche.id,
+  arbitrum.id,
+  bsc.id,
+  polygon.id,
+  etc.id,
+  tron.id,
+  hyperEvm.id,
+  ROBINHOOD_NETWORK_ID,
+]);
 
 export const getNetworksSupportMevProtection = memoFn(
   (): Record<
@@ -2691,5 +2695,7 @@ export const getNetworksSupportBulkRevokeApproval = memoFn(
     [avalanche.id]: true,
     [optimism.id]: true,
     [base.id]: true,
+    [hyperEvm.id]: true,
+    [ROBINHOOD_NETWORK_ID]: true,
   }),
 );

@@ -44,6 +44,7 @@ describe('TradingViewNative chart controls', () => {
 
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
+        backgroundColor: '$transparent',
         hasVisibleIndicators: false,
         hasVisibleIntervalSelector: true,
         settingsEnabled: false,

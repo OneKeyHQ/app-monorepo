@@ -41,6 +41,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -65,7 +66,6 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -1904,6 +1904,51 @@ export function UniversalWithdraw({
                   </XStack>
                 );
               })}
+              {transactionConfirmation?.availableLiquidity ? (
+                // Server-driven "Available liquidity" row (e.g. Bitway:
+                // instant withdrawal is capped by the flash pool balance, so
+                // amounts above it must go through the queued path). Kept in
+                // the always-visible summary so users can see why instant
+                // withdrawal is unavailable. (OK-58353)
+                <XStack ai="center" jc="space-between" flexWrap="wrap">
+                  <XStack ai="center" gap="$1">
+                    <EarnText
+                      text={transactionConfirmation.availableLiquidity.title}
+                      color={
+                        transactionConfirmation.availableLiquidity.title
+                          .color ?? '$textSubdued'
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.title.size ??
+                        '$bodyMd'
+                      }
+                    />
+                    {transactionConfirmation.availableLiquidity.tooltip ? (
+                      <EarnTooltip
+                        title={
+                          transactionConfirmation.availableLiquidity.title.text
+                        }
+                        tooltip={
+                          transactionConfirmation.availableLiquidity.tooltip
+                        }
+                      />
+                    ) : null}
+                  </XStack>
+                  <EarnText
+                    text={
+                      transactionConfirmation.availableLiquidity.description
+                    }
+                    size={
+                      transactionConfirmation.availableLiquidity.description
+                        .size ?? '$bodyMdMedium'
+                    }
+                    color={
+                      transactionConfirmation.availableLiquidity.description
+                        .color
+                    }
+                  />
+                </XStack>
+              ) : null}
             </YStack>
           ) : null}
           {hasSummarySection && showPendleTransactionSection ? (
@@ -1954,7 +1999,7 @@ export function UniversalWithdraw({
                               borderRadius="$2"
                             />
                             <SizableText size="$bodyMd">
-                              {capitalizeString(providerName || '')}
+                              {getEarnProviderDisplayName(providerName || '')}
                             </SizableText>
                           </XStack>
                           <YStack

@@ -224,8 +224,18 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
+// Extract the number from the server-side available.text (a localized label
+// followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
+// on the client, so we do not depend on the server copy format (OK-58877)
+const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
+function extractAvailableNumber(text?: string) {
+  return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
+}
+
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
+  const intl = useIntl();
   const onPress = useRecommendedItemPress(token);
+  const availableNumber = extractAvailableNumber(token.available?.text);
 
   return (
     <ListItem
@@ -250,6 +260,17 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
               }}
             />
           </XStack>
+        }
+        secondary={
+          // "Balance {number}" subtitle (OK-58877): copy assembled on the
+          // client, number taken from available.text
+          availableNumber ? (
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {`${intl.formatMessage({
+                id: ETranslations.global_balance,
+              })}: ${availableNumber}`}
+            </SizableText>
+          ) : undefined
         }
       />
       <YStack alignItems="flex-end" justifyContent="center">
@@ -540,7 +561,10 @@ function RecommendedSectionContainer({
     <YStack gap="$3">
       <YStack gap="$1" pointerEvents="box-none" px="$pagePadding">
         <SizableText size="$headingLg" pointerEvents="box-none">
-          {intl.formatMessage({ id: ETranslations.market_trending })}
+          {/* Holdings-based recommendations, "Earns on your holding" (OK-58506) */}
+          {intl.formatMessage({
+            id: ETranslations.earns_on_your_holding__title,
+          })}
         </SizableText>
       </YStack>
       {children}

@@ -72,7 +72,7 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   >({});
   const { gtMd } = useMedia();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('positions');
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 

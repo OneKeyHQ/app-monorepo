@@ -52,7 +52,7 @@ export const Card = ({
                 justifyContent="space-between"
                 alignItems="center"
               >
-                <SizableText size="$headingMd" color="$textText">
+                <SizableText size="$headingMd" color="$text">
                   {title}
                 </SizableText>
                 <View

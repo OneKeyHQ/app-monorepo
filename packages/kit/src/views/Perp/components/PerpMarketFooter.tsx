@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
@@ -52,7 +53,9 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$5"
       pt="$3"
-      pb="$10"
+      // $10 clears the native iOS home indicator; the browser manages its own
+      // safe area on web, where it just reads as a dead band under the buttons.
+      pb={platformEnv.isNative ? '$10' : '$3'}
       cancelButton={
         <Page.CancelButton
           flex={1}

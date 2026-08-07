@@ -1,7 +1,4 @@
-import {
-  TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
-  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-} from '../chartConstants';
+import { TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT } from '../chartConstants';
 
 import {
   createTradingViewNativeChartRuntimeState,
@@ -110,28 +107,28 @@ describe('TradingViewNative chart runtime', () => {
   });
 
   it('normalizes crosshair bounds and derives the visible range', () => {
-    const width = 320;
+    const chartWidth = 256;
     const height = 240;
     const state = reduceTradingViewNativeChartRuntime(
       createTradingViewNativeChartRuntimeState(),
       {
+        chartWidth,
         height,
         pointCount: 100,
         type: 'crosshairMoved',
-        width,
-        x: width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH - 1,
+        x: chartWidth - 1,
         y: height,
       },
     );
 
     expect(state.crosshair).toEqual({
       visible: true,
-      x: width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH - 1,
+      x: chartWidth - 1,
       y: height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     });
     expect(
       getTradingViewNativeChartRuntimeVisiblePointRange({
-        chartWidth: width - TRADING_VIEW_NATIVE_PRICE_AXIS_WIDTH,
+        chartWidth,
         pointCount: 100,
         state,
       }),

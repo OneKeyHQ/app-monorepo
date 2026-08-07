@@ -4,6 +4,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
 } from '../chartConstants';
 
 import {
@@ -33,7 +34,8 @@ describe('TradingViewNative shared chart scene', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
-      crosshair: { visible: true, x: 252.5, y: 80 },
+      crosshair: { visible: true, x: 264.5, y: 80 },
+      hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
       points: POINTS,
@@ -86,6 +88,19 @@ describe('TradingViewNative shared chart scene', () => {
     ).toHaveLength(
       scene.commands.filter((command) => command.kind === 'restore').length,
     );
+
+    const priceAxisX = 320 - scene.priceAxisWidth;
+    const priceAxisTextX = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'priceAxis' &&
+      command.x >= priceAxisX
+        ? [command.x]
+        : [],
+    );
+    expect(priceAxisTextX.length).toBeGreaterThan(0);
+    expect(new Set(priceAxisTextX)).toEqual(
+      new Set([priceAxisX + TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING]),
+    );
   });
 
   it('normalizes invalid viewport bounds before producing commands', () => {
@@ -93,6 +108,7 @@ describe('TradingViewNative shared chart scene', () => {
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
       height: 240,
       measureTextWidth: () => 0,
       points: [],
@@ -118,6 +134,7 @@ describe('TradingViewNative shared chart scene', () => {
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
       points: [
@@ -146,6 +163,7 @@ describe('TradingViewNative shared chart scene', () => {
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
       crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: true,
       height: 240,
       measureTextWidth: () => 0,
       points: [
@@ -166,6 +184,66 @@ describe('TradingViewNative shared chart scene', () => {
 
     expect(volumeBarHeights).toHaveLength(2);
     expect(volumeBarHeights).toContain(1);
+  });
+
+  it('renders volume-axis ticks and a volume crosshair label', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: true, x: 352, y: 250.8 },
+      hasVolume: true,
+      height: 300,
+      measureTextWidth: (text) => text.length * 6,
+      points: POINTS,
+      priceAxisWidth: 44,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 402,
+    });
+    const volumeAxisText = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'priceAxis' &&
+      command.paint === 'axisText' &&
+      command.y > 225.6
+        ? [command.text]
+        : [],
+    );
+    const crosshairValueText = scene.commands.find(
+      (command) =>
+        command.kind === 'text' &&
+        command.font === 'priceAxis' &&
+        command.paint === 'crosshairLabelText',
+    );
+
+    expect(volumeAxisText).toEqual(['13.3333', '6.66667']);
+    expect(crosshairValueText).toMatchObject({ text: '10' });
+  });
+
+  it('hides the volume legend when the token has no volume', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      points: POINTS.map((point) => ({ ...point, v: 0 })),
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const text = scene.commands.flatMap((command) =>
+      command.kind === 'text' ? [command.text] : [],
+    );
+
+    expect(text).not.toContain('Volume');
+    expect(
+      scene.commands.some(
+        (command) =>
+          'paint' in command &&
+          (command.paint === 'upVolume' || command.paint === 'downVolume'),
+      ),
+    ).toBe(false);
   });
 
   it('maps semantic paints to the same platform-neutral colors', () => {
@@ -200,6 +278,7 @@ describe('TradingViewNative shared chart scene', () => {
       candleIntervalSeconds: 3600,
       chartType: 'line',
       crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
       points: linePoints,
@@ -275,6 +354,7 @@ describe('TradingViewNative shared chart scene', () => {
         candleIntervalSeconds: 3600,
         chartType: 'candlestick',
         crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: true,
         height: 240,
         measureTextWidth: (text) => text.length * 6,
         points,
@@ -307,6 +387,7 @@ describe('TradingViewNative shared chart scene', () => {
         candleIntervalSeconds: 3600,
         chartType: 'candlestick',
         crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: true,
         height: 240,
         measureTextWidth: (text) => text.length * 6,
         points,

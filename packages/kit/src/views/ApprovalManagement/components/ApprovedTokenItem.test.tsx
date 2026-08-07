@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactElement, ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
@@ -17,6 +17,8 @@ const networkId = 'evm--1';
 const contractAddress = '0xspender';
 const tokenAddress = '0xtoken';
 const permit2Address = '0xpermit2';
+const permit2Description =
+  'Permit2 is a token approval contract that lets dApps spend tokens through signed permissions with an amount limit and expiration. You can revoke a permission at any time.';
 
 const tokenInfo: IToken = {
   address: tokenAddress,
@@ -42,8 +44,8 @@ jest.mock('react-intl', () => ({
       values?: Record<string, string>,
     ) => {
       const messages: Record<string, string> = {
-        'global.approval_time': 'Approval time',
         'global.revoke': 'Revoke',
+        permit2_approval__desc: permit2Description,
         'swap_page.provider.approve_amount_un_limit': 'Unlimited',
         wallet_approval_permit2_never_expires__desc: 'Never expires',
       };
@@ -52,6 +54,9 @@ jest.mock('react-intl', () => ({
       }
       if (id === 'wallet_approval_permit2_expires_at__desc') {
         return `Expires at ${values?.date ?? ''}`;
+      }
+      if (id === 'approved_on_date__desc') {
+        return `Approved ${values?.date ?? ''}`;
       }
       return messages[id] ?? id;
     },
@@ -62,25 +67,19 @@ jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   formatDate: (
     _date: Date,
     options?: {
-      hideTheYear?: boolean;
-      hideTimeForever?: boolean;
-      hideYear?: boolean;
+      formatTemplate?: string;
     },
   ) => {
-    if (options?.hideTheYear) {
-      return '07/17';
+    if (options?.formatTemplate === 'PP') {
+      return 'Jul 17, 2026';
     }
-    if (options?.hideTimeForever) {
-      return '2026/07/17';
-    }
-    if (options?.hideYear) {
-      return '08/16, 12:27';
-    }
-    return '2026/08/16, 12:27';
+    return 'Aug 16, 2026, 12:27';
   },
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+
   return {
     Button: ({
       accessibilityLabel,
@@ -88,13 +87,15 @@ jest.mock('@onekeyhq/components', () => {
       disabled,
       loading,
       onPress,
+      stopPropagation = true,
       testID,
     }: {
       accessibilityLabel?: string;
       children?: ReactNode;
       disabled?: boolean;
       loading?: boolean;
-      onPress?: () => void;
+      onPress?: (event: MouseEvent<HTMLButtonElement>) => void;
+      stopPropagation?: boolean;
       testID?: string;
     }) => (
       <button
@@ -102,7 +103,12 @@ jest.mock('@onekeyhq/components', () => {
         data-loading={String(Boolean(loading))}
         data-testid={testID}
         disabled={disabled}
-        onClick={onPress}
+        onClick={(event) => {
+          if (stopPropagation) {
+            event.stopPropagation();
+          }
+          onPress?.(event);
+        }}
         type="button"
       >
         {children}
@@ -135,6 +141,9 @@ jest.mock('@onekeyhq/components', () => {
         type="checkbox"
       />
     ),
+    DashText: ({ children }: { children?: ReactNode }) => (
+      <span>{children}</span>
+    ),
     Icon: () => null,
     NumberSizeableText: ({
       autoFormatter,
@@ -147,6 +156,38 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </span>
     ),
+    Popover: ({
+      renderContent,
+      renderTrigger,
+      title,
+    }: {
+      renderContent?: ReactNode;
+      renderTrigger: ReactElement<{
+        accessibilityLabel?: string;
+        onPress?: (event: MouseEvent<HTMLButtonElement>) => void;
+      }>;
+      title: string;
+    }) => {
+      const [isOpen, setIsOpen] = React.useState(false);
+      const trigger = React.cloneElement(renderTrigger, {
+        accessibilityLabel: title,
+        onPress: (event) => {
+          renderTrigger.props.onPress?.(event);
+          setIsOpen(true);
+        },
+      });
+
+      return (
+        <>
+          {trigger}
+          {isOpen ? (
+            <div aria-label={title} role="dialog">
+              {renderContent}
+            </div>
+          ) : null}
+        </>
+      );
+    },
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
@@ -269,7 +310,7 @@ describe('ApprovedTokenItem', () => {
     });
 
     expect(getByText('USDC')).toBeTruthy();
-    expect(getByText('2026/07/17')).toBeTruthy();
+    expect(getByText('Approved Jul 17, 2026')).toBeTruthy();
     expect(getByText('Unlimited')).toBeTruthy();
     expect(getByText('Revoke')).toBeTruthy();
     expect(queryByText('Permit2 ·')).toBeNull();
@@ -298,7 +339,7 @@ describe('ApprovedTokenItem', () => {
   it.each([
     {
       expirationMs: 1_785_444_349_000,
-      expected: 'Expires at 08/16, 12:27',
+      expected: 'Expires at Aug 16, 2026, 12:27',
     },
     {
       expirationMs: 281_474_976_710_655_000,
@@ -308,15 +349,40 @@ describe('ApprovedTokenItem', () => {
   ])(
     'renders Permit2 metadata for expiration $expirationMs',
     ({ expirationMs, expected }) => {
-      const { getByText } = renderItem({
+      const { getByRole, getByText } = renderItem({
         approval: buildApproval({ permit2Address, expirationMs }),
       });
 
-      expect(getByText('Permit2 ·')).toBeTruthy();
-      expect(getByText('Approval time 07/17')).toBeTruthy();
+      const permit2Trigger = getByRole('button', { name: 'Permit2' });
+      const approvedDate = getByText('Approved Jul 17, 2026');
+      expect(permit2Trigger.tagName).toBe('BUTTON');
+      expect(
+        permit2Trigger.compareDocumentPosition(approvedDate) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(getByText(expected)).toBeTruthy();
     },
   );
+
+  it('opens Permit2 info without toggling row selection', () => {
+    const onSelect = jest.fn(async () => undefined);
+    const { getByRole, queryByRole } = renderItem({
+      approval: buildApproval({
+        permit2Address,
+        expirationMs: 1_785_444_349_000,
+      }),
+      isSelectMode: true,
+      onSelect,
+    });
+
+    expect(queryByRole('dialog', { name: 'Permit2' })).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Permit2' }));
+
+    expect(getByRole('dialog', { name: 'Permit2' }).textContent).toBe(
+      permit2Description,
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 
   it('keeps checkbox selection separate from row selection', () => {
     const onSelect = jest.fn(async () => undefined);
