@@ -1,10 +1,10 @@
-import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
-
 import type {
   IStorageFullDiagnostics,
   IStorageQuotaInfo,
-} from '../../../../storageChecker/types';
+} from '@onekeyhq/shared/src/storageChecker/types';
+
+import { BaseScene } from '../../../base/baseScene';
+import { LogToLocal } from '../../../base/decorators';
 
 export class StorageScene extends BaseScene {
   @LogToLocal()

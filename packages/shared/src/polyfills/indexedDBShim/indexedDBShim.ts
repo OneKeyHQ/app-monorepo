@@ -11,7 +11,8 @@ if (!globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
   globalThis.IDBDatabase.prototype.transaction = function (
     storeNames: string | string[],
     mode?: IDBTransactionMode,
-    options?: IDBTransactionOptions,
+    // Kept to mirror the native signature; forwarding happens via `arguments`.
+    _options?: IDBTransactionOptions,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
