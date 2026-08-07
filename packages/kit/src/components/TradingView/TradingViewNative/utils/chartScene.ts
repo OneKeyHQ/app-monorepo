@@ -268,10 +268,12 @@ export function getTradingViewNativeChartScenePaintStyles({
 function appendLegendCommands({
   commands,
   layout,
+  trendValuePaint,
   valuePaint,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
   layout: ITradingViewNativeChartLegendRowLayout | null;
+  trendValuePaint: ITradingViewNativeChartScenePaint;
   valuePaint: ITradingViewNativeChartScenePaint;
 }) {
   'worklet';
@@ -301,7 +303,8 @@ function appendLegendCommands({
       {
         font: 'legend',
         kind: 'text',
-        paint: valuePaint,
+        paint:
+          segment.valueColorRole === 'trend' ? trendValuePaint : valuePaint,
         text: segment.value,
         x: segment.valueX,
         y: textBaselineY,
@@ -735,10 +738,11 @@ export function buildTradingViewNativeChartScene({
     chartType,
     previousLegendPoint?.c,
   );
-  let legendValuePaint: ITradingViewNativeChartScenePaint = 'line';
-  if (chartType !== 'line') {
-    legendValuePaint = legend.isUp ? 'up' : 'down';
-  }
+  const trendValuePaint: ITradingViewNativeChartScenePaint = legend.isUp
+    ? 'up'
+    : 'down';
+  const legendValuePaint: ITradingViewNativeChartScenePaint =
+    chartType === 'line' ? 'line' : trendValuePaint;
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
   const appendLegendRows = (
@@ -748,6 +752,7 @@ export function buildTradingViewNativeChartScene({
       appendLegendCommands({
         commands,
         layout: rowLayout,
+        trendValuePaint,
         valuePaint: legendValuePaint,
       });
     }
