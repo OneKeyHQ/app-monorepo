@@ -18,6 +18,7 @@ import {
 import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateRetryAtom,
+  firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
@@ -79,6 +80,8 @@ jest.mock('../../dbs/local/localDb', () => ({
 jest.mock('../../states/jotai/atoms', () => ({
   EFirmwareUpdateSteps: {
     init: 'init',
+    installing: 'installing',
+    updateStart: 'updateStart',
   },
   EHardwareUiStateAction: {},
   firmwareUpdateResultVerifyAtom: {
@@ -89,6 +92,10 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   firmwareUpdateStepInfoAtom: {
+    get: jest.fn().mockResolvedValue({
+      step: 'updateStart',
+      payload: { startAtTime: 1 },
+    }),
     set: jest.fn(),
   },
   firmwareUpdateWorkflowRunningAtom: {
@@ -486,6 +493,10 @@ describe('ServiceFirmwareUpdate Pro2 developer settings', () => {
 });
 
 describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -568,6 +579,18 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       },
       targetsToUpdate: ['resource'],
     });
+    expect(firmwareUpdateStepInfoAtom.set).toHaveBeenNthCalledWith(1, {
+      step: 'updateStart',
+      payload: {
+        startAtTime: 1,
+        isDownloadingArtifacts: true,
+      },
+    });
+    expect(
+      jest.mocked(firmwareUpdateStepInfoAtom.set).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      jest.mocked(prepareProtocolV2ResourceFiles).mock.invocationCallOrder[0],
+    );
   });
 
   it('keeps the BLE peripheral ID when the active transport is desktop BLE', async () => {

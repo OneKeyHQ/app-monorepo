@@ -2846,13 +2846,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hardwareTransportType: currentTransportType,
     });
 
-    const resourceFiles = params.targetsToUpdate.includes('resource')
-      ? await prepareProtocolV2ResourceFiles({
-          hardwareSDK,
-          archive: params.pro2ResourceArchive,
-          targetsToUpdate: params.targetsToUpdate,
-        })
-      : undefined;
+    let resourceFiles: Awaited<
+      ReturnType<typeof prepareProtocolV2ResourceFiles>
+    >;
+    if (params.targetsToUpdate.includes('resource')) {
+      await this.setFirmwareArtifactDownloadState(true);
+      resourceFiles = await prepareProtocolV2ResourceFiles({
+        hardwareSDK,
+        archive: params.pro2ResourceArchive,
+        targetsToUpdate: params.targetsToUpdate,
+      });
+    }
 
     return this.withFirmwareUpdateEvents(async () => {
       await firmwareUpdateStepInfoAtom.set({
