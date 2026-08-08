@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry, { AbortError } from 'p-retry';
@@ -11,11 +19,13 @@ import {
   Button,
   Dialog,
   DialogContainer,
+  EInPageDialogType,
   HeightTransition,
   SizableText,
   Theme,
   XStack,
   YStack,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -33,7 +43,10 @@ import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  type IBootloaderModeDialogHost,
+  useFirmwareUpdateActions,
+} from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import {
   CheckStepIllustration,
   type ICheckStepIllustrationTone,
@@ -78,6 +91,14 @@ const STEP_STATE_TONE: Partial<
 const STEP_TIMEOUT_MS = 30 * 1000;
 const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
 
+const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
+  function BootloaderDialogHostBridge(_props, ref) {
+    const dialogHost = useInPageDialog(EInPageDialogType.inOnboardingPage);
+    useImperativeHandle(ref, () => dialogHost, [dialogHost]);
+    return null;
+  },
+);
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -106,6 +127,11 @@ function CheckAndUpdatePage({
   // While set, every round — including a manual Retry — upgrades to the
   // patient reconnect path and the longer watchdog budget.
   const pendingPostUpdateReconnectRef = useRef(false);
+  const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
+  const getBootloaderDialogHost = useCallback(
+    () => bootloaderDialogHostRef.current ?? undefined,
+    [],
+  );
   const [isFirmwareRecheckPending, setIsFirmwareRecheckPending] =
     useState(false);
 
@@ -145,6 +171,7 @@ function CheckAndUpdatePage({
     ensureStopScan,
   } = useDeviceConnect({
     setCurrentDevice,
+    getBootloaderDialogHost,
   });
   const { prepareUSBConnect, restoreOriginalTransport } =
     usePrepareUSBConnectForFirmwareUpdate();
@@ -969,6 +996,7 @@ function CheckAndUpdatePage({
       contentContainerProps={{ gap: '$10', pt: '$5' }}
       foregroundLayer={celebrate ? <Confetti /> : null}
     >
+      <BootloaderDialogHostBridge ref={bootloaderDialogHostRef} />
       {steps.map((step, index) => {
         // On Success, collapse the row to a single celebratory title and hide
         // the description. The genuine title interpolates the product model

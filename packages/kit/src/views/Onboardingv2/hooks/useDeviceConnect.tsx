@@ -51,7 +51,10 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { bootloaderModeDialogManager } from '../../FirmwareUpdate/hooks/bootloaderModeDialogManager';
-import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  type IBootloaderModeDialogHost,
+  useFirmwareUpdateActions,
+} from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import {
@@ -146,10 +149,12 @@ async function createLedgerHwWallet({
 
 export function useDeviceConnect({
   setCurrentDevice,
+  getBootloaderDialogHost,
 }: {
   setCurrentDevice?: React.Dispatch<
     React.SetStateAction<SearchDevice | undefined>
   >;
+  getBootloaderDialogHost?: () => IBootloaderModeDialogHost | undefined;
 } = {}) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -608,9 +613,8 @@ export function useDeviceConnect({
             return usbPrepareResult.connectId ?? device.connectId ?? undefined;
           };
 
-          // Both dialogs use the same iOS full-window portal. Wait until the main
-          // runtime has committed the hardware dialog removal before mounting the
-          // bootloader dialog, otherwise the old Sheet overlay can swallow taps.
+          // Wait until the hardware dialog has left the global iOS overlay before
+          // mounting the page-owned bootloader dialog.
           if (platformEnv.isNativeIOS) {
             await hardwareUiStateDialogLifecycle.closeAndWait(async () =>
               backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -626,6 +630,7 @@ export function useDeviceConnect({
             connectId: device.connectId ?? undefined,
             existsFirmware,
             onBeforeUpdate: prepareUSBForUpdate,
+            dialogHost: getBootloaderDialogHost?.(),
           });
           bootloaderDialogShown = true;
           console.log('Device is in bootloader mode', device);
@@ -854,6 +859,7 @@ export function useDeviceConnect({
       showFirmwareVerifyDialog,
       prepareUSBConnect,
       getActiveDevice,
+      getBootloaderDialogHost,
     ],
   );
 
