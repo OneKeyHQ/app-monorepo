@@ -56,6 +56,74 @@ export function getProtocolV2ResourceReleaseId(
   return `SHA-256 ${archiveSha256.slice(0, 12)}`;
 }
 
+export type IProtocolV2FirmwareVersionDisplayItem = {
+  target: 'safeos' | IPro2FirmwareUpdateTarget;
+  currentVersion: string | null;
+  targetVersion: string | null;
+  releaseIdentifierOnly?: boolean;
+};
+
+export function getProtocolV2FirmwareVersionTitle({
+  target,
+  intl,
+}: {
+  target: IProtocolV2FirmwareVersionDisplayItem['target'];
+  intl: IntlShape;
+}) {
+  if (target === 'safeos') return 'SafeOS';
+  if (target === 'boot') {
+    return intl.formatMessage({ id: ETranslations.global_bootloader });
+  }
+  if (target === 'coprocessor') {
+    return intl.formatMessage({ id: ETranslations.global_bluetooth });
+  }
+  if (target === 'resource') {
+    return intl.formatMessage({ id: ETranslations.global_resources });
+  }
+  if (target === 'app_v1') return 'App P1';
+  if (target === 'app_v2') return 'App P2';
+  return target.toUpperCase();
+}
+
+export function getProtocolV2FirmwareVersionDisplayItems(
+  result: ICheckAllFirmwareReleaseResult | undefined,
+): IProtocolV2FirmwareVersionDisplayItem[] {
+  if (!result || !isProtocolV2ProductType(result.deviceType)) {
+    return [];
+  }
+
+  const versionInfo = result.protocolV2FirmwareVersionInfo;
+  const items: IProtocolV2FirmwareVersionDisplayItem[] = [
+    {
+      target: 'safeos',
+      currentVersion: versionInfo?.safeOS.currentVersion ?? null,
+      targetVersion: versionInfo?.safeOS.targetVersion ?? null,
+    },
+  ];
+
+  for (const target of result.pro2TargetsToUpdate ?? []) {
+    if (target === 'resource') {
+      items.push({
+        target,
+        currentVersion: null,
+        targetVersion: getProtocolV2ResourceReleaseId(result) ?? null,
+        releaseIdentifierOnly: true,
+      });
+    } else {
+      const component = versionInfo?.components.find(
+        (item) => item.target === target,
+      );
+      items.push({
+        target,
+        currentVersion: component?.currentVersion ?? null,
+        targetVersion: component?.targetVersion ?? null,
+      });
+    }
+  }
+
+  return items;
+}
+
 export function getTargetFirmwareTypeLabel({
   firmwareType,
   intl,

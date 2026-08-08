@@ -124,6 +124,20 @@ export type IProtocolV2ResourceArchive = {
   archiveSize: number;
 };
 
+export type IProtocolV2FirmwareComponentVersion = {
+  target: Exclude<IPro2FirmwareUpdateTarget, 'resource'>;
+  currentVersion: string | null;
+  targetVersion: string | null;
+};
+
+export type IProtocolV2FirmwareVersionInfo = {
+  safeOS: {
+    currentVersion: string | null;
+    targetVersion: string | null;
+  };
+  components: IProtocolV2FirmwareComponentVersion[];
+};
+
 export type ICheckAllFirmwareReleaseResult = {
   hasUpgrade: boolean | undefined;
   features: IOneKeyDeviceFeatures | undefined;
@@ -144,6 +158,7 @@ export type ICheckAllFirmwareReleaseResult = {
   totalPhase: IDeviceFirmwareType[];
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
   pro2ResourceArchive?: IProtocolV2ResourceArchive;
+  protocolV2FirmwareVersionInfo?: IProtocolV2FirmwareVersionInfo;
 };
 
 export const PRO2_FIRMWARE_UPDATE_TARGETS = [

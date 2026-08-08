@@ -5,6 +5,7 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import {
   getFirmwareUpdateDeviceTitle,
+  getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2ResourceReleaseId,
   hasProtocolV2FirmwareUpdateTarget,
   isPro2SafeOSFirmwareUpdate,
@@ -91,6 +92,103 @@ describe('getFirmwareUpdateDeviceTitle', () => {
 });
 
 describe('Protocol V2 update target display', () => {
+  it('always puts SafeOS first and then shows selected component versions', () => {
+    const result = {
+      ...buildResult({ targets: ['app_v1', 'coprocessor', 'resource'] }),
+      protocolV2FirmwareVersionInfo: {
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: '1.1.0',
+        },
+        components: [
+          {
+            target: 'app_v1',
+            currentVersion: '1.0.0',
+            targetVersion: '1.1.0',
+          },
+          {
+            target: 'coprocessor',
+            currentVersion: '1.0.20',
+            targetVersion: '1.0.21',
+          },
+        ],
+      },
+      pro2ResourceArchive: {
+        archiveUrl: 'https://example.com/resource.zip',
+        archiveSha256: '1234567890abcdef',
+        archiveSize: 1024,
+      },
+    } as ICheckAllFirmwareReleaseResult;
+
+    expect(getProtocolV2FirmwareVersionDisplayItems(result)).toEqual([
+      {
+        target: 'safeos',
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+      },
+      {
+        target: 'app_v1',
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+      },
+      {
+        target: 'coprocessor',
+        currentVersion: '1.0.20',
+        targetVersion: '1.0.21',
+      },
+      {
+        target: 'resource',
+        currentVersion: null,
+        targetVersion: 'SHA-256 1234567890ab',
+        releaseIdentifierOnly: true,
+      },
+    ]);
+  });
+
+  it('keeps SafeOS visible for a resource-only update', () => {
+    const result = {
+      ...buildResult({ targets: ['resource'] }),
+      protocolV2FirmwareVersionInfo: {
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: null,
+        },
+        components: [],
+      },
+    } as ICheckAllFirmwareReleaseResult;
+
+    expect(getProtocolV2FirmwareVersionDisplayItems(result)[0]).toEqual({
+      target: 'safeos',
+      currentVersion: '1.0.0',
+      targetVersion: null,
+    });
+  });
+
+  it('uses the same SafeOS-first model for Neo', () => {
+    const result = {
+      ...buildResult({ deviceType: NEO_DEVICE_TYPE, targets: ['app_v2'] }),
+      protocolV2FirmwareVersionInfo: {
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: '1.1.0',
+        },
+        components: [
+          {
+            target: 'app_v2',
+            currentVersion: '1.0.0',
+            targetVersion: '1.1.0',
+          },
+        ],
+      },
+    } as ICheckAllFirmwareReleaseResult;
+
+    expect(
+      getProtocolV2FirmwareVersionDisplayItems(result).map(
+        (item) => item.target,
+      ),
+    ).toEqual(['safeos', 'app_v2']);
+  });
+
   it('detects an independently selected coprocessor target', () => {
     const result = buildResult({ targets: ['coprocessor'] });
 

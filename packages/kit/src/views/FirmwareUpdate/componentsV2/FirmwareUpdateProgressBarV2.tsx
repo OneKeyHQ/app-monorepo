@@ -42,8 +42,8 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import {
-  getProtocolV2ResourceReleaseId,
-  hasProtocolV2FirmwareUpdateTarget,
+  getProtocolV2FirmwareVersionDisplayItems,
+  getProtocolV2FirmwareVersionTitle,
   isPro2SafeOSFirmwareUpdate,
 } from '../utils';
 
@@ -63,6 +63,7 @@ interface IFirmwareUpdateVersionInfo {
   title: string;
   githubReleaseUrl?: string;
   releaseIdentifierOnly?: boolean;
+  currentVersionOnly?: boolean;
 }
 
 interface IFirmwareUpdateVersions {
@@ -95,6 +96,7 @@ function FirmwareUpdateVersionItem({
   isDone,
   isVerified,
   releaseIdentifierOnly,
+  currentVersionOnly,
 }: {
   title: string;
   fromVersion: string;
@@ -104,6 +106,7 @@ function FirmwareUpdateVersionItem({
   isDone?: boolean;
   isVerified?: boolean;
   releaseIdentifierOnly?: boolean;
+  currentVersionOnly?: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
   if (releaseIdentifierOnly) {
@@ -129,8 +132,25 @@ function FirmwareUpdateVersionItem({
       </XStack>
     );
   }
+  if (currentVersionOnly) {
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$2"
+        minWidth={0}
+      >
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          {title}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {versionValid(fromVersion) ? fromVersion : unknownMessage}
+        </SizableText>
+      </XStack>
+    );
+  }
   const renderToVersion = () => {
-    if (!isDone && !isVerified) {
+    if ((!isDone && !isVerified) || !verifyVersion) {
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
           {versionValid(toVersion) ? toVersion : unknownMessage}
@@ -231,6 +251,7 @@ export function FirmwareUpdateProgressBarView({
                 verifyVersion={version.info.verifyVersion ?? ''}
                 githubReleaseUrl={version.info.githubReleaseUrl}
                 releaseIdentifierOnly={version.info.releaseIdentifierOnly}
+                currentVersionOnly={version.info.currentVersionOnly}
               />
               {index < versions.length - 1 ? <Divider /> : null}
             </Fragment>
@@ -535,31 +556,47 @@ export function FirmwareUpdateProgressBarV2({
   const upgradeVersions = useMemo(() => {
     if (!result?.updateInfos) return [];
 
+    const protocolV2VersionItems =
+      getProtocolV2FirmwareVersionDisplayItems(result);
+    if (protocolV2VersionItems.length > 0) {
+      return protocolV2VersionItems.map((item) => {
+        let verifyVersion: string | undefined;
+        if (item.target === 'safeos') {
+          verifyVersion = resultVerifyVersions?.finalFirmwareVersion;
+        } else if (item.target === 'boot') {
+          verifyVersion = resultVerifyVersions?.finalBootloaderVersion;
+        } else if (item.target === 'coprocessor') {
+          verifyVersion = resultVerifyVersions?.finalBleVersion;
+        }
+        const title = getProtocolV2FirmwareVersionTitle({
+          target: item.target,
+          intl,
+        });
+        return {
+          type: item.target,
+          info: {
+            title,
+            fromVersion: item.currentVersion ?? '',
+            toVersion: item.targetVersion ?? '',
+            verifyVersion,
+            hasUpgrade: Boolean(item.targetVersion),
+            releaseIdentifierOnly: item.releaseIdentifierOnly,
+            currentVersionOnly: item.target === 'safeos' && !item.targetVersion,
+          },
+        };
+      });
+    }
+
     const versions: IFirmwareUpdateVersions[] = [];
-    const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
-    const hasPro2BootloaderUpdate = hasProtocolV2FirmwareUpdateTarget(
-      result,
-      'boot',
-    );
-    const hasPro2BleUpdate = hasProtocolV2FirmwareUpdateTarget(
-      result,
-      'coprocessor',
-    );
-    const hasPro2ResourceUpdate = hasProtocolV2FirmwareUpdateTarget(
-      result,
-      'resource',
-    );
     const firmwareInfo = result.updateInfos.firmware;
     const bootloaderInfo = result.updateInfos.bootloader;
     const bleInfo = result.updateInfos.ble;
 
-    if (firmwareInfo?.hasUpgrade || isPro2SafeOSUpdate) {
+    if (firmwareInfo?.hasUpgrade) {
       versions.push({
-        type: isPro2SafeOSUpdate ? 'SafeOS' : 'Firmware',
+        type: 'Firmware',
         info: {
-          title: isPro2SafeOSUpdate
-            ? 'SafeOS'
-            : intl.formatMessage({ id: ETranslations.global_firmware }),
+          title: intl.formatMessage({ id: ETranslations.global_firmware }),
           fromVersion: firmwareInfo?.fromVersion ?? '',
           toVersion: firmwareInfo?.toVersion ?? '',
           verifyVersion: resultVerifyVersions?.finalFirmwareVersion,
@@ -569,7 +606,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     }
 
-    if (bootloaderInfo?.hasUpgrade || hasPro2BootloaderUpdate) {
+    if (bootloaderInfo?.hasUpgrade) {
       versions.push({
         type: 'Bootloader',
         info: {
@@ -583,7 +620,7 @@ export function FirmwareUpdateProgressBarV2({
       });
     }
 
-    if (bleInfo?.hasUpgrade || hasPro2BleUpdate) {
+    if (bleInfo?.hasUpgrade) {
       versions.push({
         type: 'Bluetooth',
         info: {
@@ -593,25 +630,6 @@ export function FirmwareUpdateProgressBarV2({
           verifyVersion: resultVerifyVersions?.finalBleVersion,
           hasUpgrade: true,
           githubReleaseUrl: bleInfo?.githubReleaseUrl,
-        },
-      });
-    }
-
-    if (hasPro2ResourceUpdate) {
-      const resourceReleaseId = getProtocolV2ResourceReleaseId(result);
-      versions.push({
-        type: intl.formatMessage({ id: ETranslations.global_resources }),
-        info: {
-          title: intl.formatMessage({ id: ETranslations.global_resources }),
-          fromVersion: '',
-          toVersion:
-            resourceReleaseId ??
-            intl.formatMessage({
-              id: ETranslations.hardware_status_update_available,
-            }),
-          verifyVersion: undefined,
-          hasUpgrade: true,
-          releaseIdentifierOnly: true,
         },
       });
     }

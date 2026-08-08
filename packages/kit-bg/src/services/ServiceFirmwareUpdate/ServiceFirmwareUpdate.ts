@@ -64,6 +64,7 @@ import type {
   IHardwareBridgeReleasePayload,
   IOneKeyDeviceFeatures,
   IPro2FirmwareUpdateTarget,
+  IProtocolV2FirmwareVersionInfo,
   IResourceUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -165,6 +166,15 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v2',
 ]);
 
+const PROTOCOL_V2_SAFE_OS_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
+  'app_v1',
+  'app_v2',
+  'se01',
+  'se02',
+  'se03',
+  'se04',
+]);
+
 export function buildPro2TargetsToUpdate({
   sdkTargets,
   forceTargets = [],
@@ -178,6 +188,54 @@ export function buildPro2TargetsToUpdate({
       ...forceTargets,
     ]),
   );
+}
+
+export function buildProtocolV2FirmwareVersionInfo({
+  releaseInfo,
+  targetsToUpdate,
+}: {
+  releaseInfo: Pick<
+    AllFirmwareRelease,
+    'components' | 'currentVersions' | 'release'
+  >;
+  targetsToUpdate: readonly IPro2FirmwareUpdateTarget[];
+}): IProtocolV2FirmwareVersionInfo {
+  const selectedComponentTargets = targetsToUpdate.filter(
+    (target): target is Exclude<IPro2FirmwareUpdateTarget, 'resource'> =>
+      target !== 'resource',
+  );
+  const components = selectedComponentTargets.map((target) => {
+    const component = releaseInfo.components?.find(
+      (item) => item.updateTarget === target,
+    );
+    return {
+      target,
+      currentVersion: component?.currentVersion ?? null,
+      targetVersion: component?.targetVersion ?? null,
+    };
+  });
+  const hasSafeOSUpdate = targetsToUpdate.some((target) =>
+    PROTOCOL_V2_SAFE_OS_TARGETS.has(target),
+  );
+  const safeOSComponentTargetVersion = components.find(
+    (component) =>
+      component.target === 'app_v1' || component.target === 'app_v2',
+  )?.targetVersion;
+
+  return {
+    safeOS: {
+      currentVersion:
+        releaseInfo.currentVersions?.firmware ??
+        releaseInfo.currentVersions?.applicationP1 ??
+        null,
+      targetVersion: hasSafeOSUpdate
+        ? (releaseInfo.release?.version?.join('.') ??
+          safeOSComponentTargetVersion ??
+          null)
+        : null,
+    },
+    components,
+  };
 }
 
 export function supportsFirmwareUpdateWorkflowV2(
@@ -881,6 +939,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           forceTargets: pro2ForceTargets,
         })
       : undefined;
+    const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
+      ? buildProtocolV2FirmwareVersionInfo({
+          releaseInfo,
+          targetsToUpdate: pro2TargetsToUpdate,
+        })
+      : undefined;
 
     let fixedUpdatingConnectId = updatingConnectId;
     try {
@@ -940,6 +1004,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       totalPhase: totalPhase.filter(Boolean),
       pro2TargetsToUpdate,
       pro2ResourceArchive: releaseInfo.resourceArchive,
+      protocolV2FirmwareVersionInfo,
     };
 
     // Firmware-check interactions such as PIN entry are complete at this point.

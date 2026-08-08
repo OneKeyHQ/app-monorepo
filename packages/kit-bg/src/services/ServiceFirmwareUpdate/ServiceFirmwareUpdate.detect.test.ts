@@ -26,6 +26,7 @@ import {
 import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
+  buildProtocolV2FirmwareVersionInfo,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
@@ -376,6 +377,85 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('buildProtocolV2FirmwareVersionInfo', () => {
+  const releaseInfo = {
+    currentVersions: {
+      firmware: '1.0.0',
+      applicationP1: '1.0.0',
+      applicationP2: '1.0.0',
+      bootloader: '1.0.0',
+      board: '1.0.0',
+      ble: '1.0.20',
+    },
+    components: [
+      {
+        configKey: 'application_p1',
+        componentTarget: 'APPLICATION_P1',
+        updateTarget: 'app_v1',
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+        status: 'outdated',
+        required: false,
+      },
+      {
+        configKey: 'coprocessor',
+        componentTarget: 'COPROCESSOR',
+        updateTarget: 'coprocessor',
+        currentVersion: '1.0.20',
+        targetVersion: '1.0.21',
+        status: 'outdated',
+        required: false,
+      },
+    ],
+    release: {
+      version: [1, 1, 0],
+    },
+  } as unknown as Parameters<
+    typeof buildProtocolV2FirmwareVersionInfo
+  >[0]['releaseInfo'];
+
+  it('keeps SafeOS first-level versions and selected component versions', () => {
+    expect(
+      buildProtocolV2FirmwareVersionInfo({
+        releaseInfo,
+        targetsToUpdate: ['app_v1', 'coprocessor', 'resource'],
+      }),
+    ).toEqual({
+      safeOS: {
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+      },
+      components: [
+        {
+          target: 'app_v1',
+          currentVersion: '1.0.0',
+          targetVersion: '1.1.0',
+        },
+        {
+          target: 'coprocessor',
+          currentVersion: '1.0.20',
+          targetVersion: '1.0.21',
+        },
+      ],
+    });
+  });
+
+  it('shows the current SafeOS version without an update transition for resources', () => {
+    expect(
+      buildProtocolV2FirmwareVersionInfo({
+        releaseInfo,
+        targetsToUpdate: ['resource'],
+      }),
+    ).toEqual({
+      safeOS: {
+        currentVersion: '1.0.0',
+        targetVersion: null,
+      },
+      components: [],
+    });
   });
 });
 
