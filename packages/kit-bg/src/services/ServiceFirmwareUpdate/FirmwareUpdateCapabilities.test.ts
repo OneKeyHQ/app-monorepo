@@ -574,6 +574,66 @@ describe('prepared firmware execution', () => {
       Object.assign(platformEnv, previousPlatform);
     }
   });
+
+  test('accepts exact Protocol V2 component targets and their legacy aliases', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+        firmwareArtifactProtocolVersion: 4,
+        maxReadBytes: 256 * 1024,
+        supportsArchiveMaterialization: true,
+        supportedRouteTypes: ['domain'],
+      });
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'c'.repeat(64),
+        executor: 'v4',
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:coprocessor',
+            role: 'component',
+            target: 'coprocessor',
+            url: 'https://firmware.example/coprocessor.okpkg',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['coprocessor'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['coprocessor'],
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['ble'],
+        }),
+      ).resolves.toBe(true);
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
 });
 
 describe('downloadFirmwareArtifact', () => {

@@ -1018,17 +1018,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
       plan: executableFirmwareUpdatePlan,
       connectId: updatingConnectId,
       transportType: currentTransportType,
-      expectedTargets: [
-        ...new Set<FirmwareUpdatePlanForceTarget>([
-          ...forceUpdateTargetsForDevice,
-          ...(firmware?.hasUpgrade ? (['firmware'] as const) : []),
-          ...(ble?.hasUpgrade ? (['ble'] as const) : []),
-          ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
-          ...(pro2TargetsToUpdate?.includes('resource')
-            ? (['resource'] as const)
-            : []),
-        ]),
-      ],
+      expectedTargets: isProtocolV2ProductType(deviceType)
+        ? pro2TargetsToUpdate
+        : [
+            ...new Set<FirmwareUpdatePlanForceTarget>([
+              ...forceUpdateTargetsForDevice,
+              ...(firmware?.hasUpgrade ? (['firmware'] as const) : []),
+              ...(ble?.hasUpgrade ? (['ble'] as const) : []),
+              ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
+            ]),
+          ],
     });
 
     const result = {

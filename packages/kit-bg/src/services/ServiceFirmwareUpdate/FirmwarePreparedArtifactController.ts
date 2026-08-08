@@ -22,7 +22,7 @@ import type {
 import type {
   CoreApi,
   FirmwareUpdatePlan,
-  FirmwareUpdatePlanForceTarget,
+  FirmwareUpdatePlanTarget,
 } from '@onekeyfe/hd-core';
 
 export type IFirmwareWorkflowArtifacts =
@@ -104,7 +104,7 @@ const assertFirmwareUpdatePlanCoverage = ({
   expectedTargets,
 }: {
   plan: FirmwareUpdatePlan;
-  expectedTargets: readonly FirmwareUpdatePlanForceTarget[];
+  expectedTargets: readonly FirmwareUpdatePlanTarget[];
 }): void => {
   if (
     !Array.isArray(plan.artifacts) ||
@@ -144,9 +144,10 @@ const assertFirmwareUpdatePlanCoverage = ({
     );
   }
 
-  const coversExpectedTarget = (
-    expectedTarget: FirmwareUpdatePlanForceTarget,
-  ) => {
+  const coversExpectedTarget = (expectedTarget: FirmwareUpdatePlanTarget) => {
+    if (planTargets.has(expectedTarget)) {
+      return true;
+    }
     switch (expectedTarget) {
       case 'firmware':
         return plan.artifacts.some(
@@ -155,7 +156,10 @@ const assertFirmwareUpdatePlanCoverage = ({
             (artifact.role === 'component' && artifact.target !== 'resource'),
         );
       case 'ble':
-        return plan.artifacts.some((artifact) => artifact.role === 'ble');
+        return plan.artifacts.some(
+          (artifact) =>
+            artifact.role === 'ble' || artifact.target === 'coprocessor',
+        );
       case 'bootloader':
         return plan.artifacts.some(
           (artifact) =>
@@ -231,7 +235,7 @@ export class FirmwarePreparedArtifactController {
     plan: FirmwareUpdatePlan;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
-    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
+    expectedTargets?: readonly FirmwareUpdatePlanTarget[];
   }): Promise<boolean> {
     assertFirmwareUpdatePlanCoverage({ plan, expectedTargets });
     this.plans.set(plan.planDigest, plan);
@@ -263,7 +267,7 @@ export class FirmwarePreparedArtifactController {
     plan: FirmwareUpdatePlan | undefined;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
-    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
+    expectedTargets?: readonly FirmwareUpdatePlanTarget[];
   }): Promise<string | undefined> {
     return hasUpgrade &&
       plan &&
