@@ -1783,8 +1783,10 @@ function StockPriceChart({
       chartRequestReady,
       chartScope,
       coinGeckoIdLoading,
+      networkId,
       normalizedCoinGeckoId,
       range,
+      tokenAddress,
     ],
     {
       initResult: {
