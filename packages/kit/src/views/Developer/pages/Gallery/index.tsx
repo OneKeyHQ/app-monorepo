@@ -77,6 +77,11 @@ const ErrorToastGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'),
 );
 
+const FirmwareArtifactGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareArtifactGallery'),
+);
+
 const QRWalletGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRWalletGallery'),
@@ -647,6 +652,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
   { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
+  {
+    name: EGalleryRoutes.ComponentFirmwareArtifact,
+    component: FirmwareArtifactGallery,
+  },
   {
     name: EGalleryRoutes.ComponentQRWallet,
     component: QRWalletGallery,

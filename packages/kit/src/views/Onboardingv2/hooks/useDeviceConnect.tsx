@@ -48,8 +48,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
+import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
-import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { bootloaderModeDialogManager } from '../../FirmwareUpdate/hooks/bootloaderModeDialogManager';
+import {
+  type IBootloaderModeDialogHost,
+  useFirmwareUpdateActions,
+} from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useSelectAddWalletTypeDialog } from '../../Onboarding/pages/ConnectHardwareWallet/SelectAddWalletTypeDialog';
 import {
@@ -64,6 +69,7 @@ import {
   trackHardwareWalletConnection,
 } from '../utils';
 
+import { resolveFirmwareReconnectDevice } from './firmwareReconnectUtils';
 import { usePrepareUSBConnectForFirmwareUpdate } from './usePrepareUSBConnectForFirmwareUpdate';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
@@ -143,10 +149,12 @@ async function createLedgerHwWallet({
 
 export function useDeviceConnect({
   setCurrentDevice,
+  getBootloaderDialogHost,
 }: {
   setCurrentDevice?: React.Dispatch<
     React.SetStateAction<SearchDevice | undefined>
   >;
+  getBootloaderDialogHost?: () => IBootloaderModeDialogHost | undefined;
 } = {}) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -281,11 +289,10 @@ export function useDeviceConnect({
         isSameHardware(device, activeDeviceRef.current) &&
         activeFeaturesRef.current
       ) {
+        await bootloaderModeDialogManager.close();
         return activeFeaturesRef.current;
       }
 
-      // Clear bootloader mode flag when reconnecting
-      wasInBootloaderModeRef.current = false;
       let hardwareCallContext: EHardwareCallContext | undefined;
       let isBootMode = false;
       if (
@@ -303,8 +310,23 @@ export function useDeviceConnect({
         options?.connectProtocol,
         options?.forceProtocolDetection,
       );
-      // If device was in bootloader mode and connectId is empty, search for the updated device
-      if (device.connectId === '' && isBootMode && !features?.bootloaderMode) {
+      let isConnectedBootloaderMode = false;
+      if (features) {
+        isConnectedBootloaderMode =
+          await deviceUtils.isBootloaderModeByFeatures({ features });
+        wasInBootloaderModeRef.current = isConnectedBootloaderMode;
+        if (!isConnectedBootloaderMode) {
+          await bootloaderModeDialogManager.close();
+        }
+      }
+      const hasPlaceholderConnectId =
+        !device.connectId || /^0+$/.test(device.connectId);
+      if (
+        hasPlaceholderConnectId &&
+        isBootMode &&
+        features &&
+        !isConnectedBootloaderMode
+      ) {
         const searchedDevices =
           await backgroundApiProxy.serviceHardware.searchDevices();
         if (searchedDevices.success && searchedDevices.payload.length === 1) {
@@ -318,6 +340,53 @@ export function useDeviceConnect({
       return features;
     },
     [connectDevice, isSameHardware, setCurrentDevice],
+  );
+
+  const rebindDeviceAfterFirmwareUpdate = useCallback(
+    async (
+      previousDevice: SearchDevice,
+      onConnectId?: (connectId: string) => void,
+    ) => {
+      wasInBootloaderModeRef.current = true;
+      await ensureStopScan();
+      const searchedDevices =
+        await backgroundApiProxy.serviceHardware.searchDevices();
+      if (!searchedDevices.success) {
+        throw new OneKeyLocalError(
+          'Unable to search for device after firmware update',
+        );
+      }
+
+      const result = await resolveFirmwareReconnectDevice({
+        previousDevice,
+        devices: searchedDevices.payload,
+        getFeatures: (connectId) =>
+          backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              retryCount: 1,
+              skipWebDevicePrompt: true,
+            },
+          }),
+        onConnectId,
+      });
+      activeDeviceRef.current = { ...result.device };
+      activeFeaturesRef.current = result.features;
+      wasInBootloaderModeRef.current = false;
+      await bootloaderModeDialogManager.close();
+      setCurrentDevice?.(result.device);
+      defaultLogger.hardware.sdkLog.log(
+        'Firmware reconnect succeeded',
+        JSON.stringify({
+          deviceType: result.device.deviceType,
+          commType: result.device.commType,
+          connectIdChanged:
+            previousDevice.connectId !== result.device.connectId,
+        }),
+      );
+      return result;
+    },
+    [ensureStopScan, setCurrentDevice],
   );
 
   const getActiveDevice = useCallback(() => {
@@ -495,12 +564,21 @@ export function useDeviceConnect({
       }
 
       let connectionFailureTracked = false;
+      let bootloaderDialogShown = false;
       let forceTransportType: EHardwareTransportType | undefined;
       const confirmedConnectProtocol = device.connectProtocol;
       try {
-        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: device.connectId ?? '',
-        });
+        const showCheckingDeviceDialog = () =>
+          backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+            connectId: device.connectId ?? '',
+          });
+        if (platformEnv.isNativeIOS) {
+          await hardwareUiStateDialogLifecycle.openAndWait(
+            showCheckingDeviceDialog,
+          );
+        } else {
+          void showCheckingDeviceDialog();
+        }
 
         const handleBootloaderMode = async (existsFirmware: boolean) => {
           // Set bootloader mode flag so retry will force reconnect
@@ -535,11 +613,26 @@ export function useDeviceConnect({
             return usbPrepareResult.connectId ?? device.connectId ?? undefined;
           };
 
+          // Wait until the hardware dialog has left the global iOS overlay before
+          // mounting the page-owned bootloader dialog.
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(async () =>
+              backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+                connectId: device.connectId ?? undefined,
+                skipDeviceCancel: true,
+                skipDelayClose: true,
+                reason: 'open bootloader mode dialog',
+              }),
+            );
+          }
+
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,
             onBeforeUpdate: prepareUSBForUpdate,
+            dialogHost: getBootloaderDialogHost?.(),
           });
+          bootloaderDialogShown = true;
           console.log('Device is in bootloader mode', device);
           // Bootloader mode hands off to the firmware-update flow, so the throw
           // below is not a connection failure — suppress the catch-block tracking.
@@ -736,8 +829,11 @@ export function useDeviceConnect({
           },
         };
       } catch (error) {
-        // Clear force transport type on device connection error
-        void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        // The hardware dialog was already closed before the bootloader dialog
+        // mounted. A late cleanup write here can race with that handoff on iOS.
+        if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
+          void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        }
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error
@@ -763,6 +859,7 @@ export function useDeviceConnect({
       showFirmwareVerifyDialog,
       prepareUSBConnect,
       getActiveDevice,
+      getBootloaderDialogHost,
     ],
   );
 
@@ -976,6 +1073,7 @@ export function useDeviceConnect({
       onSelectAddWalletType,
       createHWWallet: onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     }),
@@ -985,6 +1083,7 @@ export function useDeviceConnect({
       verifyHardware,
       onSelectAddWalletType,
       ensureActiveConnection,
+      rebindDeviceAfterFirmwareUpdate,
       getActiveDevice,
       getActiveDeviceFeatures,
     ],

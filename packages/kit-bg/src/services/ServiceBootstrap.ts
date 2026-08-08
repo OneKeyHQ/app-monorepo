@@ -19,6 +19,18 @@ class ServiceBootstrap extends ServiceBase {
 
   public async init() {
     await this.initCritical();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      void import('./ServiceFirmwareUpdate/FirmwareUpdateRuntime')
+        .then(({ firmwareArtifactAdapter }) =>
+          firmwareArtifactAdapter.sweepOrphans(),
+        )
+        .catch(() => {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'firmwareArtifactOrphanSweep (FAILED)',
+            0,
+          );
+        });
+    }
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       setTimeout(() => {
         void this.initDeferred();

@@ -1,5 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { EHardwareTransportType } from '../../types';
+
 import deviceUtils, { ESupportSettings } from './deviceUtils';
 import {
   NEO_DEVICE_TYPE,
@@ -11,6 +13,44 @@ import {
 const mockGetAutoLockOptions = jest.fn();
 const mockGetAutoShutDownOptions = jest.fn();
 const PROTOCOL_V2_NEVER_TIMEOUT_MS = 0x10_00_00_00;
+
+describe('getFixedUpdatingConnectId', () => {
+  const device = {
+    connectId: 'USB_SERIAL',
+    usbConnectId: 'USB_SERIAL',
+    bleConnectId: 'BLE_PERIPHERAL_ID',
+  };
+
+  it('uses the persisted BLE peripheral for desktop BLE updates', () => {
+    expect(
+      deviceUtils.getFixedUpdatingConnectId({
+        updatingConnectId: 'STALE_CONNECT_ID',
+        currentTransportType: EHardwareTransportType.DesktopWebBle,
+        device,
+      }),
+    ).toBe('BLE_PERIPHERAL_ID');
+  });
+
+  it('keeps the transport-derived connect ID for non-BLE updates', () => {
+    expect(
+      deviceUtils.getFixedUpdatingConnectId({
+        updatingConnectId: undefined,
+        currentTransportType: EHardwareTransportType.WEBUSB,
+        device,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('rejects a BLE value that only aliases the USB serial', () => {
+    expect(
+      deviceUtils.getFixedUpdatingConnectId({
+        updatingConnectId: 'CURRENT_BLE_ID',
+        currentTransportType: EHardwareTransportType.DesktopWebBle,
+        device: { ...device, bleConnectId: 'USB_SERIAL' },
+      }),
+    ).toBe('CURRENT_BLE_ID');
+  });
+});
 
 jest.mock('../hardware/instance', () => ({
   CoreSDKLoader: jest.fn(async () => ({

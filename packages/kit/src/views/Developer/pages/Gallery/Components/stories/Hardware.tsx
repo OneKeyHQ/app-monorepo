@@ -1,9 +1,18 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
 
+import { useState } from 'react';
+
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { Button, Dialog, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  EInPageDialogType,
+  SizableText,
+  Stack,
+  useInPageDialog,
+} from '@onekeyhq/components';
 import {
   ConfirmOnDeviceToast,
   confirmByPin,
@@ -13,6 +22,8 @@ import {
   confirmPhraseOnDevice,
   confirmPinOnDevice,
 } from '@onekeyhq/kit/src/components/Hardware';
+import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
+import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import type { IHardwareUiPayload } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
@@ -20,12 +31,67 @@ import {
   hardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 // https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg
+
+const BootloaderDialogHandoffTest = () => {
+  const [confirmCount, setConfirmCount] = useState(0);
+  const dialogHost = useInPageDialog(EInPageDialogType.inOnboardingPage);
+  const firmwareUpdateActions = useFirmwareUpdateActions();
+
+  return (
+    <Stack gap="$2">
+      <Button
+        testID="hardware-bootloader-dialog-handoff-demo-button"
+        onPress={async () => {
+          const payload: IHardwareUiPayload = {
+            uiRequestType: EHardwareUiStateAction.DeviceChecking,
+            eventType: '',
+            deviceType: EDeviceType.Classic1s,
+            deviceId: 'bootloader-handoff-test',
+            connectId: 'bootloader-handoff-test',
+            deviceMode: EOneKeyDeviceMode.bootloader,
+            isBootloaderMode: true,
+            passphraseState: undefined,
+            rawPayload: undefined,
+          };
+
+          await hardwareUiStateDialogLifecycle.openAndWait(() =>
+            hardwareUiStateAtom.set({
+              action: EHardwareUiStateAction.DeviceChecking,
+              connectId: payload.connectId,
+              payload,
+            }),
+          );
+          await timerUtils.wait(500);
+          await hardwareUiStateDialogLifecycle.closeAndWait(() =>
+            hardwareUiStateAtom.set(undefined),
+          );
+
+          firmwareUpdateActions.showBootloaderMode({
+            connectId: payload.connectId,
+            existsFirmware: false,
+            dialogHost,
+            onBeforeUpdate: async () => {
+              setConfirmCount((count) => count + 1);
+              return undefined;
+            },
+          });
+        }}
+      >
+        Test Bootloader Dialog Handoff ({confirmCount})
+      </Button>
+      <SizableText testID="hardware-bootloader-dialog-handoff-result">
+        Confirm count: {confirmCount}
+      </SizableText>
+    </Stack>
+  );
+};
 
 const HardwareActionTest = () => {
   const generateAction = async (
@@ -81,6 +147,10 @@ const HardwareActionTest = () => {
 
   return (
     <Stack gap="$6">
+      <Stack gap="$2">
+        <BootloaderDialogHandoffTest />
+      </Stack>
+
       <Stack gap="$2">
         <SizableText textAlign="left" size="$bodySmMedium" color="$text">
           Device transfer progress

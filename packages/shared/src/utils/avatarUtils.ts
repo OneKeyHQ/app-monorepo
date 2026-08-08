@@ -38,7 +38,7 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
-  [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
+  [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
   [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
@@ -73,7 +73,6 @@ export const AllWalletAvatarImages = {
   ...ThirdPartyWalletAvatarImages,
 };
 
-export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;
 export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
 export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;
 export type IOthersWalletAvatarImageNames =
@@ -86,6 +85,9 @@ export type IAllWalletAvatarImageNamesWithoutDividers =
   | IHwWalletAvatarImageNames
   | IOthersWalletAvatarImageNames
   | IThirdPartyWalletAvatarImageNames;
+export type IAllWalletAvatarImageNames =
+  | 'cardDividers'
+  | IAllWalletAvatarImageNamesWithoutDividers;
 
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
