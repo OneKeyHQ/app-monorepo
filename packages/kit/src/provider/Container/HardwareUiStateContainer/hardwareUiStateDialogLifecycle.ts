@@ -1,8 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-const DEFAULT_CLOSE_ACK_TIMEOUT_MS = 5000;
+const DEFAULT_STATE_ACK_TIMEOUT_MS = 5000;
 
-type ICloseWaiter = {
+type IStateWaiter = {
   resolve: () => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -11,27 +11,43 @@ type ICloseWaiter = {
 export class HardwareUiStateDialogLifecycle {
   private isOpen = false;
 
-  private readonly closeWaiters = new Set<ICloseWaiter>();
+  private readonly openWaiters = new Set<IStateWaiter>();
+
+  private readonly closeWaiters = new Set<IStateWaiter>();
 
   constructor(
-    private readonly closeAckTimeoutMs = DEFAULT_CLOSE_ACK_TIMEOUT_MS,
+    private readonly stateAckTimeoutMs = DEFAULT_STATE_ACK_TIMEOUT_MS,
   ) {}
 
   updateOpenState(isOpen: boolean) {
     this.isOpen = isOpen;
-    if (isOpen) {
-      return;
-    }
+    this.resolveWaiters(isOpen ? this.openWaiters : this.closeWaiters);
+  }
 
-    for (const waiter of this.closeWaiters) {
-      clearTimeout(waiter.timer);
-      waiter.resolve();
+  async openAndWait(openAction: () => Promise<void>) {
+    const openWaiter = this.isOpen
+      ? undefined
+      : this.createStateWaiter(
+          this.openWaiters,
+          'Hardware UI dialog open acknowledgement timed out',
+        );
+
+    try {
+      await openAction();
+      await openWaiter?.promise;
+    } catch (error) {
+      openWaiter?.cancel();
+      throw error;
     }
-    this.closeWaiters.clear();
   }
 
   async closeAndWait(closeAction: () => Promise<void>) {
-    const closeWaiter = this.isOpen ? this.createCloseWaiter() : undefined;
+    const closeWaiter = this.isOpen
+      ? this.createStateWaiter(
+          this.closeWaiters,
+          'Hardware UI dialog close acknowledgement timed out',
+        )
+      : undefined;
 
     try {
       await closeAction();
@@ -42,29 +58,36 @@ export class HardwareUiStateDialogLifecycle {
     }
   }
 
-  private createCloseWaiter() {
-    let waiter: ICloseWaiter;
+  private resolveWaiters(waiters: Set<IStateWaiter>) {
+    for (const waiter of waiters) {
+      clearTimeout(waiter.timer);
+      waiter.resolve();
+    }
+    waiters.clear();
+  }
+
+  private createStateWaiter(
+    waiters: Set<IStateWaiter>,
+    timeoutMessage: string,
+  ) {
+    let waiter: IStateWaiter;
     const promise = new Promise<void>((resolve, reject) => {
       waiter = {
         resolve,
         reject,
         timer: setTimeout(() => {
-          this.closeWaiters.delete(waiter);
-          reject(
-            new OneKeyLocalError(
-              'Hardware UI dialog close acknowledgement timed out',
-            ),
-          );
-        }, this.closeAckTimeoutMs),
+          waiters.delete(waiter);
+          reject(new OneKeyLocalError(timeoutMessage));
+        }, this.stateAckTimeoutMs),
       };
-      this.closeWaiters.add(waiter);
+      waiters.add(waiter);
     });
 
     return {
       promise,
       cancel: () => {
         clearTimeout(waiter.timer);
-        this.closeWaiters.delete(waiter);
+        waiters.delete(waiter);
       },
     };
   }

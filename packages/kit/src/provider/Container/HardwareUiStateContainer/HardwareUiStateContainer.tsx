@@ -4,7 +4,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -690,7 +689,7 @@ function HardwareUiStateContainerCmpControlled() {
     state,
   ]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     hardwareUiStateDialogLifecycle.updateOpenState(actionStatus.isDialogAction);
   }, [actionStatus.isDialogAction]);
 

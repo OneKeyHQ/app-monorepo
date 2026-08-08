@@ -562,9 +562,17 @@ export function useDeviceConnect({
       let forceTransportType: EHardwareTransportType | undefined;
       const confirmedConnectProtocol = device.connectProtocol;
       try {
-        void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: device.connectId ?? '',
-        });
+        const showCheckingDeviceDialog = () =>
+          backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+            connectId: device.connectId ?? '',
+          });
+        if (platformEnv.isNativeIOS) {
+          await hardwareUiStateDialogLifecycle.openAndWait(
+            showCheckingDeviceDialog,
+          );
+        } else {
+          void showCheckingDeviceDialog();
+        }
 
         const handleBootloaderMode = async (existsFirmware: boolean) => {
           // Set bootloader mode flag so retry will force reconnect
