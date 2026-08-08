@@ -136,6 +136,7 @@ export type ICheckAllFirmwareReleaseResult = {
   };
   totalPhase: IDeviceFirmwareType[];
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
+  pro2ResourceManifestUrl?: string;
 };
 
 export const PRO2_FIRMWARE_UPDATE_TARGETS = [
@@ -455,6 +456,7 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareType: EFirmwareType | undefined;
   isPro2Device?: boolean;
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
+  pro2ResourceManifestUrl?: string;
 };
 
 export enum EHardwareCallContext {

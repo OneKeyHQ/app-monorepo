@@ -18,8 +18,21 @@ import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdateActions } from '../Tab/DevSettingsSection/FirmwareUpdateActions';
 
+function getPro2FirmwareUpdateTargetLabel(value: IPro2FirmwareUpdateTarget) {
+  if (value === 'resource') {
+    return 'source';
+  }
+  if (value === 'boot_resources') {
+    return 'boot_resource';
+  }
+  return value;
+}
+
 const PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS = PRO2_FIRMWARE_UPDATE_TARGETS.map(
-  (value) => ({ value, label: value }),
+  (value) => ({
+    value,
+    label: getPro2FirmwareUpdateTargetLabel(value),
+  }),
 );
 
 const EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS: IPro2FirmwareUpdateTarget[] = [];

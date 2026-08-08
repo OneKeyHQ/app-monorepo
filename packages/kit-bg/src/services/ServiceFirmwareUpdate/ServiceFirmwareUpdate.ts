@@ -85,6 +85,7 @@ import {
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
+import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceManifest';
 
 import type {
   IPromiseContainerCallbackCreate,
@@ -786,6 +787,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       },
       totalPhase: totalPhase.filter(Boolean),
       pro2TargetsToUpdate,
+      pro2ResourceManifestUrl: releaseInfo.resourceManifestUrl,
     };
 
     // Firmware-check interactions such as PIN entry are complete at this point.
@@ -2500,6 +2502,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: updateInfos.firmware?.toFirmwareType,
       isPro2Device,
       pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
+      pro2ResourceManifestUrl: releaseResult.pro2ResourceManifestUrl,
     };
     return this.createRunTaskWithRetry({
       fn: async () => this.updatingFirmwareV3(updateParams),
@@ -2547,6 +2550,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
           PRO2_APP_FIRMWARE_UPDATE_TARGETS.has(target),
         );
 
+      const resourceFiles = params.isPro2Device
+        ? await prepareProtocolV2ResourceFiles({
+            hardwareSDK,
+            manifestUrl: params.pro2ResourceManifestUrl ?? '',
+            targetsToUpdate: params.pro2TargetsToUpdate ?? [],
+          })
+        : undefined;
+
       try {
         const updatingConnectId = deviceUtils.getUpdatingConnectId({
           connectId,
@@ -2559,6 +2570,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 forcedUpdateRes,
                 firmwareType: params.firmwareType,
                 targetsToUpdate: params.pro2TargetsToUpdate,
+                resourceFiles,
               })
             : hardwareSDK.firmwareUpdateV3(updatingConnectId, {
                 platform: platformEnv.symbol ?? 'web',
