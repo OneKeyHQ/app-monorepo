@@ -76,6 +76,7 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
@@ -85,6 +86,7 @@ import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdr
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getPerpsAccountKey } from '../../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../../utils/aggressiveLimitPrice';
 import {
   getEnableTradingDialogConfirmDecision,
@@ -187,6 +189,7 @@ export function LimitOrderForm({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
+  const requestFirstDepositAction = useFirstDepositAction();
   const { showDepositWithdrawModal } =
     useShowDepositWithdrawModal('tradingPanel');
 
@@ -200,6 +203,9 @@ export function LimitOrderForm({
   // path; the dialog path is already serialized by the dialog itself.
   const isDirectPlacingRef = useRef(false);
   const isSpot = activeTradeInstrument.mode === 'spot';
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
   const resolvedSizeInputUnit =
     isSpot && tradingPreferences.sizeInputUnit === 'margin'
       ? 'usd'
@@ -614,25 +620,27 @@ export function LimitOrderForm({
     ],
   );
   const shouldDisableAccountActionButtons = isTradingActionLoading;
-  const shouldShowFirstDepositAction =
-    !isSpot &&
-    shouldShowPerpsFirstDepositPrompt({
-      status: perpsAccountStatus,
-      isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
-      isPerpActionDisabled,
-    });
+  const shouldShowFirstDepositAction = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
+    isPerpActionDisabled,
+  });
 
   const handleFirstDepositPress = useCallback(() => {
     if (isTradingActionLoading) {
       return;
     }
-    void requestEnableTradingWithDepositFallback({
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
       beforeDeposit: onClose,
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
     });
   }, [
+    firstDepositAccountKey,
     isTradingActionLoading,
     onClose,
-    requestEnableTradingWithDepositFallback,
+    requestFirstDepositAction,
   ]);
 
   const handleConnectWallet = useCallback(async () => {

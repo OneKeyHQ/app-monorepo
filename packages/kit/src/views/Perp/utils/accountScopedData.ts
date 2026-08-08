@@ -6,6 +6,18 @@ type IAccountScopedDataParams<T> = {
   data: T[];
 };
 
+export function getPerpsAccountKey(account: {
+  accountId?: string | null;
+  indexedAccountId?: string | null;
+  accountAddress?: string | null;
+}) {
+  const accountId = account.accountId ?? account.indexedAccountId;
+  if (!accountId && !account.accountAddress) {
+    return undefined;
+  }
+  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
+}
+
 export function isPerpsAccountScopedDataReady({
   activeAccountAddress,
   dataAccountAddress,

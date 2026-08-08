@@ -8,7 +8,15 @@ const mockEnableTrading = jest.fn<
   Promise<IPerpsActiveAccountStatusAtom | undefined>,
   []
 >();
+const mockCheckPerpsAccountStatus = jest.fn<Promise<void>, []>();
 const mockShowDepositWithdrawModal = jest.fn();
+const mockShowHyperliquidTermsDialog = jest.fn<Promise<boolean>, []>();
+let mockLatestPerpsAccountStatus: IPerpsActiveAccountStatusAtom | undefined;
+let mockPerpsAccount = {
+  accountId: 'hd-1',
+  indexedAccountId: null as string | null,
+  accountAddress: '0xabc',
+};
 
 function buildPerpsAccountStatus(
   activatedOk: boolean,
@@ -34,18 +42,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceHyperliquid: {
       enableTrading: () => mockEnableTrading(),
+      checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
     },
   },
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  usePerpsActiveAccountAtom: () => [
-    {
-      accountId: 'hd-1',
-      indexedAccountId: null,
-      accountAddress: '0xabc',
-    },
-  ],
+  perpsActiveAccountStatusAtom: {
+    get: () => Promise.resolve(mockLatestPerpsAccountStatus),
+  },
+  usePerpsActiveAccountAtom: () => [mockPerpsAccount],
 }));
 
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
@@ -56,7 +62,7 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 }));
 
 jest.mock('../components/HyperliquidTerms', () => ({
-  showHyperliquidTermsDialog: jest.fn(),
+  showHyperliquidTermsDialog: () => mockShowHyperliquidTermsDialog(),
 }));
 
 jest.mock('./useShowDepositWithdrawModal', () => ({
@@ -65,12 +71,23 @@ jest.mock('./useShowDepositWithdrawModal', () => ({
   }),
 }));
 
-import { useRequestEnableTradingWithDepositFallback } from './useEnableTradingWithDepositFallback';
+import {
+  useFirstDepositAction,
+  useRequestEnableTradingWithDepositFallback,
+} from './useEnableTradingWithDepositFallback';
 
 describe('useRequestEnableTradingWithDepositFallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPerpsAccount = {
+      accountId: 'hd-1',
+      indexedAccountId: null,
+      accountAddress: '0xabc',
+    };
+    mockLatestPerpsAccountStatus = undefined;
+    mockCheckPerpsAccountStatus.mockResolvedValue(undefined);
     mockShowDepositWithdrawModal.mockResolvedValue(undefined);
+    mockShowHyperliquidTermsDialog.mockResolvedValue(true);
   });
 
   it('reuses the in-flight request and opens the deposit flow once', async () => {
@@ -116,5 +133,101 @@ describe('useRequestEnableTradingWithDepositFallback', () => {
     });
 
     expect(mockEnableTrading).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts a separate in-flight request after the account changes', async () => {
+    const pendingResolvers: Array<
+      (status: IPerpsActiveAccountStatusAtom) => void
+    > = [];
+    mockEnableTrading.mockImplementation(
+      () =>
+        new Promise<IPerpsActiveAccountStatusAtom>((resolve) => {
+          pendingResolvers.push(resolve);
+        }),
+    );
+    const { result, rerender } = renderHook(() =>
+      useRequestEnableTradingWithDepositFallback(),
+    );
+
+    let firstRequest!: ReturnType<typeof result.current>;
+    act(() => {
+      firstRequest = result.current();
+    });
+    mockPerpsAccount = {
+      accountId: 'hd-2',
+      indexedAccountId: null,
+      accountAddress: '0xdef',
+    };
+    rerender({});
+
+    let secondRequest!: ReturnType<typeof result.current>;
+    act(() => {
+      secondRequest = result.current();
+    });
+
+    expect(secondRequest).not.toBe(firstRequest);
+    expect(mockEnableTrading).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      pendingResolvers[0]?.(buildPerpsAccountStatus(false));
+      pendingResolvers[1]?.(buildPerpsAccountStatus(true));
+      await Promise.all([firstRequest, secondRequest]);
+    });
+
+    expect(mockShowDepositWithdrawModal).not.toHaveBeenCalled();
+  });
+});
+
+describe('useFirstDepositAction', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPerpsAccount = {
+      accountId: 'hd-1',
+      indexedAccountId: null,
+      accountAddress: '0xabc',
+    };
+    mockCheckPerpsAccountStatus.mockResolvedValue(undefined);
+    mockShowDepositWithdrawModal.mockResolvedValue(undefined);
+    mockShowHyperliquidTermsDialog.mockResolvedValue(true);
+  });
+
+  it('refreshes status and opens deposit without invoking enable trading', async () => {
+    mockLatestPerpsAccountStatus = buildPerpsAccountStatus(false);
+    const { result } = renderHook(() => useFirstDepositAction());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(mockCheckPerpsAccountStatus).toHaveBeenCalledTimes(1);
+    expect(mockShowDepositWithdrawModal).toHaveBeenCalledTimes(1);
+    expect(mockShowHyperliquidTermsDialog).not.toHaveBeenCalled();
+    expect(mockEnableTrading).not.toHaveBeenCalled();
+  });
+
+  it('uses the terms-gated enable flow when the refreshed account needs setup', async () => {
+    mockLatestPerpsAccountStatus = {
+      ...buildPerpsAccountStatus(true),
+      canTrade: false,
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        referralCodeOk: true,
+        builderFeeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: true,
+      },
+    };
+    mockEnableTrading.mockResolvedValue(buildPerpsAccountStatus(true));
+    const { result } = renderHook(() => useFirstDepositAction());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(mockCheckPerpsAccountStatus).toHaveBeenCalledTimes(1);
+    expect(mockShowHyperliquidTermsDialog).toHaveBeenCalledTimes(1);
+    expect(mockEnableTrading).toHaveBeenCalledTimes(1);
+    expect(mockShowDepositWithdrawModal).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,13 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 type IWalletBackupPreCheckContainerComponent = ComponentType;
 
@@ -63,8 +65,25 @@ function WalletBackupPreCheckContainerLazyCmp() {
           setContainerImpl(() => module.WalletBackupPreCheckContainer);
         }
       })
-      .catch((error: Error) => {
-        console.error('Failed to load WalletBackupPreCheckContainer:', error);
+      .catch(async (error: Error) => {
+        if (!isMounted) {
+          return;
+        }
+        defaultLogger.app.error.log(
+          `[WalletBackupPreCheckContainerLazy] load failed: ${error.message}`,
+        );
+        // The callback expires only after a long bg sweep, so a failed main
+        // runtime import must settle every queued request immediately.
+        const pendingEvents = pendingEventsRef.current;
+        pendingEventsRef.current = [];
+        await Promise.allSettled(
+          pendingEvents.map((payload) =>
+            backgroundApiProxy.servicePromise.resolveCallback({
+              id: payload.promiseId,
+              data: true,
+            }),
+          ),
+        );
       });
     return () => {
       isMounted = false;

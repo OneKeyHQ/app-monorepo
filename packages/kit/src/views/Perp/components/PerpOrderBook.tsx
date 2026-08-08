@@ -37,6 +37,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -576,6 +577,7 @@ export function PerpOrderBook({
     activeIndexedAccountId: perpsActiveAccount.indexedAccountId,
   });
   const shouldCompactOrderBookForConnectWallet =
+    (platformEnv.isWeb || platformEnv.isDesktop) &&
     isAccountSelectionResolved &&
     (!perpsActiveAccount?.accountAddress ||
       perpsAccountStatus.accountNotSupport) &&

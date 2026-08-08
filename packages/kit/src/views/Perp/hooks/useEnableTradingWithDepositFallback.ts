@@ -3,11 +3,13 @@ import { useCallback, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   type IPerpsActiveAccountStatusAtom,
+  perpsActiveAccountStatusAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
+import { getPerpsAccountKey } from '../utils/accountScopedData';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
 import { useShowDepositWithdrawModal } from './useShowDepositWithdrawModal';
@@ -21,6 +23,52 @@ export type IRequestEnableTradingWithDepositFallbackOptions = {
   beforeDeposit?: () => void;
   shouldIgnoreResult?: () => boolean;
 };
+
+type IAccountScopedInFlightRequest<TResult> = {
+  accountKey: string | undefined;
+  promise: Promise<TResult>;
+  token: symbol;
+};
+
+function usePerpsAccountScopedInFlightRequest<TResult>() {
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const accountKey = getPerpsAccountKey(perpsAccount);
+  const latestAccountKeyRef = useRef(accountKey);
+  latestAccountKeyRef.current = accountKey;
+  const requestInFlightRef = useRef<
+    IAccountScopedInFlightRequest<TResult> | undefined
+  >(undefined);
+
+  return useCallback(
+    (
+      request: (isRequestCurrent: () => boolean) => Promise<TResult>,
+    ): Promise<TResult> => {
+      if (requestInFlightRef.current?.accountKey !== accountKey) {
+        requestInFlightRef.current = undefined;
+      }
+      if (requestInFlightRef.current) {
+        return requestInFlightRef.current.promise;
+      }
+
+      const requestToken = Symbol('perpsAccountScopedRequest');
+      const requestAccountKey = accountKey;
+      const requestPromise = request(
+        () => latestAccountKeyRef.current === requestAccountKey,
+      ).finally(() => {
+        if (requestInFlightRef.current?.token === requestToken) {
+          requestInFlightRef.current = undefined;
+        }
+      });
+      requestInFlightRef.current = {
+        accountKey,
+        promise: requestPromise,
+        token: requestToken,
+      };
+      return requestPromise;
+    },
+    [accountKey],
+  );
+}
 
 export function useConfirmHyperliquidTerms() {
   return useCallback(async (): Promise<boolean> => {
@@ -75,10 +123,8 @@ export function useHandleEnableTradingPostStatus() {
 export function useRequestEnableTradingWithDepositFallback() {
   const requestEnableTrading = useRequestEnableTrading();
   const handleEnableTradingPostStatus = useHandleEnableTradingPostStatus();
-  const requestInFlightRef = useRef<
-    Promise<IEnableTradingWithDepositFallbackResult> | undefined
-  >(undefined);
-  const requestInFlightTokenRef = useRef<symbol | undefined>(undefined);
+  const runAccountScopedRequest =
+    usePerpsAccountScopedInFlightRequest<IEnableTradingWithDepositFallbackResult>();
 
   return useCallback(
     (
@@ -87,25 +133,19 @@ export function useRequestEnableTradingWithDepositFallback() {
       if (options?.shouldIgnoreResult?.()) {
         return Promise.resolve({ shouldContinue: false, status: undefined });
       }
-      if (requestInFlightRef.current) {
-        return requestInFlightRef.current;
-      }
-
-      const requestToken = Symbol('enableTradingRequest');
-      const requestPromise = (async () => {
+      return runAccountScopedRequest(async (isRequestCurrent) => {
         const status = await requestEnableTrading();
-        return await handleEnableTradingPostStatus(status, options);
-      })().finally(() => {
-        if (requestInFlightTokenRef.current === requestToken) {
-          requestInFlightRef.current = undefined;
-          requestInFlightTokenRef.current = undefined;
+        if (!isRequestCurrent() || options?.shouldIgnoreResult?.()) {
+          return { shouldContinue: false, status };
         }
+        return handleEnableTradingPostStatus(status, options);
       });
-      requestInFlightTokenRef.current = requestToken;
-      requestInFlightRef.current = requestPromise;
-      return requestPromise;
     },
-    [handleEnableTradingPostStatus, requestEnableTrading],
+    [
+      handleEnableTradingPostStatus,
+      requestEnableTrading,
+      runAccountScopedRequest,
+    ],
   );
 }
 
@@ -125,5 +165,48 @@ export function useEnableTradingWithDepositFallback() {
       return requestEnableTradingWithDepositFallback(options);
     },
     [confirmHyperliquidTerms, requestEnableTradingWithDepositFallback],
+  );
+}
+
+export function useFirstDepositAction() {
+  const handleEnableTradingPostStatus = useHandleEnableTradingPostStatus();
+  const enableTradingWithDepositFallback =
+    useEnableTradingWithDepositFallback();
+  const runAccountScopedRequest =
+    usePerpsAccountScopedInFlightRequest<IEnableTradingWithDepositFallbackResult>();
+
+  return useCallback(
+    (
+      options?: IRequestEnableTradingWithDepositFallbackOptions,
+    ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      if (options?.shouldIgnoreResult?.()) {
+        return Promise.resolve({ shouldContinue: false, status: undefined });
+      }
+
+      return runAccountScopedRequest(async (isRequestCurrent) => {
+        let status: IPerpsActiveAccountStatusAtom | undefined;
+        try {
+          await errorToastUtils.withErrorAutoToast(() =>
+            backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus(),
+          );
+          status = await perpsActiveAccountStatusAtom.get();
+        } catch {
+          return { shouldContinue: false, status: undefined };
+        }
+
+        if (!isRequestCurrent() || options?.shouldIgnoreResult?.()) {
+          return { shouldContinue: false, status };
+        }
+        if (getEnableTradingDialogConfirmDecision(status) !== 'stop') {
+          return handleEnableTradingPostStatus(status, options);
+        }
+        return enableTradingWithDepositFallback(options);
+      });
+    },
+    [
+      enableTradingWithDepositFallback,
+      handleEnableTradingPostStatus,
+      runAccountScopedRequest,
+    ],
   );
 }

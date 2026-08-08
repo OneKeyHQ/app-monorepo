@@ -86,6 +86,7 @@ import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimi
 import {
   type IEnableTradingWithDepositFallbackResult,
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../hooks/useEnableTradingWithDepositFallback';
 import { useLiquidationPrice } from '../../hooks/useLiquidationPrice';
@@ -93,7 +94,10 @@ import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawM
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
-import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
+import {
+  getPerpsAccountKey,
+  shouldPreserveColdStartButtonVisualState,
+} from '../../utils/accountScopedData';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import {
   getEnableTradingDialogConfirmDecision,
@@ -201,18 +205,6 @@ const PERPS_WEBSOCKET_OPEN_READY_STATE = 1;
 const noopHandleConfirm: (
   overrideSide?: 'long' | 'short',
 ) => Promise<void> = async () => undefined;
-
-function getPerpsAccountKey(account: {
-  accountId?: string | null;
-  indexedAccountId?: string | null;
-  accountAddress?: string | null;
-}) {
-  const accountId = account.accountId ?? account.indexedAccountId;
-  if (!accountId && !account.accountAddress) {
-    return undefined;
-  }
-  return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
-}
 
 function hasPerpsOrderSizeInput(
   formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
@@ -2618,9 +2610,12 @@ function TradingButtonGroup({
   const formData = useTradingFormEmptySizeParams();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const requestEnableTradingWithDepositFallback =
-    useRequestEnableTradingWithDepositFallback();
+  const requestFirstDepositAction = useFirstDepositAction();
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
   const isFirstDepositLoading =
     perpsAccountLoading.selectAccountLoading ||
     perpsAccountLoading.enableTradingLoading;
@@ -2633,8 +2628,16 @@ function TradingButtonGroup({
     if (isFirstDepositLoading) {
       return;
     }
-    void requestEnableTradingWithDepositFallback();
-  }, [isFirstDepositLoading, requestEnableTradingWithDepositFallback]);
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
+    });
+  }, [
+    firstDepositAccountKey,
+    isFirstDepositLoading,
+    requestFirstDepositAction,
+  ]);
 
   if (perpConfigCommon?.ipDisablePerp) {
     return <IpRestrictedSingleButton isMobile={isMobile} />;
