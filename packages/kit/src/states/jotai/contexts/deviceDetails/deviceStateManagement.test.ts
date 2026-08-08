@@ -13,16 +13,19 @@ import {
 } from './deviceStateManagement';
 
 describe('device reset wallet isolation', () => {
-  const protocolV1DeviceTypes = [
-    EDeviceType.Classic,
+  const firmwareTypeSwitchDeviceTypes = [
     EDeviceType.Classic1s,
     EDeviceType.ClassicPure,
-    EDeviceType.Mini,
-    EDeviceType.Touch,
     EDeviceType.Pro,
   ];
 
-  const protocolV2DeviceTypes = [EDeviceType.Pro2, EDeviceType.Neo];
+  const unsupportedDeviceTypes = [
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro2,
+    EDeviceType.Neo,
+  ];
 
   it('does not expose a deprecated hardware wallet to device details', () => {
     expect(
@@ -42,7 +45,7 @@ describe('device reset wallet isolation', () => {
     ).toBeUndefined();
   });
 
-  it.each(protocolV1DeviceTypes)(
+  it.each(firmwareTypeSwitchDeviceTypes)(
     'keeps a deprecated %s wallet manageable after switching firmware type',
     (deviceType) => {
       const walletWithDevice = {
@@ -67,8 +70,8 @@ describe('device reset wallet isolation', () => {
     },
   );
 
-  it.each(protocolV2DeviceTypes)(
-    'keeps a deprecated %s wallet manageable from DeviceState after switching firmware type',
+  it.each(unsupportedDeviceTypes)(
+    'does not expose a deprecated %s wallet without a firmware type switch action',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -88,9 +91,9 @@ describe('device reset wallet isolation', () => {
         },
       };
 
-      expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
-        walletWithDevice,
-      );
+      expect(
+        resolveUsableWalletWithDevice(walletWithDevice as never),
+      ).toBeUndefined();
     },
   );
 
@@ -103,6 +106,7 @@ describe('device reset wallet isolation', () => {
       },
       device: {
         id: 'device-1',
+        deviceType: EDeviceType.Pro,
         featuresInfo: {
           $app_firmware_type: EFirmwareType.Universal,
         },
@@ -144,6 +148,7 @@ describe('device reset wallet isolation', () => {
       },
       device: {
         id: 'device-1',
+        deviceType: EDeviceType.Pro,
         deviceStateInfo: {
           identity: {
             firmwareType: EFirmwareType.BitcoinOnly,

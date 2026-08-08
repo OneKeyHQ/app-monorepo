@@ -2026,6 +2026,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!dbDevice) {
       // throw new OneKeyLocalError('device not found');
     }
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);

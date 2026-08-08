@@ -134,6 +134,12 @@ export function isDeviceManagementWalletUsable(
     return true;
   }
 
+  const deviceType =
+    device?.deviceStateInfo?.identity.deviceType ?? device?.deviceType;
+  if (!deviceType || !deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
+    return false;
+  }
+
   const currentFirmwareType =
     device?.deviceStateInfo?.identity.firmwareType ??
     device?.featuresInfo?.$app_firmware_type ??

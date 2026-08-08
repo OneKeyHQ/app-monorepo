@@ -547,6 +547,37 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
   });
 });
 
+describe('ServiceFirmwareUpdate legacy workflow running state', () => {
+  it('sets the background guard before entering hardware processing', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    const withHardwareProcessing = jest
+      .fn()
+      .mockRejectedValue(new Error('hardware processing unavailable'));
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.startUpdateWorkflow({
+        releaseResult: {
+          updateInfos: {},
+        },
+      } as never),
+    ).rejects.toThrow('hardware processing unavailable');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
+    expect(
+      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(withHardwareProcessing.mock.invocationCallOrder[0]);
+  });
+});
+
 describe('ServiceFirmwareUpdate workflow tracking', () => {
   beforeEach(() => {
     jest.clearAllMocks();
