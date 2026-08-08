@@ -45,8 +45,8 @@
   "dependencies": {
     "@napi-rs/keyring": "^1.3.0",
     "@onekeyfe/hd-common-connect-sdk": "1.2.0-alpha.79",
-    "@onekeyfe/hd-core": "1.2.0-alpha.79",
-    "@onekeyfe/hd-transport-usb": "1.2.0-alpha.79",
+    "@onekeyfe/hd-core": "1.2.0-alpha.80",
+    "@onekeyfe/hd-transport-usb": "1.2.0-alpha.80",
     "proper-lockfile": "^4.1.2"
   }
 }

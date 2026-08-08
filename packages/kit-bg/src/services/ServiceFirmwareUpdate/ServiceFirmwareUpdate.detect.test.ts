@@ -17,7 +17,7 @@ import {
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
-import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceManifest';
+import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   supportsFirmwareUpdateWorkflowV2,
@@ -108,7 +108,7 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
   },
 }));
 
-jest.mock('./protocolV2ResourceManifest', () => ({
+jest.mock('./protocolV2ResourceArchive', () => ({
   prepareProtocolV2ResourceFiles: jest.fn(),
 }));
 
@@ -357,14 +357,6 @@ describe('buildPro2TargetsToUpdate', () => {
     ).toEqual(['se01', 'resource']);
   });
 
-  it('keeps boot resources independent from stable resources', () => {
-    expect(
-      buildPro2TargetsToUpdate({
-        sdkTargets: ['resource', 'boot_resources'],
-      }),
-    ).toEqual(['resource', 'boot_resources']);
-  });
-
   it('merges and deduplicates developer force targets after SDK targets', () => {
     expect(
       buildPro2TargetsToUpdate({
@@ -470,8 +462,11 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       firmwareType: undefined,
       isPro2Device: true,
       pro2TargetsToUpdate: ['resource'],
-      pro2ResourceManifestUrl:
-        'https://example.com/releases/pro2/manifest.json',
+      pro2ResourceArchive: {
+        archiveUrl: 'https://example.com/releases/pro2/resource.zip',
+        archiveSha256: 'a'.repeat(64),
+        archiveSize: 1024,
+      },
       requirePreparedArtifacts: false,
       targetsToUpdate: ['resource'],
     });
@@ -486,7 +481,11 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
     );
     expect(prepareProtocolV2ResourceFiles).toHaveBeenCalledWith({
       hardwareSDK,
-      manifestUrl: 'https://example.com/releases/pro2/manifest.json',
+      archive: {
+        archiveUrl: 'https://example.com/releases/pro2/resource.zip',
+        archiveSha256: 'a'.repeat(64),
+        archiveSize: 1024,
+      },
       targetsToUpdate: ['resource'],
     });
   });
@@ -858,7 +857,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(runtimeHost).not.toHaveBeenCalled();
   });
 
-  test('routes Protocol V2 devices without a Plan through the manifest V4 path', async () => {
+  test('routes Protocol V2 devices without a Plan through the archive V4 path', async () => {
     const service = createService();
     const updatingFirmwareV4 = jest
       .spyOn(service, 'updatingFirmwareV4')
@@ -873,8 +872,11 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       releaseResult: {
         deviceType: EDeviceType.Pro2,
         pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
-        pro2ResourceManifestUrl:
-          'https://example.com/releases/pro2/manifest.json',
+        pro2ResourceArchive: {
+          archiveUrl: 'https://example.com/releases/pro2/resource.zip',
+          archiveSha256: 'a'.repeat(64),
+          archiveSize: 1024,
+        },
         updateInfos: {},
       } as ICheckAllFirmwareReleaseResult,
     });
@@ -883,8 +885,11 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       expect.objectContaining({
         requirePreparedArtifacts: false,
         targetsToUpdate: ['boot', 'app_v1', 'resource'],
-        pro2ResourceManifestUrl:
-          'https://example.com/releases/pro2/manifest.json',
+        pro2ResourceArchive: {
+          archiveUrl: 'https://example.com/releases/pro2/resource.zip',
+          archiveSha256: 'a'.repeat(64),
+          archiveSize: 1024,
+        },
       }),
       undefined,
     );

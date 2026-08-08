@@ -92,7 +92,7 @@ import {
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
-import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceManifest';
+import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 
 import type {
   IFirmwareArtifactSelfTestScenario,
@@ -930,7 +930,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       },
       totalPhase: totalPhase.filter(Boolean),
       pro2TargetsToUpdate,
-      pro2ResourceManifestUrl: releaseInfo.resourceManifestUrl,
+      pro2ResourceArchive: releaseInfo.resourceArchive,
     };
 
     // Firmware-check interactions such as PIN entry are complete at this point.
@@ -2767,7 +2767,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: updateInfos.firmware?.toFirmwareType,
       isPro2Device,
       pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
-      pro2ResourceManifestUrl: releaseResult.pro2ResourceManifestUrl,
+      pro2ResourceArchive: releaseResult.pro2ResourceArchive,
     };
     if (executor === 'v4') {
       const targetsToUpdate = plan
@@ -2821,15 +2821,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hardwareTransportType: currentTransportType,
     });
 
-    const resourceFiles =
-      !params.requirePreparedArtifacts &&
-      params.targetsToUpdate.includes('resource')
-        ? await prepareProtocolV2ResourceFiles({
-            hardwareSDK,
-            manifestUrl: params.pro2ResourceManifestUrl ?? '',
-            targetsToUpdate: params.targetsToUpdate,
-          })
-        : undefined;
+    const resourceFiles = params.targetsToUpdate.includes('resource')
+      ? await prepareProtocolV2ResourceFiles({
+          hardwareSDK,
+          archive: params.pro2ResourceArchive,
+          targetsToUpdate: params.targetsToUpdate,
+        })
+      : undefined;
 
     return this.withFirmwareUpdateEvents(async () => {
       await firmwareUpdateStepInfoAtom.set({

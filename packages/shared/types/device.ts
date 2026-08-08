@@ -118,6 +118,12 @@ export type IBleFirmwareUpdateInfo =
 export type IBootloaderUpdateInfo =
   IFirmwareUpdateInfoBase<IBootloaderReleasePayload>;
 
+export type IProtocolV2ResourceArchive = {
+  archiveUrl: string;
+  archiveSha256: string;
+  archiveSize: number;
+};
+
 export type ICheckAllFirmwareReleaseResult = {
   hasUpgrade: boolean | undefined;
   features: IOneKeyDeviceFeatures | undefined;
@@ -137,7 +143,7 @@ export type ICheckAllFirmwareReleaseResult = {
   };
   totalPhase: IDeviceFirmwareType[];
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
-  pro2ResourceManifestUrl?: string;
+  pro2ResourceArchive?: IProtocolV2ResourceArchive;
 };
 
 export const PRO2_FIRMWARE_UPDATE_TARGETS = [
@@ -146,7 +152,6 @@ export const PRO2_FIRMWARE_UPDATE_TARGETS = [
   'app_v2',
   'coprocessor',
   'resource',
-  'boot_resources',
   'se01',
   'se02',
   'se03',
@@ -457,7 +462,7 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareType: EFirmwareType | undefined;
   isPro2Device?: boolean;
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
-  pro2ResourceManifestUrl?: string;
+  pro2ResourceArchive?: IProtocolV2ResourceArchive;
 };
 
 export enum EHardwareCallContext {
