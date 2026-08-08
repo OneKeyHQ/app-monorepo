@@ -64,14 +64,11 @@ const getPreparedArtifactTraceSummary = (
     firmwareBytes: prepared.selected.firmware?.size,
     bleBytes: prepared.selected.ble?.size,
     bootloaderBytes: prepared.selected.bootloader?.size,
-    resourceCount:
-      resourceEntries.length + prepared.selected.resourceBundleArtifacts.length,
-    resourceBytes:
-      resourceEntries.reduce((total, entry) => total + entry.artifact.size, 0) +
-      prepared.selected.resourceBundleArtifacts.reduce(
-        (total, entry) => total + entry.artifact.size,
-        0,
-      ),
+    resourceCount: resourceEntries.length,
+    resourceBytes: resourceEntries.reduce(
+      (total, entry) => total + entry.artifact.size,
+      0,
+    ),
     integrityVerified:
       artifactReferences.length > 0 &&
       artifactReferences.every(
@@ -132,6 +129,20 @@ const assertFirmwareUpdatePlanCoverage = ({
       'Firmware update plan target coverage is incomplete',
     );
   }
+  const resourceArtifacts = plan.artifacts.filter(
+    (artifact) => artifact.target === 'resource',
+  );
+  if (
+    plan.executor === 'v4' &&
+    planTargets.has('resource') &&
+    (resourceArtifacts.length !== 1 ||
+      resourceArtifacts[0]?.role !== 'resourceBundle' ||
+      resourceArtifacts[0]?.container !== 'zip')
+  ) {
+    throw new OneKeyLocalError(
+      'Protocol V2 resource target requires exactly one ZIP archive artifact',
+    );
+  }
 
   const coversExpectedTarget = (
     expectedTarget: FirmwareUpdatePlanForceTarget,
@@ -177,9 +188,11 @@ export class FirmwarePreparedArtifactController {
 
   private hostBindings = new Map<string, IFirmwareHostBinding>();
 
-  constructor(
-    private readonly dependencies: IFirmwarePreparedArtifactControllerDependencies,
-  ) {}
+  private readonly dependencies: IFirmwarePreparedArtifactControllerDependencies;
+
+  constructor(dependencies: IFirmwarePreparedArtifactControllerDependencies) {
+    this.dependencies = dependencies;
+  }
 
   private async getExternalSdk(
     connectId: string | undefined,

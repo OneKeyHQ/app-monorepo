@@ -158,7 +158,6 @@ const createController = async ({
         selected: {
           ...(artifactId === 'firmware' ? { firmware: receipt } : {}),
           componentArtifacts: {},
-          resourceBundleArtifacts: [],
         },
         artifactReader: {
           open,

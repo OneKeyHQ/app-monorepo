@@ -93,7 +93,6 @@ import {
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
-import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 
 import type {
   IFirmwareArtifactSelfTestScenario,
@@ -1025,6 +1024,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
           ...(firmware?.hasUpgrade ? (['firmware'] as const) : []),
           ...(ble?.hasUpgrade ? (['ble'] as const) : []),
           ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
+          ...(pro2TargetsToUpdate?.includes('resource')
+            ? (['resource'] as const)
+            : []),
         ]),
       ],
     });
@@ -1910,7 +1912,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     updateFlow: 'v1' | 'v2';
     releaseResult: ICheckAllFirmwareReleaseResult;
   }) {
-    const workflowId = (this.updateWorkflowSequence += 1);
+    this.updateWorkflowSequence += 1;
+    const workflowId = this.updateWorkflowSequence;
     this.updateWorkflowTracking = {
       workflowId,
       acceptsTaskResults: true,
@@ -2015,7 +2018,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ) {
         return;
       }
-      const attempt = (tracking.attemptCount += 1);
+      tracking.attemptCount += 1;
+      const attempt = tracking.attemptCount;
       const err =
         error === undefined ? undefined : toPlainErrorObject(error as any);
       const hardwareTransportType = await this.getActiveTransportType();
@@ -2500,67 +2504,71 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await this.validateShouldUpdateBridge(params);
 
             await this.setFirmwareArtifactDownloadState(true);
-            await (
-              await this.getFirmwareUpdateRuntimeHost()
-            ).artifacts.withWorkflowArtifacts(
-              params.releaseResult,
-              async (firmwareArtifacts) => {
-                await this.setFirmwareArtifactDownloadState(false);
-                // ** clear all retry tasks
-                await this.updateTasksClear('startUpdateWorkflow');
+            try {
+              const runtimeHost = await this.getFirmwareUpdateRuntimeHost();
+              await runtimeHost.artifacts.withWorkflowArtifacts(
+                params.releaseResult,
+                async (firmwareArtifacts) => {
+                  await this.setFirmwareArtifactDownloadState(false);
+                  // ** clear all retry tasks
+                  await this.updateTasksClear('startUpdateWorkflow');
 
-                await this.cancelUpdateWorkflowIfExit();
+                  await this.cancelUpdateWorkflowIfExit();
 
-                const deviceType = params?.releaseResult?.deviceType;
-                if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
+                  const deviceType = params?.releaseResult?.deviceType;
+                  if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
+                    serviceHardwareUtils.hardwareLog(
+                      'startUpdateWorkflowV2: unsupported device type',
+                      {
+                        deviceType: deviceType ?? 'unknown',
+                        isProtocolV2Product:
+                          isProtocolV2ProductType(deviceType),
+                      },
+                    );
+                    throw new OneKeyLocalError(
+                      'Do not support update firmware for this device',
+                    );
+                  }
+                  const updateResult =
+                    await this.startUpdateFirmwareTaskForNewBootVersion(
+                      params,
+                      firmwareArtifacts,
+                    );
+                  console.log(
+                    'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
+                    updateResult,
+                  );
+
                   serviceHardwareUtils.hardwareLog(
-                    'startUpdateWorkflowV2: unsupported device type',
-                    {
-                      deviceType: deviceType ?? 'unknown',
-                      isProtocolV2Product: isProtocolV2ProductType(deviceType),
-                    },
-                  );
-                  throw new OneKeyLocalError(
-                    'Do not support update firmware for this device',
-                  );
-                }
-                const updateResult =
-                  await this.startUpdateFirmwareTaskForNewBootVersion(
-                    params,
-                    firmwareArtifacts,
-                  );
-                console.log(
-                  'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
-                  updateResult,
-                );
-
-                serviceHardwareUtils.hardwareLog(
-                  'startUpdateWorkflow DONE',
-                  params,
-                );
-
-                await firmwareUpdateRetryAtom.set(undefined);
-                if (params.releaseResult.originalConnectId) {
-                  await this.waitDeviceRestart({
-                    actionType: 'done',
-                    releaseResult: params.releaseResult,
-                  });
-                  await this.detectMap.deleteUpdateInfo({
-                    connectId: params.releaseResult.originalConnectId,
-                  });
-                  await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                    'startUpdateWorkflow DONE',
                     params,
                   );
-                  await this.clearOnceUpdateDevSettings();
-                  appEventBus.emit(
-                    EAppEventBusNames.FinishFirmwareUpdate,
-                    undefined,
-                  );
-                }
-                // wait verify
-                await timerUtils.wait(2000);
-              },
-            );
+
+                  await firmwareUpdateRetryAtom.set(undefined);
+                  if (params.releaseResult.originalConnectId) {
+                    await this.waitDeviceRestart({
+                      actionType: 'done',
+                      releaseResult: params.releaseResult,
+                    });
+                    await this.detectMap.deleteUpdateInfo({
+                      connectId: params.releaseResult.originalConnectId,
+                    });
+                    await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                      params,
+                    );
+                    await this.clearOnceUpdateDevSettings();
+                    appEventBus.emit(
+                      EAppEventBusNames.FinishFirmwareUpdate,
+                      undefined,
+                    );
+                  }
+                  // wait verify
+                  await timerUtils.wait(2000);
+                },
+              );
+            } finally {
+              await this.setFirmwareArtifactDownloadState(false);
+            }
           } finally {
             if (shouldClearForceTransportType) {
               // Always clear transport type lock when firmware update completes
@@ -2898,7 +2906,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           releaseResult,
         )
       : undefined;
-    const executor = plan?.executor ?? (isPro2Device ? 'v4' : 'v3');
+    if (isPro2Device && !plan) {
+      throw new OneKeyLocalError(
+        'Firmware update plan is required for Protocol V2 updates',
+      );
+    }
+    const executor = plan?.executor ?? 'v3';
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2914,29 +2927,26 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: updateInfos.firmware?.toFirmwareType,
       isPro2Device,
       pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
-      pro2ResourceArchive: releaseResult.pro2ResourceArchive,
     };
-    if (executor === 'v4') {
-      const targetsFromRelease = releaseResult.pro2TargetsToUpdate ?? [];
-      const targetCandidates = plan
-        ? [
-            ...plan.targetsToUpdate,
-            ...(targetsFromRelease.includes('resource')
-              ? (['resource'] as const)
-              : []),
-          ]
-        : targetsFromRelease;
+    if (plan?.executor === 'v4') {
       const targetsToUpdate = (
         await loadFirmwareUpdateRuntime()
-      ).getFirmwareUpdateV4Targets(targetCandidates);
+      ).getFirmwareUpdateV4Targets(plan.targetsToUpdate);
+      const releaseTargets = releaseResult.pro2TargetsToUpdate ?? [];
+      if (
+        releaseTargets.length !== targetsToUpdate.length ||
+        releaseTargets.some((target) => !targetsToUpdate.includes(target))
+      ) {
+        throw new OneKeyLocalError(
+          'Firmware update plan targets do not match the selected Protocol V2 targets',
+        );
+      }
       return this.createRunTaskWithRetry({
         fn: async () =>
           this.updatingFirmwareV4(
             {
               ...updateParams,
-              requirePreparedArtifacts: Boolean(
-                releaseResult.firmwareUpdatePlanDigest,
-              ),
+              requirePreparedArtifacts: true,
               targetsToUpdate,
             },
             firmwareArtifacts,
@@ -2974,18 +2984,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: params.connectId,
       hardwareTransportType: currentTransportType,
     });
-
-    let resourceFiles: Awaited<
-      ReturnType<typeof prepareProtocolV2ResourceFiles>
-    >;
-    if (params.targetsToUpdate.includes('resource')) {
-      await this.setFirmwareArtifactDownloadState(true);
-      resourceFiles = await prepareProtocolV2ResourceFiles({
-        hardwareSDK,
-        archive: params.pro2ResourceArchive,
-        targetsToUpdate: params.targetsToUpdate,
-      });
-    }
 
     return this.withFirmwareUpdateEvents(async () => {
       await firmwareUpdateStepInfoAtom.set({
@@ -3035,7 +3033,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           firmwareType: params.firmwareType,
           targetsToUpdate: params.targetsToUpdate,
           forcedUpdateRes: forceUpdateResEvenIfSameVersion,
-          resourceFiles,
         }),
       );
 

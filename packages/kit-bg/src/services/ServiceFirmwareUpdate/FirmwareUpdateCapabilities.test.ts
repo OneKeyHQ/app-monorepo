@@ -22,6 +22,7 @@ import { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactCo
 import {
   executePreparedFirmwareUpdateV2,
   executePreparedFirmwareUpdateV3,
+  executePreparedFirmwareUpdateV4,
 } from './FirmwarePreparedExecution';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
@@ -133,7 +134,6 @@ describe('prepared firmware execution', () => {
       },
       selected: {
         componentArtifacts: {},
-        resourceBundleArtifacts: [],
         ...selected,
       },
     }) as unknown as IPreparedFirmwareArtifacts;
@@ -322,6 +322,35 @@ describe('prepared firmware execution', () => {
       expect.stringContaining(
         '"artifacts":{"count":2,"bytes":10,"firmwareBytes":4,"resourceCount":1,"resourceBytes":6,"integrityVerified":true}',
       ),
+    );
+  });
+
+  test('preserves forced resource reinstall for prepared V4 execution', async () => {
+    const firmwareUpdateV4 = jest.fn();
+    const sdk = { firmwareUpdateV4 } as unknown as CoreApi;
+    const prepared = createPreparedArtifacts({});
+    prepared.plan.executor = 'v4';
+    prepared.plan.targetsToUpdate = ['resource'];
+
+    await executePreparedFirmwareUpdateV4({
+      sdk,
+      connectId: 'device',
+      preparedArtifacts: prepared,
+      hostBindingGeneration: 7,
+      platform: 'native',
+      firmwareType: EFirmwareType.Universal,
+      targetsToUpdate: ['resource'],
+      forcedUpdateRes: true,
+    });
+
+    expect(firmwareUpdateV4).toHaveBeenCalledWith(
+      'device',
+      expect.objectContaining({
+        preparedPlan: prepared.preparedPlan,
+        hostBindingGeneration: 7,
+        targetsToUpdate: ['resource'],
+        forcedUpdateRes: true,
+      }),
     );
   });
 
@@ -947,8 +976,8 @@ describe('external firmware artifact preparation', () => {
       platform: 'native',
       artifacts: [
         {
-          artifactId: 'resource',
-          role: 'resource',
+          artifactId: 'resource:archive',
+          role: 'resourceBundle',
           target: 'resource',
           url: 'https://firmware.example/resources.zip',
           container: 'zip',
@@ -1019,7 +1048,7 @@ describe('external firmware artifact preparation', () => {
       expect.objectContaining({
         artifacts: [
           expect.objectContaining({
-            artifactId: 'resource',
+            artifactId: 'resource:archive',
             materializedEntries: [
               {
                 entryName: 'resource.bin',

@@ -14,7 +14,6 @@ import type {
   CoreApi,
   FirmwareUpdatePreparedPlan,
   FirmwareUpdateV4Target,
-  ProtocolV2PreparedResourceFile,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
@@ -284,7 +283,6 @@ export const executePreparedFirmwareUpdateV4 = ({
   firmwareType,
   targetsToUpdate,
   forcedUpdateRes,
-  resourceFiles,
 }: {
   sdk: CoreApi;
   connectId: string | undefined;
@@ -292,15 +290,13 @@ export const executePreparedFirmwareUpdateV4 = ({
   firmwareType: EFirmwareType | undefined;
   targetsToUpdate: FirmwareUpdateV4Target[];
   forcedUpdateRes: boolean;
-  resourceFiles?: ProtocolV2PreparedResourceFile[];
 } & IFirmwareExecutionArtifacts) =>
   sdk.firmwareUpdateV4(connectId, {
     platform,
     firmwareType,
     targetsToUpdate,
     ...getBridgeFirmwareV4BinaryParams(bridgeBinaries),
-    ...(!preparedArtifacts ? { forcedUpdateRes } : {}),
-    ...(resourceFiles ? { resourceFiles } : {}),
+    forcedUpdateRes,
     ...(preparedArtifacts
       ? {
           preparedPlan: preparedArtifacts.preparedPlan,
@@ -321,8 +317,6 @@ export const executePreparedFirmwareUpdateV4 = ({
             ),
           ),
           componentArtifacts: preparedArtifacts.selected.componentArtifacts,
-          resourceBundleArtifacts:
-            preparedArtifacts.selected.resourceBundleArtifacts,
           hostBindingGeneration: requireHostBindingGeneration(
             preparedArtifacts,
             hostBindingGeneration,

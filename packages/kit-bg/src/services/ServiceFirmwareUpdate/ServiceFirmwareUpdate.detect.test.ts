@@ -23,7 +23,6 @@ import {
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
-import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
@@ -120,10 +119,6 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
   default: {
     hardwareLog: jest.fn(),
   },
-}));
-
-jest.mock('./protocolV2ResourceArchive', () => ({
-  prepareProtocolV2ResourceFiles: jest.fn(),
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
@@ -631,22 +626,11 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps an SDK-selected resource target on the incremental inventory path', async () => {
+  it('does not pass Protocol V2 resource binaries outside PreparedPlan', async () => {
     const firmwareUpdateV4 = jest.fn().mockResolvedValue({
       success: true,
       payload: {},
     });
-    const resourceFiles = [
-      {
-        binary: new Uint8Array([1]).buffer,
-        devicePath: 'vol0:/bundles/images/images.okpkg',
-        size: 1,
-        fileHash: 'a'.repeat(64),
-      },
-    ];
-    jest
-      .mocked(prepareProtocolV2ResourceFiles)
-      .mockResolvedValue(resourceFiles);
     const hardwareSDK = {
       firmwareUpdateV4,
       on: jest.fn(),
@@ -683,11 +667,6 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       firmwareType: undefined,
       isPro2Device: true,
       pro2TargetsToUpdate: ['resource'],
-      pro2ResourceArchive: {
-        archiveUrl: 'https://example.com/releases/pro2/resource.zip',
-        archiveSha256: 'a'.repeat(64),
-        archiveSize: 1024,
-      },
       requirePreparedArtifacts: false,
       targetsToUpdate: ['resource'],
     });
@@ -696,31 +675,13 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
     expect(firmwareUpdateV4.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         forcedUpdateRes: false,
-        resourceFiles,
         targetsToUpdate: ['resource'],
       }),
     );
-    expect(prepareProtocolV2ResourceFiles).toHaveBeenCalledWith({
-      hardwareSDK,
-      archive: {
-        archiveUrl: 'https://example.com/releases/pro2/resource.zip',
-        archiveSha256: 'a'.repeat(64),
-        archiveSize: 1024,
-      },
-      targetsToUpdate: ['resource'],
+    expect(firmwareUpdateStepInfoAtom.set).toHaveBeenCalledWith({
+      step: 'installing',
+      payload: { installingTarget: {} },
     });
-    expect(firmwareUpdateStepInfoAtom.set).toHaveBeenNthCalledWith(1, {
-      step: 'updateStart',
-      payload: {
-        startAtTime: 1,
-        isDownloadingArtifacts: true,
-      },
-    });
-    expect(
-      jest.mocked(firmwareUpdateStepInfoAtom.set).mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      jest.mocked(prepareProtocolV2ResourceFiles).mock.invocationCallOrder[0],
-    );
   });
 
   it('keeps the BLE peripheral ID when the active transport is desktop BLE', async () => {
@@ -1169,45 +1130,53 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(runtimeHost).not.toHaveBeenCalled();
   });
 
-  test('routes Protocol V2 devices without a Plan through the archive V4 path', async () => {
+  test('rejects a resource-only Protocol V2 update without PreparedPlan', async () => {
     const service = createService();
-    const updatingFirmwareV4 = jest
-      .spyOn(service, 'updatingFirmwareV4')
-      .mockResolvedValue({ message: 'ok' });
-    jest
-      .spyOn(service, 'createRunTaskWithRetry')
-      .mockImplementation(async ({ fn }) => fn({ id: 1 }));
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
 
-    await service.startUpdateFirmwareTaskForNewBootVersion({
-      backuped: true,
-      usbConnected: true,
-      releaseResult: {
-        deviceType: EDeviceType.Pro2,
-        pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
-        pro2ResourceArchive: {
-          archiveUrl: 'https://example.com/releases/pro2/resource.zip',
-          archiveSha256: 'a'.repeat(64),
-          archiveSize: 1024,
-        },
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
-    });
-
-    expect(updatingFirmwareV4).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requirePreparedArtifacts: false,
-        targetsToUpdate: ['boot', 'app_v1', 'resource'],
-        pro2ResourceArchive: {
-          archiveUrl: 'https://example.com/releases/pro2/resource.zip',
-          archiveSha256: 'a'.repeat(64),
-          archiveSize: 1024,
-        },
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['resource'],
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
       }),
-      undefined,
+    ).rejects.toThrow(
+      'Firmware update plan is required for Protocol V2 updates',
     );
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
   });
 
-  test('rejects invalid Protocol V2 targets even when no Plan exists', async () => {
+  test('rejects Protocol V2 component targets when no prepared Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
+    const createRunTaskWithRetry = jest.spyOn(
+      service,
+      'createRunTaskWithRetry',
+    );
+
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow(
+      'Firmware update plan is required for Protocol V2 updates',
+    );
+
+    expect(createRunTaskWithRetry).not.toHaveBeenCalled();
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
+  });
+
+  test('fails closed before inspecting Protocol V2 targets when no Plan exists', async () => {
     const service = createService();
     const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
     const createRunTaskWithRetry = jest.spyOn(
@@ -1226,7 +1195,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
         } as unknown as ICheckAllFirmwareReleaseResult,
       }),
     ).rejects.toThrow(
-      'Protocol V2 firmware update plan contains an invalid target',
+      'Firmware update plan is required for Protocol V2 updates',
     );
 
     expect(createRunTaskWithRetry).not.toHaveBeenCalled();
@@ -1237,7 +1206,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     const service = createService();
     const plan = {
       executor: 'v4',
-      targetsToUpdate: ['boot', 'app_v1'],
+      targetsToUpdate: ['boot', 'app_v1', 'resource'],
     };
     jest
       .spyOn(

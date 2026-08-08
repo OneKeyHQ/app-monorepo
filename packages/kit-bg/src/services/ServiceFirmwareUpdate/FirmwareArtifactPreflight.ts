@@ -113,10 +113,6 @@ export type IPreparedFirmwareArtifacts = {
         IFirmwareArtifactReference
       >
     >;
-    resourceBundleArtifacts: {
-      name: string;
-      artifact: IFirmwareArtifactReference;
-    }[];
   };
   artifactReader: IFirmwareArtifactReader;
 };
@@ -409,6 +405,37 @@ const getBridgeBinaryPlanArtifacts = (
   );
 };
 
+export const isFirmwareArtifactCapabilityReadyValue = (
+  capabilities: unknown,
+): boolean => {
+  if (
+    !capabilities ||
+    typeof capabilities !== 'object' ||
+    Array.isArray(capabilities)
+  ) {
+    return false;
+  }
+  const value = capabilities as Record<string, unknown>;
+  const routeTypes = value.supportedRouteTypes;
+  return (
+    value.firmwareArtifactProtocolVersion === 4 &&
+    value.maxReadBytes === MAX_READ_BYTES &&
+    value.supportsArchiveMaterialization === true &&
+    Array.isArray(routeTypes) &&
+    routeTypes.includes('domain')
+  );
+};
+
+export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
+  try {
+    return isFirmwareArtifactCapabilityReadyValue(
+      await firmwareArtifactAdapter.getCapabilities(),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
   requestedTransactionId?: string,
@@ -580,8 +607,9 @@ export async function prepareFirmwareArtifacts(
 
   const componentArtifacts: IPreparedFirmwareArtifacts['selected']['componentArtifacts'] =
     {};
-  const resourceBundleArtifacts: IPreparedFirmwareArtifacts['selected']['resourceBundleArtifacts'] =
-    [];
+  const resourceEntries: NonNullable<
+    IPreparedFirmwareArtifacts['selected']['resourceEntries']
+  > = [];
   for (const planArtifact of plan.artifacts) {
     const artifact = artifactsById[planArtifact.artifactId];
     if (!artifact) {
@@ -599,16 +627,13 @@ export async function prepareFirmwareArtifacts(
       }
       componentArtifacts[target] = artifact;
     }
-    if (planArtifact.role === 'resourceBundle') {
-      if (!planArtifact.logicalName) {
-        throw new OneKeyLocalError(
-          'Firmware resource bundle has no logical name',
-        );
-      }
-      resourceBundleArtifacts.push({
-        name: planArtifact.logicalName,
-        artifact,
-      });
+    if (
+      planArtifact.target === 'resource' &&
+      planArtifact.container === 'zip'
+    ) {
+      resourceEntries.push(
+        ...(resourceEntriesByArtifactId[planArtifact.artifactId] ?? []),
+      );
     }
   }
   const preparedPlan = preparePlan({
@@ -641,41 +666,9 @@ export async function prepareFirmwareArtifacts(
       firmware: artifactsById.firmware,
       ble: artifactsById.ble,
       bootloader: artifactsById.bootloader,
-      resourceEntries: resourceEntriesByArtifactId.resource,
+      resourceEntries: resourceEntries.length ? resourceEntries : undefined,
       componentArtifacts,
-      resourceBundleArtifacts,
     },
     artifactReader: createArtifactReader(),
   };
-}
-
-export const isFirmwareArtifactCapabilityReadyValue = (
-  capabilities: unknown,
-): boolean => {
-  if (
-    !capabilities ||
-    typeof capabilities !== 'object' ||
-    Array.isArray(capabilities)
-  ) {
-    return false;
-  }
-  const value = capabilities as Record<string, unknown>;
-  const routeTypes = value.supportedRouteTypes;
-  return (
-    value.firmwareArtifactProtocolVersion === 4 &&
-    value.maxReadBytes === MAX_READ_BYTES &&
-    value.supportsArchiveMaterialization === true &&
-    Array.isArray(routeTypes) &&
-    routeTypes.includes('domain')
-  );
-};
-
-export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
-  try {
-    return isFirmwareArtifactCapabilityReadyValue(
-      await firmwareArtifactAdapter.getCapabilities(),
-    );
-  } catch {
-    return false;
-  }
 }
