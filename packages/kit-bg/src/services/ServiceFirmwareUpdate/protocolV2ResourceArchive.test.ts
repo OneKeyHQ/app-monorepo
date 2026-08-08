@@ -20,9 +20,15 @@ function createResponse({
   ok?: boolean;
   status?: number;
 }) {
+  const contentLength = binary?.byteLength ?? 0;
   return {
     ok,
     status,
+    headers: {
+      get: jest.fn((name: string) =>
+        name === 'content-length' ? String(contentLength) : null,
+      ),
+    },
     arrayBuffer: jest.fn().mockResolvedValue(binary ?? new ArrayBuffer(0)),
   };
 }
@@ -78,7 +84,9 @@ describe('prepareProtocolV2ResourceFiles', () => {
       }),
     ).resolves.toEqual(prepared);
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(fetcher).toHaveBeenCalledWith(archiveUrl);
+    expect(fetcher).toHaveBeenCalledWith(archiveUrl, {
+      signal: expect.any(AbortSignal),
+    });
     expect(hardwareSDK.prepareProtocolV2ResourceFiles).toHaveBeenCalledWith({
       manifest,
       files: [
@@ -158,5 +166,107 @@ describe('prepareProtocolV2ResourceFiles', () => {
       }),
     ).rejects.toThrow('archive path');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects an oversized configured archive before downloading it', async () => {
+    const fetcher = jest.fn();
+
+    await expect(
+      prepareProtocolV2ResourceFiles({
+        hardwareSDK: { prepareProtocolV2ResourceFiles: jest.fn() },
+        archive: {
+          archiveUrl,
+          archiveSha256: 'a'.repeat(64),
+          archiveSize: 64 * 1024 * 1024 + 1,
+        },
+        targetsToUpdate: ['resource'],
+        fetcher,
+      }),
+    ).rejects.toThrow('Invalid Protocol V2 resource archive size');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  test('aborts a resource archive download after the deadline', async () => {
+    const fetcher = jest.fn<
+      Promise<never>,
+      [string, { signal?: AbortSignal }?]
+    >(() => new Promise<never>(() => undefined));
+
+    await expect(
+      prepareProtocolV2ResourceFiles({
+        hardwareSDK: { prepareProtocolV2ResourceFiles: jest.fn() },
+        archive: {
+          archiveUrl,
+          archiveSha256: 'a'.repeat(64),
+          archiveSize: 1,
+        },
+        targetsToUpdate: ['resource'],
+        fetcher,
+        downloadTimeoutMs: 1,
+      }),
+    ).rejects.toThrow('download timed out');
+    expect(fetcher.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  test('stops a streaming response before it exceeds the configured size', async () => {
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    const arrayBuffer = jest.fn();
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => ({
+          read: jest.fn().mockResolvedValue({
+            done: false,
+            value: new Uint8Array([1, 2]),
+          }),
+          cancel,
+        }),
+      },
+      arrayBuffer,
+    });
+
+    await expect(
+      prepareProtocolV2ResourceFiles({
+        hardwareSDK: { prepareProtocolV2ResourceFiles: jest.fn() },
+        archive: {
+          archiveUrl,
+          archiveSha256: 'a'.repeat(64),
+          archiveSize: 1,
+        },
+        targetsToUpdate: ['resource'],
+        fetcher,
+      }),
+    ).rejects.toThrow('archive size mismatch');
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  test('rejects an archive with too many entries before extracting resources', async () => {
+    const entries: Record<string, Uint8Array> = {
+      'manifest.json': strToU8(
+        JSON.stringify({
+          schema: 1,
+          files: [{ archive_path: 'bundles/images/images.okpkg' }],
+        }),
+      ),
+      'bundles/images/images.okpkg': new Uint8Array([1]),
+    };
+    for (let index = 0; index < 512; index += 1) {
+      entries[`unused/${index}.bin`] = new Uint8Array([index % 255]);
+    }
+    const archiveBinary = toArrayBuffer(zipSync(entries));
+    const fetcher = jest
+      .fn()
+      .mockResolvedValue(createResponse({ binary: archiveBinary }));
+
+    await expect(
+      prepareProtocolV2ResourceFiles({
+        hardwareSDK: { prepareProtocolV2ResourceFiles: jest.fn() },
+        archive: await createArchiveSource(archiveBinary),
+        targetsToUpdate: ['resource'],
+        fetcher,
+      }),
+    ).rejects.toThrow('contains too many files');
   });
 });

@@ -731,6 +731,10 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
 });
 
 describe('ServiceFirmwareUpdate legacy workflow running state', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('sets the background guard before entering hardware processing', async () => {
     jest.clearAllMocks();
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
@@ -758,6 +762,50 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
       jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
         .invocationCallOrder[0],
     ).toBeLessThan(withHardwareProcessing.mock.invocationCallOrder[0]);
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+  });
+
+  it('clears the background guard when transport initialization fails', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const withHardwareProcessing = jest.fn(
+      async (callback: () => Promise<void>) => callback(),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockRejectedValue(new Error('transport unavailable')),
+          clearForceTransportType,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.startUpdateWorkflow({
+        releaseResult: {
+          updateInfos: {},
+        },
+      } as never),
+    ).rejects.toThrow('transport unavailable');
+
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenNthCalledWith(
+      1,
+      true,
+    );
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(waitSpy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1107,6 +1155,32 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       }),
       undefined,
     );
+  });
+
+  test('rejects invalid Protocol V2 targets even when no Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
+    const createRunTaskWithRetry = jest.spyOn(
+      service,
+      'createRunTaskWithRetry',
+    );
+
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['app_v1', 'invalid-target'],
+          updateInfos: {},
+        } as unknown as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow(
+      'Protocol V2 firmware update plan contains an invalid target',
+    );
+
+    expect(createRunTaskWithRetry).not.toHaveBeenCalled();
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
   });
 
   test('requires App-prepared artifacts whenever the Pro2 Plan is present', async () => {
