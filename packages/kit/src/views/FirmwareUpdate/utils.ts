@@ -1,10 +1,23 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import type { IntlShape } from 'react-intl';
+
+export function getFirmwareUpdateDeviceTitle(
+  result: ICheckAllFirmwareReleaseResult,
+) {
+  if (result.deviceType && isProtocolV2ProductType(result.deviceType)) {
+    return (
+      deviceUtils.getDefaultDeviceLabel(result.deviceType) || result.deviceName
+    );
+  }
+
+  return result.deviceName;
+}
 
 export function isPro2SafeOSFirmwareUpdate(
   result: ICheckAllFirmwareReleaseResult | undefined,

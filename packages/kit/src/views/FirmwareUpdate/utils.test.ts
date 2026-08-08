@@ -1,8 +1,12 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
-import { isPro2SafeOSFirmwareUpdate } from './utils';
+import {
+  getFirmwareUpdateDeviceTitle,
+  isPro2SafeOSFirmwareUpdate,
+} from './utils';
 
 function buildResult({
   deviceType = EDeviceType.Pro2,
@@ -58,5 +62,28 @@ describe('isPro2SafeOSFirmwareUpdate', () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('getFirmwareUpdateDeviceTitle', () => {
+  it.each([
+    [EDeviceType.Pro2, 'OneKey Pro 2'],
+    [NEO_DEVICE_TYPE, 'OneKey Neo'],
+  ])('协议 V2 设备 %s 使用稳定型号作为标题', (deviceType, expected) => {
+    expect(
+      getFirmwareUpdateDeviceTitle({
+        deviceType,
+        deviceName: '用户自定义名称',
+      } as ICheckAllFirmwareReleaseResult),
+    ).toBe(expected);
+  });
+
+  it('旧设备继续沿用原有设备名称', () => {
+    expect(
+      getFirmwareUpdateDeviceTitle({
+        deviceType: EDeviceType.Touch,
+        deviceName: '用户自定义名称',
+      } as ICheckAllFirmwareReleaseResult),
+    ).toBe('用户自定义名称');
   });
 });
