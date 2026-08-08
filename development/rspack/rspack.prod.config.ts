@@ -27,17 +27,14 @@ const WEB_RETRY_CHUNK_LOAD_DELAY_CODE =
 interface IProdConfigOptions {
   platform: string;
   basePath: string;
-  dropConsole?: boolean;
 }
 
 export function createProductionConfig({
   platform,
   basePath,
-  dropConsole,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
-  const shouldDropConsole = dropConsole ?? false;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -70,9 +67,9 @@ export function createProductionConfig({
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
-              // Preserve dependency runtime logging; first-party console calls
-              // are stripped earlier by the scoped Babel rule.
-              drop_console: shouldDropConsole,
+              // web prod parity with babel-plugin-transform-remove-console.
+              // ext console output is preserved (guard is web-only).
+              drop_console: isWeb,
             },
             mangle: {
               keep_classnames: true,
@@ -83,16 +80,17 @@ export function createProductionConfig({
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: isWeb ? 153_600 : 102_400,
+        minSize: 102_400,
         maxSize: isWeb ? 614_400 : 4_194_304,
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,
-        maxInitialRequests: 20,
+        maxInitialRequests: isWeb ? 60 : 20,
         maxAsyncRequests: 50_000,
         // Vendor cache groups for long-term caching (web/desktop only).
-        // Extension compiler domains add their cache groups after this shared
-        // production config is merged.
+        // Extension uses its own code splitting via HtmlWebpackPlugin chunks,
+        // and named vendor chunks would NOT be included in ext HTML files,
+        // breaking the extension UI in production.
         cacheGroups: isExt
           ? {}
           : {
@@ -141,18 +139,6 @@ export function createProductionConfig({
                 name: 'vendor-crypto',
                 chunks: 'all' as const,
                 priority: 20,
-                reuseExistingChunk: true,
-              },
-              // These UI primitives sit below splitChunks.minSize, so once no
-              // initial module imports them they get re-inlined into every
-              // async chunk that uses them (dozens of copies). Pin them to one
-              // shared chunk; `enforce` bypasses the minSize floor.
-              sharedUiPrimitives: {
-                test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/]Select|content[\\/]DashText)[\\/]/,
-                name: 'shared-ui-primitives',
-                chunks: 'all' as const,
-                enforce: true,
-                priority: 25,
                 reuseExistingChunk: true,
               },
             },

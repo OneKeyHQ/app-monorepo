@@ -1,26 +1,25 @@
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
-import { merge } from 'webpack-merge';
+const { merge } = require('webpack-merge');
+const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 
-import { nodeEnv } from './constant';
-import { createBaseConfig } from './rspack.base.config';
-import { createDevelopmentConfig } from './rspack.development.config';
-import { createProductionConfig } from './rspack.prod.config';
+const babelTools = require('../babelTools');
 
-import type {
-  Compiler,
-  RspackOptions,
-  RspackPluginInstance,
-} from '@rspack/core';
+const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
+const analyzerConfig = require('./webpack.analyzer.config');
+const baseConfig = require('./webpack.base.config');
+const developmentConfig = require('./webpack.development.config');
+const productionConfig = require('./webpack.prod.config');
 
+// Plugin to generate metadata.json with SHA512 hashes of all output files
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 
-function copyRecursiveSync(src: string, dest: string): void {
+function copyRecursiveSync(src, dest) {
   const exists = fs.existsSync(src);
   const stats = exists && fs.statSync(src);
-  const isDirectory = exists && stats && stats.isDirectory();
+  const isDirectory = exists && stats.isDirectory();
   if (isDirectory) {
     fs.mkdirSync(dest, { recursive: true });
     fs.readdirSync(src).forEach((childItemName) => {
@@ -33,17 +32,12 @@ function copyRecursiveSync(src: string, dest: string): void {
     fs.copyFileSync(src, dest);
   }
 }
-
-class FileHashMetadataPlugin implements RspackPluginInstance {
-  apply(compiler: Compiler): void {
+class FileHashMetadataPlugin {
+  apply(compiler) {
     compiler.hooks.afterEmit.tapAsync(
       'FileHashMetadataPlugin',
       (compilation, callback) => {
         const outputPath = compilation.outputOptions.path;
-        if (!outputPath) {
-          callback();
-          return;
-        }
         const destStaticPath = path.join(outputPath, 'static');
         const srcStaticPath = path.join(outputPath, '..', 'public', 'static');
 
@@ -68,9 +62,9 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
           );
         }
 
-        const metadata: Record<string, string> = {};
+        const metadata = {};
 
-        const isIgnoreFile = (filePath: string): boolean => {
+        const isIgnoreFile = (filePath) => {
           return (
             filePath.endsWith('.DS_Store') ||
             filePath.endsWith('.js.LICENSE.txt') ||
@@ -78,10 +72,12 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
           );
         };
 
-        function hashFile(filePath: string, relativePath: string): void {
+        // Get all emitted assets
+        function hashFile(filePath, relativePath) {
           try {
             const stats = fs.statSync(filePath);
             if (stats.isFile()) {
+              // Skip .DS_Store files
               if (isIgnoreFile(filePath)) {
                 return;
               }
@@ -94,6 +90,7 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
             } else if (stats.isDirectory()) {
               const files = fs.readdirSync(filePath);
               files.forEach((file) => {
+                // Skip .DS_Store files
                 if (!isIgnoreFile(file)) {
                   const fullPath = path.join(filePath, file);
                   const relPath = path.join(relativePath, file);
@@ -102,21 +99,21 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
               });
             }
           } catch (error) {
-            console.warn(
-              `Failed to hash path ${filePath}:`,
-              (error as Error).message,
-            );
+            console.warn(`Failed to hash path ${filePath}:`, error.message);
           }
         }
 
+        // Hash all emitted assets first
         const assets = compilation.getAssets();
         assets.forEach((asset) => {
           const filePath = path.join(outputPath, asset.name);
           hashFile(filePath, asset.name);
         });
 
+        // Then recursively hash all files in output directory
         hashFile(outputPath, '');
 
+        // Write metadata.json
         const metadataPath = path.join(outputPath, 'metadata.json');
         fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
         callback();
@@ -125,19 +122,18 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
   }
 }
 
-interface IDesktopConfigOptions {
-  basePath: string;
-  platform?: string;
-}
-
-export function createDesktopConfig({
+module.exports = ({
   basePath,
-  platform = 'desktop',
-}: IDesktopConfigOptions): RspackOptions {
-  const baseConfig = createBaseConfig({ platform, basePath });
+  platform = babelTools.developmentConsts.platforms.desktop,
+}) => {
+  const configs = ENABLE_ANALYZER
+    ? [analyzerConfig({ configName: platform })]
+    : [];
 
-  const commonDesktopConfig: RspackOptions = {
+  // Renderer process externals - only exclude packages that shouldn't be bundled
+  const commonDesktopConfig = {
     externals: {
+      // Exclude the entire BLE transport package to prevent Node.js modules from leaking to renderer
       '@onekeyfe/hd-transport-electron':
         'commonjs @onekeyfe/hd-transport-electron',
       '@stoprocent/noble': 'commonjs @stoprocent/noble',
@@ -146,26 +142,30 @@ export function createDesktopConfig({
     },
   };
 
-  switch (nodeEnv) {
-    case 'production':
+  switch (NODE_ENV) {
+    case 'production': {
       return merge(
-        baseConfig,
-        createProductionConfig({ platform, basePath }),
+        baseConfig({ platform, basePath }),
+        productionConfig({ platform, basePath }),
+        ...configs,
         commonDesktopConfig,
         {
           output: {
             crossOriginLoading: 'anonymous',
           },
           plugins: [
+            new SubresourceIntegrityPlugin(),
             BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
           ].filter(Boolean),
         },
       );
+    }
     case 'development':
-    default:
+    default: {
       return merge(
-        baseConfig,
-        createDevelopmentConfig({ basePath }),
+        baseConfig({ platform, basePath }),
+        developmentConfig({ platform, basePath }),
+        ...configs,
         commonDesktopConfig,
         {
           devtool: 'cheap-module-source-map',
@@ -174,7 +174,6 @@ export function createDesktopConfig({
           },
         },
       );
+    }
   }
-}
-
-export default createDesktopConfig;
+};

@@ -54,6 +54,7 @@ import type {
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
+  allowDuringFirmwareUpdate?: boolean;
   hideCheckingDeviceLoading?: boolean;
   skipDeviceCancel?: boolean; // cancel device at end
   skipCloseHardwareUiStateDialog?: boolean; // close state dialog at end
@@ -82,6 +83,8 @@ export type ICloseHardwareUiStateDialogParams = {
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
   private deviceCacheByConnectId: Map<string, IDBDevice> = new Map();
+
+  private firmwareUpdateExclusiveDepth = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -520,16 +523,43 @@ class ServiceHardwareUI extends ServiceBase {
     if (isThirdPartyVendor) {
       return this.withHardwareProcessingInternal(() => fn(undefined), params);
     }
+    if (
+      !params.allowDuringFirmwareUpdate &&
+      (this.firmwareUpdateExclusiveDepth > 0 ||
+        (await firmwareUpdateWorkflowRunningAtom.get()))
+    ) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_hardware_is_busy,
+        }),
+        autoToast: false,
+      });
+    }
+    const tracksFirmwareUpdateExclusivity = Boolean(
+      params.allowDuringFirmwareUpdate,
+    );
+    if (tracksFirmwareUpdateExclusivity) {
+      this.firmwareUpdateExclusiveDepth += 1;
+    }
     // Keep operation-level serialization during the mixed-SDK rollout and for
     // shared lifecycle work outside the correlated PIN/passphrase response path.
-    return this.runExclusiveOneKeyOperation(
-      (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
-      {
-        deviceKey:
-          device?.id || device?.deviceId || device?.uuid || device?.connectId,
-        lease: params.oneKeyOperationLease,
-      },
-    );
+    try {
+      return await this.runExclusiveOneKeyOperation(
+        (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
+        {
+          deviceKey:
+            device?.id || device?.deviceId || device?.uuid || device?.connectId,
+          lease: params.oneKeyOperationLease,
+        },
+      );
+    } finally {
+      if (tracksFirmwareUpdateExclusivity) {
+        this.firmwareUpdateExclusiveDepth = Math.max(
+          this.firmwareUpdateExclusiveDepth - 1,
+          0,
+        );
+      }
+    }
   }
 
   runExclusiveOneKeyOperation<T>(
@@ -543,6 +573,26 @@ class ServiceHardwareUI extends ServiceBase {
     } = {},
   ) {
     return this.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      deviceKey,
+      lease,
+      operation,
+    });
+  }
+
+  async tryRunExclusiveOneKeyOperation<T>(
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>,
+    {
+      deviceKey,
+      lease,
+    }: {
+      deviceKey?: string;
+      lease?: IOneKeyHardwareOperationLease;
+    } = {},
+  ) {
+    if (await this.isHardwareChannelBusy()) {
+      return { acquired: false } as const;
+    }
+    return this.hardwareProcessingManager.tryRunExclusiveOneKeyOperation({
       deviceKey,
       lease,
       operation,

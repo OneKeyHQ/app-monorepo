@@ -3,6 +3,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   type ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
@@ -142,6 +143,149 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       expect(getCompatibleConnectId).not.toHaveBeenCalled();
     },
   );
+
+  it('skips OneKey update detection while the hardware channel is busy', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const tryRunExclusiveOneKeyOperation = jest
+      .fn()
+      .mockResolvedValue({ acquired: false });
+    const getCompatibleConnectId = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      }),
+    ).resolves.toEqual({
+      status: 'busy',
+      retryAfterMs: 5000,
+    });
+
+    expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
+      expect.any(Function),
+      { deviceKey: 'db-device-1' },
+    );
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('returns the remaining throttle delay after the hardware channel becomes idle', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const getCompatibleConnectId = jest.fn();
+    const tryRunExclusiveOneKeyOperation = jest.fn(
+      async (operation: () => Promise<unknown>) => ({
+        acquired: true as const,
+        result: await operation(),
+      }),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.detectActiveAccountFirmwareUpdates({
+      connectId: 'ONEKEY_BLE_ID',
+    });
+
+    expect(result.status).toBe('throttled');
+    if (result.status === 'throttled') {
+      expect(result.retryAfterMs).toBeGreaterThan(0);
+      expect(result.retryAfterMs).toBeLessThanOrEqual(60_000);
+    }
+    expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
+      expect.any(Function),
+      { deviceKey: 'db-device-1' },
+    );
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('runs OneKey SDK detection only while holding the hardware lease', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    let leaseActive = false;
+    const getCompatibleConnectId = jest.fn(async () => {
+      expect(leaseActive).toBe(true);
+      return 'ONEKEY_COMPATIBLE_ID';
+    });
+    const tryRunExclusiveOneKeyOperation = jest.fn(
+      async (operation: () => Promise<unknown>) => {
+        leaseActive = true;
+        try {
+          return {
+            acquired: true as const,
+            result: await operation(),
+          };
+        } finally {
+          leaseActive = false;
+        }
+      },
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.detectMap.firstDetectAt =
+      Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
+    jest
+      .spyOn(service, 'checkDeviceIsBootloaderMode')
+      .mockImplementation(async () => {
+        expect(leaseActive).toBe(true);
+        return {
+          isBootloaderMode: false,
+          features: undefined,
+          error: undefined,
+        };
+      });
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      }),
+    ).resolves.toEqual({ status: 'finished' });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      connectId: 'ONEKEY_BLE_ID',
+    });
+    expect(leaseActive).toBe(false);
+  });
 });
 
 describe('buildPro2TargetsToUpdate', () => {

@@ -119,6 +119,19 @@ export type IStartUpdateWorkflowV2Result = {
   backgroundTaskStarted: true;
 };
 
+export type IDetectActiveAccountFirmwareUpdatesResult =
+  | {
+      status: 'busy' | 'throttled';
+      retryAfterMs: number;
+    }
+  | {
+      status: 'finished' | 'skipped';
+    };
+
+const FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 5,
+});
+
 const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v1',
   'app_v2',
@@ -362,59 +375,88 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId,
   }: {
     connectId: string;
-  }) {
+  }): Promise<IDetectActiveAccountFirmwareUpdatesResult> {
     // detect certain account device firmware update, so connectId is required
     if (!connectId) {
-      return;
+      return { status: 'skipped' };
     }
     const dbDevice = await localDb.getDeviceByQuery({ connectId });
     const vendorProfile = dbDevice?.vendor
       ? getVendorProfile(dbDevice.vendor)
       : undefined;
     if (vendorProfile?.isThirdParty) {
-      return;
+      return { status: 'skipped' };
     }
-    const showBootloaderUpdateModal = () => {
-      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, {
-        connectId,
-      });
-    };
-    if (!this.detectMap.shouldDetect({ connectId })) {
-      return;
+    const exclusiveResult =
+      await this.backgroundApi.serviceHardwareUI.tryRunExclusiveOneKeyOperation(
+        async (): Promise<IDetectActiveAccountFirmwareUpdatesResult> => {
+          const showBootloaderUpdateModal = () => {
+            appEventBus.emit(
+              EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+              {
+                connectId,
+              },
+            );
+          };
+          if (!this.detectMap.shouldDetect({ connectId })) {
+            return {
+              status: 'throttled',
+              retryAfterMs: Math.max(
+                1,
+                this.detectMap.getNextDetectDelay({ connectId }),
+              ),
+            };
+          }
+          this.detectMap.updateLastDetectAt({
+            connectId,
+          });
+
+          const compatibleConnectId =
+            await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+              hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+              connectId,
+            });
+
+          const { isBootloaderMode, features, error } =
+            await this.checkDeviceIsBootloaderMode({
+              connectId: compatibleConnectId || connectId,
+            });
+
+          serviceHardwareUtils.hardwareLog(
+            'checkFirmwareUpdateStatus',
+            features,
+          );
+
+          if (error) {
+            if (
+              isHardwareErrorByCode({
+                error,
+                code: [HardwareErrorCode.DeviceNotFound],
+              })
+            ) {
+              // ignore
+              return { status: 'finished' };
+            }
+            throw error;
+          }
+
+          if (isBootloaderMode) {
+            showBootloaderUpdateModal();
+          }
+          return { status: 'finished' };
+        },
+        {
+          deviceKey:
+            dbDevice?.id || dbDevice?.deviceId || dbDevice?.uuid || connectId,
+        },
+      );
+    if (!exclusiveResult.acquired) {
+      return {
+        status: 'busy',
+        retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
+      };
     }
-    this.detectMap.updateLastDetectAt({
-      connectId,
-    });
-
-    const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-        connectId,
-      });
-
-    const { isBootloaderMode, features, error } =
-      await this.checkDeviceIsBootloaderMode({
-        connectId: compatibleConnectId || connectId,
-      });
-
-    serviceHardwareUtils.hardwareLog('checkFirmwareUpdateStatus', features);
-
-    if (error) {
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [HardwareErrorCode.DeviceNotFound],
-        })
-      ) {
-        // ignore
-        return;
-      }
-      throw error;
-    }
-
-    if (isBootloaderMode) {
-      showBootloaderUpdateModal();
-    }
+    return exclusiveResult.result;
   }
 
   private _checkCacheMeetExpectations({
@@ -1923,6 +1965,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         deviceParams: {
           dbDevice: dbDevice || ({} as any),
         },
+        allowDuringFirmwareUpdate: true,
         skipDeviceCancel: true,
         hideCheckingDeviceLoading: true,
         debugMethodName: 'startUpdateWorkflow',
@@ -2134,6 +2177,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           deviceParams: {
             dbDevice: {} as any,
           },
+          allowDuringFirmwareUpdate: true,
           skipDeviceCancel: true,
           hideCheckingDeviceLoading: true,
           debugMethodName: 'startUpdateWorkflowV2',

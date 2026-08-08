@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/hd-core/__tests__/protocol-v2.test.ts b/node_modules/@onekeyfe/hd-core/__tests__/protocol-v2.test.ts
-index 998e089..e40af1f 100644
+index b969984..42a6aec 100644
 --- a/node_modules/@onekeyfe/hd-core/__tests__/protocol-v2.test.ts
 +++ b/node_modules/@onekeyfe/hd-core/__tests__/protocol-v2.test.ts
-@@ -225,2 +225,13 @@ describe('DeviceUploadWallpaper', () => {
+@@ -228,2 +228,15 @@ describe('DeviceUploadWallpaper', () => {
  describe('UploadPortfolio', () => {
 +  const portfolioProtocolInfo = {
 +    version: 2,
@@ -12,31 +12,35 @@ index 998e089..e40af1f 100644
 +  const stubPortfolioDevice = <T extends Record<string, any>>(device: T) =>
 +    stubDevice({
 +      ...device,
-+      ensureProtocolV2RuntimeContext: jest.fn().mockResolvedValue(portfolioProtocolInfo),
++      ensureProtocolV2RuntimeContext: jest
++        .fn()
++        .mockResolvedValue(portfolioProtocolInfo),
 +    });
 +
    test('writes and applies the portfolio while the device is locked without unlocking', async () => {
-@@ -232,3 +243,3 @@ describe('UploadPortfolio', () => {
+@@ -235,3 +248,3 @@ describe('UploadPortfolio', () => {
      const unlockDevice = jest.fn().mockResolvedValue(undefined);
 -    const device = stubDevice({
 +    const device = stubPortfolioDevice({
        features: { unlocked: false },
-@@ -274,3 +285,3 @@ describe('UploadPortfolio', () => {
+@@ -280,3 +293,3 @@ describe('UploadPortfolio', () => {
      });
 -    (method as any).device = stubDevice({ commands: { typedCall } });
 +    (method as any).device = stubPortfolioDevice({ commands: { typedCall } });
      method.postMessage = jest.fn();
-@@ -319,3 +330,3 @@ describe('UploadPortfolio', () => {
+@@ -328,4 +341,3 @@ describe('UploadPortfolio', () => {
      });
 -    (method as any).device = stubDevice({ commands: { typedCall } });
+-
 +    (method as any).device = stubPortfolioDevice({ commands: { typedCall } });
- 
-@@ -342,3 +353,3 @@ describe('UploadPortfolio', () => {
+     method.init();
+@@ -351,4 +363,3 @@ describe('UploadPortfolio', () => {
      method.abortSignal = abortController.signal;
 -    (method as any).device = stubDevice({ commands: { typedCall } });
+-
 +    (method as any).device = stubPortfolioDevice({ commands: { typedCall } });
- 
-@@ -352,2 +363,27 @@ describe('UploadPortfolio', () => {
+     method.init();
+@@ -361,2 +372,27 @@ describe('UploadPortfolio', () => {
    });
 +
 +  test('rejects unsupported firmware before staging the package', async () => {
@@ -65,15 +69,15 @@ index 998e089..e40af1f 100644
 +  });
  });
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
-index 062a987..e1e4e81 100644
+index 8daffd0..51e26b8 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.js
-@@ -51248,2 +51248,4 @@ const PORTFOLIO_PENDING_PATH = 'vol1:/portfolio/portfolio.okpkg.pending';
+@@ -51317,2 +51317,4 @@ const PORTFOLIO_PENDING_PATH = 'vol1:/portfolio/portfolio.okpkg.pending';
  const PORTFOLIO_CHUNK_SIZE = 2048;
 +const FILESYSTEM_FILE_WRITE_MESSAGE_TYPE$1 = 60805;
 +const PORTFOLIO_UPDATE_MESSAGE_TYPE = 61400;
  class UploadPortfolio extends FileWrite {
-@@ -51261,2 +51263,8 @@ class UploadPortfolio extends FileWrite {
+@@ -51330,2 +51332,8 @@ class UploadPortfolio extends FileWrite {
          return __awaiter(this, void 0, void 0, function* () {
 +            const protocolInfo = yield this.device.ensureProtocolV2RuntimeContext();
 +            const hasFileWrite = supportsProtocolV2Message(protocolInfo, FILESYSTEM_FILE_WRITE_MESSAGE_TYPE$1);
@@ -83,7 +87,7 @@ index 062a987..e1e4e81 100644
 +            }
              const stagedFile = yield _super.run.call(this);
 diff --git a/node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts b/node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts
-index 59db739..35f374d 100644
+index 59db739..f0da1ce 100644
 --- a/node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts
 +++ b/node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts
 @@ -1 +1,4 @@
@@ -91,12 +95,13 @@ index 59db739..35f374d 100644
 +
 +import { supportsProtocolV2Message } from '../protocols/protocol-v2/features';
  import FileWrite from './FileWrite';
-@@ -9,2 +12,4 @@ const PORTFOLIO_PENDING_PATH = 'vol1:/portfolio/portfolio.okpkg.pending';
+@@ -9,3 +12,4 @@ const PORTFOLIO_PENDING_PATH = 'vol1:/portfolio/portfolio.okpkg.pending';
  const PORTFOLIO_CHUNK_SIZE = 2048;
+-
 +const FILESYSTEM_FILE_WRITE_MESSAGE_TYPE = 60805;
 +const PORTFOLIO_UPDATE_MESSAGE_TYPE = 61400;
- 
-@@ -31,2 +36,19 @@ export default class UploadPortfolio extends FileWrite {
+ export default class UploadPortfolio extends FileWrite {
+@@ -31,2 +35,19 @@ export default class UploadPortfolio extends FileWrite {
    async run() {
 +    // OneKey patch: reject unsupported firmware before staging a package that cannot be applied.
 +    const protocolInfo = await this.device.ensureProtocolV2RuntimeContext();
