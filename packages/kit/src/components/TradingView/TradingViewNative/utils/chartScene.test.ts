@@ -7,6 +7,7 @@ import {
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
 } from '../chartConstants';
 
+import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
 import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
@@ -127,6 +128,59 @@ describe('TradingViewNative shared chart scene', () => {
       'rect',
       'watermark',
     ]);
+  });
+
+  it('renders active overlays and includes Bollinger bands in auto scale', () => {
+    const indicatorPoints = Array.from({ length: 25 }, (_, index) => {
+      const close = index < 10 ? 0 : 100;
+      return {
+        c: close,
+        h: close + 1,
+        l: close - 1,
+        o: close,
+        t: 1_700_000_000 + index * 3600,
+        v: 10,
+      };
+    });
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['MA', 'EMA', 'BOLL', 'SAR']),
+      points: indicatorPoints,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      points: indicatorPoints,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const indicatorPaints = scene.commands.flatMap((command) =>
+      'paint' in command && command.paint.startsWith('indicator')
+        ? [command.paint]
+        : [],
+    );
+    const priceAxisText = scene.commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'priceAxis'
+        ? [command.text]
+        : [],
+    );
+
+    expect(indicatorPaints).toEqual(
+      expect.arrayContaining([
+        'indicatorOrangeStroke',
+        'indicatorPinkStroke',
+        'indicatorCyanStroke',
+        'indicatorDarkOrangeStroke',
+        'indicatorSarPoint',
+      ]),
+    );
+    expect(priceAxisText).toContain('-50.00');
+    expect(Math.max(...priceAxisText.map(Number))).toBeGreaterThan(101);
   });
 
   it('uses the previous close for the selected bar change', () => {

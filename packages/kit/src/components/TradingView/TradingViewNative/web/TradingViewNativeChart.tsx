@@ -25,6 +25,10 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
 import {
+  type ITradingViewNativeIndicatorSeries,
+  getTradingViewNativeIndicatorPriceAxisLabel,
+} from '../utils/chartIndicators';
+import {
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativePriceAxisLabel,
@@ -74,6 +78,7 @@ interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -99,6 +104,7 @@ interface IDrawKLineChartOptions {
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
   runtimeState: ITradingViewNativeChartRuntimeState;
@@ -108,6 +114,7 @@ interface IDrawKLineChartOptions {
 
 interface ICanvasPriceAxisLabels {
   currentPrice: string;
+  widestIndicatorPrice: string;
   widestPrice: string;
   widestVolume: string;
 }
@@ -133,7 +140,10 @@ function getCanvasPriceAxisWidth(
   context.font = getCanvasFont('priceAxis');
   return getTradingViewNativePriceAxisWidth({
     currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
-    widestPriceLabelWidth: context.measureText(labels.widestPrice).width,
+    widestPriceLabelWidth: Math.max(
+      context.measureText(labels.widestPrice).width,
+      context.measureText(labels.widestIndicatorPrice).width,
+    ),
     widestVolumeLabelWidth: context.measureText(labels.widestVolume).width,
   });
 }
@@ -273,6 +283,7 @@ function drawKLineChart({
   chartType,
   colors,
   hasVolume,
+  indicatorSeries,
   points,
   priceAxisWidth,
   runtimeState,
@@ -304,6 +315,7 @@ function drawKLineChart({
     crosshair: runtimeState.crosshair,
     hasVolume,
     height,
+    indicatorSeries,
     measureTextWidth: (text, font) => {
       context.font = getCanvasFont(font);
       return context.measureText(text).width;
@@ -327,6 +339,7 @@ export const TradingViewNativeChart = memo(
     candleIntervalSeconds,
     chartType,
     hasVolume,
+    indicatorSeries,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -360,10 +373,12 @@ export const TradingViewNativeChart = memo(
     const priceAxisLabels = useMemo(
       () => ({
         currentPrice: getTradingViewNativeCurrentPriceLabel(points),
+        widestIndicatorPrice:
+          getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
         widestPrice: getTradingViewNativePriceAxisLabel(points),
         widestVolume: getTradingViewNativeVolumeAxisLabel(points),
       }),
-      [points],
+      [indicatorSeries, points],
     );
     const previousLatestTimestampRef = useRef<number | undefined>(
       points[pointCount - 1]?.t,
@@ -440,6 +455,7 @@ export const TradingViewNativeChart = memo(
             up: CHART_UP_COLOR,
           },
           hasVolume,
+          indicatorSeries,
           points,
           priceAxisWidth,
           runtimeState: nextRuntimeState,
@@ -454,6 +470,7 @@ export const TradingViewNativeChart = memo(
         chartType,
         grid,
         hasVolume,
+        indicatorSeries,
         line,
         points,
         priceAxisLabels,
