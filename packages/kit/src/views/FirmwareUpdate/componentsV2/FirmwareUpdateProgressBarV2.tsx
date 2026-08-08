@@ -425,9 +425,18 @@ export function FirmwareUpdateProgressBarV2({
   }, [isDone]);
 
   useEffect(() => {
+    if (stepInfo.step !== EFirmwareUpdateSteps.updateStart) {
+      return;
+    }
+    if (stepInfo.payload.isDownloadingArtifacts) {
+      updateProgressRef.current(
+        EFirmwareUpdateTipMessages.StartDownloadFirmware,
+      );
+      return;
+    }
     updateProgressRef.current('checking');
     setDesc(defaultDesc());
-  }, [defaultDesc]);
+  }, [defaultDesc, stepInfo]);
 
   const installProgressList = useRef<string[]>([]);
   useEffect(() => {

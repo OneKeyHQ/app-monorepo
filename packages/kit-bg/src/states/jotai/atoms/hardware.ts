@@ -109,6 +109,7 @@ export type IFirmwareUpdateStepInfo =
       step: EFirmwareUpdateSteps.updateStart;
       payload: {
         startAtTime: number;
+        isDownloadingArtifacts?: boolean;
       };
     }
   | {

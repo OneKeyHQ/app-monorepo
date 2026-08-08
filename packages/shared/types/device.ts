@@ -124,6 +124,7 @@ export type ICheckAllFirmwareReleaseResult = {
   isBootloaderMode: boolean;
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
+  firmwareUpdatePlanDigest?: string;
   deviceName: string | undefined;
   deviceBleName: string | undefined;
   updatingConnectId: string | undefined;

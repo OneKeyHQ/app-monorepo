@@ -317,6 +317,17 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getFirmwareUpdateDevSettingsSnapshot(): Promise<
+    IFirmwareUpdateDevSettings | undefined
+  > {
+    const dev = await devSettingsPersistAtom.get();
+    if (!dev.enabled) {
+      return undefined;
+    }
+    return firmwareUpdateDevSettingsPersistAtom.get();
+  }
+
+  @backgroundMethod()
   public async updateFirmwareUpdateDevSettings(
     values: Partial<IFirmwareUpdateDevSettings>,
   ) {
