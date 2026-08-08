@@ -21,14 +21,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import {
-  EModalFirmwareUpdateRoutes,
-  EModalRoutes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 interface IErrorActionParams {
   errorCode?: number | string;
@@ -162,19 +160,16 @@ function NeedFirmwareUpgradeFromWebButton() {
 // (getCompatibleConnectId returns '' for UPDATE_FIRMWARE without a connectId).
 function CheckFirmwareUpdateButton({ connectId }: { connectId?: string }) {
   const intl = useIntl();
+  // Platform-aware entry: moves extension popup/side-panel to an expanded tab
+  // and checks device reachability before pushing the change-log modal.
+  const firmwareUpdateActions = useFirmwareUpdateActions();
 
   return (
     <Button
       testID="error-toast-check-firmware-update-btn"
       size="small"
       onPress={() => {
-        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-          screen: EModalRoutes.FirmwareUpdateModal,
-          params: {
-            screen: EModalFirmwareUpdateRoutes.ChangeLog,
-            params: { connectId, firmwareType: undefined },
-          },
-        });
+        void firmwareUpdateActions.openChangeLogModal({ connectId });
       }}
     >
       {intl.formatMessage({ id: ETranslations.global_check_for_updates })}
