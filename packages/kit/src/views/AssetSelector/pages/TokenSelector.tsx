@@ -46,7 +46,10 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { extractCrossNetworkSearchQuery } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import {
+  extractCrossNetworkSearchQuery,
+  tokenizeTokenSearchKeywords,
+} from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
@@ -451,6 +454,13 @@ function TokenSelector() {
     !isSelectorAllNetworks &&
     !network.isCustomNetwork &&
     !showLpTokensOnly;
+  // All-Networks twin of the cross-network case: the backend still matches the
+  // keyword string as a whole, so a combined query ("usdt trc20") sent to
+  // onekeyall verbatim returns nothing. Same stripping applies; only the
+  // fallback networkId differs (already onekeyall). LP filter excluded — its
+  // backend results are network-scoped by design.
+  const allNetworksCrossSearchEnabled =
+    !!searchAll && isSelectorAllNetworks && !showLpTokensOnly;
   // Others (imported / watch-only / external) accounts hold one credential on
   // one impl, so cross-network results must be narrowed to the networks that
   // credential can actually derive an address on. HD/HW accounts are unfiltered
@@ -1096,15 +1106,21 @@ function TokenSelector() {
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
+      // Part of the request identity: the gates flip when `network` resolves
+      // or the LP filter toggles, and two runs would otherwise share a context
+      // — letting the earlier (differently scoped) response pass isLatest()
+      // and overwrite the newer one if it lands after the abort.
+      let searchScopeMode = 'scoped';
+      if (crossNetworkSearchEnabled) {
+        searchScopeMode = 'cross';
+      } else if (allNetworksCrossSearchEnabled) {
+        searchScopeMode = 'all-cross';
+      }
       const requestContext = [
         accountId ?? '',
         networkId ?? '',
         tokenSelectorSearchFilterContext,
-        // Part of the identity: the gate flips when `network` resolves, and the
-        // two runs would otherwise share a context — letting the earlier
-        // (differently scoped) response pass isLatest() and overwrite the newer
-        // one if it lands after the abort.
-        crossNetworkSearchEnabled ? 'cross' : 'scoped',
+        searchScopeMode,
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
@@ -1125,27 +1141,41 @@ function TokenSelector() {
       let searchFailed = false;
       try {
         // Cross-network search: the backend matches the keyword string as a
-        // whole, so combined queries ("usdt trx") first strip an exact network
-        // keyword and scope the request to that network; otherwise query the
-        // backend across all networks (the onekeyall response is a superset of
-        // the scoped one). Results are grouped by network locally.
+        // whole, so combined queries ("usdt trx", "usdt-trc20") first strip an
+        // exact network keyword and scope the request to that network;
+        // otherwise query the backend across all networks (the onekeyall
+        // response is a superset of the scoped one). Results are grouped by
+        // network locally.
+        // Separator-free strings of address-like length skip stripping
+        // entirely: a pasted contract address must reach the backend verbatim.
         // The network catalog is only needed for multi-word queries, so it is
         // fetched here rather than on mount (getAllNetworks is memoized in the
         // background service).
-        const crossNetworkQuery =
-          crossNetworkSearchEnabled && /\s/.test(keywords.trim())
-            ? extractCrossNetworkSearchQuery({
-                keywords,
-                networks: (
-                  await backgroundApiProxy.serviceNetwork.getAllNetworks()
-                ).networks,
-              })
-            : undefined;
+        const trimmedKeywords = keywords.trim();
+        const isAddressLikeKeywords =
+          trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
+        const keywordStrippingEnabled =
+          (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
+          !isAddressLikeKeywords &&
+          tokenizeTokenSearchKeywords(trimmedKeywords).length >= 2;
+        const crossNetworkQuery = keywordStrippingEnabled
+          ? extractCrossNetworkSearchQuery({
+              keywords,
+              networks: (
+                await backgroundApiProxy.serviceNetwork.getAllNetworks()
+              ).networks,
+            })
+          : undefined;
+        // Stripping success scopes to the named network in either mode. On
+        // failure, single-network cross mode widens to onekeyall (status quo),
+        // while all-networks mode keeps its own networkId (already onekeyall).
         let result = await backgroundApiProxy.serviceToken.searchTokens({
           accountId,
-          networkId: crossNetworkSearchEnabled
-            ? (crossNetworkQuery?.networkId ?? getNetworkIdsMap().onekeyall)
-            : networkId,
+          networkId:
+            crossNetworkQuery?.networkId ??
+            (crossNetworkSearchEnabled
+              ? getNetworkIdsMap().onekeyall
+              : networkId),
           keywords: crossNetworkQuery?.keywords ?? keywords,
         });
         if (othersAccountForNetworkFilter) {
@@ -1196,6 +1226,7 @@ function TokenSelector() {
     },
     [
       accountId,
+      allNetworksCrossSearchEnabled,
       crossNetworkSearchEnabled,
       isSelectorAllNetworks,
       networkId,

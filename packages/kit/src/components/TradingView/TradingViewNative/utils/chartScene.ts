@@ -46,13 +46,16 @@ import {
   getTradingViewNativePriceExtremumHorizontalLayout,
   getTradingViewNativePriceY,
   getTradingViewNativeTimeTickMinimumIndexSpacing,
+  getTradingViewNativeVolumeAtY,
   getTradingViewNativeVolumeBarHeight,
   getTradingViewNativeWatermarkLayout,
 } from './chartLayout';
 import {
   type ITradingViewNativeChartLegendRowLayout,
+  formatTradingViewNativeVolume,
   getTradingViewNativeChartLegend,
   getTradingViewNativeChartLegendRowLayouts,
+  getTradingViewNativeVolumeAxisLabel,
 } from './chartLegend';
 import { isTradingViewNativePriceUp } from './chartStyle';
 import {
@@ -265,10 +268,12 @@ export function getTradingViewNativeChartScenePaintStyles({
 function appendLegendCommands({
   commands,
   layout,
+  trendValuePaint,
   valuePaint,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
   layout: ITradingViewNativeChartLegendRowLayout | null;
+  trendValuePaint: ITradingViewNativeChartScenePaint;
   valuePaint: ITradingViewNativeChartScenePaint;
 }) {
   'worklet';
@@ -298,7 +303,8 @@ function appendLegendCommands({
       {
         font: 'legend',
         kind: 'text',
-        paint: valuePaint,
+        paint:
+          segment.valueColorRole === 'trend' ? trendValuePaint : valuePaint,
         text: segment.value,
         x: segment.valueX,
         y: textBaselineY,
@@ -332,6 +338,10 @@ export function buildTradingViewNativeChartScene({
         ),
         widestPriceLabelWidth: measureTextWidth(
           getTradingViewNativePriceAxisLabel(points),
+          'priceAxis',
+        ),
+        widestVolumeLabelWidth: measureTextWidth(
+          getTradingViewNativeVolumeAxisLabel(points),
           'priceAxis',
         ),
       });
@@ -412,6 +422,7 @@ export function buildTradingViewNativeChartScene({
     timeTicks,
     volumeBottom,
     volumeHeight,
+    volumeTicks,
     volumeTop,
   } = layout;
   const getPointX = (index: number) =>
@@ -439,6 +450,27 @@ export function buildTradingViewNativeChartScene({
   });
   for (const { price, y } of priceTicks) {
     const text = formatTradingViewNativePriceTick(price);
+    commands.push(
+      {
+        kind: 'line',
+        paint: 'gridLine',
+        x1: CHART_HORIZONTAL_PADDING,
+        x2: priceAxisX + 4,
+        y1: y,
+        y2: y,
+      },
+      {
+        font: 'priceAxis',
+        kind: 'text',
+        paint: 'axisText',
+        text,
+        x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+        y: y + AXIS_FONT_SIZE / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
+      },
+    );
+  }
+  for (const { volume, y } of volumeTicks) {
+    const text = formatTradingViewNativeVolume(volume);
     commands.push(
       {
         kind: 'line',
@@ -706,10 +738,11 @@ export function buildTradingViewNativeChartScene({
     chartType,
     previousLegendPoint?.c,
   );
-  let legendValuePaint: ITradingViewNativeChartScenePaint = 'line';
-  if (chartType !== 'line') {
-    legendValuePaint = legend.isUp ? 'up' : 'down';
-  }
+  const trendValuePaint: ITradingViewNativeChartScenePaint = legend.isUp
+    ? 'up'
+    : 'down';
+  const legendValuePaint: ITradingViewNativeChartScenePaint =
+    chartType === 'line' ? 'line' : trendValuePaint;
   const measureLegendTextWidth = (text: string) =>
     measureTextWidth(text, 'legend');
   const appendLegendRows = (
@@ -719,6 +752,7 @@ export function buildTradingViewNativeChartScene({
       appendLegendCommands({
         commands,
         layout: rowLayout,
+        trendValuePaint,
         valuePaint: legendValuePaint,
       });
     }
@@ -791,8 +825,20 @@ export function buildTradingViewNativeChartScene({
       priceChartHeight,
       y: crosshairY,
     });
+    const crosshairVolume = getTradingViewNativeVolumeAtY({
+      maxVolume,
+      volumeBottom,
+      volumeHeight,
+      volumeTop,
+      y: crosshairY,
+    });
+    let crosshairValueText: string | null = null;
     if (crosshairPrice !== null) {
-      const text = formatTradingViewNativePriceTick(crosshairPrice);
+      crosshairValueText = formatTradingViewNativePriceTick(crosshairPrice);
+    } else if (crosshairVolume !== null) {
+      crosshairValueText = formatTradingViewNativeVolume(crosshairVolume);
+    }
+    if (crosshairValueText !== null) {
       const labelTop = Math.min(
         Math.max(crosshairY - CROSSHAIR_LABEL_HEIGHT / 2, 0),
         timeAxisY - CROSSHAIR_LABEL_HEIGHT,
@@ -810,7 +856,7 @@ export function buildTradingViewNativeChartScene({
           font: 'priceAxis',
           kind: 'text',
           paint: 'crosshairLabelText',
-          text,
+          text: crosshairValueText,
           x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
           y:
             labelTop +

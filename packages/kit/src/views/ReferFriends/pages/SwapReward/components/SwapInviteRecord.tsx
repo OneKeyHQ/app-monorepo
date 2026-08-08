@@ -112,14 +112,34 @@ function TokenAmount({ item }: { item: ISwapRecordItem }) {
   );
 }
 
-function InviteCodeValue({ item }: { item: ISwapInviteItem }) {
+function InviteCodeValue({
+  fillAvailableWidth = false,
+  item,
+}: {
+  fillAvailableWidth?: boolean;
+  item: ISwapInviteItem;
+}) {
   return (
-    <YStack gap="$0.5" ai="flex-start" minWidth={0}>
+    <YStack
+      gap="$0.5"
+      ai="flex-start"
+      minWidth={0}
+      maxWidth="100%"
+      width={fillAvailableWidth ? '100%' : undefined}
+      flexShrink={1}
+    >
       <Badge badgeType="default" badgeSize="sm">
         {item.inviteCode}
       </Badge>
       {item.inviteCodeRemark ? (
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          width={fillAvailableWidth ? '100%' : undefined}
+          maxWidth="100%"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {item.inviteCodeRemark}
         </SizableText>
       ) : null}
@@ -593,7 +613,7 @@ export function SwapInviteRecord({
           </SizableText>
         </XStack>
         <XStack w={columnWidths.referralCode} minWidth={0}>
-          <InviteCodeValue item={item} />
+          <InviteCodeValue item={item} fillAvailableWidth />
         </XStack>
         <XStack w={columnWidths.firstTrade} minWidth={0}>
           <SizableText size="$bodyMd" color={firstTradeTimeColor}>

@@ -14,6 +14,8 @@ import {
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_TIME_AXIS_TARGET_TICK_SPACING,
+  TRADING_VIEW_NATIVE_VOLUME_AXIS_MAX_TICK_COUNT,
+  TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
@@ -50,6 +52,11 @@ export interface ITradingViewNativePriceTick {
   y: number;
 }
 
+export interface ITradingViewNativeVolumeTick {
+  volume: number;
+  y: number;
+}
+
 export interface ITradingViewNativeCurrentPriceLayout {
   labelTop: number;
   lineY: number;
@@ -79,6 +86,7 @@ export interface ITradingViewNativeChartLayout {
   timeTicks: ITradingViewNativeTimeTick[];
   volumeBottom: number;
   volumeHeight: number;
+  volumeTicks: ITradingViewNativeVolumeTick[];
   volumeTop: number;
 }
 
@@ -418,9 +426,11 @@ export function getTradingViewNativeCurrentPriceLabel(
 export function getTradingViewNativePriceAxisWidth({
   currentPriceLabelWidth,
   widestPriceLabelWidth,
+  widestVolumeLabelWidth = 0,
 }: {
   currentPriceLabelWidth: number;
   widestPriceLabelWidth: number;
+  widestVolumeLabelWidth?: number;
 }) {
   'worklet';
 
@@ -432,8 +442,16 @@ export function getTradingViewNativePriceAxisWidth({
   const normalizedWidestPriceLabelWidth = Number.isFinite(widestPriceLabelWidth)
     ? Math.max(Math.ceil(widestPriceLabelWidth), 0)
     : 0;
+  const normalizedWidestVolumeLabelWidth = Number.isFinite(
+    widestVolumeLabelWidth,
+  )
+    ? Math.max(Math.ceil(widestVolumeLabelWidth), 0)
+    : 0;
   return Math.max(
-    normalizedWidestPriceLabelWidth +
+    Math.max(
+      normalizedWidestPriceLabelWidth,
+      normalizedWidestVolumeLabelWidth,
+    ) +
       TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
       TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
     normalizedCurrentPriceLabelWidth +
@@ -903,6 +921,28 @@ export function getTradingViewNativeChartLayout({
     ...visiblePointRange,
     points,
   });
+  const volumeTickCount =
+    maxVolume > 0 && volumeHeight > 0
+      ? Math.min(
+          Math.max(
+            Math.floor(
+              volumeHeight / TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
+            ) - 1,
+            1,
+          ),
+          TRADING_VIEW_NATIVE_VOLUME_AXIS_MAX_TICK_COUNT,
+        )
+      : 0;
+  const volumeTicks = Array.from(
+    { length: volumeTickCount },
+    (_, index): ITradingViewNativeVolumeTick => {
+      const progress = (index + 1) / (volumeTickCount + 1);
+      return {
+        volume: maxVolume * (1 - progress),
+        y: volumeTop + volumeHeight * progress,
+      };
+    },
+  );
 
   const timeTicks = getTradingViewNativeTimeAxisLayout({
     candleIntervalSeconds,
@@ -924,6 +964,7 @@ export function getTradingViewNativeChartLayout({
     timeTicks,
     volumeBottom,
     volumeHeight,
+    volumeTicks,
     volumeTop,
   };
 }
@@ -979,6 +1020,39 @@ export function getTradingViewNativePriceAtY({
   const progress =
     (y - TRADING_VIEW_NATIVE_CHART_TOP_PADDING) / priceChartHeight;
   return maxPrice - (maxPrice - minPrice) * progress;
+}
+
+export function getTradingViewNativeVolumeAtY({
+  maxVolume,
+  volumeBottom,
+  volumeHeight,
+  volumeTop,
+  y,
+}: {
+  maxVolume: number;
+  volumeBottom: number;
+  volumeHeight: number;
+  volumeTop: number;
+  y: number;
+}) {
+  'worklet';
+
+  if (
+    !Number.isFinite(maxVolume) ||
+    !Number.isFinite(volumeBottom) ||
+    !Number.isFinite(volumeHeight) ||
+    !Number.isFinite(volumeTop) ||
+    !Number.isFinite(y) ||
+    maxVolume <= 0 ||
+    volumeHeight <= 0 ||
+    y < volumeTop ||
+    y > volumeBottom
+  ) {
+    return null;
+  }
+
+  const progress = (volumeBottom - y) / volumeHeight;
+  return maxVolume * Math.min(Math.max(progress, 0), 1);
 }
 
 export function getTradingViewNativeCurrentPriceLayout({

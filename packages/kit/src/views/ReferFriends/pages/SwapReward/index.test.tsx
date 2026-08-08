@@ -30,6 +30,7 @@ const mockGetSwapInvites = jest.fn<
   [ISwapInvitesRequest]
 >();
 const mockSwapDetailsSection = jest.fn();
+const mockReferFriendsDetailHeader = jest.fn();
 const mockIntl = {
   formatMessage: ({ id }: { id: string }) => id,
 };
@@ -102,7 +103,10 @@ jest.mock(
 jest.mock('../../components', () => ({
   ExportButton: () => null,
   FilterButton: () => null,
-  ReferFriendsDetailHeader: () => null,
+  ReferFriendsDetailHeader: (props: unknown) => {
+    mockReferFriendsDetailHeader(props);
+    return null;
+  },
   ReferFriendsPageContainer: ({ children }: { children?: ReactNode }) =>
     children,
 }));
@@ -185,6 +189,20 @@ describe('SwapReward refresh feedback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRouteFocused = true;
+  });
+
+  it('uses the Trade product name in the reward page title', async () => {
+    mockGetSwapCumulativeRewards.mockResolvedValue(cumulativeRewards);
+    mockGetSwapInvites.mockResolvedValue(invites);
+
+    render(<SwapReward />);
+    await completeInitialLoad();
+
+    expect(mockReferFriendsDetailHeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: ETranslations.global_trade,
+      }),
+    );
   });
 
   it('shows one error toast when the inactive tab count refresh fails', async () => {
