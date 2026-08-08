@@ -1602,7 +1602,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: normalizePerpsCoin(params.coin),
+        coin: normalizeDexCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(
