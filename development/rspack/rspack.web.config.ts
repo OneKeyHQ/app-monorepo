@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 
 import { InjectManifest } from '@aaroon/workbox-rspack-plugin';
@@ -35,22 +34,6 @@ export function createWebConfig({
     basePath,
     removeFirstPartyConsole: true,
   });
-  const tradingViewEmbedAssets = path.join(
-    basePath,
-    '.generated/tradingview-embed',
-  );
-  const tradingViewEmbedPlugins = fs.existsSync(tradingViewEmbedAssets)
-    ? [
-        new rspack.CopyRspackPlugin({
-          patterns: [
-            {
-              from: tradingViewEmbedAssets,
-              to: 'tradingview-embed',
-            },
-          ],
-        }),
-      ]
-    : [];
 
   switch (nodeEnv) {
     case 'production':
@@ -60,7 +43,6 @@ export function createWebConfig({
         },
         plugins: (platform === 'web'
           ? [
-              ...tradingViewEmbedPlugins,
               // (C1) SRI — native rspack plugin (NOT webpack-subresource-integrity,
               //   which is incompatible with rspack's Rust pipeline).
               //   htmlPlugin:'html-webpack-plugin' is REQUIRED because the base
@@ -101,9 +83,7 @@ export function createWebConfig({
       });
     case 'development':
     default:
-      return merge(baseConfig, createDevelopmentConfig({ basePath }), {
-        plugins: tradingViewEmbedPlugins,
-      });
+      return merge(baseConfig, createDevelopmentConfig({ basePath }));
   }
 }
 

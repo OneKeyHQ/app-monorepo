@@ -7,6 +7,7 @@ import { SyncHomeAccountToDappAccountProvider } from '../views/Discovery/compone
 
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { HardwareServiceProvider } from './HardwareServiceProvider';
+import { TradingViewEmbedGlobalPreload } from './TradingViewEmbedGlobalPreload';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
 type IDelayedMountProps = PropsWithChildren<{
@@ -49,6 +50,7 @@ function KitProviderLazyContentBeforeLocaleCmp() {
 function KitProviderLazyContentAfterLocaleCmp() {
   return (
     <>
+      <TradingViewEmbedGlobalPreload />
       <StateActiveContainer />
       <DelayedMount delayMs={1200}>
         <SyncHomeAccountToDappAccountProvider />

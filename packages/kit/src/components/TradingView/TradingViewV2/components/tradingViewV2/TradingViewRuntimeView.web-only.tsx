@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewProps } from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 
-import {
-  getTradingViewEmbedBaseUrl,
-  loadTradingViewEmbedModule,
-} from './tradingViewEmbedLoader.web';
+import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
@@ -36,9 +33,14 @@ export default function TradingViewRuntimeView({
 }: IWebViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ITradingViewEmbedHandle | null>(null);
+  const customReceiveHandlerRef = useRef(customReceiveHandler);
+  const onLoadStartRef = useRef(onLoadStart);
   const [fallback, setFallback] = useState(false);
   const [runtimeUrl, setRuntimeUrl] = useState(src);
   const [reloadRevision, setReloadRevision] = useState(0);
+
+  customReceiveHandlerRef.current = customReceiveHandler;
+  onLoadStartRef.current = onLoadStart;
 
   const webViewRef = useMemo<IWebViewRef>(
     () =>
@@ -65,6 +67,14 @@ export default function TradingViewRuntimeView({
     return () => onWebViewRef?.(null);
   }, [onWebViewRef, webViewRef]);
 
+  useLayoutEffect(
+    () => () => {
+      handleRef.current?.unmount();
+      handleRef.current = null;
+    },
+    [],
+  );
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !runtimeUrl) {
@@ -73,20 +83,20 @@ export default function TradingViewRuntimeView({
 
     let cancelled = false;
     setFallback(false);
-    onLoadStart?.(createLoadStartEvent(runtimeUrl));
+    onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
 
-    void loadTradingViewEmbedModule()
-      .then(async (module) => {
+    void loadTradingViewEmbedModule(runtimeUrl)
+      .then(async ({ assetBaseUrl, module }) => {
         if (cancelled) {
           return;
         }
         const url = new URL(runtimeUrl, globalThis.location.href);
         const handle = await module.mountTradingView({
-          assetBaseUrl: getTradingViewEmbedBaseUrl(),
+          assetBaseUrl,
           container,
           onMessage(payload) {
             void Promise.resolve(
-              customReceiveHandler?.({ data: payload }),
+              customReceiveHandlerRef.current?.({ data: payload }),
             ).catch((error: unknown) => {
               console.error(
                 '[TradingViewRuntimeView] Message handling failed:',
@@ -117,7 +127,7 @@ export default function TradingViewRuntimeView({
       handleRef.current?.unmount();
       handleRef.current = null;
     };
-  }, [customReceiveHandler, onLoadStart, reloadRevision, runtimeUrl]);
+  }, [reloadRevision, runtimeUrl]);
 
   if (fallback) {
     return (
