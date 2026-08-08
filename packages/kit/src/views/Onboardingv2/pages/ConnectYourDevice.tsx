@@ -85,6 +85,7 @@ import { HyperlinkText } from '../../../components/HyperlinkText';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { OnboardingPage } from '../components/Layout';
 import {
   EBluetoothStatus,
@@ -1157,6 +1158,15 @@ function ConnectYourDevicePage({
       const connectId = item.device.connectId ?? '';
       let detectedConnectProtocol: HardwareConnectProtocol | undefined;
       let connectedDevice = item.device;
+      let checkingDialogOpened = false;
+      let checkingDialogClosed = false;
+      const closeCheckingDeviceDialog = () =>
+        backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId,
+          hardClose: false,
+          skipDelayClose: true,
+          deviceResetToHome: false,
+        });
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
@@ -1179,9 +1189,18 @@ function ConnectYourDevicePage({
             item.device.commType === 'electron-ble'
               ? EHardwareTransportType.DesktopWebBle
               : EHardwareTransportType.BLE;
-          void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
-            connectId,
-          });
+          const showCheckingDeviceDialog = () =>
+            backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
+              connectId,
+            });
+          checkingDialogOpened = true;
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.openAndWait(
+              showCheckingDeviceDialog,
+            );
+          } else {
+            void showCheckingDeviceDialog();
+          }
           const features =
             await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
               connectId,
@@ -1202,6 +1221,13 @@ function ConnectYourDevicePage({
             ...item.device,
             connectProtocol: detectedConnectProtocol,
           };
+
+          if (platformEnv.isNativeIOS) {
+            await hardwareUiStateDialogLifecycle.closeAndWait(
+              closeCheckingDeviceDialog,
+            );
+            checkingDialogClosed = true;
+          }
         }
         navigation.push(EOnboardingPagesV2.CheckAndUpdate, {
           deviceData: {
@@ -1228,12 +1254,22 @@ function ConnectYourDevicePage({
           console.error('connectDevice error:', get(error, 'message', ''));
         }
       } finally {
-        void backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId,
-          hardClose: false,
-          skipDelayClose: true,
-          deviceResetToHome: false,
-        });
+        if (!checkingDialogClosed) {
+          if (platformEnv.isNativeIOS && checkingDialogOpened) {
+            try {
+              await hardwareUiStateDialogLifecycle.closeAndWait(
+                closeCheckingDeviceDialog,
+              );
+            } catch (error) {
+              console.error(
+                'Failed to close onboarding hardware dialog:',
+                error,
+              );
+            }
+          } else {
+            void closeCheckingDeviceDialog();
+          }
+        }
       }
     },
     [navigation],

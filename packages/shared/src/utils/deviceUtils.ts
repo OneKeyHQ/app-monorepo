@@ -68,7 +68,7 @@ function getDefaultDeviceLabel(deviceType: IDeviceType): string {
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
     [EDeviceType.Pro2]: 'OneKey Pro 2',
-    [EDeviceType.Neo]: 'OneKey Neo',
+    [NEO_DEVICE_TYPE]: 'OneKey Neo',
     [EDeviceType.Unknown]: '',
   };
   return defaultLabelsByDeviceType[deviceType] || '';
@@ -351,6 +351,31 @@ function getUpdatingConnectId({
     return undefined;
   }
   return platformEnv.isNative ? connectId : undefined;
+}
+
+function getFixedUpdatingConnectId({
+  updatingConnectId,
+  currentTransportType,
+  device,
+}: {
+  updatingConnectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
+  device:
+    | Pick<IDBDevice, 'bleConnectId' | 'connectId' | 'usbConnectId'>
+    | undefined;
+}) {
+  if (currentTransportType !== EHardwareTransportType.DesktopWebBle) {
+    return updatingConnectId;
+  }
+  const bleConnectId = device?.bleConnectId?.trim();
+  if (!bleConnectId) {
+    return updatingConnectId;
+  }
+  const normalizedBleConnectId = bleConnectId.toLowerCase();
+  const aliasesUsbConnectId = [device?.connectId, device?.usbConnectId].some(
+    (candidate) => candidate?.trim().toLowerCase() === normalizedBleConnectId,
+  );
+  return aliasesUsbConnectId ? updatingConnectId : bleConnectId;
 }
 
 function checkInputPinOnSoftwareSupport(deviceType: IDeviceType) {
@@ -1004,6 +1029,7 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
+  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   getDeviceModelNameByType,
   buildDeviceLabel,

@@ -2,9 +2,17 @@ import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import {
+  getHardwareSDKInstance,
+  resetHardwareSDKInstance,
+} from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -15,13 +23,14 @@ import type { IOneKeyDeviceFeaturesWithAppParams } from '@onekeyhq/shared/types/
 
 import localDb from '../../dbs/local/localDb';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
+import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { RemoteConfigResponse, SearchDevice } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -72,9 +81,10 @@ jest.mock('axios', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
-  checkBLEPermissions: jest.fn(),
-  checkBLEState: jest.fn(),
+jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
+  CoreSDKLoader: jest.fn(),
+  getHardwareSDKInstance: jest.fn(),
+  resetHardwareSDKInstance: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
@@ -113,7 +123,13 @@ jest.mock('../../states/jotai/atoms', () => ({
   },
   hardwareUiStateAtom: {},
   hardwareUiStateCompletedAtom: {},
-  settingsPersistAtom: {},
+  settingsPersistAtom: {
+    get: jest.fn(async () => ({ hardwareConnectSrc: undefined })),
+  },
+}));
+
+jest.mock('../ServiceFirmwareUpdate/FirmwareManifestProvider', () => ({
+  getFirmwareManifestSnapshot: jest.fn(),
 }));
 
 jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
@@ -131,6 +147,12 @@ const mockedLocalDb = jest.mocked(localDb);
 const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
 const mockedCheckBLEState = jest.mocked(checkBLEState);
 const mockedAxios = jest.mocked(axios);
+const mockedAppEventBus = jest.mocked(appEventBus);
+const mockedGetFirmwareManifestSnapshot = jest.mocked(
+  getFirmwareManifestSnapshot,
+);
+const mockedGetHardwareSDKInstance = jest.mocked(getHardwareSDKInstance);
+const mockedResetHardwareSDKInstance = jest.mocked(resetHardwareSDKInstance);
 const mutablePlatformEnv = platformEnv as unknown as {
   isDesktop: boolean;
   isJest: boolean;
@@ -195,7 +217,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
       await expect(
         new ServiceHardware({
-          backgroundApi: {} as unknown as IBackgroundApi,
+          backgroundApi: {
+            serviceSetting: {
+              getHardwareTransportType: jest
+                .fn()
+                .mockResolvedValue(EHardwareTransportType.BLE),
+            },
+          } as unknown as IBackgroundApi,
         }).getCompatibleConnectId({
           connectId: 'PRB09B0088A',
           featuresDeviceId: 'STALE_DEVICE_ID',
@@ -1046,6 +1074,148 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     );
   });
 
+  it('reloads the SDK only when a forced manifest refresh changes the snapshot', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isSupportDesktopBle: false,
+    });
+    const manifest1 = { bridge: { version: '1' } };
+    const manifest2 = { bridge: { version: '2' } };
+    mockedGetFirmwareManifestSnapshot
+      .mockResolvedValueOnce(manifest1 as unknown as RemoteConfigResponse)
+      .mockResolvedValueOnce(manifest1 as unknown as RemoteConfigResponse)
+      .mockResolvedValueOnce(manifest2 as unknown as RemoteConfigResponse);
+    mockedGetHardwareSDKInstance.mockImplementation(async (params) => {
+      await params.loadFirmwareConfig?.();
+      return {} as Awaited<ReturnType<typeof getHardwareSDKInstance>>;
+    });
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceApp: {
+          showToast: jest.fn(),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceSetting: {
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.connectionManager.getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(
+        service as unknown as {
+          registerSdkEvents: () => Promise<void>;
+        },
+        'registerSdkEvents',
+      )
+      .mockResolvedValue(undefined);
+
+    const options = {
+      connectId: undefined,
+      forceFirmwareManifestRefresh: true,
+    };
+    await service.getSDKInstance(options);
+    await service.getSDKInstance(options);
+    expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    await service.getSDKInstance(options);
+    expect(mockedResetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+    expect(mockedGetFirmwareManifestSnapshot).toHaveBeenCalledTimes(3);
+    expect(mockedGetFirmwareManifestSnapshot).toHaveBeenLastCalledWith({
+      preRelease: false,
+      forceRefresh: true,
+    });
+  });
+
+  it('keeps ordinary hardware available without a manifest and reloads after recovery', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isSupportDesktopBle: false,
+    });
+    const recoveredManifest = { bridge: { version: 'recovered' } };
+    mockedGetFirmwareManifestSnapshot
+      .mockRejectedValueOnce(new Error('manifest unavailable'))
+      .mockResolvedValueOnce(
+        recoveredManifest as unknown as RemoteConfigResponse,
+      );
+    const loadedConfigs: Array<RemoteConfigResponse | undefined> = [];
+    mockedGetHardwareSDKInstance.mockImplementation(async (params) => {
+      loadedConfigs.push(await params.loadFirmwareConfig?.());
+      return {} as Awaited<ReturnType<typeof getHardwareSDKInstance>>;
+    });
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceApp: {
+          showToast: jest.fn(),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceSetting: {
+          setHardwareTransportType: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+    service.connectionManager.getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    jest
+      .spyOn(
+        service as unknown as {
+          registerSdkEvents: () => Promise<void>;
+        },
+        'registerSdkEvents',
+      )
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.getSDKInstance({ connectId: undefined }),
+    ).resolves.toBeDefined();
+    expect(loadedConfigs).toEqual([undefined]);
+    expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        forceFirmwareManifestRefresh: true,
+      }),
+    ).resolves.toBeDefined();
+    expect(mockedResetHardwareSDKInstance).toHaveBeenCalledTimes(1);
+    expect(loadedConfigs).toEqual([undefined, recoveredManifest]);
+  });
+
+  it('keeps an explicit firmware manifest refresh fail-closed', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isSupportDesktopBle: false,
+    });
+    mockedGetFirmwareManifestSnapshot.mockRejectedValueOnce(
+      new Error('manifest unavailable'),
+    );
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+
+    await expect(
+      service.getSDKInstance({
+        connectId: undefined,
+        forceFirmwareManifestRefresh: true,
+      }),
+    ).rejects.toThrow('manifest unavailable');
+    expect(mockedGetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
   it('shows BLE permission guidance before Android user hardware calls when permission is missing', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: false,
@@ -1116,6 +1286,69 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       },
     ]);
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(1);
+  });
+
+  it('does not run BLE prechecks for an explicit Android USB call after BLE was active', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.BLE,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_USB_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+      }),
+    ).resolves.toBe('ANDROID_USB_ID');
+
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
+    expect(mockedAppEventBus.emit.mock.calls).toHaveLength(0);
+  });
+
+  it('runs BLE prechecks for an explicit Android BLE call after USB was active', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedCheckBLEPermissions.mockResolvedValue(false);
+
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest.fn(
+            async () => EHardwareTransportType.WEBUSB,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.getCompatibleConnectId({
+        connectId: 'ANDROID_BLE_ID',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType: EHardwareTransportType.BLE,
+      }),
+    ).rejects.toThrow('NeedBluetoothPermissions');
+
+    expect(mockedCheckBLEPermissions).toHaveBeenCalledTimes(1);
+    expect(mockedCheckBLEState).not.toHaveBeenCalled();
   });
 
   it('does not run BLE prechecks for Android third-party USB devices', async () => {

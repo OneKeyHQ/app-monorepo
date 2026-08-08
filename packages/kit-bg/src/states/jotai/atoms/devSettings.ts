@@ -103,8 +103,7 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
-  // Kill switch for the fast-failover behaviors introduced for extreme
-  // network conditions (adapter fail-open + service fast switch to last-best IP)
+  // Kill switch for fast failover under extreme network conditions.
   disableIpTableFailover?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;

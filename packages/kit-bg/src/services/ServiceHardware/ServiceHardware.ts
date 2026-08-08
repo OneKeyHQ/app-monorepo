@@ -23,6 +23,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  checkBLEPermissions,
+  checkBLEState,
+} from '@onekeyhq/shared/src/hardware/blePermissions';
 import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
@@ -83,6 +87,7 @@ import {
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
@@ -190,12 +195,26 @@ type IProtocolAwareCoreApi = CoreApi & {
   ) => void;
 };
 
+type IProtocolV2NftCoreApi = CoreApi & {
+  deviceUploadNft?: (
+    connectId: string,
+    params: {
+      image: { width: number; height: number; rgba: Uint8Array };
+      thumbnail: { width: number; height: number; rgba: Uint8Array };
+      title: string;
+      subtitle: string;
+      timestampMs?: number;
+    },
+  ) => ReturnType<CoreApi['deviceUploadResource']>;
+};
+
 type IGetSDKInstanceOptions = {
   connectId: string | undefined;
   connectProtocol?: HardwareConnectProtocol;
   forceProtocolDetection?: boolean;
   hardwareCallContext?: EHardwareCallContext;
   hardwareTransportType?: EHardwareTransportType;
+  forceFirmwareManifestRefresh?: boolean;
 };
 
 function isHardwareConnectProtocol(
@@ -773,6 +792,10 @@ class ServiceHardware extends ServiceBase {
     this.hardwareUiEventState = createHardwareUiEventState();
   }
 
+  private firmwareManifestRefreshMutex = new Semaphore(1);
+
+  private loadedFirmwareManifestKey: string | undefined;
+
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
       const {
@@ -812,6 +835,18 @@ class ServiceHardware extends ServiceBase {
   private async getSDKInstanceWithLifecycleLock(
     options: IGetSDKInstanceOptions,
   ) {
+    if (
+      options.forceFirmwareManifestRefresh &&
+      (platformEnv.isNative || platformEnv.isDesktop)
+    ) {
+      return this.firmwareManifestRefreshMutex.runExclusive(() =>
+        this.getSDKInstanceInternal(options),
+      );
+    }
+    return this.getSDKInstanceInternal(options);
+  }
+
+  private async getSDKInstanceInternal(options: IGetSDKInstanceOptions) {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
@@ -843,6 +878,30 @@ class ServiceHardware extends ServiceBase {
       platformEnv.isDev === true &&
       (platformEnv.isNative === true || platformEnv.isDesktop === true) &&
       debugMode === true;
+    const isAppManagedManifest = Boolean(
+      platformEnv.isNative || platformEnv.isDesktop,
+    );
+    const refreshedFirmwareManifest =
+      options.forceFirmwareManifestRefresh && isAppManagedManifest
+        ? await getFirmwareManifestSnapshot({
+            preRelease: isPreRelease === true,
+            forceRefresh: true,
+          })
+        : undefined;
+    const refreshedFirmwareManifestKey = refreshedFirmwareManifest
+      ? stringUtils.stableStringify({
+          preRelease: isPreRelease === true,
+          config: refreshedFirmwareManifest,
+        })
+      : undefined;
+    if (
+      refreshedFirmwareManifestKey &&
+      this.loadedFirmwareManifestKey &&
+      refreshedFirmwareManifestKey !== this.loadedFirmwareManifestKey
+    ) {
+      await resetHardwareSDKInstance();
+      this.registeredEvents = false;
+    }
 
     if (
       this.registeredEvents &&
@@ -914,6 +973,31 @@ class ServiceHardware extends ServiceBase {
         isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
         debugMode,
+        loadFirmwareConfig: async () => {
+          let config = refreshedFirmwareManifest;
+          if (!config) {
+            try {
+              config = await getFirmwareManifestSnapshot({
+                preRelease: isPreRelease === true,
+              });
+            } catch {
+              this.loadedFirmwareManifestKey = stringUtils.stableStringify({
+                preRelease: isPreRelease === true,
+                config: null,
+              });
+              defaultLogger.hardware.sdkLog.log(
+                'firmware_manifest_unavailable',
+                isPreRelease === true ? 'pre-release' : 'stable',
+              );
+              return undefined;
+            }
+          }
+          this.loadedFirmwareManifestKey = stringUtils.stableStringify({
+            preRelease: isPreRelease === true,
+            config,
+          });
+          return config;
+        },
       });
 
       this.activeHardwareTransportType = hardwareTransportType;
@@ -2116,6 +2200,7 @@ class ServiceHardware extends ServiceBase {
           featuresDeviceId: device.deviceId,
           hardwareCallContext:
             hardwareCallContext || EHardwareCallContext.USER_INTERACTION,
+          hardwareTransportType: resolvedHardwareTransportType,
         });
     const protocolAwareDevice = device as SearchDevice & {
       connectProtocol?: HardwareConnectProtocol;
@@ -2985,26 +3070,15 @@ class ServiceHardware extends ServiceBase {
   }: {
     dbDeviceId: string | undefined;
   }): Promise<IDeviceHomeScreenConfig> {
-    const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: false,
-      });
-    const thumbnailSize =
-      getNftSize({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      }) ??
-      serviceHardwareUtils.getPro2NftSizeFallback({
-        deviceType: device.deviceType,
-        thumbnail: true,
-      });
+    const size = serviceHardwareUtils.getPro2NftSizeFallback({
+      deviceType: device.deviceType,
+      thumbnail: false,
+    });
+    const thumbnailSize = serviceHardwareUtils.getPro2NftSizeFallback({
+      deviceType: device.deviceType,
+      thumbnail: true,
+    });
 
     return { names: [], size, thumbnailSize };
   }
@@ -3084,8 +3158,15 @@ class ServiceHardware extends ServiceBase {
       connectId: compatibleConnectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
+    const protocolV2NftSDK = hardwareSDK as IProtocolV2NftCoreApi;
+    const uploadNft = protocolV2NftSDK.deviceUploadNft;
+    if (!uploadNft) {
+      throw new OneKeyLocalError(
+        'Hardware SDK does not support Protocol V2 NFT upload',
+      );
+    }
     return convertDeviceResponse(() =>
-      hardwareSDK.deviceUploadNft(compatibleConnectId, {
+      uploadNft(compatibleConnectId, {
         image: { width: image.width, height: image.height, rgba: image.data },
         thumbnail: {
           width: thumbnail.width,
@@ -3774,6 +3855,57 @@ class ServiceHardware extends ServiceBase {
     return this.connectionManager.getCurrentTransportType();
   }
 
+  private shouldPrecheckNativeBleForHardwareCall({
+    hardwareCallContext,
+  }: {
+    hardwareCallContext: EHardwareCallContext;
+  }) {
+    return (
+      platformEnv.isNativeAndroid &&
+      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+    );
+  }
+
+  private async ensureNativeBleReadyForHardwareCall({
+    connectId,
+    hardwareCallContext,
+    hardwareTransportType,
+  }: {
+    connectId: string;
+    hardwareCallContext: EHardwareCallContext;
+    hardwareTransportType?: EHardwareTransportType;
+  }) {
+    if (!this.shouldPrecheckNativeBleForHardwareCall({ hardwareCallContext })) {
+      return;
+    }
+
+    const transportType =
+      hardwareTransportType ?? (await this.getCurrentTransportType());
+    if (transportType !== EHardwareTransportType.BLE) {
+      return;
+    }
+
+    const hasBlePermission = !!(await checkBLEPermissions());
+    if (!hasBlePermission) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.LOCATION_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothPermissions({
+        payload: { connectId },
+      });
+    }
+
+    const isBluetoothOn = !!(await checkBLEState());
+    if (!isBluetoothOn) {
+      appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+        uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+      });
+      throw new deviceErrors.NeedBluetoothTurnedOn({
+        payload: { connectId },
+      });
+    }
+  }
+
   @backgroundMethod()
   async detectUSBDeviceAvailability(params?: {
     connectId?: string;
@@ -3820,7 +3952,7 @@ class ServiceHardware extends ServiceBase {
       }
 
       // Step 2: Get expected device name from features
-      const expectedDeviceName = features.bleName;
+      const expectedDeviceName = features.bleName || features.ble_name;
 
       // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find(
@@ -3951,12 +4083,14 @@ class ServiceHardware extends ServiceBase {
     featuresDeviceId,
     features,
     vendor,
+    hardwareTransportType,
   }: {
     hardwareCallContext: EHardwareCallContext;
     connectId?: string;
     featuresDeviceId?: string | undefined | null; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
     vendor?: EHardwareVendor;
+    hardwareTransportType?: EHardwareTransportType;
   }) {
     // Allow connectId to be null in the following EHardwareCallContext cases
     if (
@@ -4031,6 +4165,7 @@ class ServiceHardware extends ServiceBase {
     await this.ensureNativeBleReadyForHardwareCall({
       connectId,
       hardwareCallContext,
+      hardwareTransportType,
     });
 
     if (!platformEnv.isSupportDesktopBle) {

@@ -33,7 +33,7 @@ export function HomeSupportedWallet({
     [EDeviceType.Pro2]: 'Pro 2',
     [NEO_DEVICE_TYPE]: 'Neo',
     [EDeviceType.Unknown]: '',
-    'watching': intl.formatMessage({
+    watching: intl.formatMessage({
       id: ETranslations.faq_watched_account,
     }),
   };
