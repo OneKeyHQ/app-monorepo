@@ -83,7 +83,7 @@ export function getFirmwareTypeChangeAvailability(
   deviceType: EDeviceType | undefined,
 ): IFirmwareTypeChangeAvailability {
   if (isProtocolV2ProductType(deviceType)) {
-    return 'comingSoon';
+    return 'hidden';
   }
   if (deviceType && deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
     return 'enabled';
