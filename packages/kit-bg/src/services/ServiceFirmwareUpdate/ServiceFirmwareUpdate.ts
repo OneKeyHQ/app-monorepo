@@ -178,15 +178,39 @@ const PROTOCOL_V2_SAFE_OS_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
 export function buildPro2TargetsToUpdate({
   sdkTargets,
   forceTargets = [],
+  skipResource = false,
 }: {
   sdkTargets: readonly IPro2FirmwareUpdateTarget[] | undefined;
   forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  skipResource?: boolean;
 }) {
-  return Array.from(
+  const targets = Array.from(
     new Set<IPro2FirmwareUpdateTarget>([
       ...(sdkTargets ?? []),
       ...forceTargets,
     ]),
+  );
+  return skipResource
+    ? targets.filter((target) => target !== 'resource')
+    : targets;
+}
+
+export function shouldForceProtocolV2ResourceUpdate({
+  targetsToUpdate,
+  legacyForceResource,
+  forceTargets = [],
+  forceOnceTargets = [],
+}: {
+  targetsToUpdate: readonly IPro2FirmwareUpdateTarget[];
+  legacyForceResource?: boolean;
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
+}) {
+  return (
+    targetsToUpdate.includes('resource') &&
+    (legacyForceResource === true ||
+      forceTargets.includes('resource') ||
+      forceOnceTargets.includes('resource'))
   );
 }
 
@@ -759,16 +783,30 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-    const pro2ForceTargets = isProtocolV2ProductType(deviceType)
+    const protocolV2DevSettings = isProtocolV2ProductType(deviceType)
+      ? await Promise.all([
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateTargets',
+          ),
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateOnceTargets',
+          ),
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2SkipResourceForComponentTesting',
+          ),
+        ])
+      : undefined;
+    const pro2SkipResourceForComponentTesting =
+      protocolV2DevSettings?.[2] === true;
+    const pro2ForceTargets = protocolV2DevSettings
       ? Array.from(
           new Set<IPro2FirmwareUpdateTarget>([
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateTargets',
-            )) ?? []),
-            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-              'pro2ForceUpdateOnceTargets',
-            )) ?? []),
+            ...(protocolV2DevSettings[0] ?? []),
+            ...(protocolV2DevSettings[1] ?? []),
           ]),
+        ).filter(
+          (target) =>
+            !pro2SkipResourceForComponentTesting || target !== 'resource',
         )
       : undefined;
     const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
@@ -941,6 +979,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ? buildPro2TargetsToUpdate({
           sdkTargets: releaseInfo.targetsToUpdate,
           forceTargets: pro2ForceTargets,
+          skipResource: pro2SkipResourceForComponentTesting,
         })
       : undefined;
     const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
@@ -1219,9 +1258,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       usedReleasePayload?.release?.displayBootloaderVersion ??
       usedReleasePayload?.release?.version;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
-      toVersion = this.arrayVersionToString(
-        versionFromReleaseInfo,
-      );
+      toVersion = this.arrayVersionToString(versionFromReleaseInfo);
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
@@ -2967,10 +3004,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
         connectId: params.connectId,
         currentTransportType,
       });
-      const forceUpdateResEvenIfSameVersion =
-        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+      const [
+        legacyForceResource,
+        protocolV2ForceTargets,
+        protocolV2ForceOnceTargets,
+      ] = await Promise.all([
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
           'forceUpdateResEvenSameVersion',
-        );
+        ),
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'pro2ForceUpdateTargets',
+        ),
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'pro2ForceUpdateOnceTargets',
+        ),
+      ]);
+      const forceUpdateResEvenIfSameVersion =
+        shouldForceProtocolV2ResourceUpdate({
+          targetsToUpdate: params.targetsToUpdate,
+          legacyForceResource,
+          forceTargets: protocolV2ForceTargets,
+          forceOnceTargets: protocolV2ForceOnceTargets,
+        });
       const updateResult = await convertDeviceResponse(() =>
         executePreparedFirmwareUpdateV4({
           sdk: hardwareSDK,
@@ -2979,7 +3034,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           platform: platformEnv.symbol ?? 'web',
           firmwareType: params.firmwareType,
           targetsToUpdate: params.targetsToUpdate,
-          forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
+          forcedUpdateRes: forceUpdateResEvenIfSameVersion,
           resourceFiles,
         }),
       );

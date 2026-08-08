@@ -37,6 +37,8 @@ function Pro2FirmwareUpdateTargetRow({
     devSetting.pro2ForceUpdateTargets ?? EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS;
   const onceTargets =
     devSetting.pro2ForceUpdateOnceTargets ?? EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS;
+  const skipResource = devSetting.pro2SkipResourceForComponentTesting ?? false;
+  const resourceDisabled = target.value === 'resource' && skipResource;
 
   const updateTargets = useCallback(
     async ({
@@ -95,6 +97,7 @@ function Pro2FirmwareUpdateTargetRow({
             size={ESwitchSize.small}
             value={targets.includes(target.value)}
             onChange={setTargetEnabled}
+            disabled={resourceDisabled}
             testID={`pro2-firmware-force-${target.value}`}
           />
         </YStack>
@@ -106,6 +109,7 @@ function Pro2FirmwareUpdateTargetRow({
             size={ESwitchSize.small}
             value={onceTargets.includes(target.value)}
             onChange={setOnceTargetEnabled}
+            disabled={resourceDisabled}
             testID={`pro2-firmware-force-once-${target.value}`}
           />
         </YStack>
@@ -116,6 +120,34 @@ function Pro2FirmwareUpdateTargetRow({
 
 function FirmwareUpdatePro2DevSettings() {
   const [devSetting, setDevSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+
+  const setSkipResourceForComponentTesting = useCallback(
+    async (enabled: boolean) => {
+      const values: Pick<
+        IFirmwareUpdateDevSettings,
+        | 'pro2ForceUpdateTargets'
+        | 'pro2ForceUpdateOnceTargets'
+        | 'pro2SkipResourceForComponentTesting'
+      > = {
+        pro2ForceUpdateTargets: enabled
+          ? (devSetting.pro2ForceUpdateTargets ?? []).filter(
+              (target) => target !== 'resource',
+            )
+          : (devSetting.pro2ForceUpdateTargets ?? []),
+        pro2ForceUpdateOnceTargets: enabled
+          ? (devSetting.pro2ForceUpdateOnceTargets ?? []).filter(
+              (target) => target !== 'resource',
+            )
+          : (devSetting.pro2ForceUpdateOnceTargets ?? []),
+        pro2SkipResourceForComponentTesting: enabled,
+      };
+      setDevSetting((previous) => ({ ...previous, ...values }));
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        values,
+      );
+    },
+    [devSetting, setDevSetting],
+  );
 
   const resetPro2ForceTargets = useCallback(async () => {
     const values: Pick<
@@ -135,7 +167,7 @@ function FirmwareUpdatePro2DevSettings() {
     <YStack>
       <ListItem
         title="Pro2 force targets"
-        subtitle="Select persistent or one-time targets used for release planning and firmwareUpdateV4"
+        subtitle="Configured resources are included automatically. Resource force/once means reinstall."
         titleProps={{ color: '$textCritical' }}
       />
       {PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS.map((target) => (
@@ -150,6 +182,17 @@ function FirmwareUpdatePro2DevSettings() {
           Reset Pro2 force targets
         </Button>
       </XStack>
+      <ListItem
+        title="Skip resource for component testing"
+        subtitle="Exclude resources while testing boot, app, coprocessor, or secure-element updates"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          value={devSetting.pro2SkipResourceForComponentTesting ?? false}
+          onChange={setSkipResourceForComponentTesting}
+          testID="pro2-firmware-skip-resource"
+        />
+      </ListItem>
       <SizableText>{JSON.stringify(devSetting, null, 2)}</SizableText>
       <FirmwareUpdateActions />
     </YStack>

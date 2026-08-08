@@ -27,6 +27,7 @@ import { prepareProtocolV2ResourceFiles } from './protocolV2ResourceArchive';
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
+  shouldForceProtocolV2ResourceUpdate,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
@@ -384,6 +385,48 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+
+  it('excludes automatic and forced resources during component testing', () => {
+    expect(
+      buildPro2TargetsToUpdate({
+        sdkTargets: ['app_v1', 'resource'],
+        forceTargets: ['resource', 'coprocessor'],
+        skipResource: true,
+      }),
+    ).toEqual(['app_v1', 'coprocessor']);
+  });
+});
+
+describe('shouldForceProtocolV2ResourceUpdate', () => {
+  it('does not force an automatically selected resource', () => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['resource'],
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    { forceTargets: ['resource'] as const },
+    { forceOnceTargets: ['resource'] as const },
+    { legacyForceResource: true },
+  ])('forces resource reinstall for $#. configured override', (overrides) => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['resource'],
+        ...overrides,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not force a skipped resource even when an override remains set', () => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['app_v1'],
+        forceTargets: ['resource'],
+      }),
+    ).toBe(false);
   });
 });
 
