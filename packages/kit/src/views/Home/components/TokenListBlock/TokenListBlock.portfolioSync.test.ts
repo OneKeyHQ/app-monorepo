@@ -22,6 +22,8 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain(
       'accountUtils.isHwWallet({ walletId: wallet.id })',
     );
+    expect(source).toContain('assetStatusCurrency &&');
+    expect(source).toContain('totalFiatCurrency: assetStatusCurrency');
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
     expect(buildIndex).toBeLessThan(sendToBackgroundIndex);

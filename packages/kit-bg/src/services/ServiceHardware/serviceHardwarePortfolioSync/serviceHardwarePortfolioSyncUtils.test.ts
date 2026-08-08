@@ -102,7 +102,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
-        totalFiat: '2500.555',
+        totalFiat: '357.2222',
+        totalFiatCurrency: 'usd',
         totalTokenCount: 8,
         tokenMap: {
           eth: buildFiat({ fiatValue: '100', price: 100 }),
@@ -260,6 +261,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
         totalFiat: '100',
+        totalFiatCurrency: 'usd',
         totalTokenCount: 1,
         tokenMap: {
           eth: buildFiat({ fiatValue: '100', price: 100 }),
@@ -303,6 +305,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
         totalFiat: '100',
+        totalFiatCurrency: 'usd',
         totalTokenCount: 2,
         tokenMap: {
           advertising: buildFiat({ fiatValue: '50' }),

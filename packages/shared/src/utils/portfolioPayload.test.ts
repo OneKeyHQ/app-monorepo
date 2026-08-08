@@ -4,10 +4,11 @@ yarn test packages/shared/src/utils/portfolioPayload.test.ts
 import { appLocale } from '../locale/appLocale';
 
 import {
-  buildPortfolioPayload,
   buildPortfolioPayloadHash,
+  buildPortfolioPayload as buildPortfolioPayloadImpl,
 } from './portfolioPayload';
 
+import type { IBuildPortfolioPayloadParams } from './portfolioPayload';
 import type { ICurrencyItem } from '../../types/currency';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 
@@ -45,6 +46,17 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
     currency: params.currency ?? 'usd',
     ...params,
   };
+}
+
+function buildPortfolioPayload(
+  params: Omit<IBuildPortfolioPayloadParams, 'totalFiatCurrency'> & {
+    totalFiatCurrency?: string;
+  },
+) {
+  return buildPortfolioPayloadImpl({
+    ...params,
+    totalFiatCurrency: params.totalFiatCurrency ?? params.displayCurrency.id,
+  });
 }
 
 describe('buildPortfolioPayload', () => {
@@ -297,7 +309,7 @@ describe('buildPortfolioPayload', () => {
     }
   });
 
-  test('uses the UI token order and converts fiat values to the display currency', () => {
+  test('uses the UI token order and converts all fiat values to the display currency', () => {
     const lowValueFirst = buildToken({
       $key: 'low',
       symbol: 'LOW',
@@ -319,7 +331,8 @@ describe('buildPortfolioPayload', () => {
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'cny', symbol: '¥' },
-      totalFiat: '707.004',
+      totalFiat: '101',
+      totalFiatCurrency: 'usd',
       totalTokenCount: 2,
       timestamp: 1_780_900_000,
       tokenMap: {
@@ -377,9 +390,45 @@ describe('buildPortfolioPayload', () => {
     expect(payload.totalFiat).toBe('¥707.00');
     expect(payload.otherTokens).toEqual({
       count: 0,
-      fiat: '< ¥0.01',
+      fiat: '¥0.00',
       portfolioPercentage: 0,
     });
+  });
+
+  test('rejects a total whose source currency cannot be converted', () => {
+    expect(() =>
+      buildPortfolioPayload({
+        account: { label: 'Account #1', addressMasked: '0x12...ab' },
+        aggregateTokenMap: {},
+        currencyMap,
+        displayCurrency: { id: 'eur', symbol: '€' },
+        totalFiat: '100',
+        totalFiatCurrency: 'usd',
+        totalTokenCount: 0,
+        timestamp: 1_780_900_000,
+        tokenMap: {},
+        tokens: [],
+      }),
+    ).toThrow(
+      /Unable to convert Portfolio total from usd to eur: missing-rate/u,
+    );
+  });
+
+  test('requires the total source currency at the payload boundary', () => {
+    expect(() =>
+      buildPortfolioPayloadImpl({
+        account: { label: 'Account #1', addressMasked: '0x12...ab' },
+        aggregateTokenMap: {},
+        currencyMap,
+        displayCurrency: { id: 'usd', symbol: '$' },
+        totalFiat: '100',
+        totalFiatCurrency: '',
+        totalTokenCount: 0,
+        timestamp: 1_780_900_000,
+        tokenMap: {},
+        tokens: [],
+      }),
+    ).toThrow('Portfolio total source currency is required');
   });
 
   test('only marks iconName for allowlisted native and contract tokens', () => {
