@@ -142,8 +142,8 @@ export function buildPro2TargetsToUpdate({
 export function supportsFirmwareUpdateWorkflowV2(
   deviceType: IDeviceType | string | null | undefined,
 ): boolean {
-  // Workflow V2 是 App 的第二代升级流程，与设备的 Protocol V2 不是同一概念。
-  // Pro 使用该升级流程；Pro2、Neo 等 Protocol V2 产品也从该入口启动升级。
+  // Workflow V2 is the app's second-generation update flow, not the device's Protocol V2.
+  // Pro uses this flow, while Protocol V2 devices such as Pro2 and Neo enter through it too.
   return deviceType === EDeviceType.Pro || isProtocolV2ProductType(deviceType);
 }
 
