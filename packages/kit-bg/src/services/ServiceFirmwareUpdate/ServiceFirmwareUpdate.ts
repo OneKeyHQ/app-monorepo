@@ -701,6 +701,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
+    const pro2ForceTargets = isProtocolV2ProductType(deviceType)
+      ? [
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateTargets',
+          )) ?? []),
+          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateOnceTargets',
+          )) ?? []),
+        ]
+      : undefined;
     const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
       ? []
       : forceUpdateTargets;
@@ -746,12 +756,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge.shouldUpdate = true;
       }
     }
+    const shouldCheckProtocolV2Bootloader =
+      isProtocolV2ProductType(deviceType) && Boolean(releaseInfo.bootloader);
     if (
       !bridge?.shouldUpdate &&
       releaseInfo.bootloader &&
-      firmware?.toVersion &&
-      (firmware.hasUpgrade ||
-        forceUpdateTargetsForDevice.includes('bootloader'))
+      (shouldCheckProtocolV2Bootloader ||
+        (firmware?.toVersion &&
+          (firmware.hasUpgrade ||
+            forceUpdateTargetsForDevice.includes('bootloader'))))
     ) {
       bootloader = await this.checkBootloaderRelease({
         connectId: updatingConnectId,
@@ -759,7 +772,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         firmwareUpdateInfo: firmware,
         bootloaderReleasePayload:
           releaseInfo.bootloader as unknown as IBootloaderReleasePayload,
-        forceUpdate: forceUpdateTargetsForDevice.includes('bootloader'),
+        forceUpdate:
+          forceUpdateTargetsForDevice.includes('bootloader') ||
+          pro2ForceTargets?.includes('boot'),
+        currentVersion: releaseInfo.currentVersions?.bootloader,
       });
     }
 
@@ -769,7 +785,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         features,
         bleReleasePayload:
           releaseInfo.ble as unknown as IBleFirmwareReleasePayload,
-        forceUpdate: forceUpdateTargetsForDevice.includes('ble'),
+        forceUpdate:
+          forceUpdateTargetsForDevice.includes('ble') ||
+          pro2ForceTargets?.includes('coprocessor'),
+        currentVersion: releaseInfo.currentVersions?.ble,
       });
     }
 
@@ -856,16 +875,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    const pro2ForceTargets = isProtocolV2ProductType(deviceType)
-      ? [
-          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-            'pro2ForceUpdateTargets',
-          )) ?? []),
-          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-            'pro2ForceUpdateOnceTargets',
-          )) ?? []),
-        ]
-      : undefined;
     const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
       ? buildPro2TargetsToUpdate({
           sdkTargets: releaseInfo.targetsToUpdate,
@@ -1077,11 +1086,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     features,
     bleReleasePayload,
     forceUpdate,
+    currentVersion,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
     bleReleasePayload: IBleFirmwareReleasePayload;
     forceUpdate?: boolean;
+    currentVersion?: string | null;
   }): Promise<IBleFirmwareUpdateInfo> {
     const releasePayload: IBleFirmwareReleasePayload = {
       ...bleReleasePayload,
@@ -1092,7 +1103,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // TODO check releaseInfo.version with current version
     // 1. manual check here
     // 2. auto check by event: FIRMWARE_EVENT (event emit by method calling like sdk.getFeatures())
-    return this.setBleFirmwareUpdateInfo(releasePayload, forceUpdate);
+    return this.setBleFirmwareUpdateInfo(
+      releasePayload,
+      forceUpdate,
+      currentVersion,
+    );
   }
 
   // TODO only for classic and mini?
@@ -1103,26 +1118,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareUpdateInfo,
     bootloaderReleasePayload,
     forceUpdate,
+    currentVersion,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
     firmwareUpdateInfo: IFirmwareUpdateInfo;
     bootloaderReleasePayload: IBootloaderReleasePayload;
     forceUpdate?: boolean;
+    currentVersion?: string | null;
   }): Promise<IBootloaderUpdateInfo> {
     const usedReleasePayload = bootloaderReleasePayload;
 
-    const { bootloaderVersion } = await deviceUtils.getDeviceVersion({
-      features,
-      device: undefined,
-    });
+    const { bootloaderVersion: detectedBootloaderVersion } =
+      await deviceUtils.getDeviceVersion({
+        features,
+        device: undefined,
+      });
+    const bootloaderVersion = currentVersion || detectedBootloaderVersion;
     let toVersion = '';
     let changelog: IFirmwareChangeLog | undefined;
     // boot releaseInfo?.release may be string of resource download url
     const versionFromReleaseInfo =
-      usedReleasePayload?.release?.displayBootloaderVersion;
+      usedReleasePayload?.release?.displayBootloaderVersion ??
+      usedReleasePayload?.release?.version;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
-      toVersion = this.arrayVersionToString(versionFromReleaseInfo as any);
+      toVersion = this.arrayVersionToString(
+        versionFromReleaseInfo,
+      );
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
@@ -1359,6 +1381,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async setBleFirmwareUpdateInfo(
     payload: IBleFirmwareReleasePayload,
     forceUpdate?: boolean,
+    currentVersion?: string | null,
   ) {
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
@@ -1367,11 +1390,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
-    const { bleVersion } = await deviceUtils.getDeviceVersion({
-      device: undefined,
-      features: payload.features,
-    });
-    const fromVersion = bleVersion || '';
+    const { bleVersion: detectedBleVersion } =
+      await deviceUtils.getDeviceVersion({
+        device: undefined,
+        features: payload.features,
+      });
+    const fromVersion = currentVersion || detectedBleVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
     const { hasUpgrade, hasUpgradeForce } =
       await this.getFirmwareHasUpgradeStatus({

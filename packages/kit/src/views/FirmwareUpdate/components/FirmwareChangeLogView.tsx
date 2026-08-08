@@ -40,7 +40,11 @@ import type {
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
-import { isPro2SafeOSFirmwareUpdate } from '../utils';
+import {
+  getProtocolV2ResourceReleaseId,
+  hasProtocolV2FirmwareUpdateTarget,
+  isPro2SafeOSFirmwareUpdate,
+} from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
@@ -219,6 +223,33 @@ function ChangeLogSection({
   );
 }
 
+function ResourceUpdateSection({ releaseId }: { releaseId: string }) {
+  const intl = useIntl();
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+      minWidth={0}
+      px="$5"
+      py="$3"
+    >
+      <SizableText size="$bodyLgMedium" color="$textSubdued" flexShrink={0}>
+        {intl.formatMessage({ id: ETranslations.global_resources })}
+      </SizableText>
+      <SizableText
+        size="$bodyLgMedium"
+        color="$textSubdued"
+        minWidth={0}
+        flexShrink={1}
+        numberOfLines={1}
+      >
+        {releaseId}
+      </SizableText>
+    </XStack>
+  );
+}
+
 export function FirmwareChangeLogContentView({
   result,
   ...rest
@@ -227,14 +258,41 @@ export function FirmwareChangeLogContentView({
 } & IStackProps) {
   const intl = useIntl();
   const isPro2SafeOSUpdate = isPro2SafeOSFirmwareUpdate(result);
+  const hasPro2BootloaderUpdate = hasProtocolV2FirmwareUpdateTarget(
+    result,
+    'boot',
+  );
+  const hasPro2BleUpdate = hasProtocolV2FirmwareUpdateTarget(
+    result,
+    'coprocessor',
+  );
+  const hasPro2ResourceUpdate = hasProtocolV2FirmwareUpdateTarget(
+    result,
+    'resource',
+  );
+  const resourceReleaseId =
+    getProtocolV2ResourceReleaseId(result) ??
+    intl.formatMessage({
+      id: ETranslations.hardware_status_update_available,
+    });
   const defaultExpandedSections = useMemo(() => {
     if (result?.updateInfos?.firmware?.hasUpgrade || isPro2SafeOSUpdate) {
       return 'firmware';
     }
-    if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
-    if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
+    if (
+      result?.updateInfos?.bootloader?.hasUpgrade ||
+      hasPro2BootloaderUpdate
+    ) {
+      return 'bootloader';
+    }
+    if (result?.updateInfos?.ble?.hasUpgrade || hasPro2BleUpdate) return 'ble';
     return undefined;
-  }, [isPro2SafeOSUpdate, result?.updateInfos]);
+  }, [
+    hasPro2BleUpdate,
+    hasPro2BootloaderUpdate,
+    isPro2SafeOSUpdate,
+    result?.updateInfos,
+  ]);
 
   return (
     <Stack {...rest}>
@@ -257,14 +315,15 @@ export function FirmwareChangeLogContentView({
             versionOnly={isPro2SafeOSUpdate}
           />
         ) : null}
-        {result?.updateInfos?.bootloader?.hasUpgrade && !isPro2SafeOSUpdate ? (
+        {result?.updateInfos?.bootloader?.hasUpgrade ||
+        hasPro2BootloaderUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bootloader })}
             updateInfo={result?.updateInfos?.bootloader}
             accordionValue="bootloader"
           />
         ) : null}
-        {result?.updateInfos?.ble?.hasUpgrade && !isPro2SafeOSUpdate ? (
+        {result?.updateInfos?.ble?.hasUpgrade || hasPro2BleUpdate ? (
           <ChangeLogSection
             title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
             updateInfo={result?.updateInfos?.ble}
@@ -272,6 +331,9 @@ export function FirmwareChangeLogContentView({
           />
         ) : null}
       </Accordion>
+      {hasPro2ResourceUpdate ? (
+        <ResourceUpdateSection releaseId={resourceReleaseId} />
+      ) : null}
     </Stack>
   );
 }

@@ -5,6 +5,8 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import {
   getFirmwareUpdateDeviceTitle,
+  getProtocolV2ResourceReleaseId,
+  hasProtocolV2FirmwareUpdateTarget,
   isPro2SafeOSFirmwareUpdate,
 } from './utils';
 
@@ -85,5 +87,41 @@ describe('getFirmwareUpdateDeviceTitle', () => {
         deviceName: '用户自定义名称',
       } as ICheckAllFirmwareReleaseResult),
     ).toBe('用户自定义名称');
+  });
+});
+
+describe('Protocol V2 update target display', () => {
+  it('detects an independently selected coprocessor target', () => {
+    const result = buildResult({ targets: ['coprocessor'] });
+
+    expect(hasProtocolV2FirmwareUpdateTarget(result, 'coprocessor')).toBe(true);
+    expect(hasProtocolV2FirmwareUpdateTarget(result, 'resource')).toBe(false);
+  });
+
+  it('uses a stable short archive fingerprint for a resource-only update', () => {
+    const result = {
+      ...buildResult({ targets: ['resource'] }),
+      pro2ResourceArchive: {
+        archiveUrl: 'https://example.com/resource.zip',
+        archiveSha256:
+          '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        archiveSize: 1024,
+      },
+    };
+
+    expect(getProtocolV2ResourceReleaseId(result)).toBe('SHA-256 1234567890ab');
+  });
+
+  it('does not expose a resource fingerprint for unrelated updates', () => {
+    const result = {
+      ...buildResult({ targets: ['coprocessor'] }),
+      pro2ResourceArchive: {
+        archiveUrl: 'https://example.com/resource.zip',
+        archiveSha256: 'a'.repeat(64),
+        archiveSize: 1024,
+      },
+    };
+
+    expect(getProtocolV2ResourceReleaseId(result)).toBeUndefined();
   });
 });

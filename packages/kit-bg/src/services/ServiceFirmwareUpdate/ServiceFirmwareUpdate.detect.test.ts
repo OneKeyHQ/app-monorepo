@@ -2,12 +2,17 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
+  type IBleFirmwareReleasePayload,
+  type IBootloaderReleasePayload,
   type ICheckAllFirmwareReleaseResult,
+  type IFirmwareUpdateInfo,
+  type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -364,6 +369,81 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('ServiceFirmwareUpdate Protocol V2 version mapping', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('prefers the SDK device-state BLE version over legacy features', async () => {
+    jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
+      bleVersion: '1.0.0',
+      firmwareVersion: '',
+      bootloaderVersion: '',
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getConnectIdFromFeatures: jest.fn().mockResolvedValue(undefined),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.checkBLEFirmwareRelease({
+      connectId: undefined,
+      features: {} as IOneKeyDeviceFeatures,
+      bleReleasePayload: {
+        status: 'outdated',
+        shouldUpdate: true,
+        release: { version: [2, 0, 0] },
+      } as unknown as IBleFirmwareReleasePayload,
+      forceUpdate: false,
+      currentVersion: '1.5.0',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        hasUpgrade: true,
+        fromVersion: '1.5.0',
+        toVersion: '2.0.0',
+      }),
+    );
+  });
+
+  it('reads a Protocol V2 bootloader component version directly', async () => {
+    jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
+      bleVersion: '',
+      firmwareVersion: '',
+      bootloaderVersion: '1.0.0',
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    const result = await service.checkBootloaderRelease({
+      connectId: undefined,
+      features: {} as IOneKeyDeviceFeatures,
+      firmwareUpdateInfo: {
+        releasePayload: { release: undefined },
+      } as unknown as IFirmwareUpdateInfo,
+      bootloaderReleasePayload: {
+        status: 'outdated',
+        shouldUpdate: true,
+        release: { version: [2, 0, 0] },
+      } as unknown as IBootloaderReleasePayload,
+      forceUpdate: false,
+      currentVersion: '1.5.0',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        hasUpgrade: true,
+        fromVersion: '1.5.0',
+        toVersion: '2.0.0',
+      }),
+    );
   });
 });
 
