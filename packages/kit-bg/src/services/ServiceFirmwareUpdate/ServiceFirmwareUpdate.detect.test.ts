@@ -153,6 +153,7 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
       connectId: 'device-1',
       firmwareType: undefined,
       skipChangeTransportType: true,
+      protocolV2ForceUpdateTargets: ['app_v1', 'coprocessor'],
     });
 
     expect(getSDKInstance).toHaveBeenCalledWith({
@@ -160,6 +161,12 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
       forceFirmwareManifestRefresh: true,
     });
     expect(checkAllFirmwareRelease).toHaveBeenCalledTimes(1);
+    expect(checkAllFirmwareRelease).toHaveBeenCalledWith(
+      'device-1',
+      expect.objectContaining({
+        protocolV2ForceUpdateTargets: ['app_v1', 'coprocessor'],
+      }),
+    );
   });
 });
 
@@ -1214,6 +1221,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       releaseResult: {
         deviceType: EDeviceType.Pro2,
         firmwareUpdatePlanDigest: 'c'.repeat(64),
+        pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
         updateInfos: {},
       } as ICheckAllFirmwareReleaseResult,
     });
@@ -1221,7 +1229,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(updatingFirmwareV4).toHaveBeenCalledWith(
       expect.objectContaining({
         requirePreparedArtifacts: true,
-        targetsToUpdate: ['boot', 'app_v1'],
+        targetsToUpdate: ['boot', 'app_v1', 'resource'],
       }),
       undefined,
     );

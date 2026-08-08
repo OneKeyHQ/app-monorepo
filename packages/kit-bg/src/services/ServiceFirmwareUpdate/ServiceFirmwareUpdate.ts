@@ -760,29 +760,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
       features,
     });
     const pro2ForceTargets = isProtocolV2ProductType(deviceType)
-      ? [
-          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-            'pro2ForceUpdateTargets',
-          )) ?? []),
-          ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-            'pro2ForceUpdateOnceTargets',
-          )) ?? []),
-        ]
+      ? Array.from(
+          new Set<IPro2FirmwareUpdateTarget>([
+            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+              'pro2ForceUpdateTargets',
+            )) ?? []),
+            ...((await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+              'pro2ForceUpdateOnceTargets',
+            )) ?? []),
+          ]),
+        )
       : undefined;
     const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
       ? []
       : forceUpdateTargets;
 
-    const releaseInfo = releaseInfoCache?.firmwareUpdatePlan
-      ? releaseInfoCache
-      : await this.loadBaseFirmwareRelease({
-          connectId: originalConnectId,
-          firmwareType,
-          skipChangeTransportType: true,
-          checkFirmwareHash,
-          resolvedTransportType: currentTransportType,
-          forceUpdateTargets: forceUpdateTargetsForDevice,
-        });
+    const releaseInfo =
+      releaseInfoCache?.firmwareUpdatePlan && !pro2ForceTargets?.length
+        ? releaseInfoCache
+        : await this.loadBaseFirmwareRelease({
+            connectId: originalConnectId,
+            firmwareType,
+            skipChangeTransportType: true,
+            checkFirmwareHash,
+            resolvedTransportType: currentTransportType,
+            forceUpdateTargets: forceUpdateTargetsForDevice,
+            protocolV2ForceUpdateTargets: pro2ForceTargets,
+          });
 
     const currentFirmwareType = await deviceUtils.getFirmwareType({
       features: releaseInfo.features as unknown as
@@ -964,11 +968,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const effectiveHasUpgrade =
       hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
+    const executableFirmwareUpdatePlan =
+      releaseInfo.firmwareUpdatePlan?.artifacts.length &&
+      releaseInfo.firmwareUpdatePlan.targetsToUpdate.length
+        ? releaseInfo.firmwareUpdatePlan
+        : undefined;
     const firmwareUpdatePlanDigest = await (
       await this.getFirmwareUpdateRuntimeHost()
     ).artifacts.cachePlanDigestIfPreparedSupported({
       hasUpgrade: effectiveHasUpgrade,
-      plan: releaseInfo.firmwareUpdatePlan,
+      plan: executableFirmwareUpdatePlan,
       connectId: updatingConnectId,
       transportType: currentTransportType,
       expectedTargets: [
@@ -1061,6 +1070,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     checkFirmwareHash,
     resolvedTransportType,
     forceUpdateTargets,
+    protocolV2ForceUpdateTargets,
     forceFirmwareManifestRefresh,
   }: {
     connectId: string | undefined;
@@ -1071,6 +1081,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     checkFirmwareHash?: boolean;
     resolvedTransportType?: EHardwareTransportType;
     forceUpdateTargets?: FirmwareUpdatePlanForceTarget[];
+    protocolV2ForceUpdateTargets?: IPro2FirmwareUpdateTarget[];
     forceFirmwareManifestRefresh?: boolean;
   }) {
     const hardwareSDK = await this.getSDKInstance({
@@ -1095,6 +1106,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       retryCount,
       checkFirmwareHash,
       forceUpdateTargets,
+      protocolV2ForceUpdateTargets,
     };
     const result = await convertDeviceResponse(
       () =>
@@ -2868,11 +2880,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
       pro2ResourceArchive: releaseResult.pro2ResourceArchive,
     };
     if (executor === 'v4') {
+      const targetsFromRelease = releaseResult.pro2TargetsToUpdate ?? [];
+      const targetCandidates = plan
+        ? [
+            ...plan.targetsToUpdate,
+            ...(targetsFromRelease.includes('resource')
+              ? (['resource'] as const)
+              : []),
+          ]
+        : targetsFromRelease;
       const targetsToUpdate = (
         await loadFirmwareUpdateRuntime()
-      ).getFirmwareUpdateV4Targets(
-        plan?.targetsToUpdate ?? releaseResult.pro2TargetsToUpdate ?? [],
-      );
+      ).getFirmwareUpdateV4Targets(targetCandidates);
       return this.createRunTaskWithRetry({
         fn: async () =>
           this.updatingFirmwareV4(
