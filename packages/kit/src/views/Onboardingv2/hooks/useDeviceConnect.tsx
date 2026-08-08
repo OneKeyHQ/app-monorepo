@@ -559,6 +559,7 @@ export function useDeviceConnect({
       }
 
       let connectionFailureTracked = false;
+      let bootloaderDialogShown = false;
       let forceTransportType: EHardwareTransportType | undefined;
       const confirmedConnectProtocol = device.connectProtocol;
       try {
@@ -626,6 +627,7 @@ export function useDeviceConnect({
             existsFirmware,
             onBeforeUpdate: prepareUSBForUpdate,
           });
+          bootloaderDialogShown = true;
           console.log('Device is in bootloader mode', device);
           // Bootloader mode hands off to the firmware-update flow, so the throw
           // below is not a connection failure — suppress the catch-block tracking.
@@ -822,8 +824,11 @@ export function useDeviceConnect({
           },
         };
       } catch (error) {
-        // Clear force transport type on device connection error
-        void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        // The hardware dialog was already closed before the bootloader dialog
+        // mounted. A late cleanup write here can race with that handoff on iOS.
+        if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
+          void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
+        }
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error

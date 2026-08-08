@@ -1,6 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const DEFAULT_STATE_ACK_TIMEOUT_MS = 5000;
+// Dialog.show keeps its portal mounted for 300 ms while the native Sheet exits.
+// Treating the React state commit as "closed" lets the next Sheet mount inside
+// that exit window, which can leave the old iOS overlay intercepting touches.
+const DEFAULT_CLOSE_SETTLE_MS = 300;
 
 type IStateWaiter = {
   resolve: () => void;
@@ -11,17 +15,37 @@ type IStateWaiter = {
 export class HardwareUiStateDialogLifecycle {
   private isOpen = false;
 
+  private closeSettleTimer: ReturnType<typeof setTimeout> | undefined;
+
   private readonly openWaiters = new Set<IStateWaiter>();
 
   private readonly closeWaiters = new Set<IStateWaiter>();
 
   constructor(
     private readonly stateAckTimeoutMs = DEFAULT_STATE_ACK_TIMEOUT_MS,
+    private readonly closeSettleMs = DEFAULT_CLOSE_SETTLE_MS,
   ) {}
 
   updateOpenState(isOpen: boolean) {
-    this.isOpen = isOpen;
-    this.resolveWaiters(isOpen ? this.openWaiters : this.closeWaiters);
+    clearTimeout(this.closeSettleTimer);
+    this.closeSettleTimer = undefined;
+
+    if (isOpen) {
+      this.isOpen = true;
+      this.resolveWaiters(this.openWaiters);
+      return;
+    }
+
+    if (!this.isOpen) {
+      this.resolveWaiters(this.closeWaiters);
+      return;
+    }
+
+    this.closeSettleTimer = setTimeout(() => {
+      this.closeSettleTimer = undefined;
+      this.isOpen = false;
+      this.resolveWaiters(this.closeWaiters);
+    }, this.closeSettleMs);
   }
 
   async openAndWait(openAction: () => Promise<void>) {
