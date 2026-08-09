@@ -274,9 +274,16 @@ const SwapQuoteResult = ({
   const isWaitingForQuote =
     quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  // OK-58690: a quote event error without any displayable result used to
+  // render nothing at all here, which removed the manual refresh entry and
+  // made this row pop in/out around auto refreshes. Treat it like the
+  // zero-provider case so the row (with its refresh entry) stays on screen.
+  const isQuoteEventErrorWithoutResult =
+    quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay;
   const showNoProvider =
-    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
-    !hasQuoteResultForDisplay;
+    (quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
+      !hasQuoteResultForDisplay) ||
+    isQuoteEventErrorWithoutResult;
 
   const fromAmountDebounce = useDebounce(
     fromTokenAmount,
@@ -330,9 +337,6 @@ const SwapQuoteResult = ({
         </XStack>
       </XStack>
     );
-  }
-  if (quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay) {
-    return null;
   }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (
