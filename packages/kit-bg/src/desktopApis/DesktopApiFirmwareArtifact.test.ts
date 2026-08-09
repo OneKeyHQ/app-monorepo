@@ -34,9 +34,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     ).toBe(true);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL(
-          'https://pub-568cac7a13bf4c42b7a8113ffffc6793.r2.dev/firmware.bin',
-        ),
+        new URL('https://pre-release-bucket.example.test/firmware.bin'),
       ),
     ).toBe(false);
     expect(
@@ -55,15 +53,13 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     const allow = { allowPreReleaseHosts: true };
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL(
-          'https://pub-568cac7a13bf4c42b7a8113ffffc6793.r2.dev/firmware.bin',
-        ),
+        new URL('https://pre-release-bucket.example.test/firmware.bin'),
         allow,
       ),
     ).toBe(true);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL('https://leonbucket.blob.core.windows.net/pro2/resource.zip'),
+        new URL('https://firmware-bucket.example.test/pro2/resource.zip'),
         allow,
       ),
     ).toBe(true);
@@ -75,34 +71,32 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     ).toBe(true);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL(
-          'https://pub-568cac7a13bf4c42b7a8113ffffc6793.r2.dev/firmware.bin',
-        ),
+        new URL('https://pre-release-bucket.example.test/firmware.bin'),
         { allowPreReleaseHosts: false },
       ),
     ).toBe(false);
     // Structural checks still apply while hostname pinning is skipped.
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL('http://leonbucket.blob.core.windows.net/resource.zip'),
+        new URL('http://firmware-bucket.example.test/resource.zip'),
         allow,
       ),
     ).toBe(false);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL('https://leonbucket.blob.core.windows.net:8443/resource.zip'),
+        new URL('https://firmware-bucket.example.test:8443/resource.zip'),
         allow,
       ),
     ).toBe(false);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL('https://user:pass@leonbucket.blob.core.windows.net/res.zip'),
+        new URL('https://user:pass@firmware-bucket.example.test/res.zip'),
         allow,
       ),
     ).toBe(false);
     expect(
       isFirmwareArtifactUrlAllowed(
-        new URL('https://leonbucket.blob.core.windows.net/res.zip#fragment'),
+        new URL('https://firmware-bucket.example.test/res.zip#fragment'),
         allow,
       ),
     ).toBe(false);
@@ -112,7 +106,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     // The flag crosses an IPC boundary, so it may arrive as any JSON value.
     // Only `true` may widen the allowlist: a truthy coercion here would let a
     // malformed or hostile payload skip hostname pinning.
-    const devUrl = new URL('https://leonbucket.blob.core.windows.net/res.zip');
+    const devUrl = new URL('https://firmware-bucket.example.test/res.zip');
     for (const value of [
       undefined,
       null,
@@ -163,7 +157,7 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
       transactionId,
       leaseRef: lease.leaseRef,
       artifactId: 'resource',
-      url: 'https://leonbucket.blob.core.windows.net/pro2/resource.zip',
+      url: 'https://firmware-bucket.example.test/pro2/resource.zip',
       route: { routeType: 'domain' } as const,
       expectedSize: 1,
       expectedSha256: 'a'.repeat(64),
