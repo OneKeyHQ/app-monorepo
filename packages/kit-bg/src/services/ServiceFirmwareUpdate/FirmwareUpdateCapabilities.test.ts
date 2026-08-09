@@ -1153,11 +1153,12 @@ describe('external firmware artifact preparation', () => {
       planDigest: plan.planDigest,
     } as FirmwareUpdatePreparedPlan;
     const validateFirmwareUpdatePreparedPlan = jest.fn(() => preparedPlan);
+    const registerFirmwareUpdateHostBinding = jest.fn(() => 9);
     const unregisterFirmwareUpdateHostBinding = jest.fn(() => true);
     const sdk = {
       prepareFirmwareUpdatePlan: jest.fn(() => preparedPlan),
       validateFirmwareUpdatePreparedPlan,
-      registerFirmwareUpdateHostBinding: jest.fn(() => 9),
+      registerFirmwareUpdateHostBinding,
       unregisterFirmwareUpdateHostBinding,
     } as unknown as CoreApi;
     jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
@@ -1199,6 +1200,11 @@ describe('external firmware artifact preparation', () => {
 
     expect(validateFirmwareUpdatePreparedPlan).toHaveBeenCalledWith(
       preparedPlan,
+    );
+    expect(registerFirmwareUpdateHostBinding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preparedPlanDigest: preparedPlan.preparedPlanDigest,
+      }),
     );
     expect(unregisterFirmwareUpdateHostBinding).toHaveBeenCalledWith(9);
     expect(releaseLease).toHaveBeenCalledWith({

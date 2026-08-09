@@ -309,9 +309,11 @@ export class FirmwarePreparedArtifactController {
     const generation = (
       sdk.registerFirmwareUpdateHostBinding as unknown as (binding: {
         artifactReader: IPreparedFirmwareArtifacts['artifactReader'];
+        preparedPlanDigest: string;
       }) => number
     )({
       artifactReader: prepared.artifactReader,
+      preparedPlanDigest: prepared.preparedPlan.preparedPlanDigest,
     });
     if (!Number.isSafeInteger(generation) || generation <= 0) {
       throw new OneKeyLocalError(
