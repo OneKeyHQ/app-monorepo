@@ -255,10 +255,10 @@ const SwapActionsState = ({
     () =>
       shouldShowSwapIncognitoRecipientInput({
         incognitoMode: swapIncognitoMode,
-        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        providerSupportsRecipient: providerSupportReceiveAddressSettled,
         swapType: swapTypeSwitch,
       }),
-    [swapIncognitoMode, swapProviderSupportReceiveAddress, swapTypeSwitch],
+    [swapIncognitoMode, providerSupportReceiveAddressSettled, swapTypeSwitch],
   );
 
   const incognitoRecipientNetworkId =
@@ -270,14 +270,14 @@ const SwapActionsState = ({
         hasToToken: Boolean(toToken),
         isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
         networkId: incognitoRecipientNetworkId,
-        providerSupportsRecipient: swapProviderSupportReceiveAddress,
+        providerSupportsRecipient: providerSupportReceiveAddressSettled,
         visible: shouldShowIncognitoRecipientInput,
       }),
     [
       fromToken,
       incognitoRecipientNetworkId,
       shouldShowIncognitoRecipientInput,
-      swapProviderSupportReceiveAddress,
+      providerSupportReceiveAddressSettled,
       swapToAddressInfo.isAddressInfoReady,
       toToken,
     ],
