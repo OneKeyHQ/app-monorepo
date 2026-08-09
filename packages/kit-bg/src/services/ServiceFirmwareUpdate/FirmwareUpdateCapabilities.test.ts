@@ -331,7 +331,7 @@ describe('prepared firmware execution', () => {
     );
   });
 
-  test('preserves forced resource reinstall for prepared V4 execution', async () => {
+  test('uses the prepared plan as the sole V4 execution source', async () => {
     const firmwareUpdateV4 = jest.fn();
     const sdk = { firmwareUpdateV4 } as unknown as CoreApi;
     const prepared = createPreparedArtifacts({});
@@ -351,12 +351,11 @@ describe('prepared firmware execution', () => {
 
     expect(firmwareUpdateV4).toHaveBeenCalledWith(
       'device',
-      expect.objectContaining({
+      {
+        platform: 'native',
         preparedPlan: prepared.preparedPlan,
         hostBindingGeneration: 7,
-        targetsToUpdate: ['resource'],
-        forcedUpdateRes: true,
-      }),
+      },
     );
   });
 
