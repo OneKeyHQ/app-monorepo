@@ -1084,10 +1084,8 @@ describe('Desktop Bridge firmware binaries', () => {
     });
   });
 
-  test('downloads a remote plan URL without requiring an App-bundled catalog', async () => {
+  test('downloads a verified remote plan URL without requiring an App-bundled catalog', async () => {
     const { plan } = createBridgePlan();
-    delete plan.artifacts[0].expectedSize;
-    delete plan.artifacts[0].expectedSha256;
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
       firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
@@ -1097,14 +1095,14 @@ describe('Desktop Bridge firmware binaries', () => {
     jest
       .spyOn(firmwareArtifactAdapter, 'createLease')
       .mockResolvedValue({ leaseRef: 'fwlease:catalog' });
-    const actualSha256 = '2'.repeat(64);
+    const actualSha256 = plan.artifacts[0].expectedSha256;
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
       .mockResolvedValue({
         artifactRef: `fw:${actualSha256}`,
         size: testFirmwareArtifact.expectedSize,
         sha256: actualSha256,
-        expectedSha256Verified: false,
+        expectedSha256Verified: true,
       });
     jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
       readerId: 'reader',
@@ -1125,11 +1123,11 @@ describe('Desktop Bridge firmware binaries', () => {
       expect.objectContaining({
         artifactId: 'bootloader',
         url: plan.artifacts[0].url,
-        maxBytes: 512 * 1024 * 1024,
+        expectedSize: plan.artifacts[0].expectedSize,
+        expectedSha256: plan.artifacts[0].expectedSha256,
+        maxBytes: plan.artifacts[0].expectedSize,
       }),
     );
-    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSize');
-    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSha256');
   });
 
   test('cancels an active preparation after a download failure', async () => {
