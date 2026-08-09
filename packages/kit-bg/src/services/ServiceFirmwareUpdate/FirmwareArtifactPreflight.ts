@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
@@ -201,6 +203,10 @@ export const downloadFirmwareArtifact = async ({
       artifactRole: artifact.role,
       expectedBytes: artifact.expectedSize,
     });
+    // Pre-release artifacts resolved from pre-config.json live in
+    // developer-owned buckets outside the reviewed host allowlist.
+    const allowPreReleaseHosts =
+      (await getGatedFirmwareUpdateDevSetting('usePreReleaseConfig')) === true;
     try {
       const receipt = await firmwareArtifactAdapter.download({
         taskId,
@@ -215,6 +221,7 @@ export const downloadFirmwareArtifact = async ({
         ...(artifact.expectedSha256
           ? { expectedSha256: artifact.expectedSha256 }
           : {}),
+        ...(allowPreReleaseHosts ? { allowPreReleaseHosts } : {}),
         maxBytes: artifact.expectedSize ?? MAX_ARTIFACT_BYTES,
         overallDeadlineSeconds: remainingMs / 1000,
       });

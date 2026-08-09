@@ -24,6 +24,7 @@ import {
   devSettingsPersistAtom,
   firmwareUpdateDevSettingsPersistAtom,
   getDevSettingsNetworkThrottleEnabled,
+  getGatedFirmwareUpdateDevSetting,
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
@@ -308,12 +309,7 @@ class ServiceDevSetting extends ServiceBase {
   public async getFirmwareUpdateDevSettings<
     T extends IFirmwareUpdateDevSettingsKeys,
   >(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
-    const dev = await devSettingsPersistAtom.get();
-    if (!dev.enabled) {
-      return undefined;
-    }
-    const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
-    return fwDev[key];
+    return getGatedFirmwareUpdateDevSetting(key);
   }
 
   @backgroundMethod()
