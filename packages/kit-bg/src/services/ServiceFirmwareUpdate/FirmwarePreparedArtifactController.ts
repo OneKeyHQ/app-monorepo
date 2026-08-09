@@ -280,23 +280,39 @@ export class FirmwarePreparedArtifactController {
     connectId,
     transportType,
     expectedTargets = [],
+    requirePreparedPlan = false,
   }: {
     hasUpgrade: boolean | undefined;
     plan: FirmwareUpdatePlan | undefined;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
     expectedTargets?: readonly FirmwareUpdatePlanTarget[];
+    requirePreparedPlan?: boolean;
   }): Promise<string | undefined> {
-    return hasUpgrade &&
-      plan &&
-      (await this.cachePlanIfPreparedSupported({
-        plan,
-        connectId,
-        transportType,
-        expectedTargets,
-      }))
-      ? plan.planDigest
-      : undefined;
+    if (!hasUpgrade) return undefined;
+    if (!plan) {
+      if (requirePreparedPlan) {
+        throw new OneKeyLocalError(
+          'Firmware update plan is unavailable from the fresh firmware manifest',
+        );
+      }
+      return undefined;
+    }
+    const preparedPlanSupported = await this.cachePlanIfPreparedSupported({
+      plan,
+      connectId,
+      transportType,
+      expectedTargets,
+    });
+    if (!preparedPlanSupported) {
+      if (requirePreparedPlan) {
+        throw new OneKeyLocalError(
+          'Firmware prepared artifact capability is unavailable on this runtime',
+        );
+      }
+      return undefined;
+    }
+    return plan.planDigest;
   }
 
   getPlan(releaseResult: ICheckAllFirmwareReleaseResult): FirmwareUpdatePlan {

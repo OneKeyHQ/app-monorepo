@@ -1025,6 +1025,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
             ]),
           ],
+      requirePreparedPlan: isProtocolV2ProductType(deviceType),
     });
 
     const result = {

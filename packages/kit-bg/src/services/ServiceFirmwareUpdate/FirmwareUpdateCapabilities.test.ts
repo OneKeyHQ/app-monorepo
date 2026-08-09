@@ -505,6 +505,75 @@ describe('prepared firmware execution', () => {
     }
   });
 
+  test('fails a required prepared flow when the fresh manifest has no Plan', async () => {
+    const controller = createController();
+
+    await expect(
+      controller.cachePlanDigestIfPreparedSupported({
+        hasUpgrade: true,
+        plan: undefined,
+        connectId: 'device',
+        transportType: EHardwareTransportType.Bridge,
+        expectedTargets: ['firmware'],
+        requirePreparedPlan: true,
+      }),
+    ).rejects.toThrow(
+      'Firmware update plan is unavailable from the fresh firmware manifest',
+    );
+  });
+
+  test('fails a required prepared flow when the host capability is unavailable', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest
+        .spyOn(firmwareArtifactAdapter, 'getCapabilities')
+        .mockRejectedValue(new Error('artifact module unavailable'));
+      const controller = createController();
+      const plan = {
+        planDigest: 'd'.repeat(64),
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:app_v1',
+            role: 'component',
+            target: 'app_v1',
+            url: 'https://firmware.example/application-p1.okpkg',
+            container: 'raw',
+            expectedSize: 1024,
+            expectedSha256: '1'.repeat(64),
+          },
+        ],
+        targetsToUpdate: ['app_v1'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['app_v1'],
+          requirePreparedPlan: true,
+        }),
+      ).rejects.toThrow(
+        'Firmware prepared artifact capability is unavailable on this runtime',
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
   test('rejects empty and partial Desktop Bridge plans before preparation', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,

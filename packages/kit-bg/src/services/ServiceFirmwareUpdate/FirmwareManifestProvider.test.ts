@@ -123,7 +123,7 @@ describe('FirmwareManifestProvider', () => {
     expect(mockedFetchFirmwareConfig).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the last known-good snapshot when a refresh fails', async () => {
+  it('does not use a stale snapshot for an explicit firmware check', async () => {
     mockedFetchFirmwareConfig
       .mockResolvedValueOnce(remoteConfig)
       .mockRejectedValueOnce(new Error('transport failed'));
@@ -134,6 +134,6 @@ describe('FirmwareManifestProvider', () => {
         preRelease: true,
         forceRefresh: true,
       }),
-    ).resolves.toBe(remoteConfig);
+    ).rejects.toThrow('Firmware manifest is unavailable');
   });
 });
