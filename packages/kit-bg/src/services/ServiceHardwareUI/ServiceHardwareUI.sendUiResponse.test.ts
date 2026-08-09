@@ -1,4 +1,5 @@
 import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
@@ -118,6 +119,29 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
     expect(operation).not.toHaveBeenCalled();
     expect(service.processingNestedNum).toBe(0);
   });
+
+  it.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
+    'rejects a %s operation while firmware update exclusivity is active',
+    async (vendor) => {
+      jest
+        .mocked(firmwareUpdateWorkflowRunningAtom.get)
+        .mockResolvedValue(true);
+      const operation = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceHardwareUI({ backgroundApi: {} });
+
+      await expect(
+        service.withHardwareProcessing(operation, {
+          deviceParams: {
+            dbDevice: { vendor },
+          } as never,
+        }),
+      ).rejects.toMatchObject({
+        message: 'Hardware is busy',
+        autoToast: false,
+      });
+      expect(operation).not.toHaveBeenCalled();
+    },
+  );
 
   it('allows the firmware workflow to acquire the existing hardware lease', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);

@@ -385,8 +385,8 @@ describe('buildPro2TargetsToUpdate', () => {
 });
 
 describe('buildProtocolV2PlanForceTargets', () => {
-  it('requests loader-side resource comparison by default', () => {
-    expect(buildProtocolV2PlanForceTargets({})).toEqual(['resource']);
+  it('does not synthesize a resource update when no developer target is selected', () => {
+    expect(buildProtocolV2PlanForceTargets({})).toEqual([]);
   });
 
   it('merges developer targets without forcing a full resource reinstall', () => {
@@ -395,7 +395,7 @@ describe('buildProtocolV2PlanForceTargets', () => {
         forceTargets: ['app_v1', 'resource'],
         forceOnceTargets: ['coprocessor'],
       }),
-    ).toEqual(['resource', 'app_v1', 'coprocessor']);
+    ).toEqual(['app_v1', 'resource', 'coprocessor']);
   });
 });
 
@@ -508,6 +508,23 @@ describe('buildProtocolV2FirmwareVersionInfo', () => {
       components: [],
     });
   });
+
+  it.each(['se01', 'se02', 'se03', 'se04'] as const)(
+    'does not report an %s-only update as a SafeOS transition',
+    (target) => {
+      expect(
+        buildProtocolV2FirmwareVersionInfo({
+          releaseInfo,
+          targetsToUpdate: [target],
+        }),
+      ).toMatchObject({
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: null,
+        },
+      });
+    },
+  );
 });
 
 describe('ServiceFirmwareUpdate Protocol V2 version mapping', () => {

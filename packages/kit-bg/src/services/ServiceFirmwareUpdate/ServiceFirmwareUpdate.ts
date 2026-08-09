@@ -168,22 +168,20 @@ const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
 const PROTOCOL_V2_SAFE_OS_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
   'app_v1',
   'app_v2',
-  'se01',
-  'se02',
-  'se03',
-  'se04',
 ]);
 
 export function buildPro2TargetsToUpdate({
   sdkTargets,
   forceTargets = [],
 }: {
-  sdkTargets: readonly IPro2FirmwareUpdateTarget[] | undefined;
+  sdkTargets: readonly FirmwareUpdateV4Target[] | undefined;
   forceTargets?: readonly IPro2FirmwareUpdateTarget[];
 }) {
   return Array.from(
     new Set<IPro2FirmwareUpdateTarget>([
-      ...(sdkTargets ?? []),
+      ...(sdkTargets ?? []).map((target) =>
+        target === 'boot_resources' ? 'resource' : target,
+      ),
       ...forceTargets,
     ]),
   );
@@ -197,9 +195,7 @@ export function buildProtocolV2PlanForceTargets({
   forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
 }) {
   return buildPro2TargetsToUpdate({
-    // Application mode cannot inspect vol0 resources. Selecting the resource
-    // target makes FirmwareUpdateV4 compare each package after entering loader.
-    sdkTargets: ['resource'],
+    sdkTargets: [],
     forceTargets: [...forceTargets, ...forceOnceTargets],
   });
 }
@@ -210,13 +206,15 @@ export function shouldForceProtocolV2ResourceUpdate({
   forceTargets = [],
   forceOnceTargets = [],
 }: {
-  targetsToUpdate: readonly IPro2FirmwareUpdateTarget[];
+  targetsToUpdate: readonly FirmwareUpdateV4Target[];
   legacyForceResource?: boolean;
   forceTargets?: readonly IPro2FirmwareUpdateTarget[];
   forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
 }) {
   return (
-    targetsToUpdate.includes('resource') &&
+    targetsToUpdate.some(
+      (target) => target === 'resource' || target === 'boot_resources',
+    ) &&
     (legacyForceResource === true ||
       forceTargets.includes('resource') ||
       forceOnceTargets.includes('resource'))

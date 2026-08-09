@@ -520,9 +520,6 @@ class ServiceHardwareUI extends ServiceBase {
     const isThirdPartyVendor = getVendorProfile(
       device?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
-    if (isThirdPartyVendor) {
-      return this.withHardwareProcessingInternal(() => fn(undefined), params);
-    }
     if (
       !params.allowDuringFirmwareUpdate &&
       (this.firmwareUpdateExclusiveDepth > 0 ||
@@ -534,6 +531,9 @@ class ServiceHardwareUI extends ServiceBase {
         }),
         autoToast: false,
       });
+    }
+    if (isThirdPartyVendor) {
+      return this.withHardwareProcessingInternal(() => fn(undefined), params);
     }
     const tracksFirmwareUpdateExclusivity = Boolean(
       params.allowDuringFirmwareUpdate,
