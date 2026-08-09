@@ -114,7 +114,6 @@ describe('Protocol V2 update target display', () => {
         ],
       },
       pro2ResourceArchive: {
-        archiveUrl: 'https://example.com/resource.zip',
         archiveSha256: '1234567890abcdef',
         archiveSize: 1024,
       },
@@ -200,7 +199,6 @@ describe('Protocol V2 update target display', () => {
     const result = {
       ...buildResult({ targets: ['resource'] }),
       pro2ResourceArchive: {
-        archiveUrl: 'https://example.com/resource.zip',
         archiveSha256:
           '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         archiveSize: 1024,
@@ -214,7 +212,6 @@ describe('Protocol V2 update target display', () => {
     const result = {
       ...buildResult({ targets: ['coprocessor'] }),
       pro2ResourceArchive: {
-        archiveUrl: 'https://example.com/resource.zip',
         archiveSha256: 'a'.repeat(64),
         archiveSize: 1024,
       },

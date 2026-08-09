@@ -581,7 +581,7 @@ describe('prepared firmware execution', () => {
     }
   });
 
-  test('accepts exact Protocol V2 component targets and their legacy aliases', async () => {
+  test('accepts exact Protocol V2 component targets', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
       appPlatform: platformEnv.appPlatform,
@@ -628,6 +628,44 @@ describe('prepared firmware execution', () => {
           expectedTargets: ['coprocessor'],
         }),
       ).resolves.toBe(true);
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('rejects Protocol V2 target mismatches before artifact preparation', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'd'.repeat(64),
+        executor: 'v4',
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:coprocessor',
+            role: 'component',
+            target: 'coprocessor',
+            url: 'https://firmware.example/coprocessor.okpkg',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['coprocessor'],
+      } as unknown as FirmwareUpdatePlan;
+
       await expect(
         controller.cachePlanIfPreparedSupported({
           plan,
@@ -635,7 +673,91 @@ describe('prepared firmware execution', () => {
           transportType: EHardwareTransportType.Bridge,
           expectedTargets: ['ble'],
         }),
-      ).resolves.toBe(true);
+      ).rejects.toThrow(
+        'Firmware update plan targets do not match the selected Protocol V2 targets',
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('requires the Protocol V2 resource target to use one ZIP bundle', async () => {
+    const controller = createController();
+    const plan = {
+      schemaVersion: 2,
+      planDigest: 'f'.repeat(64),
+      executor: 'v4',
+      deviceIdentity: 'device',
+      deviceModel: 'pro2',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'desktop',
+      artifacts: [
+        {
+          artifactId: 'resource:archive',
+          role: 'resource',
+          target: 'resource',
+          url: 'https://firmware.example/resource.zip',
+          container: 'zip',
+        },
+      ],
+      targetsToUpdate: ['resource'],
+    } as unknown as FirmwareUpdatePlan;
+
+    await expect(
+      controller.cachePlanIfPreparedSupported({
+        plan,
+        connectId: 'device',
+        transportType: EHardwareTransportType.Bridge,
+        expectedTargets: ['resource'],
+      }),
+    ).rejects.toThrow(
+      'Protocol V2 resource target requires exactly one ZIP archive artifact',
+    );
+  });
+
+  test('keeps legacy target aliases bound to matching artifact roles', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'e'.repeat(64),
+        executor: 'v3',
+        deviceIdentity: 'device',
+        deviceModel: 'pro',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'malformed-firmware',
+            role: 'resource',
+            target: 'firmware',
+            url: 'https://firmware.example/resource.bin',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['firmware'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['firmware'],
+        }),
+      ).rejects.toThrow(
+        'Firmware update plan does not cover every selected target',
+      );
     } finally {
       Object.assign(platformEnv, previousPlatform);
     }
@@ -824,6 +946,34 @@ describe('Desktop Bridge firmware binaries', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('rejects Protocol V2 resource ZIP plans before downloading', async () => {
+    const download = jest.spyOn(firmwareArtifactAdapter, 'download');
+    const plan = {
+      schemaVersion: 2,
+      planDigest: 'f'.repeat(64),
+      executor: 'v4',
+      deviceIdentity: 'device',
+      deviceModel: 'pro2',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'desktop',
+      artifacts: [
+        {
+          artifactId: 'resource:archive',
+          role: 'resourceBundle',
+          target: 'resource',
+          url: 'https://firmware.example/resource.zip',
+          container: 'zip',
+        },
+      ],
+      targetsToUpdate: ['resource'],
+    } as unknown as FirmwareUpdatePlan;
+
+    await expect(prepareBridgeFirmwareBinaries(plan)).rejects.toThrow(
+      'Desktop Bridge does not support Protocol V2 resource ZIP updates',
+    );
+    expect(download).not.toHaveBeenCalled();
   });
 
   test('downloads and reads a small admitted artifact before releasing its lease', async () => {

@@ -177,38 +177,30 @@ const PROTOCOL_V2_SAFE_OS_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
 export function buildPro2TargetsToUpdate({
   sdkTargets,
   forceTargets = [],
-  skipResource = false,
 }: {
   sdkTargets: readonly IPro2FirmwareUpdateTarget[] | undefined;
   forceTargets?: readonly IPro2FirmwareUpdateTarget[];
-  skipResource?: boolean;
 }) {
-  const targets = Array.from(
+  return Array.from(
     new Set<IPro2FirmwareUpdateTarget>([
       ...(sdkTargets ?? []),
       ...forceTargets,
     ]),
   );
-  return skipResource
-    ? targets.filter((target) => target !== 'resource')
-    : targets;
 }
 
 export function buildProtocolV2PlanForceTargets({
   forceTargets = [],
   forceOnceTargets = [],
-  skipResource = false,
 }: {
   forceTargets?: readonly IPro2FirmwareUpdateTarget[];
   forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
-  skipResource?: boolean;
 }) {
   return buildPro2TargetsToUpdate({
     // Application mode cannot inspect vol0 resources. Selecting the resource
     // target makes FirmwareUpdateV4 compare each package after entering loader.
     sdkTargets: ['resource'],
     forceTargets: [...forceTargets, ...forceOnceTargets],
-    skipResource,
   });
 }
 
@@ -808,18 +800,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
             'pro2ForceUpdateOnceTargets',
           ),
-          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-            'pro2SkipResourceForComponentTesting',
-          ),
         ])
       : undefined;
-    const pro2SkipResourceForComponentTesting =
-      protocolV2DevSettings?.[2] === true;
     const pro2ForceTargets = protocolV2DevSettings
       ? buildProtocolV2PlanForceTargets({
           forceTargets: protocolV2DevSettings[0] ?? [],
           forceOnceTargets: protocolV2DevSettings[1] ?? [],
-          skipResource: pro2SkipResourceForComponentTesting,
         })
       : undefined;
     const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
@@ -992,7 +978,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ? buildPro2TargetsToUpdate({
           sdkTargets: releaseInfo.targetsToUpdate,
           forceTargets: pro2ForceTargets,
-          skipResource: pro2SkipResourceForComponentTesting,
         })
       : undefined;
     const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
@@ -1066,7 +1051,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       },
       totalPhase: totalPhase.filter(Boolean),
       pro2TargetsToUpdate,
-      pro2ResourceArchive: releaseInfo.resourceArchive,
+      pro2ResourceArchive: releaseInfo.resourceArchive
+        ? {
+            archiveSha256: releaseInfo.resourceArchive.archiveSha256,
+            archiveSize: releaseInfo.resourceArchive.archiveSize,
+          }
+        : undefined,
       protocolV2FirmwareVersionInfo,
     };
 
@@ -2945,15 +2935,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const targetsToUpdate = (
         await loadFirmwareUpdateRuntime()
       ).getFirmwareUpdateV4Targets(plan.targetsToUpdate);
-      const releaseTargets = releaseResult.pro2TargetsToUpdate ?? [];
-      if (
-        releaseTargets.length !== targetsToUpdate.length ||
-        releaseTargets.some((target) => !targetsToUpdate.includes(target))
-      ) {
-        throw new OneKeyLocalError(
-          'Firmware update plan targets do not match the selected Protocol V2 targets',
-        );
-      }
       return this.createRunTaskWithRetry({
         fn: async () =>
           this.updatingFirmwareV4(

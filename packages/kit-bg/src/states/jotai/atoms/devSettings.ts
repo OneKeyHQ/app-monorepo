@@ -198,7 +198,6 @@ export type IFirmwareUpdateDevSettings = {
   forceUpdateBtcOnlyUniversalFirmware: boolean;
   pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
   pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
-  pro2SkipResourceForComponentTesting: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -227,7 +226,6 @@ export const {
     forceUpdateBtcOnlyUniversalFirmware: false,
     pro2ForceUpdateTargets: [],
     pro2ForceUpdateOnceTargets: [],
-    pro2SkipResourceForComponentTesting: false,
   },
 });
 

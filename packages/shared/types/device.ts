@@ -119,7 +119,6 @@ export type IBootloaderUpdateInfo =
   IFirmwareUpdateInfoBase<IBootloaderReleasePayload>;
 
 export type IProtocolV2ResourceArchive = {
-  archiveUrl: string;
   archiveSha256: string;
   archiveSize: number;
 };
@@ -477,7 +476,6 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareType: EFirmwareType | undefined;
   isPro2Device?: boolean;
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
-  pro2ResourceArchive?: IProtocolV2ResourceArchive;
 };
 
 export enum EHardwareCallContext {

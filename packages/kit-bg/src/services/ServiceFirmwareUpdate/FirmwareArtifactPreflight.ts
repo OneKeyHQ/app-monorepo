@@ -447,6 +447,11 @@ export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
   requestedTransactionId?: string,
 ): Promise<IBridgeFirmwareBinaries | undefined> {
+  if (plan.executor === 'v4' && plan.targetsToUpdate.includes('resource')) {
+    throw new OneKeyLocalError(
+      'Desktop Bridge does not support Protocol V2 resource ZIP updates',
+    );
+  }
   if (!(await isFirmwareArtifactCapabilityReady())) {
     throw new OneKeyLocalError(
       'Installed firmware artifact module is incompatible',
@@ -464,6 +469,11 @@ export async function prepareBridgeFirmwareBinaries(
     const targetBinaries: IBridgeFirmwareBinaries['targetBinaries'] = {};
     const deadlineAt = Date.now() + TOTAL_DEADLINE_MS;
     for (const [index, planArtifact] of planArtifacts.entries()) {
+      if (planArtifact.target === 'resource') {
+        throw new OneKeyLocalError(
+          'Desktop Bridge resource binaries are not supported',
+        );
+      }
       const artifact = resolveFirmwarePlanArtifact(planArtifact);
       const receipt = await downloadFirmwareArtifact({
         artifact,
@@ -473,11 +483,6 @@ export async function prepareBridgeFirmwareBinaries(
         leaseRef,
         deadlineAt,
       });
-      if (planArtifact.target === 'resource') {
-        throw new OneKeyLocalError(
-          'Desktop Bridge resource binaries are not in the small artifact scope',
-        );
-      }
       targetBinaries[planArtifact.target] = await readFirmwareArtifact(receipt);
     }
     completed = true;

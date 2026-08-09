@@ -382,16 +382,6 @@ describe('buildPro2TargetsToUpdate', () => {
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
   });
-
-  it('excludes automatic and forced resources during component testing', () => {
-    expect(
-      buildPro2TargetsToUpdate({
-        sdkTargets: ['app_v1', 'resource'],
-        forceTargets: ['resource', 'coprocessor'],
-        skipResource: true,
-      }),
-    ).toEqual(['app_v1', 'coprocessor']);
-  });
 });
 
 describe('buildProtocolV2PlanForceTargets', () => {
@@ -406,15 +396,6 @@ describe('buildProtocolV2PlanForceTargets', () => {
         forceOnceTargets: ['coprocessor'],
       }),
     ).toEqual(['resource', 'app_v1', 'coprocessor']);
-  });
-
-  it('allows component testing to skip resources explicitly', () => {
-    expect(
-      buildProtocolV2PlanForceTargets({
-        forceTargets: ['app_v1', 'resource'],
-        skipResource: true,
-      }),
-    ).toEqual(['app_v1']);
   });
 });
 

@@ -99,6 +99,26 @@ const getBridgeArtifactTraceSummary = (bridge: IBridgeFirmwareBinaries) => {
   };
 };
 
+const assertProtocolV2PlanTargetsMatch = ({
+  plan,
+  expectedTargets,
+}: {
+  plan: FirmwareUpdatePlan;
+  expectedTargets: readonly FirmwareUpdatePlanTarget[];
+}): void => {
+  if (plan.executor !== 'v4') return;
+  const planTargets = new Set(plan.targetsToUpdate);
+  const selectedTargets = new Set(expectedTargets);
+  if (
+    planTargets.size !== selectedTargets.size ||
+    [...selectedTargets].some((target) => !planTargets.has(target))
+  ) {
+    throw new OneKeyLocalError(
+      'Firmware update plan targets do not match the selected Protocol V2 targets',
+    );
+  }
+};
+
 const assertFirmwareUpdatePlanCoverage = ({
   plan,
   expectedTargets,
@@ -121,6 +141,7 @@ const assertFirmwareUpdatePlanCoverage = ({
     plan.artifacts.map((artifact) => artifact.target),
   );
   const planTargets = new Set(plan.targetsToUpdate);
+  assertProtocolV2PlanTargetsMatch({ plan, expectedTargets });
   if (
     [...artifactTargets].some((target) => !planTargets.has(target)) ||
     [...planTargets].some((target) => !artifactTargets.has(target))
@@ -145,9 +166,6 @@ const assertFirmwareUpdatePlanCoverage = ({
   }
 
   const coversExpectedTarget = (expectedTarget: FirmwareUpdatePlanTarget) => {
-    if (planTargets.has(expectedTarget)) {
-      return true;
-    }
     switch (expectedTarget) {
       case 'firmware':
         return plan.artifacts.some(
@@ -172,7 +190,7 @@ const assertFirmwareUpdatePlanCoverage = ({
             artifact.role === 'resource' || artifact.role === 'resourceBundle',
         );
       default:
-        return false;
+        return planTargets.has(expectedTarget);
     }
   };
 
@@ -298,6 +316,10 @@ export class FirmwarePreparedArtifactController {
         'Firmware update plan does not match the selected device',
       );
     }
+    assertProtocolV2PlanTargetsMatch({
+      plan,
+      expectedTargets: releaseResult.pro2TargetsToUpdate ?? [],
+    });
     return plan;
   }
 
@@ -306,12 +328,7 @@ export class FirmwarePreparedArtifactController {
     if (existing) {
       existing.sdk.unregisterFirmwareUpdateHostBinding(existing.generation);
     }
-    const generation = (
-      sdk.registerFirmwareUpdateHostBinding as unknown as (binding: {
-        artifactReader: IPreparedFirmwareArtifacts['artifactReader'];
-        preparedPlanDigest: string;
-      }) => number
-    )({
+    const generation = sdk.registerFirmwareUpdateHostBinding({
       artifactReader: prepared.artifactReader,
       preparedPlanDigest: prepared.preparedPlan.preparedPlanDigest,
     });
