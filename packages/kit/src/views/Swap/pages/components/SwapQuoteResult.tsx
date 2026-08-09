@@ -276,14 +276,15 @@ const SwapQuoteResult = ({
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
   // OK-58690: a quote event error without any displayable result used to
   // render nothing at all here, which removed the manual refresh entry and
-  // made this row pop in/out around auto refreshes. Treat it like the
-  // zero-provider case so the row (with its refresh entry) stays on screen.
+  // made this row pop in/out around auto refreshes. Keep the row mounted;
+  // with no rate available it falls into the "failed to fetch the quote"
+  // copy — an event failure is not a liquidity problem, so it must not
+  // reuse the no-provider presentation.
   const isQuoteEventErrorWithoutResult =
     quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay;
   const showNoProvider =
-    (quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
-      !hasQuoteResultForDisplay) ||
-    isQuoteEventErrorWithoutResult;
+    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
+    !hasQuoteResultForDisplay;
 
   const fromAmountDebounce = useDebounce(
     fromTokenAmount,
@@ -394,7 +395,8 @@ const SwapQuoteResult = ({
   if (
     (swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       quoteResultForDisplay?.isWrapped ||
-      showNoProvider) &&
+      showNoProvider ||
+      isQuoteEventErrorWithoutResult) &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
