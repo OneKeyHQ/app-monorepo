@@ -28,6 +28,7 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteActionLockAtom,
@@ -37,8 +38,10 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isSwapQuoteRequestForCurrentInput } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -117,6 +120,8 @@ const SwapActionsState = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -203,10 +208,30 @@ const SwapActionsState = ({
   // result is selected — which is the case for the whole input-debounce plus
   // quoting window on every quote refresh. Trusting that fallback used to
   // expand the recipient entry mid-quote and collapse it again right after.
-  // Hold the last definitive value instead; only a settled quote result may
-  // change it.
+  // Hold the last definitive value while a quote for the current input is
+  // pending, and adopt the atom value once that quote settles — either with
+  // a result (the provider's real support) or definitively without one
+  // (back to the fallback) — so a previous pair's value cannot outlive its
+  // own quote cycle. `quoteActionLock` matching the current input is what
+  // separates "settled with no result" from the pre-quote debounce window.
+  const isQuoteSettledWithoutResult =
+    !currentQuoteRes &&
+    !quoteLoading &&
+    !quoteEventFetching &&
+    isSwapQuoteRequestForCurrentInput({
+      currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
+      currentAddress: swapFromAddressInfo?.address,
+      currentReceivingAddress: swapToAddressInfo?.address,
+      currentSwapType: swapTypeSwitch,
+      fromAmount: fromTokenAmount.value,
+      toAmount: toTokenAmount.value,
+      fromToken,
+      toToken,
+      quoteKind: quoteActionLock?.kind ?? ESwapQuoteKind.SELL,
+      quoteRequest: quoteActionLock,
+    });
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
-  if (currentQuoteRes) {
+  if (currentQuoteRes || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
   }
   const providerSupportReceiveAddressSettled =
