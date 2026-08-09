@@ -33,6 +33,7 @@ import {
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
@@ -122,6 +123,7 @@ const SwapActionsState = ({
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const [, setSwapManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
@@ -212,12 +214,17 @@ const SwapActionsState = ({
   // pending, and adopt the atom value once that quote settles — either with
   // a result (the provider's real support) or definitively without one
   // (back to the fallback) — so a previous pair's value cannot outlive its
-  // own quote cycle. `quoteActionLock` matching the current input is what
-  // separates "settled with no result" from the pre-quote debounce window.
+  // own quote cycle. `quoteActionLock` matching the current input separates
+  // "settled with no result" from the pre-quote debounce window, and
+  // `actionLock`/`quoteEventCompleted` keep the request-starting interval
+  // (lock written, fetching flag not yet set while `closeApproving` awaits)
+  // counted as pending.
   const isQuoteSettledWithoutResult =
     !currentQuoteRes &&
     !quoteLoading &&
     !quoteEventFetching &&
+    !quoteActionLock.actionLock &&
+    quoteEventCompleted &&
     isSwapQuoteRequestForCurrentInput({
       currentAccountId: swapFromAddressInfo?.accountInfo?.account?.id,
       currentAddress: swapFromAddressInfo?.address,
