@@ -3,6 +3,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
+} from '../../states/jotai/atoms/perps';
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 
@@ -320,5 +324,116 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     ).resolves.toBe(true);
     expect(service.subscriptionsHandlerDisabled).toBe(false);
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceHyperliquidSubscription funded activation refresh', () => {
+  const accountAddress = '0xabc' as const;
+  let activatedOk = false;
+
+  beforeEach(() => {
+    activatedOk = false;
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-account-1',
+      accountAddress,
+      deriveType: 'default',
+      walletType: 'hd',
+    });
+    jest
+      .spyOn(perpsActiveAccountStatusInfoAtom, 'get')
+      .mockImplementation(async () => ({
+        accountAddress,
+        details: {
+          activatedOk,
+          agentOk: false,
+          referralCodeOk: false,
+          builderFeeOk: false,
+          internalRebateBoundOk: false,
+          abstractionOk: false,
+        },
+      }));
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('retries a funded refresh after another status check was busy', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationRefreshPendingAddress: string | null;
+      _fundedActivationConfirmedAddress: string | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+    expect(internals._fundedActivationRefreshPendingAddress).toBe(
+      accountAddress,
+    );
+
+    await jest.advanceTimersByTimeAsync(250);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
+    expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
+    expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
+  });
+
+  it('retries after the cooldown while activation remains unconfirmed', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationRefreshPendingAddress: string | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(9999);
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
+    expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
   });
 });

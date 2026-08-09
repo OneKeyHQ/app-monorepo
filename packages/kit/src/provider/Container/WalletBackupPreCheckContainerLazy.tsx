@@ -2,12 +2,14 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 type IWalletBackupPreCheckContainerComponent = ComponentType;
 
@@ -20,8 +22,35 @@ function WalletBackupPreCheckContainerLazyCmp() {
   const [ContainerImpl, setContainerImpl] =
     useState<IWalletBackupPreCheckContainerComponent | null>(null);
   const containerLoadedRef = useRef(false);
+  const componentMountedRef = useRef(true);
   const pendingEventsRef = useRef<IWalletBackupPreCheckPendingEvent[]>([]);
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const settlePendingEventsAfterLoadFailure = useCallback(
+    async (error: Error) => {
+      const pendingEvents = pendingEventsRef.current;
+      pendingEventsRef.current = [];
+      await Promise.allSettled(
+        pendingEvents.map((payload) => {
+          if (
+            payload.walletId &&
+            accountUtils.isHdWallet({ walletId: payload.walletId })
+          ) {
+            // A missing backup check must block sensitive HD-wallet actions.
+            return backgroundApiProxy.servicePromise.rejectCallback({
+              id: payload.promiseId,
+              error,
+            });
+          }
+          return backgroundApiProxy.servicePromise.resolveCallback({
+            id: payload.promiseId,
+            data: true,
+          });
+        }),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     containerLoadedRef.current = !!ContainerImpl;
@@ -58,15 +87,15 @@ function WalletBackupPreCheckContainerLazyCmp() {
     if (!shouldMount || ContainerImpl) {
       return;
     }
-    let isMounted = true;
+    let isCurrentLoad = true;
     void import('../../components/WalletBackup/WalletBackupPreCheckContainer')
       .then((module) => {
-        if (isMounted) {
+        if (isCurrentLoad && componentMountedRef.current) {
           setContainerImpl(() => module.WalletBackupPreCheckContainer);
         }
       })
       .catch(async (error: Error) => {
-        if (!isMounted) {
+        if (!isCurrentLoad || !componentMountedRef.current) {
           return;
         }
         defaultLogger.app.error.log(
@@ -74,21 +103,17 @@ function WalletBackupPreCheckContainerLazyCmp() {
         );
         // The callback expires only after a long bg sweep, so a failed main
         // runtime import must settle every queued request immediately.
-        const pendingEvents = pendingEventsRef.current;
-        pendingEventsRef.current = [];
-        await Promise.allSettled(
-          pendingEvents.map((payload) =>
-            backgroundApiProxy.servicePromise.resolveCallback({
-              id: payload.promiseId,
-              data: true,
-            }),
-          ),
-        );
+        await settlePendingEventsAfterLoadFailure(error);
       });
     return () => {
-      isMounted = false;
+      isCurrentLoad = false;
     };
-  }, [ContainerImpl, loadRequestSeq, shouldMount]);
+  }, [
+    ContainerImpl,
+    loadRequestSeq,
+    settlePendingEventsAfterLoadFailure,
+    shouldMount,
+  ]);
 
   useEffect(() => {
     if (!ContainerImpl || pendingEventsRef.current.length === 0) {
@@ -112,15 +137,21 @@ function WalletBackupPreCheckContainerLazyCmp() {
     };
   }, [ContainerImpl]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    componentMountedRef.current = true;
+    return () => {
+      componentMountedRef.current = false;
       if (replayTimerRef.current) {
         clearTimeout(replayTimerRef.current);
         replayTimerRef.current = null;
       }
-    },
-    [],
-  );
+      void settlePendingEventsAfterLoadFailure(
+        new OneKeyLocalError(
+          'Wallet backup pre-check container unmounted before loading',
+        ),
+      );
+    };
+  }, [settlePendingEventsAfterLoadFailure]);
 
   if (!ContainerImpl) {
     return null;
