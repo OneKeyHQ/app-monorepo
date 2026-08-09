@@ -122,6 +122,7 @@ import {
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -1381,6 +1382,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     walletType,
+    tradeSource,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1395,6 +1397,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    tradeSource: ESwapTradeSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
       accountId,
@@ -1415,6 +1418,7 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      tradeSource,
       ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -1657,11 +1661,20 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+  async fetchSwapNativeTokenConfig({
+    networkId,
+    throwOnError,
+  }: {
+    networkId: string;
+    throwOnError?: boolean;
+  }) {
     try {
       return await this.fetchSwapNativeTokenConfigMemo(networkId);
     } catch (e) {
       console.error(e);
+      if (throwOnError) {
+        throw e;
+      }
       return {
         networkId,
         reserveGas: 0,
@@ -3754,6 +3767,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     quoteResultCtx,
+    tradeSource,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -3767,6 +3781,7 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     quoteResultCtx?: any;
+    tradeSource: ESwapTradeSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     let headers = await getRequestHeaders();
     const walletType =
@@ -3794,6 +3809,7 @@ export default class ServiceSwap extends ServiceBase {
         kind,
         walletType,
         quoteResultCtx,
+        tradeSource,
       }),
       ...(await this.getSwapReferralBuildTxParams({
         accountId,
@@ -3891,6 +3907,7 @@ export default class ServiceSwap extends ServiceBase {
         fromTokenAddress: params.fromTokenAddress,
         userAddress: params.userAddress,
         receivingAddress: params.receivingAddress,
+        tradeSource: ESwapTradeSource.PERPS,
       };
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(

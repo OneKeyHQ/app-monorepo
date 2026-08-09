@@ -15,6 +15,7 @@ import {
   useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
@@ -131,6 +132,10 @@ const SwapProTradingPanel = ({
       if (value === swapProTradeType) return;
       cleanInputAmount();
       setSwapProTradeType(value);
+      defaultLogger.swap.swapPro.swapProTradeTypeChange({
+        fromType: swapProTradeType,
+        toType: value,
+      });
     },
     [cleanInputAmount, setSwapProTradeType, swapProTradeType],
   );

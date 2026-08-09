@@ -557,6 +557,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
     deliveryId: string;
   };
+  [EAppEventBusNames.PerpsSubscriptionsRecovered]: undefined;
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;
