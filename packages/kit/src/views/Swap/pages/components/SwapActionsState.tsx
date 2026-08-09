@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  AnimatePresence,
   Badge,
   Button,
   DashText,
@@ -93,19 +92,6 @@ interface ISwapActionsStateProps {
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
 }
-
-// OK-58846: the fee-save badge appears only after the quote resolves, which
-// used to push the content around it abruptly. Its wrapper expands from 0
-// height instead. The wrapper permanently carries a negative margin that
-// cancels the parent Stack gap ("$2" = 8px) and re-adds that spacing as inner
-// padding, so the total occupied space is driven purely by the animated
-// height (margins are not animatable by the moti driver and would snap).
-// Badge (sm) height: bodySm lineHeight 16 + 2 * 2 vertical padding.
-const COST_SAVINGS_BADGE_HEIGHT = 20;
-const COST_SAVINGS_GAP_OFFSET = -8;
-const COST_SAVINGS_EXPANDED_HEIGHT =
-  COST_SAVINGS_BADGE_HEIGHT - COST_SAVINGS_GAP_OFFSET;
-const ANIMATE_ONLY_COST_SAVINGS = ['height', 'opacity'] as string[];
 
 // cspell:ignore ellipsize
 
@@ -875,50 +861,28 @@ const SwapActionsState = ({
     intl,
   ]);
 
+  // OK-58846: reveal the fee-save badge smoothly instead of letting it shove
+  // the surrounding layout; height is measured so localized or wrapped badge
+  // content can never be clipped. parentGap offsets the hosting Stack gap
+  // ("$2" = 8), which sits below the badge when it renders above the button.
   const costSavingsAboveButtonComponent = useMemo(
     () => (
-      <AnimatePresence>
-        {costSavingsComponent ? (
-          <Stack
-            key="costSavingsAboveButton"
-            animation="smooth"
-            animateOnly={ANIMATE_ONLY_COST_SAVINGS}
-            overflow="hidden"
-            mb={COST_SAVINGS_GAP_OFFSET}
-            height={COST_SAVINGS_EXPANDED_HEIGHT}
-            enterStyle={{ height: 0, opacity: 0 }}
-            exitStyle={{ height: 0, opacity: 0 }}
-          >
-            {/* spacing lives on the inner element: padding on the animated
-              wrapper would clamp its border-box height above 0 */}
-            <Stack pb="$2">{costSavingsComponent}</Stack>
-          </Stack>
-        ) : null}
-      </AnimatePresence>
+      <SwapSmoothReveal
+        visible={!!costSavingsComponent}
+        parentGap={8}
+        gapSide="bottom"
+      >
+        {costSavingsComponent}
+      </SwapSmoothReveal>
     ),
     [costSavingsComponent],
   );
 
   const costSavingsBelowButtonComponent = useMemo(
     () => (
-      <AnimatePresence>
-        {costSavingsComponent ? (
-          <Stack
-            key="costSavingsBelowButton"
-            animation="smooth"
-            animateOnly={ANIMATE_ONLY_COST_SAVINGS}
-            overflow="hidden"
-            mt={COST_SAVINGS_GAP_OFFSET}
-            height={COST_SAVINGS_EXPANDED_HEIGHT}
-            enterStyle={{ height: 0, opacity: 0 }}
-            exitStyle={{ height: 0, opacity: 0 }}
-          >
-            {/* spacing lives on the inner element: padding on the animated
-              wrapper would clamp its border-box height above 0 */}
-            <Stack pt="$2">{costSavingsComponent}</Stack>
-          </Stack>
-        ) : null}
-      </AnimatePresence>
+      <SwapSmoothReveal visible={!!costSavingsComponent} parentGap={8}>
+        {costSavingsComponent}
+      </SwapSmoothReveal>
     ),
     [costSavingsComponent],
   );
@@ -1097,38 +1061,23 @@ const SwapActionsState = ({
     () => (
       <Page.Footer>
         <Stack p="$5" bg="$bgApp" gap="$2">
-          <AnimatePresence>
-            {costSavingsComponent ? (
-              <XStack
-                key="costSavingsFooter"
-                width="100%"
-                justifyContent="flex-end"
-                animation="smooth"
-                animateOnly={ANIMATE_ONLY_COST_SAVINGS}
-                overflow="hidden"
-                mb={COST_SAVINGS_GAP_OFFSET}
-                height={COST_SAVINGS_EXPANDED_HEIGHT}
-                enterStyle={{ height: 0, opacity: 0 }}
-                exitStyle={{ height: 0, opacity: 0 }}
+          <SwapSmoothReveal
+            visible={!!costSavingsComponent}
+            parentGap={8}
+            gapSide="bottom"
+          >
+            <XStack width="100%" justifyContent="flex-end">
+              <Stack
+                flexShrink={0}
+                alignItems="stretch"
+                {...desktopActionWidthProps}
               >
-                {/* spacing lives on the inner element: padding on the animated
-                  wrapper would clamp its border-box height above 0 */}
-                <Stack
-                  flexShrink={0}
-                  alignItems="stretch"
-                  pb="$2"
-                  {...desktopActionWidthProps}
-                >
-                  <Stack
-                    alignItems="center"
-                    onLayout={onDesktopActionTagLayout}
-                  >
-                    {costSavingsComponent}
-                  </Stack>
+                <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
+                  {costSavingsComponent}
                 </Stack>
-              </XStack>
-            ) : null}
-          </AnimatePresence>
+              </Stack>
+            </XStack>
+          </SwapSmoothReveal>
           <XStack width="100%" alignItems="center" gap="$4">
             <XStack
               flex={1}

@@ -18,6 +18,7 @@ const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
 export function SwapSmoothReveal({
   visible,
   parentGap = 0,
+  gapSide = 'top',
   children,
 }: {
   visible: boolean;
@@ -27,6 +28,11 @@ export function SwapSmoothReveal({
    * is then simply part of the measured height.
    */
   parentGap?: number;
+  /**
+   * Which edge of the wrapper faces the parent gap being offset: 'top' when
+   * a sibling sits above the revealed content, 'bottom' when below.
+   */
+  gapSide?: 'top' | 'bottom';
   children: ReactNode;
 }) {
   const [measuredHeight, setMeasuredHeight] = useState(0);
@@ -42,6 +48,7 @@ export function SwapSmoothReveal({
     [],
   );
 
+  const isGapTop = gapSide === 'top';
   return (
     <AnimatePresence>
       {visible ? (
@@ -50,12 +57,17 @@ export function SwapSmoothReveal({
           animation="smooth"
           animateOnly={ANIMATE_ONLY_SMOOTH_REVEAL}
           overflow="hidden"
-          mt={-parentGap}
+          mt={isGapTop && parentGap ? -parentGap : undefined}
+          mb={!isGapTop && parentGap ? -parentGap : undefined}
           height={measuredHeight}
           enterStyle={{ height: 0, opacity: 0 }}
           exitStyle={{ height: 0, opacity: 0 }}
         >
-          <Stack pt={parentGap} onLayout={onContentLayout}>
+          <Stack
+            pt={isGapTop && parentGap ? parentGap : undefined}
+            pb={!isGapTop && parentGap ? parentGap : undefined}
+            onLayout={onContentLayout}
+          >
             {children}
           </Stack>
         </Stack>
