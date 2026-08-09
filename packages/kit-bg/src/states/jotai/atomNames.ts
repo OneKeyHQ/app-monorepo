@@ -166,6 +166,12 @@ export const atomsConfig: Partial<
   [EAtomNames.spotActiveAssetAtom]: {
     mergeInitialValue: false,
   },
+  // A bare string value, where lodash merge is not merely lossy but destructive:
+  // it spreads the string into a character-indexed object, so every later
+  // `=== 'spot'` comparison fails and the app behaves as if it were on perp.
+  [EAtomNames.tradingModeAtom]: {
+    mergeInitialValue: false,
+  },
   [EAtomNames.perpsCommonConfigPersistAtom]: {
     mergeInitialValue: false,
   },

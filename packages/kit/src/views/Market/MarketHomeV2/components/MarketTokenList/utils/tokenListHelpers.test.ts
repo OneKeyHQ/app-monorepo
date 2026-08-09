@@ -372,4 +372,25 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
       ]),
     ).toBe(false);
   });
+
+  test('returns true for mixed data when stock columns are forced', () => {
+    expect(
+      shouldUseStockMetadataColumnsForTokens(
+        [
+          { stock: { subtitle: 'Apple', sourceLogoUri: '' } },
+          { stock: undefined },
+        ],
+        { forceStockMetadataColumns: true },
+      ),
+    ).toBe(true);
+  });
+
+  test('returns false when automatic detection is disabled', () => {
+    expect(
+      shouldUseStockMetadataColumnsForTokens(
+        [{ stock: { subtitle: 'Apple', sourceLogoUri: '' } }],
+        { enableAutoDetection: false },
+      ),
+    ).toBe(false);
+  });
 });
