@@ -498,7 +498,7 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
     const url = new URL(input.url);
     const allowPreReleaseHosts = input.allowPreReleaseHosts === true;
     // Dropping hostname pinning is only acceptable against pinned content, so
-    // an unfingerprinted pre-release artifact must never be admitted.
+    // a pre-release artifact without a pinned digest must never be admitted.
     if (allowPreReleaseHosts && input.expectedSha256 === undefined) {
       throw new FirmwareArtifactDesktopError(
         'ARTIFACT_INVALID_INPUT',
