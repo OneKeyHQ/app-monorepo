@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 
 import {
   loadTradingViewEmbedModule,
@@ -39,6 +39,7 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.history.replaceState({}, '', '/market');
     Object.defineProperty(globalThis, 'requestIdleCallback', {
       configurable: true,
       value: jest.fn((callback: IdleRequestCallback) => {
@@ -52,12 +53,25 @@ describe('TradingViewEmbedGlobalPreload', () => {
     });
   });
 
+  test('does not preload TradingView outside Market routes', () => {
+    globalThis.history.replaceState({}, '', '/swap');
+
+    const view = render(<TradingViewEmbedGlobalPreload />);
+
+    expect(preloadMarketTradingView).not.toHaveBeenCalled();
+    expect(requestIdleCallback).not.toHaveBeenCalled();
+
+    view.unmount();
+  });
+
   test('preloads the app chunk immediately and embed assets when idle', async () => {
     const view = render(<TradingViewEmbedGlobalPreload />);
 
-    expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
-    expect(requestIdleCallback).toHaveBeenCalledWith(expect.any(Function), {
-      timeout: 3000,
+    await waitFor(() => {
+      expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
+      expect(requestIdleCallback).toHaveBeenCalledWith(expect.any(Function), {
+        timeout: 3000,
+      });
     });
     expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
     expect(preloadTradingViewEmbedBootstrapAssets).not.toHaveBeenCalled();

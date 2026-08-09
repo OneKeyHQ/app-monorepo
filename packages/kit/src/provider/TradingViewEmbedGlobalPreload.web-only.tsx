@@ -1,39 +1,21 @@
-import { useEffect } from 'react';
+import { Suspense, lazy } from 'react';
 
-import { useTradingViewUrl } from '../components/TradingView/hooks/useTradingViewUrl';
-import {
-  loadTradingViewEmbedModule,
-  preloadTradingViewEmbedBootstrapAssets,
-} from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
-import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
-
-const PRELOAD_IDLE_TIMEOUT_MS = 3000;
+const LazyTradingViewEmbedGlobalPreloadRuntime = lazy(() =>
+  import(
+    /* webpackChunkName: "tradingview-embed-global-preload" */ './TradingViewEmbedGlobalPreloadRuntime.web-only'
+  ).then(({ TradingViewEmbedGlobalPreloadRuntime }) => ({
+    default: TradingViewEmbedGlobalPreloadRuntime,
+  })),
+);
 
 export function TradingViewEmbedGlobalPreload() {
-  const { baseUrl, finalUrl } = useTradingViewUrl();
+  if (!globalThis.location.pathname.startsWith('/market')) {
+    return null;
+  }
 
-  useEffect(() => {
-    void preloadMarketTradingView().catch(() => undefined);
-
-    const idleHandle = requestIdleCallback(
-      () => {
-        const preloadPromises: Promise<unknown>[] = [
-          loadTradingViewEmbedModule(baseUrl),
-        ];
-        if (!navigator.serviceWorker?.controller) {
-          preloadPromises.push(
-            preloadTradingViewEmbedBootstrapAssets(finalUrl),
-          );
-        }
-        void Promise.all(preloadPromises).catch(() => undefined);
-      },
-      { timeout: PRELOAD_IDLE_TIMEOUT_MS },
-    );
-
-    return () => {
-      cancelIdleCallback(idleHandle);
-    };
-  }, [baseUrl, finalUrl]);
-
-  return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyTradingViewEmbedGlobalPreloadRuntime />
+    </Suspense>
+  );
 }
