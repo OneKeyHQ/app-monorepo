@@ -50,7 +50,7 @@ const FINAL_ARTIFACT_GRACE_MS = 24 * 60 * 60 * 1000;
 const PARTIAL_ARTIFACT_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRMWARE_ARTIFACT_HOSTNAMES = new Set([
   'common.onekey-asset.com',
-  'pub-d5c080673b4e4e9dae7e03680340378d.r2.dev',
+  'pub-568cac7a13bf4c42b7a8113ffffc6793.r2.dev',
   'web.onekey-asset.com',
 ]);
 

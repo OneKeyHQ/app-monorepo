@@ -30,10 +30,17 @@ describe('DesktopApiFirmwareArtifact URL admission', () => {
     expect(
       isFirmwareArtifactUrlAllowed(
         new URL(
-          'https://pub-d5c080673b4e4e9dae7e03680340378d.r2.dev/firmware.bin',
+          'https://pub-568cac7a13bf4c42b7a8113ffffc6793.r2.dev/firmware.bin',
         ),
       ),
     ).toBe(true);
+    expect(
+      isFirmwareArtifactUrlAllowed(
+        new URL(
+          'https://pub-d5c080673b4e4e9dae7e03680340378d.r2.dev/firmware.bin',
+        ),
+      ),
+    ).toBe(false);
     expect(
       isFirmwareArtifactUrlAllowed(
         new URL('https://web.onekey-asset.com.evil.test/firmware.bin'),
