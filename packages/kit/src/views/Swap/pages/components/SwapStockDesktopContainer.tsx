@@ -1379,6 +1379,8 @@ function StockTradeTicket({
           quoteLoading={quoteLoading}
           quoteResult={quoteResult}
           stockChannel={stockChannel}
+          // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
+          parentGap={compact ? 12 : 16}
         />
         {stockChannel.readyForQuote ? (
           <SwapQuoteResult
