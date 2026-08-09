@@ -1,5 +1,6 @@
-import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
