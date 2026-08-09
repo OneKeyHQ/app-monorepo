@@ -48,6 +48,9 @@ export interface IFirmwareArtifactAdapter {
     expectedSha256?: string;
     maxBytes: number;
     overallDeadlineSeconds: number;
+    // Set by bg only while developer mode + "Use pre-release config" are on;
+    // pre-release artifact hosts (developer buckets) are not pinned in advance.
+    allowPreReleaseHosts?: boolean;
   }): Promise<IFirmwareArtifactReceipt>;
   cancelDownloads(transactionId: string): Promise<void>;
   materialize(input: {

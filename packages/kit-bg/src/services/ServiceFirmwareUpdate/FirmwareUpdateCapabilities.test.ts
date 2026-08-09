@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
   cancelFirmwareArtifactPreparations,
@@ -32,6 +34,10 @@ import type {
   FirmwareUpdatePlan,
   FirmwareUpdatePreparedPlan,
 } from '@onekeyfe/hd-core';
+
+jest.mock('../../states/jotai/atoms/devSettings', () => ({
+  getGatedFirmwareUpdateDevSetting: jest.fn(async () => undefined),
+}));
 
 const ready = {
   planSchemaVersion: 2,
@@ -685,6 +691,37 @@ describe('downloadFirmwareArtifact', () => {
     expect(trace).toHaveBeenCalledWith(
       expect.stringContaining('"stage":"artifact-download-complete"'),
     );
+    expect(download.mock.calls[0][0].allowPreReleaseHosts).toBeUndefined();
+  });
+
+  test('forwards the pre-release host admission only while the dev setting is on', async () => {
+    jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
+    jest
+      .mocked(getGatedFirmwareUpdateDevSetting)
+      .mockResolvedValueOnce(true as never);
+    const artifact = testFirmwareArtifact;
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockResolvedValue({
+        artifactRef: `fw:${artifact.expectedSha256}`,
+        size: artifact.expectedSize,
+        sha256: artifact.expectedSha256,
+        expectedSha256Verified: true,
+      });
+
+    await downloadFirmwareArtifact({
+      artifact,
+      artifactId: 'bootloader',
+      taskId: 'bootloader-download',
+      transactionId: 'fwtx:pre-release-hosts',
+      leaseRef: 'fwlease:pre-release-hosts',
+      deadlineAt: Date.now() + 20 * 60 * 1000,
+    });
+
+    expect(getGatedFirmwareUpdateDevSetting).toHaveBeenCalledWith(
+      'usePreReleaseConfig',
+    );
+    expect(download.mock.calls[0][0].allowPreReleaseHosts).toBe(true);
   });
 
   test('records a bounded error code when the native download fails', async () => {
