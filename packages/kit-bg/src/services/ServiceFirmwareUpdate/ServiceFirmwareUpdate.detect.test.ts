@@ -26,6 +26,7 @@ import {
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
+  buildProtocolV2PlanForceTargets,
   shouldForceProtocolV2ResourceUpdate,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
@@ -390,6 +391,30 @@ describe('buildPro2TargetsToUpdate', () => {
         skipResource: true,
       }),
     ).toEqual(['app_v1', 'coprocessor']);
+  });
+});
+
+describe('buildProtocolV2PlanForceTargets', () => {
+  it('requests loader-side resource comparison by default', () => {
+    expect(buildProtocolV2PlanForceTargets({})).toEqual(['resource']);
+  });
+
+  it('merges developer targets without forcing a full resource reinstall', () => {
+    expect(
+      buildProtocolV2PlanForceTargets({
+        forceTargets: ['app_v1', 'resource'],
+        forceOnceTargets: ['coprocessor'],
+      }),
+    ).toEqual(['resource', 'app_v1', 'coprocessor']);
+  });
+
+  it('allows component testing to skip resources explicitly', () => {
+    expect(
+      buildProtocolV2PlanForceTargets({
+        forceTargets: ['app_v1', 'resource'],
+        skipResource: true,
+      }),
+    ).toEqual(['app_v1']);
   });
 });
 

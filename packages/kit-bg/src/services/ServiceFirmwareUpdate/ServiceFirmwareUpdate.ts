@@ -194,6 +194,24 @@ export function buildPro2TargetsToUpdate({
     : targets;
 }
 
+export function buildProtocolV2PlanForceTargets({
+  forceTargets = [],
+  forceOnceTargets = [],
+  skipResource = false,
+}: {
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  skipResource?: boolean;
+}) {
+  return buildPro2TargetsToUpdate({
+    // Application mode cannot inspect vol0 resources. Selecting the resource
+    // target makes FirmwareUpdateV4 compare each package after entering loader.
+    sdkTargets: ['resource'],
+    forceTargets: [...forceTargets, ...forceOnceTargets],
+    skipResource,
+  });
+}
+
 export function shouldForceProtocolV2ResourceUpdate({
   targetsToUpdate,
   legacyForceResource,
@@ -798,15 +816,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const pro2SkipResourceForComponentTesting =
       protocolV2DevSettings?.[2] === true;
     const pro2ForceTargets = protocolV2DevSettings
-      ? Array.from(
-          new Set<IPro2FirmwareUpdateTarget>([
-            ...(protocolV2DevSettings[0] ?? []),
-            ...(protocolV2DevSettings[1] ?? []),
-          ]),
-        ).filter(
-          (target) =>
-            !pro2SkipResourceForComponentTesting || target !== 'resource',
-        )
+      ? buildProtocolV2PlanForceTargets({
+          forceTargets: protocolV2DevSettings[0] ?? [],
+          forceOnceTargets: protocolV2DevSettings[1] ?? [],
+          skipResource: pro2SkipResourceForComponentTesting,
+        })
       : undefined;
     const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
       ? []
