@@ -349,14 +349,11 @@ describe('prepared firmware execution', () => {
       forcedUpdateRes: true,
     });
 
-    expect(firmwareUpdateV4).toHaveBeenCalledWith(
-      'device',
-      {
-        platform: 'native',
-        preparedPlan: prepared.preparedPlan,
-        hostBindingGeneration: 7,
-      },
-    );
+    expect(firmwareUpdateV4).toHaveBeenCalledWith('device', {
+      platform: 'native',
+      preparedPlan: prepared.preparedPlan,
+      hostBindingGeneration: 7,
+    });
   });
 
   test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
