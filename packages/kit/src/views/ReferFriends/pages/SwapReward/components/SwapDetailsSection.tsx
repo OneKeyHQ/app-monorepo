@@ -19,23 +19,19 @@ import type {
   ISwapInviteItem,
   ISwapInvitesSortBy,
   ISwapInvitesSortOrder,
-  ISwapRecordsParams,
 } from '@onekeyhq/shared/src/referralCode/type';
-
-import { getSwapRecordsStatusByTab } from '../utils';
 
 import { SwapEmptyData } from './SwapEmptyData';
 import { SwapInviteRecord } from './SwapInviteRecord';
 import { useSwapTableColumns } from './useSwapTableColumns';
 
 import type { ISwapInviteColumnWidths } from './useSwapTableColumns';
-import type { ISwapRecordQuery, ISwapRecordsTab } from '../types';
+import type { ISwapRecordsTab } from '../types';
 
 const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
 
 interface ISwapDetailsSectionProps {
   records: ISwapInviteItem[];
-  recordQuery: ISwapRecordQuery;
   activeTab: ISwapRecordsTab;
   onTabChange: (tab: ISwapRecordsTab) => void;
   undistributedCount?: number;
@@ -252,26 +248,23 @@ function SortableHeader({
 function DesktopRecordsTable({
   columnWidths,
   isCompact,
-  recordStatus,
   showFixedDivider,
   tableMinWidth,
   ...props
 }: ISwapDetailsSectionProps & {
   columnWidths: ISwapInviteColumnWidths;
   isCompact: boolean;
-  recordStatus: ISwapRecordsParams['status'];
   showFixedDivider: boolean;
   tableMinWidth: number;
 }) {
   const intl = useIntl();
-  const { recordQuery, records } = props;
+  const { records } = props;
 
   return (
     <YStack w={isCompact ? tableMinWidth : '100%'}>
       <XStack pl={isCompact ? 0 : '$5'} pr="$5" py="$2.5" bg="$bgStrong">
         <XStack
           w={columnWidths.address}
-          gap="$2"
           ai="center"
           minWidth={0}
           pl={isCompact ? '$5' : undefined}
@@ -290,7 +283,6 @@ function DesktopRecordsTable({
               : undefined
           }
         >
-          <XStack w="$5" />
           <SizableText
             size="$headingXs"
             color="$textSubdued"
@@ -354,8 +346,6 @@ function DesktopRecordsTable({
         <SwapInviteRecord
           key={`${index}:${item._id}`}
           item={item}
-          query={recordQuery}
-          status={recordStatus}
           variant="desktop"
           columnWidths={columnWidths}
           isCompact={isCompact}
@@ -381,7 +371,6 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
   const { activeTab, hasError, isLoadingMore, isTabLoading, onRetry, records } =
     props;
   const hasData = records.length > 0;
-  const recordStatus = getSwapRecordsStatusByTab(activeTab);
 
   return (
     <YStack px="$5">
@@ -431,7 +420,6 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
                     {...props}
                     columnWidths={columnWidths}
                     isCompact
-                    recordStatus={recordStatus}
                     showFixedDivider={showFixedDivider}
                     tableMinWidth={tableMinWidth}
                   />
@@ -441,7 +429,6 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
                   {...props}
                   columnWidths={columnWidths}
                   isCompact={false}
-                  recordStatus={recordStatus}
                   showFixedDivider={false}
                   tableMinWidth={tableMinWidth}
                 />
@@ -461,17 +448,9 @@ function DesktopSection(props: ISwapDetailsSectionProps) {
 
 function MobileSection(props: ISwapDetailsSectionProps) {
   const intl = useIntl();
-  const {
-    activeTab,
-    hasError,
-    isLoadingMore,
-    isTabLoading,
-    onRetry,
-    recordQuery,
-    records,
-  } = props;
+  const { activeTab, hasError, isLoadingMore, isTabLoading, onRetry, records } =
+    props;
   const hasData = records.length > 0;
-  const recordStatus = getSwapRecordsStatusByTab(activeTab);
 
   return (
     <YStack px="$5" gap="$4">
@@ -503,8 +482,6 @@ function MobileSection(props: ISwapDetailsSectionProps) {
               <SwapInviteRecord
                 key={`${index}:${item._id}`}
                 item={item}
-                query={recordQuery}
-                status={recordStatus}
                 variant="mobile"
               />
             ))}

@@ -171,7 +171,6 @@ describe('useShowSwapInviteeReward', () => {
         params: {
           accountId: "hd-1--m/44'/60'/0'/0/0",
           currentEvmAddress: '0xCurrent',
-          indexedAccountId: 'hd-1--0',
         },
       });
     });
@@ -224,9 +223,11 @@ describe('useShowSwapInviteeReward', () => {
       {
         accountId: "hd-1--m/44'/60'/0'/0/0",
         currentEvmAddress: '0xCurrent',
-        indexedAccountId: 'hd-1--0',
       },
     );
+    expect(
+      mocks.dialogShow.mock.calls[0][0].renderContent.props,
+    ).not.toHaveProperty('indexedAccountId');
   });
 
   it.each([

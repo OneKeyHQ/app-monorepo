@@ -51,8 +51,15 @@ jest.mock('@onekeyhq/components', () => {
         {buttonProps ? <TestButton {...buttonProps} /> : null}
       </div>
     ),
-    YStack: ({ children }: { children?: ReactNode }) =>
-      React.createElement('div', null, children),
+    YStack: ({ ai, children }: { ai?: string; children?: ReactNode }) =>
+      React.createElement(
+        'div',
+        {
+          'data-align-items': ai,
+          'data-testid': 'swap-reward-empty-wrapper',
+        },
+        children,
+      ),
     useClipboard: () => ({ copyUrl }),
   };
 });
@@ -90,7 +97,10 @@ describe('SwapEmptyData', () => {
     const { rerender } = render(<SwapEmptyData />);
     const copyButton = screen.getByTestId('swap-reward-copy-link-btn');
     const emptyContent = screen.getByTestId('swap-reward-empty-content');
+    const emptyWrapper = screen.getByTestId('swap-reward-empty-wrapper');
 
+    expect(emptyWrapper.getAttribute('data-align-items')).toBe('center');
+    expect(emptyWrapper.contains(emptyContent)).toBe(true);
     expect(emptyContent.contains(copyButton)).toBe(true);
     expect((copyButton as HTMLButtonElement).disabled).toBe(true);
     expect(copyButton.getAttribute('data-loading')).toBe('true');
