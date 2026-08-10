@@ -2,6 +2,10 @@
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import type { IOffscreenApiMessagePayload } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import {
+  decodeOffscreenApiPayload,
+  encodeOffscreenApiPayload,
+} from '@onekeyhq/kit-bg/src/offscreens/offscreenApiBinaryCodec';
 import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi';
 import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -13,11 +17,13 @@ export function offscreenSetup() {
   const offscreenBridge = bridgeSetup.offscreen.createOffscreenJsBridge({
     onPortConnect() {},
     async receiveHandler(payload, bridge) {
-      const msg = payload.data as IOffscreenApiMessagePayload | undefined;
+      const msg = decodeOffscreenApiPayload(payload.data) as
+        | IOffscreenApiMessagePayload
+        | undefined;
       if (msg && msg.type === OFFSCREEN_API_MESSAGE_TYPE) {
         const result = await offscreenApi.callOffscreenApiMethod(msg);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return result;
+        return encodeOffscreenApiPayload(result);
       }
     },
   });
