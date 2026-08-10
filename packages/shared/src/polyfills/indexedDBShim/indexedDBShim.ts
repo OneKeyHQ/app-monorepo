@@ -24,7 +24,7 @@ if (!globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
         // choke point and can tell a space-consuming write apart from a
         // space-freeing delete. Throwing here blocked deletes too, so a raised
         // guard also destroyed the only way out of a full disk.
-        void storageChecker.checkIfDiskIsFullDebounced();
+        storageChecker.scheduleCheckIfDiskIsFull();
       }
       const tx =
         // @ts-ignore

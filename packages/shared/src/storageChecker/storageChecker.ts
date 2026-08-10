@@ -127,7 +127,7 @@ const probeStoreName = 'probe';
  *
  * Never throws, always closes, and leaves no data behind.
  */
-function probeWriteCanCommit(): Promise<boolean> {
+function runWriteProbe(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const indexedDb = globalThis?.indexedDB;
     if (!indexedDb) {
@@ -233,6 +233,27 @@ function handleDiskFullError(error: unknown) {
 
 // Declared before its first use in `checkIfDiskIsFullSync`; `checkIfDiskIsFull`
 // itself is a hoisted function declaration.
+/**
+ * `true` while the write probe is running.
+ *
+ * The probe issues a readwrite transaction, which the IndexedDB shim turns
+ * into another scheduled measurement. Left unchecked that measurement finds
+ * the guard still raised, probes again, and re-schedules itself — a loop that
+ * sustains itself roughly once a second with no app activity at all, keeping
+ * the extension background worker awake for as long as storage stays full.
+ */
+let writeProbeInFlight = false;
+
+function probeWriteCanCommit(): Promise<boolean> {
+  if (writeProbeInFlight) {
+    return Promise.resolve(false);
+  }
+  writeProbeInFlight = true;
+  return runWriteProbe().finally(() => {
+    writeProbeInFlight = false;
+  });
+}
+
 const checkIfDiskIsFullDebounced = debounce(checkIfDiskIsFull, 1000, {
   leading: false,
   trailing: true,
@@ -241,6 +262,17 @@ const checkIfDiskIsFullDebounced = debounce(checkIfDiskIsFull, 1000, {
   // never run — starving the very recovery path that clears the guard.
   maxWait: 1000,
 });
+
+/**
+ * The one place measurement gets scheduled. Measurement is driven by app
+ * activity; the probe must never drive its own retry loop.
+ */
+function scheduleCheckIfDiskIsFull() {
+  if (writeProbeInFlight) {
+    return;
+  }
+  void checkIfDiskIsFullDebounced();
+}
 
 function checkIfDiskIsFullSync() {
   if (platformEnv.isWebDappMode) {
@@ -257,7 +289,7 @@ function checkIfDiskIsFullSync() {
     // the guard could never observe the user freeing space and would stay
     // latched until the runtime restarts — the sticky failure this whole
     // change set exists to remove.
-    void checkIfDiskIsFullDebounced();
+    scheduleCheckIfDiskIsFull();
     emitWarning(lastDiagnostics);
     throw new SystemDiskFullError();
   }
@@ -322,4 +354,5 @@ export default {
   checkIfDiskIsFull,
   checkIfDiskIsFullSync,
   checkIfDiskIsFullDebounced,
+  scheduleCheckIfDiskIsFull,
 };

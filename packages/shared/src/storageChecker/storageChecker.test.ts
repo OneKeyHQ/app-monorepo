@@ -1,4 +1,4 @@
-import { SystemDiskFullError } from '../errors';
+import { OneKeyLocalError, SystemDiskFullError } from '../errors';
 import resetUtils from '../utils/resetUtils';
 
 import storageChecker from './storageChecker';
@@ -272,6 +272,53 @@ describe('storageChecker', () => {
       await storageChecker.checkIfDiskIsFull();
 
       expect(globalThis.$onekeySystemDiskIsFull).toBeUndefined();
+    });
+
+    it('does not let the write probe re-arm its own measurement', async () => {
+      // The probe issues a readwrite transaction, which the IndexedDB shim
+      // turns into a scheduled measurement. Left unchecked that measurement
+      // probes again and re-schedules itself, spinning ~1/s with no app
+      // activity and keeping the ext background worker awake.
+      let scheduledDuringProbe = 0;
+      const failingDb = {
+        objectStoreNames: { contains: () => true },
+        close: () => undefined,
+        transaction: () => {
+          // Stand in for the shim's scheduling hook.
+          storageChecker.scheduleCheckIfDiskIsFull();
+          scheduledDuringProbe += 1;
+          throw new OneKeyLocalError('probe transaction rejected');
+        },
+      };
+      Object.defineProperty(globalThis, 'indexedDB', {
+        value: {
+          open: () => {
+            const request: Record<string, unknown> = { result: failingDb };
+            setTimeout(
+              () => (request.onsuccess as (() => void) | undefined)?.(),
+              0,
+            );
+            return request;
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+      mockEstimate(40 * GB, 10 * GB);
+
+      await storageChecker.checkIfDiskIsFull();
+
+      // The probe ran and failed, so the guard stays raised...
+      expect(scheduledDuringProbe).toBe(1);
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+      // ...but its own transaction must not have armed the next measurement.
+      expect(jest.getTimerCount?.() ?? 0).toBe(0);
+
+      Reflect.deleteProperty(globalThis, 'indexedDB');
     });
 
     it('never throws, so it can still run while the guard is raised', async () => {
