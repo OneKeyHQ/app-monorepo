@@ -912,10 +912,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
     const wallet = await serviceAccount.getWalletSafe({ walletId });
     const isMissingWallet = !wallet;
-    const isDeprecatedOrMocked = Boolean(
-      wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
-    );
-    return isMissingWallet || isDeprecatedOrMocked;
+    const isMockedWallet = Boolean(wallet?.isMocked);
+    return isMissingWallet || isMockedWallet;
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
@@ -3489,14 +3487,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
-        // Mocked / deprecated wallets are no longer user-facing — treat them
-        // as needing replacement so the auto-select loop runs and either picks
-        // the next valid wallet or resets to undefined (OK-51091).
+        // A deprecated wallet remains a valid explicit selection for viewing
+        // existing accounts. Mocked wallets still need replacement.
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
-          accountUtils.isWalletDeprecatedOrMocked(wallet) ||
+          wallet.isMocked ||
           !isAccountExist;
 
         if (shouldAutoSelectNextAccount) {
@@ -3553,7 +3550,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (
             !selectedWalletId ||
             !hasIndexedAccounts ||
-            accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+            selectedWallet?.isMocked
           ) {
             let shouldSelectHdHwWallet = true;
             if (
@@ -3615,10 +3612,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccountNew.focusedWallet = selectedWalletId;
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
-              if (
-                !selectedWallet ||
-                accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
-              ) {
+              if (!selectedWallet || selectedWallet.isMocked) {
                 defaultLogger.accountSelector.autoSelect.resetSelectedWalletToUndefined(
                   {
                     selectedAccount: selectedAccountNew,
@@ -3630,7 +3624,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccountNew.focusedWallet = undefined;
                 // Sync local variables so subsequent code (isHdWallet /
                 // isHwOrQrWallet checks, Others fallback) doesn't use the
-                // stale deprecated wallet reference and undo the reset.
+                // stale unavailable wallet reference and undo the reset.
                 selectedWalletId = undefined;
                 selectedWallet = undefined;
               }
@@ -3742,7 +3736,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             if (
               !finalWallet ||
-              accountUtils.isWalletDeprecatedOrMocked(finalWallet) ||
+              finalWallet.isMocked ||
               (await serviceAccount.isTempWalletRemoved({
                 wallet: finalWallet,
               }))
