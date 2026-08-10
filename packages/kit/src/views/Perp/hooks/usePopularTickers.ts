@@ -11,6 +11,10 @@ import {
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  isPerpsUniverseCacheComplete,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
   formatSpotPairDisplayName,
   getSpotMarketCapValue,
   parseDexCoin,
@@ -19,7 +23,6 @@ import type {
   IPerpsUniverse,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { XYZ_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
@@ -71,15 +74,16 @@ export function usePopularTickers(): IPopularTickerItem[] {
       let { universesByDex } =
         await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
 
-      if (
-        !universesByDex ||
-        universesByDex.length === 0 ||
-        universesByDex.every((u) => u.length === 0)
-      ) {
-        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-        const res =
-          await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-        universesByDex = res.universesByDex;
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        try {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          const res =
+            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+          universesByDex = res.universesByDex;
+        } catch {
+          // Same reasoning as usePerpsFavorites: a rejection empties the list
+          // for the whole session.
+        }
       }
 
       return { mode: 'perp', data: universesByDex ?? [] };
@@ -139,12 +143,8 @@ export function usePopularTickers(): IPopularTickerItem[] {
       const ctxs = assetCtxsByDex[dexIndex] ?? [];
       if (Array.isArray(assets)) {
         for (const asset of assets) {
-          // XYZ DEX assets have offset IDs; array is indexed from 0
-          const ctxIndex =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const ctx = ctxs[ctxIndex] ?? null;
+          // Sub-DEX assets have offset IDs; each dex's ctx array is indexed from 0
+          const ctx = ctxs[toCtxIndex(asset.assetId, dexIndex)] ?? null;
           let hotScore = 0;
           if (ctx) {
             const volume = new BigNumber(ctx.dayNtlVlm ?? '0');

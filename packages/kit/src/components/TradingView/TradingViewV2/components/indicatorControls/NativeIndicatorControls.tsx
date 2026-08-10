@@ -14,6 +14,7 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
@@ -29,6 +30,7 @@ import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
 } from '../../types';
+import type { GestureResponderEvent } from 'react-native';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
 const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
@@ -40,6 +42,14 @@ const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
   borderWidth: 1,
 } as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT = 31;
+const INDICATOR_QUICK_BAR_VERTICAL_PAN_THRESHOLD = 4;
+
+type IIndicatorQuickBarTouchState = {
+  direction: 'pending' | 'horizontal' | 'vertical';
+  previousY: number;
+  startX: number;
+  startY: number;
+};
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
@@ -254,13 +264,55 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     maxSubIndicatorCount,
     onIndicatorSelect,
     onControlInteraction,
+    onTouchScroll,
   }: {
     nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
     nativeIndicatorState: ITradingViewNativeIndicatorState;
     maxSubIndicatorCount?: number;
     onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
     onControlInteraction?: () => void;
+    onTouchScroll?: (deltaY: number) => void;
   }) => {
+    const touchStateRef = useRef<IIndicatorQuickBarTouchState | null>(null);
+    const handleTouchStart = useCallback((event: GestureResponderEvent) => {
+      const { pageX, pageY } = event.nativeEvent;
+      touchStateRef.current = {
+        direction: 'pending',
+        previousY: pageY,
+        startX: pageX,
+        startY: pageY,
+      };
+    }, []);
+    const handleTouchMove = useCallback(
+      (event: GestureResponderEvent) => {
+        const touchState = touchStateRef.current;
+        if (!touchState || !onTouchScroll) {
+          return;
+        }
+
+        const { pageX, pageY } = event.nativeEvent;
+        if (touchState.direction === 'pending') {
+          const absDx = Math.abs(pageX - touchState.startX);
+          const absDy = Math.abs(pageY - touchState.startY);
+          if (
+            Math.max(absDx, absDy) <= INDICATOR_QUICK_BAR_VERTICAL_PAN_THRESHOLD
+          ) {
+            return;
+          }
+          touchState.direction = absDy > absDx ? 'vertical' : 'horizontal';
+        }
+
+        if (touchState.direction === 'vertical') {
+          onTouchScroll(touchState.previousY - pageY);
+          touchState.previousY = pageY;
+        }
+      },
+      [onTouchScroll],
+    );
+    const handleTouchEnd = useCallback(() => {
+      touchStateRef.current = null;
+    }, []);
+
     const {
       activeIndicatorValues,
       mainIndicators,
@@ -322,8 +374,16 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
         bg="$bgApp"
         zIndex={3}
+        onTouchStart={onTouchScroll ? handleTouchStart : undefined}
+        onTouchMove={onTouchScroll ? handleTouchMove : undefined}
+        onTouchEnd={onTouchScroll ? handleTouchEnd : undefined}
+        onTouchCancel={onTouchScroll ? handleTouchEnd : undefined}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          directionalLockEnabled={platformEnv.isNativeIOS}
+        >
           {quickBarContent}
         </ScrollView>
       </Stack>

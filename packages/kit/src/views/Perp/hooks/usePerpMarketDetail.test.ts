@@ -154,4 +154,54 @@ describe('resolvePerpMarketDetail', () => {
       mockServiceMarketV2.fetchMarketStockByTicker.mock.calls,
     ).toHaveLength(0);
   });
+
+  // `STX` is Stacks on the main DEX and Seagate on para.
+  it('prefers a dex-scoped entry over a bare symbol of the same name', async () => {
+    mockServiceHyperliquid.getPerpsAssetMetaMap.mockResolvedValue({
+      STX: {
+        assetId: 'blockstack',
+        assetType: 'coingecko',
+      },
+      'para:STX': {
+        assetId: 'STX',
+        assetType: 'stock',
+        localizedMessage: 'Seagate introduction',
+      },
+    });
+    mockServiceMarketV2.fetchMarketStockByTicker.mockResolvedValue({
+      ticker: 'STX',
+      name: 'Seagate Technology',
+      stock: { subtitle: 'Seagate Technology', sourceLogoUri: '' },
+    });
+
+    await expect(
+      resolvePerpMarketDetail({ coin: 'para:STX', displayName: 'STX' }),
+    ).resolves.toMatchObject({
+      assetMetaKey: 'para:STX',
+      assetId: 'STX',
+      assetType: 'stock',
+    });
+    expect(mockServiceMarket.fetchMarketTokenDetail.mock.calls).toHaveLength(0);
+  });
+
+  it('still resolves the main dex symbol to the bare entry', async () => {
+    mockServiceHyperliquid.getPerpsAssetMetaMap.mockResolvedValue({
+      STX: {
+        assetId: 'blockstack',
+        assetType: 'non_coingecko',
+        localizedMessage: 'Stacks introduction',
+      },
+      'para:STX': {
+        assetId: 'STX',
+        assetType: 'stock',
+      },
+    });
+
+    await expect(
+      resolvePerpMarketDetail({ coin: 'STX', displayName: 'STX' }),
+    ).resolves.toMatchObject({
+      assetMetaKey: 'STX',
+      assetId: 'blockstack',
+    });
+  });
 });
