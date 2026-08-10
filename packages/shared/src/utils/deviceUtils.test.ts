@@ -320,6 +320,43 @@ describe('deviceUtils', () => {
     expect(mock).toHaveBeenCalledWith(EDeviceType.Pro, 'V1');
   });
 
+  it('removes the unsupported 30-minute auto-shutdown option from the App list', async () => {
+    mockGetAutoShutDownOptions.mockReturnValueOnce([
+      { label: '10 minutes', valueMs: 600_000 },
+      { label: '30 minutes', valueMs: 1_800_000 },
+      { label: 'Never', valueMs: PROTOCOL_V2_NEVER_TIMEOUT_MS },
+    ]);
+
+    await expect(
+      deviceUtils.getAutoShutDownOptions({
+        deviceType: EDeviceType.Pro2,
+        protocol: 'V2',
+      }),
+    ).resolves.toEqual([
+      { isNever: false, label: '10 minutes', valueMs: 600_000 },
+      {
+        isNever: true,
+        label: 'Never',
+        valueMs: PROTOCOL_V2_NEVER_TIMEOUT_MS,
+      },
+    ]);
+  });
+
+  it('keeps auto-shutdown options unchanged for other device models', async () => {
+    mockGetAutoShutDownOptions.mockReturnValueOnce([
+      { label: '30 minutes', valueMs: 1_800_000 },
+    ]);
+
+    await expect(
+      deviceUtils.getAutoShutDownOptions({
+        deviceType: EDeviceType.Pro,
+        protocol: 'V1',
+      }),
+    ).resolves.toEqual([
+      { isNever: false, label: '30 minutes', valueMs: 1_800_000 },
+    ]);
+  });
+
   it.each([
     ['getAutoLockOptions', mockGetAutoLockOptions],
     ['getAutoShutDownOptions', mockGetAutoShutDownOptions],

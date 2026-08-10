@@ -447,6 +447,20 @@ export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
 }
 
+export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BluetoothUnavailableWhileUsbConnectedError',
+        defaultKey:
+          ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
