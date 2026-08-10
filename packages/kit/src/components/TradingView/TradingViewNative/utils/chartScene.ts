@@ -18,6 +18,13 @@ import {
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_INDICATOR_CYAN_COLOR as INDICATOR_CYAN_COLOR,
+  TRADING_VIEW_NATIVE_INDICATOR_DARK_ORANGE_COLOR as INDICATOR_DARK_ORANGE_COLOR,
+  TRADING_VIEW_NATIVE_INDICATOR_LINE_WIDTH as INDICATOR_LINE_WIDTH,
+  TRADING_VIEW_NATIVE_INDICATOR_ORANGE_COLOR as INDICATOR_ORANGE_COLOR,
+  TRADING_VIEW_NATIVE_INDICATOR_PINK_COLOR as INDICATOR_PINK_COLOR,
+  TRADING_VIEW_NATIVE_INDICATOR_SAR_COLOR as INDICATOR_SAR_COLOR,
+  TRADING_VIEW_NATIVE_INDICATOR_SAR_POINT_RADIUS as INDICATOR_SAR_POINT_RADIUS,
   TRADING_VIEW_NATIVE_LEGEND_BACKGROUND_OPACITY as LEGEND_BACKGROUND_OPACITY,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE as LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING as PRICE_AXIS_LABEL_LEFT_PADDING,
@@ -34,6 +41,12 @@ import {
 } from '../chartConstants';
 
 import {
+  type ITradingViewNativeIndicatorPaint,
+  type ITradingViewNativeIndicatorSeries,
+  getTradingViewNativeIndicatorPriceRange,
+} from './chartIndicators';
+import {
+  type ITradingViewNativeChartLayout,
   formatTradingViewNativeCrosshairTime,
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
@@ -72,7 +85,10 @@ import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
 } from './chartRuntime';
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
 
@@ -93,7 +109,8 @@ export type ITradingViewNativeChartScenePaint =
   | 'lineStroke'
   | 'up'
   | 'upCurrentPriceLine'
-  | 'upVolume';
+  | 'upVolume'
+  | ITradingViewNativeIndicatorPaint;
 
 export interface ITradingViewNativeChartSceneColors {
   axisText: string;
@@ -177,10 +194,12 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
   hasVolume: boolean;
   height: number;
+  indicatorSeries?: ITradingViewNativeIndicatorSeries[];
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
+  candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth?: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
@@ -242,6 +261,35 @@ export function getTradingViewNativeChartScenePaintStyles({
       opacity: 1,
     },
     gridSolidLine: { color: grid, opacity: 1 },
+    indicatorCyanStroke: {
+      color: INDICATOR_CYAN_COLOR,
+      drawStyle: 'stroke',
+      opacity: 1,
+      strokeJoin: 'round',
+      strokeWidth: INDICATOR_LINE_WIDTH,
+    },
+    indicatorDarkOrangeStroke: {
+      color: INDICATOR_DARK_ORANGE_COLOR,
+      drawStyle: 'stroke',
+      opacity: 1,
+      strokeJoin: 'round',
+      strokeWidth: INDICATOR_LINE_WIDTH,
+    },
+    indicatorOrangeStroke: {
+      color: INDICATOR_ORANGE_COLOR,
+      drawStyle: 'stroke',
+      opacity: 1,
+      strokeJoin: 'round',
+      strokeWidth: INDICATOR_LINE_WIDTH,
+    },
+    indicatorPinkStroke: {
+      color: INDICATOR_PINK_COLOR,
+      drawStyle: 'stroke',
+      opacity: 1,
+      strokeJoin: 'round',
+      strokeWidth: INDICATOR_LINE_WIDTH,
+    },
+    indicatorSarPoint: { color: INDICATOR_SAR_COLOR, opacity: 1 },
     legendBackground: {
       color: background,
       opacity: LEGEND_BACKGROUND_OPACITY,
@@ -263,6 +311,70 @@ export function getTradingViewNativeChartScenePaintStyles({
     },
     upVolume: { color: up, opacity: VOLUME_OPACITY },
   };
+}
+
+function appendIndicatorCommands({
+  commands,
+  endIndex,
+  getPointX,
+  indicatorSeries,
+  layout,
+  startIndex,
+}: {
+  commands: ITradingViewNativeChartSceneCommand[];
+  endIndex: number;
+  getPointX: (index: number) => number;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  layout: ITradingViewNativeChartLayout;
+  startIndex: number;
+}) {
+  'worklet';
+
+  for (const series of indicatorSeries) {
+    const firstIndex = Math.max(startIndex - 1, 0);
+    const lastIndex = Math.min(endIndex + 1, series.values.length);
+    if (series.kind === 'points') {
+      for (let index = startIndex; index < endIndex; index += 1) {
+        const value = series.values[index];
+        if (value !== null && value !== undefined && Number.isFinite(value)) {
+          commands.push({
+            cx: getPointX(index),
+            cy: getTradingViewNativePriceY(value, layout),
+            kind: 'circle',
+            paint: series.paint,
+            radius: INDICATOR_SAR_POINT_RADIUS,
+          });
+        }
+      }
+    } else {
+      let linePoints: { x: number; y: number }[] = [];
+      for (let index = firstIndex; index < lastIndex; index += 1) {
+        const value = series.values[index];
+        if (value !== null && value !== undefined && Number.isFinite(value)) {
+          linePoints.push({
+            x: getPointX(index),
+            y: getTradingViewNativePriceY(value, layout),
+          });
+        } else {
+          if (linePoints.length > 1) {
+            commands.push({
+              kind: 'polyline',
+              paint: series.paint,
+              points: linePoints,
+            });
+          }
+          linePoints = [];
+        }
+      }
+      if (linePoints.length > 1) {
+        commands.push({
+          kind: 'polyline',
+          paint: series.paint,
+          points: linePoints,
+        });
+      }
+    }
+  }
 }
 
 function appendLegendCommands({
@@ -320,7 +432,9 @@ export function buildTradingViewNativeChartScene({
   crosshair,
   hasVolume,
   height,
+  indicatorSeries = [],
   measureTextWidth,
+  candleLabels,
   points,
   priceAxisWidth,
   viewport,
@@ -394,6 +508,10 @@ export function buildTradingViewNativeChartScene({
   }
 
   const layout = getTradingViewNativeChartLayout({
+    additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
+      ...visiblePointRange,
+      series: indicatorSeries,
+    }),
     candleIntervalSeconds,
     chartType,
     hasVolume,
@@ -631,6 +749,14 @@ export function buildTradingViewNativeChartScene({
       }
     }
   }
+  appendIndicatorCommands({
+    commands,
+    endIndex: visiblePointRange.endIndex,
+    getPointX,
+    indicatorSeries,
+    layout,
+    startIndex: visiblePointRange.startIndex,
+  });
   commands.push({ kind: 'restore' });
 
   const visiblePriceExtrema =
@@ -735,6 +861,7 @@ export function buildTradingViewNativeChartScene({
     legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
     crosshairPoint ?? legendPoint,
+    candleLabels,
     chartType,
     previousLegendPoint?.c,
   );

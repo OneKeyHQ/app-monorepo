@@ -94,6 +94,7 @@ function HeaderView({
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
+    headerContainerBackgroundColor,
     modalContentMaxWidth,
   } = options || EMPTY_OPTIONS;
   const theme = useTheme();
@@ -163,6 +164,9 @@ function HeaderView({
     if (headerTransparent) {
       return 'transparent';
     }
+    if (!platformEnv.isNativeIOS && headerContainerBackgroundColor) {
+      return headerContainerBackgroundColor;
+    }
     // The WebView overlay's header sits flush against the sidebar at the top
     // of the window — share `$bgSidebar` so the band reads as a single
     // continuous color across sidebar + header.
@@ -173,7 +177,12 @@ function HeaderView({
       return '$bgApp';
     }
     return isDesktopModeUI ? '$bgSubdued' : '$bgApp';
-  }, [headerTransparent, isDesktopModeUI, isWebViewScreen]);
+  }, [
+    headerContainerBackgroundColor,
+    headerTransparent,
+    isDesktopModeUI,
+    isWebViewScreen,
+  ]);
 
   const routeName = route.name;
   const title = useMemo(
