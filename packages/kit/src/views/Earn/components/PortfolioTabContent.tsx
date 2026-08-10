@@ -183,6 +183,7 @@ const WrappedActionButtonCmp = ({
   const stakeTag = buildLocalTxStatusSyncId({
     providerName: asset.metadata.protocol.providerDetail.code,
     tokenSymbol: symbolForConfig,
+    protocolVault: vaultForConfig,
   });
 
   const pendingTxsFilter = useCallback(
