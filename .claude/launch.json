@@ -14,6 +14,12 @@
       "port": 6006
     },
     {
+      "name": "storybook-native",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@onekeyhq/mobile", "storybook"],
+      "port": 8081
+    },
+    {
       "name": "web",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
