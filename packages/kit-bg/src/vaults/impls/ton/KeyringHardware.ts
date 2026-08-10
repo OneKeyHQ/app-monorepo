@@ -310,11 +310,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         !result.skip_validate &&
         signingMessageHexFromHw !== signingMessageHex
       ) {
-        console.warn(
-          'signingMessage mismatch',
-          signingMessageHexFromHw,
-          signingMessageHex,
-        );
+        console.warn('TON signingMessage mismatch');
         signingMessage = Cell.fromHex(signingMessageHexFromHw);
       }
       // For 1S, check the hash
