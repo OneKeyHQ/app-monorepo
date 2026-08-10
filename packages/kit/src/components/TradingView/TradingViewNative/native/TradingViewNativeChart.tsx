@@ -35,6 +35,10 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
 import {
+  type ITradingViewNativeIndicatorSeries,
+  getTradingViewNativeIndicatorPriceAxisLabel,
+} from '../utils/chartIndicators';
+import {
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativePriceAxisLabel,
@@ -85,6 +89,7 @@ interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeS
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   panGesture: {
     startOffset: number;
     translationX: number;
@@ -106,6 +111,7 @@ interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -121,11 +127,13 @@ function getInitialRuntime({
   candleIntervalSeconds,
   chartType,
   hasVolume,
+  indicatorSeries,
   points,
 }: {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   hasVolume: boolean;
+  indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativeChartRuntime {
   return {
@@ -133,6 +141,7 @@ function getInitialRuntime({
     candleIntervalSeconds,
     chartType,
     hasVolume,
+    indicatorSeries,
     panGesture: {
       startOffset: 0,
       translationX: 0,
@@ -156,6 +165,7 @@ export const TradingViewNativeChart = memo(
     chartType,
     chartPictureVersion,
     hasVolume,
+    indicatorSeries,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -174,6 +184,7 @@ export const TradingViewNativeChart = memo(
         candleIntervalSeconds,
         chartType,
         hasVolume,
+        indicatorSeries,
         points,
       }),
     );
@@ -183,6 +194,7 @@ export const TradingViewNativeChart = memo(
     );
     const previousPictureInputRef = useRef({
       chartPictureVersion,
+      indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
       pointCount: points.length,
     });
     const appliedViewportRequestRef = useRef({
@@ -208,6 +220,10 @@ export const TradingViewNativeChart = memo(
     const widestPriceLabel = useMemo(
       () => getTradingViewNativePriceAxisLabel(points),
       [points],
+    );
+    const widestIndicatorPriceLabel = useMemo(
+      () => getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
+      [indicatorSeries],
     );
     const widestVolumeLabel = useMemo(
       () => getTradingViewNativeVolumeAxisLabel(points),
@@ -238,6 +254,9 @@ export const TradingViewNativeChart = memo(
         measuredPriceAxisFont.measureText(currentPriceLabel);
       const widestPriceLabelBounds =
         measuredPriceAxisFont.measureText(widestPriceLabel);
+      const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
+        widestIndicatorPriceLabel,
+      );
       const widestVolumeLabelBounds =
         measuredPriceAxisFont.measureText(widestVolumeLabel);
       return getTradingViewNativePriceAxisWidth({
@@ -247,6 +266,8 @@ export const TradingViewNativeChart = memo(
         ),
         widestPriceLabelWidth: Math.max(
           widestPriceLabelBounds.x + widestPriceLabelBounds.width,
+          widestIndicatorPriceLabelBounds.x +
+            widestIndicatorPriceLabelBounds.width,
           0,
         ),
         widestVolumeLabelWidth: Math.max(
@@ -254,7 +275,13 @@ export const TradingViewNativeChart = memo(
           0,
         ),
       });
-    }, [currentPriceLabel, resources, widestPriceLabel, widestVolumeLabel]);
+    }, [
+      currentPriceLabel,
+      resources,
+      widestIndicatorPriceLabel,
+      widestPriceLabel,
+      widestVolumeLabel,
+    ]);
 
     const picture = useDerivedValue(() => {
       const runtime = chartRuntime.value;
@@ -264,6 +291,7 @@ export const TradingViewNativeChart = memo(
         crosshair: runtime.crosshair,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
+        indicatorSeries: runtime.indicatorSeries,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
         resources: resources.value,
@@ -361,17 +389,31 @@ export const TradingViewNativeChart = memo(
         previousLatestTimestamp: previousLatestTimestampRef.current,
       });
       const previousPictureInput = previousPictureInputRef.current;
+      const indicatorSeriesKey = indicatorSeries
+        .map((series) => series.key)
+        .join('|');
       const shouldReplaceAllPoints =
         previousPictureInput.chartPictureVersion !== chartPictureVersion ||
         previousPictureInput.pointCount !== points.length;
+      const shouldReplaceAllIndicatorSeries =
+        shouldReplaceAllPoints ||
+        previousPictureInput.indicatorSeriesKey !== indicatorSeriesKey;
       previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
       previousPictureInputRef.current = {
         chartPictureVersion,
+        indicatorSeriesKey,
         pointCount: points.length,
       };
       const nextSize = chartSize;
       const replacementPoints = shouldReplaceAllPoints ? points : null;
+      const replacementIndicatorSeries = shouldReplaceAllIndicatorSeries
+        ? indicatorSeries
+        : null;
       const latestPoint = points[points.length - 1] ?? null;
+      const latestIndicatorSeriesValues = indicatorSeries.map((series) => ({
+        key: series.key,
+        value: series.values[series.values.length - 1] ?? null,
+      }));
 
       scheduleOnUI(() => {
         'worklet';
@@ -380,6 +422,20 @@ export const TradingViewNativeChart = memo(
         const nextPoints =
           replacementPoints ??
           (latestPoint ? [...runtime.points.slice(0, -1), latestPoint] : []);
+        const nextIndicatorSeries =
+          replacementIndicatorSeries ??
+          runtime.indicatorSeries.map((series, index) => {
+            const latestValue = latestIndicatorSeriesValues[index];
+            if (!latestValue || latestValue.key !== series.key) {
+              return series;
+            }
+            return {
+              ...series,
+              values: latestPoint
+                ? [...series.values.slice(0, -1), latestValue.value]
+                : [],
+            };
+          });
         const nextChartWidth = getTradingViewNativeChartWidth(
           nextSize.width,
           priceAxisWidth.value,
@@ -399,6 +455,7 @@ export const TradingViewNativeChart = memo(
           candleIntervalSeconds,
           chartType,
           hasVolume,
+          indicatorSeries: nextIndicatorSeries,
           panGesture: {
             ...runtime.panGesture,
             startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
@@ -429,6 +486,7 @@ export const TradingViewNativeChart = memo(
       chartSize,
       decayOffset,
       hasVolume,
+      indicatorSeries,
       points,
       priceAxisWidth,
     ]);

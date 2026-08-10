@@ -13,6 +13,11 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import {
+  DEFAULT_TRADING_VIEW_NATIVE_INDICATORS,
+  type ITradingViewNativeIndicator,
+  buildTradingViewNativeIndicatorSeries,
+} from './utils/chartIndicators';
 import { hasTradingViewNativeVolume } from './utils/chartLayout';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
@@ -45,6 +50,9 @@ export const TradingViewNativeContainer = memo(
       target: ITradingViewNativeViewportTarget;
     } | null>(null);
     const [chartWidth, setChartWidth] = useState(0);
+    const [activeIndicatorValues, setActiveIndicatorValues] = useState<
+      Set<string>
+    >(() => new Set(DEFAULT_TRADING_VIEW_NATIVE_INDICATORS));
     onPriceUpdateRef.current = onPriceUpdate;
     const handleRealtimePoint = useCallback(
       (point: { c: number; t: number }) => {
@@ -83,6 +91,14 @@ export const TradingViewNativeContainer = memo(
     const hasVolume = useMemo(
       () => hasTradingViewNativeVolume(points),
       [points],
+    );
+    const indicatorSeries = useMemo(
+      () =>
+        buildTradingViewNativeIndicatorSeries({
+          activeIndicatorValues,
+          points,
+        }),
+      [activeIndicatorValues, points],
     );
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
@@ -140,6 +156,24 @@ export const TradingViewNativeContainer = memo(
         changeChartInterval(interval);
       },
       [changeChartInterval],
+    );
+
+    const handleIndicatorChange = useCallback(
+      (indicator: ITradingViewNativeIndicator, desiredActive: boolean) => {
+        setActiveIndicatorValues((currentValues) => {
+          if (currentValues.has(indicator) === desiredActive) {
+            return currentValues;
+          }
+          const nextValues = new Set(currentValues);
+          if (desiredActive) {
+            nextValues.add(indicator);
+          } else {
+            nextValues.delete(indicator);
+          }
+          return nextValues;
+        });
+      },
+      [],
     );
 
     const handleCalendarPanelSubmit = useCallback(
@@ -227,10 +261,12 @@ export const TradingViewNativeContainer = memo(
           calendarAvailableTimeRange={calendarAvailableTimeRange}
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
+          activeIndicatorValues={activeIndicatorValues}
           layoutMode={nativeControlsLayoutMode}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
           onIntervalChange={handleChartIntervalChange}
+          onIndicatorChange={handleIndicatorChange}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
           onCalendarPanelSubmit={handleCalendarPanelSubmit}
           onFullscreenChange={onNativeChartFullscreenChange}
@@ -242,6 +278,7 @@ export const TradingViewNativeContainer = memo(
             chartType={chartType}
             chartPictureVersion={chartPictureVersion}
             hasVolume={hasVolume}
+            indicatorSeries={indicatorSeries}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
