@@ -81,6 +81,32 @@ describe('indexedDbCryptoKeyStore quota reporting', () => {
     jest.restoreAllMocks();
   });
 
+  it('reports a quota failure raised by the database open itself', async () => {
+    // "QuotaExceededError: Encountered full disk while opening backing store
+    // for indexedDB.open" fails here, before any transaction exists.
+    const quotaError = new DOMException(
+      'Encountered full disk while opening backing store',
+      'QuotaExceededError',
+    );
+    const failingOpenIndexedDB = {
+      open: () => {
+        const request: Record<string, unknown> = { error: quotaError };
+        setTimeout(() => (request.onerror as (() => void) | undefined)?.(), 0);
+        return request;
+      },
+    } as unknown as IDBFactory;
+
+    await expect(
+      writeCryptoKeyRecord({
+        indexedDBInstance: failingOpenIndexedDB,
+        key: {} as CryptoKey,
+        keyRef: 'test-key-ref',
+      }),
+    ).rejects.toBeDefined();
+
+    expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+  });
+
   it('reports an async quota failure to the storage guard and rethrows', async () => {
     const reportSpy = jest.spyOn(storageChecker, 'handleDiskFullError');
 

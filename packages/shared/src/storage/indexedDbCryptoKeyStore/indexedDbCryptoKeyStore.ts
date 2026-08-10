@@ -218,7 +218,9 @@ async function openCryptoKeyDb({
       });
     }
   };
-  return requestToPromise(request);
+  // Same open-time gap as `IndexedDBPromised`: a full backing store fails the
+  // open itself, before any transaction exists.
+  return reportStorageWriteFailure(() => requestToPromise(request));
 }
 
 export async function readCryptoKeyRecord({

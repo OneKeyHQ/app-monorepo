@@ -538,7 +538,16 @@ export class IndexedDBPromised<
     return new Promise((resolve, reject) => {
       request.onerror = (event) => {
         const target = event.target as IDBOpenDBRequest;
-        reject(target?.error || indexedDBPromisedUtils.newDBOpenError());
+        const error = target?.error || indexedDBPromisedUtils.newDBOpenError();
+        // A full backing store fails here, before any transaction exists —
+        // "QuotaExceededError: Encountered full disk while opening backing
+        // store for indexedDB.open". Without reporting it the guard, the
+        // warning and the diagnostics all stay unset.
+        storageChecker.handleDiskFullError(error);
+        // `onupgradeneeded` may already have published a handle for the
+        // upgrade callback; a failed open must not leave it cached.
+        this.invalidateNativeDB('openFailed');
+        reject(error);
       };
 
       request.onsuccess = (event) => {

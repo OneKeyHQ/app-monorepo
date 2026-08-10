@@ -346,6 +346,39 @@ describe('storageChecker', () => {
       expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
     });
 
+    it('ignores a stale measurement that finishes after a newer one', async () => {
+      // Overlapping measurements can complete out of order. An older healthy
+      // result must not clear a guard a newer low-quota result just raised.
+      let releaseSlowEstimate: (() => void) | undefined;
+      const slowHealthyEstimate = new Promise<StorageEstimate>((resolve) => {
+        releaseSlowEstimate = () => resolve({ quota: 40 * GB, usage: 10 * GB });
+      });
+      Object.defineProperty(globalThis, 'navigator', {
+        value: {
+          storage: {
+            estimate: jest
+              .fn()
+              // First call: healthy, but resolves last.
+              .mockReturnValueOnce(slowHealthyEstimate)
+              // Second call: low quota, resolves first.
+              .mockResolvedValue({ quota: 40 * GB, usage: 40 * GB - 0.5 * GB }),
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+
+      const stale = storageChecker.checkIfDiskIsFull();
+      await storageChecker.checkIfDiskIsFull();
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+
+      releaseSlowEstimate?.();
+      await stale;
+
+      // The stale healthy result must not have cleared the newer guard.
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);

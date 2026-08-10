@@ -80,6 +80,8 @@ let lastQuotaInfo: IStorageQuotaInfo | undefined;
 /** Why the guard is currently raised; `undefined` while storage is healthy. */
 let lastDiagnostics: IStorageFullDiagnostics | undefined;
 let hasLoggedFirstMeasurement = false;
+/** Bumped per measurement so a stale async result cannot change state. */
+let measurementGeneration = 0;
 
 function getErrorMessage(error: unknown): string | undefined {
   return (error as Error | undefined)?.message;
@@ -322,12 +324,24 @@ async function checkIfDiskIsFull() {
     return;
   }
 
+  // Overlapping measurements can finish out of order: each awaits the quota
+  // estimate and possibly the write probe, and the scheduler may fire again
+  // meanwhile. Without this an older healthy result could clear a guard a
+  // newer low-quota result had just raised, briefly re-enabling writes against
+  // exhausted storage. Only the newest measurement may change state.
+  measurementGeneration += 1;
+  const generation = measurementGeneration;
+  const isCurrentMeasurement = () => generation === measurementGeneration;
+
   try {
     // Every runtime that persists through the browser quota must be able to
     // clear its own guard. Web DApp mode already returned above.
     if (platformEnv.isExtension || platformEnv.isDesktop || platformEnv.isWeb) {
       if (globalThis?.navigator?.storage?.estimate) {
         const estimate = await globalThis.navigator.storage.estimate();
+        if (!isCurrentMeasurement()) {
+          return;
+        }
         if (estimate && (estimate.quota || 0) > 1000) {
           const quotaBytes = estimate.quota || 0;
           const usageBytes = estimate.usage || 0;
@@ -351,7 +365,12 @@ async function checkIfDiskIsFull() {
             // write-failure state needs proof that a write commits again.
             const needsWriteProof =
               lastDiagnostics?.reason === EStorageFullReason.WriteFailed;
-            if (!needsWriteProof || (await probeWriteCanCommit())) {
+            if (needsWriteProof) {
+              const canCommit = await probeWriteCanCommit();
+              if (canCommit && isCurrentMeasurement()) {
+                clearDiskFull(quotaInfo);
+              }
+            } else {
               clearDiskFull(quotaInfo);
             }
           }
