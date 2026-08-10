@@ -8,7 +8,7 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { BorrowTestIDs } from '../testIDs';
 
-import { pickTopSupplyAssetsByApy } from './borrowEmptyState.utils';
+import { getBorrowRecommendationAssets } from './borrowEmptyState.utils';
 import {
   AssetWithAmountField,
   BorrowAPYField,
@@ -29,7 +29,10 @@ export function BorrowMobileEmptyState({
   onPressAsset,
 }: IBorrowMobileEmptyStateProps) {
   const intl = useIntl();
-  const topAssets = useMemo(() => pickTopSupplyAssetsByApy(assets), [assets]);
+  const recommendationAssets = useMemo(
+    () => getBorrowRecommendationAssets(assets),
+    [assets],
+  );
 
   const columns = useMemo(
     () => [
@@ -73,7 +76,7 @@ export function BorrowMobileEmptyState({
           })}
         </SizableText>
         <BorrowTableList<ISupplyAsset>
-          data={topAssets}
+          data={recommendationAssets}
           isLoading={isLoading}
           columns={columns}
           onPressRow={onPressAsset}
