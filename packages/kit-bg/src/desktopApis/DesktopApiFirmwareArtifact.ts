@@ -50,7 +50,6 @@ const FINAL_ARTIFACT_GRACE_MS = 24 * 60 * 60 * 1000;
 const PARTIAL_ARTIFACT_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRMWARE_ARTIFACT_HOSTNAMES = new Set([
   'common.onekey-asset.com',
-  'pub-d5c080673b4e4e9dae7e03680340378d.r2.dev',
   'web.onekey-asset.com',
 ]);
 
@@ -91,13 +90,23 @@ const assertSafeInteger = (value: number, label: string): void => {
   }
 };
 
-export const isFirmwareArtifactUrlAllowed = (url: URL): boolean =>
+// allowPreReleaseHosts is only sent by bg while developer mode +
+// "Use pre-release config" are on: pre-release artifacts live in
+// developer-owned buckets whose hostnames cannot be pinned in advance. The
+// structural checks below still apply, and validateDownloadInput additionally
+// requires a pinned SHA-256 for these downloads, so every admitted artifact is
+// covered by a reviewed hostname or by pinned content.
+export const isFirmwareArtifactUrlAllowed = (
+  url: URL,
+  options?: { allowPreReleaseHosts?: boolean },
+): boolean =>
   url.protocol === 'https:' &&
   url.port === '' &&
   !url.username &&
   !url.password &&
   !url.hash &&
-  FIRMWARE_ARTIFACT_HOSTNAMES.has(url.hostname.toLowerCase());
+  (options?.allowPreReleaseHosts === true ||
+    FIRMWARE_ARTIFACT_HOSTNAMES.has(url.hostname.toLowerCase()));
 
 const validatePortableEntryName = (
   name: string,
@@ -487,7 +496,16 @@ class DesktopApiFirmwareArtifact implements IFirmwareArtifactAdapter {
 
   private validateDownloadInput(input: IDownloadInput): void {
     const url = new URL(input.url);
-    if (!isFirmwareArtifactUrlAllowed(url)) {
+    const allowPreReleaseHosts = input.allowPreReleaseHosts === true;
+    // Dropping hostname pinning is only acceptable against pinned content, so
+    // a pre-release artifact without a pinned digest must never be admitted.
+    if (allowPreReleaseHosts && input.expectedSha256 === undefined) {
+      throw new FirmwareArtifactDesktopError(
+        'ARTIFACT_INVALID_INPUT',
+        'Pre-release firmware artifacts require a pinned SHA-256',
+      );
+    }
+    if (!isFirmwareArtifactUrlAllowed(url, { allowPreReleaseHosts })) {
       throw new FirmwareArtifactDesktopError(
         'ARTIFACT_INVALID_INPUT',
         'Firmware URL is outside the reviewed artifact host allowlist',

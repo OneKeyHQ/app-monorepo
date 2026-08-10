@@ -6,11 +6,11 @@ import {
   buildDeviceDetailsVisibility,
   canOpenDeviceManagementDetails,
   canShowTrezorBleBinding,
+  getFirmwareTypeChangeAvailability,
   getTrezorAutoLockOptionsMs,
   shouldShowDeviceInteractiveSections,
   syncRelevantDeviceStateEvent,
 } from './utils';
-import * as deviceDetailsUtils from './utils';
 
 describe('DeviceDetailsModal utils', () => {
   it('allows Ledger rows to open device details', () => {
@@ -64,16 +64,27 @@ describe('DeviceDetailsModal utils', () => {
     });
   });
 
-  it('shows the Pro2 firmware type switch as coming soon', () => {
-    const getAvailability = (
-      deviceDetailsUtils as typeof deviceDetailsUtils & {
-        getFirmwareTypeChangeAvailability?: (deviceType: EDeviceType) => string;
-      }
-    ).getFirmwareTypeChangeAvailability;
+  it.each([EDeviceType.Pro, EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+    'enables firmware type switching for %s',
+    (deviceType) => {
+      expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('enabled');
+    },
+  );
 
-    expect(getAvailability?.(EDeviceType.Pro)).toBe('enabled');
-    expect(getAvailability?.(EDeviceType.Pro2)).toBe('comingSoon');
-    expect(getAvailability?.(EDeviceType.Touch)).toBe('hidden');
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'hides firmware type switching for unsupported Protocol V2 device %s',
+    (deviceType) => {
+      expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('hidden');
+    },
+  );
+
+  it.each([
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Unknown,
+  ])('hides firmware type switching for %s', (deviceType) => {
+    expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('hidden');
   });
 
   it('shows Pro2 interactive settings consistently with Pro devices', () => {

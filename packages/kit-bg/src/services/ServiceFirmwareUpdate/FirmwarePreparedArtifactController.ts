@@ -22,7 +22,7 @@ import type {
 import type {
   CoreApi,
   FirmwareUpdatePlan,
-  FirmwareUpdatePlanForceTarget,
+  FirmwareUpdatePlanTarget,
 } from '@onekeyfe/hd-core';
 
 export type IFirmwareWorkflowArtifacts =
@@ -64,14 +64,11 @@ const getPreparedArtifactTraceSummary = (
     firmwareBytes: prepared.selected.firmware?.size,
     bleBytes: prepared.selected.ble?.size,
     bootloaderBytes: prepared.selected.bootloader?.size,
-    resourceCount:
-      resourceEntries.length + prepared.selected.resourceBundleArtifacts.length,
-    resourceBytes:
-      resourceEntries.reduce((total, entry) => total + entry.artifact.size, 0) +
-      prepared.selected.resourceBundleArtifacts.reduce(
-        (total, entry) => total + entry.artifact.size,
-        0,
-      ),
+    resourceCount: resourceEntries.length,
+    resourceBytes: resourceEntries.reduce(
+      (total, entry) => total + entry.artifact.size,
+      0,
+    ),
     integrityVerified:
       artifactReferences.length > 0 &&
       artifactReferences.every(
@@ -102,12 +99,32 @@ const getBridgeArtifactTraceSummary = (bridge: IBridgeFirmwareBinaries) => {
   };
 };
 
+const assertProtocolV2PlanTargetsMatch = ({
+  plan,
+  expectedTargets,
+}: {
+  plan: FirmwareUpdatePlan;
+  expectedTargets: readonly FirmwareUpdatePlanTarget[];
+}): void => {
+  if (plan.executor !== 'v4') return;
+  const planTargets = new Set(plan.targetsToUpdate);
+  const selectedTargets = new Set(expectedTargets);
+  if (
+    planTargets.size !== selectedTargets.size ||
+    [...selectedTargets].some((target) => !planTargets.has(target))
+  ) {
+    throw new OneKeyLocalError(
+      'Firmware update plan targets do not match the selected Protocol V2 targets',
+    );
+  }
+};
+
 const assertFirmwareUpdatePlanCoverage = ({
   plan,
   expectedTargets,
 }: {
   plan: FirmwareUpdatePlan;
-  expectedTargets: readonly FirmwareUpdatePlanForceTarget[];
+  expectedTargets: readonly FirmwareUpdatePlanTarget[];
 }): void => {
   if (
     !Array.isArray(plan.artifacts) ||
@@ -124,6 +141,7 @@ const assertFirmwareUpdatePlanCoverage = ({
     plan.artifacts.map((artifact) => artifact.target),
   );
   const planTargets = new Set(plan.targetsToUpdate);
+  assertProtocolV2PlanTargetsMatch({ plan, expectedTargets });
   if (
     [...artifactTargets].some((target) => !planTargets.has(target)) ||
     [...planTargets].some((target) => !artifactTargets.has(target))
@@ -132,10 +150,22 @@ const assertFirmwareUpdatePlanCoverage = ({
       'Firmware update plan target coverage is incomplete',
     );
   }
+  const resourceArtifacts = plan.artifacts.filter(
+    (artifact) => artifact.target === 'resource',
+  );
+  if (
+    plan.executor === 'v4' &&
+    planTargets.has('resource') &&
+    (resourceArtifacts.length !== 1 ||
+      resourceArtifacts[0]?.role !== 'resourceBundle' ||
+      resourceArtifacts[0]?.container !== 'zip')
+  ) {
+    throw new OneKeyLocalError(
+      'Protocol V2 resource target requires exactly one ZIP archive artifact',
+    );
+  }
 
-  const coversExpectedTarget = (
-    expectedTarget: FirmwareUpdatePlanForceTarget,
-  ) => {
+  const coversExpectedTarget = (expectedTarget: FirmwareUpdatePlanTarget) => {
     switch (expectedTarget) {
       case 'firmware':
         return plan.artifacts.some(
@@ -144,7 +174,10 @@ const assertFirmwareUpdatePlanCoverage = ({
             (artifact.role === 'component' && artifact.target !== 'resource'),
         );
       case 'ble':
-        return plan.artifacts.some((artifact) => artifact.role === 'ble');
+        return plan.artifacts.some(
+          (artifact) =>
+            artifact.role === 'ble' || artifact.target === 'coprocessor',
+        );
       case 'bootloader':
         return plan.artifacts.some(
           (artifact) =>
@@ -157,7 +190,7 @@ const assertFirmwareUpdatePlanCoverage = ({
             artifact.role === 'resource' || artifact.role === 'resourceBundle',
         );
       default:
-        return false;
+        return planTargets.has(expectedTarget);
     }
   };
 
@@ -177,9 +210,11 @@ export class FirmwarePreparedArtifactController {
 
   private hostBindings = new Map<string, IFirmwareHostBinding>();
 
-  constructor(
-    private readonly dependencies: IFirmwarePreparedArtifactControllerDependencies,
-  ) {}
+  private readonly dependencies: IFirmwarePreparedArtifactControllerDependencies;
+
+  constructor(dependencies: IFirmwarePreparedArtifactControllerDependencies) {
+    this.dependencies = dependencies;
+  }
 
   private async getExternalSdk(
     connectId: string | undefined,
@@ -218,7 +253,7 @@ export class FirmwarePreparedArtifactController {
     plan: FirmwareUpdatePlan;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
-    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
+    expectedTargets?: readonly FirmwareUpdatePlanTarget[];
   }): Promise<boolean> {
     assertFirmwareUpdatePlanCoverage({ plan, expectedTargets });
     this.plans.set(plan.planDigest, plan);
@@ -245,23 +280,39 @@ export class FirmwarePreparedArtifactController {
     connectId,
     transportType,
     expectedTargets = [],
+    requirePreparedPlan = false,
   }: {
     hasUpgrade: boolean | undefined;
     plan: FirmwareUpdatePlan | undefined;
     connectId: string | undefined;
     transportType: EHardwareTransportType;
-    expectedTargets?: readonly FirmwareUpdatePlanForceTarget[];
+    expectedTargets?: readonly FirmwareUpdatePlanTarget[];
+    requirePreparedPlan?: boolean;
   }): Promise<string | undefined> {
-    return hasUpgrade &&
-      plan &&
-      (await this.cachePlanIfPreparedSupported({
-        plan,
-        connectId,
-        transportType,
-        expectedTargets,
-      }))
-      ? plan.planDigest
-      : undefined;
+    if (!hasUpgrade) return undefined;
+    if (!plan) {
+      if (requirePreparedPlan) {
+        throw new OneKeyLocalError(
+          'Firmware update plan is unavailable from the fresh firmware manifest',
+        );
+      }
+      return undefined;
+    }
+    const preparedPlanSupported = await this.cachePlanIfPreparedSupported({
+      plan,
+      connectId,
+      transportType,
+      expectedTargets,
+    });
+    if (!preparedPlanSupported) {
+      if (requirePreparedPlan) {
+        throw new OneKeyLocalError(
+          'Firmware prepared artifact capability is unavailable on this runtime',
+        );
+      }
+      return undefined;
+    }
+    return plan.planDigest;
   }
 
   getPlan(releaseResult: ICheckAllFirmwareReleaseResult): FirmwareUpdatePlan {
@@ -281,6 +332,10 @@ export class FirmwarePreparedArtifactController {
         'Firmware update plan does not match the selected device',
       );
     }
+    assertProtocolV2PlanTargetsMatch({
+      plan,
+      expectedTargets: releaseResult.pro2TargetsToUpdate ?? [],
+    });
     return plan;
   }
 
@@ -289,12 +344,9 @@ export class FirmwarePreparedArtifactController {
     if (existing) {
       existing.sdk.unregisterFirmwareUpdateHostBinding(existing.generation);
     }
-    const generation = (
-      sdk.registerFirmwareUpdateHostBinding as unknown as (binding: {
-        artifactReader: IPreparedFirmwareArtifacts['artifactReader'];
-      }) => number
-    )({
+    const generation = sdk.registerFirmwareUpdateHostBinding({
       artifactReader: prepared.artifactReader,
+      preparedPlanDigest: prepared.preparedPlan.preparedPlanDigest,
     });
     if (!Number.isSafeInteger(generation) || generation <= 0) {
       throw new OneKeyLocalError(

@@ -36,6 +36,32 @@ export type IPro2NftUploadParams = {
   timestampMs?: number;
 };
 
+const PRO2_NFT_ALREADY_EXISTS_MESSAGE = 'NFT already exists';
+
+function isPro2NftAlreadyExistsError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const hardwareError = error as {
+    message?: unknown;
+    payload?: {
+      error?: unknown;
+      message?: unknown;
+    };
+  };
+
+  return [
+    hardwareError.message,
+    hardwareError.payload?.error,
+    hardwareError.payload?.message,
+  ].some(
+    (message) =>
+      typeof message === 'string' &&
+      message.includes(PRO2_NFT_ALREADY_EXISTS_MESSAGE),
+  );
+}
+
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -67,10 +93,21 @@ class ServiceNFT extends ServiceBase {
               'Pro2 NFT upload parameters are required',
             );
           }
-          return this.backgroundApi.serviceHardware.uploadPro2Nft({
-            connectId: device.connectId ?? '',
-            ...pro2UploadParams,
-          });
+          try {
+            return await this.backgroundApi.serviceHardware.uploadPro2Nft({
+              connectId: device.connectId ?? '',
+              ...pro2UploadParams,
+            });
+          } catch (error) {
+            // Treat duplicate uploads as idempotent because the target NFT already exists.
+            if (isPro2NftAlreadyExistsError(error)) {
+              return {
+                nftUpdated: true,
+                message: PRO2_NFT_ALREADY_EXISTS_MESSAGE,
+              };
+            }
+            throw error;
+          }
         }
         if (!uploadResParams) {
           throw new OneKeyLocalError(

@@ -84,4 +84,27 @@ describe('HardwareProcessingManager OneKey operation lease', () => {
       'competitor:start',
     ]);
   });
+
+  it('does not queue a best-effort operation when the channel is occupied', async () => {
+    const manager = new HardwareProcessingManager();
+    const activeOperation = createDeferred();
+    const bestEffortOperation = jest.fn();
+
+    const active = manager.runExclusiveOneKeyOperation({
+      deviceKey: 'device-1',
+      operation: async () => activeOperation.promise,
+    });
+    await Promise.resolve();
+
+    await expect(
+      manager.tryRunExclusiveOneKeyOperation({
+        deviceKey: 'device-2',
+        operation: bestEffortOperation,
+      }),
+    ).resolves.toEqual({ acquired: false });
+
+    activeOperation.resolve();
+    await active;
+    expect(bestEffortOperation).not.toHaveBeenCalled();
+  });
 });

@@ -13,7 +13,10 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import { DeviceAvatarWithColor } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { getTargetFirmwareTypeLabel } from '../utils';
+import {
+  getFirmwareUpdateDeviceTitle,
+  getTargetFirmwareTypeLabel,
+} from '../utils';
 
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
@@ -44,7 +47,7 @@ export function FirmwareUpdatePageHeaderTitle(props: {
       },
     );
   } else {
-    title = result.deviceName;
+    title = getFirmwareUpdateDeviceTitle(result);
   }
   if (platformEnv.isNativeIOS) {
     const titleWidth = Math.max(0, windowWidth - 220);

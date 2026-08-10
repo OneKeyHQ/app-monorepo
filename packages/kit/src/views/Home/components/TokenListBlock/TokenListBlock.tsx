@@ -1843,6 +1843,7 @@ function TokenListBlock({
       });
 
       if (
+        assetStatusCurrency &&
         isProtocolV2ProductType(device?.deviceType) &&
         wallet &&
         accountUtils.isHwWallet({ walletId: wallet.id })
@@ -1879,6 +1880,7 @@ function TokenListBlock({
             ownerAccountId: allNetworksResult[0].ownerAccountId,
             ownerNetworkId: allNetworksResult[0].ownerNetworkId,
             totalFiat: snapshot.createAtNetworkWorth,
+            totalFiatCurrency: assetStatusCurrency,
             totalTokenCount: portfolioTokens.length,
             tokenMap: {
               ...snapshot.mergeTokenListMap,
