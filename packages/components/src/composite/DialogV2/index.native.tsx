@@ -1,10 +1,13 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { BottomSheet, RNHostView } from '@expo/ui';
 import {
   createModifier,
+  frame,
   interactiveDismissDisabled,
   presentationBackground,
+  presentationBackgroundInteraction,
+  presentationDetents,
 } from '@expo/ui/swift-ui/modifiers';
 import { useWindowDimensions } from 'react-native';
 
@@ -13,13 +16,22 @@ import { useThemeName } from '@onekeyhq/components/src/hooks/useStyle';
 import { Button, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IDialogV2Props } from './type';
+import type { LayoutChangeEvent } from 'react-native';
 
 /**
  * The sheet itself is the system presentation — corner radius, backdrop, drag
  * physics and the iPad form-sheet variant all come from UIKit, so nothing here
  * styles them. Only the content inside is ours.
  *
- * Height is left to the sheet: with no snap points it sizes to its content.
+ * Height: the first frame presents through the wrapper's fitToContents,
+ * then a JS measurement of the content takes over as explicit height
+ * detents with a selection. fitToContents alone only gets the
+ * presentation-time height right — it feeds SwiftUI through a KVO on the
+ * RN root view's bounds, which UIKit does not reliably fire on later
+ * re-layouts, so a sheet whose content grows or shrinks never moves. The
+ * JS measurement drives detents through props, which always update; and
+ * the height change rides a detent-selection change, the one path the
+ * system animates.
  *
  * One exception to "the system styles the chrome": the system draws it against
  * its own appearance, blind to the Tamagui context, so a subtree pinned with
@@ -39,6 +51,13 @@ const preferredColorScheme = (value: 'light' | 'dark') =>
 
 // Side padding the universal BottomSheet wrapper puts around its content.
 const SHEET_SIDE_PADDING = 16;
+// Top padding from the same wrapper: part of the sheet's visible height.
+const SHEET_TOP_PADDING = 16;
+
+// Any snap point turns the wrapper's broken fitToContents measuring off;
+// the value itself never wins — the explicit height detent pushed in
+// `modifiers` sits later in the list, hence outermost, and overrides it.
+const DISABLE_FIT_TO_CONTENTS: ['half'] = ['half'];
 
 export function DialogV2({
   open,
@@ -53,22 +72,72 @@ export function DialogV2({
   onCancel,
   dismissible = true,
   background,
+  backgroundInteractive,
 }: IDialogV2Props) {
   const themeName = useThemeName();
   const scheme = themeName.includes('dark') ? 'dark' : 'light';
 
+  // Sheet heights as detents: the current one plus the one before it.
+  // Keeping both alive lets the system animate the selection change
+  // between them — a plain detent-set replacement snaps with no
+  // animation. The trailing detent drops on the next change, so a drag
+  // can snap at most one step back.
+  const [sheetHeights, setSheetHeights] = useState<{
+    prev?: number;
+    current: number;
+  } | null>(null);
+  const handleContentLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.ceil(event.nativeEvent.layout.height) + SHEET_TOP_PADDING;
+    setSheetHeights((state) => {
+      if (!state) return { current: next };
+      if (state.current === next) return state;
+      return { prev: state.current, current: next };
+    });
+  }, []);
+
   const modifiers = useMemo(() => {
     const list = [preferredColorScheme(scheme)];
+    if (sheetHeights) {
+      // `prev` is only ever set to a height that differs from `current`
+      // (the layout handler drops no-op measurements), so its presence is
+      // the whole test.
+      const detents =
+        sheetHeights.prev !== undefined
+          ? [{ height: sheetHeights.prev }, { height: sheetHeights.current }]
+          : [{ height: sheetHeights.current }];
+      list.push(
+        presentationDetents(detents, {
+          selection: { height: sheetHeights.current },
+        }),
+      );
+    }
     if (background) {
       // Deliberately trades the glass material for opaque paint — the caller
       // asked for a face that does not sample what is behind it.
       list.push(presentationBackground(background));
     }
+    if (backgroundInteractive) {
+      // Touches pass to the presenting view while the sheet is up (iOS 16.4+).
+      list.push(presentationBackgroundInteraction('enabled'));
+    }
     if (!dismissible) {
       list.push(interactiveDismissDisabled(true));
     }
+    // Outermost on purpose: make the content box exactly the height the
+    // sheet offers, and pin the content to its top. The box is otherwise
+    // sized by the RN content, so while the sheet animates to a taller
+    // detent the box is the bigger of the two and the sheet centres it —
+    // the whole stage jumps up and clips for those frames. Pinned, it
+    // holds still and the growth simply hangs past the bottom edge until
+    // the sheet arrives to reveal it.
+    //
+    // Both bounds, not just a maximum: a flexible frame given only a
+    // maximum never reports smaller than its child, so it inflates and
+    // the alignment has nothing left to align. The minimum is what makes
+    // it clamp to the offered height instead.
+    list.push(frame({ minHeight: 0, maxHeight: Infinity, alignment: 'top' }));
     return list;
-  }, [background, dismissible, scheme]);
+  }, [background, backgroundInteractive, dismissible, scheme, sheetHeights]);
 
   // The host frame spans the sheet but aligns its content topLeading with
   // 16pt side padding (the universal BottomSheet wrapper), and the RN content
@@ -102,10 +171,16 @@ export function DialogV2({
       isPresented={open}
       onDismiss={handleDismiss}
       showDragIndicator={dismissible}
+      snapPoints={sheetHeights ? DISABLE_FIT_TO_CONTENTS : undefined}
       modifiers={modifiers}
     >
       <RNHostView matchContents>
-        <YStack gap="$4" pb="$6" width={contentWidth}>
+        <YStack
+          gap="$4"
+          pb="$6"
+          width={contentWidth}
+          onLayout={handleContentLayout}
+        >
           {hasHeader ? (
             <YStack gap="$2">
               {title ? (
