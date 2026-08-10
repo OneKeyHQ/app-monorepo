@@ -15,8 +15,6 @@ import { SubSettingsPage } from './SubSettingsPage';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export { default as OfficialChannelsPage } from '../OfficialChannels';
-
 function SettingListSubModalView() {
   const route =
     useRoute<
