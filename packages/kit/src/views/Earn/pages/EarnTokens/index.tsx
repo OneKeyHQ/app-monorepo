@@ -23,6 +23,11 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AvailableAssetItem } from '../../components/AvailableAssetsFlatList';
+import {
+  EARN_LIST_ESTIMATED_ITEM_SIZE,
+  EARN_LIST_ROW_GAP,
+  EarnListRowSeparator,
+} from '../../components/earnListRhythm';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -72,11 +77,12 @@ const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
 
 function EarnTokensSkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$4" pt="$4">
-      {/* Mirrors the real row layout (symbol on the left, APY over TVL on the
-          right) so the skeleton-to-content swap does not shift row heights */}
+    // Mirrors the real row: same layout (symbol left, APY over TVL right), same
+    // ListItem box metrics and the same row gap, so the skeleton-to-content
+    // swap shifts neither row heights nor row rhythm (OK-59841, OK-59904)
+    <YStack px="$pagePadding" gap={EARN_LIST_ROW_GAP}>
       {Array.from({ length: 8 }).map((_, index) => (
-        <XStack key={index} ai="center" gap="$3">
+        <XStack key={index} minHeight="$11" py="$2" ai="center" gap="$3">
           <Skeleton w="$10" h="$10" borderRadius="$full" />
           <YStack flex={1}>
             <Skeleton h="$4" w="$24" />
@@ -431,9 +437,10 @@ function EarnTokensContent() {
         flex={1}
         {...earnListScrollBehaviorProps}
         data={isInitialLoading ? EMPTY_ASSETS : sortedAssets}
-        estimatedItemSize={60}
+        estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={isInitialLoading ? <EarnTokensSkeleton /> : null}
         contentContainerStyle={{ pb: tabBarHeight }}

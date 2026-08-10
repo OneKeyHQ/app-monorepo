@@ -29,20 +29,25 @@ import { mergeSimpleEarnWithStakingAssets } from '../utils/availableAssetsUtils'
 
 import { AprText } from './AprText';
 import { buildEarnHomeFlatSections } from './earnCategoryTabs';
+import { EARN_LIST_ROW_GAP, EARN_SECTION_GAP } from './earnListRhythm';
 
 const MAX_INLINE_ASSETS = 4;
 function AvailableAssetsSectionSkeleton() {
   return (
+    // Heading-to-rows and row-to-row use the same two gaps as the loaded
+    // section, so the skeleton swap does not shift the list (OK-59904)
     <YStack gap="$3">
       <Skeleton width={120} height={28} borderRadius="$2" />
-      {Array.from({ length: 3 }).map((_, index) => (
-        <XStack key={index} px="$1" py="$2" ai="center" gap="$3">
-          <Skeleton width="$8" height="$8" radius="round" />
-          <Skeleton width={64} height={24} borderRadius="$2" />
-          <YStack flex={1} />
-          <Skeleton width={88} height={24} borderRadius="$2" />
-        </XStack>
-      ))}
+      <YStack gap={EARN_LIST_ROW_GAP}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <XStack key={index} px="$1" py="$2" ai="center" gap="$3">
+            <Skeleton width="$8" height="$8" radius="round" />
+            <Skeleton width={64} height={24} borderRadius="$2" />
+            <YStack flex={1} />
+            <Skeleton width={88} height={24} borderRadius="$2" />
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
   );
 }
@@ -102,7 +107,10 @@ export function AvailableAssetItem({
         }
       />
       {/* Fixed rate: right side uses APY/APR as title and Liquidity as subtitle (OK-58879) */}
-      <YStack flex={1} ai="flex-end" jc="center" gap="$0.5">
+      {/* No flex here (OK-59904): ListItem.Text above already claims flex={1},
+          so a second flex={1} splits the row in half and wraps long APR ranges
+          such as "14.33% - 17.38% APR". The column sizes to its content. */}
+      <YStack ai="flex-end" jc="center" gap="$0.5">
         <AprText asset={asset} />
         {showLiquidity ? (
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -188,7 +196,9 @@ function AvailableAssetsFlatListComponent() {
   );
 
   return (
-    <YStack gap="$8">
+    // Same gap as the home section container so trending / fixed rate keep the
+    // rhythm of their siblings (OK-59904)
+    <YStack gap={EARN_SECTION_GAP}>
       {sections.map(({ type, title }) => {
         const assets = sectionAssetsByType[type] ?? [];
         const isLoading =
@@ -232,7 +242,7 @@ function AvailableAssetsFlatListComponent() {
                 pointerEvents="none"
               />
             </XStack>
-            <YStack>
+            <YStack gap={EARN_LIST_ROW_GAP}>
               {assets.slice(0, MAX_INLINE_ASSETS).map((asset) => (
                 <AvailableAssetItem
                   key={`${type}-${asset.symbol}`}

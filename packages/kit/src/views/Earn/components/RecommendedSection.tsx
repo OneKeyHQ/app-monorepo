@@ -36,6 +36,7 @@ import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { AprText } from './AprText';
+import { EARN_LIST_ROW_GAP } from './earnListRhythm';
 
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
@@ -607,7 +608,7 @@ function RecommendedSectionSkeleton({
         variant={variant}
         disableHorizontalBleed={disableHorizontalBleed}
       >
-        <YStack>
+        <YStack gap={EARN_LIST_ROW_GAP}>
           {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
             <RecommendedListSkeletonItem key={index} />
           ))}
@@ -686,9 +687,13 @@ export function RecommendedSection({
         disableHorizontalBleed={disableHorizontalBleed}
       >
         <YStack>
-          {visibleTokens.map((token) => (
-            <RecommendedListItem key={token.symbol} token={token} />
-          ))}
+          {/* The gap wraps the rows only — the show-more button keeps its own
+              pt, so pulling it inside would stack gap + pt above it (OK-59904) */}
+          <YStack gap={EARN_LIST_ROW_GAP}>
+            {visibleTokens.map((token) => (
+              <RecommendedListItem key={token.symbol} token={token} />
+            ))}
+          </YStack>
           {showMoreButton}
         </YStack>
       </RecommendedSectionContainer>
