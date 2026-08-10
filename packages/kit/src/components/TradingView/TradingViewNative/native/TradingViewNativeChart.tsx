@@ -67,7 +67,10 @@ import {
   createTradingViewNativeSkiaResources,
 } from './chartSkiaRenderer';
 
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 const PAN_DRAG_RATIO = 1.1;
 const PAN_DECELERATION = 0.9982;
@@ -118,6 +121,7 @@ interface ITradingViewNativeChartProps {
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,
   ) => void;
+  candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
   viewportRequest?: ITradingViewNativeViewportRequest | null;
@@ -170,6 +174,7 @@ export const TradingViewNativeChart = memo(
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
+    candleLabels,
     points,
     testID,
     viewportRequest,
@@ -291,6 +296,7 @@ export const TradingViewNativeChart = memo(
         crosshair: runtime.crosshair,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
+        candleLabels,
         indicatorSeries: runtime.indicatorSeries,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
@@ -299,7 +305,7 @@ export const TradingViewNativeChart = memo(
         watermarkOpacity,
         width: runtime.size.width,
       });
-    }, [priceAxisWidth, resources, watermarkOpacity]);
+    }, [candleLabels, priceAxisWidth, resources, watermarkOpacity]);
 
     const handleChartWidthChange = useCallback((nextChartWidth: number) => {
       setChartWidth((currentChartWidth) =>

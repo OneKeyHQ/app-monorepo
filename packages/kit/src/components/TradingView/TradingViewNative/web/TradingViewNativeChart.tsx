@@ -62,7 +62,10 @@ import {
   getTradingViewNativeWheelZoomScale,
 } from './chartWheel';
 
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 const ONEKEY_WATERMARK_ASSET =
   require('@onekeyhq/components/svg/illus/logo.svg') as
@@ -85,6 +88,7 @@ interface ITradingViewNativeChartProps {
   onVisiblePointRangeChange?: (
     range: ITradingViewNativeVisiblePointRange,
   ) => void;
+  candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
   testID?: string;
   viewportRequest?: ITradingViewNativeViewportRequest | null;
@@ -104,6 +108,7 @@ interface IDrawKLineChartOptions {
   chartType: ITradingViewNativeChartType;
   colors: ITradingViewNativeChartSceneColors;
   hasVolume: boolean;
+  candleLabels: ITradingViewNativeCandleLabels;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
@@ -283,6 +288,7 @@ function drawKLineChart({
   chartType,
   colors,
   hasVolume,
+  candleLabels,
   indicatorSeries,
   points,
   priceAxisWidth,
@@ -320,6 +326,7 @@ function drawKLineChart({
       context.font = getCanvasFont(font);
       return context.measureText(text).width;
     },
+    candleLabels,
     points,
     priceAxisWidth,
     viewport: runtimeState.viewport,
@@ -344,6 +351,7 @@ export const TradingViewNativeChart = memo(
     onChartWidthChange,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
+    candleLabels,
     points,
     testID,
     viewportRequest,
@@ -455,6 +463,7 @@ export const TradingViewNativeChart = memo(
             up: CHART_UP_COLOR,
           },
           hasVolume,
+          candleLabels,
           indicatorSeries,
           points,
           priceAxisWidth,
@@ -472,6 +481,7 @@ export const TradingViewNativeChart = memo(
         hasVolume,
         indicatorSeries,
         line,
+        candleLabels,
         points,
         priceAxisLabels,
         watermarkImage,

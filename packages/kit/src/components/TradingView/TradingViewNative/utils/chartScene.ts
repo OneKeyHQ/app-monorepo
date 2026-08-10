@@ -85,7 +85,10 @@ import type {
   ITradingViewNativeChartRuntimeCrosshair,
   ITradingViewNativeChartRuntimeViewport,
 } from './chartRuntime';
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
 
@@ -196,6 +199,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
+  candleLabels: ITradingViewNativeCandleLabels;
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth?: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
@@ -430,6 +434,7 @@ export function buildTradingViewNativeChartScene({
   height,
   indicatorSeries = [],
   measureTextWidth,
+  candleLabels,
   points,
   priceAxisWidth,
   viewport,
@@ -856,6 +861,7 @@ export function buildTradingViewNativeChartScene({
     legendPointIndex > 0 ? points[legendPointIndex - 1] : undefined;
   const legend = getTradingViewNativeChartLegend(
     crosshairPoint ?? legendPoint,
+    candleLabels,
     chartType,
     previousLegendPoint?.c,
   );
