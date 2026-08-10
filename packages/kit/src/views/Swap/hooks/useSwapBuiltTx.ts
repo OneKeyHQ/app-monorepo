@@ -145,6 +145,7 @@ import {
 import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategoryFromSwapType,
+  getSwapTradeSource,
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
@@ -199,6 +200,22 @@ function canFallbackToSeparateTxConfirm({
   );
 }
 
+function getSwapCreateFrom({
+  isSwapPro,
+  isModalPage,
+}: {
+  isSwapPro: boolean;
+  isModalPage: boolean;
+}) {
+  if (isSwapPro) {
+    return 'swapPro';
+  }
+  if (isModalPage) {
+    return 'modal';
+  }
+  return 'swapPage';
+}
+
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
  *
@@ -225,7 +242,9 @@ export function useSwapBuildTx({
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
   const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+    return Boolean(
+      platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+    );
   }, [swapTypeSwitch]);
   const fromUserAddress = useMemo(() => {
     if (focusSwapPro) {
@@ -2108,7 +2127,10 @@ export function useSwapBuildTx({
         feeType: buildSwapRes.result?.fee?.percentageFee?.toString() ?? '0',
         router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
         isFirstTime: isFirstTimeSwap,
-        createFrom: isModalPage ? 'modal' : 'swapPage',
+        createFrom: getSwapCreateFrom({
+          isSwapPro: focusSwapPro,
+          isModalPage,
+        }),
         orderId: buildSwapRes?.orderId ?? '',
         orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
         ...getStockTradeAnalyticsPayload({
@@ -2124,6 +2146,7 @@ export function useSwapBuildTx({
     },
     [
       fromToken,
+      focusSwapPro,
       isFirstTimeSwap,
       isModalPage,
       setPersistSettings,
@@ -2198,6 +2221,10 @@ export function useSwapBuildTx({
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
+            tradeSource: getSwapTradeSource({
+              protocol: data.protocol,
+              isSwapPro: focusSwapPro,
+            }),
           });
         } catch (e: any) {
           if (!skipLoading) {
@@ -2230,7 +2257,10 @@ export function useSwapBuildTx({
             feeType: data?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(data?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
-            createFrom: isModalPage ? 'modal' : 'swapPage',
+            createFrom: getSwapCreateFrom({
+              isSwapPro: focusSwapPro,
+              isModalPage,
+            }),
             orderId: buildSwapRes?.orderId ?? '',
             orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
             ...getStockTradeAnalyticsPayload({
@@ -2489,6 +2519,7 @@ export function useSwapBuildTx({
       checkOtherFee,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
+      focusSwapPro,
       isFirstTimeSwap,
       isModalPage,
       toAccountId,

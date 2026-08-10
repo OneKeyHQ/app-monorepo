@@ -49,7 +49,11 @@ function buildPerpAssetMetaLookupKeys({
 }) {
   const candidateSet = new Set<string>();
 
-  [displayName, coin].forEach((value) => {
+  // Full coin first: the first hit wins, so a bare-symbol entry would otherwise
+  // shadow a dex-scoped one and hand `para:STX` (Seagate) the main DEX `STX`
+  // (Stacks) metadata. Bare stays as the fallback, which keeps every existing
+  // prefix-free config entry working for sub-DEX assets that need no override.
+  [coin, displayName].forEach((value) => {
     addPerpAssetMetaLookupCandidate(candidateSet, value);
   });
 

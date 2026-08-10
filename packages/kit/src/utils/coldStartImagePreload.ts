@@ -9,10 +9,7 @@ import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import {
-  getHyperliquidTokenImageUrl,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import {
@@ -184,10 +181,9 @@ function addPerpsCoinLogoUri(uris: Set<string>, coin?: unknown) {
   if (typeof coin !== 'string' || !coin) {
     return;
   }
-  addImageUri(
-    uris,
-    getHyperliquidTokenImageUrl(parseDexCoin(coin).displayName),
-  );
+  // Warm both sources, otherwise the prefixed file — the one actually rendered
+  // — is never prefetched.
+  getHyperliquidTokenImageUris(coin).forEach((uri) => addImageUri(uris, uri));
 }
 
 function addTokenSelectorItemLogoUri(
