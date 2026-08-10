@@ -1,53 +1,43 @@
-import { getBorrowRecommendationAssets } from './borrowEmptyState.utils';
+import {
+  BORROW_EMPTY_STATE_ASSET_COUNT,
+  pickTopSupplyAssetsByApy,
+} from './borrowEmptyState.utils';
 
-const asset = (symbol: string, fiatValue?: string, disabled?: boolean) => ({
+const asset = (symbol: string, apy?: string, disabled?: boolean) => ({
   symbol,
-  walletBalance:
-    fiatValue === undefined ? undefined : { fiatValue: String(fiatValue) },
+  apyDetail: apy === undefined ? undefined : { apy },
   supplyButton: disabled === undefined ? undefined : { disabled },
 });
 
-describe('getBorrowRecommendationAssets', () => {
-  it('orders by fiat balance and excludes disabled assets', () => {
-    const recommendations = getBorrowRecommendationAssets([
-      asset('WETH', '0.04'),
+describe('pickTopSupplyAssetsByApy', () => {
+  it('orders numerically and excludes disabled assets', () => {
+    const picked = pickTopSupplyAssetsByApy([
       asset('BLOCKED', '99', true),
-      asset('USDC', '1.34'),
-      asset('DAI', '1.33'),
-      asset('NO_BALANCE'),
+      asset('NINE', '9'),
+      asset('TEN', '10'),
+      asset('NO_APY'),
     ]);
-    expect(recommendations.map((item) => item.symbol)).toEqual([
-      'USDC',
-      'DAI',
-      'WETH',
-      'NO_BALANCE',
+    expect(picked.map((item) => item.symbol)).toEqual([
+      'TEN',
+      'NINE',
+      'NO_APY',
     ]);
   });
 
-  it('does not cap the result or mutate the source', () => {
+  it('caps the result without mutating the source', () => {
     const assets = Array.from({ length: 9 }, (_, i) =>
       asset(`T${i}`, String(i)),
     );
     const originalOrder = assets.map((item) => item.symbol);
-    const recommendations = getBorrowRecommendationAssets(assets);
+    const picked = pickTopSupplyAssetsByApy(assets);
 
-    expect(recommendations).toHaveLength(assets.length);
-    expect(recommendations.map((item) => item.symbol)).toEqual([
-      'T8',
-      'T7',
-      'T6',
-      'T5',
-      'T4',
-      'T3',
-      'T2',
-      'T1',
-      'T0',
-    ]);
+    expect(picked).toHaveLength(BORROW_EMPTY_STATE_ASSET_COUNT);
+    expect(picked[0].symbol).toBe('T8');
     expect(assets.map((item) => item.symbol)).toEqual(originalOrder);
   });
 
   it('returns an empty list when there is nothing to recommend', () => {
-    expect(getBorrowRecommendationAssets(undefined)).toEqual([]);
-    expect(getBorrowRecommendationAssets([])).toEqual([]);
+    expect(pickTopSupplyAssetsByApy(undefined)).toEqual([]);
+    expect(pickTopSupplyAssetsByApy([])).toEqual([]);
   });
 });
