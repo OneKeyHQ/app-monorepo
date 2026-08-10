@@ -247,12 +247,14 @@ function MobileMarketTradingView({
 
 export interface IMobileLayoutProps {
   disableTrade?: boolean;
+  isNative?: boolean;
   networkId?: string;
   tokenAddress?: string;
 }
 
 export function MobileLayout({
   disableTrade,
+  isNative: routeIsNative = false,
   networkId: routeNetworkId = '',
   tokenAddress: routeTokenAddress = '',
 }: IMobileLayoutProps) {
@@ -260,7 +262,7 @@ export function MobileLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
-    isNative,
+    isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
     isStockToken,
@@ -268,6 +270,10 @@ export function MobileLayout({
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const isNative =
+    networkId === routeNetworkId && tokenAddress === routeTokenAddress
+      ? routeIsNative
+      : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
