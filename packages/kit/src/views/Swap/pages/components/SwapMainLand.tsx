@@ -164,6 +164,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
+  const dialogClose = useCallback(() => {
+    void dialogRef.current?.close();
+  }, []);
+  useEffect(() => {
+    if (!isFocused) {
+      dialogClose();
+    }
+  }, [dialogClose, isFocused]);
+  useEffect(
+    () => () => {
+      dialogClose();
+    },
+    [dialogClose],
+  );
   const onPopSwapModal = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
@@ -1000,10 +1014,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const handleConfirm = useCallback(async () => {
     onActionHandlerBefore();
   }, [onActionHandlerBefore]);
-
-  const dialogClose = useCallback(() => {
-    void dialogRef.current?.close();
-  }, []);
 
   const onPreSwapClose = useCallback(() => {
     dialogClose();
