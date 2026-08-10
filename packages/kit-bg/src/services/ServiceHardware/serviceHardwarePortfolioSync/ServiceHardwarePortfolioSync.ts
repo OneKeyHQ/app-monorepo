@@ -7,7 +7,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import {
@@ -74,7 +73,7 @@ const PORTFOLIO_PACKAGE_MAX_BYTES = PORTFOLIO_ARCHIVE_MAX_BYTES * 2;
 const PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH =
   Math.ceil(PORTFOLIO_PACKAGE_MAX_BYTES / 3) * 4;
 
-export function decodePortfolioPackageBase64(packageBase64: string) {
+export function validatePortfolioPackageBase64(packageBase64: string) {
   if (packageBase64.length > PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH) {
     throw new OneKeyLocalError('Portfolio pack response is too large');
   }
@@ -85,14 +84,17 @@ export function decodePortfolioPackageBase64(packageBase64: string) {
     throw new OneKeyLocalError('Portfolio pack response is invalid');
   }
 
-  const packageBuffer = bufferUtils.toBuffer(packageBase64, 'base64');
-  if (packageBuffer.byteLength > PORTFOLIO_PACKAGE_MAX_BYTES) {
+  let paddingLength = 0;
+  if (packageBase64.endsWith('==')) {
+    paddingLength = 2;
+  } else if (packageBase64.endsWith('=')) {
+    paddingLength = 1;
+  }
+  const packageBytesLength = (packageBase64.length / 4) * 3 - paddingLength;
+  if (packageBytesLength > PORTFOLIO_PACKAGE_MAX_BYTES) {
     throw new OneKeyLocalError('Portfolio pack response is too large');
   }
-
-  const packageBytes = new ArrayBuffer(packageBuffer.byteLength);
-  new Uint8Array(packageBytes).set(packageBuffer);
-  return packageBytes;
+  return { packageBase64, packageBytesLength };
 }
 
 function stringifyLogValue(value: unknown) {
@@ -586,7 +588,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }: {
     artifacts: IPortfolioSyncArtifacts;
   }): Promise<{
-    serverPackageBytes: ArrayBuffer;
+    serverPackageBase64: string;
     serverSubmit: IPortfolioServerSubmitResult;
   }> {
     const { contentHash, portfolio, portfolioJsonBytes } = artifacts;
@@ -613,22 +615,22 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         'Portfolio pack response missing packageBase64',
       );
     }
-    const serverPackageBytes = decodePortfolioPackageBase64(packageBase64);
+    const validatedPackage = validatePortfolioPackageBase64(packageBase64);
 
     debugPortfolioSyncLog('server-submit-packed', {
       bytesLength: portfolioJsonBytes.byteLength,
       contentHash,
       serverPackageBase64Length: packageBase64.length,
-      serverPackageBytesLength: serverPackageBytes.byteLength,
+      serverPackageBytesLength: validatedPackage.packageBytesLength,
     });
 
     return {
-      serverPackageBytes,
+      serverPackageBase64: validatedPackage.packageBase64,
       serverSubmit: {
         bytesLength: portfolioJsonBytes.byteLength,
         contentHash,
         serverPackageBase64Length: packageBase64.length,
-        serverPackageBytesLength: serverPackageBytes.byteLength,
+        serverPackageBytesLength: validatedPackage.packageBytesLength,
       },
     };
   }
@@ -638,7 +640,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     deviceConnectId,
     eventPayload,
     generation,
-    serverPackageBytes,
+    serverPackageBase64,
     serverSubmit,
     targetKey,
     updatedAt,
@@ -647,7 +649,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
     generation: number;
-    serverPackageBytes: ArrayBuffer;
+    serverPackageBase64: string;
     serverSubmit: IPortfolioServerSubmitResult;
     targetKey: string;
     updatedAt: number;
@@ -750,7 +752,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                   deviceConnectId,
                   eventPayload,
                   generation,
-                  serverPackageBytes,
+                  serverPackageBase64,
                   serverSubmit,
                   targetKey,
                   updatedAt: Date.now(),
@@ -763,7 +765,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           const upload: { portfolioUpdated: boolean } =
             await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
               connectId: deviceConnectId,
-              packageBytes: serverPackageBytes,
+              packageBase64: serverPackageBase64,
             });
           if (!this.isCurrentSyncGeneration(targetKey, generation)) {
             this.releaseInFlightReservation({
@@ -784,7 +786,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             upload,
           });
           debugPortfolioSyncLog('uploaded', {
-            bytesLength: serverPackageBytes.byteLength,
+            bytesLength: serverSubmit.serverPackageBytesLength,
             contentHash: artifacts.contentHash,
           });
           if (!eventPayload.walletId) {
@@ -1003,7 +1005,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
-      const { serverPackageBytes, serverSubmit } =
+      const { serverPackageBase64, serverSubmit } =
         await this.submitPortfolioJsonToServer({
           artifacts,
         });
@@ -1021,7 +1023,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         deviceConnectId,
         eventPayload,
         generation,
-        serverPackageBytes,
+        serverPackageBase64,
         serverSubmit,
         targetKey,
         updatedAt,

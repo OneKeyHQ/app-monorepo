@@ -97,6 +97,7 @@ export type IHardwareHomeScreenData = {
   url?: string; // preview image url
   nameHex?: string; // Pro、Touch: image name hex, only system res type
   screenHex?: string; // Classic、mini、1s、pure: image hex, only prebuilt res type
+  screenBase64?: string; // Pro2、Neo：不带 data URL 前缀的 JPEG Base64
 
   // software generated image
   thumbnailHex?: string; // Pro、Touch：thumb image hex by resize
@@ -541,6 +542,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const {
       nameHex,
       screenHex,
+      screenBase64,
       thumbnailHex,
       blurScreenHex,
       resType,
@@ -563,18 +565,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         // pro touch custom upload wallpaper
         if (needUploadResource) {
           if (this._isProtocolV2Product(device)) {
-            if (!finallyScreenHex) {
+            if (!screenBase64) {
               throw new OneKeyLocalError(
-                'Upload Pro2 wallpaper error: screenHex not defined',
+                'Upload Pro2 wallpaper error: screenBase64 not defined',
               );
             }
-            const { decodeJpegToRgba } = await import('./jpegRgbaUtils');
-            const decoded = decodeJpegToRgba({
-              imageHex: finallyScreenHex,
-              expectedWidth: 604,
-              expectedHeight: 1024,
-              label: 'Pro2 wallpaper',
-            });
             const compatibleConnectId =
               await this.serviceHardware.getCompatibleConnectId({
                 connectId: device.connectId,
@@ -586,9 +581,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             });
             const response = await convertDeviceResponse(() =>
               hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
-                width: decoded.width,
-                height: decoded.height,
-                rgba: decoded.data,
+                jpegBase64: screenBase64,
                 fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
               }),
             );

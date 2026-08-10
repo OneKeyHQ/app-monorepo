@@ -10,7 +10,7 @@ import {
 import localDb from '../../../dbs/local/localDb';
 
 import ServiceHardwarePortfolioSync, {
-  decodePortfolioPackageBase64,
+  validatePortfolioPackageBase64,
 } from './ServiceHardwarePortfolioSync';
 
 import type { IPortfolioSyncSettledPayload } from './serviceHardwarePortfolioSyncUtils';
@@ -66,17 +66,18 @@ jest.mock('../../../states/jotai/atoms', () => ({
   settingsPersistAtom: { get: jest.fn() },
 }));
 
-describe('decodePortfolioPackageBase64', () => {
-  test('returns a standalone buffer for a valid package', () => {
-    expect(
-      Array.from(new Uint8Array(decodePortfolioPackageBase64('AQID'))),
-    ).toEqual([1, 2, 3]);
+describe('validatePortfolioPackageBase64', () => {
+  test('preserves valid Base64 and reports the decoded size', () => {
+    expect(validatePortfolioPackageBase64('AQID')).toEqual({
+      packageBase64: 'AQID',
+      packageBytesLength: 3,
+    });
   });
 
   test.each(['not-base64', 'AQI', 'AQID\n'])(
     'rejects an invalid package response: %s',
     (packageBase64) => {
-      expect(() => decodePortfolioPackageBase64(packageBase64)).toThrow(
+      expect(() => validatePortfolioPackageBase64(packageBase64)).toThrow(
         'response is invalid',
       );
     },
@@ -84,7 +85,7 @@ describe('decodePortfolioPackageBase64', () => {
 
   test('rejects a package larger than the signed envelope limit', () => {
     const oversizedPackage = Buffer.alloc(128 * 1024 + 1).toString('base64');
-    expect(() => decodePortfolioPackageBase64(oversizedPackage)).toThrow(
+    expect(() => validatePortfolioPackageBase64(oversizedPackage)).toThrow(
       'response is too large',
     );
   });
@@ -398,7 +399,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     let operationLeaseHeld = false;
     const getDeviceState = jest.fn().mockResolvedValue({ protocol: 'V2' });
     const uploadPortfolioPackage = jest.fn(
-      async (_params: { connectId: string; packageBytes: ArrayBuffer }) => {
+      async (_params: { connectId: string; packageBase64: string }) => {
         expect(operationLeaseHeld).toBe(true);
         return { portfolioUpdated: true };
       },
@@ -456,7 +457,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       displayCurrency: { id: 'usd', symbol: '$' },
     });
     serviceInternals.submitPortfolioJsonToServer = jest.fn().mockResolvedValue({
-      serverPackageBytes: new Uint8Array([1, 2, 3]).buffer,
+      serverPackageBase64: 'AQID',
       serverSubmit: {
         bytesLength: 3,
         contentHash: 'server-content-hash',
@@ -744,7 +745,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }>;
       getHardwareCooldownRemainingMs: () => Promise<number>;
       submitPortfolioJsonToServer: () => Promise<{
-        serverPackageBytes: ArrayBuffer;
+        serverPackageBase64: string;
         serverSubmit: {
           bytesLength: number;
           contentHash: string;
@@ -764,7 +765,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       displayCurrency: { id: 'usd', symbol: '$' },
     });
     serviceInternals.submitPortfolioJsonToServer = jest.fn().mockResolvedValue({
-      serverPackageBytes: new Uint8Array([1, 2, 3]).buffer,
+      serverPackageBase64: 'AQID',
       serverSubmit: {
         bytesLength: 3,
         contentHash: 'server-content-hash',
@@ -780,7 +781,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
-      packageBytes: expect.any(ArrayBuffer),
+      packageBase64: 'AQID',
     });
     expect(updateTargetState).toHaveBeenCalled();
     expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
@@ -869,7 +870,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       prepareHardwareSync({ busyResults: [false, false, false] });
     let resolveOlderSubmit:
       | ((value: {
-          serverPackageBytes: ArrayBuffer;
+          serverPackageBase64: string;
           serverSubmit: {
             bytesLength: number;
             contentHash: string;
@@ -883,7 +884,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       notifyOlderSubmitStarted = resolve;
     });
     const olderSubmit = new Promise<{
-      serverPackageBytes: ArrayBuffer;
+      serverPackageBase64: string;
       serverSubmit: {
         bytesLength: number;
         contentHash: string;
@@ -899,7 +900,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         return olderSubmit;
       })
       .mockResolvedValueOnce({
-        serverPackageBytes: new Uint8Array([2]).buffer,
+        serverPackageBase64: 'Ag==',
         serverSubmit: {
           bytesLength: 1,
           contentHash: 'newer-hash',
@@ -922,7 +923,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     await olderSubmitStarted;
     await serviceInternals.syncSettledPortfolio(newerPayload);
     resolveOlderSubmit?.({
-      serverPackageBytes: new Uint8Array([1]).buffer,
+      serverPackageBase64: 'AQ==',
       serverSubmit: {
         bytesLength: 1,
         contentHash: 'older-hash',
@@ -933,11 +934,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     await olderTask;
 
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
-    expect(
-      Array.from(
-        new Uint8Array(uploadPortfolioPackage.mock.calls[0][0].packageBytes),
-      ),
-    ).toEqual([2]);
+    expect(uploadPortfolioPackage.mock.calls[0][0].packageBase64).toBe('Ag==');
     expect(updateTargetState).toHaveBeenCalledTimes(1);
     expect(updateTargetState).toHaveBeenCalledWith(
       'db-device-1',

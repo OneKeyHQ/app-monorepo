@@ -44,10 +44,12 @@ describe('deviceHomeScreenUtils.buildCustomScreenHex', () => {
         config: {
           names: [],
           size: { width: 604, height: 1024 },
+          thumbnailSize: { width: 263, height: 263 },
         },
       }),
     ).resolves.toMatchObject({
-      screenHex: 'resized-jpeg-hex',
+      screenHex: '',
+      screenBase64: 'resized-jpeg-base64',
       blurScreenHex: 'blur-hex',
     });
     expect(mockedImageUtils.resizeImage).toHaveBeenCalledWith(
@@ -56,7 +58,9 @@ describe('deviceHomeScreenUtils.buildCustomScreenHex', () => {
         height: 1024,
         originW: 0,
         originH: 0,
+        includeHex: false,
       }),
     );
+    expect(mockedImageUtils.resizeImage).toHaveBeenCalledTimes(1);
   });
 });

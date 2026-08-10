@@ -195,8 +195,8 @@ type IProtocolV2NftCoreApi = CoreApi & {
   deviceUploadNft?: (
     connectId: string,
     params: {
-      image: { width: number; height: number; rgba: Uint8Array };
-      thumbnail: { width: number; height: number; rgba: Uint8Array };
+      imageJpegBase64: string;
+      thumbnailJpegBase64: string;
       title: string;
       subtitle: string;
       timestampMs?: number;
@@ -251,8 +251,8 @@ export type IDeviceManagementSnapshot = {
 
 export type IUploadPro2NftParams = {
   connectId: string;
-  imageHex: string;
-  thumbnailHex: string;
+  imageJpegBase64: string;
+  thumbnailJpegBase64: string;
   title: string;
   subtitle: string;
   timestampMs?: number;
@@ -3135,25 +3135,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPro2Nft({
     connectId,
-    imageHex,
-    thumbnailHex,
+    imageJpegBase64,
+    thumbnailJpegBase64,
     title,
     subtitle,
     timestampMs,
   }: IUploadPro2NftParams) {
-    const { decodeJpegToRgba } = await import('./jpegRgbaUtils');
-    const image = decodeJpegToRgba({
-      imageHex,
-      expectedWidth: 540,
-      expectedHeight: 540,
-      label: 'Pro2 NFT image',
-    });
-    const thumbnail = decodeJpegToRgba({
-      imageHex: thumbnailHex,
-      expectedWidth: 263,
-      expectedHeight: 263,
-      label: 'Pro2 NFT thumbnail',
-    });
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
@@ -3171,12 +3158,8 @@ class ServiceHardware extends ServiceBase {
     }
     return convertDeviceResponse(() =>
       uploadNft(compatibleConnectId, {
-        image: { width: image.width, height: image.height, rgba: image.data },
-        thumbnail: {
-          width: thumbnail.width,
-          height: thumbnail.height,
-          rgba: thumbnail.data,
-        },
+        imageJpegBase64,
+        thumbnailJpegBase64,
         title,
         subtitle,
         timestampMs,
@@ -3187,10 +3170,10 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadPortfolioPackage({
     connectId,
-    packageBytes,
+    packageBase64,
   }: {
     connectId: string;
-    packageBytes: ArrayBuffer;
+    packageBase64: string;
   }) {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
@@ -3202,7 +3185,7 @@ class ServiceHardware extends ServiceBase {
     });
     return convertDeviceResponse(() =>
       hardwareSDK.uploadPortfolio(compatibleConnectId, {
-        packageBytes,
+        packageBase64,
       }),
     );
   }

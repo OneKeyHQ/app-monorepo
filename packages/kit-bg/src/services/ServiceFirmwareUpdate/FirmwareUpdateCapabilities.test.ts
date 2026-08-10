@@ -356,6 +356,56 @@ describe('prepared firmware execution', () => {
     });
   });
 
+  test('keeps Extension V2, V3 and V4 firmware handoffs JSON-safe', async () => {
+    const firmwareUpdateV2 = jest.fn();
+    const firmwareUpdateV3 = jest.fn();
+    const firmwareUpdateV4 = jest.fn();
+    const sdk = {
+      firmwareUpdateV2,
+      firmwareUpdateV3,
+      firmwareUpdateV4,
+    } as unknown as CoreApi;
+
+    await executePreparedFirmwareUpdateV2({
+      sdk,
+      connectId: 'device',
+      updateType: 'firmware',
+      forcedUpdateRes: false,
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      version: [1, 2, 3],
+    });
+    await executePreparedFirmwareUpdateV3({
+      sdk,
+      connectId: 'device',
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      bleVersion: [1, 0, 0],
+      firmwareVersion: [2, 0, 0],
+      bootloaderVersion: [3, 0, 0],
+    });
+    await executePreparedFirmwareUpdateV4({
+      sdk,
+      connectId: 'device',
+      platform: 'ext',
+      firmwareType: EFirmwareType.Universal,
+      targetsToUpdate: ['resource'],
+      forcedUpdateRes: false,
+    });
+
+    const handoffs = [
+      firmwareUpdateV2.mock.calls[0][1],
+      firmwareUpdateV3.mock.calls[0][1],
+      firmwareUpdateV4.mock.calls[0][1],
+    ];
+    for (const handoff of handoffs) {
+      expect(JSON.parse(JSON.stringify(handoff))).toEqual(handoff);
+      expect(Object.keys(handoff).some((key) => /binary/i.test(key))).toBe(
+        false,
+      );
+    }
+  });
+
   test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;

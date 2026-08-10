@@ -8,10 +8,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { RemoteApiProxyBase } from '../apis/RemoteApiProxyBase';
 
-import {
-  decodeOffscreenApiPayload,
-  encodeOffscreenApiPayload,
-} from './offscreenApiBinaryCodec';
 import { OFFSCREEN_API_MESSAGE_TYPE } from './types';
 
 import type { IOffscreenApiMessagePayload } from '../apis/IBackgroundApi';
@@ -53,11 +49,7 @@ export class OffscreenApiProxyBase extends RemoteApiProxyBase {
     };
     const bridge = backgroundApiProxy?.backgroundApi?.bridgeExtBg;
     // TODO move to bridges hub
-    return (async () => {
-      const encodedMessage = await encodeOffscreenApiPayload(message);
-      const response = await bridge?.requestToOffscreen(encodedMessage);
-      return decodeOffscreenApiPayload(response);
-    })();
+    return bridge?.requestToOffscreen(message);
   }
 
   // _moduleCreatedNames: Record<string, boolean> = {};
