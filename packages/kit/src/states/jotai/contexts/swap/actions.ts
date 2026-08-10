@@ -2232,28 +2232,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       }
-      if (
-        swapToAddressInfo.isAddressInfoReady &&
-        toToken &&
-        !swapToAddressInfo.address &&
-        swapToAddressInfo.accountInfo?.wallet?.id &&
-        alertsRes.every((item) => item.message !== notSupportSwapMessage)
-      ) {
-        const accountNetworkNotSupportedAlert =
-          await this.checkAccountNetworkNotSupportedAlert({
-            addressInfo: swapToAddressInfo,
-            activeNetworkId: toToken.networkId,
-          });
-        if (accountNetworkNotSupportedAlert) {
-          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
-          set(swapAlertsAtom(), {
-            states: alertsRes,
-            quoteId: quoteResult?.quoteId ?? '',
-          });
-          return;
-        }
-      }
-
       // check from address
       if (
         fromToken &&
