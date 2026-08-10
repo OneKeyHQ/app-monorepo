@@ -37,8 +37,10 @@ function HeadlessBuyTokenSelectorPage() {
     type: 'buy',
   });
 
+  // Same eligibility as tryOpenHeadlessBuy's gate: a token missing the
+  // server-delivered network slug can never quote, so it must not be offered.
   const items = useMemo(
-    () => tokens.filter((o) => o.headlessSupported),
+    () => tokens.filter((o) => o.headlessSupported && o.onramperNetworkCode),
     [tokens],
   );
 

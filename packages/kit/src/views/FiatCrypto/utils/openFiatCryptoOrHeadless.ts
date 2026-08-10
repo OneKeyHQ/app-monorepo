@@ -34,6 +34,14 @@ export async function tryOpenHeadlessBuy({
     return false;
   }
 
+  // The native flow pays out to the account's own address — without an
+  // account there is no destination to quote against (several entries pass
+  // '' when none is active). The web widget collects an address itself, so
+  // it keeps handling that case.
+  if (!accountId) {
+    return false;
+  }
+
   // The server (OK-58060) is the single source of truth: `headlessSupported`
   // is region-trimmed by request IP, and `onramperNetworkCode` is the network
   // slug the checkout request needs — a token missing either can never quote,

@@ -44,6 +44,8 @@ against 0.35.x. If the iOS native build fails on one of them, this is why.
    target defines it as `development` (Debug) / `production` (Release, which
    every EAS profile uses). Ad hoc QA builds are NOT on Apple's list of
    always-production distributions, so the explicit Release value matters.
+   Enforced at build time: the "[OneKey] Assert App Attest environment" build
+   phase fails any Release build where the value is not `production`.
 6. **Production credentials** are injected at bundle time, never committed
    (OK-59538): `realClient.native.ts` reads `process.env.ONRAMPER_CLIENT_ID`
    / `ONRAMPER_API_KEY` (allowlisted in `development/envExposedToClient.js`).

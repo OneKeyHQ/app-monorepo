@@ -41,9 +41,12 @@ export function canUseHeadless(): boolean {
 export function createOnramperClient(
   params: ICreateOnramperClientParams,
 ): IOnramperClient {
-  // Real SDK on real devices; the Simulator has no App Attest so it always uses
-  // the mock. See ./NATIVE_SETUP.md.
-  return ExpoDevice.isDevice
+  // Real SDK only on real iOS devices. Android has no OnramperReactNative
+  // native module, so creating the real client there throws synchronously
+  // during render (reachable via the dev Gallery, which bypasses
+  // canUseHeadless); the Simulator has no App Attest. Both use the mock.
+  // See ./NATIVE_SETUP.md.
+  return platformEnv.isNativeIOS && ExpoDevice.isDevice
     ? createRealOnramperClient(params)
     : createMockOnramperClient(params);
 }

@@ -227,6 +227,15 @@ export function useOnramperCheckout({
       setActionState(EBuyActionState.InvalidAmount);
       return undefined;
     }
+    // Never quote a real checkout against an empty destination address: a
+    // completed payment would have nowhere to send the crypto. The entry gate
+    // guarantees an accountId, so the async address lookup lands shortly and
+    // re-fires this effect (address is a dep); until then hold Preparing.
+    // The mock stays exempt — the Simulator/Gallery preview has no account.
+    if (!isMock && !address) {
+      setActionState(EBuyActionState.Preparing);
+      return undefined;
+    }
     let cancelled = false;
     const seq = reqSeqRef.current + 1;
     reqSeqRef.current = seq;
@@ -299,6 +308,7 @@ export function useOnramperCheckout({
     ready,
     amount,
     isAmountValid,
+    isMock,
     source,
     destination,
     network,
