@@ -534,6 +534,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private limitOrderStateInterval: ReturnType<typeof setTimeout> | null = null;
 
+  private swapLimitOrdersFetchMutex = new Semaphore(1);
+
   private perpDepositOrderFetchLoopInterval: ReturnType<
     typeof setTimeout
   > | null = null;
@@ -3310,10 +3312,22 @@ export default class ServiceSwap extends ServiceBase {
     forceRefresh?: boolean,
     interval?: boolean,
   ) {
-    if (this.limitOrderStateInterval) {
-      clearTimeout(this.limitOrderStateInterval);
-      this.limitOrderStateInterval = null;
-    }
+    await this.swapLimitOrdersFetchMutex.runExclusive(() =>
+      this.runSwapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        forceRefresh,
+        interval,
+      ),
+    );
+  }
+
+  private async runSwapLimitOrdersFetchLoop(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
+    forceRefresh?: boolean,
+    interval?: boolean,
+  ) {
     if (
       interval &&
       this._limitOrderCurrentAccountId &&
@@ -3321,6 +3335,10 @@ export default class ServiceSwap extends ServiceBase {
         `${indexedAccountId ?? ''}-${otherWalletTypeAccountId ?? ''}`
     ) {
       return;
+    }
+    if (this.limitOrderStateInterval) {
+      clearTimeout(this.limitOrderStateInterval);
+      this.limitOrderStateInterval = null;
     }
     if (
       !interval &&
