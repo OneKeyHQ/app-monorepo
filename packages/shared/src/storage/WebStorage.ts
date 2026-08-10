@@ -132,7 +132,7 @@ class WebStorage implements AsyncStorageStatic {
   }) {
     this.tableName = tableName;
     // eslint-disable-next-line no-async-promise-executor
-    this.indexed = new Promise(async (resolve) => {
+    this.initIndexed = async () => {
       const indexed = new IndexedDBPromised({
         name: dbName,
         bucketName,
@@ -149,13 +149,40 @@ class WebStorage implements AsyncStorageStatic {
         legacyKeyPrefix,
         tableName,
       });
-      resolve(indexed);
-    });
+      return indexed;
+    };
+  }
+
+  private initIndexed: () => Promise<IndexedDBPromised>;
+
+  private indexedPromise: Promise<IndexedDBPromised> | undefined;
+
+  /**
+   * Retryable initialization.
+   *
+   * This used to be a `new Promise(async (resolve) => ...)` with no rejection
+   * path, so a failed `open()` — which is exactly what a full backing store
+   * produces at startup — left the promise pending forever and hung every
+   * later read and write. Freeing space could then never reach the reopening
+   * logic, and only restarting the runtime recovered. Caching the promise and
+   * dropping it on failure keeps the single-flight behavior while letting the
+   * next call try again.
+   */
+  private getIndexed(): Promise<IndexedDBPromised> {
+    if (!this.indexedPromise) {
+      this.indexedPromise = this.initIndexed().catch((error) => {
+        this.indexedPromise = undefined;
+        throw error;
+      });
+    }
+    return this.indexedPromise;
   }
 
   tableName: string;
 
-  indexed: Promise<IndexedDBPromised>;
+  get indexed(): Promise<IndexedDBPromised> {
+    return this.getIndexed();
+  }
 
   // localforage = localforage;
 

@@ -1,4 +1,4 @@
-import { SystemDiskFullError } from '../errors';
+import { OneKeyLocalError, SystemDiskFullError } from '../errors';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import storageChecker from '../storageChecker/storageChecker';
 import resetUtils from '../utils/resetUtils';
@@ -46,6 +46,30 @@ describe('WebStorage.checkDiskFull', () => {
       EAppEventBusNames.ShowSystemDiskFullWarning,
       undefined,
     );
+  });
+
+  it('retries initialization after a failed open instead of hanging forever', async () => {
+    // A full backing store fails `open()` at startup. The old
+    // `new Promise(async (resolve) => ...)` had no rejection path, so the
+    // promise never settled and every later read and write waited forever —
+    // freeing space could not reach the reopening logic.
+    const initIndexed = jest
+      .fn()
+      .mockRejectedValueOnce(new OneKeyLocalError('open failed'))
+      .mockResolvedValue('indexed-instance');
+    const storage = { initIndexed } as unknown as WebStorage;
+    const getIndexed = () =>
+      (
+        WebStorage.prototype as unknown as {
+          getIndexed: (this: WebStorage) => Promise<unknown>;
+        }
+      ).getIndexed.call(storage);
+
+    await expect(getIndexed()).rejects.toThrow('open failed');
+    // The cached rejected promise must have been dropped, so the next call
+    // actually retries rather than replaying the failure.
+    await expect(getIndexed()).resolves.toBe('indexed-instance');
+    expect(initIndexed).toHaveBeenCalledTimes(2);
   });
 
   it('delegates to storageChecker so a blocked write schedules a re-measurement', () => {

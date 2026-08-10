@@ -118,7 +118,27 @@ const probeDbName = 'OneKeyStorageProbe';
 const probeStoreName = 'probe';
 
 /**
- * Commit a tiny write-then-delete against a dedicated database.
+ * Sized so the commit has to allocate rather than fit in slack, while staying
+ * small enough to be harmless on storage that is genuinely tight.
+ */
+const probeSentinelValue = 'x'.repeat(1024);
+
+/**
+ * Best-effort removal of the sentinel, in its own transaction so it can never
+ * turn a successful proof into a failure. Leaving it behind on a full disk is
+ * acceptable: it is 1 KB, and the next successful probe overwrites it.
+ */
+function cleanUpProbeSentinel(db: IDBDatabase) {
+  try {
+    const tx = db.transaction(probeStoreName, 'readwrite');
+    tx.objectStore(probeStoreName).delete(probeStoreName);
+  } catch {
+    // Nothing to do — the proof already stands.
+  }
+}
+
+/**
+ * Prove that a space-growing write can commit, against a dedicated database.
  *
  * A guard raised by an actual write failure must not be released on the
  * strength of `navigator.storage.estimate()` alone: that failure is itself
@@ -127,7 +147,8 @@ const probeStoreName = 'probe';
  * the next write would hit the same backing-store failure, and the runtime
  * would flap between raised and cleared — re-showing the warning each time.
  *
- * Never throws, always closes, and leaves no data behind.
+ * Never throws and always closes. The sentinel it commits is removed in a
+ * separate best-effort transaction, so cleanup can never invalidate the proof.
  */
 function runWriteProbe(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
@@ -162,11 +183,17 @@ function runWriteProbe(): Promise<boolean> {
       openRequest.onsuccess = () => {
         const db = openRequest.result;
         try {
+          // Commit a retained value. A put-and-delete in ONE transaction has a
+          // net size delta of zero, so committing it proves only that an empty
+          // transaction can complete — not that the space-growing write which
+          // originally failed can. The sentinel must survive its own commit.
           const tx = db.transaction(probeStoreName, 'readwrite');
           const store = tx.objectStore(probeStoreName);
-          store.put(1, probeStoreName);
-          store.delete(probeStoreName);
-          tx.oncomplete = () => finish(true, db);
+          store.put(probeSentinelValue, probeStoreName);
+          tx.oncomplete = () => {
+            cleanUpProbeSentinel(db);
+            finish(true, db);
+          };
           tx.onerror = () => finish(false, db);
           tx.onabort = () => finish(false, db);
         } catch {
