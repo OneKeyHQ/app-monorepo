@@ -24,6 +24,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useOrderConfirm } from '../../hooks';
 import { useOrderPrice } from '../../hooks/useOrderPrice';
@@ -226,8 +227,15 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       snapshotLookupIndexedAccountId,
     ],
   );
+  const cachedAccountIsWatching = snapshotEntry?.account.accountId
+    ? accountUtils.isWatchingAccount({
+        accountId: snapshotEntry.account.accountId,
+      })
+    : false;
   const canShowCachedTradingButtons = Boolean(
-    !displayReady.statusReady && snapshotEntry?.account.accountAddress,
+    !displayReady.statusReady &&
+    snapshotEntry?.account.accountAddress &&
+    !cachedAccountIsWatching,
   );
   const isLiveStatusPending = canShowCachedTradingButtons;
   const coldStartEnableTradingMode = useMemo(() => {
