@@ -132,15 +132,31 @@ const probeStoreName = 'probe';
 const probeSentinelValue = 'x'.repeat(1024);
 
 /**
- * Best-effort removal of the sentinel, in its own transaction so it can never
- * turn a successful proof into a failure. Leaving it behind on a full disk is
- * acceptable: it is 1 KB, and each probe uses a fresh key so a leftover can
- * never make the next probe a no-op overwrite.
+ * Collision-resistant across runtime restarts.
+ *
+ * A module-local counter is not enough: extension `main` and `bg` heaps
+ * restart independently, and an MV3 worker can stop after the sentinel commits
+ * but before best-effort cleanup runs. The next worker would start the counter
+ * at zero and overwrite the persisted sentinel — a commit that need not
+ * allocate anything, falsely proving recovery.
  */
-function cleanUpProbeSentinel(db: IDBDatabase, sentinelKey: string) {
+function buildProbeSentinelKey(): string {
+  const random = Math.random().toString(36).slice(2);
+  return `${probeStoreName}-${Date.now()}-${probeSentinelSequence}-${random}`;
+}
+
+/**
+ * Best-effort cleanup, in its own transaction so it can never turn a
+ * successful proof into a failure.
+ *
+ * Clears the whole store rather than the one key: this database is used for
+ * nothing else, and sentinels stranded by a runtime that stopped mid-cleanup
+ * would otherwise accumulate.
+ */
+function cleanUpProbeSentinel(db: IDBDatabase) {
   try {
     const tx = db.transaction(probeStoreName, 'readwrite');
-    tx.objectStore(probeStoreName).delete(sentinelKey);
+    tx.objectStore(probeStoreName).clear();
   } catch {
     // Nothing to do — the proof already stands.
   }
@@ -199,12 +215,12 @@ function runWriteProbe(): Promise<boolean> {
           // transaction can complete — not that the space-growing write which
           // originally failed can. The sentinel must survive its own commit.
           probeSentinelSequence += 1;
-          const sentinelKey = `${probeStoreName}-${probeSentinelSequence}`;
+          const sentinelKey = buildProbeSentinelKey();
           const tx = db.transaction(probeStoreName, 'readwrite');
           const store = tx.objectStore(probeStoreName);
           store.put(probeSentinelValue, sentinelKey);
           tx.oncomplete = () => {
-            cleanUpProbeSentinel(db, sentinelKey);
+            cleanUpProbeSentinel(db);
             finish(true, db);
           };
           tx.onerror = () => finish(false, db);
