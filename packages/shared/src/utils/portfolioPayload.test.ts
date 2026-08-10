@@ -128,7 +128,7 @@ describe('buildPortfolioPayload', () => {
 
     expect(payload.tokens.map((token) => token.symbol)).toEqual(['SOL']);
     expect(payload.otherTokens).toEqual({
-      count: 2,
+      count: 1,
       fiat: '$100.00',
       portfolioPercentage: 66.67,
     });
@@ -926,23 +926,37 @@ describe('buildPortfolioPayload', () => {
     ).toThrow(/1-47 UTF-8 bytes/u);
   });
 
-  test('summarizes zero-fiat tokens instead of including them in the hardware list', () => {
-    const token = buildToken({ $key: 'zero', symbol: 'ZERO' });
+  test('does not transmit zero-price tokens or count them as other assets', () => {
+    const tokens = Array.from({ length: 3 }, (_, index) =>
+      buildToken({ $key: `zero-${index}`, symbol: `ZERO${index}` }),
+    );
     const payload = buildPortfolioPayload({
       account: { label: 'Account #1', addressMasked: '0x12...ab' },
       aggregateTokenMap: {},
       currencyMap,
       displayCurrency: { id: 'usd', symbol: '$' },
       totalFiat: '0',
-      totalTokenCount: 1,
+      totalTokenCount: 3,
       timestamp: 1_780_900_000,
-      tokenMap: { zero: buildFiat({ fiatValue: '0' }) },
-      tokens: [token],
+      tokenMap: Object.fromEntries(
+        tokens.map((token, index) => [
+          token.$key,
+          buildFiat({
+            fiatValue: index === 2 ? '100' : '0',
+            price: 0,
+          }),
+        ]),
+      ),
+      tokens,
     });
 
+    expect(payload.tokenCount).toBe(0);
     expect(payload.tokens).toEqual([]);
-    expect(payload.otherTokens.count).toBe(1);
-    expect(payload.otherTokens.portfolioPercentage).toBe(0);
+    expect(payload.otherTokens).toEqual({
+      count: 0,
+      fiat: '$0.00',
+      portfolioPercentage: 0,
+    });
   });
 
   test('builds an empty portfolio without NaN display values', () => {

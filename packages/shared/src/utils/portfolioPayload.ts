@@ -143,6 +143,17 @@ function isPortfolioTokenSymbolEligible(value: string): boolean {
   return value.length > 0 && !PORTFOLIO_ADVERTISING_SYMBOL_PATTERN.test(value);
 }
 
+function shouldExcludePortfolioTokenByValue(
+  fiat: ITokenFiat | undefined,
+): boolean {
+  const price = new BigNumber(fiat?.price ?? NaN);
+  const fiatValue = new BigNumber(fiat?.fiatValue ?? NaN);
+  return (
+    (price.isFinite() && !price.isGreaterThan(0)) ||
+    (fiatValue.isFinite() && !fiatValue.isGreaterThan(0))
+  );
+}
+
 function buildPortfolioTokenCandidates({
   aggregateTokenMap,
   currencyMap,
@@ -158,6 +169,9 @@ function buildPortfolioTokenCandidates({
       }
 
       const fiat = getTokenFiat({ aggregateTokenMap, token, tokenMap });
+      if (shouldExcludePortfolioTokenByValue(fiat)) {
+        return [];
+      }
       const convertedFiat = convertFiatStrictToDisplayCurrency({
         currencyMap,
         sourceCurrency: fiat?.currency,
@@ -399,6 +413,15 @@ export function buildPortfolioPayload({
 }: IBuildPortfolioPayloadParams): IPortfolioPayload {
   const currencyPrefix = getPortfolioCurrencyPrefix(displayCurrency);
 
+  const excludedTokenCount = tokens.reduce((count, token) => {
+    const fiat = getTokenFiat({ aggregateTokenMap, token, tokenMap });
+    return count + (shouldExcludePortfolioTokenByValue(fiat) ? 1 : 0);
+  }, 0);
+  const transferableTokenCount = Math.max(
+    Math.trunc(totalTokenCount) - excludedTokenCount,
+    0,
+  );
+
   const topTokenCandidates = buildPortfolioTokenCandidates({
     aggregateTokenMap,
     currencyMap,
@@ -491,7 +514,7 @@ export function buildPortfolioPayload({
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
-      count: Math.max(Math.trunc(totalTokenCount) - payloadTokens.length, 0),
+      count: Math.max(transferableTokenCount - payloadTokens.length, 0),
       fiat: formatPortfolioFiat(
         otherTokensFiatValue,
         currencyPrefix,

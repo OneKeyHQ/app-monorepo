@@ -93,6 +93,12 @@ export function convertDeviceError(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const info = params;
 
+  if (message.toLowerCase().includes('link disabled')) {
+    return new HardwareErrors.BluetoothUnavailableWhileUsbConnectedError({
+      payload,
+    });
+  }
+
   const specialError = captureSpecialError(code, message);
   /**
    * Catch some special errors
