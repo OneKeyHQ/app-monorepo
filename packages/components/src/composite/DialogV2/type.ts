@@ -33,4 +33,10 @@ export interface IDialogV2Props {
    * surfaces that must not sample what is behind them.
    */
   background?: string;
+  /**
+   * Keeps the app behind the sheet interactive instead of dimmed-and-inert
+   * (iOS presentationBackgroundInteraction). Native only; the web dialog
+   * keeps its modal backdrop.
+   */
+  backgroundInteractive?: boolean;
 }
