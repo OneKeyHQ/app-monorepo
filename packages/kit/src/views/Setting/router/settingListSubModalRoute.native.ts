@@ -1,5 +1,12 @@
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
-export const SettingListSubModal = LazyLoadPage(
-  () => import('../pages/Tab/SettingListSubModal'),
+const loadSettingListSubModal = () =>
+  import('../pages/Tab/SettingListSubModal');
+
+export const SettingListSubModal = LazyLoadPage(loadSettingListSubModal);
+
+export const SettingOfficialChannels = LazyLoadPage(() =>
+  loadSettingListSubModal().then(({ OfficialChannelsPage }) => ({
+    default: OfficialChannelsPage,
+  })),
 );

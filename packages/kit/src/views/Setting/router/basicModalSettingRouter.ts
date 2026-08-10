@@ -9,6 +9,8 @@ import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { ModalAddressBookRouter } from '../../AddressBook/router';
 
+import { SettingOfficialChannels } from './settingListSubModalRoute';
+
 const SettingAccountDerivationModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),
 );
@@ -118,10 +120,6 @@ const ExportCustomNetworkConfig = LazyLoadPage(
 const NotificationsSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'),
-);
-
-const OfficialChannels = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/OfficialChannels'),
 );
 
 const ManageAccountActivity = LazyLoadPage(
@@ -300,7 +298,7 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   },
   {
     name: EModalSettingRoutes.SettingOfficialChannels,
-    component: OfficialChannels,
+    component: SettingOfficialChannels,
   },
   {
     name: EModalSettingRoutes.SettingManageAccountActivity,
