@@ -1,3 +1,4 @@
+// cspell:ignore romloader
 import {
   decodeOffscreenApiPayload,
   encodeOffscreenApiPayload,
