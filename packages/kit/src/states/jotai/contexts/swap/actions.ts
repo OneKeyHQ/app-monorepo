@@ -2587,6 +2587,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  invalidateSwapWarningCheck = contextAtomMethod((get, set) => {
+    set(swapWarningRequestIdAtom(), get(swapWarningRequestIdAtom()) + 1);
+  });
+
   loadSwapSelectTokenDetail = contextAtomMethod(
     async (
       get,
@@ -3918,6 +3922,7 @@ export const useSwapActions = () => {
   const quoteAction = actions.quoteAction.use();
   const requireManualQuoteRefresh = actions.requireManualQuoteRefresh.use();
   const checkSwapWarning = actions.checkSwapWarning.use();
+  const invalidateSwapWarningCheck = actions.invalidateSwapWarningCheck.use();
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
@@ -3964,6 +3969,7 @@ export const useSwapActions = () => {
     cleanQuoteInterval,
     tokenListFetchAction,
     checkSwapWarning,
+    invalidateSwapWarningCheck,
     loadSwapSelectTokenDetail,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,

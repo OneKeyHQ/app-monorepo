@@ -1060,6 +1060,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [navigation]);
 
   const onPreSwap = useCallback(() => {
+    if (reviewDialogTimerRef.current !== undefined) {
+      return;
+    }
     if (focusSwapPro && !swapProAccount?.result?.addressDetail.address) {
       handleSelectAccountClick();
       return;
