@@ -410,16 +410,22 @@ export function buildTrezorDesktopBleUsbConnectId({
 export function resolveBleConnectIdForPersistence({
   connectId,
   explicitBleConnectId,
+  verifiedBleConnectId,
   usbConnectId,
   commType,
   connectionType,
 }: {
   connectId?: string | null;
   explicitBleConnectId?: string | null;
+  verifiedBleConnectId?: string | null;
   usbConnectId?: string | null;
   commType?: SearchDevice['commType'];
   connectionType?: 'usb' | 'ble';
 }): string | undefined {
+  const verifiedConnectId = verifiedBleConnectId?.trim();
+  if (verifiedConnectId) {
+    return verifiedConnectId;
+  }
   const isBleDevice =
     connectionType === 'ble' ||
     commType === 'ble' ||
@@ -6151,6 +6157,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultIsTemp,
       isMockedStandardHwWallet,
       transportType,
+      verifiedBleConnectId: runtimeVerifiedBleConnectId,
       vendor,
     } = params;
     const { connectId } = device;
@@ -6223,6 +6230,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const verifiedBleConnectId = resolveBleConnectIdForPersistence({
       connectId,
       explicitBleConnectId: runtimeDevice.bleConnectId,
+      verifiedBleConnectId: runtimeVerifiedBleConnectId,
       usbConnectId: runtimeDevice.usbConnectId,
       commType: device.commType,
       connectionType: runtimeDevice.raw?.connectionType,

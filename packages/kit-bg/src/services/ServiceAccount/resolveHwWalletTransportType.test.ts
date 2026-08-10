@@ -134,4 +134,37 @@ describe('resolveHwWalletTransportType', () => {
       ).toBe(global);
     }
   });
+
+  it('uses a live verified BLE endpoint when channel metadata is missing', () => {
+    expect(
+      resolveHwWalletTransportType({
+        globalTransportType: EHardwareTransportType.WEBUSB,
+        deviceConnectionType: undefined,
+        deviceCommType: undefined,
+        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
+        isNative: false,
+      }),
+    ).toBe(EHardwareTransportType.DesktopWebBle);
+    expect(
+      resolveHwWalletTransportType({
+        globalTransportType: EHardwareTransportType.WEBUSB,
+        deviceConnectionType: undefined,
+        deviceCommType: undefined,
+        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
+        isNative: true,
+      }),
+    ).toBe(EHardwareTransportType.BLE);
+  });
+
+  it('prefers explicit USB metadata over an older BLE endpoint', () => {
+    expect(
+      resolveHwWalletTransportType({
+        globalTransportType: EHardwareTransportType.DesktopWebBle,
+        deviceConnectionType: 'usb',
+        deviceCommType: undefined,
+        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
+        isNative: false,
+      }),
+    ).toBe(EHardwareTransportType.WEBUSB);
+  });
 });

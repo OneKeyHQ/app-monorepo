@@ -12,12 +12,14 @@ export function resolveHwWalletTransportType(params: {
   globalTransportType: EHardwareTransportType;
   deviceConnectionType: 'usb' | 'ble' | undefined;
   deviceCommType?: SearchDevice['commType'];
+  verifiedBleConnectId?: string;
   isNative: boolean;
 }): EHardwareTransportType {
   const {
     globalTransportType,
     deviceConnectionType,
     deviceCommType,
+    verifiedBleConnectId,
     isNative,
   } = params;
   let commTypeConnectionType: 'usb' | 'ble' | undefined;
@@ -34,7 +36,10 @@ export function resolveHwWalletTransportType(params: {
   ) {
     commTypeConnectionType = 'usb';
   }
-  const actualConnectionType = deviceConnectionType ?? commTypeConnectionType;
+  const actualConnectionType =
+    deviceConnectionType ??
+    commTypeConnectionType ??
+    (verifiedBleConnectId ? 'ble' : undefined);
   const globalIsUsb =
     globalTransportType === EHardwareTransportType.WEBUSB ||
     globalTransportType === EHardwareTransportType.Bridge;

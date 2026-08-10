@@ -827,6 +827,43 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
+  test('drops an already-packed retry when its wallet is no longer authorized', async () => {
+    jest.useFakeTimers();
+    const {
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false, true, false],
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+
+    jest.mocked(localDb.getWalletSafe).mockResolvedValue({
+      deprecated: true,
+      id: 'hw-1',
+      name: 'OneKey Wallet',
+      type: 'hw',
+    } as never);
+
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(updateTargetState).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'disabled', walletId: 'hw-1' }),
+    );
+    jest.useRealTimers();
+  });
+
   test('uploads only the latest snapshot for the same physical device', async () => {
     const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false, false, false] });

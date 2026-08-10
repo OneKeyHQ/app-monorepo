@@ -261,6 +261,24 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     });
   }
 
+  private async isPreparedUploadStillAuthorized({
+    deviceConnectId,
+    eventPayload,
+    targetKey,
+  }: {
+    deviceConnectId: string;
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }) {
+    const authorizedPayload =
+      await this.resolveAuthorizedPortfolioPayload(eventPayload);
+    return Boolean(
+      authorizedPayload &&
+      this.getSyncTargetKey(authorizedPayload) === targetKey &&
+      authorizedPayload.deviceConnectId === deviceConnectId,
+    );
+  }
+
   @backgroundMethod()
   async notifyAllNetworksTokenListSettled(
     eventPayload: IPortfolioSyncSettledPayload,
@@ -667,6 +685,29 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               generation,
               targetKey,
             });
+            return;
+          }
+          const isStillAuthorized = await this.isPreparedUploadStillAuthorized({
+            deviceConnectId,
+            eventPayload,
+            targetKey,
+          });
+          if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            return;
+          }
+          if (!isStillAuthorized) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            this.cancelHardwareBusyRetry(deviceConnectId);
+            this.setRejectedPayloadResult(eventPayload);
             return;
           }
           const hardwareBusy =

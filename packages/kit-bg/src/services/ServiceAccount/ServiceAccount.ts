@@ -3703,6 +3703,10 @@ class ServiceAccount extends ServiceBase {
     const globalTransportType =
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+    const verifiedBleConnectId =
+      await this.backgroundApi.serviceHardware.getVerifiedBleConnectIdForPersistence(
+        { connectId: params.device.connectId },
+      );
 
     // 全局 transport 只是默认值；创建时以用户实际选中的设备通道为准。
     // OneKey 使用 commType，第三方设备使用 raw.connectionType。
@@ -3712,8 +3716,12 @@ class ServiceAccount extends ServiceBase {
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
       deviceCommType: params.device.commType,
+      verifiedBleConnectId,
       isNative: !!platformEnv.isNative,
     });
+    const shouldPersistBleConnectId =
+      transportType === EHardwareTransportType.BLE ||
+      transportType === EHardwareTransportType.DesktopWebBle;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -3721,6 +3729,9 @@ class ServiceAccount extends ServiceBase {
           ...params,
           fillingXfpByCallingSdk: true,
           transportType,
+          verifiedBleConnectId: shouldPersistBleConnectId
+            ? verifiedBleConnectId
+            : undefined,
         }),
       {
         deviceParams: {

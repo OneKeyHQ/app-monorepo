@@ -226,6 +226,8 @@ export type IDBCreateHwWalletParamsBase = {
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
+  /** 由后台真实 BLE 应答生成，仅供本次持久化选择端点。 */
+  verifiedBleConnectId?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
   /** Returning anything other than `'match'` forces a fresh dbDeviceId. */
   verifySeedMatchFn?: (

@@ -301,6 +301,16 @@ describe('resolveBleConnectIdForPersistence', () => {
     ).toBe('f7e440001d2c1c79509d55dfdc8201ff');
   });
 
+  it('accepts a BLE endpoint verified by a live background connection', () => {
+    expect(
+      resolveBleConnectIdForPersistence({
+        connectId: 'PRB09B0088A',
+        commType: undefined,
+        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
+      }),
+    ).toBe('BLE_PERIPHERAL_ID');
+  });
+
   it('keeps an existing explicit BLE binding', () => {
     expect(
       resolveBleConnectIdForPersistence({
