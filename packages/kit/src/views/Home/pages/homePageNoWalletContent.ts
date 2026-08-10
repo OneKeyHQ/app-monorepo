@@ -54,11 +54,13 @@ export type IHomePageWalletContentMode = 'noWallet' | 'recovering' | 'wallet';
 export function getHomePageWalletContentMode({
   hasNoUsableWallet,
   showNoWalletContent,
+  activeDeprecatedWalletCanShowAssets,
 }: {
   hasNoUsableWallet: boolean;
   showNoWalletContent: boolean;
+  activeDeprecatedWalletCanShowAssets: boolean;
 }): IHomePageWalletContentMode {
-  if (!hasNoUsableWallet) {
+  if (!hasNoUsableWallet || activeDeprecatedWalletCanShowAssets) {
     return 'wallet';
   }
   if (showNoWalletContent) {

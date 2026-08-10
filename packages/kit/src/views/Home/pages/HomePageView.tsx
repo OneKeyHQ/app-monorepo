@@ -1100,6 +1100,9 @@ export function HomePageView({
   const walletContentMode = getHomePageWalletContentMode({
     hasNoUsableWallet,
     showNoWalletContent,
+    activeDeprecatedWalletCanShowAssets: Boolean(
+      wallet?.deprecated && !wallet.isMocked && account,
+    ),
   });
 
   const homePage = useMemo(() => {

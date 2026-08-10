@@ -10,7 +10,11 @@ const mockAutoSelectNextAccount = jest.fn();
 const mockAccountSelectorActions = {
   current: { autoSelectNextAccount: mockAutoSelectNextAccount },
 };
-let mockActiveAccount = {
+let mockActiveAccount: {
+  ready: boolean;
+  account: { id: string };
+  wallet: { id: string; deprecated?: boolean; isMocked?: boolean };
+} = {
   ready: true,
   account: { id: 'hd-1--account' },
   wallet: { id: 'hd-1' },
@@ -55,37 +59,50 @@ describe('useAutoSelectAccount unavailable active wallet recovery', () => {
     };
   });
 
-  it.each([
-    { id: 'hw-deprecated', deprecated: true },
-    { id: 'hw-mocked', isMocked: true },
-  ])(
-    'auto-selects again when a ready session switches to unavailable wallet $id',
-    async (wallet) => {
-      const { rerender } = renderHook(() => useAutoSelectAccount({ num: 0 }));
+  it('keeps a manually selected deprecated wallet active for asset viewing', async () => {
+    const { rerender } = renderHook(() => useAutoSelectAccount({ num: 0 }));
 
-      await waitFor(() => {
-        expect(mockAutoSelectNextAccount).toHaveBeenCalledTimes(1);
-      });
-      mockAutoSelectNextAccount.mockClear();
-
-      mockActiveAccount = {
-        ready: true,
-        account: { id: `${wallet.id}--account` },
-        wallet,
-      };
-      rerender();
-
-      await waitFor(() => {
-        expect(mockAutoSelectNextAccount).toHaveBeenCalledWith({
-          num: 0,
-          sceneName: EAccountSelectorSceneName.home,
-          sceneUrl: undefined,
-        });
-      });
-
-      rerender();
-      await act(async () => Promise.resolve());
+    await waitFor(() => {
       expect(mockAutoSelectNextAccount).toHaveBeenCalledTimes(1);
-    },
-  );
+    });
+    mockAutoSelectNextAccount.mockClear();
+
+    mockActiveAccount = {
+      ready: true,
+      account: { id: 'hw-deprecated--account' },
+      wallet: { id: 'hw-deprecated', deprecated: true },
+    };
+    rerender();
+
+    await act(async () => Promise.resolve());
+    expect(mockAutoSelectNextAccount).not.toHaveBeenCalled();
+  });
+
+  it('auto-selects again when a ready session switches to a mocked wallet', async () => {
+    const { rerender } = renderHook(() => useAutoSelectAccount({ num: 0 }));
+
+    await waitFor(() => {
+      expect(mockAutoSelectNextAccount).toHaveBeenCalledTimes(1);
+    });
+    mockAutoSelectNextAccount.mockClear();
+
+    mockActiveAccount = {
+      ready: true,
+      account: { id: 'hw-mocked--account' },
+      wallet: { id: 'hw-mocked', isMocked: true },
+    };
+    rerender();
+
+    await waitFor(() => {
+      expect(mockAutoSelectNextAccount).toHaveBeenCalledWith({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: undefined,
+      });
+    });
+
+    rerender();
+    await act(async () => Promise.resolve());
+    expect(mockAutoSelectNextAccount).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1399,7 +1399,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           reason: 'walletNotFound',
         };
       }
-      if (accountUtils.isWalletDeprecatedOrMocked(targetWallet)) {
+      if (targetWallet.isMocked) {
         return {
           success: false,
           reason: 'walletUnavailable',

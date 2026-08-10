@@ -166,20 +166,30 @@ describe('AccountSelectorAccountListItem wallet availability', () => {
     mockConfirmAccountSelect.mockResolvedValue({ success: true });
   });
 
-  it.each([
-    { id: 'hw-deprecated', deprecated: true },
-    { id: 'hw-mocked', isMocked: true },
-  ] as IDBWallet[])(
-    'does not select or close the modal for unavailable wallet $id',
-    (wallet) => {
-      render(<AccountSelectorAccountListItem {...buildProps({ wallet })} />);
+  it('selects a deprecated wallet account and closes the modal after success', async () => {
+    const wallet = {
+      id: 'hw-deprecated',
+      deprecated: true,
+    } as IDBWallet;
+    render(<AccountSelectorAccountListItem {...buildProps({ wallet })} />);
 
-      fireEvent.click(screen.getByTestId('account-item-0'));
+    fireEvent.click(screen.getByTestId('account-item-0'));
 
-      expect(mockConfirmAccountSelect).not.toHaveBeenCalled();
-      expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
-    },
-  );
+    await waitFor(() => {
+      expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+      expect(mockResetAccountManagerStacksModal).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('does not select or close the modal for a mocked wallet', () => {
+    const wallet = { id: 'hw-mocked', isMocked: true } as IDBWallet;
+    render(<AccountSelectorAccountListItem {...buildProps({ wallet })} />);
+
+    fireEvent.click(screen.getByTestId('account-item-0'));
+
+    expect(mockConfirmAccountSelect).not.toHaveBeenCalled();
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+  });
 
   it('selects a usable wallet account and closes the modal after success', async () => {
     const wallet = { id: 'hw-usable' } as IDBWallet;

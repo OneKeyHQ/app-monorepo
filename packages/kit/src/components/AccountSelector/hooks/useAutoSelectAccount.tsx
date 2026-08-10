@@ -4,7 +4,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -27,10 +26,8 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   const actions = useAccountSelectorActions();
-  const activeWalletUnavailable = Boolean(
-    wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
-  );
-  const previousActiveWalletUnavailableRef = useRef(activeWalletUnavailable);
+  const activeWalletMocked = Boolean(wallet?.isMocked);
+  const previousActiveWalletMockedRef = useRef(activeWalletMocked);
 
   // **** autoSelectAccount onMount
   useEffect(() => {
@@ -56,15 +53,14 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   }, [actions, activeAccountReady, num, sceneName, sceneUrl, storageReady]);
 
   useEffect(() => {
-    const wasActiveWalletUnavailable =
-      previousActiveWalletUnavailableRef.current;
-    previousActiveWalletUnavailableRef.current = activeWalletUnavailable;
+    const wasActiveWalletMocked = previousActiveWalletMockedRef.current;
+    previousActiveWalletMockedRef.current = activeWalletMocked;
 
     if (
       !storageReady ||
       !activeAccountReady ||
-      !activeWalletUnavailable ||
-      wasActiveWalletUnavailable
+      !activeWalletMocked ||
+      wasActiveWalletMocked
     ) {
       return;
     }
@@ -77,7 +73,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   }, [
     actions,
     activeAccountReady,
-    activeWalletUnavailable,
+    activeWalletMocked,
     num,
     sceneName,
     sceneUrl,

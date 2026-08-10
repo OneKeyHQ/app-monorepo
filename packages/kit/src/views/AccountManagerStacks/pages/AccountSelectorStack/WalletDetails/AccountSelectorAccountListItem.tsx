@@ -285,7 +285,7 @@ export function AccountSelectorAccountListItem({
 
   const canConfirmAccountSelectPress = useMemo(
     () =>
-      !accountUtils.isWalletDeprecatedOrMocked(focusedWalletInfo?.wallet) &&
+      !focusedWalletInfo?.wallet?.isMocked &&
       (allowSelectEmptyAccount || !shouldShowCreateAddressButton),
     [
       allowSelectEmptyAccount,

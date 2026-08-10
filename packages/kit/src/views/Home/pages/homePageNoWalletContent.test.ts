@@ -10,6 +10,7 @@ describe('getHomePageWalletContentMode', () => {
       getHomePageWalletContentMode({
         hasNoUsableWallet: true,
         showNoWalletContent: false,
+        activeDeprecatedWalletCanShowAssets: false,
       }),
     ).toBe('recovering');
   });
@@ -19,6 +20,7 @@ describe('getHomePageWalletContentMode', () => {
       getHomePageWalletContentMode({
         hasNoUsableWallet: true,
         showNoWalletContent: true,
+        activeDeprecatedWalletCanShowAssets: false,
       }),
     ).toBe('noWallet');
   });
@@ -28,9 +30,23 @@ describe('getHomePageWalletContentMode', () => {
       getHomePageWalletContentMode({
         hasNoUsableWallet: false,
         showNoWalletContent: false,
+        activeDeprecatedWalletCanShowAssets: false,
       }),
     ).toBe('wallet');
   });
+
+  it.each([false, true])(
+    'shows the active deprecated wallet assets when showNoWalletContent is %s',
+    (showNoWalletContent) => {
+      expect(
+        getHomePageWalletContentMode({
+          hasNoUsableWallet: true,
+          showNoWalletContent,
+          activeDeprecatedWalletCanShowAssets: true,
+        }),
+      ).toBe('wallet');
+    },
+  );
 });
 
 describe('shouldShowNoWalletContent', () => {

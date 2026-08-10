@@ -555,47 +555,69 @@ describe('useAccountSelectorActions', () => {
       return selectedAccount;
     }
 
-    it.each([
-      {
-        property: 'deprecated',
-        wallet: { id: 'hw-unavailable', deprecated: true } as IWallet,
-      },
-      {
-        property: 'isMocked',
-        wallet: { id: 'hw-unavailable', isMocked: true } as IWallet,
-      },
-    ])(
-      'rejects a target wallet marked $property without replacing the current selection',
-      async ({ wallet }) => {
-        mockGetWalletSafe.mockResolvedValue(wallet);
-        const { store, Wrapper } = createWrapper();
-        const originalSelection = seedUsableSelection(store);
-        const { result } = renderHook(
-          () => useAccountSelectorActions().current,
-          { wrapper: Wrapper },
-        );
+    it('allows selecting a deprecated wallet account for asset viewing', async () => {
+      mockGetWalletSafe.mockResolvedValue({
+        id: 'hw-deprecated',
+        deprecated: true,
+      } as IWallet);
+      const { store, Wrapper } = createWrapper();
+      seedUsableSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
 
-        let selectResult:
-          | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
-          | undefined;
-        await act(async () => {
-          selectResult = await result.current.confirmAccountSelect({
-            indexedAccount: {
-              id: 'hw-unavailable--0',
-              walletId: 'hw-unavailable',
-            } as IIndexedAccount,
-            othersWalletAccount: undefined,
-            num: 0,
-          });
+      let selectResult:
+        | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
+        | undefined;
+      await act(async () => {
+        selectResult = await result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hw-deprecated--0',
+            walletId: 'hw-deprecated',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
         });
+      });
 
-        expect(selectResult).toEqual({
-          success: false,
-          reason: 'walletUnavailable',
+      expect(selectResult).toEqual({ success: true });
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-deprecated',
+        indexedAccountId: 'hw-deprecated--0',
+      });
+    });
+
+    it('rejects a mocked target wallet without replacing the current selection', async () => {
+      mockGetWalletSafe.mockResolvedValue({
+        id: 'hw-unavailable',
+        isMocked: true,
+      } as IWallet);
+      const { store, Wrapper } = createWrapper();
+      const originalSelection = seedUsableSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      let selectResult:
+        | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
+        | undefined;
+      await act(async () => {
+        selectResult = await result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hw-unavailable--0',
+            walletId: 'hw-unavailable',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
         });
-        expect(store.get(selectedAccountsAtom())[0]).toEqual(originalSelection);
-      },
-    );
+      });
+
+      expect(selectResult).toEqual({
+        success: false,
+        reason: 'walletUnavailable',
+      });
+      expect(store.get(selectedAccountsAtom())[0]).toEqual(originalSelection);
+    });
 
     it('rejects a missing target wallet without replacing the current selection', async () => {
       mockGetWalletSafe.mockResolvedValue(undefined);
