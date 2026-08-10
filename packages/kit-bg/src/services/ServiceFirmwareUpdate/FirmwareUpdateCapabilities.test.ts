@@ -1096,6 +1096,11 @@ describe('Desktop Bridge firmware binaries', () => {
       .spyOn(firmwareArtifactAdapter, 'createLease')
       .mockResolvedValue({ leaseRef: 'fwlease:catalog' });
     const actualSha256 = plan.artifacts[0].expectedSha256;
+    if (!actualSha256) {
+      throw new OneKeyLocalError(
+        'Expected the bridge plan to include an artifact digest',
+      );
+    }
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
       .mockResolvedValue({
