@@ -69,28 +69,6 @@ describe('resolveHwWalletTransportType', () => {
     ).toBe(EHardwareTransportType.WEBUSB);
   });
 
-  it('uses OneKey electron-ble commType instead of the USB global default', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.WEBUSB,
-        deviceConnectionType: undefined,
-        deviceCommType: 'electron-ble',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.DesktopWebBle);
-  });
-
-  it('uses OneKey webusb commType instead of the BLE global default', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.DesktopWebBle,
-        deviceConnectionType: undefined,
-        deviceCommType: 'webusb',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.WEBUSB);
-  });
-
   it('does not pull a USB device to WEBUSB on native (USB is not a native transport)', () => {
     expect(
       resolveHwWalletTransportType({
@@ -118,7 +96,8 @@ describe('resolveHwWalletTransportType', () => {
     ).toBe(EHardwareTransportType.DesktopWebBle);
   });
 
-  it('keeps the global value when neither connectionType nor commType is known', () => {
+  it('is a no-op when connectionType is unknown (OneKey HD)', () => {
+    // OneKey HD 设备不携带第三方 connectionType，因此沿用 Onboarding 已选通道。
     for (const global of [
       EHardwareTransportType.WEBUSB,
       EHardwareTransportType.Bridge,
@@ -133,38 +112,5 @@ describe('resolveHwWalletTransportType', () => {
         }),
       ).toBe(global);
     }
-  });
-
-  it('uses a live verified BLE endpoint when channel metadata is missing', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.WEBUSB,
-        deviceConnectionType: undefined,
-        deviceCommType: undefined,
-        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.DesktopWebBle);
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.WEBUSB,
-        deviceConnectionType: undefined,
-        deviceCommType: undefined,
-        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
-        isNative: true,
-      }),
-    ).toBe(EHardwareTransportType.BLE);
-  });
-
-  it('prefers explicit USB metadata over an older BLE endpoint', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.DesktopWebBle,
-        deviceConnectionType: 'usb',
-        deviceCommType: undefined,
-        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.WEBUSB);
   });
 });

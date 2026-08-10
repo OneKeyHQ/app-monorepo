@@ -207,10 +207,7 @@ export type IDBCreateHDWalletParams = {
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
-  device: Omit<SearchDevice, 'commType'> & {
-    /** 仅用于本次创建流程，不会写入数据库。 */
-    commType?: SearchDevice['commType'];
-  };
+  device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
   connectProtocol?: HardwareConnectProtocol;
   /** Unified OneKey SDK state snapshot populated only by background services. */
@@ -226,8 +223,6 @@ export type IDBCreateHwWalletParamsBase = {
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
   xfp?: string;
-  /** 由后台真实 BLE 应答生成，仅供本次持久化选择端点。 */
-  verifiedBleConnectId?: string;
   getFirstEvmAddressFn?: () => Promise<string | null>;
   /** Returning anything other than `'match'` forces a fresh dbDeviceId. */
   verifySeedMatchFn?: (

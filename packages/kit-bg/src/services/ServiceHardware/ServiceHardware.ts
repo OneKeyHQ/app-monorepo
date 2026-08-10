@@ -362,70 +362,6 @@ const LINUX_UDEV_RULES_INSTALL_MAX_ATTEMPTS = 2;
 class ServiceHardware extends ServiceBase {
   private deviceStateSyncQueues = new Map<string, Promise<void>>();
 
-  private verifiedBleConnectIdByConnectId = new Map<string, string>();
-
-  private normalizeConnectId(connectId: string | null | undefined) {
-    return connectId?.trim().toLowerCase() || undefined;
-  }
-
-  private async updateVerifiedBleConnection({
-    requestedConnectId,
-    resolvedConnectId,
-    transportType,
-  }: {
-    requestedConnectId?: string | null;
-    resolvedConnectId?: string | null;
-    transportType?: EHardwareTransportType;
-  }) {
-    let activeTransportType = transportType;
-    if (!activeTransportType) {
-      try {
-        activeTransportType =
-          await this.connectionManager.getCurrentTransportType();
-      } catch (error) {
-        serviceHardwareUtils.hardwareLog(
-          'read verified BLE transport failed',
-          error,
-        );
-        return;
-      }
-    }
-    const normalizedConnectIds = [requestedConnectId, resolvedConnectId]
-      .map((connectId) => this.normalizeConnectId(connectId))
-      .filter((connectId): connectId is string => Boolean(connectId));
-    if (
-      activeTransportType !== EHardwareTransportType.BLE &&
-      activeTransportType !== EHardwareTransportType.DesktopWebBle
-    ) {
-      for (const normalizedConnectId of normalizedConnectIds) {
-        this.verifiedBleConnectIdByConnectId.delete(normalizedConnectId);
-      }
-      return;
-    }
-    const verifiedBleConnectId = resolvedConnectId?.trim();
-    if (!verifiedBleConnectId) {
-      return;
-    }
-    for (const normalizedConnectId of normalizedConnectIds) {
-      this.verifiedBleConnectIdByConnectId.set(
-        normalizedConnectId,
-        verifiedBleConnectId,
-      );
-    }
-  }
-
-  @backgroundMethod()
-  async getVerifiedBleConnectIdForPersistence({
-    connectId,
-  }: {
-    connectId?: string | null;
-  }) {
-    const normalizedConnectId = this.normalizeConnectId(connectId);
-    return normalizedConnectId
-      ? this.verifiedBleConnectIdByConnectId.get(normalizedConnectId)
-      : undefined;
-  }
-
   private getDeviceStateSyncKeys(values: Array<string | null | undefined>) {
     const keys = values
       .map((value) => value?.trim().toLowerCase())
@@ -2244,29 +2180,18 @@ class ServiceHardware extends ServiceBase {
     // connection identifier. Replacing it with the Pro USB serial number would
     // make Noble run a targeted scan for PRB... and never find the peripheral.
     // Keep the existing compatibility lookup for native transports only.
-    const isBluetoothSearchDevice = deviceUtils.isBluetoothSearchDevice(device);
-    const { forceTransportType } = await hardwareForceTransportAtom.get();
-    const normalizedForceTransportType = forceTransportType
-      ? deviceUtils.normalizeHardwareTransportTypeForPlatform({
-          transportType: forceTransportType,
-          connectProtocol: connectProtocol ?? device.connectProtocol,
-        })
-      : undefined;
-    let resolvedHardwareTransportType =
-      normalizedForceTransportType ?? hardwareTransportType;
-    if (
-      !resolvedHardwareTransportType &&
-      platformEnv.isSupportDesktopBle &&
-      isBluetoothSearchDevice
-    ) {
-      resolvedHardwareTransportType = EHardwareTransportType.DesktopWebBle;
-    } else if (!resolvedHardwareTransportType && isBluetoothSearchDevice) {
-      resolvedHardwareTransportType = EHardwareTransportType.BLE;
-    }
     const isDesktopBleSearchDevice =
       platformEnv.isSupportDesktopBle &&
-      isBluetoothSearchDevice &&
-      resolvedHardwareTransportType === EHardwareTransportType.DesktopWebBle;
+      deviceUtils.isBluetoothSearchDevice(device);
+    let resolvedHardwareTransportType = hardwareTransportType;
+    if (!resolvedHardwareTransportType && isDesktopBleSearchDevice) {
+      resolvedHardwareTransportType = EHardwareTransportType.DesktopWebBle;
+    } else if (
+      !resolvedHardwareTransportType &&
+      deviceUtils.isBluetoothSearchDevice(device)
+    ) {
+      resolvedHardwareTransportType = EHardwareTransportType.BLE;
+    }
     const compatibleConnectId = isDesktopBleSearchDevice
       ? connectId || undefined
       : await this.getCompatibleConnectId({
@@ -2288,18 +2213,10 @@ class ServiceHardware extends ServiceBase {
         (await this.getKnownDeviceProtocol(compatibleConnectId)));
 
     const knownFeatures = (device as KnownDevice).features;
-    const isUsbSearchDevice =
-      device.commType === 'usb' ||
-      device.commType === 'webusb' ||
-      device.commType === 'bridge';
-    const persistenceTransportType =
-      resolvedHardwareTransportType ??
-      (isUsbSearchDevice ? EHardwareTransportType.WEBUSB : undefined);
     if (
       !forceFeaturesRefresh &&
       !platformEnv.isNative &&
       knownFeatures &&
-      isUsbSearchDevice &&
       !isDesktopBleSearchDevice
     ) {
       // WebUSB 搜索已完成真实通讯；复用结果，并在成功后保存已确认协议。
@@ -2314,11 +2231,6 @@ class ServiceHardware extends ServiceBase {
           protocolAwareDevice.state?.protocol ??
           protocolAwareDevice.connectProtocol ??
           knownFeatures.protocol,
-      });
-      await this.updateVerifiedBleConnection({
-        requestedConnectId: connectId,
-        resolvedConnectId: compatibleConnectId,
-        transportType: EHardwareTransportType.WEBUSB,
       });
       return knownFeatures;
     }
@@ -2335,36 +2247,20 @@ class ServiceHardware extends ServiceBase {
 
     if (platformEnv.isNative) {
       try {
-        const features = await this.connectDevice({
+        return await this.connectDevice({
           connectId: compatibleConnectId,
           params,
           hardwareTransportType: resolvedHardwareTransportType,
         });
-        if (features) {
-          await this.updateVerifiedBleConnection({
-            requestedConnectId: connectId,
-            resolvedConnectId: compatibleConnectId,
-            transportType: persistenceTransportType,
-          });
-        }
-        return features;
       } catch (e: any) {
         this.handlerConnectError(e);
       }
     } else {
-      const features = await this.connectDevice({
+      return this.connectDevice({
         connectId: compatibleConnectId,
         params,
         hardwareTransportType: resolvedHardwareTransportType,
       });
-      if (features) {
-        await this.updateVerifiedBleConnection({
-          requestedConnectId: connectId,
-          resolvedConnectId: compatibleConnectId,
-          transportType: persistenceTransportType,
-        });
-      }
-      return features;
     }
   }
 

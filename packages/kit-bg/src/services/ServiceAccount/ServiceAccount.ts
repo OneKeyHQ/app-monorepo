@@ -3703,25 +3703,16 @@ class ServiceAccount extends ServiceBase {
     const globalTransportType =
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
-    const verifiedBleConnectId =
-      await this.backgroundApi.serviceHardware.getVerifiedBleConnectIdForPersistence(
-        { connectId: params.device.connectId },
-      );
 
-    // 全局 transport 只是默认值；创建时以用户实际选中的设备通道为准。
-    // OneKey 使用 commType，第三方设备使用 raw.connectionType。
+    // 与 x 分支保持一致：OneKey 由 Onboarding 已选通道决定全局 transport；
+    // 第三方融合列表则继续使用设备自身的 connectionType 修正通道。
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
-      deviceCommType: params.device.commType,
-      verifiedBleConnectId,
       isNative: !!platformEnv.isNative,
     });
-    const shouldPersistBleConnectId =
-      transportType === EHardwareTransportType.BLE ||
-      transportType === EHardwareTransportType.DesktopWebBle;
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -3729,9 +3720,6 @@ class ServiceAccount extends ServiceBase {
           ...params,
           fillingXfpByCallingSdk: true,
           transportType,
-          verifiedBleConnectId: shouldPersistBleConnectId
-            ? verifiedBleConnectId
-            : undefined,
         }),
       {
         deviceParams: {

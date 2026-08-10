@@ -9,7 +9,7 @@ import {
   clearTrezorThpSettingsRaw,
   getThirdPartyDeviceAvatarImage,
   getThirdPartyDeviceModelName,
-  resolveBleConnectIdForPersistence,
+  resolveBleConnectIdForCreate,
 } from './LocalDbBase';
 
 describe('clearTrezorThpSettingsRaw', () => {
@@ -282,53 +282,32 @@ describe('buildTrezorDesktopBleUsbConnectId', () => {
   });
 });
 
-describe('resolveBleConnectIdForPersistence', () => {
-  it('does not derive bleConnectId from a USB serial', () => {
+describe('resolveBleConnectIdForCreate', () => {
+  it('首次桌面 BLE 创建直接使用当前扫描结果的 connectId', () => {
     expect(
-      resolveBleConnectIdForPersistence({
-        connectId: 'PRB09B0088A',
-        commType: 'webusb',
-      }),
-    ).toBeUndefined();
-  });
-
-  it('accepts the peripheral ID from a BLE discovery result', () => {
-    expect(
-      resolveBleConnectIdForPersistence({
-        connectId: 'f7e440001d2c1c79509d55dfdc8201ff',
-        commType: 'electron-ble',
-      }),
-    ).toBe('f7e440001d2c1c79509d55dfdc8201ff');
-  });
-
-  it('accepts a BLE endpoint verified by a live background connection', () => {
-    expect(
-      resolveBleConnectIdForPersistence({
-        connectId: 'PRB09B0088A',
-        commType: undefined,
-        verifiedBleConnectId: 'BLE_PERIPHERAL_ID',
+      resolveBleConnectIdForCreate({
+        connectId: 'BLE_PERIPHERAL_ID',
+        transportType: EHardwareTransportType.DesktopWebBle,
       }),
     ).toBe('BLE_PERIPHERAL_ID');
   });
 
-  it('keeps an existing explicit BLE binding', () => {
+  it('桌面 BLE 已有独立端点时优先使用 bleConnectId', () => {
     expect(
-      resolveBleConnectIdForPersistence({
-        connectId: 'PRB09B0088A',
+      resolveBleConnectIdForCreate({
+        connectId: 'DEVICE_CONNECT_ID',
         explicitBleConnectId: 'BLE_PERIPHERAL_ID',
-        commType: 'webusb',
+        transportType: EHardwareTransportType.DesktopWebBle,
       }),
     ).toBe('BLE_PERIPHERAL_ID');
   });
 
-  it('rejects a historical BLE binding that aliases the USB serial', () => {
+  it('原生 BLE 使用当前扫描结果的 connectId', () => {
     expect(
-      resolveBleConnectIdForPersistence({
-        connectId: 'PRB09B0088A',
-        explicitBleConnectId: 'PRB09B0088A',
-        usbConnectId: 'PRB09B0088A',
-        commType: 'webusb',
+      resolveBleConnectIdForCreate({
+        connectId: 'NATIVE_BLE_ID',
+        transportType: EHardwareTransportType.BLE,
       }),
-    ).toBeUndefined();
+    ).toBe('NATIVE_BLE_ID');
   });
 });
