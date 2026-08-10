@@ -4,13 +4,8 @@ import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
@@ -30,19 +25,6 @@ import type { ITabPageHeaderProp } from './type';
 export { DiscoveryHeaderSegment };
 
 function HomeWalletConnectionInPage({ tabRoute }: { tabRoute: ETabRoutes }) {
-  const {
-    activeAccount: { wallet, account },
-  } = useActiveAccount({ num: 0 });
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
-
-  if (hasNoUsableWallet && !isSyncLoading) {
-    return null;
-  }
-
   return (
     <XStack px="$pagePadding" pt="$5" pb="$2.5" bg="$bgApp" borderRadius="$4">
       <WalletConnectionGroup tabRoute={tabRoute} />

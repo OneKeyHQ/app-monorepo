@@ -198,6 +198,19 @@ export type IFinalizeWalletSetupCreateWalletResult = {
   };
 };
 
+export type IConfirmAccountSelectResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      reason:
+        | 'staleRequest'
+        | 'walletLookupFailed'
+        | 'walletNotFound'
+        | 'walletUnavailable';
+    };
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -1352,7 +1365,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         autoChangeToAccountMatchedNetworkId?: string;
         forceSelectToNetworkId?: string;
       },
-    ) => {
+    ): Promise<IConfirmAccountSelectResult> => {
       const {
         num,
         othersWalletAccount,
@@ -1390,6 +1403,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         confirmRequestKey,
         confirmRequestId,
       );
+
+      let targetWallet: IDBWallet | undefined;
+      try {
+        targetWallet = await serviceAccount.getWalletSafe({ walletId });
+      } catch {
+        return {
+          success: false,
+          reason: 'walletLookupFailed',
+        };
+      }
+      if (!targetWallet) {
+        return {
+          success: false,
+          reason: 'walletNotFound',
+        };
+      }
+      if (accountUtils.isWalletDeprecatedOrMocked(targetWallet)) {
+        return {
+          success: false,
+          reason: 'walletUnavailable',
+        };
+      }
 
       const accountNetworkId: string =
         forceSelectToNetworkId ||
@@ -1436,7 +1471,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
         confirmRequestId
       ) {
-        return;
+        return {
+          success: false,
+          reason: 'staleRequest',
+        };
       }
 
       const newSelectedAccount: IAccountSelectorSelectedAccount = {
@@ -1546,6 +1584,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccountId: indexedAccount?.id,
         othersWalletAccountId: othersWalletAccount?.id,
       });
+      return { success: true };
     },
   );
 

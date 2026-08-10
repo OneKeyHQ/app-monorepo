@@ -161,7 +161,13 @@ export function WalletConnectionGroup({
     if (isSyncLoading) {
       return <Spinner size="small" />;
     }
-    return null;
+    return (
+      <MemoizedAccountSelectorTriggerWithSpotlight
+        isFocus={isFocus}
+        linkNetworkId={linkNetworkId}
+        hideAddress={hideAddress}
+      />
+    );
   }
 
   if (isMobileLayout) {

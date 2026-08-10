@@ -284,8 +284,14 @@ export function AccountSelectorAccountListItem({
   ]);
 
   const canConfirmAccountSelectPress = useMemo(
-    () => allowSelectEmptyAccount || !shouldShowCreateAddressButton,
-    [allowSelectEmptyAccount, shouldShowCreateAddressButton],
+    () =>
+      !accountUtils.isWalletDeprecatedOrMocked(focusedWalletInfo?.wallet) &&
+      (allowSelectEmptyAccount || !shouldShowCreateAddressButton),
+    [
+      allowSelectEmptyAccount,
+      focusedWalletInfo?.wallet,
+      shouldShowCreateAddressButton,
+    ],
   );
 
   const renderAccountValue = useCallback(() => {
@@ -423,19 +429,27 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId =
                   selectedAccount?.networkId;
               }
-              await actions.current.confirmAccountSelect({
+              const result = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount: undefined,
                 othersWalletAccount: account,
                 autoChangeToAccountMatchedNetworkId,
               });
+              if (!result.success) {
+                return;
+              }
             } else if (focusedWalletInfo) {
-              await actions.current.confirmAccountSelect({
+              const result = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount,
                 othersWalletAccount: undefined,
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
+              if (!result.success) {
+                return;
+              }
+            } else {
+              return;
             }
             resetAccountManagerStacksModal();
           },
