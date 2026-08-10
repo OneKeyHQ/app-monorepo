@@ -33,6 +33,7 @@ import {
 
 import { AprText } from './AprText';
 import { EarnAprSuffixText } from './EarnAprSuffixText';
+import { getProtocolAprColor } from './showProtocolListDialog.utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -413,6 +414,7 @@ export function ProtocolListContent({
       const tvlText = formatTvl(item.provider.tvl);
       // TVL moved to the bottom-right; bottom-left keeps only vaultName (OK-58854)
       const secondaryText = item.provider.vaultName || '';
+      const aprColor = getProtocolAprColor(item.aprInfo);
 
       return (
         <XStack
@@ -453,7 +455,10 @@ export function ProtocolListContent({
             ) : null}
           </YStack>
           <YStack alignItems="flex-end" gap="$0.5" flexShrink={0}>
-            <EarnAprSuffixText text={getProtocolAprText(item)} />
+            <EarnAprSuffixText
+              text={getProtocolAprText(item)}
+              color={aprColor}
+            />
             {tvlText ? (
               <SizableText size="$bodySm" color="$textSubdued">
                 {`TVL ${tvlText}`}
