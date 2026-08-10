@@ -6,6 +6,7 @@ import { Psbt } from 'bitcoinjs-lib';
 import { isEmpty, isNil } from 'lodash';
 
 import {
+  findBtcSighashNoneInput,
   getInputsToSignFromPsbt,
   getSignPsbtOptionsForPsbtIndex,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -780,6 +781,16 @@ class ProviderApiBtc extends ProviderApiBase {
         account,
         isBtcWalletProvider: options?.isBtcWalletProvider ?? false,
       });
+    }
+
+    const sighashNoneInput = findBtcSighashNoneInput({
+      psbt,
+      inputsToSign,
+    });
+    if (sighashNoneInput) {
+      throw web3Errors.rpc.invalidParams(
+        `SIGHASH_NONE is not supported for input ${sighashNoneInput.index}`,
+      );
     }
 
     const inputAddresses = new Map<string, BigNumber>();
