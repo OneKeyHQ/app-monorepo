@@ -11,13 +11,8 @@ import {
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  useActiveAccount,
-  useIsAccountSelectorSyncLoading,
-} from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { MoreActionButton } from '../MoreActionButton';
 
@@ -44,19 +39,6 @@ function HomeWalletConnectionRow({
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const {
-    activeAccount: { wallet, account },
-  } = useActiveAccount({ num: 0 });
-  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
-  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
-    wallet,
-    account,
-  });
-
-  if (hasNoUsableWallet && !isSyncLoading) {
-    return null;
-  }
-
   return (
     <XStack alignItems="center" px={headerPx} h={44}>
       <HeaderLeft

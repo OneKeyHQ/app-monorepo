@@ -198,6 +198,15 @@ export type IFinalizeWalletSetupCreateWalletResult = {
   };
 };
 
+export type IConfirmAccountSelectResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      reason: 'walletLookupFailed' | 'walletNotFound' | 'walletUnavailable';
+    };
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -1348,7 +1357,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         autoChangeToAccountMatchedNetworkId?: string;
         forceSelectToNetworkId?: string;
       },
-    ) => {
+    ): Promise<IConfirmAccountSelectResult> => {
       const {
         num,
         othersWalletAccount,
@@ -1373,6 +1382,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         throw new OneKeyLocalError(
           'confirmSelectAccount ERROR: walletId is undefined',
         );
+      }
+
+      let targetWallet: IDBWallet | undefined;
+      try {
+        targetWallet = await serviceAccount.getWalletSafe({ walletId });
+      } catch {
+        return {
+          success: false,
+          reason: 'walletLookupFailed',
+        };
+      }
+      if (!targetWallet) {
+        return {
+          success: false,
+          reason: 'walletNotFound',
+        };
+      }
+      if (accountUtils.isWalletDeprecatedOrMocked(targetWallet)) {
+        return {
+          success: false,
+          reason: 'walletUnavailable',
+        };
       }
 
       const accountNetworkId: string =
@@ -1492,6 +1523,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccountId: indexedAccount?.id,
         othersWalletAccountId: othersWalletAccount?.id,
       });
+      return { success: true };
     },
   );
 

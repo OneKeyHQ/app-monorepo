@@ -48,3 +48,21 @@ export function shouldShowNoWalletContent({
         walletListResolvedCurrentUnusableWalletOnly))
   );
 }
+
+export type IHomePageWalletContentMode = 'noWallet' | 'recovering' | 'wallet';
+
+export function getHomePageWalletContentMode({
+  hasNoUsableWallet,
+  showNoWalletContent,
+}: {
+  hasNoUsableWallet: boolean;
+  showNoWalletContent: boolean;
+}): IHomePageWalletContentMode {
+  if (!hasNoUsableWallet) {
+    return 'wallet';
+  }
+  if (showNoWalletContent) {
+    return 'noWallet';
+  }
+  return 'recovering';
+}

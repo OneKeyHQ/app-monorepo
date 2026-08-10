@@ -1,7 +1,37 @@
 import {
+  getHomePageWalletContentMode,
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
+
+describe('getHomePageWalletContentMode', () => {
+  it('shows recovery instead of a blank page when the active wallet is unavailable but a fallback wallet exists', () => {
+    expect(
+      getHomePageWalletContentMode({
+        hasNoUsableWallet: true,
+        showNoWalletContent: false,
+      }),
+    ).toBe('recovering');
+  });
+
+  it('shows the no-wallet state when only unavailable wallets remain', () => {
+    expect(
+      getHomePageWalletContentMode({
+        hasNoUsableWallet: true,
+        showNoWalletContent: true,
+      }),
+    ).toBe('noWallet');
+  });
+
+  it('keeps normal wallet content for a usable active wallet', () => {
+    expect(
+      getHomePageWalletContentMode({
+        hasNoUsableWallet: false,
+        showNoWalletContent: false,
+      }),
+    ).toBe('wallet');
+  });
+});
 
 describe('shouldShowNoWalletContent', () => {
   it('blocks the no-wallet empty state before account selector storage init completes', () => {

@@ -539,6 +539,123 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  describe('confirmAccountSelect wallet availability guard', () => {
+    function seedUsableSelection(
+      store: ReturnType<typeof createWrapper>['store'],
+    ) {
+      const selectedAccount = {
+        ...defaultSelectedAccount(),
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        focusedWallet: 'hd-1',
+        networkId: 'evm--1',
+        deriveType: 'default' as const,
+      };
+      store.set(selectedAccountsAtom(), { 0: selectedAccount });
+      return selectedAccount;
+    }
+
+    it.each([
+      {
+        property: 'deprecated',
+        wallet: { id: 'hw-unavailable', deprecated: true } as IWallet,
+      },
+      {
+        property: 'isMocked',
+        wallet: { id: 'hw-unavailable', isMocked: true } as IWallet,
+      },
+    ])(
+      'rejects a target wallet marked $property without replacing the current selection',
+      async ({ wallet }) => {
+        mockGetWalletSafe.mockResolvedValue(wallet);
+        const { store, Wrapper } = createWrapper();
+        const originalSelection = seedUsableSelection(store);
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          { wrapper: Wrapper },
+        );
+
+        let selectResult:
+          | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
+          | undefined;
+        await act(async () => {
+          selectResult = await result.current.confirmAccountSelect({
+            indexedAccount: {
+              id: 'hw-unavailable--0',
+              walletId: 'hw-unavailable',
+            } as IIndexedAccount,
+            othersWalletAccount: undefined,
+            num: 0,
+          });
+        });
+
+        expect(selectResult).toEqual({
+          success: false,
+          reason: 'walletUnavailable',
+        });
+        expect(store.get(selectedAccountsAtom())[0]).toEqual(originalSelection);
+      },
+    );
+
+    it('rejects a missing target wallet without replacing the current selection', async () => {
+      mockGetWalletSafe.mockResolvedValue(undefined);
+      const { store, Wrapper } = createWrapper();
+      const originalSelection = seedUsableSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      let selectResult:
+        | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
+        | undefined;
+      await act(async () => {
+        selectResult = await result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hw-missing--0',
+            walletId: 'hw-missing',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(selectResult).toEqual({
+        success: false,
+        reason: 'walletNotFound',
+      });
+      expect(store.get(selectedAccountsAtom())[0]).toEqual(originalSelection);
+    });
+
+    it('keeps normal wallet selection behavior and reports success', async () => {
+      mockGetWalletSafe.mockResolvedValue({ id: 'hw-usable' } as IWallet);
+      const { store, Wrapper } = createWrapper();
+      seedUsableSelection(store);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      let selectResult:
+        | Awaited<ReturnType<typeof result.current.confirmAccountSelect>>
+        | undefined;
+      await act(async () => {
+        selectResult = await result.current.confirmAccountSelect({
+          indexedAccount: {
+            id: 'hw-usable--0',
+            walletId: 'hw-usable',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          num: 0,
+        });
+      });
+
+      expect(selectResult).toEqual({ success: true });
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: 'hw-usable',
+        indexedAccountId: 'hw-usable--0',
+      });
+    });
+  });
+
   it('normalizes imported account network pairs before saving to storage', async () => {
     const btcAccountId =
       'imported--0--xpub6CgTVumLgde7C8aBr9Zfbn6LeJN347raED9oW6ZCfbwEqeQodRGLUvrjK3ec3uNbGYxMcxRJ5Q5grxip4Bd5XWmnai12tkdTLkTepQiAdnR--P2TR';

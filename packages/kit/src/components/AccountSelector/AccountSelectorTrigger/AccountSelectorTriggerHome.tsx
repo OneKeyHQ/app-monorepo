@@ -38,7 +38,6 @@ export function AccountSelectorTriggerHome({
     if (isSyncLoading) {
       return <Spinner size="small" />;
     }
-    return null;
   }
 
   return (

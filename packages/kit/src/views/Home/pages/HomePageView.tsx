@@ -79,6 +79,7 @@ import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import {
+  getHomePageWalletContentMode,
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
@@ -1096,19 +1097,27 @@ export function HomePageView({
     activeWalletId,
     walletListWalletIds,
   });
+  const walletContentMode = getHomePageWalletContentMode({
+    hasNoUsableWallet,
+    showNoWalletContent,
+  });
 
   const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = <Stack flex={1} />;
+    let content = (
+      <Stack flex={1} justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+      </Stack>
+    );
 
-    if (showNoWalletContent) {
+    if (walletContentMode === 'noWallet') {
       content = <NoWalletContent tabBarHeight={tabBarHeight} />;
     }
 
-    if (!hasNoUsableWallet) {
+    if (walletContentMode === 'wallet') {
       content = walletPageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
@@ -1149,8 +1158,7 @@ export function HomePageView({
     );
   }, [
     ready,
-    hasNoUsableWallet,
-    showNoWalletContent,
+    walletContentMode,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,

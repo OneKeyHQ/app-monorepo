@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -20,12 +21,16 @@ import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 
 export function useAutoSelectAccount({ num }: { num: number }) {
   const {
-    activeAccount: { ready: activeAccountReady, account },
+    activeAccount: { ready: activeAccountReady, account, wallet },
   } = useActiveAccount({ num });
   const [storageReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   const actions = useAccountSelectorActions();
+  const activeWalletUnavailable = Boolean(
+    wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
+  );
+  const previousActiveWalletUnavailableRef = useRef(activeWalletUnavailable);
 
   // **** autoSelectAccount onMount
   useEffect(() => {
@@ -49,6 +54,35 @@ export function useAutoSelectAccount({ num }: { num: number }) {
       cancelled = true;
     };
   }, [actions, activeAccountReady, num, sceneName, sceneUrl, storageReady]);
+
+  useEffect(() => {
+    const wasActiveWalletUnavailable =
+      previousActiveWalletUnavailableRef.current;
+    previousActiveWalletUnavailableRef.current = activeWalletUnavailable;
+
+    if (
+      !storageReady ||
+      !activeAccountReady ||
+      !activeWalletUnavailable ||
+      wasActiveWalletUnavailable
+    ) {
+      return;
+    }
+
+    void actions.current.autoSelectNextAccount({
+      num,
+      sceneName,
+      sceneUrl,
+    });
+  }, [
+    actions,
+    activeAccountReady,
+    activeWalletUnavailable,
+    num,
+    sceneName,
+    sceneUrl,
+    storageReady,
+  ]);
 
   // **** autoSelectAccount after WalletUpdate
   useEffect(() => {
