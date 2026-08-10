@@ -129,15 +129,17 @@ let appStatusData: ISimpleDBAppStatus;
 function buildDevice({
   features,
   connectProtocol,
+  deviceType = 'pro',
 }: {
   features?: Features;
   connectProtocol?: 'V1' | 'V2';
+  deviceType?: 'pro' | 'pro2' | 'neo';
 }) {
   return {
     connectId: 'USB_SERIAL',
     uuid: 'DEVICE_SERIAL',
     deviceId: 'DEVICE_ID',
-    deviceType: 'pro',
+    deviceType,
     name: 'OneKey Pro',
     commType: 'webusb',
     features,
@@ -378,6 +380,47 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
       params: { connectProtocol: 'V2' },
     });
   });
+
+  it.each(['pro2', 'neo'] as const)(
+    '升级后强制刷新 %s，不复用 WebUSB 搜索阶段的 loader 状态',
+    async (deviceType) => {
+      const service = new ServiceHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      jest
+        .spyOn(service, 'getCompatibleConnectId')
+        .mockResolvedValue('USB_SERIAL');
+      const freshFeatures = {
+        protocol: 'V2',
+        deviceType,
+        deviceId: 'FRESH_DEVICE_ID',
+        bootloaderMode: false,
+      } as unknown as Features;
+      const connectDevice = jest
+        .spyOn(service, 'connectDevice')
+        .mockResolvedValue(freshFeatures);
+      const cachedLoaderFeatures = {
+        protocol: 'V2',
+        deviceType,
+        bootloaderMode: true,
+      } as unknown as Features;
+
+      await expect(
+        service.connect({
+          device: buildDevice({
+            features: cachedLoaderFeatures,
+            connectProtocol: 'V2',
+            deviceType,
+          }),
+          forceFeaturesRefresh: true,
+        }),
+      ).resolves.toBe(freshFeatures);
+      expect(connectDevice).toHaveBeenCalledWith({
+        connectId: 'USB_SERIAL',
+        params: { connectProtocol: 'V2' },
+      });
+    },
+  );
 
   it('不再吞掉 WebUSB 重连错误并伪装成成功', async () => {
     const service = new ServiceHardware({

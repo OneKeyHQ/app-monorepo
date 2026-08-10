@@ -7,6 +7,10 @@ import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalFirmwareUpdateRoutes,
@@ -156,12 +160,23 @@ function PageFirmwareUpdateInstallV2() {
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
+        try {
+          await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+          if (result?.originalConnectId) {
+            await backgroundApiProxy.serviceHardware.cancel({
+              connectId: result.originalConnectId,
+              forceDeviceResetToHome: true,
+            });
+          }
+        } finally {
+          if (!isDone) {
+            // 取消或异常退出时设备也可能已经从 loader 重启，通知 onboarding
+            // 丢弃旧连接并执行与升级成功后一致的延迟重绑。
+            appEventBus.emit(
+              EAppEventBusNames.FirmwareUpdateInterrupted,
+              undefined,
+            );
+          }
         }
       }}
     >

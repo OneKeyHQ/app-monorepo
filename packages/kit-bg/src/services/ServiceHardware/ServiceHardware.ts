@@ -2145,12 +2145,15 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext,
     connectProtocol,
     forceProtocolDetection,
+    forceFeaturesRefresh,
     hardwareTransportType,
   }: {
     device: SearchDevice;
     hardwareCallContext?: EHardwareCallContext;
     connectProtocol?: HardwareConnectProtocol;
     forceProtocolDetection?: boolean;
+    /** 固件重启后跳过 SearchDevice.features，强制读取设备当前运行状态。 */
+    forceFeaturesRefresh?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
     const vendor = (device as SearchDevice & { vendor?: string }).vendor;
@@ -2210,7 +2213,12 @@ class ServiceHardware extends ServiceBase {
         (await this.getKnownDeviceProtocol(compatibleConnectId)));
 
     const knownFeatures = (device as KnownDevice).features;
-    if (!platformEnv.isNative && knownFeatures && !isDesktopBleSearchDevice) {
+    if (
+      !forceFeaturesRefresh &&
+      !platformEnv.isNative &&
+      knownFeatures &&
+      !isDesktopBleSearchDevice
+    ) {
       // WebUSB 搜索已完成真实通讯；复用结果，并在成功后保存已确认协议。
       await this.rememberDeviceProtocol({
         connectIds: [

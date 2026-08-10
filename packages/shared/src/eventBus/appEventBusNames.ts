@@ -44,6 +44,7 @@ export enum EAppEventBusNames {
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
+  FirmwareUpdateInterrupted = 'FirmwareUpdateInterrupted',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',

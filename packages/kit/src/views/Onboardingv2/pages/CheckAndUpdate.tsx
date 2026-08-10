@@ -117,15 +117,14 @@ function CheckAndUpdatePage({
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
-  // One-shot marker for the focus-effect auto-recheck after a firmware
-  // update: consumed when the scheduled recheck fires (or cleared by an
-  // explicit user Skip). Only drives scheduling/delay math.
-  const firmwareUpdateFinishTimeRef = useRef<number | null>(null);
+  // 固件运行状态变化后 focus effect 自动复查的一次性时间戳：定时复查触发
+  // 或用户明确跳过时清除，仅用于调度和延迟计算。
+  const [firmwareRuntimeChangeTime, setFirmwareRuntimeChangeTime] = useState<
+    number | null
+  >(null);
   const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
-  // Carries the "device may still be rebooting" fact separately: set on
-  // FinishFirmwareUpdate, cleared only when a check COMPLETES successfully.
-  // While set, every round — including a manual Retry — upgrades to the
-  // patient reconnect path and the longer watchdog budget.
+  // 单独记录“设备可能仍在重启”：升级成功或中断时置位，仅在检查成功完成后清除。
+  // 置位期间所有检查（包括手动重试）都使用更耐心的重连路径和更长超时。
   const pendingPostUpdateReconnectRef = useRef(false);
   const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
   const getBootloaderDialogHost = useCallback(
@@ -617,23 +616,31 @@ function CheckAndUpdatePage({
 
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
-  // Listen to firmware update completion event and record timestamp
+  // 固件升级成功、取消或异常退出后都要刷新设备运行状态。
   useEffect(() => {
-    const handleFirmwareUpdateFinish = () => {
-      console.log('Firmware update finished, recording timestamp...');
-      firmwareUpdateFinishTimeRef.current = Date.now();
+    const handleFirmwareRuntimeChanged = () => {
+      console.log('Firmware update runtime changed, recording timestamp...');
+      setFirmwareRuntimeChangeTime(Date.now());
       pendingPostUpdateReconnectRef.current = true;
     };
 
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
-      handleFirmwareUpdateFinish,
+      handleFirmwareRuntimeChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.FirmwareUpdateInterrupted,
+      handleFirmwareRuntimeChanged,
     );
 
     return () => {
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
-        handleFirmwareUpdateFinish,
+        handleFirmwareRuntimeChanged,
+      );
+      appEventBus.off(
+        EAppEventBusNames.FirmwareUpdateInterrupted,
+        handleFirmwareRuntimeChanged,
       );
     };
   }, []);
@@ -645,7 +652,7 @@ function CheckAndUpdatePage({
         await restoreOriginalTransport();
       })();
 
-      const finishTime = firmwareUpdateFinishTimeRef.current;
+      const finishTime = firmwareRuntimeChangeTime;
       if (!finishTime) {
         return;
       }
@@ -687,13 +694,13 @@ function CheckAndUpdatePage({
             firmwareStepStateRef.current === ECheckAndUpdateStepState.Skipped ||
             firmwareStepStateRef.current === ECheckAndUpdateStepState.Success
           ) {
-            firmwareUpdateFinishTimeRef.current = null;
+            setFirmwareRuntimeChangeTime(null);
             return;
           }
           // One-shot: consume the timestamp when the recheck actually fires.
           // The patient-path upgrade for later rounds is carried by
           // pendingPostUpdateReconnectRef instead.
-          firmwareUpdateFinishTimeRef.current = null;
+          setFirmwareRuntimeChangeTime(null);
           void checkFirmwareUpdate({
             checkAfterUpdate: true,
           });
@@ -707,7 +714,12 @@ function CheckAndUpdatePage({
           firmwareRecheckCancelRef.current = null;
         }
       };
-    }, [cancelFirmwareRecheck, checkFirmwareUpdate, restoreOriginalTransport]),
+    }, [
+      cancelFirmwareRecheck,
+      checkFirmwareUpdate,
+      firmwareRuntimeChangeTime,
+      restoreOriginalTransport,
+    ]),
   );
 
   useEffect(() => {
@@ -886,7 +898,7 @@ function CheckAndUpdatePage({
               // Skipping also cancels any pending focus-effect auto-recheck.
               cancelFirmwareRecheck();
               setIsFirmwareRecheckPending(false);
-              firmwareUpdateFinishTimeRef.current = null;
+              setFirmwareRuntimeChangeTime(null);
               setSteps((prev) => {
                 const newSteps = [...prev];
                 newSteps[1] = {
@@ -928,7 +940,7 @@ function CheckAndUpdatePage({
     // Skipping also cancels any pending focus-effect auto-recheck.
     cancelFirmwareRecheck();
     setIsFirmwareRecheckPending(false);
-    firmwareUpdateFinishTimeRef.current = null;
+    setFirmwareRuntimeChangeTime(null);
     setSteps((prev) => {
       const index = prev.findIndex(
         (step) => step.state === ECheckAndUpdateStepState.Error,
