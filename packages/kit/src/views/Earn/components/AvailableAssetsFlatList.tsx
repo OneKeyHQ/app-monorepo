@@ -25,6 +25,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EarnNavigation } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../testIDs';
+import { mergeSimpleEarnWithStakingAssets } from '../utils/availableAssetsUtils';
 
 import { AprText } from './AprText';
 import { buildEarnHomeFlatSections } from './earnCategoryTabs';
@@ -141,13 +142,6 @@ function AvailableAssetsFlatListComponent() {
   // having their own section (OK-58506). De-dup by symbol: for a duplicated
   // symbol the SimpleEarn list wins.
   const sectionAssetsByType = useMemo(() => {
-    const simpleEarnAssets =
-      availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ?? [];
-    const stakingAssets =
-      availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? [];
-    const simpleEarnSymbols = new Set(
-      simpleEarnAssets.map((asset) => asset.symbol),
-    );
     // Trending tokens exclude fixed rate (OK-58879): fixed-rate assets
     // (PT-like, separate symbols) get their own section/page, so drop them
     // from the merged Trending result
@@ -158,12 +152,10 @@ function AvailableAssetsFlatListComponent() {
     );
     const merged: typeof availableAssetsByType = {
       ...availableAssetsByType,
-      [EAvailableAssetsTypeEnum.SimpleEarn]: [
-        ...simpleEarnAssets,
-        ...stakingAssets.filter(
-          (asset) => !simpleEarnSymbols.has(asset.symbol),
-        ),
-      ].filter((asset) => !fixedRateSymbols.has(asset.symbol)),
+      [EAvailableAssetsTypeEnum.SimpleEarn]: mergeSimpleEarnWithStakingAssets(
+        availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ?? [],
+        availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? [],
+      ).filter((asset) => !fixedRateSymbols.has(asset.symbol)),
     };
     return merged;
   }, [availableAssetsByType]);

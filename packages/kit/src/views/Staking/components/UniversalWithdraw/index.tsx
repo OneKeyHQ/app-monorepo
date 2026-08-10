@@ -932,7 +932,16 @@ export function UniversalWithdraw({
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isInvalidAmount(amount)) {
+    // OK-59850: isInvalidAmount only rejects NaN and a trailing dot, so "0" /
+    // "0.00" used to reach the server. The unstake branch has no zero
+    // short-circuit and resolves the position on-chain, so a non-actionable
+    // amount span a request whose whole latency showed up as a spinning —
+    // and, via isDisable below, simultaneously disabled — confirm button.
+    // Nothing <= 0 is submittable anyway, so settle the state locally.
+    if (isInvalidAmount(amount) || BigNumber(amount).isLessThanOrEqualTo(0)) {
+      setCheckAmountLoading(false);
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
       return;
     }
     setCheckAmountLoading(true);
@@ -1055,6 +1064,12 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          // Clearing the field returns early without calling checkAmount, so
+          // drop any debounced call still queued for the previous keystroke —
+          // otherwise it fires against a field the user already emptied and
+          // re-enters the loading state (OK-59850).
+          checkAmount.cancel();
+          setCheckAmountLoading(false);
           setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
           setIgnoreAllowanceCheck(false);

@@ -31,7 +31,10 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 import { EarnTestIDs } from '../../testIDs';
-import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import {
+  mergeSimpleEarnWithStakingAssets,
+  parseAprPercentValue,
+} from '../../utils/availableAssetsUtils';
 
 import type {
   IEarnSortDirection,
@@ -64,17 +67,24 @@ function getAssetAprSortValue(asset: IEarnAvailableAsset): number {
   return parseAprPercentValue(asset.aprWithoutFee || asset.apr);
 }
 
+// Stable identity so gating the first paint never re-creates the list data
+const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
+
 function EarnTokensSkeleton() {
   return (
     <YStack px="$pagePadding" gap="$4" pt="$4">
+      {/* Mirrors the real row layout (symbol on the left, APY over TVL on the
+          right) so the skeleton-to-content swap does not shift row heights */}
       {Array.from({ length: 8 }).map((_, index) => (
         <XStack key={index} ai="center" gap="$3">
           <Skeleton w="$10" h="$10" borderRadius="$full" />
-          <YStack gap="$1.5" flex={1}>
+          <YStack flex={1}>
             <Skeleton h="$4" w="$24" />
+          </YStack>
+          <YStack ai="flex-end" gap="$1.5">
+            <Skeleton h="$4" w="$20" />
             <Skeleton h="$3" w="$16" />
           </YStack>
-          <Skeleton h="$4" w="$20" />
         </XStack>
       ))}
     </YStack>
@@ -94,13 +104,17 @@ function EarnTokensContent() {
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
 
-  // Fetch SimpleEarn + StableCoins once; every category derives from these
-  // two datasets client-side, so switching chips never re-requests the server.
-  // OK-59338: the base dataset is SimpleEarn (a server-side category that
-  // already excludes fixed-rate PT products) instead of All minus a
-  // fixed-rate symbol set — that subtraction also removed simple-earn
-  // products of symbols that happen to have a PT variant too (USDe), making
-  // them unsearchable here.
+  // Fetch SimpleEarn + Staking + StableCoins once; every category derives from
+  // these datasets client-side, so switching chips never re-requests the
+  // server.
+  // OK-59338: the base dataset is a server-side category (which already
+  // excludes fixed-rate PT products) instead of All minus a fixed-rate symbol
+  // set — that subtraction also removed simple-earn products of symbols that
+  // happen to have a PT variant too (USDe), making them unsearchable here.
+  // OK-59854: SimpleEarn alone is not the whole base though. Server categories
+  // are disjoint, so native-staking assets (SOL/BTC/ETH/APT/POL/ATOM) only
+  // appear under Staking; without them this page showed strictly fewer tokens
+  // than the Earn home Trending section that links to it.
   const { result: assets, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -109,6 +123,15 @@ function EarnTokensContent() {
     [],
     { watchLoading: true, undefinedResultIfError: true },
   );
+  const { result: stakingAssets, isLoading: isStakingLoading } =
+    usePromiseResult(
+      () =>
+        backgroundApiProxy.serviceStaking.getAvailableAssets({
+          type: EAvailableAssetsTypeEnum.Staking,
+        }),
+      [],
+      { watchLoading: true, undefinedResultIfError: true },
+    );
   const { result: stableAssets, isLoading: isStableLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getAvailableAssets({
@@ -117,26 +140,30 @@ function EarnTokensContent() {
     [],
     { watchLoading: true, undefinedResultIfError: true },
   );
+  const baseAssets = useMemo(
+    () => mergeSimpleEarnWithStakingAssets(assets ?? [], stakingAssets ?? []),
+    [assets, stakingAssets],
+  );
   const stableSymbols = useMemo(
     () => new Set((stableAssets ?? []).map((asset) => asset.symbol)),
     [stableAssets],
   );
-  // Category view over the two datasets (review P2)
+  // Category view over the merged dataset (review P2)
   const categoryAssets = useMemo(() => {
-    const list = assets ?? [];
     if (categoryType === 'stable') {
-      return list.filter((asset) => stableSymbols.has(asset.symbol));
+      return baseAssets.filter((asset) => stableSymbols.has(asset.symbol));
     }
     if (categoryType === 'nonStable') {
-      return list.filter((asset) => !stableSymbols.has(asset.symbol));
+      return baseAssets.filter((asset) => !stableSymbols.has(asset.symbol));
     }
-    return list;
-  }, [assets, categoryType, stableSymbols]);
+    return baseAssets;
+  }, [baseAssets, categoryType, stableSymbols]);
 
   // Data source for the default sort (OK-58880): total TVL of all providers
   // under each symbol. Reuses the all-protocol aggregation (single request +
-  // 5-minute cache); not shown on rows, used for sorting only
-  const { providers: aggregatedProviders } = useEarnAllProtocols();
+  // 5-minute cache)
+  const { providers: aggregatedProviders, isLoading: isAggregationLoading } =
+    useEarnAllProtocols();
   const symbolTvlMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const aggregated of aggregatedProviders) {
@@ -309,6 +336,19 @@ function EarnTokensContent() {
     [],
   );
 
+  // OK-59841: available-assets resolves well before the protocol aggregation,
+  // but the aggregation owns both the TVL sub-line on every row and the values
+  // the default TVL sort reads. Painting as soon as available-assets lands
+  // therefore draws one-line rows in a provisional (all-zero) order, then
+  // grows every row by a line and reorders the whole list — which reads as a
+  // jitter under the page title. Keep the skeleton until every field the rows
+  // render and sort by is settled, so the list is painted exactly once.
+  const isInitialLoading =
+    isLoading ||
+    isStakingLoading ||
+    isAggregationLoading ||
+    (categoryType !== 'all' && isStableLoading);
+
   // Passed as an element (stable component type), so re-renders reconcile
   // in place and the SearchBar keeps focus while typing
   const listHeader = (
@@ -390,16 +430,12 @@ function EarnTokensContent() {
       <ListView
         flex={1}
         {...earnListScrollBehaviorProps}
-        data={sortedAssets}
+        data={isInitialLoading ? EMPTY_ASSETS : sortedAssets}
         estimatedItemSize={60}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={
-          isLoading || (categoryType !== 'all' && isStableLoading) ? (
-            <EarnTokensSkeleton />
-          ) : null
-        }
+        ListEmptyComponent={isInitialLoading ? <EarnTokensSkeleton /> : null}
         contentContainerStyle={{ pb: tabBarHeight }}
       />
     </EarnPageContainer>
