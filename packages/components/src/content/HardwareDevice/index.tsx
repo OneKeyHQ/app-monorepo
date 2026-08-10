@@ -1,6 +1,9 @@
 import { ClassicDevice } from '../ClassicDevice';
 import { ProDevice } from '../ProDevice';
-import { SlateDevice } from '../SlateDevice';
+import {
+  SCREEN_SWAP_MS as SLATE_SCREEN_SWAP_MS,
+  SlateDevice,
+} from '../SlateDevice';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IProDeviceScene } from '../ProDevice';
@@ -68,6 +71,22 @@ export interface IHardwareDeviceProps {
   animation?: IHardwareDeviceScene;
   /** Rendered width in points; height follows each model's aspect ratio. */
   width?: number;
+}
+
+/**
+ * How long this model takes to hand its screen from one scene to the next,
+ * so a caller sequencing its own moves after the replica's can queue behind
+ * it. Only the Slate plays a handover (its content fades off the glass
+ * before the next scene renders in); the others cut straight over.
+ *
+ * Part of the routing contract on purpose: reading it off a per-model
+ * module would both go around this entry point and, since only one model
+ * has a handover, make every other model wait for a beat it never plays.
+ */
+export function hardwareDeviceSwapMs(
+  deviceType?: IHardwareDeviceType | null,
+): number {
+  return deviceType === 'slate' ? SLATE_SCREEN_SWAP_MS : 0;
 }
 
 export function HardwareDevice({

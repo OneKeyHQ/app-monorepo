@@ -10,9 +10,12 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 /**
  * Where the interaction currently stands. One dialog instance plays every
  * step of a burst; the content swaps in place so consecutive device requests
- * never close and reopen the surface.
+ * never close and reopen the surface. `off` is the step before the device
+ * responds: no scene, the replica sits with its screen dark, and whichever
+ * step follows enters by waking it.
  */
 export type IDeviceStageStep =
+  | 'off'
   | 'connecting'
   | 'enterPin'
   | 'enterPassphrase'
@@ -32,8 +35,25 @@ export interface IDeviceStageProps {
    */
   confirmContext?: string;
   /**
+   * Rows of the payload being approved — label over value, one card. It
+   * fades in once the compact confirm arrangement lands: the on-screen
+   * copy of what must be verified against the device. `highlightEnds`
+   * gives a value the receive page's address grammar (mono, grouped by
+   * four, first and last six characters highlighted).
+   */
+  confirmDetails?: Array<{
+    label: string;
+    value: string;
+    highlightEnds?: boolean;
+  }>;
+  /**
    * Blocks every dismissal path for steps that must not be interrupted
    * (a firmware install, not an everyday confirm).
    */
   locked?: boolean;
+  /**
+   * Passed to the dialog: keep the app behind the sheet interactive on
+   * native, for drivers that steer the stage from the host screen.
+   */
+  backgroundInteractive?: boolean;
 }
