@@ -47,12 +47,16 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsAccountDisplaySnapshotAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   getDevSettingsNetworkThrottleEnabled,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { clearPerpsContextAtomColdStartCache } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import appDeviceInfo from '@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -92,6 +96,11 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  prefixOf,
+  swrCacheNamespaces,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
@@ -607,6 +616,39 @@ const BaseDevSettingsSection = () => {
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
+  const handleClearPerpsColdStartCache = useCallback(() => {
+    Dialog.confirm({
+      title: 'Clear Perps Cold-Start Cache',
+      description:
+        'This clears Perps first-screen market, order book, position, order, and account display snapshots, then restarts the app. Perps preferences and authorization state are preserved.',
+      confirmButtonProps: { variant: 'destructive' },
+      onConfirm: async () => {
+        try {
+          await backgroundApiProxy.serviceHyperliquidCache.clearPerpsColdStartCacheForDev();
+          await clearPerpsContextAtomColdStartCache();
+          swrCacheUtils.removeByPrefix(
+            prefixOf(swrCacheNamespaces.perpsL2BookSnapshot),
+          );
+          swrCacheUtils.flushNow();
+          await perpsAccountDisplaySnapshotAtom.set({ entries: {} });
+          Toast.success({
+            title: 'Perps cold-start cache cleared',
+          });
+          setTimeout(() => {
+            void backgroundApiProxy.serviceApp.restartApp({
+              reason: 'devSettings.clearPerpsColdStartCache',
+            });
+          }, 300);
+        } catch (error) {
+          Toast.error({
+            title: 'Failed to clear Perps cold-start cache',
+            message: String(error),
+          });
+        }
+      },
+    });
+  }, []);
+
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
     void backgroundApiProxy.serviceApp.restartApp();
@@ -751,7 +793,7 @@ const BaseDevSettingsSection = () => {
         title: 'Data Management',
         description: '数据重置 清理 导出',
         keywords:
-          '清空Market收藏数据 WatchList Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
+          '清空Market收藏数据 WatchList Clear Perps Cold-Start Cache Perps首屏缓存 Mock Market Banner Data Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析 Clear App Data E2E Clear Discovery Data Clear Address Book Data Clear Wallets Accounts Data Clear Password Clear History Clear Settings Clear Wallet Connect Sessions Clear HD Wallet Hash XFP Clear Last DB Backup Timestamp Clear Cached Password Reset Spotlight Reset Invite Code Reset Hidden Sites Floating icon',
       },
       {
         key: 'webview',
@@ -1726,6 +1768,13 @@ const BaseDevSettingsSection = () => {
                             },
                           });
                         }}
+                      />
+
+                      <SectionPressItem
+                        icon="BroomOutline"
+                        title="Clear Perps Cold-Start Cache"
+                        subtitle="Clear first-screen snapshots and restart the app"
+                        onPress={handleClearPerpsColdStartCache}
                       />
 
                       <SectionFieldItem

@@ -1,8 +1,10 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
 import {
+  isPerpsColdStartSnapshotKey,
   parseColdStartSnapshotRaw,
   prepareColdStartSnapshotForWrite,
+  removePerpsColdStartSnapshotEntries,
 } from './coldStartCacheSnapshotUtils';
 
 const perpsScope = 'store:perps';
@@ -118,5 +120,22 @@ describe('coldStartCacheSnapshotUtils', () => {
       result.snapshot['store:home::ctx:lastConfirmedOverviewBalanceAtom'],
     ).toEqual({ byOwner: { a: '1' } });
     expect(result.droppedKeys.toSorted()).toEqual([openOrdersKey, positionKey]);
+  });
+
+  it('removes every Perps scoped cold-start entry without touching other scopes', () => {
+    const perpsKeys = Object.values(CONTEXT_ATOM_COLD_START_CACHE_KEYS)
+      .filter((key) => key.startsWith('ctx:perps'))
+      .map((key) => `${perpsScope}::${key}`);
+    const homeKey = 'store:home::ctx:lastConfirmedOverviewBalanceAtom';
+    const snapshot = Object.fromEntries([
+      ...perpsKeys.map((key) => [key, { cached: true }]),
+      [homeKey, { value: '100' }],
+    ]);
+
+    expect(perpsKeys.every(isPerpsColdStartSnapshotKey)).toBe(true);
+    expect(isPerpsColdStartSnapshotKey(homeKey)).toBe(false);
+    expect(removePerpsColdStartSnapshotEntries(snapshot)).toEqual({
+      [homeKey]: { value: '100' },
+    });
   });
 });

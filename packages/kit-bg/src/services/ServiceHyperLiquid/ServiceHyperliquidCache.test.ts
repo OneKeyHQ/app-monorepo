@@ -8,6 +8,7 @@ import {
   perpsActiveAccountSummaryAtom,
   perpsSpotBalancesAtom,
 } from '../../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquidCache, {
@@ -19,6 +20,12 @@ import ServiceHyperliquidCache, {
 } from './ServiceHyperliquidCache';
 
 import type { IPerpsL2BookSnapshotCacheEntry } from '../../dbs/simple/entity/SimpleDbEntityPerp';
+
+jest.mock('../../states/jotai/atoms/devSettings', () => ({
+  devSettingsPersistAtom: {
+    get: jest.fn().mockResolvedValue({ enabled: true }),
+  },
+}));
 
 function buildBook({
   coin = 'BTC',
@@ -223,13 +230,21 @@ describe('ServiceHyperliquidCache L2 book runtime cache', () => {
     ).$onekeyIsInBackground = true;
     const getL2BookSnapshotCache = jest.fn().mockResolvedValue(undefined);
     const setL2BookSnapshotCaches = jest.fn().mockResolvedValue(undefined);
+    const clearPerpsColdStartCache = jest.fn().mockResolvedValue(undefined);
+    const invalidateHyperliquidPortfolio = jest
+      .fn()
+      .mockResolvedValue(undefined);
     const service = new ServiceHyperliquidCache({
       backgroundApi: {
         simpleDb: {
           perp: {
             getL2BookSnapshotCache,
             setL2BookSnapshotCaches,
+            clearPerpsColdStartCache,
           },
+        },
+        serviceHyperliquid: {
+          invalidateHyperliquidPortfolio,
         },
       },
     });
@@ -237,6 +252,8 @@ describe('ServiceHyperliquidCache L2 book runtime cache', () => {
       service,
       getL2BookSnapshotCache,
       setL2BookSnapshotCaches,
+      clearPerpsColdStartCache,
+      invalidateHyperliquidPortfolio,
     };
   }
 
@@ -300,6 +317,71 @@ describe('ServiceHyperliquidCache L2 book runtime cache', () => {
       }),
       expect.objectContaining({ coin: 'SOL' }),
     ]);
+  });
+
+  it('rejects cache clearing when developer settings are disabled', async () => {
+    jest
+      .mocked(devSettingsPersistAtom.get)
+      .mockResolvedValueOnce({ enabled: false });
+    const {
+      service,
+      clearPerpsColdStartCache,
+      invalidateHyperliquidPortfolio,
+    } = createService();
+
+    await expect(service.clearPerpsColdStartCacheForDev()).rejects.toThrow(
+      'only available when devSettings is enabled',
+    );
+    expect(clearPerpsColdStartCache).not.toHaveBeenCalled();
+    expect(invalidateHyperliquidPortfolio).not.toHaveBeenCalled();
+  });
+
+  it('clears every runtime layer and blocks cache writes until restart', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    const {
+      service,
+      getL2BookSnapshotCache,
+      setL2BookSnapshotCaches,
+      clearPerpsColdStartCache,
+      invalidateHyperliquidPortfolio,
+    } = createService();
+    const data = buildBook({ coin: 'ETH', bidLevels: 4, askLevels: 4 });
+    const unrelatedKey = 'historyTxDetail:v1:account:tx';
+    swrCacheUtils.set(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' }), data);
+    swrCacheUtils.set(unrelatedKey, { keep: true });
+    service.cacheL2BookSnapshot({
+      data,
+      activeBookCoin: 'ETH',
+      activeOptions: { nSigFigs: 5, mantissa: 2 },
+    });
+
+    await service.clearPerpsColdStartCacheForDev();
+
+    expect(invalidateHyperliquidPortfolio).toHaveBeenCalledTimes(1);
+    expect(clearPerpsColdStartCache).toHaveBeenCalledTimes(1);
+    expect(
+      swrCacheUtils.get(swrKeys.perpsL2BookSnapshotLatest({ coin: 'ETH' })),
+    ).toBeUndefined();
+    expect(swrCacheUtils.get(unrelatedKey)).toEqual({ keep: true });
+
+    getL2BookSnapshotCache.mockClear();
+    await expect(
+      service.getL2BookSnapshotCache({
+        coin: 'ETH',
+        nSigFigs: 5,
+        mantissa: 2,
+      }),
+    ).resolves.toBeUndefined();
+    expect(getL2BookSnapshotCache).toHaveBeenCalledTimes(1);
+
+    setL2BookSnapshotCaches.mockClear();
+    service.cacheL2BookSnapshot({
+      data,
+      activeBookCoin: 'ETH',
+      activeOptions: { nSigFigs: 5, mantissa: 2 },
+    });
+    service.flushPendingL2BookSnapshotCache();
+    expect(setL2BookSnapshotCaches).not.toHaveBeenCalled();
   });
 });
 

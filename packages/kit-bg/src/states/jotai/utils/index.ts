@@ -14,8 +14,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  isPerpsColdStartSnapshotKey,
   parseColdStartSnapshotRaw,
   prepareColdStartSnapshotForWrite,
+  removePerpsColdStartSnapshotEntries,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -435,6 +437,8 @@ const coldStartDirtyKeys = new Set<string>();
 /** Debounce timer for batched MMKV writes */
 let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+let perpsColdStartCacheWritesBlocked = false;
+
 const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
 const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
 const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
@@ -582,6 +586,9 @@ function flushColdStartCache() {
 }
 
 function scheduleColdStartSave(name: string) {
+  if (perpsColdStartCacheWritesBlocked && isPerpsColdStartSnapshotKey(name)) {
+    return;
+  }
   coldStartDirtyKeys.add(name);
   coldStartLog(`scheduleSave: ${name}, dirty=${coldStartDirtyKeys.size}`);
   // Restart timer on each change so we save the FINAL value, not an
@@ -631,6 +638,66 @@ async function flushWebColdStartCacheNowIfNeeded() {
   }
 }
 
+export async function clearPerpsContextAtomColdStartCache() {
+  perpsColdStartCacheWritesBlocked = true;
+  for (const key of coldStartValuesMap.keys()) {
+    if (isPerpsColdStartSnapshotKey(key)) {
+      coldStartValuesMap.delete(key);
+    }
+  }
+  for (const key of coldStartDirtyKeys) {
+    if (isPerpsColdStartSnapshotKey(key)) {
+      coldStartDirtyKeys.delete(key);
+    }
+  }
+  if (coldStartDirtyKeys.size === 0 && coldStartSaveTimer) {
+    clearTimeout(coldStartSaveTimer);
+    coldStartSaveTimer = undefined;
+  }
+
+  const globalState = globalThis as typeof globalThis & {
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+    __ONEKEY_PERPS_L2_BOOK_COLD_CACHE__?: unknown;
+  };
+  if (globalState.__ONEKEY_CTX_ATOM_SNAPSHOT__) {
+    globalState.__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+      removePerpsColdStartSnapshotEntries(
+        globalState.__ONEKEY_CTX_ATOM_SNAPSHOT__,
+      );
+  }
+  delete globalState.__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { coldStartCacheStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const storageKey = EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
+    const snapshot = parseColdStartSnapshotRaw(
+      coldStartCacheStorage.getString(storageKey),
+    );
+    if (!snapshot) {
+      coldStartCacheStorage.delete(storageKey);
+    } else {
+      const nextSnapshot = removePerpsColdStartSnapshotEntries(snapshot);
+      if (Object.keys(nextSnapshot).length === 0) {
+        coldStartCacheStorage.delete(storageKey);
+      } else {
+        coldStartCacheStorage.set(
+          storageKey,
+          prepareColdStartSnapshotForWrite(nextSnapshot).serialized,
+        );
+      }
+    }
+    await flushWebColdStartCacheNowIfNeeded();
+    coldStartLog('cleared Perps context atom snapshots');
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function writeContextAtomColdStartCacheValues({
   entries,
   flushImmediately,
@@ -646,17 +713,26 @@ export async function writeContextAtomColdStartCacheValues({
     return;
   }
 
-  let lastScopedKey = '';
+  let lastScopedKey: string | undefined;
   for (const { coldStartScopeKey, coldStartCacheKey, value } of entries) {
     const scopedKey = buildColdStartScopedKey({
       coldStartScopeKey,
       coldStartCacheKey,
     });
-    lastScopedKey = scopedKey;
-    coldStartValuesMap.set(scopedKey, value);
-    coldStartDirtyKeys.add(scopedKey);
-    patchGlobalColdStartSnapshot({ scopedKey, value });
-    coldStartLog(`writeNow: ${scopedKey}`);
+    if (
+      !perpsColdStartCacheWritesBlocked ||
+      !isPerpsColdStartSnapshotKey(scopedKey)
+    ) {
+      lastScopedKey = scopedKey;
+      coldStartValuesMap.set(scopedKey, value);
+      coldStartDirtyKeys.add(scopedKey);
+      patchGlobalColdStartSnapshot({ scopedKey, value });
+      coldStartLog(`writeNow: ${scopedKey}`);
+    }
+  }
+
+  if (!lastScopedKey) {
+    return;
   }
 
   if (flushImmediately) {
@@ -996,6 +1072,12 @@ export function contextAtomBase<Value>({
           coldStartCacheKey: cacheKey,
         });
         const currentValue = result[0];
+        if (
+          perpsColdStartCacheWritesBlocked &&
+          isPerpsColdStartSnapshotKey(scopedCacheKey)
+        ) {
+          return result;
+        }
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           coldStartLog(`init: ${scopedCacheKey}`);

@@ -13,6 +13,7 @@ import {
   PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
   PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
 } from '@onekeyhq/shared/src/consts/perpCache';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   markPerpsColdStartPerf,
@@ -22,6 +23,8 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   getPerpsL2BookSnapshotCacheKeys,
+  prefixOf,
+  swrCacheNamespaces,
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -46,6 +49,7 @@ import {
   perpsComputedAccountValueAtom,
   perpsSpotBalancesAtom,
 } from '../../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -287,6 +291,8 @@ function buildAccountDisplaySummaryCache(
 
 @backgroundClass()
 export default class ServiceHyperliquidCache extends ServiceBase {
+  private _coldStartCacheWritesDisabled = false;
+
   private _lastAllDexsAssetCtxsCacheWriteAt = 0;
 
   private _lastL2BookSnapshotCacheWriteAt = 0;
@@ -311,6 +317,38 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     string,
     IPerpsL2BookSnapshotCachePayload
   >();
+
+  @backgroundMethod()
+  async clearPerpsColdStartCacheForDev() {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        'clearPerpsColdStartCacheForDev is only available when devSettings is enabled',
+      );
+    }
+
+    this._coldStartCacheWritesDisabled = true;
+    if (this._l2BookSnapshotCacheTimer) {
+      clearTimeout(this._l2BookSnapshotCacheTimer);
+      this._l2BookSnapshotCacheTimer = null;
+    }
+    this._pendingL2BookSnapshotCache.clear();
+    this._l2BookSnapshotMemoryCache.clear();
+    this._lastAllDexsAssetCtxsCacheWriteAt = 0;
+    this._lastL2BookSnapshotCacheWriteAt = 0;
+    this._lastAccountDisplayCacheWriteAt = {};
+
+    swrCacheUtils.removeByPrefix(
+      prefixOf(swrCacheNamespaces.perpsL2BookSnapshot),
+    );
+    swrCacheUtils.flushNow();
+
+    await this.backgroundApi.serviceHyperliquid.invalidateHyperliquidPortfolio();
+    await this.backgroundApi.simpleDb.perp.clearPerpsColdStartCache();
+    await perpsAccountDisplaySnapshotAtom.set({ entries: {} });
+
+    return { success: true };
+  }
 
   @backgroundMethod()
   async getL2BookSnapshotCache({
@@ -379,6 +417,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   }
 
   writeActiveAssetCtxSnapshotCache(data: IWsActiveAssetCtx) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     void this.backgroundApi.simpleDb.perp
       .setActiveAssetCtxSnapshotCache(data)
       .catch((error) => {
@@ -440,6 +481,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   }
 
   cacheAllDexsAssetCtxsSnapshot(data: IWsAllDexsAssetCtxs) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     const now = Date.now();
     if (
       now - this._lastAllDexsAssetCtxsCacheWriteAt <
@@ -475,7 +519,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   private _writeL2BookSnapshotCaches(
     payloads: IPerpsL2BookSnapshotCachePayload[],
   ) {
-    if (payloads.length === 0) {
+    if (this._coldStartCacheWritesDisabled || payloads.length === 0) {
       return;
     }
     this._lastL2BookSnapshotCacheWriteAt = Date.now();
@@ -512,6 +556,14 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   }
 
   flushPendingL2BookSnapshotCache() {
+    if (this._coldStartCacheWritesDisabled) {
+      if (this._l2BookSnapshotCacheTimer) {
+        clearTimeout(this._l2BookSnapshotCacheTimer);
+        this._l2BookSnapshotCacheTimer = null;
+      }
+      this._pendingL2BookSnapshotCache.clear();
+      return;
+    }
     if (this._l2BookSnapshotCacheTimer) {
       clearTimeout(this._l2BookSnapshotCacheTimer);
       this._l2BookSnapshotCacheTimer = null;
@@ -532,6 +584,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     activeBookCoin?: string;
     activeOptions?: IL2BookOptions | null;
   }) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     const payload = buildL2BookSnapshotCachePayload({
       data,
       activeBookCoin,
@@ -605,6 +660,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   }: {
     accountAddress: string;
   }) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     const targetAddress = accountAddress.toLowerCase();
     const now = Date.now();
     const activeAccount = await perpsActiveAccountAtom.get();
@@ -779,6 +837,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   async writePerpsAccountDisplaySummary(
     summary: IPerpsActiveAccountSummaryAtom,
   ) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     const summaryAddress = summary?.accountAddress?.toLowerCase();
     const data = buildAccountDisplaySummaryCache(summary);
     if (!data || !summaryAddress) {
@@ -811,6 +872,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     balances: ISpotBalanceItem[];
     spotTotalUsd: string;
   }) {
+    if (this._coldStartCacheWritesDisabled) {
+      return;
+    }
     const data: IPerpsAccountDisplayCacheSpotBalances = {
       accountAddress,
       balances,

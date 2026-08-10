@@ -1,4 +1,7 @@
-import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
+import {
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS,
+  PERPS_CONTEXT_ATOM_COLD_START_CACHE_KEYS,
+} from '../consts/jotaiConsts';
 
 const DEFAULT_MAX_SNAPSHOT_CHARS = 1024 * 1024;
 const DEFAULT_HARD_MAX_SNAPSHOT_CHARS = 4 * 1024 * 1024;
@@ -26,6 +29,22 @@ function isRecord(value: unknown): value is ISnapshotRecord {
 
 function isScopedCacheKey(snapshotKey: string, cacheKey: string) {
   return snapshotKey.endsWith(`::${cacheKey}`);
+}
+
+export function isPerpsColdStartSnapshotKey(snapshotKey: string) {
+  return PERPS_CONTEXT_ATOM_COLD_START_CACHE_KEYS.some((cacheKey) =>
+    isScopedCacheKey(snapshotKey, cacheKey),
+  );
+}
+
+export function removePerpsColdStartSnapshotEntries(
+  snapshot: ISnapshotRecord,
+): ISnapshotRecord {
+  return Object.fromEntries(
+    Object.entries(snapshot).filter(
+      ([snapshotKey]) => !isPerpsColdStartSnapshotKey(snapshotKey),
+    ),
+  );
 }
 
 function isPerpsVolatileListSnapshotKey(snapshotKey: string) {

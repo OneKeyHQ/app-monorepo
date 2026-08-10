@@ -190,10 +190,40 @@ export interface ISimpleDbPerpData {
   perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
 }
 
+const PERPS_COLD_START_SIMPLE_DB_KEYS = [
+  'tradingUniverse',
+  'marginTablesMap',
+  'tradingUniverses',
+  'tradingUniversesUpdatedAt',
+  'marginTablesMapList',
+  'tokenSearchAliases',
+  'tokenSelectorTabs',
+  'perpsAssetMetaMap',
+  'spotTokens',
+  'spotUniverses',
+  'activeAssetCtxSnapshotCache',
+  'l2BookSnapshotCache',
+  'allDexsAssetCtxsSnapshotCache',
+  'perpsAccountDisplayCacheByAddress',
+  'hyperliquidPortfolioSnapshotByAddress',
+] as const satisfies readonly (keyof ISimpleDbPerpData)[];
+
+export function removePerpsColdStartSimpleDbData(
+  data: ISimpleDbPerpData,
+): ISimpleDbPerpData {
+  const next = { ...data };
+  PERPS_COLD_START_SIMPLE_DB_KEYS.forEach((key) => {
+    delete next[key];
+  });
+  return next;
+}
+
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  private _coldStartCacheWritesDisabled = false;
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
@@ -288,7 +318,20 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       prevConfig: ISimpleDbPerpData | null | undefined,
     ) => ISimpleDbPerpData,
   ) {
-    await this.setRawData(setFn);
+    await this.setRawData((prev) => {
+      const next = setFn(prev);
+      return this._coldStartCacheWritesDisabled
+        ? removePerpsColdStartSimpleDbData(next)
+        : next;
+    });
+  }
+
+  @backgroundMethod()
+  async clearPerpsColdStartCache() {
+    this._coldStartCacheWritesDisabled = true;
+    await this.setPerpData((prev) =>
+      removePerpsColdStartSimpleDbData(prev ?? {}),
+    );
   }
 
   @backgroundMethod()
