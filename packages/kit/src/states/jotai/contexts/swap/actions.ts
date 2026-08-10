@@ -143,6 +143,7 @@ import {
   swapTokenMapAtom,
   swapTokenMetadataAtom,
   swapTypeSwitchAtom,
+  swapWarningRequestIdAtom,
 } from './atoms';
 import {
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
@@ -1677,8 +1678,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         allowNoConnectWallet?: boolean;
       },
     ) => {
+      const warningRequestId = get(swapWarningRequestIdAtom()) + 1;
+      set(swapWarningRequestIdAtom(), warningRequestId);
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
+      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      const isLatestSwapWarningCheck = () =>
+        get(swapWarningRequestIdAtom()) === warningRequestId &&
+        get(swapTypeSwitchAtom()) === swapTypeSwitch &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectFromTokenAtom()),
+          token2: fromToken,
+        }) &&
+        isSameOptionalSwapToken({
+          token1: get(swapSelectToTokenAtom()),
+          token2: toToken,
+        });
       const networks = get(swapNetworks());
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
@@ -1692,7 +1707,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapQuoteCurrentEventReceivedCountAtom(),
       );
       const { swapIncognitoMode } = await settingsAtom.get();
-      const swapTypeSwitch = get(swapTypeSwitchAtom());
+      if (!isLatestSwapWarningCheck()) {
+        return;
+      }
       const quoteEventProgressTotalCount = getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
@@ -1744,6 +1761,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteEventErrorAtom(), undefined);
       }
       const isLatestStockWarningCheck = () => {
+        if (!isLatestSwapWarningCheck()) {
+          return false;
+        }
         if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
           return true;
         }
@@ -1910,6 +1930,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               addressInfo: swapFromAddressInfo,
               activeNetworkId: fromToken.networkId,
             });
+          if (!isLatestSwapWarningCheck()) {
+            return;
+          }
           if (accountNetworkNotSupportedAlert) {
             alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
             set(swapAlertsAtom(), {
@@ -1947,6 +1970,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               { network: toNetworkName },
             ),
           });
+        if (!isLatestSwapWarningCheck()) {
+          return;
+        }
         if (accountNetworkNotSupportedAlert) {
           alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
           set(swapAlertsAtom(), {
