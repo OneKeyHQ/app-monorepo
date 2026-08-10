@@ -3,6 +3,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountStatusInfoAtom,
