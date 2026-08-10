@@ -86,5 +86,12 @@
       "#12769"
     ],
     "notes": "Collect swap referral attribution (#12585); keep Perps cold-start data and trade mode consistent across runtimes (#12680); re-enable the Perps subscriptions handler when the UI is provably live (#12683); force stock table mode (#12725); improve market indicator quick bar gestures (#12728); hide liquidity column in spot banner detail list (#12729); reserve gas for private max send (#12740); address Swap Pro badges and stock charts (#12747); improve market initial rendering (#12748); support Paragon HIP-3 markets (#12753); add Swap Pro analytics and trade source (#12764); support compact market banner list (#12769)"
+  },
+  {
+    "seq": 6,
+    "commit": "3f3f50f6afbe1b492fc4493596717facb3f9cead",
+    "date": "2026-08-10T11:02:19Z",
+    "prs": ["#12765", "#12792"],
+    "notes": "Support Spark and Bitway Earn integrations (#12765); add DEX labels to Perps market lists (#12792)"
   }
 ]
