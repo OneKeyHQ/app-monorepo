@@ -553,7 +553,7 @@ describe('TradingViewNative data providers', () => {
     expect(mocks?.tokenInfoFetch).toHaveBeenCalledTimes(1);
   });
 
-  it('retries Market after a transient fallback succeeds', async () => {
+  it('keeps using CoinGecko after fallback selects the history source', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
     mocks?.coinGeckoFetchChart.mockResolvedValue([[7200, 10]]);
     mocks?.marketFetchHistory.mockImplementation((params) =>
@@ -595,17 +595,51 @@ describe('TradingViewNative data providers', () => {
         receivedPointCount: 500,
       }),
     ).toBe(false);
-    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(2000);
+    expect(provider.getHistoryRequestCandleCount(getInterval('60'))).toBe(720);
 
-    const nextProvider = createTradingViewNativeDataProvider(source);
-    await nextProvider.fetchHistory(request);
-    expect(nextProvider.getHistoryRequestCandleCount(getInterval('60'))).toBe(
-      2000,
-    );
+    await provider.fetchHistory(request);
     expect(mocks?.marketFetchHistory).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ primaryKLineDataUnavailable: false }),
+      expect.objectContaining({ primaryKLineDataUnavailable: true }),
     );
+  });
+
+  it('does not use CoinGecko after Market selects the history source', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    mocks?.marketFetchHistory
+      .mockResolvedValueOnce({
+        points: [{ o: 10, h: 12, l: 9, c: 11, v: 1, t: 7200 }],
+        total: 1,
+      })
+      .mockImplementationOnce(async (params) => {
+        expect(params.kLineDataFallback).toBeUndefined();
+        return { points: [], total: 0 };
+      });
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'market',
+      fallbackCoinGeckoId: 'bitcoin',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      symbol: 'BTC',
+      realtime: 'disabled',
+    });
+    const request = {
+      interval: getInterval('60'),
+      signal: new AbortController().signal,
+      timeFrom: 3600,
+      timeTo: 10_800,
+    };
+
+    await expect(provider.fetchHistory(request)).resolves.toEqual({
+      points: [{ o: 10, h: 12, l: 9, c: 11, v: 1, t: 7200 }],
+      total: 1,
+    });
+    await expect(provider.fetchHistory(request)).resolves.toEqual({
+      points: [],
+      total: 0,
+    });
+    expect(mocks?.coinGeckoFetchChart).not.toHaveBeenCalled();
+    expect(mocks?.tokenInfoFetch).not.toHaveBeenCalled();
   });
 
   it('adapts validated Market WS candles and owns subscription cleanup', async () => {
