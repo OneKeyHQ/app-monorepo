@@ -16,40 +16,28 @@ import storageQuotaUtils from '@onekeyhq/shared/src/storageChecker/storageQuotaU
 import type { IStorageFullDiagnostics } from '@onekeyhq/shared/src/storageChecker/types';
 
 /**
- * Compose the diagnostic detail line shown under the warning copy.
+ * Storage headroom line shown under the warning copy: how much of the granted
+ * quota is left. For an extension the quota — not the physical disk — is the
+ * binding write limit, so this is the number that explains the warning to a
+ * user staring at a half-empty drive.
  *
- * Presentation lives here rather than in `shared` so the UI layer owns it, but
- * the labels stay technical on purpose: there are no ETranslations keys for
- * "quota" / "used" / the reason values, and the locale files are generated —
- * they cannot be hand-edited to add them. Numbers plus a stable reason token
- * are also what users copy verbatim into support reports, so they are worth
- * keeping unambiguous. `available` uses the one key that does exist.
+ * Only the translated label plus formatted sizes are rendered. `reason` and the
+ * originating error message are diagnostics, not UI copy: they have no
+ * translation keys (and the locale files are generated, so they cannot be
+ * hand-added here), and they already go to `defaultLogger`, which is where a
+ * support engineer reads them from an exported log.
  */
-function buildDiagnosticsDetail(
+function buildStorageHeadroomText(
   diagnostics: IStorageFullDiagnostics | undefined,
   availableLabel: string,
 ): string | undefined {
-  if (!diagnostics) {
+  const quotaInfo = diagnostics?.quotaInfo;
+  if (!quotaInfo) {
     return undefined;
   }
-  const lines: string[] = [];
-  const { quotaInfo } = diagnostics;
-  if (quotaInfo) {
-    lines.push(
-      [
-        `Quota ${storageQuotaUtils.formatGB(quotaInfo.quotaBytes)}`,
-        `Used ${storageQuotaUtils.formatGB(quotaInfo.usageBytes)}`,
-        `${availableLabel} ${storageQuotaUtils.formatGB(
-          quotaInfo.availableBytes,
-        )}`,
-      ].join(' · '),
-    );
-  }
-  lines.push(`Reason: ${diagnostics.reason}`);
-  if (diagnostics.errorMessage) {
-    lines.push(`Error: ${diagnostics.errorMessage}`);
-  }
-  return lines.join('\n');
+  return `${availableLabel}: ${storageQuotaUtils.formatGB(
+    quotaInfo.availableBytes,
+  )} / ${storageQuotaUtils.formatGB(quotaInfo.quotaBytes)}`;
 }
 
 export function DiskFullWarningDialogContainer() {
@@ -67,9 +55,7 @@ export function DiskFullWarningDialogContainer() {
         diagnostics: IAppEventBusPayload[EAppEventBusNames.ShowSystemDiskFullWarning],
       ) => {
         await hideFn();
-        // Tells a real quota exhaustion apart from a write that failed for
-        // some other reason — the translated copy alone cannot express that.
-        const detail = buildDiagnosticsDetail(
+        const detail = buildStorageHeadroomText(
           diagnostics,
           intl.formatMessage({ id: ETranslations.global_available }),
         );

@@ -136,6 +136,27 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     return db.withTransaction(bucketName, task, options);
   }
 
+  /**
+   * For transactions whose net effect is freeing space — removing wallets,
+   * accounts, credentials, archived history.
+   *
+   * These must stay available while the disk-full guard is raised: deleting
+   * local data is the main way a user recovers, so blocking them turns a
+   * recoverable state into a dead end. Some of these transactions also update
+   * a record along the way (e.g. `removeWallet` rewriting a wallet it converts
+   * to mocked); that is a rounding error next to what the same transaction
+   * deletes, and refusing to start guarantees the failure that allowing it
+   * merely risks.
+   */
+  async withSpaceFreeingTransaction<T>(
+    bucketName: EIndexedDBBucketNames,
+    task: ILocalDBWithTransactionTask<T>,
+  ): Promise<T> {
+    return this.withTransaction(bucketName, task, {
+      allowWhenStorageFull: true,
+    });
+  }
+
   async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
