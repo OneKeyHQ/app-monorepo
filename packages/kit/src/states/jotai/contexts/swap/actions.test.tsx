@@ -3913,6 +3913,72 @@ describe('useSwapActions', () => {
     expect(store.get(swapAlertsAtom()).states[0]?.action).toBeUndefined();
   });
 
+  it('ignores a stale target-network check after the token pair changes', async () => {
+    const externalAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      wallet: externalWallet,
+      network: { id: bnbToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const externalFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      networkId: bnbToken.networkId,
+      accountInfo: externalAccountInfo,
+      activeAccount: externalAccountInfo,
+    };
+    const externalToAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...externalAccountInfo,
+      account: undefined,
+      network: { id: trxToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const missingRecipientAddressInfo: ISwapAddressInfo = {
+      ...externalFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+      accountInfo: externalToAccountInfo,
+      activeAccount: externalToAccountInfo,
+    };
+    const targetNetworkCheck = createDeferred<boolean>();
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapNetworks(), [evmSwapNetwork, trxSwapNetwork]);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+      storeInstance.set(swapQuoteListAtom(), [
+        buildRecipientUnsupportedQuote({
+          fromToken: bnbToken,
+          toToken: trxToken,
+        }),
+      ]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockReturnValueOnce(
+      targetNetworkCheck.promise,
+    );
+
+    await withMutedConsoleError(async () => {
+      const warningPromise = result.current.checkSwapWarning(
+        externalFromAddressInfo,
+        missingRecipientAddressInfo,
+      );
+      await waitFor(() => {
+        expect(mockCheckAccountNetworkNotSupported).toHaveBeenCalledTimes(1);
+      });
+
+      store.set(swapSelectToTokenAtom(), ethToken);
+      targetNetworkCheck.resolve(true);
+      await act(async () => {
+        await warningPromise;
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
+  });
+
   it('does not offer address creation when hardware cannot use the target network', async () => {
     const hardwareWallet: IDBWallet = {
       id: 'hw-1',

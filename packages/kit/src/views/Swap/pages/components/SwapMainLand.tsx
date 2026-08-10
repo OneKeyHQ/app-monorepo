@@ -158,26 +158,17 @@ interface ISwapMainLoadProps {
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
+  const reviewDialogTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
-  const dialogClose = useCallback(() => {
-    void dialogRef.current?.close();
-  }, []);
-  useEffect(() => {
-    if (!isFocused) {
-      dialogClose();
-    }
-  }, [dialogClose, isFocused]);
-  useEffect(
-    () => () => {
-      dialogClose();
-    },
-    [dialogClose],
-  );
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
   const onPopSwapModal = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
@@ -238,6 +229,34 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
+
+  const resetPendingReview = useCallback(() => {
+    setSwapBuildTxFetching(false);
+    void backgroundApiProxy.serviceGas.abortEstimateFee();
+    setSwapSteps({
+      steps: [],
+      preSwapData: {},
+    });
+  }, [setSwapBuildTxFetching, setSwapSteps]);
+  const dialogClose = useCallback(() => {
+    if (reviewDialogTimerRef.current !== undefined) {
+      clearTimeout(reviewDialogTimerRef.current);
+      reviewDialogTimerRef.current = undefined;
+      resetPendingReview();
+    }
+    void dialogRef.current?.close();
+  }, [resetPendingReview]);
+  useEffect(() => {
+    if (!isFocused) {
+      dialogClose();
+    }
+  }, [dialogClose, isFocused]);
+  useEffect(
+    () => () => {
+      dialogClose();
+    },
+    [dialogClose],
+  );
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
   if (swapFromTokenRef.current !== fromSelectTokenAtom) {
@@ -1057,7 +1076,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
-    setTimeout(() => {
+    reviewDialogTimerRef.current = setTimeout(() => {
+      reviewDialogTimerRef.current = undefined;
+      if (!isFocusedRef.current) {
+        resetPendingReview();
+        return;
+      }
       dialogRef.current = reviewDialogController.show({
         onClose: onPreSwapClose,
         title: intl.formatMessage({
@@ -1111,6 +1135,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     showSwapProReviewCustomNetworkFeeOption,
     handleConfirm,
     storeName,
+    resetPendingReview,
   ]);
 
   const onOpenOrdersClick = useCallback(
