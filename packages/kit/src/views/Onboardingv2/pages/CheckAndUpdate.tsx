@@ -117,14 +117,16 @@ function CheckAndUpdatePage({
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
-  // 固件运行状态变化后 focus effect 自动复查的一次性时间戳：定时复查触发
-  // 或用户明确跳过时清除，仅用于调度和延迟计算。
+  // One-shot timestamp for the focus-effect recheck after firmware runtime state
+  // changes. Clear it when the timer fires or the user explicitly skips; it only
+  // drives scheduling and delay calculations.
   const [firmwareRuntimeChangeTime, setFirmwareRuntimeChangeTime] = useState<
     number | null
   >(null);
   const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
-  // 单独记录“设备可能仍在重启”：升级成功或中断时置位，仅在检查成功完成后清除。
-  // 置位期间所有检查（包括手动重试）都使用更耐心的重连路径和更长超时。
+  // Track "the device may still be rebooting" separately. Set it when an update
+  // succeeds or is interrupted, and clear it only after a check completes successfully.
+  // While set, every check, including manual retries, uses the patient reconnect path.
   const pendingPostUpdateReconnectRef = useRef(false);
   const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
   const getBootloaderDialogHost = useCallback(
@@ -616,7 +618,7 @@ function CheckAndUpdatePage({
 
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
-  // 固件升级成功、取消或异常退出后都要刷新设备运行状态。
+  // Refresh the live runtime state after an update succeeds, is canceled, or fails.
   useEffect(() => {
     const handleFirmwareRuntimeChanged = () => {
       console.log('Firmware update runtime changed, recording timestamp...');

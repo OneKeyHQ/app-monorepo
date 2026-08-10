@@ -2152,7 +2152,7 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext?: EHardwareCallContext;
     connectProtocol?: HardwareConnectProtocol;
     forceProtocolDetection?: boolean;
-    /** 固件重启后跳过 SearchDevice.features，强制读取设备当前运行状态。 */
+    /** Bypass SearchDevice.features after a firmware reboot and read the live device state. */
     forceFeaturesRefresh?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {

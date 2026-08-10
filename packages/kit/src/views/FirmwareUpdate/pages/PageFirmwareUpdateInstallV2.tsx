@@ -170,8 +170,9 @@ function PageFirmwareUpdateInstallV2() {
           }
         } finally {
           if (!isDone) {
-            // 取消或异常退出时设备也可能已经从 loader 重启，通知 onboarding
-            // 丢弃旧连接并执行与升级成功后一致的延迟重绑。
+            // The device may have rebooted from loader mode after cancellation or an
+            // error. Notify onboarding to discard the stale connection and run the
+            // same delayed rebind used after a successful update.
             appEventBus.emit(
               EAppEventBusNames.FirmwareUpdateInterrupted,
               undefined,
