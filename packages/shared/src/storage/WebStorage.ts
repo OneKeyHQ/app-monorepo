@@ -186,7 +186,15 @@ class WebStorage implements AsyncStorageStatic {
 
   // localforage = localforage;
 
-  checkDiskFull(payload?: any) {
+  // Diagnostic payload only: never the stored values. WebStorage carries
+  // application and global state, and a storage incident produces a burst of
+  // blocked writes — logging their contents would spray persisted data into
+  // developer consoles and log collection exactly when it is least wanted.
+  checkDiskFull(payload?: {
+    method: string;
+    key?: string;
+    itemCount?: number;
+  }) {
     if (platformEnv.isWebDappMode) {
       return;
     }
@@ -253,7 +261,7 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'setItem', key, value });
+    this.checkDiskFull({ method: 'setItem', key });
 
     const indexed = await this.indexed;
     try {
@@ -301,7 +309,7 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'mergeItem', key, value });
+    this.checkDiskFull({ method: 'mergeItem', key });
 
     const indexed = await this.indexed;
 
@@ -330,7 +338,10 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'multiMerge', keyValuePairs });
+    this.checkDiskFull({
+      method: 'multiMerge',
+      itemCount: keyValuePairs.length,
+    });
 
     const indexed = await this.indexed;
 
@@ -356,7 +367,10 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'multiSet', keyValuePairs });
+    this.checkDiskFull({
+      method: 'multiSet',
+      itemCount: keyValuePairs.length,
+    });
 
     const indexed = await this.indexed;
 

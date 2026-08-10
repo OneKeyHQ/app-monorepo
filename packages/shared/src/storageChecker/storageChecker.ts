@@ -82,6 +82,14 @@ let lastDiagnostics: IStorageFullDiagnostics | undefined;
 let hasLoggedFirstMeasurement = false;
 /** Bumped per measurement so a stale async result cannot change state. */
 let measurementGeneration = 0;
+/**
+ * The IDBFactory that raised the failure. Production storage lives in named
+ * Storage Buckets, each with its own factory, so proving that the default
+ * origin can commit says nothing about the bucket that actually failed.
+ */
+let lastFailedIndexedDBFactory: IDBFactory | undefined;
+/** Distinct per probe, so a leftover sentinel is never merely overwritten. */
+let probeSentinelSequence = 0;
 
 function getErrorMessage(error: unknown): string | undefined {
   return (error as Error | undefined)?.message;
@@ -126,12 +134,13 @@ const probeSentinelValue = 'x'.repeat(1024);
 /**
  * Best-effort removal of the sentinel, in its own transaction so it can never
  * turn a successful proof into a failure. Leaving it behind on a full disk is
- * acceptable: it is 1 KB, and the next successful probe overwrites it.
+ * acceptable: it is 1 KB, and each probe uses a fresh key so a leftover can
+ * never make the next probe a no-op overwrite.
  */
-function cleanUpProbeSentinel(db: IDBDatabase) {
+function cleanUpProbeSentinel(db: IDBDatabase, sentinelKey: string) {
   try {
     const tx = db.transaction(probeStoreName, 'readwrite');
-    tx.objectStore(probeStoreName).delete(probeStoreName);
+    tx.objectStore(probeStoreName).delete(sentinelKey);
   } catch {
     // Nothing to do — the proof already stands.
   }
@@ -152,7 +161,9 @@ function cleanUpProbeSentinel(db: IDBDatabase) {
  */
 function runWriteProbe(): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    const indexedDb = globalThis?.indexedDB;
+    // Probe the owner that failed, falling back to the default origin only
+    // when nothing recorded one.
+    const indexedDb = lastFailedIndexedDBFactory ?? globalThis?.indexedDB;
     if (!indexedDb) {
       resolve(false);
       return;
@@ -187,11 +198,13 @@ function runWriteProbe(): Promise<boolean> {
           // net size delta of zero, so committing it proves only that an empty
           // transaction can complete — not that the space-growing write which
           // originally failed can. The sentinel must survive its own commit.
+          probeSentinelSequence += 1;
+          const sentinelKey = `${probeStoreName}-${probeSentinelSequence}`;
           const tx = db.transaction(probeStoreName, 'readwrite');
           const store = tx.objectStore(probeStoreName);
-          store.put(probeSentinelValue, probeStoreName);
+          store.put(probeSentinelValue, sentinelKey);
           tx.oncomplete = () => {
-            cleanUpProbeSentinel(db);
+            cleanUpProbeSentinel(db, sentinelKey);
             finish(true, db);
           };
           tx.onerror = () => finish(false, db);
@@ -259,7 +272,10 @@ function clearDiskFull(quotaInfo: IStorageQuotaInfo) {
   appGlobals?.$defaultLogger?.app.storage.diskFullCleared(quotaInfo);
 }
 
-function handleDiskFullError(error: unknown) {
+function handleDiskFullError(
+  error: unknown,
+  options?: { indexedDBFactory?: IDBFactory | null },
+) {
   if (platformEnv.isWebDappMode) {
     return;
   }
@@ -269,6 +285,9 @@ function handleDiskFullError(error: unknown) {
   }
   if (!diskFullErrorMessages.some((message) => errorText.includes(message))) {
     return;
+  }
+  if (options?.indexedDBFactory) {
+    lastFailedIndexedDBFactory = options.indexedDBFactory;
   }
   raiseDiskFull({
     reason: EStorageFullReason.WriteFailed,

@@ -73,11 +73,14 @@ function requestToPromise<TResult>(request: IDBRequest<TResult>) {
  * is the first operation to exhaust storage would surface a low-level error and
  * leave the guard — and the user-facing diagnostics — untouched.
  */
-async function reportStorageWriteFailure<T>(run: () => Promise<T>): Promise<T> {
+async function reportStorageWriteFailure<T>(
+  run: () => Promise<T>,
+  indexedDBFactory?: IDBFactory | null,
+): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    storageChecker.handleDiskFullError(error);
+    storageChecker.handleDiskFullError(error, { indexedDBFactory });
     throw error;
   }
 }
@@ -220,7 +223,7 @@ async function openCryptoKeyDb({
   };
   // Same open-time gap as `IndexedDBPromised`: a full backing store fails the
   // open itself, before any transaction exists.
-  return reportStorageWriteFailure(() => requestToPromise(request));
+  return reportStorageWriteFailure(() => requestToPromise(request), indexedDB);
 }
 
 export async function readCryptoKeyRecord({

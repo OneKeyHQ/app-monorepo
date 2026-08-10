@@ -6,8 +6,11 @@ import resetUtils from '../utils/resetUtils';
 import WebStorage from './WebStorage';
 
 describe('WebStorage.checkDiskFull', () => {
-  const callCheckDiskFull = (payload?: unknown) =>
-    WebStorage.prototype.checkDiskFull.call({} as WebStorage, payload);
+  const callCheckDiskFull = (payload?: {
+    method: string;
+    key?: string;
+    itemCount?: number;
+  }) => WebStorage.prototype.checkDiskFull.call({} as WebStorage, payload);
 
   beforeEach(() => {
     globalThis.$onekeySystemDiskIsFull = undefined;

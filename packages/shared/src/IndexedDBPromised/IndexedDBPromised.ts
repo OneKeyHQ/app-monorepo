@@ -312,7 +312,13 @@ export class IndexedDBPromised<
   ): Promise<StoreKey<DBTypes, Name>> {
     const tx = await this.createBucketTransaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
-    return store.add(value, key);
+    const result = await store.add(value, key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
+    return result;
   }
 
   async clear(name: StoreNames<DBTypes>): Promise<void> {
@@ -320,7 +326,12 @@ export class IndexedDBPromised<
       allowWhenStorageFull: true,
     });
     const store = tx.objectStore(name);
-    return store.clear();
+    await store.clear();
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
   }
 
   async count<Name extends StoreNames<DBTypes>>(
@@ -354,7 +365,12 @@ export class IndexedDBPromised<
       allowWhenStorageFull: true,
     });
     const store = tx.objectStore(storeName);
-    return store.delete(key);
+    await store.delete(key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
   }
 
   async get<Name extends StoreNames<DBTypes>>(
@@ -476,7 +492,13 @@ export class IndexedDBPromised<
   ): Promise<StoreKey<DBTypes, Name>> {
     const tx = await this.createBucketTransaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
-    return store.put(value, key);
+    const result = await store.put(value, key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
+    return result;
   }
 
   addEventListener<K extends keyof IDBDatabaseEventMap>(
@@ -543,7 +565,9 @@ export class IndexedDBPromised<
         // "QuotaExceededError: Encountered full disk while opening backing
         // store for indexedDB.open". Without reporting it the guard, the
         // warning and the diagnostics all stay unset.
-        storageChecker.handleDiskFullError(error);
+        storageChecker.handleDiskFullError(error, {
+          indexedDBFactory: this.nativeDBFactory,
+        });
         // `onupgradeneeded` may already have published a handle for the
         // upgrade callback; a failed open must not leave it cached.
         this.invalidateNativeDB('openFailed');
