@@ -113,6 +113,10 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import {
+  getCheckAmountRequestKey,
+  isLatestCheckAmountRequest,
+} from '../UniversalWithdraw/checkAmountRequestUtils';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import type {
@@ -294,6 +298,7 @@ function ProtocolSwitcher({
   fallbackProviderLogoUri,
   fallbackAprText,
   protocolSwitchConfig,
+  disabled,
 }: {
   tokenSymbol: string;
   accountId: string;
@@ -301,6 +306,9 @@ function ProtocolSwitcher({
   fallbackProviderLogoUri?: string;
   fallbackAprText?: string;
   protocolSwitchConfig: IManagePositionProtocolSwitchConfig;
+  // Lock the switcher while an approve/stake is in flight, so the protocol list
+  // can't be opened over the in-flight tx confirm dialog (OK-58029).
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -311,7 +319,7 @@ function ProtocolSwitcher({
     protocols,
     selectedProtocol,
   } = protocolSwitchConfig;
-  const isSwitchEnabled = protocols.length > 1;
+  const isSwitchEnabled = protocols.length > 1 && !disabled;
   const renderProtocolListContent = useCallback(
     ({
       closePopover,
@@ -673,6 +681,12 @@ export function UniversalStake({
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  // Whether getTransactionConfirmation has settled at least once (success OR
+  // failure). The summary placeholder below is restricted to this first-load
+  // window: protocols whose response carries no summary would otherwise pulse
+  // the skeleton on every amount edit, and a failed first request would leave
+  // the skeleton stuck forever.
+  const transactionConfirmationSettledRef = useRef(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
@@ -686,6 +700,7 @@ export function UniversalStake({
       } catch {
         // keep stale state
       } finally {
+        transactionConfirmationSettledRef.current = true;
         setTransactionConfirmationLoading(false);
       }
     },
@@ -952,33 +967,77 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const checkAmountRequestIdRef = useRef(0);
+  const checkAmountRequestKeyRef = useRef('');
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
-  const checkAmount = useDebouncedCallback(
-    async ({ amount, identity }: { amount: string; identity?: string }) => {
-      if (isInvalidAmount(amount)) {
-        return;
-      }
-      setCheckAmountLoading(true);
+  // Mirrors the withdraw side (UniversalWithdraw): a request key + id pair so a
+  // slow response can never overwrite the state of a newer amount, and a single
+  // effect that owns triggering. isInvalidAmount alone let "0" / "0.00" reach
+  // the server, which cannot be submitted anyway and only spun the confirm
+  // button for the round trip (same defect as OK-59850 on the withdraw side).
+  const checkAmountRequestParams = useMemo(
+    () => ({
+      accountId,
+      action: stakefishIdentity
+        ? ECheckAmountActionType.RESTAKE
+        : ECheckAmountActionType.STAKING,
+      amount: amountValue,
+      identity: stakefishIdentity,
+      inputTokenAddress: transactionInputTokenAddress,
+      networkId,
+      outputTokenAddress: transactionOutputTokenAddress,
+      protocolVault,
+      provider: providerName,
+      slippage: pendleSlippage,
+      stakeType,
+      symbol: actionSymbol,
+      withdrawAll: false,
+    }),
+    [
+      accountId,
+      actionSymbol,
+      amountValue,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      stakeType,
+      stakefishIdentity,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  const checkAmountRequestKey = useMemo(
+    () => getCheckAmountRequestKey(checkAmountRequestParams),
+    [checkAmountRequestParams],
+  );
+  checkAmountRequestKeyRef.current = checkAmountRequestKey;
+
+  const debouncedCheckAmount = useDebouncedCallback(
+    async ({
+      requestId,
+      requestKey,
+      params,
+    }: {
+      requestId: number;
+      requestKey: string;
+      params: typeof checkAmountRequestParams;
+    }) => {
       try {
-        const response = await backgroundApiProxy.serviceStaking.checkAmount({
-          accountId,
-          networkId,
-          symbol: actionSymbol,
-          provider: providerName,
-          action: identity
-            ? ECheckAmountActionType.RESTAKE
-            : ECheckAmountActionType.STAKING,
-          amount,
-          protocolVault,
-          withdrawAll: false,
-          identity,
-          inputTokenAddress: transactionInputTokenAddress,
-          outputTokenAddress: transactionOutputTokenAddress,
-          slippage: pendleSlippage,
-          stakeType,
-        });
+        const response =
+          await backgroundApiProxy.serviceStaking.checkAmount(params);
+        if (
+          !isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          return;
+        }
 
         if (Number(response.code) === 0) {
           setCheckoutAmountMessage('');
@@ -988,18 +1047,55 @@ export function UniversalStake({
           setCheckAmountAlerts([]);
         }
       } finally {
-        setCheckAmountLoading(false);
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          setCheckAmountLoading(false);
+        }
       }
     },
     300,
   );
 
   useEffect(() => {
-    void checkAmount({
-      amount: amountValue || '0',
-      identity: stakefishIdentity,
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const requestKey = checkAmountRequestKey;
+    const isCheckableAmount =
+      !isInvalidAmount(amountValue) &&
+      new BigNumber(amountValue).isGreaterThan(0);
+
+    if (!isCheckableAmount) {
+      setCheckAmountLoading(false);
+      setCheckoutAmountMessage('');
+      setCheckAmountAlerts([]);
+      return undefined;
+    }
+
+    setCheckAmountLoading(true);
+    void debouncedCheckAmount({
+      params: checkAmountRequestParams,
+      requestId,
+      requestKey,
     });
-  }, [checkAmount, stakefishIdentity, amountValue]);
+
+    return () => {
+      if (checkAmountRequestIdRef.current === requestId) {
+        checkAmountRequestIdRef.current += 1;
+      }
+      debouncedCheckAmount.cancel();
+    };
+  }, [
+    amountValue,
+    checkAmountRequestKey,
+    checkAmountRequestParams,
+    debouncedCheckAmount,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -1024,10 +1120,12 @@ export function UniversalStake({
       if (!isOverflowDecimals) {
         setAmountValue(value);
         void debouncedFetchEstimateFeeResp(value);
-        void checkAmount({ amount: value, identity: stakefishIdentity });
+        // checkAmount is not called here: the effect above owns triggering off
+        // amountValue, so it also cancels the pending debounce and resets the
+        // loading state when the amount stops being checkable
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, checkAmount, stakefishIdentity],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1376,6 +1474,10 @@ export function UniversalStake({
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
+  // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
+  // can re-enter the approve step once the allowance has been reset to 0.
+  const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+
   const resetUSDTApproveValue = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId: approveTarget.accountId,
@@ -1411,9 +1513,28 @@ export function UniversalStake({
               const allowanceInfo = await fetchAllowanceResponse();
 
               if (allowanceInfo) {
-                // If allowance is now 0, stop polling
+                // Allowance is now 0: the USDT reset landed on-chain. Re-enter
+                // the approve step to continue the flow (approve the new amount
+                // then submit the stake). onApprove re-reads the allowance, sees
+                // 0, and skips the reset branch — no loop. Without this the flow
+                // dead-ended right after the reset tx, so the stake never fired
+                // (OK-58027). Keep approving=true; onApprove owns the state from
+                // here — but observe rejections: onApprove awaits getAccount /
+                // navigationToTxConfirm outside any try/catch, and a swallowed
+                // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  setApproving(false);
+                  const resumeApprove = onApproveRef.current;
+                  if (!resumeApprove) {
+                    setApproving(false);
+                    return;
+                  }
+                  void resumeApprove().catch((error) => {
+                    defaultLogger.staking.page.permitSignError({
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    });
+                    setApproving(false);
+                  });
                   return;
                 }
               }
@@ -1686,6 +1807,12 @@ export function UniversalStake({
     fetchEstimateFeeResp,
     trackAllowance,
   ]);
+
+  // Keep the ref pointing at the latest onApprove so the earlier-defined USDT
+  // reset flow can re-enter it after the allowance is zeroed.
+  useEffect(() => {
+    onApproveRef.current = onApprove;
+  }, [onApprove]);
 
   const {
     isPendleLikeLayout,
@@ -2092,6 +2219,27 @@ export function UniversalStake({
     (!shouldShowPlatformBonus && tradeOrBuyContent),
   );
 
+  // The "Est. annual rewards" summary depends on a second request
+  // (getTransactionConfirmation) that resolves after managePageData. Without a
+  // placeholder it pops in on the second stage and shoves the rest of the card
+  // down. Reserve its space with a skeleton, but only during the first-load
+  // window: once the quote settles (success or failure) never show it again,
+  // so no-summary protocols don't pulse on amount edits and a failed request
+  // doesn't leave the skeleton stuck.
+  const summaryPending =
+    !hasSummarySection &&
+    !isPendleLikeLayout &&
+    !protocolSwitchConfig &&
+    !isDisabled &&
+    !transactionConfirmationSettledRef.current;
+
+  const summaryLoadingContent = summaryPending ? (
+    <YStack gap="$1.5">
+      <Skeleton.BodyMd w={96} />
+      <Skeleton.BodyLg w={140} />
+    </YStack>
+  ) : null;
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2116,6 +2264,10 @@ export function UniversalStake({
               balanceProps={{
                 value: balance,
                 onPress: onMax,
+                // During a protocol switch the on-screen balance still belongs
+                // to the previous protocol/network — show the built-in balance
+                // skeleton instead of a stale value that jumps on load.
+                loading: Boolean(footerActionOverride?.loading),
               }}
               inputProps={{
                 placeholder: '0',
@@ -2216,6 +2368,7 @@ export function UniversalStake({
           fallbackProviderLogoUri={providerLogo}
           fallbackAprText={apyDetail?.description?.text}
           protocolSwitchConfig={protocolSwitchConfig}
+          disabled={approving || submitting}
         />
       ) : null}
 
@@ -2223,7 +2376,17 @@ export function UniversalStake({
       (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
-          pt="$5"
+          // The larger top padding exists to breathe above the summary heading
+          // (est. rewards / APY / validator). When the card only holds the
+          // trade-or-buy row (trending entry), keep the padding symmetric.
+          pt={
+            (showApyHeader && apyDetail && !protocolSwitchConfig) ||
+            summaryContent ||
+            summaryLoadingContent ||
+            ongoingValidator
+              ? '$5'
+              : '$3.5'
+          }
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -2242,7 +2405,8 @@ export function UniversalStake({
             </XStack>
           ) : null}
           {summaryContent}
-          {summaryContent ? <Divider my="$5" /> : null}
+          {summaryLoadingContent}
+          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect
