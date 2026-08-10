@@ -288,9 +288,9 @@ function getTradingViewNativePriceAxisCandidateLabel(price: number) {
       MAX_TO_FIXED_FRACTION_DIGITS
     ) {
       label = compactTradingViewNativePriceLeadingZeros(
-        `${price < 0 ? '-' : ''}0.${'0'.repeat(
-          leadingZeroCount,
-        )}${'8'.repeat(PRICE_SIGNIFICANT_FRACTION_DIGITS)}`,
+        `${price < 0 ? '-' : ''}0.${'0'.repeat(leadingZeroCount)}${'8'.repeat(
+          PRICE_SIGNIFICANT_FRACTION_DIGITS,
+        )}`,
       );
     }
   }
@@ -848,6 +848,7 @@ export function getTradingViewNativeTimeAxisLayout({
 }
 
 export function getTradingViewNativeChartLayout({
+  additionalPriceRange,
   candleIntervalSeconds,
   chartType = 'candlestick',
   hasVolume,
@@ -858,6 +859,10 @@ export function getTradingViewNativeChartLayout({
   visiblePointRange,
   width,
 }: {
+  additionalPriceRange?: {
+    maxPrice: number;
+    minPrice: number;
+  } | null;
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
   hasVolume: boolean;
@@ -881,14 +886,33 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
-  const visiblePriceRange = getTradingViewNativePriceRange({
+  const visiblePointPriceRange = getTradingViewNativePriceRange({
     ...visiblePointRange,
     chartType,
     points,
   });
-  if (!visiblePriceRange) {
+  if (!visiblePointPriceRange) {
     return null;
   }
+
+  const hasValidAdditionalPriceRange = Boolean(
+    additionalPriceRange &&
+    Number.isFinite(additionalPriceRange.maxPrice) &&
+    Number.isFinite(additionalPriceRange.minPrice) &&
+    additionalPriceRange.maxPrice >= additionalPriceRange.minPrice,
+  );
+  const visiblePriceRange = hasValidAdditionalPriceRange
+    ? {
+        maxPrice: Math.max(
+          visiblePointPriceRange.maxPrice,
+          additionalPriceRange?.maxPrice ?? visiblePointPriceRange.maxPrice,
+        ),
+        minPrice: Math.min(
+          visiblePointPriceRange.minPrice,
+          additionalPriceRange?.minPrice ?? visiblePointPriceRange.minPrice,
+        ),
+      }
+    : visiblePointPriceRange;
 
   const volumeHeight = hasVolume ? contentHeight * VOLUME_HEIGHT_RATIO : 0;
   const priceChartHeight = Math.max(
