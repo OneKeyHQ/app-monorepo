@@ -38,7 +38,6 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
@@ -146,7 +145,6 @@ function MobileTabListModal() {
     platformEnv.isNativeIOSPad && shouldUseSplitView && isLandscape;
 
   const revealTabletBrowser = useCallback(async () => {
-    await timerUtils.wait(100);
     await switchTabAsync(ETabRoutes.Discovery);
     appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
       tab: ETranslations.global_browser,
@@ -387,9 +385,10 @@ function MobileTabListModal() {
         onSelectedItem={(id) => {
           void setCurrentWebTab(id);
           setDisplayHomePage(false);
-          navigation.pop();
           if (shouldRevealTabletBrowser) {
             void revealTabletBrowser();
+          } else {
+            navigation.pop();
           }
         }}
         onCloseItem={handleCloseTab}
@@ -418,9 +417,10 @@ function MobileTabListModal() {
         onSelectedItem={(id) => {
           setCurrentWebTab(id);
           setDisplayHomePage(false);
-          navigation.pop();
           if (shouldRevealTabletBrowser) {
             void revealTabletBrowser();
+          } else {
+            navigation.pop();
           }
         }}
         onCloseItem={handleCloseTab}
