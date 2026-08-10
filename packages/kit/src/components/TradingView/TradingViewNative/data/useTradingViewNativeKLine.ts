@@ -73,6 +73,7 @@ function getHistoryPointTypeScopeKey(
   return `${seriesKey}:${interval}`;
 }
 
+type IHistoryDataSource = 'fallback' | 'primary';
 type IHistoryPointTypeClassification = 'fallbackSingle' | 'ohlc' | 'single';
 
 function resolveHistoryPointTypeClassification({
@@ -1295,6 +1296,9 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const seriesKey = rawHistoryProvider.key;
+  const historyDataSourceScopesRef = useRef(
+    new Map<string, IHistoryDataSource>(),
+  );
   const [historyPointTypeScopes, setHistoryPointTypeScopes] = useState<
     ReadonlyMap<string, IHistoryPointTypeClassification>
   >(() => new Map());
@@ -1308,6 +1312,14 @@ export function useTradingViewNativeKLine({
             seriesKey,
             request.interval.value,
           );
+          const responseDataSource: IHistoryDataSource =
+            data.historySource === 'fallback' ? 'fallback' : 'primary';
+          const selectedDataSource =
+            historyDataSourceScopesRef.current.get(scopeKey);
+          if (selectedDataSource && selectedDataSource !== responseDataSource) {
+            return { ...data, points: [], total: 0 };
+          }
+          historyDataSourceScopesRef.current.set(scopeKey, responseDataSource);
           setHistoryPointTypeScopes((currentScopes) => {
             const currentClassification = currentScopes.get(scopeKey);
             const nextClassification = resolveHistoryPointTypeClassification({
