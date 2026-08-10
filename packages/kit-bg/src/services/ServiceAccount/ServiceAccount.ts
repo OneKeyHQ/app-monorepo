@@ -235,6 +235,7 @@ import type {
 } from '../../vaults/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
@@ -3704,13 +3705,15 @@ class ServiceAccount extends ServiceBase {
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
-    // Match the x branch: OneKey uses the transport selected by Onboarding,
-    // while third-party fused lists still refine it with the device connection type.
+    // Persist the endpoint selected from the fused scan. The global setting is
+    // only a fallback when the selected device has no transport metadata.
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
+      deviceCommType: (params.device as { commType?: SearchDevice['commType'] })
+        .commType,
       isNative: !!platformEnv.isNative,
     });
 

@@ -283,7 +283,7 @@ describe('buildTrezorDesktopBleUsbConnectId', () => {
 });
 
 describe('resolveBleConnectIdForCreate', () => {
-  it('首次桌面 BLE 创建直接使用当前扫描结果的 connectId', () => {
+  it('uses the current scan connectId for the first desktop BLE wallet', () => {
     expect(
       resolveBleConnectIdForCreate({
         connectId: 'BLE_PERIPHERAL_ID',
@@ -292,7 +292,7 @@ describe('resolveBleConnectIdForCreate', () => {
     ).toBe('BLE_PERIPHERAL_ID');
   });
 
-  it('桌面 BLE 已有独立端点时优先使用 bleConnectId', () => {
+  it('prefers an existing explicit desktop BLE endpoint', () => {
     expect(
       resolveBleConnectIdForCreate({
         connectId: 'DEVICE_CONNECT_ID',
@@ -302,7 +302,7 @@ describe('resolveBleConnectIdForCreate', () => {
     ).toBe('BLE_PERIPHERAL_ID');
   });
 
-  it('原生 BLE 使用当前扫描结果的 connectId', () => {
+  it('uses the current scan connectId on native BLE', () => {
     expect(
       resolveBleConnectIdForCreate({
         connectId: 'NATIVE_BLE_ID',

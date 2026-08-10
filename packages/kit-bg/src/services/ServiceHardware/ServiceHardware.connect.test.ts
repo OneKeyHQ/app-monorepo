@@ -382,7 +382,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
   });
 
   it.each(['pro2', 'neo'] as const)(
-    '升级后强制刷新 %s，不复用 WebUSB 搜索阶段的 loader 状态',
+    'force-refreshes %s after update instead of reusing WebUSB loader state',
     async (deviceType) => {
       const service = new ServiceHardware({
         backgroundApi: {} as IBackgroundApi,
