@@ -534,6 +534,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private limitOrderStateInterval: ReturnType<typeof setTimeout> | null = null;
 
+  private swapLimitOrdersFetchMutex = new Semaphore(1);
+
   private perpDepositOrderFetchLoopInterval: ReturnType<
     typeof setTimeout
   > | null = null;
@@ -3275,16 +3277,57 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async swapLimitOrdersFetchLoop(
+  async refreshSwapLimitOrders(
     indexedAccountId?: string,
     otherWalletTypeAccountId?: string,
-    isFetchNewOrder?: boolean,
-    interval?: boolean,
+  ) {
+    await this.swapLimitOrdersFetchLoop(
+      indexedAccountId,
+      otherWalletTypeAccountId,
+      true,
+    );
+  }
+
+  private scheduleSwapLimitOrdersFetchLoop(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
   ) {
     if (this.limitOrderStateInterval) {
       clearTimeout(this.limitOrderStateInterval);
-      this.limitOrderStateInterval = null;
     }
+    this.limitOrderStateInterval = setTimeout(() => {
+      void this.swapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        false,
+        true,
+      );
+    }, ESwapLimitOrderUpdateInterval);
+  }
+
+  @backgroundMethod()
+  async swapLimitOrdersFetchLoop(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
+    forceRefresh?: boolean,
+    interval?: boolean,
+  ) {
+    await this.swapLimitOrdersFetchMutex.runExclusive(() =>
+      this.runSwapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        forceRefresh,
+        interval,
+      ),
+    );
+  }
+
+  private async runSwapLimitOrdersFetchLoop(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
+    forceRefresh?: boolean,
+    interval?: boolean,
+  ) {
     if (
       interval &&
       this._limitOrderCurrentAccountId &&
@@ -3292,6 +3335,10 @@ export default class ServiceSwap extends ServiceBase {
         `${indexedAccountId ?? ''}-${otherWalletTypeAccountId ?? ''}`
     ) {
       return;
+    }
+    if (this.limitOrderStateInterval) {
+      clearTimeout(this.limitOrderStateInterval);
+      this.limitOrderStateInterval = null;
     }
     if (
       !interval &&
@@ -3318,14 +3365,10 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         swapLimitOrdersLoading: false,
       }));
-      this.limitOrderStateInterval = setTimeout(() => {
-        void this.swapLimitOrdersFetchLoop(
-          indexedAccountId,
-          otherWalletTypeAccountId,
-          false,
-          true,
-        );
-      }, ESwapLimitOrderUpdateInterval);
+      this.scheduleSwapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+      );
       return;
     }
     if (swapSupportAccounts.length > 0) {
@@ -3350,7 +3393,7 @@ export default class ServiceSwap extends ServiceBase {
       try {
         const shouldFetchLimitOrders =
           !swapLimitOrders.length ||
-          isFetchNewOrder ||
+          forceRefresh ||
           !sameAccount ||
           openOrders.length;
         if (shouldFetchLimitOrders) {
@@ -3392,14 +3435,10 @@ export default class ServiceSwap extends ServiceBase {
             };
           });
           if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
-            this.limitOrderStateInterval = setTimeout(() => {
-              void this.swapLimitOrdersFetchLoop(
-                indexedAccountId,
-                otherWalletTypeAccountId,
-                false,
-                true,
-              );
-            }, ESwapLimitOrderUpdateInterval);
+            this.scheduleSwapLimitOrdersFetchLoop(
+              indexedAccountId,
+              otherWalletTypeAccountId,
+            );
           }
         } else {
           await inAppNotificationAtom.set((pre) => ({
@@ -3409,14 +3448,10 @@ export default class ServiceSwap extends ServiceBase {
           }));
         }
       } catch (_error) {
-        this.limitOrderStateInterval = setTimeout(() => {
-          void this.swapLimitOrdersFetchLoop(
-            indexedAccountId,
-            otherWalletTypeAccountId,
-            false,
-            true,
-          );
-        }, ESwapLimitOrderUpdateInterval);
+        this.scheduleSwapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+        );
       } finally {
         await inAppNotificationAtom.set((pre) => ({
           ...pre,
