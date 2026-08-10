@@ -7,6 +7,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useConfigContext } from './configContext';
 import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
@@ -47,10 +48,11 @@ export function SubSettingsPage({
   }, [config?.configs]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled={!platformEnv.isNativeIOSPad}>
       <Page.Header title={titleFromProps || config?.title} />
       <Page.Body>
         <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
