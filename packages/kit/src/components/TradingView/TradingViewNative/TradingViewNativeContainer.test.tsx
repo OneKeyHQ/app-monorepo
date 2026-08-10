@@ -143,6 +143,31 @@ describe('TradingViewNativeContainer', () => {
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('passes localized candle abbreviations to the chart', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candleLabels: {
+          close: 'market.close_abbr',
+          high: 'market.high_abbr',
+          low: 'market.low_abbr',
+          open: 'market.open_abbr',
+        },
+      }),
+    );
+  });
+
   it('shows the volume section only when loaded candles contain volume', () => {
     mockDataState = { status: 'live' };
     mockPoints = [
