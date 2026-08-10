@@ -67,7 +67,7 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
     expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
-      'http://localhost:5173/',
+      'http://localhost:5173/?locale=zh-CN',
     );
     expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',

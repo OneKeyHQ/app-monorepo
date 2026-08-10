@@ -24,7 +24,7 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
         },
         {
           name: 'TradingViewEmbedModule',
-          preload: () => loadTradingViewEmbedModule(baseUrl),
+          preload: () => loadTradingViewEmbedModule(finalUrl),
         },
         ...(isLocalRuntime
           ? [

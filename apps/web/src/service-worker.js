@@ -6,6 +6,8 @@ import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst } from 'workbox-strategies';
 
+import { runTradingViewEmbedPrefetch } from './tradingViewEmbedPrefetch';
+
 const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
 const INDEX_HTML_URL = '/index.html';
 const INTERNAL_STATE_CACHE = 'onekey-web-version-state';
@@ -45,6 +47,7 @@ const MESSAGE_TYPES = {
 };
 
 let versionCheckPromise = null;
+const tradingViewBootstrapPromises = new Map();
 const tradingViewPrefetchPromises = new Map();
 const tradingViewManifestStates = new Map();
 
@@ -264,7 +267,7 @@ function isValidTradingViewManifestVersion(version) {
 
 function isValidTradingViewManifestPointer(manifest) {
   return (
-    manifest?.schema === 1 &&
+    (manifest?.schema === 1 || manifest?.schema === 2) &&
     isValidTradingViewManifestVersion(manifest.version) &&
     typeof manifest.baseUrl === 'string' &&
     Boolean(manifest.baseUrl) &&
@@ -272,32 +275,90 @@ function isValidTradingViewManifestPointer(manifest) {
   );
 }
 
+function getTradingViewManifestStyles(manifest) {
+  return manifest.schema === 1 ? manifest.styles || [] : [];
+}
+
+function isValidTradingViewManifestV2Bootstrap(bootstrap, assetFiles, entry) {
+  if (
+    !bootstrap ||
+    typeof bootstrap !== 'object' ||
+    typeof bootstrap.defaultLocale !== 'string' ||
+    !/^[A-Za-z][A-Za-z0-9_]*$/.test(bootstrap.defaultLocale) ||
+    !Array.isArray(bootstrap.commonAssets) ||
+    bootstrap.commonAssets.length === 0 ||
+    !bootstrap.commonAssets.every(
+      (file) => isValidTradingViewAssetPath(file) && assetFiles.has(file),
+    ) ||
+    !bootstrap.commonAssets.includes(entry) ||
+    !bootstrap.commonAssets.includes(
+      'charting_library/charting_library.standalone.js',
+    ) ||
+    !bootstrap.localeAssets ||
+    typeof bootstrap.localeAssets !== 'object' ||
+    Array.isArray(bootstrap.localeAssets)
+  ) {
+    return false;
+  }
+  const localeEntries = Object.entries(bootstrap.localeAssets);
+  return (
+    localeEntries.length > 0 &&
+    localeEntries.every(
+      ([locale, files]) =>
+        /^[A-Za-z][A-Za-z0-9_]*$/.test(locale) &&
+        Array.isArray(files) &&
+        files.length > 0 &&
+        files.every(
+          (file) => isValidTradingViewAssetPath(file) && assetFiles.has(file),
+        ),
+    ) &&
+    Object.prototype.hasOwnProperty.call(
+      bootstrap.localeAssets,
+      bootstrap.defaultLocale,
+    )
+  );
+}
+
 function isValidTradingViewManifest(manifest) {
   if (
     isValidTradingViewManifestPointer(manifest) &&
-    (manifest.styles === undefined ||
-      (Array.isArray(manifest.styles) &&
-        manifest.styles.every(isValidTradingViewAssetPath))) &&
-    (manifest.bootstrapAssets === undefined ||
-      (Array.isArray(manifest.bootstrapAssets) &&
-        manifest.bootstrapAssets.every(isValidTradingViewAssetPath))) &&
     Array.isArray(manifest.assets) &&
     manifest.assets.every(
       (asset) =>
         isValidTradingViewAssetPath(asset?.file) &&
         typeof asset.integrity === 'string' &&
-        asset.integrity.startsWith('sha384-') &&
+        /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(asset.integrity) &&
         Number.isSafeInteger(asset.size) &&
         asset.size >= 0,
     )
   ) {
     const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
+    if (
+      assetFiles.size !== manifest.assets.length ||
+      !assetFiles.has(manifest.entry)
+    ) {
+      return false;
+    }
+    if (manifest.schema === 2) {
+      return isValidTradingViewManifestV2Bootstrap(
+        manifest.bootstrap,
+        assetFiles,
+        manifest.entry,
+      );
+    }
     return (
-      assetFiles.has(manifest.entry) &&
-      (manifest.styles || []).every((file) => assetFiles.has(file)) &&
-      (manifest.bootstrapAssets || []).every((file) =>
-        assetFiles.has(file.replace('__LANG__', 'en')),
-      )
+      (manifest.styles === undefined ||
+        (Array.isArray(manifest.styles) &&
+          manifest.styles.every(
+            (file) => isValidTradingViewAssetPath(file) && assetFiles.has(file),
+          ))) &&
+      (manifest.bootstrapAssets === undefined ||
+        (Array.isArray(manifest.bootstrapAssets) &&
+          manifest.bootstrapAssets.every(
+            (file) =>
+              isValidTradingViewAssetPath(file) &&
+              assetFiles.has(file.replace('__LANG__', 'en')),
+          )))
     );
   }
   return false;
@@ -318,11 +379,22 @@ function areTradingViewManifestsEqual(left, right) {
     left.version === right.version &&
     left.baseUrl === right.baseUrl &&
     left.entry === right.entry &&
-    areStringArraysEqual(left.styles || [], right.styles || []) &&
     areStringArraysEqual(
-      left.bootstrapAssets || [],
-      right.bootstrapAssets || [],
+      getTradingViewManifestStyles(left),
+      getTradingViewManifestStyles(right),
     ) &&
+    (left.schema === 2
+      ? left.bootstrap.defaultLocale === right.bootstrap.defaultLocale &&
+        areStringArraysEqual(
+          left.bootstrap.commonAssets,
+          right.bootstrap.commonAssets,
+        ) &&
+        JSON.stringify(left.bootstrap.localeAssets) ===
+          JSON.stringify(right.bootstrap.localeAssets)
+      : areStringArraysEqual(
+          left.bootstrapAssets || [],
+          right.bootstrapAssets || [],
+        )) &&
     left.assets.length === right.assets.length &&
     left.assets.every((asset, index) => {
       const otherAsset = right.assets[index];
@@ -333,6 +405,33 @@ function areTradingViewManifestsEqual(left, right) {
       );
     })
   );
+}
+
+function getTradingViewBootstrapAssetFiles(manifest, locale) {
+  if (manifest.schema === 2) {
+    const localeAssets = Object.prototype.hasOwnProperty.call(
+      manifest.bootstrap.localeAssets,
+      locale,
+    )
+      ? manifest.bootstrap.localeAssets[locale]
+      : manifest.bootstrap.localeAssets[manifest.bootstrap.defaultLocale];
+    return [...new Set([...manifest.bootstrap.commonAssets, ...localeAssets])];
+  }
+  const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
+  const bootstrapAssets = (manifest.bootstrapAssets || []).map((file) => {
+    const localizedFile = file.replace('__LANG__', locale || 'en');
+    return assetFiles.has(localizedFile)
+      ? localizedFile
+      : file.replace('__LANG__', 'en');
+  });
+  return [
+    ...new Set([
+      manifest.entry,
+      ...getTradingViewManifestStyles(manifest),
+      'charting_library/charting_library.standalone.js',
+      ...bootstrapAssets,
+    ]),
+  ].filter((file) => assetFiles.has(file));
 }
 
 function getTradingViewCacheName(version) {
@@ -489,6 +588,7 @@ async function fetchTradingViewManifest(manifestUrl) {
     manifest = await versionManifestResponse.json();
     if (
       !isValidTradingViewManifest(manifest) ||
+      manifest.schema !== manifestPointer.schema ||
       manifest.version !== manifestPointer.version ||
       manifest.baseUrl !== manifestPointer.baseUrl ||
       manifest.entry !== manifestPointer.entry
@@ -626,7 +726,7 @@ async function restoreTradingViewManifestState(requestUrl) {
   return '';
 }
 
-async function fetchTradingViewAsset(asset, baseUrl) {
+async function fetchTradingViewAsset(asset, baseUrl, priority = 'low') {
   const assetUrl = resolveTradingViewAssetUrl(asset.file, baseUrl);
   if (!assetUrl) {
     throw new ServiceWorkerVersionError('tradingview_asset_origin_mismatch');
@@ -635,7 +735,7 @@ async function fetchTradingViewAsset(asset, baseUrl) {
     cache: 'reload',
     credentials: 'omit',
     mode: 'cors',
-    priority: 'low',
+    priority,
     redirect: 'error',
   });
   if (!response.ok || response.type === 'opaque') {
@@ -647,6 +747,21 @@ async function fetchTradingViewAsset(asset, baseUrl) {
     request: new Request(assetUrl),
     response: await verifyIntegrity(response, asset.integrity),
   };
+}
+
+async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
+  await runConcurrent(
+    assets,
+    TRADINGVIEW_PREFETCH_CONCURRENCY,
+    async (asset) => {
+      const request = new Request(new URL(asset.file, baseUrl));
+      if (await cache.match(request)) {
+        return;
+      }
+      const fetched = await fetchTradingViewAsset(asset, baseUrl, priority);
+      await cache.put(fetched.request, fetched.response);
+    },
+  );
 }
 
 async function runConcurrent(items, concurrency, task) {
@@ -686,22 +801,57 @@ async function deleteOldTradingViewCaches(activeCacheName) {
   });
 }
 
-async function prefetchTradingViewEmbed(manifestUrl, expectedVersion) {
+function startTradingViewFullPrefetch({
+  baseUrl,
+  cache,
+  cacheName,
+  manifest,
+  manifestRequest,
+  manifestResponse,
+  prefetchKey,
+}) {
+  const existingPromise = tradingViewPrefetchPromises.get(prefetchKey);
+  if (existingPromise) {
+    return existingPromise;
+  }
+  const prefetchPromise = (async () => {
+    await cacheTradingViewAssets(cache, manifest.assets, baseUrl, 'low');
+    // This marker means the entire integrity-indexed release is offline-ready.
+    await cache.put(manifestRequest, manifestResponse);
+    await deleteOldTradingViewCaches(cacheName);
+    return manifest.version;
+  })();
+  tradingViewPrefetchPromises.set(prefetchKey, prefetchPromise);
+  const clearPromise = () => {
+    if (tradingViewPrefetchPromises.get(prefetchKey) === prefetchPromise) {
+      tradingViewPrefetchPromises.delete(prefetchKey);
+    }
+  };
+  void prefetchPromise.then(clearPromise, clearPromise);
+  return prefetchPromise;
+}
+
+async function prepareTradingViewEmbed(
+  manifestUrl,
+  expectedVersion,
+  locale = 'en',
+) {
   const normalizedManifestUrl = normalizeTradingViewUrl(manifestUrl);
   if (
     !normalizedManifestUrl ||
     !isTrustedTradingViewManifestUrl(normalizedManifestUrl)
   ) {
-    return;
+    throw new ServiceWorkerVersionError('tradingview_manifest_invalid');
   }
   configuredTradingViewManifestUrl = normalizedManifestUrl;
   const prefetchKey = `${normalizedManifestUrl}:${expectedVersion || 'local'}`;
-  const existingPromise = tradingViewPrefetchPromises.get(prefetchKey);
+  const bootstrapKey = `${prefetchKey}:${locale}`;
+  const existingPromise = tradingViewBootstrapPromises.get(bootstrapKey);
   if (existingPromise) {
     return existingPromise;
   }
 
-  const prefetchPromise = (async () => {
+  const bootstrapPromise = (async () => {
     let resolvedManifest;
     if (TRADINGVIEW_EMBED_BUILD_MANIFEST_URL) {
       resolvedManifest = await fetchPinnedTradingViewManifest(
@@ -725,55 +875,43 @@ async function prefetchTradingViewEmbed(manifestUrl, expectedVersion) {
         .catch(() => null);
       if (areTradingViewManifestsEqual(completedManifest, manifest)) {
         await deleteOldTradingViewCaches(cacheName);
-        return manifest.version;
+        return {
+          complete: () => Promise.resolve(manifest.version),
+          version: manifest.version,
+        };
       }
       await caches.delete(cacheName);
       cache = await caches.open(cacheName);
     }
-    const priorityPatterns = [
-      manifest.entry,
-      ...(manifest.styles || []),
-      'charting_library/charting_library.standalone.js',
-      ...(manifest.bootstrapAssets || []),
-    ];
-    const getPriority = (file) =>
-      priorityPatterns.reduce((priority, pattern) => {
-        if (!pattern.includes('__LANG__')) {
-          return pattern === file ? Math.max(priority, 2) : priority;
-        }
-        const [prefix, suffix] = pattern.split('__LANG__');
-        return file.startsWith(prefix) && file.endsWith(suffix)
-          ? Math.max(priority, 1)
-          : priority;
-      }, 0);
-    const assets = sortArrayCopy(
-      manifest.assets,
-      (left, right) => getPriority(right.file) - getPriority(left.file),
+    const bootstrapAssetFiles = new Set(
+      getTradingViewBootstrapAssetFiles(manifest, locale),
     );
-
-    await runConcurrent(
-      assets,
-      TRADINGVIEW_PREFETCH_CONCURRENCY,
-      async (asset) => {
-        const request = new Request(new URL(asset.file, baseUrl));
-        if (await cache.match(request)) {
-          return;
-        }
-        const fetched = await fetchTradingViewAsset(asset, baseUrl);
-        await cache.put(fetched.request, fetched.response);
-      },
+    const bootstrapAssets = manifest.assets.filter((asset) =>
+      bootstrapAssetFiles.has(asset.file),
     );
-    // The cached manifest marks this version as complete. Keep it last so an
-    // interrupted prefetch can never be mistaken for an offline-ready package.
-    await cache.put(manifestRequest, manifestResponse);
-    await deleteOldTradingViewCaches(cacheName);
-    return manifest.version;
-  })().finally(() => {
-    tradingViewPrefetchPromises.delete(prefetchKey);
-  });
-
-  tradingViewPrefetchPromises.set(prefetchKey, prefetchPromise);
-  return prefetchPromise;
+    await cacheTradingViewAssets(cache, bootstrapAssets, baseUrl, 'high');
+    return {
+      complete: () =>
+        startTradingViewFullPrefetch({
+          baseUrl,
+          cache,
+          cacheName,
+          manifest,
+          manifestRequest,
+          manifestResponse,
+          prefetchKey,
+        }),
+      version: manifest.version,
+    };
+  })();
+  tradingViewBootstrapPromises.set(bootstrapKey, bootstrapPromise);
+  const clearPromise = () => {
+    if (tradingViewBootstrapPromises.get(bootstrapKey) === bootstrapPromise) {
+      tradingViewBootstrapPromises.delete(bootstrapKey);
+    }
+  };
+  void bootstrapPromise.then(clearPromise, clearPromise);
+  return bootstrapPromise;
 }
 
 async function handleTradingViewAssetRequest(request) {
@@ -790,7 +928,10 @@ async function handleTradingViewAssetRequest(request) {
       if (
         LOCAL_HOSTNAMES.has(new URL(configuredTradingViewManifestUrl).hostname)
       ) {
-        await prefetchTradingViewEmbed(configuredTradingViewManifestUrl);
+        const { response } = await fetchTradingViewManifest(
+          configuredTradingViewManifestUrl,
+        );
+        return response;
       }
       const verifiedManifest = await getCompletedTradingViewManifest(
         configuredTradingViewManifestUrl,
@@ -1508,18 +1649,16 @@ self.addEventListener('message', (event) => {
   if (type === MESSAGE_TYPES.PREFETCH_TRADINGVIEW_EMBED) {
     const replyPort = event.ports?.[0];
     event.waitUntil(
-      prefetchTradingViewEmbed(
-        payload.manifestUrl,
-        payload.manifestVersion,
-      ).then(
-        (version) => replyPort?.postMessage({ ok: true, version }),
-        (error) => {
-          replyPort?.postMessage({
-            error: getVersionErrorCode(error),
-            ok: false,
-          });
-        },
-      ),
+      runTradingViewEmbedPrefetch({
+        getErrorCode: getVersionErrorCode,
+        prepare: () =>
+          prepareTradingViewEmbed(
+            payload.manifestUrl,
+            payload.manifestVersion,
+            payload.locale,
+          ),
+        replyPort,
+      }),
     );
   }
 });

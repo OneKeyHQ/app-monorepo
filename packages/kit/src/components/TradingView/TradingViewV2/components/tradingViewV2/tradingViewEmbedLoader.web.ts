@@ -10,20 +10,38 @@ interface ITradingViewEmbedManifestAsset {
   size: number;
 }
 
-interface ITradingViewEmbedManifest {
-  schema: number;
+interface ITradingViewEmbedManifestBase {
   version: string;
   baseUrl: string;
   entry: string;
-  styles?: string[];
-  bootstrapAssets?: string[];
   assets: ITradingViewEmbedManifestAsset[];
 }
 
-type ITradingViewEmbedManifestPointer = Pick<
-  ITradingViewEmbedManifest,
-  'baseUrl' | 'entry' | 'schema' | 'version'
->;
+interface ITradingViewEmbedManifestV1 extends ITradingViewEmbedManifestBase {
+  schema: 1;
+  styles?: string[];
+  bootstrapAssets?: string[];
+}
+
+interface ITradingViewEmbedManifestV2 extends ITradingViewEmbedManifestBase {
+  schema: 2;
+  bootstrap: {
+    commonAssets: string[];
+    defaultLocale: string;
+    localeAssets: Record<string, string[]>;
+  };
+}
+
+type ITradingViewEmbedManifest =
+  | ITradingViewEmbedManifestV1
+  | ITradingViewEmbedManifestV2;
+
+interface ITradingViewEmbedManifestPointer {
+  baseUrl: string;
+  entry: string;
+  schema: 1 | 2;
+  version: string;
+}
 
 export interface ITradingViewEmbedHandle {
   postMessage(message: unknown): void;
@@ -167,14 +185,64 @@ function isValidManifestPointer(
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const manifest = value as Partial<ITradingViewEmbedManifest>;
+  const manifest = value as Partial<ITradingViewEmbedManifestPointer>;
   return (
-    manifest.schema === 1 &&
+    (manifest.schema === 1 || manifest.schema === 2) &&
     isValidManifestVersion(manifest.version) &&
     typeof manifest.baseUrl === 'string' &&
     Boolean(manifest.baseUrl) &&
     typeof manifest.entry === 'string' &&
     isValidRelativeAssetPath(manifest.entry)
+  );
+}
+
+function getManifestStyles(manifest: ITradingViewEmbedManifest): string[] {
+  return manifest.schema === 1 ? manifest.styles || [] : [];
+}
+
+function isValidManifestV2Bootstrap(
+  bootstrap: unknown,
+  assetFiles: Set<string>,
+  entry: string,
+): bootstrap is ITradingViewEmbedManifestV2['bootstrap'] {
+  if (!bootstrap || typeof bootstrap !== 'object') {
+    return false;
+  }
+  const value = bootstrap as Partial<ITradingViewEmbedManifestV2['bootstrap']>;
+  if (
+    typeof value.defaultLocale !== 'string' ||
+    !/^[A-Za-z][A-Za-z0-9_]*$/.test(value.defaultLocale) ||
+    !Array.isArray(value.commonAssets) ||
+    value.commonAssets.length === 0 ||
+    !value.commonAssets.every(
+      (file) => isValidRelativeAssetPath(file) && assetFiles.has(file),
+    ) ||
+    !value.commonAssets.includes(entry) ||
+    !value.commonAssets.includes(
+      'charting_library/charting_library.standalone.js',
+    ) ||
+    !value.localeAssets ||
+    typeof value.localeAssets !== 'object' ||
+    Array.isArray(value.localeAssets)
+  ) {
+    return false;
+  }
+  const localeEntries = Object.entries(value.localeAssets);
+  return (
+    localeEntries.length > 0 &&
+    localeEntries.every(
+      ([locale, files]) =>
+        /^[A-Za-z][A-Za-z0-9_]*$/.test(locale) &&
+        Array.isArray(files) &&
+        files.length > 0 &&
+        files.every(
+          (file) => isValidRelativeAssetPath(file) && assetFiles.has(file),
+        ),
+    ) &&
+    Object.prototype.hasOwnProperty.call(
+      value.localeAssets,
+      value.defaultLocale,
+    )
   );
 }
 
@@ -199,36 +267,58 @@ function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
   if (!isValidManifestPointer(value)) {
     return false;
   }
-  const manifest = value as ITradingViewEmbedManifestPointer &
-    Partial<ITradingViewEmbedManifest>;
+  const manifest = value as ITradingViewEmbedManifestPointer & {
+    assets?: ITradingViewEmbedManifestAsset[];
+    bootstrap?: unknown;
+    bootstrapAssets?: unknown;
+    styles?: unknown;
+  };
   if (
-    (manifest.styles === undefined ||
-      (Array.isArray(manifest.styles) &&
-        manifest.styles.every(isValidRelativeAssetPath))) &&
-    (manifest.bootstrapAssets === undefined ||
-      (Array.isArray(manifest.bootstrapAssets) &&
-        manifest.bootstrapAssets.every(isValidRelativeAssetPath))) &&
-    Array.isArray(manifest.assets) &&
-    manifest.assets.every(
+    !Array.isArray(manifest.assets) ||
+    !manifest.assets.every(
       (asset) =>
         isValidRelativeAssetPath(asset?.file) &&
         typeof asset.integrity === 'string' &&
-        asset.integrity.startsWith('sha384-') &&
+        /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(asset.integrity) &&
         typeof asset.size === 'number' &&
         Number.isSafeInteger(asset.size) &&
         asset.size >= 0,
     )
   ) {
-    const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
-    return (
-      assetFiles.has(manifest.entry) &&
-      (manifest.styles || []).every((file) => assetFiles.has(file)) &&
-      (manifest.bootstrapAssets || []).every((file) =>
-        assetFiles.has(file.replace('__LANG__', 'en')),
-      )
+    return false;
+  }
+  const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
+  if (
+    assetFiles.size !== manifest.assets.length ||
+    !assetFiles.has(manifest.entry)
+  ) {
+    return false;
+  }
+  if (manifest.schema === 2) {
+    return isValidManifestV2Bootstrap(
+      manifest.bootstrap,
+      assetFiles,
+      manifest.entry,
     );
   }
-  return false;
+  return (
+    (manifest.styles === undefined ||
+      (Array.isArray(manifest.styles) &&
+        manifest.styles.every(
+          (file: unknown) =>
+            typeof file === 'string' &&
+            isValidRelativeAssetPath(file) &&
+            assetFiles.has(file),
+        ))) &&
+    (manifest.bootstrapAssets === undefined ||
+      (Array.isArray(manifest.bootstrapAssets) &&
+        manifest.bootstrapAssets.every(
+          (file: unknown) =>
+            typeof file === 'string' &&
+            isValidRelativeAssetPath(file) &&
+            assetFiles.has(file.replace('__LANG__', 'en')),
+        )))
+  );
 }
 
 async function getPinnedManifest(manifestUrl: string): Promise<{
@@ -269,6 +359,7 @@ async function getPinnedManifest(manifestUrl: string): Promise<{
 function ensureServiceWorkerPrefetch(
   manifestUrl: string,
   manifest: ITradingViewEmbedManifest,
+  locale: string,
 ): Promise<void> {
   const controller = navigator.serviceWorker?.controller;
   if (!controller) {
@@ -306,7 +397,7 @@ function ensureServiceWorkerPrefetch(
     controller.postMessage(
       {
         type: PREFETCH_MESSAGE_TYPE,
-        payload: { manifestUrl, manifestVersion: manifest.version },
+        payload: { locale, manifestUrl, manifestVersion: manifest.version },
       },
       [channel.port2],
     );
@@ -320,7 +411,6 @@ async function loadManifest(manifestUrl: string): Promise<{
   const manifestUrlObject = new URL(manifestUrl);
   const pinnedManifest = await getPinnedManifest(manifestUrl);
   if (pinnedManifest) {
-    await ensureServiceWorkerPrefetch(manifestUrl, pinnedManifest.manifest);
     return pinnedManifest;
   }
   if (!LOCAL_HOSTNAMES.has(manifestUrlObject.hostname)) {
@@ -359,6 +449,7 @@ async function loadManifest(manifestUrl: string): Promise<{
     manifest = (await versionManifestResponse.json()) as unknown;
     if (
       !isValidManifest(manifest) ||
+      manifest.schema !== manifestPointer.schema ||
       manifest.version !== manifestPointer.version ||
       manifest.baseUrl !== manifestPointer.baseUrl ||
       manifest.entry !== manifestPointer.entry
@@ -431,13 +522,17 @@ function loadStyle(
 
 async function loadModule(
   manifestUrl: string,
+  locale: string,
 ): Promise<ILoadedTradingViewEmbedModule> {
   const { baseUrl, manifest } = await getManifest(manifestUrl);
+  if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
+    await ensureServiceWorkerPrefetch(manifestUrl, manifest, locale);
+  }
   const integrityByFile = new Map(
     manifest.assets.map((asset) => [asset.file, asset.integrity]),
   );
   await Promise.all(
-    (manifest.styles || []).map((file) =>
+    getManifestStyles(manifest).map((file) =>
       loadStyle(file, baseUrl, integrityByFile.get(file)),
     ),
   );
@@ -465,13 +560,26 @@ function resolveBootstrapAssets(
   const assetsByFile = new Map(
     manifest.assets.map((asset) => [asset.file, asset]),
   );
-  const resolvedAssets = (manifest.bootstrapAssets || []).map((file) => {
-    const localizedFile = file.replace('__LANG__', locale);
-    return (
-      assetsByFile.get(localizedFile) ||
-      assetsByFile.get(file.replace('__LANG__', 'en'))
-    );
-  });
+  const resolvedAssets =
+    manifest.schema === 2
+      ? [
+          ...manifest.bootstrap.commonAssets,
+          ...(Object.prototype.hasOwnProperty.call(
+            manifest.bootstrap.localeAssets,
+            locale,
+          )
+            ? manifest.bootstrap.localeAssets[locale]
+            : manifest.bootstrap.localeAssets[
+                manifest.bootstrap.defaultLocale
+              ]),
+        ].map((file) => assetsByFile.get(file))
+      : (manifest.bootstrapAssets || []).map((file) => {
+          const localizedFile = file.replace('__LANG__', locale);
+          return (
+            assetsByFile.get(localizedFile) ||
+            assetsByFile.get(file.replace('__LANG__', 'en'))
+          );
+        });
 
   return Array.from(
     new Map(
@@ -515,6 +623,10 @@ export function preloadTradingViewEmbedBootstrapAssets(
 
   const preloadPromise = getManifest(manifestUrl)
     .then(async ({ baseUrl, manifest }) => {
+      if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
+        await ensureServiceWorkerPrefetch(manifestUrl, manifest, locale);
+        return;
+      }
       const assets = resolveBootstrapAssets(manifest, locale);
       let index = 0;
       const workers = Array.from(
@@ -541,15 +653,17 @@ export function loadTradingViewEmbedModule(
   runtimeUrl?: string,
 ): Promise<ILoadedTradingViewEmbedModule> {
   const manifestUrl = resolveManifestUrl(runtimeUrl);
-  const existingPromise = modulePromises.get(manifestUrl);
+  const locale = resolveTradingViewLocale(runtimeUrl);
+  const moduleKey = `${manifestUrl}:${locale}`;
+  const existingPromise = modulePromises.get(moduleKey);
   if (existingPromise) {
     return existingPromise;
   }
 
-  const modulePromise = loadModule(manifestUrl).catch((error) => {
-    modulePromises.delete(manifestUrl);
+  const modulePromise = loadModule(manifestUrl, locale).catch((error) => {
+    modulePromises.delete(moduleKey);
     throw error;
   });
-  modulePromises.set(manifestUrl, modulePromise);
+  modulePromises.set(moduleKey, modulePromise);
   return modulePromise;
 }

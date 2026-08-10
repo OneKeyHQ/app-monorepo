@@ -65,7 +65,7 @@ function isValidManifestVersion(version) {
 
 function isValidManifestPointer(manifest) {
   return (
-    manifest?.schema === 1 &&
+    (manifest?.schema === 1 || manifest?.schema === 2) &&
     isValidManifestVersion(manifest.version) &&
     typeof manifest.baseUrl === 'string' &&
     Boolean(manifest.baseUrl) &&
@@ -73,32 +73,90 @@ function isValidManifestPointer(manifest) {
   );
 }
 
+function getManifestStyles(manifest) {
+  return manifest.schema === 1 ? manifest.styles || [] : [];
+}
+
+function isValidManifestV2Bootstrap(bootstrap, assetFiles, entry) {
+  if (
+    !bootstrap ||
+    typeof bootstrap !== 'object' ||
+    typeof bootstrap.defaultLocale !== 'string' ||
+    !/^[A-Za-z][A-Za-z0-9_]*$/.test(bootstrap.defaultLocale) ||
+    !Array.isArray(bootstrap.commonAssets) ||
+    bootstrap.commonAssets.length === 0 ||
+    !bootstrap.commonAssets.every(
+      (file) => isValidRelativeAssetPath(file) && assetFiles.has(file),
+    ) ||
+    !bootstrap.commonAssets.includes(entry) ||
+    !bootstrap.commonAssets.includes(
+      'charting_library/charting_library.standalone.js',
+    ) ||
+    !bootstrap.localeAssets ||
+    typeof bootstrap.localeAssets !== 'object' ||
+    Array.isArray(bootstrap.localeAssets)
+  ) {
+    return false;
+  }
+  const localeEntries = Object.entries(bootstrap.localeAssets);
+  return (
+    localeEntries.length > 0 &&
+    localeEntries.every(
+      ([locale, files]) =>
+        /^[A-Za-z][A-Za-z0-9_]*$/.test(locale) &&
+        Array.isArray(files) &&
+        files.length > 0 &&
+        files.every(
+          (file) => isValidRelativeAssetPath(file) && assetFiles.has(file),
+        ),
+    ) &&
+    Object.prototype.hasOwnProperty.call(
+      bootstrap.localeAssets,
+      bootstrap.defaultLocale,
+    )
+  );
+}
+
 function isValidManifest(manifest) {
   if (
     isValidManifestPointer(manifest) &&
-    (manifest.styles === undefined ||
-      (Array.isArray(manifest.styles) &&
-        manifest.styles.every(isValidRelativeAssetPath))) &&
-    (manifest.bootstrapAssets === undefined ||
-      (Array.isArray(manifest.bootstrapAssets) &&
-        manifest.bootstrapAssets.every(isValidRelativeAssetPath))) &&
     Array.isArray(manifest.assets) &&
     manifest.assets.every(
       (asset) =>
         isValidRelativeAssetPath(asset?.file) &&
         typeof asset.integrity === 'string' &&
-        asset.integrity.startsWith('sha384-') &&
+        /^sha384-[A-Za-z0-9+/]+={0,2}$/.test(asset.integrity) &&
         Number.isSafeInteger(asset.size) &&
         asset.size >= 0,
     )
   ) {
     const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
+    if (
+      assetFiles.size !== manifest.assets.length ||
+      !assetFiles.has(manifest.entry)
+    ) {
+      return false;
+    }
+    if (manifest.schema === 2) {
+      return isValidManifestV2Bootstrap(
+        manifest.bootstrap,
+        assetFiles,
+        manifest.entry,
+      );
+    }
     return (
-      assetFiles.has(manifest.entry) &&
-      (manifest.styles || []).every((file) => assetFiles.has(file)) &&
-      (manifest.bootstrapAssets || []).every((file) =>
-        assetFiles.has(file.replace('__LANG__', 'en')),
-      )
+      (manifest.styles === undefined ||
+        (Array.isArray(manifest.styles) &&
+          manifest.styles.every(
+            (file) => isValidRelativeAssetPath(file) && assetFiles.has(file),
+          ))) &&
+      (manifest.bootstrapAssets === undefined ||
+        (Array.isArray(manifest.bootstrapAssets) &&
+          manifest.bootstrapAssets.every(
+            (file) =>
+              isValidRelativeAssetPath(file) &&
+              assetFiles.has(file.replace('__LANG__', 'en')),
+          )))
     );
   }
   return false;
@@ -173,6 +231,7 @@ if (!isValidManifest(manifest)) {
   manifest = await versionManifestResponse.json().catch(() => null);
   if (
     !isValidManifest(manifest) ||
+    manifest.schema !== manifestPointer.schema ||
     manifest.version !== manifestPointer.version ||
     manifest.baseUrl !== manifestPointer.baseUrl ||
     manifest.entry !== manifestPointer.entry
@@ -181,7 +240,7 @@ if (!isValidManifest(manifest)) {
   }
 }
 
-for (const file of [manifest.entry, ...(manifest.styles || [])]) {
+for (const file of [manifest.entry, ...getManifestStyles(manifest)]) {
   const assetUrl = new URL(file, baseUrl);
   if (
     assetUrl.origin !== baseUrl.origin ||
