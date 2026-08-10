@@ -4455,13 +4455,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async clearAllSyncItems() {
     const { syncItems } = await this.getAllSyncItems();
     // EIndexedDBBucketNames.cloudSync
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: syncItems.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: syncItems.map((item) => item.id),
+        });
+      },
+    );
   }
 
   async getAllSyncItems(): Promise<{
@@ -7841,7 +7844,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async removeAccountsByIds({ ids }: { ids: string[] }) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
+    const accountIdsToRemove = ids.map((accountId) => {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      if (walletId) {
+        walletToRemovedAccountsMap[walletId] = [
+          ...(walletToRemovedAccountsMap[walletId] || []),
+          accountId,
+        ];
+      }
+      return accountId;
+    });
+    const mapEntries = Object.entries(walletToRemovedAccountsMap);
 
+    // Removal and the wallet-reference cleanup share ONE space-freeing
+    // transaction. Split across two, the second was refused while the
+    // disk-full guard was raised, leaving wallets pointing at accounts that
+    // no longer exist; and even unguarded, a failure between them left the
+    // same inconsistency. `removeAccount` already has this shape.
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -7849,27 +7868,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           name: ELocalDBStoreNames.Account,
           ignoreNotFound: true,
-          ids: ids.map((id) => {
-            const accountId = id;
-            const walletId = accountUtils.getWalletIdFromAccountId({
-              accountId,
-            });
-
-            if (walletId) {
-              walletToRemovedAccountsMap[walletId] = [
-                ...(walletToRemovedAccountsMap[walletId] || []),
-                accountId,
-              ];
-            }
-            return accountId;
-          }),
+          ids: accountIdsToRemove,
         });
-      },
-    );
 
-    const mapEntries = Object.entries(walletToRemovedAccountsMap);
-    if (mapEntries.length > 0) {
-      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
         for (const [walletId, accountIds] of mapEntries) {
           if (!walletId || !accountIds || accountIds.length === 0) {
             // eslint-disable-next-line no-continue
@@ -7886,8 +7887,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
           });
         }
-      });
-    }
+      },
+    );
   }
 
   async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
@@ -8574,14 +8575,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async deleteHardwareHomeScreen({ homeScreenId }: { homeScreenId: string }) {
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      await this.txRemoveRecords({
-        name: ELocalDBStoreNames.HardwareHomeScreen,
-        tx,
-        ids: [homeScreenId],
-        ignoreNotFound: true,
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.HardwareHomeScreen,
+          tx,
+          ids: [homeScreenId],
+          ignoreNotFound: true,
+        });
+      },
+    );
   }
 
   // #endregion

@@ -187,7 +187,24 @@ function emitWarning(diagnostics: IStorageFullDiagnostics | undefined) {
 function raiseDiskFull(diagnostics: IStorageFullDiagnostics) {
   const wasAlreadyFull = Boolean(globalThis.$onekeySystemDiskIsFull);
   globalThis.$onekeySystemDiskIsFull = true;
-  lastDiagnostics = diagnostics;
+  // A quota measurement must not downgrade the provenance of a guard raised by
+  // a real write failure. Otherwise a low estimate rewrites the reason to
+  // `QuotaExhausted`, and the next healthy estimate clears the guard without
+  // the write probe ever committing — losing exactly the protection the probe
+  // exists to provide. Keep the reason, take the fresher measurement.
+  const previousDiagnostics = lastDiagnostics;
+  if (
+    wasAlreadyFull &&
+    previousDiagnostics?.reason === EStorageFullReason.WriteFailed &&
+    diagnostics.reason === EStorageFullReason.QuotaExhausted
+  ) {
+    lastDiagnostics = {
+      ...previousDiagnostics,
+      quotaInfo: diagnostics.quotaInfo,
+    };
+  } else {
+    lastDiagnostics = diagnostics;
+  }
   // Log and warn on the transition only. While the guard stays raised the
   // debounced measurement re-runs on every write, and each blocked write
   // already re-emits the warning via `checkIfDiskIsFullSync`.

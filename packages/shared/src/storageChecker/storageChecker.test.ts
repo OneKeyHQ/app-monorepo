@@ -321,6 +321,31 @@ describe('storageChecker', () => {
       Reflect.deleteProperty(globalThis, 'indexedDB');
     });
 
+    it('keeps write-failure provenance across a low-quota measurement', async () => {
+      // write failure -> low estimate -> healthy estimate. Without preserving
+      // the reason, the low estimate rewrites it to quotaExhausted and the
+      // healthy one then clears the guard with no probe ever committing.
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+
+      mockEstimate(40 * GB, 40 * GB - 0.5 * GB);
+      await storageChecker.checkIfDiskIsFull();
+      expect(storageChecker.getLastDiagnostics()?.reason).toBe(
+        EStorageFullReason.WriteFailed,
+      );
+      // The fresher measurement is still attached.
+      expect(
+        storageChecker.getLastDiagnostics()?.quotaInfo?.availableBytes,
+      ).toBe(0.5 * GB);
+
+      // No indexedDB here, so the write probe cannot commit.
+      mockEstimate(40 * GB, 10 * GB);
+      await storageChecker.checkIfDiskIsFull();
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+    });
+
     it('never throws, so it can still run while the guard is raised', async () => {
       globalThis.$onekeySystemDiskIsFull = true;
       mockEstimate(40 * GB, 40 * GB);
