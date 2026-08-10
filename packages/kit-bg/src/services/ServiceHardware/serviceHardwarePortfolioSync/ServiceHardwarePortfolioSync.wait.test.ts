@@ -42,6 +42,11 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: {
     isHwWallet: jest.fn(),
+    isWalletDeprecatedOrMocked: jest.fn(
+      (
+        wallet: { deprecated?: boolean; isMocked?: boolean } | null | undefined,
+      ) => Boolean(wallet?.deprecated || wallet?.isMocked),
+    ),
     shortenAddress: jest.fn(({ address }: { address: string }) => address),
   },
 }));
@@ -617,6 +622,38 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['deprecated', { deprecated: true }],
+    ['mocked', { isMocked: true }],
+  ])('does not sync a %s hardware wallet', async (_label, walletState) => {
+    jest.mocked(localDb.getWalletSafe).mockResolvedValue({
+      id: 'hw-1',
+      name: 'OneKey Wallet',
+      type: 'hw',
+      ...walletState,
+    } as never);
+    jest.mocked(localDb.getWalletDeviceSafe).mockClear();
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(localDb.getWalletDeviceSafe).not.toHaveBeenCalled();
+    expect(getDeviceState).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'disabled',
+        walletId: 'hw-1',
+      }),
+    );
   });
 
   test.each([
