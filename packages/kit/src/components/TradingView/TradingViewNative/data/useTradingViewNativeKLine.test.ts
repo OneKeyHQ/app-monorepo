@@ -3310,6 +3310,50 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(mockFetchHistory).toHaveBeenCalledTimes(3);
   });
 
+  it('resets chart type classification when a series lifecycle restarts', async () => {
+    mockHistoryBatchSize = 2;
+    mockHistoryRequestCandleCount = 2;
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 110, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 200, timestamp: 2_000_000 },
+          { close: 210, timestamp: 2_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce({
+        ...buildFallbackMultiPointResponse([
+          { close: 120, timestamp: 1_100_000 },
+          { close: 130, timestamp: 1_103_600 },
+        ]),
+        pointType: 'single',
+      });
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ tokenAddress }),
+        }),
+      { initialProps: { tokenAddress: '0x123' } },
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.chartType).toBe('candlestick');
+
+    rerender({ tokenAddress: '0x456' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+
+    rerender({ tokenAddress: '0x123' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(120));
+    expect(result.current.chartType).toBe('line');
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+  });
+
   it('resets the series when the CoinGecko fallback identity changes', async () => {
     const olderHistoryRequest =
       createDeferred<IMarketTokenKLineResponse | null>();

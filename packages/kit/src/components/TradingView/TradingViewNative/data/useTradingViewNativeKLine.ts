@@ -1296,11 +1296,20 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const seriesKey = rawHistoryProvider.key;
-  const [historyPointTypeScopes, setHistoryPointTypeScopes] = useState<
-    ReadonlyMap<string, IHistoryPointTypeClassification>
-  >(() => new Map());
+  const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
+    historyProvider: ITradingViewNativeDataProvider;
+    scopes: ReadonlyMap<string, IHistoryPointTypeClassification>;
+  }>(() => ({ historyProvider: rawHistoryProvider, scopes: new Map() }));
+  const visibleHistoryPointTypeScopes =
+    historyPointTypeScopeState.historyProvider === rawHistoryProvider
+      ? historyPointTypeScopeState.scopes
+      : undefined;
   const historyProvider = useMemo<ITradingViewNativeDataProvider>(() => {
     const historyDataSourceScopes = new Map<string, IHistoryDataSource>();
+    const historyPointTypeScopes = new Map<
+      string,
+      IHistoryPointTypeClassification
+    >();
     return {
       ...rawHistoryProvider,
       fetchHistory: async (request) => {
@@ -1317,20 +1326,19 @@ export function useTradingViewNativeKLine({
             return { ...data, points: [], total: 0 };
           }
           historyDataSourceScopes.set(scopeKey, responseDataSource);
-          setHistoryPointTypeScopes((currentScopes) => {
-            const currentClassification = currentScopes.get(scopeKey);
-            const nextClassification = resolveHistoryPointTypeClassification({
-              currentClassification,
-              historySource: data.historySource,
-              pointType: data.pointType,
-            });
-            if (nextClassification === currentClassification) {
-              return currentScopes;
-            }
-            const nextScopes = new Map(currentScopes);
-            nextScopes.set(scopeKey, nextClassification);
-            return nextScopes;
+          const currentClassification = historyPointTypeScopes.get(scopeKey);
+          const nextClassification = resolveHistoryPointTypeClassification({
+            currentClassification,
+            historySource: data.historySource,
+            pointType: data.pointType,
           });
+          if (nextClassification !== currentClassification) {
+            historyPointTypeScopes.set(scopeKey, nextClassification);
+            setHistoryPointTypeScopeState({
+              historyProvider: rawHistoryProvider,
+              scopes: new Map(historyPointTypeScopes),
+            });
+          }
         }
         return data;
       },
@@ -3446,7 +3454,7 @@ export function useTradingViewNativeKLine({
     candleIntervalSeconds: displayedInterval.seconds,
     chartType: getTradingViewNativeChartType({
       hasSingleValueHistory: isSingleValueHistoryClassification(
-        historyPointTypeScopes.get(
+        visibleHistoryPointTypeScopes?.get(
           getHistoryPointTypeScopeKey(
             visibleChartData?.seriesKey ?? seriesKey,
             visibleChartData?.interval ?? activeInterval,
