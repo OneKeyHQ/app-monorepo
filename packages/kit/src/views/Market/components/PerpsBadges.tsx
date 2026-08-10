@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Image,
   SizableText,
   Stack,
@@ -20,19 +19,21 @@ import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
-const LeverageBadge = memo(({ leverage }: { leverage: number }) => (
-  <XStack
-    borderRadius="$1"
-    bg="$bgInfo"
-    justifyContent="center"
-    alignItems="center"
-    px="$1.5"
-  >
-    <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
-      {leverage}x
-    </SizableText>
-  </XStack>
-));
+const LeverageBadge = memo(
+  ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
+    <XStack
+      borderRadius="$1"
+      bg="$bgInfo"
+      justifyContent="center"
+      alignItems="center"
+      px={compact ? '$1' : '$1.5'}
+    >
+      <SizableText fontSize={10} color="$textInfo" lineHeight={16}>
+        {leverage}x
+      </SizableText>
+    </XStack>
+  ),
+);
 LeverageBadge.displayName = 'LeverageBadge';
 
 function getPerpDexDescriptionId(dexLabel?: string) {
@@ -66,25 +67,17 @@ const PerpDexBadge = memo(
     const label = dexLabel.toLowerCase();
     const description = intl.formatMessage({ id: descriptionId });
     const badgeText = (
-      <SizableText
-        color="$textInfo"
-        fontSize={10}
-        {...(!compact && { lineHeight: 16 })}
-      >
+      <SizableText color="$textInfo" fontSize={10} lineHeight={16}>
         {label}
       </SizableText>
     );
-    const badge = compact ? (
-      <Badge radius="$1" bg="$bgInfo" px="$1" py={0} testID={testID}>
-        {badgeText}
-      </Badge>
-    ) : (
+    const badge = (
       <XStack
         borderRadius="$1"
         bg="$bgInfo"
         justifyContent="center"
         alignItems="center"
-        px="$1.5"
+        px={compact ? '$1' : '$1.5'}
         testID={testID}
       >
         {badgeText}
