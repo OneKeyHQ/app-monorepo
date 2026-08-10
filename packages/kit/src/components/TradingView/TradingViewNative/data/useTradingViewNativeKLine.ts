@@ -1296,14 +1296,12 @@ export function useTradingViewNativeKLine({
     sourceKind,
   ]);
   const seriesKey = rawHistoryProvider.key;
-  const historyDataSourceScopesRef = useRef(
-    new Map<string, IHistoryDataSource>(),
-  );
   const [historyPointTypeScopes, setHistoryPointTypeScopes] = useState<
     ReadonlyMap<string, IHistoryPointTypeClassification>
   >(() => new Map());
-  const historyProvider = useMemo<ITradingViewNativeDataProvider>(
-    () => ({
+  const historyProvider = useMemo<ITradingViewNativeDataProvider>(() => {
+    const historyDataSourceScopes = new Map<string, IHistoryDataSource>();
+    return {
       ...rawHistoryProvider,
       fetchHistory: async (request) => {
         const data = await rawHistoryProvider.fetchHistory(request);
@@ -1314,12 +1312,11 @@ export function useTradingViewNativeKLine({
           );
           const responseDataSource: IHistoryDataSource =
             data.historySource === 'fallback' ? 'fallback' : 'primary';
-          const selectedDataSource =
-            historyDataSourceScopesRef.current.get(scopeKey);
+          const selectedDataSource = historyDataSourceScopes.get(scopeKey);
           if (selectedDataSource && selectedDataSource !== responseDataSource) {
             return { ...data, points: [], total: 0 };
           }
-          historyDataSourceScopesRef.current.set(scopeKey, responseDataSource);
+          historyDataSourceScopes.set(scopeKey, responseDataSource);
           setHistoryPointTypeScopes((currentScopes) => {
             const currentClassification = currentScopes.get(scopeKey);
             const nextClassification = resolveHistoryPointTypeClassification({
@@ -1337,9 +1334,8 @@ export function useTradingViewNativeKLine({
         }
         return data;
       },
-    }),
-    [rawHistoryProvider, seriesKey],
-  );
+    };
+  }, [rawHistoryProvider, seriesKey]);
   const realtimeProvider = useMemo(() => {
     if (sourceKind === 'hyperliquid') {
       return historyProvider;

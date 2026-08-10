@@ -3285,6 +3285,31 @@ describe('TradingViewNative K-line data state machine', () => {
     expect(result.current.chartType).toBe('candlestick');
   });
 
+  it('resets history source selection when a series lifecycle restarts', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildFallbackMultiPointResponse([{ close: 100, timestamp: 1_000_000 }]),
+      )
+      .mockResolvedValueOnce(buildResponse(200, 2_000_000))
+      .mockResolvedValueOnce(buildResponse(120, 1_100_000));
+    const { result, rerender } = renderHook(
+      ({ tokenAddress }: { tokenAddress: string }) =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ tokenAddress }),
+        }),
+      { initialProps: { tokenAddress: '0x123' } },
+    );
+
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+
+    rerender({ tokenAddress: '0x456' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+
+    rerender({ tokenAddress: '0x123' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(120));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(3);
+  });
+
   it('resets the series when the CoinGecko fallback identity changes', async () => {
     const olderHistoryRequest =
       createDeferred<IMarketTokenKLineResponse | null>();
