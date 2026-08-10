@@ -9,6 +9,7 @@ import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { showDevOnlyPasswordDialog } from '../pages/Tab/DevSettingsSection/showDevOnlyPasswordDialog';
 import { SettingTestIDs } from '../testIDs';
 
+import { advanceDevModeClickSequence } from './devModeClickTracker';
 import {
   cacheDevOnlyPassword,
   clearCachedDevOnlyPassword,
@@ -17,7 +18,7 @@ import {
 
 // for open dev mode
 let clickCount = 0;
-let startTime: Date | undefined;
+let startTime: number | undefined;
 let isPasswordVerifying = false;
 
 const resetClickCount = () => {
@@ -107,23 +108,22 @@ export const showDevModePasswordDialog = async () => {
 };
 
 export const handleOpenDevMode = async (callback: () => void) => {
-  const nowTime = new Date();
-  if (clickCount === 0) {
-    callback();
-  }
   if (isPasswordVerifying) {
     return;
   }
-  if (
-    startTime === undefined ||
-    Math.round(nowTime.getTime() - startTime.getTime()) > 5000
-  ) {
-    startTime = nowTime;
-    clickCount = 0;
-  } else {
-    clickCount += 1;
+  const clickResult = advanceDevModeClickSequence({
+    state: {
+      clickCount,
+      startTime,
+    },
+    now: Date.now(),
+  });
+  clickCount = clickResult.state.clickCount;
+  startTime = clickResult.state.startTime;
+  if (clickResult.shouldCopyVersion) {
+    callback();
   }
-  if (clickCount >= 9) {
+  if (clickResult.shouldOpenDevMode) {
     isPasswordVerifying = true;
     try {
       await showDevModePasswordDialog();

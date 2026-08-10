@@ -28,6 +28,10 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
+// Reference-stable: PageHeader diffs options shallowly before setOptions, so
+// a fresh style object every render would re-trigger navigation updates.
+const transparentHeaderStyle = { backgroundColor: 'transparent' };
+
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -100,9 +104,7 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         headerShown
         headerTitleAlign="center"
         headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
+        headerStyle={transparentHeaderStyle}
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}

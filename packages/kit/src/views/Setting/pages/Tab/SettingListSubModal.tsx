@@ -10,11 +10,10 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
+import { isVisibleSettingsCategory } from './settingsRootLayout';
 import { SubSettingsPage } from './SubSettingsPage';
 
 import type { RouteProp } from '@react-navigation/core';
-
-type ISettingName = string;
 
 function SettingListSubModalView() {
   const route =
@@ -24,12 +23,12 @@ function SettingListSubModalView() {
   const { name, title } = route.params || {};
   const settingsConfig = useSettingsConfig();
   const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig.filter((config) => config && !config.isHidden);
+    return settingsConfig.filter(isVisibleSettingsCategory);
   }, [settingsConfig]);
   return (
     <SubSettingsPage
-      name={name as ISettingName}
-      title={title || ''}
+      name={name}
+      title={title}
       settingsConfig={filteredSettingsConfig}
     />
   );
