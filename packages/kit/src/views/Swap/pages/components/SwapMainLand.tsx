@@ -111,6 +111,7 @@ import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetS
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
+import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
 import { useSwapModalAutoCloseOnBroadcast } from '../../hooks/useSwapModalAutoCloseOnBroadcast';
 import {
   useSwapProAccount,
@@ -181,6 +182,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  useSwapLimitOrdersVisibilityRefresh({
+    enabled: isFocused && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+  });
   const [rateDifference] = useRateDifferenceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();

@@ -3275,10 +3275,39 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async refreshSwapLimitOrders(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
+  ) {
+    await this.swapLimitOrdersFetchLoop(
+      indexedAccountId,
+      otherWalletTypeAccountId,
+      true,
+    );
+  }
+
+  private scheduleSwapLimitOrdersFetchLoop(
+    indexedAccountId?: string,
+    otherWalletTypeAccountId?: string,
+  ) {
+    if (this.limitOrderStateInterval) {
+      clearTimeout(this.limitOrderStateInterval);
+    }
+    this.limitOrderStateInterval = setTimeout(() => {
+      void this.swapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+        false,
+        true,
+      );
+    }, ESwapLimitOrderUpdateInterval);
+  }
+
+  @backgroundMethod()
   async swapLimitOrdersFetchLoop(
     indexedAccountId?: string,
     otherWalletTypeAccountId?: string,
-    isFetchNewOrder?: boolean,
+    forceRefresh?: boolean,
     interval?: boolean,
   ) {
     if (this.limitOrderStateInterval) {
@@ -3318,14 +3347,10 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         swapLimitOrdersLoading: false,
       }));
-      this.limitOrderStateInterval = setTimeout(() => {
-        void this.swapLimitOrdersFetchLoop(
-          indexedAccountId,
-          otherWalletTypeAccountId,
-          false,
-          true,
-        );
-      }, ESwapLimitOrderUpdateInterval);
+      this.scheduleSwapLimitOrdersFetchLoop(
+        indexedAccountId,
+        otherWalletTypeAccountId,
+      );
       return;
     }
     if (swapSupportAccounts.length > 0) {
@@ -3350,7 +3375,7 @@ export default class ServiceSwap extends ServiceBase {
       try {
         const shouldFetchLimitOrders =
           !swapLimitOrders.length ||
-          isFetchNewOrder ||
+          forceRefresh ||
           !sameAccount ||
           openOrders.length;
         if (shouldFetchLimitOrders) {
@@ -3392,14 +3417,10 @@ export default class ServiceSwap extends ServiceBase {
             };
           });
           if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
-            this.limitOrderStateInterval = setTimeout(() => {
-              void this.swapLimitOrdersFetchLoop(
-                indexedAccountId,
-                otherWalletTypeAccountId,
-                false,
-                true,
-              );
-            }, ESwapLimitOrderUpdateInterval);
+            this.scheduleSwapLimitOrdersFetchLoop(
+              indexedAccountId,
+              otherWalletTypeAccountId,
+            );
           }
         } else {
           await inAppNotificationAtom.set((pre) => ({
@@ -3409,14 +3430,10 @@ export default class ServiceSwap extends ServiceBase {
           }));
         }
       } catch (_error) {
-        this.limitOrderStateInterval = setTimeout(() => {
-          void this.swapLimitOrdersFetchLoop(
-            indexedAccountId,
-            otherWalletTypeAccountId,
-            false,
-            true,
-          );
-        }, ESwapLimitOrderUpdateInterval);
+        this.scheduleSwapLimitOrdersFetchLoop(
+          indexedAccountId,
+          otherWalletTypeAccountId,
+        );
       } finally {
         await inAppNotificationAtom.set((pre) => ({
           ...pre,
