@@ -97,7 +97,7 @@ describe('resolveHwWalletTransportType', () => {
   });
 
   it('is a no-op when connectionType is unknown (OneKey HD)', () => {
-    // OneKey HD 设备不携带第三方 connectionType，因此沿用 Onboarding 已选通道。
+    // OneKey HD devices have no third-party connectionType, so keep the Onboarding channel.
     for (const global of [
       EHardwareTransportType.WEBUSB,
       EHardwareTransportType.Bridge,

@@ -403,7 +403,7 @@ export function buildTrezorDesktopBleUsbConnectId({
   return undefined;
 }
 
-/** 按 x 分支语义选择创建钱包时保存的 BLE 端点。 */
+/** Select the BLE endpoint persisted during wallet creation using x-branch semantics. */
 export function resolveBleConnectIdForCreate({
   connectId,
   explicitBleConnectId,

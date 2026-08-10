@@ -1,8 +1,8 @@
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 /**
- * 与 x 分支保持一致：OneKey 创建流程沿用 Onboarding 已选定的全局
- * transport；第三方融合设备列表使用 raw.connectionType 修正实际通道。
+ * Match the x branch: OneKey wallet creation keeps the transport selected by
+ * Onboarding, while third-party fused device lists refine it with raw.connectionType.
  */
 export function resolveHwWalletTransportType(params: {
   globalTransportType: EHardwareTransportType;

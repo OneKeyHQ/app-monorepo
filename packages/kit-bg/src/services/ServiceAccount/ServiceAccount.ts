@@ -3704,8 +3704,8 @@ class ServiceAccount extends ServiceBase {
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
 
-    // 与 x 分支保持一致：OneKey 由 Onboarding 已选通道决定全局 transport；
-    // 第三方融合列表则继续使用设备自身的 connectionType 修正通道。
+    // Match the x branch: OneKey uses the transport selected by Onboarding,
+    // while third-party fused lists still refine it with the device connection type.
     const transportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (

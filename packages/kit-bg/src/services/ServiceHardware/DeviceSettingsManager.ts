@@ -97,7 +97,7 @@ export type IHardwareHomeScreenData = {
   url?: string; // preview image url
   nameHex?: string; // Pro、Touch: image name hex, only system res type
   screenHex?: string; // Classic、mini、1s、pure: image hex, only prebuilt res type
-  screenBase64?: string; // Pro2、Neo：不带 data URL 前缀的 JPEG Base64
+  screenBase64?: string; // Pro2/Neo JPEG Base64 without a data URL prefix
 
   // software generated image
   thumbnailHex?: string; // Pro、Touch：thumb image hex by resize

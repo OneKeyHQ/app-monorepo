@@ -295,7 +295,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Failed to sign message');
     }
     const signature = bufferUtils.hexToBytes(result.signature);
-    // Hardware SDK 已将 Protocol V1/V2 响应统一为 signing_message。
+    // The Hardware SDK normalizes Protocol V1/V2 responses to signing_message.
     const signingMessageHexFromHw = result.signing_message ?? null;
     const signingMessageHex = Buffer.from(signingMessage.toBoc()).toString(
       'hex',
