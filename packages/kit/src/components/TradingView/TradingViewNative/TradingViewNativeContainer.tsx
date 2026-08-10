@@ -100,6 +100,23 @@ export const TradingViewNativeContainer = memo(
         }),
       [activeIndicatorValues, points],
     );
+    const candleLabels = useMemo(
+      () => ({
+        close: intl.formatMessage({
+          id: ETranslations.market_close_abbr,
+        }),
+        high: intl.formatMessage({
+          id: ETranslations.market_high_abbr,
+        }),
+        low: intl.formatMessage({
+          id: ETranslations.market_low_abbr,
+        }),
+        open: intl.formatMessage({
+          id: ETranslations.market_open_abbr,
+        }),
+      }),
+      [intl],
+    );
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
     const latestPriceTimestamp = latestPoint?.t;
@@ -283,6 +300,7 @@ export const TradingViewNativeContainer = memo(
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}
+            candleLabels={candleLabels}
             points={points}
             testID={testID}
             viewportRequest={viewportRequest}
