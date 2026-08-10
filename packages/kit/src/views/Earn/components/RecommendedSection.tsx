@@ -227,7 +227,17 @@ RecommendedItem.displayName = 'RecommendedItem';
 
 // Extract the number from the server-side available.text (a localized label
 // followed by the amount, e.g. "Active 220.09") and build "Balance {number}"
-// on the client, so we do not depend on the server copy format (OK-58877)
+// on the client, so we do not depend on the server copy format (OK-58877).
+//
+// This scrape rests on an invariant the server currently guarantees: the
+// amount is produced by formatNumberWithFlag, which hard-codes '.' as the
+// decimal separator and ',' as the group separator, so the digits are always
+// ASCII regardless of locale — only the surrounding label is translated, and
+// no locale pack embeds a digit in that label. If the server ever switches to
+// locale-aware number formatting (comma decimals, non-Latin digits), this
+// silently truncates or blanks the balance. The durable fix is a structured
+// numeric field on IRecommendV2Token rather than parsing display copy
+// (PR 12791 review P2).
 const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
 function extractAvailableNumber(text?: string) {
   return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];

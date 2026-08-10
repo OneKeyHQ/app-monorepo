@@ -150,20 +150,22 @@ function AvailableAssetsFlatListComponent() {
   // having their own section (OK-58506). De-dup by symbol: for a duplicated
   // symbol the SimpleEarn list wins.
   const sectionAssetsByType = useMemo(() => {
-    // Trending tokens exclude fixed rate (OK-58879): fixed-rate assets
-    // (PT-like, separate symbols) get their own section/page, so drop them
-    // from the merged Trending result
-    const fixedRateSymbols = new Set(
-      (availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? []).map(
-        (asset) => asset.symbol,
-      ),
-    );
+    // Trending used to subtract every symbol present in the fixed-rate dataset
+    // (OK-58879), on the assumption that fixed rate uses distinct PT-only
+    // symbols. It does not: the server stores a Pendle protocol under its
+    // *underlying* asset symbol (the PT symbol lives in vaultName), so that
+    // subtraction dropped tokens like USDe from Trending even though their
+    // simple-earn / staking offering still exists. Same defect OK-59338 fixed
+    // on the Tokens page; keeping it here also made the home section show
+    // strictly less than the page it links to (PR 12791 review P2).
+    // A dual-product symbol legitimately appears in both sections — they link
+    // to different pages and show different yields.
     const merged: typeof availableAssetsByType = {
       ...availableAssetsByType,
       [EAvailableAssetsTypeEnum.SimpleEarn]: mergeSimpleEarnWithStakingAssets(
         availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ?? [],
         availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? [],
-      ).filter((asset) => !fixedRateSymbols.has(asset.symbol)),
+      ),
     };
     return merged;
   }, [availableAssetsByType]);

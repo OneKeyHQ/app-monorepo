@@ -1,9 +1,9 @@
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+
 import {
   mergeSimpleEarnWithStakingAssets,
   parseFormattedLiquidityValue,
 } from './availableAssetsUtils';
-
 
 function buildAsset(symbol: string, apr = '1'): IEarnAvailableAsset {
   return {

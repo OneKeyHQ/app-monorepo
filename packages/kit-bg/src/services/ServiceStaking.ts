@@ -976,13 +976,19 @@ class ServiceStaking extends ServiceBase {
     // (review P1) so locally disabled / client-unsupported protocols never
     // surface. WithdrawOnly rows are KEPT (OK-59305): sunset protocols like
     // lido/babylon are withdraw-only, and users with existing positions need
-    // the aggregation pages to reach the redeem flow. Rows without a symbol
-    // cannot be checked against the config, so they are dropped — an old
-    // server that returns symbol-less rows then yields an empty list and the
-    // caller falls back to the per-symbol fan-out path.
-    const visibleItems = allItems.filter((item) => Boolean(item.symbol));
+    // the aggregation pages to reach the redeem flow.
+    //
+    // Usability is decided BEFORE anything is dropped (PR 12791 review P1).
+    // Filtering symbol-less rows away first would make the caller's own
+    // "every row has a symbol" completeness check vacuously true, so a
+    // response the client cannot fully aggregate would look complete and the
+    // pages would silently render a subset instead of falling back to the
+    // per-symbol path. An empty result is the agreed "not usable" signal.
+    if (allItems.length === 0 || allItems.some((item) => !item.symbol)) {
+      return [];
+    }
     const itemsWithEnabledStatus = await promiseAllSettledEnhanced(
-      visibleItems.map((item) => async () => {
+      allItems.map((item) => async () => {
         const stakingConfig = await this.getStakingConfigs({
           networkId: item.network.networkId,
           symbol: item.symbol ?? '',
@@ -992,6 +998,15 @@ class ServiceStaking extends ServiceBase {
       }),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
     );
+    // continueOnError turns a rejected config lookup into null, which is
+    // indistinguishable from "config says disabled". Hiding a provider because
+    // its lookup happened to throw is a silent data loss on a primary surface,
+    // so treat the whole fast path as unusable instead and let the caller fall
+    // back to the per-symbol aggregation, which re-evaluates gating per symbol
+    // (PR 12791 review P1).
+    if (itemsWithEnabledStatus.some((r) => r === null || r === undefined)) {
+      return [];
+    }
     return itemsWithEnabledStatus
       .filter(
         (r): r is NonNullable<typeof r> =>
