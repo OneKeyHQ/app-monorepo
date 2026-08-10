@@ -4,8 +4,10 @@ import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewProps } from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
+import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
@@ -76,17 +78,35 @@ export default function TradingViewRuntimeView({
   );
 
   useEffect(() => {
+    setFallback(false);
+  }, [reloadRevision, runtimeUrl]);
+
+  useEffect(() => {
+    if (fallback) {
+      return undefined;
+    }
     const container = containerRef.current;
     if (!container || !runtimeUrl) {
       return undefined;
     }
 
     let cancelled = false;
-    setFallback(false);
     onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
 
     void loadTradingViewEmbedModule(runtimeUrl)
       .then(async ({ assetBaseUrl, module }) => {
+        if (cancelled) {
+          return;
+        }
+        await migrateLegacyTradingViewStorage(runtimeUrl).catch(
+          (error: unknown) => {
+            defaultLogger.app.error.log(
+              `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+                error,
+              )}`,
+            );
+          },
+        );
         if (cancelled) {
           return;
         }
@@ -98,9 +118,10 @@ export default function TradingViewRuntimeView({
             void Promise.resolve(
               customReceiveHandlerRef.current?.({ data: payload }),
             ).catch((error: unknown) => {
-              console.error(
-                '[TradingViewRuntimeView] Message handling failed:',
-                error,
+              defaultLogger.app.error.log(
+                `[TradingViewRuntimeView] Message handling failed: ${String(
+                  error,
+                )}`,
               );
             });
           },
@@ -114,9 +135,10 @@ export default function TradingViewRuntimeView({
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          console.error(
-            '[TradingViewRuntimeView] DOM runtime failed, using iframe:',
-            error,
+          defaultLogger.app.error.log(
+            `[TradingViewRuntimeView] DOM runtime failed, using iframe: ${String(
+              error,
+            )}`,
           );
           setFallback(true);
         }
@@ -127,7 +149,7 @@ export default function TradingViewRuntimeView({
       handleRef.current?.unmount();
       handleRef.current = null;
     };
-  }, [reloadRevision, runtimeUrl]);
+  }, [fallback, reloadRevision, runtimeUrl]);
 
   if (fallback) {
     return (
@@ -143,7 +165,7 @@ export default function TradingViewRuntimeView({
   }
 
   return (
-    <Stack flex={1} bg="background-default" {...containerProps}>
+    <Stack flex={1} bg="$bgApp" {...containerProps}>
       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
     </Stack>
   );

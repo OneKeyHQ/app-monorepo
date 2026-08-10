@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { act, render, waitFor } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 
 import {
   loadTradingViewEmbedModule,
@@ -10,6 +10,7 @@ import {
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
+import { preloadTasksOnIdle } from './preloadComponents';
 import { TradingViewEmbedGlobalPreload } from './TradingViewEmbedGlobalPreload.web-only';
 
 jest.mock('../components/TradingView/hooks/useTradingViewUrl', () => ({
@@ -34,56 +35,37 @@ jest.mock(
   }),
 );
 
+jest.mock('./preloadComponents', () => ({
+  preloadTasksOnIdle: jest.fn(),
+}));
+
 describe('TradingViewEmbedGlobalPreload', () => {
-  let idleCallback: IdleRequestCallback;
+  const cleanup = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.history.replaceState({}, '', '/market');
-    Object.defineProperty(globalThis, 'requestIdleCallback', {
-      configurable: true,
-      value: jest.fn((callback: IdleRequestCallback) => {
-        idleCallback = callback;
-        return 1;
-      }),
-    });
-    Object.defineProperty(globalThis, 'cancelIdleCallback', {
-      configurable: true,
-      value: jest.fn(),
-    });
+    jest.mocked(preloadTasksOnIdle).mockReturnValue(cleanup);
   });
 
-  test('does not preload TradingView outside Market routes', () => {
-    globalThis.history.replaceState({}, '', '/swap');
-
-    const view = render(<TradingViewEmbedGlobalPreload />);
-
-    expect(preloadMarketTradingView).not.toHaveBeenCalled();
-    expect(requestIdleCallback).not.toHaveBeenCalled();
-
-    view.unmount();
-  });
-
-  test('preloads the app chunk immediately and embed assets when idle', async () => {
+  test('schedules Market and local embed preloads through the idle runner', async () => {
     const view = render(<TradingViewEmbedGlobalPreload />);
 
     await waitFor(() => {
-      expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
-      expect(requestIdleCallback).toHaveBeenCalledWith(expect.any(Function), {
-        timeout: 3000,
-      });
+      expect(preloadTasksOnIdle).toHaveBeenCalledTimes(1);
     });
+    const [tasks, logPrefix] = jest.mocked(preloadTasksOnIdle).mock.calls[0];
+    expect(tasks.map((task) => task.name)).toEqual([
+      'MarketTradingView',
+      'TradingViewEmbedModule',
+      'TradingViewEmbedBootstrapAssets',
+    ]);
+    expect(logPrefix).toBe('TradingViewEmbedPreload');
     expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
     expect(preloadTradingViewEmbedBootstrapAssets).not.toHaveBeenCalled();
 
-    await act(async () => {
-      idleCallback({
-        didTimeout: false,
-        timeRemaining: () => 10,
-      });
-      await Promise.resolve();
-    });
+    await Promise.all(tasks.map((task) => task.preload()));
 
+    expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
     expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
       'http://localhost:5173/',
     );
@@ -92,6 +74,6 @@ describe('TradingViewEmbedGlobalPreload', () => {
     );
 
     view.unmount();
-    expect(cancelIdleCallback).toHaveBeenCalledWith(1);
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });

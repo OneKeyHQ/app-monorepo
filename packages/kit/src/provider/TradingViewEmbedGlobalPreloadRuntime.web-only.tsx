@@ -7,32 +7,36 @@ import {
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
 import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
-const PRELOAD_IDLE_TIMEOUT_MS = 3000;
+import { preloadTasksOnIdle } from './preloadComponents';
+
+const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 
 export function TradingViewEmbedGlobalPreloadRuntime() {
   const { baseUrl, finalUrl } = useTradingViewUrl();
 
   useEffect(() => {
-    void preloadMarketTradingView().catch(() => undefined);
-
-    const idleHandle = requestIdleCallback(
-      () => {
-        const preloadPromises: Promise<unknown>[] = [
-          loadTradingViewEmbedModule(baseUrl),
-        ];
-        if (!navigator.serviceWorker?.controller) {
-          preloadPromises.push(
-            preloadTradingViewEmbedBootstrapAssets(finalUrl),
-          );
-        }
-        void Promise.all(preloadPromises).catch(() => undefined);
-      },
-      { timeout: PRELOAD_IDLE_TIMEOUT_MS },
+    const isLocalRuntime = LOCAL_HOSTNAMES.has(new URL(baseUrl).hostname);
+    return preloadTasksOnIdle(
+      [
+        {
+          name: 'MarketTradingView',
+          preload: preloadMarketTradingView,
+        },
+        {
+          name: 'TradingViewEmbedModule',
+          preload: () => loadTradingViewEmbedModule(baseUrl),
+        },
+        ...(isLocalRuntime
+          ? [
+              {
+                name: 'TradingViewEmbedBootstrapAssets',
+                preload: () => preloadTradingViewEmbedBootstrapAssets(finalUrl),
+              },
+            ]
+          : []),
+      ],
+      'TradingViewEmbedPreload',
     );
-
-    return () => {
-      cancelIdleCallback(idleHandle);
-    };
   }, [baseUrl, finalUrl]);
 
   return null;

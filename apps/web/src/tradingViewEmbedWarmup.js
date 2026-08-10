@@ -1,17 +1,69 @@
 const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
+const PREFETCH_IDLE_TIMEOUT_MS = 5000;
+
+let idleHandle;
+
+function shouldWarmTradingViewEmbed() {
+  return (
+    document.visibilityState === 'visible' &&
+    navigator.connection?.saveData !== true
+  );
+}
+
+async function getPinnedTradingViewEmbedManifest() {
+  const buildManifestUrl =
+    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_URL?.trim() || '';
+  const buildManifestIntegrity =
+    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY?.trim() || '';
+  if (!buildManifestUrl || !buildManifestIntegrity.startsWith('sha384-')) {
+    return undefined;
+  }
+  try {
+    const response = await fetch(buildManifestUrl, {
+      cache: 'force-cache',
+      credentials: 'omit',
+      integrity: buildManifestIntegrity,
+      mode: 'cors',
+    });
+    return response.ok ? await response.json() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function warmTradingViewEmbedAssets() {
   const manifestUrl =
     process.env.TRADINGVIEW_EMBED_MANIFEST_URL || DEFAULT_MANIFEST_URL;
+  const hasPinnedManifest = Boolean(
+    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_URL?.trim(),
+  );
   const controller = navigator.serviceWorker?.controller;
-  if (!controller) {
+  if (
+    !controller ||
+    !hasPinnedManifest ||
+    idleHandle !== undefined ||
+    !shouldWarmTradingViewEmbed()
+  ) {
     return;
   }
-  controller.postMessage({
-    type: PREFETCH_MESSAGE_TYPE,
-    payload: {
-      manifestUrl,
+  idleHandle = requestIdleCallback(
+    () => {
+      idleHandle = undefined;
+      void getPinnedTradingViewEmbedManifest().then((manifest) => {
+        const currentController = navigator.serviceWorker?.controller;
+        if (!currentController || !manifest || !shouldWarmTradingViewEmbed()) {
+          return;
+        }
+        currentController.postMessage({
+          type: PREFETCH_MESSAGE_TYPE,
+          payload: {
+            manifestUrl,
+            manifestVersion: manifest.version,
+          },
+        });
+      });
     },
-  });
+    { timeout: PREFETCH_IDLE_TIMEOUT_MS },
+  );
 }

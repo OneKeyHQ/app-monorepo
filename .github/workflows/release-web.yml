@@ -199,10 +199,12 @@ jobs:
           MARKET_HOME_TOKEN_SEED_ENV: 'test'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekeytest.com/embed/latest.json'
-          TRADINGVIEW_EMBED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
+
+      - name: Verify Service Worker Bundle
+        run: node apps/web/scripts/validate-built-service-worker.mjs
 
       - name: Verify Market Bootstrap Data
         run: |
@@ -412,10 +414,12 @@ jobs:
           MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekey.so/embed/latest.json'
-          TRADINGVIEW_EMBED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
+
+      - name: Verify Service Worker Bundle
+        run: node apps/web/scripts/validate-built-service-worker.mjs
 
       - name: Verify Market Bootstrap Data
         run: |
@@ -576,6 +580,6 @@ jobs:
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-build-source: "${{ inputs.build_source || 'daily-build' }}"
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'

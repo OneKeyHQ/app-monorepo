@@ -1,3 +1,7 @@
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 interface ITradingViewEmbedManifestAsset {
@@ -11,10 +15,15 @@ interface ITradingViewEmbedManifest {
   version: string;
   baseUrl: string;
   entry: string;
-  styles: string[];
+  styles?: string[];
   bootstrapAssets?: string[];
   assets: ITradingViewEmbedManifestAsset[];
 }
+
+type ITradingViewEmbedManifestPointer = Pick<
+  ITradingViewEmbedManifest,
+  'baseUrl' | 'entry' | 'schema' | 'version'
+>;
 
 export interface ITradingViewEmbedHandle {
   postMessage(message: unknown): void;
@@ -50,6 +59,12 @@ const bootstrapPreloadPromises = new Map<string, Promise<void>>();
 
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
+const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
+const SERVICE_WORKER_PREFETCH_TIMEOUT_MS = 60_000;
+const TRUSTED_MANIFEST_ORIGINS = new Set([
+  new URL(TRADING_VIEW_URL).origin,
+  new URL(TRADING_VIEW_URL_TEST).origin,
+]);
 const BOOTSTRAP_PRELOAD_CONCURRENCY = 3;
 const TRADING_VIEW_LOCALE_MAP: Record<string, string> = {
   'ja-JP': 'ja',
@@ -66,7 +81,9 @@ function resolveManifestUrl(runtimeUrl?: string): string {
   const configuredManifestUrl =
     process.env.TRADINGVIEW_EMBED_MANIFEST_URL?.trim();
   if (configuredManifestUrl) {
-    return new URL(configuredManifestUrl, locationOrigin).toString();
+    return validateManifestUrl(
+      new URL(configuredManifestUrl, locationOrigin),
+    ).toString();
   }
 
   if (runtimeUrl) {
@@ -74,14 +91,31 @@ function resolveManifestUrl(runtimeUrl?: string): string {
     const manifestPath = LOCAL_HOSTNAMES.has(runtimeOrigin.hostname)
       ? '/latest.json'
       : '/embed/latest.json';
-    return new URL(manifestPath, runtimeOrigin.origin).toString();
+    return validateManifestUrl(
+      new URL(manifestPath, runtimeOrigin.origin),
+    ).toString();
   }
 
-  return new URL(DEFAULT_MANIFEST_URL, locationOrigin).toString();
+  return validateManifestUrl(
+    new URL(DEFAULT_MANIFEST_URL, locationOrigin),
+  ).toString();
+}
+
+function validateManifestUrl(url: URL): URL {
+  const isLocal = LOCAL_HOSTNAMES.has(url.hostname);
+  if (
+    (!isLocal &&
+      (url.protocol !== 'https:' ||
+        !TRUSTED_MANIFEST_ORIGINS.has(url.origin))) ||
+    (isLocal && url.protocol !== 'http:' && url.protocol !== 'https:')
+  ) {
+    throw new OneKeyLocalError('TradingView embed manifest URL is not trusted');
+  }
+  return url;
 }
 
 function resolveManifestBaseUrl(
-  manifest: ITradingViewEmbedManifest,
+  manifest: ITradingViewEmbedManifestPointer,
   manifestUrl: string,
 ): string {
   const url = new URL(manifest.baseUrl, manifestUrl);
@@ -91,33 +125,86 @@ function resolveManifestBaseUrl(
   if (!url.pathname.endsWith('/')) {
     url.pathname = `${url.pathname}/`;
   }
+  if (!LOCAL_HOSTNAMES.has(url.hostname)) {
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    if (pathParts.at(-1) !== 'embed' || pathParts.at(-2) !== manifest.version) {
+      throw new OneKeyLocalError(
+        'TradingView embed base URL is not version pinned',
+      );
+    }
+  }
   return url.toString();
 }
 
 function isValidRelativeAssetPath(file: string): boolean {
+  if (
+    !file ||
+    file.startsWith('/') ||
+    file.includes('\\') ||
+    file.includes('%') ||
+    file.includes('?') ||
+    file.includes('#')
+  ) {
+    return false;
+  }
+  const validationBaseUrl = new URL('https://tradingview.invalid/v1/embed/');
+  const resolvedUrl = new URL(file, validationBaseUrl);
   return (
-    Boolean(file) &&
-    !file.startsWith('/') &&
-    !file.includes('..') &&
-    !file.includes('\\')
+    resolvedUrl.origin === validationBaseUrl.origin &&
+    resolvedUrl.href.startsWith(validationBaseUrl.href)
   );
 }
 
-function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
+function isValidManifestVersion(version: unknown): version is string {
+  return (
+    typeof version === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(version)
+  );
+}
+
+function isValidManifestPointer(
+  value: unknown,
+): value is ITradingViewEmbedManifestPointer {
   if (!value || typeof value !== 'object') {
     return false;
   }
   const manifest = value as Partial<ITradingViewEmbedManifest>;
   return (
     manifest.schema === 1 &&
-    typeof manifest.version === 'string' &&
-    Boolean(manifest.version) &&
+    isValidManifestVersion(manifest.version) &&
     typeof manifest.baseUrl === 'string' &&
     Boolean(manifest.baseUrl) &&
     typeof manifest.entry === 'string' &&
-    isValidRelativeAssetPath(manifest.entry) &&
-    Array.isArray(manifest.styles) &&
-    manifest.styles.every(isValidRelativeAssetPath) &&
+    isValidRelativeAssetPath(manifest.entry)
+  );
+}
+
+function resolveAssetUrl(file: string, baseUrl: string): URL {
+  if (!isValidRelativeAssetPath(file)) {
+    throw new OneKeyLocalError('TradingView embed asset path is invalid');
+  }
+  const normalizedBaseUrl = new URL(baseUrl);
+  const assetUrl = new URL(file, normalizedBaseUrl);
+  if (
+    assetUrl.origin !== normalizedBaseUrl.origin ||
+    !assetUrl.href.startsWith(normalizedBaseUrl.href)
+  ) {
+    throw new OneKeyLocalError(
+      'TradingView embed asset URL escaped its version directory',
+    );
+  }
+  return assetUrl;
+}
+
+function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
+  if (!isValidManifestPointer(value)) {
+    return false;
+  }
+  const manifest = value as ITradingViewEmbedManifestPointer &
+    Partial<ITradingViewEmbedManifest>;
+  if (
+    (manifest.styles === undefined ||
+      (Array.isArray(manifest.styles) &&
+        manifest.styles.every(isValidRelativeAssetPath))) &&
     (manifest.bootstrapAssets === undefined ||
       (Array.isArray(manifest.bootstrapAssets) &&
         manifest.bootstrapAssets.every(isValidRelativeAssetPath))) &&
@@ -131,14 +218,118 @@ function isValidManifest(value: unknown): value is ITradingViewEmbedManifest {
         Number.isSafeInteger(asset.size) &&
         asset.size >= 0,
     )
+  ) {
+    const assetFiles = new Set(manifest.assets.map((asset) => asset.file));
+    return (
+      assetFiles.has(manifest.entry) &&
+      (manifest.styles || []).every((file) => assetFiles.has(file)) &&
+      (manifest.bootstrapAssets || []).every((file) =>
+        assetFiles.has(file.replace('__LANG__', 'en')),
+      )
+    );
+  }
+  return false;
+}
+
+async function getPinnedManifest(manifestUrl: string): Promise<{
+  baseUrl: string;
+  manifest: ITradingViewEmbedManifest;
+} | null> {
+  const buildManifestUrl =
+    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_URL?.trim() || '';
+  const buildManifestIntegrity =
+    process.env.TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY?.trim() || '';
+  if (!buildManifestUrl || !buildManifestIntegrity.startsWith('sha384-')) {
+    return null;
+  }
+  const response = await fetch(
+    new URL(buildManifestUrl, globalThis.location?.href || manifestUrl),
+    {
+      cache: 'force-cache',
+      credentials: 'omit',
+      integrity: buildManifestIntegrity,
+      mode: 'cors',
+    },
   );
+  if (!response.ok) {
+    throw new OneKeyLocalError(
+      `Pinned TradingView embed manifest request failed: ${response.status}`,
+    );
+  }
+  const manifest = (await response.json()) as unknown;
+  if (!isValidManifest(manifest)) {
+    throw new OneKeyLocalError('Pinned TradingView embed manifest is invalid');
+  }
+  return {
+    baseUrl: resolveManifestBaseUrl(manifest, manifestUrl),
+    manifest,
+  };
+}
+
+function ensureServiceWorkerPrefetch(
+  manifestUrl: string,
+  manifest: ITradingViewEmbedManifest,
+): Promise<void> {
+  const controller = navigator.serviceWorker?.controller;
+  if (!controller) {
+    throw new OneKeyLocalError(
+      'TradingView embed requires a controlling service worker',
+    );
+  }
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timeout = setTimeout(() => {
+      channel.port1.close();
+      reject(
+        new OneKeyLocalError('TradingView embed service worker timed out'),
+      );
+    }, SERVICE_WORKER_PREFETCH_TIMEOUT_MS);
+    channel.port1.onmessage = (event: MessageEvent<unknown>) => {
+      clearTimeout(timeout);
+      channel.port1.close();
+      const response = event.data as {
+        error?: string;
+        ok?: boolean;
+        version?: string;
+      };
+      if (response?.ok && response.version === manifest.version) {
+        resolve();
+        return;
+      }
+      reject(
+        new OneKeyLocalError(
+          response?.error ||
+            'TradingView embed service worker version mismatch',
+        ),
+      );
+    };
+    controller.postMessage(
+      {
+        type: PREFETCH_MESSAGE_TYPE,
+        payload: { manifestUrl, manifestVersion: manifest.version },
+      },
+      [channel.port2],
+    );
+  });
 }
 
 async function loadManifest(manifestUrl: string): Promise<{
   baseUrl: string;
   manifest: ITradingViewEmbedManifest;
 }> {
+  const manifestUrlObject = new URL(manifestUrl);
+  const pinnedManifest = await getPinnedManifest(manifestUrl);
+  if (pinnedManifest) {
+    await ensureServiceWorkerPrefetch(manifestUrl, pinnedManifest.manifest);
+    return pinnedManifest;
+  }
+  if (!LOCAL_HOSTNAMES.has(manifestUrlObject.hostname)) {
+    throw new OneKeyLocalError(
+      'TradingView embed requires a release-pinned manifest',
+    );
+  }
   const response = await fetch(manifestUrl, {
+    cache: 'no-store',
     credentials: 'omit',
   });
   if (!response.ok) {
@@ -146,12 +337,42 @@ async function loadManifest(manifestUrl: string): Promise<{
       `TradingView embed manifest request failed: ${response.status}`,
     );
   }
-  const manifest = (await response.json()) as unknown;
+  const manifestPointer = (await response.json()) as unknown;
+  if (!isValidManifestPointer(manifestPointer)) {
+    throw new OneKeyLocalError('TradingView embed manifest is invalid');
+  }
+  const baseUrl = resolveManifestBaseUrl(manifestPointer, manifestUrl);
+  let manifest: unknown = manifestPointer;
+  if (!isValidManifest(manifest)) {
+    const versionManifestResponse = await fetch(
+      new URL('embed-manifest.json', baseUrl),
+      {
+        cache: 'no-store',
+        credentials: 'omit',
+      },
+    );
+    if (!versionManifestResponse.ok) {
+      throw new OneKeyLocalError(
+        `TradingView embed version manifest request failed: ${versionManifestResponse.status}`,
+      );
+    }
+    manifest = (await versionManifestResponse.json()) as unknown;
+    if (
+      !isValidManifest(manifest) ||
+      manifest.version !== manifestPointer.version ||
+      manifest.baseUrl !== manifestPointer.baseUrl ||
+      manifest.entry !== manifestPointer.entry
+    ) {
+      throw new OneKeyLocalError(
+        'TradingView embed version manifest does not match latest.json',
+      );
+    }
+  }
   if (!isValidManifest(manifest)) {
     throw new OneKeyLocalError('TradingView embed manifest is invalid');
   }
   return {
-    baseUrl: resolveManifestBaseUrl(manifest, manifestUrl),
+    baseUrl,
     manifest,
   };
 }
@@ -178,7 +399,7 @@ function loadStyle(
   embedBaseUrl: string,
   integrity?: string,
 ): Promise<void> {
-  const url = new URL(file, embedBaseUrl).toString();
+  const url = resolveAssetUrl(file, embedBaseUrl).toString();
   const existing = document.querySelector<HTMLLinkElement>(
     `link[data-onekey-tradingview-embed-style="${CSS.escape(url)}"]`,
   );
@@ -216,11 +437,11 @@ async function loadModule(
     manifest.assets.map((asset) => [asset.file, asset.integrity]),
   );
   await Promise.all(
-    manifest.styles.map((file) =>
+    (manifest.styles || []).map((file) =>
       loadStyle(file, baseUrl, integrityByFile.get(file)),
     ),
   );
-  const entryUrl = new URL(manifest.entry, baseUrl).toString();
+  const entryUrl = resolveAssetUrl(manifest.entry, baseUrl).toString();
   const module = (await import(
     /* webpackIgnore: true */ entryUrl
   )) as ITradingViewEmbedModule;
@@ -267,7 +488,7 @@ async function preloadBootstrapAsset(
   asset: ITradingViewEmbedManifestAsset,
   baseUrl: string,
 ): Promise<void> {
-  const response = await fetch(new URL(asset.file, baseUrl), {
+  const response = await fetch(resolveAssetUrl(asset.file, baseUrl), {
     cache: 'force-cache',
     credentials: 'omit',
     integrity: asset.integrity,

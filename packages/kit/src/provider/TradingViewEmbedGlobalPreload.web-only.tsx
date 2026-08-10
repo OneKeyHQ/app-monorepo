@@ -9,10 +9,6 @@ const LazyTradingViewEmbedGlobalPreloadRuntime = lazy(() =>
 );
 
 export function TradingViewEmbedGlobalPreload() {
-  if (!globalThis.location.pathname.startsWith('/market')) {
-    return null;
-  }
-
   return (
     <Suspense fallback={null}>
       <LazyTradingViewEmbedGlobalPreloadRuntime />
