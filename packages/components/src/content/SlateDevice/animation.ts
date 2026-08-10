@@ -1,32 +1,26 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import {
-  Easing,
-  cancelAnimation,
-  makeMutable,
-  useDerivedValue,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Easing, makeMutable } from 'react-native-reanimated';
 
-import { easeOutFn, trackAt } from '../deviceScene';
+import { easeInFn, easeOutFn, useSceneClock } from '../deviceScene';
 
 import type { IKeyframe } from '../deviceScene';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * Animation contract of the code-drawn Slate device: the ScreenPower pair,
- * same shape as the other touchscreen shell. The device has no face keys, so
- * any future tap feedback belongs inside scene screen content.
+ * Animation contract of the code-drawn Slate device: one track, the screen
+ * content's opacity. Per the design ruling the glass itself stays pure
+ * black at all times - there is no panel luminance layer, and "waking" is
+ * nothing more than content rendering in (over pure black an opacity ramp
+ * IS a luminance ramp). The device has no face keys, so any future tap
+ * feedback belongs inside scene screen content.
  *
- * The connecting scene's boot clock lives here too. Unlike the sibling
- * scene loops it is a one-shot: connecting has no natural end on the
- * device, so the screen lights once and stays lit.
+ * The lit-to-lit swap lives here too - content fades off the black glass,
+ * the next scene's content renders in - through which later scenes change
+ * what the glass shows. Unlike the sibling devices' looping reels there
+ * is no per-scene wake or sleep.
  */
 export interface ISlateDeviceAnimation {
-  /** 0 dark .. 1 the faint powered-on luminance across the whole glass. */
-  screenGlow: Readonly<SharedValue<number>>;
   /** 0 hidden .. 1 shown, opacity of the screenContent node. */
   screenContent: Readonly<SharedValue<number>>;
 }
@@ -36,65 +30,159 @@ const VALUE_ON = makeMutable(1);
 
 // Static fallbacks for animation-less usages, mirroring the sibling statics.
 export const SLATE_DEVICE_SCREEN_OFF: ISlateDeviceAnimation = {
-  screenGlow: VALUE_OFF,
   screenContent: VALUE_OFF,
 };
 export const SLATE_DEVICE_SCREEN_ON: ISlateDeviceAnimation = {
-  screenGlow: VALUE_ON,
   screenContent: VALUE_ON,
 };
 
-/* ------------------------- connecting ------------------------- *
- * The shared wake vocabulary stretched x1.5 - the wallpaper reveal reads
- * better unhurried - played once: glow rises, the panel holds
- * lit-but-empty for a beat, then the wallpaper renders in (over pure
- * black an opacity ramp IS a luminance ramp). */
+/* ------------------------- screen power ------------------------- *
+ * Timing of a scene's content over the always-black glass. The opacity
+ * itself is one resident shared value owned by SlateDevice - scheduled
+ * there and outliving scene mounts, so an entrance cannot be lost to a
+ * busy mount frame - and scenes receive it ready-made. Anything a caller
+ * must sequence between two scenes (the stage's word swap, say) queues
+ * after SCREEN_SWAP_MS. */
 
-// The shared 500 / 720-1100 wake, stretched x1.5 for this scene only.
-const CONNECT_WAKE_GLOW_MS = 750;
-const CONNECT_CONTENT_IN_START_MS = 1080;
-const CONNECT_CONTENT_IN_END_MS = 1650;
-
-const WAKE_GLOW_TRACK: IKeyframe[] = [
-  { t: 0, v: 0, e: easeOutFn },
-  { t: CONNECT_WAKE_GLOW_MS, v: 1 },
-];
-const WAKE_CONTENT_TRACK: IKeyframe[] = [
-  { t: 0, v: 0 },
-  { t: CONNECT_CONTENT_IN_START_MS, v: 0, e: easeOutFn },
-  { t: CONNECT_CONTENT_IN_END_MS, v: 1 },
-];
-
+/** Content-in: the whole of an entry, for content drawn from views. */
+export const CONTENT_IN_MS = 760;
 /**
- * Drives the connecting scene. Under reduced motion the screen holds lit
- * with the wallpaper shown - awake and calm rather than dark.
+ * Content-in for a scene carrying an image, deliberately longer. The file
+ * is small, but decoded it is past the size iOS will keep in its image
+ * cache, so every entrance decodes it afresh and hands a full-screen
+ * bitmap to the compositor; measured frame by frame, a ramp of the length
+ * above loses most of its frames to that and the picture reads as simply
+ * appearing. This one is long enough to survive it.
  */
-export function useConnectingOnSlateAnimation() {
-  const boot = useSharedValue(0);
-  const reducedMotion = useReducedMotion();
-  useEffect(() => {
-    if (reducedMotion) {
-      boot.value = CONNECT_CONTENT_IN_END_MS;
-      return undefined;
-    }
-    boot.value = 0;
-    boot.value = withTiming(CONNECT_CONTENT_IN_END_MS, {
-      duration: CONNECT_CONTENT_IN_END_MS,
-      easing: Easing.linear,
-    });
-    return () => cancelAnimation(boot);
-  }, [boot, reducedMotion]);
-  const screenGlow = useDerivedValue(
-    () => trackAt(boot.value, WAKE_GLOW_TRACK),
-    [boot],
-  );
-  const screenContent = useDerivedValue(
-    () => trackAt(boot.value, WAKE_CONTENT_TRACK),
-    [boot],
-  );
+export const IMAGE_CONTENT_IN_MS = 1800;
+/**
+ * Slow-start curve for the content-in, and the reason it is not the
+ * shared ease-out: opacity over black composites in sRGB, where half
+ * opacity already reads about three quarters as bright, so an ease-out
+ * ramp is perceptually over before it is numerically half done — the
+ * screen looks like it snapped on. Starting slow spends the ramp where
+ * the eye can still see it change.
+ */
+export const contentInEase = Easing.bezierFn(0.6, 0, 0.7, 1);
+/** Content-out; SlateDevice keeps the outgoing scene mounted this long. */
+export const SCREEN_SWAP_OUT_MS = 300;
+/** A full lit-to-lit handover, out then in — the beat callers queue after. */
+export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
+
+/** Wraps the resident screen opacity into the shell contract. */
+export function useSlateScreenAnimation(
+  screenIn: Readonly<SharedValue<number>>,
+) {
   const animation: ISlateDeviceAnimation = useMemo(
-    () => ({ screenGlow, screenContent }),
-    [screenGlow, screenContent],
+    () => ({ screenContent: screenIn }),
+    [screenIn],
   );
   return { animation };
+}
+
+/* ------------------------- enter PIN ------------------------- *
+ * The keyboard sheen and the entry dots. One soft light crosses the keypad
+ * from its top-left to its bottom-right corner - every key pulses as the
+ * wavefront passes, staggered by grid diagonal, which reads as a single
+ * gradient light in motion - then the four entry dots land one by one.
+ * Deliberately no key ever lights alone: the scene shows that entry
+ * happens on the device without performing an actual PIN. */
+
+const PIN_SWEEP_START_MS = 300;
+/** Wavefront stagger per grid diagonal (col + row, 0..5). */
+const PIN_SWEEP_STEP_MS = 140;
+const PIN_SWEEP_PULSE_MS = 500;
+const PIN_DOT_START_MS = 1800;
+const PIN_DOT_STEP_MS = 300;
+const PIN_DOT_IN_MS = 180;
+const PIN_DOTS_OUT_START_MS = 4000;
+const PIN_DOTS_OUT_MS = 300;
+const PIN_LOOP_MS = 4800;
+/** Reduced-motion rest: all four dots shown, keyboard quiet. */
+const PIN_REST_MS = 3200;
+
+/** One pass of the traveling sheen over one element: a soft pulse. */
+function sheenPulseTrack(startMs: number, pulseMs: number): IKeyframe[] {
+  return [
+    { t: 0, v: 0 },
+    { t: startMs, v: 0, e: easeOutFn },
+    { t: startMs + pulseMs / 2, v: 1, e: easeInFn },
+    { t: startMs + pulseMs, v: 0 },
+  ];
+}
+
+/** Sheen opacity of the key at grid diagonal `diagonal` (col + row). */
+function pinKeySheenTrack(diagonal: number): IKeyframe[] {
+  return sheenPulseTrack(
+    PIN_SWEEP_START_MS + diagonal * PIN_SWEEP_STEP_MS,
+    PIN_SWEEP_PULSE_MS,
+  );
+}
+
+/** Opacity of entry dot `index`: dots land in order, all leave together. */
+function pinDotTrack(index: number): IKeyframe[] {
+  const landAt = PIN_DOT_START_MS + index * PIN_DOT_STEP_MS;
+  return [
+    { t: 0, v: 0 },
+    { t: landAt, v: 0, e: easeOutFn },
+    { t: landAt + PIN_DOT_IN_MS, v: 1 },
+    { t: PIN_DOTS_OUT_START_MS, v: 1, e: easeInFn },
+    { t: PIN_DOTS_OUT_START_MS + PIN_DOTS_OUT_MS, v: 0 },
+  ];
+}
+
+/* The scene's tracks are pure functions of the constants above and there
+ * are only a handful of each, so they are built once here rather than per
+ * key and per dot on every mount. Indexed by grid diagonal and by landing
+ * order respectively. */
+export const PIN_SHEEN_TRACKS = [0, 1, 2, 3, 4, 5].map(pinKeySheenTrack);
+export const PIN_DOT_TRACKS = [0, 1, 2, 3].map(pinDotTrack);
+
+/**
+ * Shell contract plus a scene's looping choreography clock, which holds
+ * at 0 (a clean screen) until the entry has finished rendering in.
+ */
+function useSlateSceneAnimation(
+  screenIn: Readonly<SharedValue<number>>,
+  loopMs: number,
+  restMs: number,
+) {
+  const { animation } = useSlateScreenAnimation(screenIn);
+  const clock = useSceneClock(loopMs, restMs, CONTENT_IN_MS);
+  return { animation, clock };
+}
+
+export function useEnterPinOnSlateAnimation(
+  screenIn: Readonly<SharedValue<number>>,
+) {
+  return useSlateSceneAnimation(screenIn, PIN_LOOP_MS, PIN_REST_MS);
+}
+
+/* ------------------------- confirm ------------------------- *
+ * The one gradient light crossing the glass, top-left corner to
+ * bottom-right corner. It lives on the screen, not on the content: the
+ * skeleton stays a still and the band passes over it, the way a
+ * reflection travels across glass. */
+
+const CONFIRM_SWEEP_START_MS = 300;
+/** Corner-to-corner travel of the band. */
+const CONFIRM_SWEEP_MS = 900;
+const CONFIRM_LOOP_MS = 3200;
+/** Reduced-motion rest: the plain still, the light already gone. */
+const CONFIRM_REST_MS = 2000;
+
+/**
+ * Travel of the light: 0 parked off past the top-left corner, 1 off past
+ * the bottom-right, linear in between.
+ */
+export const CONFIRM_SWEEP_TRACK: IKeyframe[] = [
+  { t: 0, v: 0 },
+  { t: CONFIRM_SWEEP_START_MS, v: 0 },
+  { t: CONFIRM_SWEEP_START_MS + CONFIRM_SWEEP_MS, v: 1 },
+];
+
+export function useConfirmOnSlateAnimation(
+  screenIn: Readonly<SharedValue<number>>,
+) {
+  return useSlateSceneAnimation(screenIn, CONFIRM_LOOP_MS, CONFIRM_REST_MS);
 }
