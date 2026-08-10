@@ -5,6 +5,7 @@ import {
   cancelAnimation,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
@@ -13,9 +14,10 @@ import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * Shared scene machinery of the code-drawn hardware devices (ClassicDevice,
- * ProDevice). A scene is a set of keyframe tracks evaluated against one
- * sawtooth master clock; the screen wake/sleep vocabulary lives here so every
- * device boots the same way, while press/tap feel stays per-device.
+ * ProDevice, SlateDevice). A scene is a set of keyframe tracks evaluated
+ * against one sawtooth master clock; the screen wake/sleep vocabulary lives
+ * here so every device boots the same way, while press/tap feel stays
+ * per-device.
  */
 
 export interface IKeyframe {
@@ -80,11 +82,14 @@ export function screenContentTrack(sleepStart: number): IKeyframe[] {
 /**
  * Sawtooth master clock in milliseconds, looping over [0, loopMs). Under
  * reduced motion it holds `restMs` instead, so the device still reads awake
- * and mid-scenario rather than going dark.
+ * and mid-scenario rather than going dark. `startDelayMs` holds the clock
+ * at 0 before the first pass, for scenes whose entrance (a separate screen
+ * wake) must finish before the loop begins.
  */
 export function useSceneClock(
   loopMs: number,
   restMs: number,
+  startDelayMs = 0,
 ): SharedValue<number> {
   const clock = useSharedValue(0);
   const reducedMotion = useReducedMotion();
@@ -94,12 +99,13 @@ export function useSceneClock(
       return undefined;
     }
     clock.value = 0;
-    clock.value = withRepeat(
+    const loop = withRepeat(
       withTiming(loopMs, { duration: loopMs, easing: Easing.linear }),
       -1,
       false,
     );
+    clock.value = startDelayMs > 0 ? withDelay(startDelayMs, loop) : loop;
     return () => cancelAnimation(clock);
-  }, [clock, loopMs, restMs, reducedMotion]);
+  }, [clock, loopMs, restMs, reducedMotion, startDelayMs]);
   return clock;
 }
