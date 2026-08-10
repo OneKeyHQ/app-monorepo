@@ -6,7 +6,6 @@ import type {
   IDialogLoadingProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
-import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
@@ -133,6 +132,10 @@ export type IEventBusPayloadAccountDataUpdate =
       isManualRefresh?: boolean;
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
+
+// The item shape is owned by kit's settings config; it stays opaque here so
+// shared never depends on kit types or its search-results presentation.
+export type ISettingsSearchResultItem = FuseResult<unknown>;
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -529,11 +532,7 @@ export interface IAppEventBusPayload {
     sourceId: string;
   };
   [EAppEventBusNames.SettingsSearchResult]: {
-    list: {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[];
+    list: ISettingsSearchResultItem[];
     searchText: string;
   };
   [EAppEventBusNames.DesktopBleRepairRequired]: {
@@ -558,6 +557,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
     deliveryId: string;
   };
+  [EAppEventBusNames.PerpsSubscriptionsRecovered]: undefined;
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;

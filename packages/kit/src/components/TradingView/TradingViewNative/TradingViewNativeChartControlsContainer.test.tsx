@@ -20,6 +20,7 @@ jest.mock('react-intl', () => ({
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls',
   () => ({
+    IndicatorListDialogContent: () => null,
     TradingViewChartControls: (props: unknown) =>
       mockTradingViewChartControls(props),
   }),
@@ -34,10 +35,12 @@ describe('TradingViewNative chart controls', () => {
     jest.clearAllMocks();
   });
 
-  it('only exposes the implemented interval control in mobile layout', () => {
+  it('exposes intervals and the implemented indicators in mobile layout', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
     );
@@ -45,9 +48,16 @@ describe('TradingViewNative chart controls', () => {
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
         backgroundColor: '$transparent',
-        hasVisibleIndicators: false,
+        hasVisibleIndicators: true,
         hasVisibleIntervalSelector: true,
+        indicators: [
+          { active: true, label: 'MA', value: 'MA' },
+          { active: false, label: 'EMA', value: 'EMA' },
+          { active: false, label: 'BOLL', value: 'BOLL' },
+          { active: false, label: 'SAR', value: 'SAR' },
+        ],
         settingsEnabled: false,
+        showIndicatorPopover: false,
         showChartTypeToggle: false,
       }),
     );
@@ -56,8 +66,10 @@ describe('TradingViewNative chart controls', () => {
   it('keeps chart settings hidden in desktop layout without an opt-in', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
     );
@@ -72,9 +84,11 @@ describe('TradingViewNative chart controls', () => {
   it('opens chart settings from opted-in desktop controls', () => {
     render(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         enableNativeChartSettings
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
       />,
     );
@@ -100,9 +114,11 @@ describe('TradingViewNative chart controls', () => {
     const handleCalendarPanelSubmit = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         calendarAvailableTimeRange={{ from: 100 }}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         layoutMode="desktop"
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
         onCalendarPanelOpen={handleCalendarPanelOpen}
         onCalendarPanelSubmit={handleCalendarPanelSubmit}
@@ -119,14 +135,38 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('toggles indicators directly from the desktop popover', () => {
+    const handleIndicatorChange = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        layoutMode="desktop"
+        onIndicatorChange={handleIndicatorChange}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      onIndicatorPress: (indicator: { label: string; value: string }) => void;
+      showIndicatorPopover: boolean;
+    };
+    expect(controlsProps.showIndicatorPopover).toBe(true);
+
+    controlsProps.onIndicatorPress({ label: 'EMA', value: 'EMA' });
+    expect(handleIndicatorChange).toHaveBeenCalledWith('EMA', true);
+  });
+
   it('reports fullscreen state changes through the shared chart controls', () => {
     const handleFullscreenChange = jest.fn();
     const fullscreenHeader = <div>Token info</div>;
     const { rerender } = render(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isFullscreen={false}
         fullscreenHeader={fullscreenHeader}
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
         onFullscreenChange={handleFullscreenChange}
       />,
@@ -149,9 +189,11 @@ describe('TradingViewNative chart controls', () => {
 
     rerender(
       <TradingViewNativeChartControlsContainer
+        activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isFullscreen
         fullscreenHeader={fullscreenHeader}
+        onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}
         onFullscreenChange={handleFullscreenChange}
       />,

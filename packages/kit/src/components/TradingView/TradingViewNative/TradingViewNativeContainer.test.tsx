@@ -143,6 +143,31 @@ describe('TradingViewNativeContainer', () => {
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('passes localized candle abbreviations to the chart', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candleLabels: {
+          close: 'market.close_abbr',
+          high: 'market.high_abbr',
+          low: 'market.low_abbr',
+          open: 'market.open_abbr',
+        },
+      }),
+    );
+  });
+
   it('shows the volume section only when loaded candles contain volume', () => {
     mockDataState = { status: 'live' };
     mockPoints = [
@@ -168,6 +193,51 @@ describe('TradingViewNativeContainer', () => {
     expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
       expect.objectContaining({ hasVolume: true }),
     );
+  });
+
+  it('starts without indicators and updates series from indicator controls', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 1,
+    }));
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        indicatorSeries: [],
+      }),
+    );
+
+    const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+      .calls[0][0] as {
+      onIndicatorChange: (indicator: 'EMA', desiredActive: boolean) => void;
+    };
+    act(() => controlsProps.onIndicatorChange('EMA', true));
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      indicatorSeries: Array<{ key: string }>;
+    };
+    expect(chartProps.indicatorSeries.map(({ key }) => key)).toEqual([
+      'ema-5',
+      'ema-10',
+      'ema-20',
+    ]);
   });
 
   it('forwards controlled fullscreen props to chart controls', () => {
