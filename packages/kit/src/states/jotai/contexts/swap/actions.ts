@@ -113,6 +113,7 @@ import {
   swapProTokenMarketDetailPerpsInfoAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
+  swapProviderSupportReceiveAddressAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentEventProviderKeysAtom,
   swapQuoteCurrentEventReceivedCountAtom,
@@ -1526,9 +1527,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   checkAccountNetworkNotSupportedAlert = async ({
     addressInfo,
     activeNetworkId,
+    message,
   }: {
     addressInfo?: ReturnType<typeof useSwapAddressInfo>;
     activeNetworkId: string;
+    message?: string;
   }) => {
     if (!addressInfo) {
       return undefined;
@@ -1544,11 +1547,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         activeNetworkId,
       });
     if (accountNetworkNotSupported) {
-      return {
+      let unsupportedMessage = message;
+      if (!unsupportedMessage) {
         // eslint-disable-next-line onekey/no-app-locale-main-thread
-        message: appLocale.intl.formatMessage({
+        unsupportedMessage = appLocale.intl.formatMessage({
           id: ETranslations.swap_page_alert_account_does_not_support_swap,
-        }),
+        });
+      }
+      return {
+        message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
       };
     }
@@ -1911,6 +1918,42 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             });
             return;
           }
+        }
+      }
+      const toWalletId = swapToAddressInfo.accountInfo?.wallet?.id;
+      const shouldCheckToAccountNetwork =
+        Boolean(fromToken && fromToken.networkId === toToken?.networkId) ||
+        accountUtils.isHwWallet({ walletId: toWalletId }) ||
+        !get(swapProviderSupportReceiveAddressAtom());
+      if (
+        swapToAddressInfo.isAddressInfoReady &&
+        toToken &&
+        !swapToAddressInfo.address &&
+        toWalletId &&
+        shouldCheckToAccountNetwork &&
+        alertsRes.every((item) => item.message !== notSupportSwapMessage)
+      ) {
+        const toNetworkName =
+          swapSupportAllNetworks.find(
+            (network) => network.networkId === toToken.networkId,
+          )?.name ?? toToken.symbol;
+        const accountNetworkNotSupportedAlert =
+          await this.checkAccountNetworkNotSupportedAlert({
+            addressInfo: swapToAddressInfo,
+            activeNetworkId: toToken.networkId,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage(
+              { id: ETranslations.wallet_unsupported_network_title },
+              { network: toNetworkName },
+            ),
+          });
+        if (accountNetworkNotSupportedAlert) {
+          alertsRes = [...alertsRes, accountNetworkNotSupportedAlert];
+          set(swapAlertsAtom(), {
+            states: alertsRes,
+            quoteId: quoteResult?.quoteId ?? '',
+          });
+          return;
         }
       }
       // check from address
