@@ -91,6 +91,62 @@ describe('ServiceNFT Pro2 upload routing', () => {
     expect(uploadPro2Nft).not.toHaveBeenCalled();
   });
 
+  it('treats an existing Pro2 NFT as an idempotent success', async () => {
+    const { service, uploadPro2Nft } = buildService(EDeviceType.Pro2);
+    const error = Object.assign(
+      new Error('Failure_DataError,NFT already exists : 800'),
+      {
+        payload: {
+          code: 800,
+          error: 'Failure_DataError,NFT already exists',
+        },
+      },
+    );
+    uploadPro2Nft.mockImplementationOnce(async () => {
+      throw error;
+    });
+
+    await expect(
+      service.uploadNFTImageToDevice({
+        accountId: 'account-id',
+        pro2UploadParams: {
+          imageHex: 'full-image',
+          thumbnailHex: 'thumbnail-image',
+          title: 'NFT #1',
+          subtitle: 'Collection',
+        },
+      }),
+    ).resolves.toEqual({
+      nftUpdated: true,
+      message: 'NFT already exists',
+    });
+  });
+
+  it('keeps other Pro2 data errors as failures', async () => {
+    const { service, uploadPro2Nft } = buildService(EDeviceType.Pro2);
+    const error = Object.assign(new Error('Failure_DataError,Invalid NFT'), {
+      payload: {
+        code: 800,
+        error: 'Failure_DataError,Invalid NFT',
+      },
+    });
+    uploadPro2Nft.mockImplementationOnce(async () => {
+      throw error;
+    });
+
+    await expect(
+      service.uploadNFTImageToDevice({
+        accountId: 'account-id',
+        pro2UploadParams: {
+          imageHex: 'full-image',
+          thumbnailHex: 'thumbnail-image',
+          title: 'NFT #1',
+          subtitle: 'Collection',
+        },
+      }),
+    ).rejects.toBe(error);
+  });
+
   it('rejects a Pro2 upload before touching the legacy resource path', async () => {
     const { service, uploadPro2Nft, uploadResource } = buildService(
       EDeviceType.Pro2,

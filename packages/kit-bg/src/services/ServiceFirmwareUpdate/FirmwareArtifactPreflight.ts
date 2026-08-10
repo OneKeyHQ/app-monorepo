@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
@@ -113,10 +115,6 @@ export type IPreparedFirmwareArtifacts = {
         IFirmwareArtifactReference
       >
     >;
-    resourceBundleArtifacts: {
-      name: string;
-      artifact: IFirmwareArtifactReference;
-    }[];
   };
   artifactReader: IFirmwareArtifactReader;
 };
@@ -205,6 +203,10 @@ export const downloadFirmwareArtifact = async ({
       artifactRole: artifact.role,
       expectedBytes: artifact.expectedSize,
     });
+    // Pre-release artifacts resolved from pre-config.json live in
+    // developer-owned buckets outside the reviewed host allowlist.
+    const allowPreReleaseHosts =
+      (await getGatedFirmwareUpdateDevSetting('usePreReleaseConfig')) === true;
     try {
       const receipt = await firmwareArtifactAdapter.download({
         taskId,
@@ -219,6 +221,7 @@ export const downloadFirmwareArtifact = async ({
         ...(artifact.expectedSha256
           ? { expectedSha256: artifact.expectedSha256 }
           : {}),
+        ...(allowPreReleaseHosts ? { allowPreReleaseHosts } : {}),
         maxBytes: artifact.expectedSize ?? MAX_ARTIFACT_BYTES,
         overallDeadlineSeconds: remainingMs / 1000,
       });
@@ -409,10 +412,46 @@ const getBridgeBinaryPlanArtifacts = (
   );
 };
 
+export const isFirmwareArtifactCapabilityReadyValue = (
+  capabilities: unknown,
+): boolean => {
+  if (
+    !capabilities ||
+    typeof capabilities !== 'object' ||
+    Array.isArray(capabilities)
+  ) {
+    return false;
+  }
+  const value = capabilities as Record<string, unknown>;
+  const routeTypes = value.supportedRouteTypes;
+  return (
+    value.firmwareArtifactProtocolVersion === 4 &&
+    value.maxReadBytes === MAX_READ_BYTES &&
+    value.supportsArchiveMaterialization === true &&
+    Array.isArray(routeTypes) &&
+    routeTypes.includes('domain')
+  );
+};
+
+export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
+  try {
+    return isFirmwareArtifactCapabilityReadyValue(
+      await firmwareArtifactAdapter.getCapabilities(),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function prepareBridgeFirmwareBinaries(
   plan: FirmwareUpdatePlan,
   requestedTransactionId?: string,
 ): Promise<IBridgeFirmwareBinaries | undefined> {
+  if (plan.executor === 'v4' && plan.targetsToUpdate.includes('resource')) {
+    throw new OneKeyLocalError(
+      'Desktop Bridge does not support Protocol V2 resource ZIP updates',
+    );
+  }
   if (!(await isFirmwareArtifactCapabilityReady())) {
     throw new OneKeyLocalError(
       'Installed firmware artifact module is incompatible',
@@ -430,6 +469,11 @@ export async function prepareBridgeFirmwareBinaries(
     const targetBinaries: IBridgeFirmwareBinaries['targetBinaries'] = {};
     const deadlineAt = Date.now() + TOTAL_DEADLINE_MS;
     for (const [index, planArtifact] of planArtifacts.entries()) {
+      if (planArtifact.target === 'resource') {
+        throw new OneKeyLocalError(
+          'Desktop Bridge resource binaries are not supported',
+        );
+      }
       const artifact = resolveFirmwarePlanArtifact(planArtifact);
       const receipt = await downloadFirmwareArtifact({
         artifact,
@@ -439,11 +483,6 @@ export async function prepareBridgeFirmwareBinaries(
         leaseRef,
         deadlineAt,
       });
-      if (planArtifact.target === 'resource') {
-        throw new OneKeyLocalError(
-          'Desktop Bridge resource binaries are not in the small artifact scope',
-        );
-      }
       targetBinaries[planArtifact.target] = await readFirmwareArtifact(receipt);
     }
     completed = true;
@@ -580,8 +619,9 @@ export async function prepareFirmwareArtifacts(
 
   const componentArtifacts: IPreparedFirmwareArtifacts['selected']['componentArtifacts'] =
     {};
-  const resourceBundleArtifacts: IPreparedFirmwareArtifacts['selected']['resourceBundleArtifacts'] =
-    [];
+  const resourceEntries: NonNullable<
+    IPreparedFirmwareArtifacts['selected']['resourceEntries']
+  > = [];
   for (const planArtifact of plan.artifacts) {
     const artifact = artifactsById[planArtifact.artifactId];
     if (!artifact) {
@@ -599,16 +639,13 @@ export async function prepareFirmwareArtifacts(
       }
       componentArtifacts[target] = artifact;
     }
-    if (planArtifact.role === 'resourceBundle') {
-      if (!planArtifact.logicalName) {
-        throw new OneKeyLocalError(
-          'Firmware resource bundle has no logical name',
-        );
-      }
-      resourceBundleArtifacts.push({
-        name: planArtifact.logicalName,
-        artifact,
-      });
+    if (
+      planArtifact.target === 'resource' &&
+      planArtifact.container === 'zip'
+    ) {
+      resourceEntries.push(
+        ...(resourceEntriesByArtifactId[planArtifact.artifactId] ?? []),
+      );
     }
   }
   const preparedPlan = preparePlan({
@@ -641,41 +678,9 @@ export async function prepareFirmwareArtifacts(
       firmware: artifactsById.firmware,
       ble: artifactsById.ble,
       bootloader: artifactsById.bootloader,
-      resourceEntries: resourceEntriesByArtifactId.resource,
+      resourceEntries: resourceEntries.length ? resourceEntries : undefined,
       componentArtifacts,
-      resourceBundleArtifacts,
     },
     artifactReader: createArtifactReader(),
   };
-}
-
-export const isFirmwareArtifactCapabilityReadyValue = (
-  capabilities: unknown,
-): boolean => {
-  if (
-    !capabilities ||
-    typeof capabilities !== 'object' ||
-    Array.isArray(capabilities)
-  ) {
-    return false;
-  }
-  const value = capabilities as Record<string, unknown>;
-  const routeTypes = value.supportedRouteTypes;
-  return (
-    value.firmwareArtifactProtocolVersion === 4 &&
-    value.maxReadBytes === MAX_READ_BYTES &&
-    value.supportsArchiveMaterialization === true &&
-    Array.isArray(routeTypes) &&
-    routeTypes.includes('domain')
-  );
-};
-
-export async function isFirmwareArtifactCapabilityReady(): Promise<boolean> {
-  try {
-    return isFirmwareArtifactCapabilityReadyValue(
-      await firmwareArtifactAdapter.getCapabilities(),
-    );
-  } catch {
-    return false;
-  }
 }

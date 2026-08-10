@@ -2,22 +2,33 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
+  type IBleFirmwareReleasePayload,
+  type IBootloaderReleasePayload,
   type ICheckAllFirmwareReleaseResult,
+  type IFirmwareUpdateInfo,
+  type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateRetryAtom,
+  firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
+  buildProtocolV2FirmwareVersionInfo,
+  buildProtocolV2PlanForceTargets,
+  shouldForceProtocolV2ResourceUpdate,
+  supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -71,6 +82,8 @@ jest.mock('../../dbs/local/localDb', () => ({
 jest.mock('../../states/jotai/atoms', () => ({
   EFirmwareUpdateSteps: {
     init: 'init',
+    installing: 'installing',
+    updateStart: 'updateStart',
   },
   EHardwareUiStateAction: {},
   firmwareUpdateResultVerifyAtom: {
@@ -81,6 +94,10 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   firmwareUpdateStepInfoAtom: {
+    get: jest.fn().mockResolvedValue({
+      step: 'updateStart',
+      payload: { startAtTime: 1 },
+    }),
     set: jest.fn(),
   },
   firmwareUpdateWorkflowRunningAtom: {
@@ -133,6 +150,7 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
       connectId: 'device-1',
       firmwareType: undefined,
       skipChangeTransportType: true,
+      protocolV2ForceUpdateTargets: ['app_v1', 'coprocessor'],
     });
 
     expect(getSDKInstance).toHaveBeenCalledWith({
@@ -140,6 +158,12 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
       forceFirmwareManifestRefresh: true,
     });
     expect(checkAllFirmwareRelease).toHaveBeenCalledTimes(1);
+    expect(checkAllFirmwareRelease).toHaveBeenCalledWith(
+      'device-1',
+      expect.objectContaining({
+        protocolV2ForceUpdateTargets: ['app_v1', 'coprocessor'],
+      }),
+    );
   });
 });
 
@@ -180,6 +204,149 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       expect(getCompatibleConnectId).not.toHaveBeenCalled();
     },
   );
+
+  it('skips OneKey update detection while the hardware channel is busy', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const tryRunExclusiveOneKeyOperation = jest
+      .fn()
+      .mockResolvedValue({ acquired: false });
+    const getCompatibleConnectId = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      }),
+    ).resolves.toEqual({
+      status: 'busy',
+      retryAfterMs: 5000,
+    });
+
+    expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
+      expect.any(Function),
+      { deviceKey: 'db-device-1' },
+    );
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('returns the remaining throttle delay after the hardware channel becomes idle', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const getCompatibleConnectId = jest.fn();
+    const tryRunExclusiveOneKeyOperation = jest.fn(
+      async (operation: () => Promise<unknown>) => ({
+        acquired: true as const,
+        result: await operation(),
+      }),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.detectActiveAccountFirmwareUpdates({
+      connectId: 'ONEKEY_BLE_ID',
+    });
+
+    expect(result.status).toBe('throttled');
+    if (result.status === 'throttled') {
+      expect(result.retryAfterMs).toBeGreaterThan(0);
+      expect(result.retryAfterMs).toBeLessThanOrEqual(60_000);
+    }
+    expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
+      expect.any(Function),
+      { deviceKey: 'db-device-1' },
+    );
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('runs OneKey SDK detection only while holding the hardware lease', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_BLE_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    let leaseActive = false;
+    const getCompatibleConnectId = jest.fn(async () => {
+      expect(leaseActive).toBe(true);
+      return 'ONEKEY_COMPATIBLE_ID';
+    });
+    const tryRunExclusiveOneKeyOperation = jest.fn(
+      async (operation: () => Promise<unknown>) => {
+        leaseActive = true;
+        try {
+          return {
+            acquired: true as const,
+            result: await operation(),
+          };
+        } finally {
+          leaseActive = false;
+        }
+      },
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+        serviceHardwareUI: {
+          tryRunExclusiveOneKeyOperation,
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.detectMap.firstDetectAt =
+      Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
+    jest
+      .spyOn(service, 'checkDeviceIsBootloaderMode')
+      .mockImplementation(async () => {
+        expect(leaseActive).toBe(true);
+        return {
+          isBootloaderMode: false,
+          features: undefined,
+          error: undefined,
+        };
+      });
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      }),
+    ).resolves.toEqual({ status: 'finished' });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      connectId: 'ONEKEY_BLE_ID',
+    });
+    expect(leaseActive).toBe(false);
+  });
 });
 
 describe('buildPro2TargetsToUpdate', () => {
@@ -207,14 +374,6 @@ describe('buildPro2TargetsToUpdate', () => {
     ).toEqual(['se01', 'resource']);
   });
 
-  it('keeps boot resources independent from stable resources', () => {
-    expect(
-      buildPro2TargetsToUpdate({
-        sdkTargets: ['resource', 'boot_resources'],
-      }),
-    ).toEqual(['resource', 'boot_resources']);
-  });
-
   it('merges and deduplicates developer force targets after SDK targets', () => {
     expect(
       buildPro2TargetsToUpdate({
@@ -222,6 +381,242 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('buildProtocolV2PlanForceTargets', () => {
+  it('does not synthesize a resource update when no developer target is selected', () => {
+    expect(buildProtocolV2PlanForceTargets({})).toEqual([]);
+  });
+
+  it('merges developer targets without forcing a full resource reinstall', () => {
+    expect(
+      buildProtocolV2PlanForceTargets({
+        forceTargets: ['app_v1', 'resource'],
+        forceOnceTargets: ['coprocessor'],
+      }),
+    ).toEqual(['app_v1', 'resource', 'coprocessor']);
+  });
+});
+
+describe('shouldForceProtocolV2ResourceUpdate', () => {
+  it('does not force an automatically selected resource', () => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['resource'],
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    { forceTargets: ['resource'] as const },
+    { forceOnceTargets: ['resource'] as const },
+    { legacyForceResource: true },
+  ])('forces resource reinstall for $#. configured override', (overrides) => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['resource'],
+        ...overrides,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not force a skipped resource even when an override remains set', () => {
+    expect(
+      shouldForceProtocolV2ResourceUpdate({
+        targetsToUpdate: ['app_v1'],
+        forceTargets: ['resource'],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('buildProtocolV2FirmwareVersionInfo', () => {
+  const releaseInfo = {
+    currentVersions: {
+      firmware: '1.0.0',
+      applicationP1: '1.0.0',
+      applicationP2: '1.0.0',
+      bootloader: '1.0.0',
+      board: '1.0.0',
+      ble: '1.0.20',
+    },
+    components: [
+      {
+        configKey: 'application_p1',
+        componentTarget: 'APPLICATION_P1',
+        updateTarget: 'app_v1',
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+        status: 'outdated',
+        required: false,
+      },
+      {
+        configKey: 'coprocessor',
+        componentTarget: 'COPROCESSOR',
+        updateTarget: 'coprocessor',
+        currentVersion: '1.0.20',
+        targetVersion: '1.0.21',
+        status: 'outdated',
+        required: false,
+      },
+    ],
+    release: {
+      version: [1, 1, 0],
+    },
+  } as unknown as Parameters<
+    typeof buildProtocolV2FirmwareVersionInfo
+  >[0]['releaseInfo'];
+
+  it('keeps SafeOS first-level versions and selected component versions', () => {
+    expect(
+      buildProtocolV2FirmwareVersionInfo({
+        releaseInfo,
+        targetsToUpdate: ['app_v1', 'coprocessor', 'resource'],
+      }),
+    ).toEqual({
+      safeOS: {
+        currentVersion: '1.0.0',
+        targetVersion: '1.1.0',
+      },
+      components: [
+        {
+          target: 'app_v1',
+          currentVersion: '1.0.0',
+          targetVersion: '1.1.0',
+        },
+        {
+          target: 'coprocessor',
+          currentVersion: '1.0.20',
+          targetVersion: '1.0.21',
+        },
+      ],
+    });
+  });
+
+  it('shows the current SafeOS version without an update transition for resources', () => {
+    expect(
+      buildProtocolV2FirmwareVersionInfo({
+        releaseInfo,
+        targetsToUpdate: ['resource'],
+      }),
+    ).toEqual({
+      safeOS: {
+        currentVersion: '1.0.0',
+        targetVersion: null,
+      },
+      components: [],
+    });
+  });
+
+  it.each(['se01', 'se02', 'se03', 'se04'] as const)(
+    'does not report an %s-only update as a SafeOS transition',
+    (target) => {
+      expect(
+        buildProtocolV2FirmwareVersionInfo({
+          releaseInfo,
+          targetsToUpdate: [target],
+        }),
+      ).toMatchObject({
+        safeOS: {
+          currentVersion: '1.0.0',
+          targetVersion: null,
+        },
+      });
+    },
+  );
+});
+
+describe('ServiceFirmwareUpdate Protocol V2 version mapping', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('prefers the SDK device-state BLE version over legacy features', async () => {
+    jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
+      bleVersion: '1.0.0',
+      firmwareVersion: '',
+      bootloaderVersion: '',
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getConnectIdFromFeatures: jest.fn().mockResolvedValue(undefined),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.checkBLEFirmwareRelease({
+      connectId: undefined,
+      features: {} as IOneKeyDeviceFeatures,
+      bleReleasePayload: {
+        status: 'outdated',
+        shouldUpdate: true,
+        release: { version: [2, 0, 0] },
+      } as unknown as IBleFirmwareReleasePayload,
+      forceUpdate: false,
+      currentVersion: '1.5.0',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        hasUpgrade: true,
+        fromVersion: '1.5.0',
+        toVersion: '2.0.0',
+      }),
+    );
+  });
+
+  it('reads a Protocol V2 bootloader component version directly', async () => {
+    jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
+      bleVersion: '',
+      firmwareVersion: '',
+      bootloaderVersion: '1.0.0',
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    const result = await service.checkBootloaderRelease({
+      connectId: undefined,
+      features: {} as IOneKeyDeviceFeatures,
+      firmwareUpdateInfo: {
+        releasePayload: { release: undefined },
+      } as unknown as IFirmwareUpdateInfo,
+      bootloaderReleasePayload: {
+        status: 'outdated',
+        shouldUpdate: true,
+        release: { version: [2, 0, 0] },
+      } as unknown as IBootloaderReleasePayload,
+      forceUpdate: false,
+      currentVersion: '1.5.0',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        hasUpgrade: true,
+        fromVersion: '1.5.0',
+        toVersion: '2.0.0',
+      }),
+    );
+  });
+});
+
+describe('supportsFirmwareUpdateWorkflowV2', () => {
+  it.each([
+    ['Pro', 'pro'],
+    ['Pro2', 'pro2'],
+    ['Neo', 'neo'],
+  ])('allows %s devices', (_name, deviceType) => {
+    expect(supportsFirmwareUpdateWorkflowV2(deviceType)).toBe(true);
+  });
+
+  it.each([
+    ['Classic', 'classic'],
+    ['Touch', 'touch'],
+    ['unknown', undefined],
+  ])('rejects %s devices', (_name, deviceType) => {
+    expect(supportsFirmwareUpdateWorkflowV2(deviceType)).toBe(false);
   });
 });
 
@@ -246,11 +641,15 @@ describe('ServiceFirmwareUpdate Pro2 developer settings', () => {
 });
 
 describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('keeps an SDK-selected resource target on the incremental inventory path', async () => {
+  it('does not pass Protocol V2 resource binaries outside PreparedPlan', async () => {
     const firmwareUpdateV4 = jest.fn().mockResolvedValue({
       success: true,
       payload: {},
@@ -302,6 +701,10 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
         targetsToUpdate: ['resource'],
       }),
     );
+    expect(firmwareUpdateStepInfoAtom.set).toHaveBeenCalledWith({
+      step: 'installing',
+      payload: { installingTarget: {} },
+    });
   });
 
   it('keeps the BLE peripheral ID when the active transport is desktop BLE', async () => {
@@ -326,7 +729,7 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
             .fn()
             .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
         },
-        // 持久化值可能仍是上一轮 USB；升级必须以连接管理器的实际值为准。
+        // The persisted value may be stale; the active connection is authoritative.
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
@@ -358,6 +761,85 @@ describe('ServiceFirmwareUpdate Pro2 resource update options', () => {
       connectId: bleConnectId,
       hardwareTransportType: EHardwareTransportType.DesktopWebBle,
     });
+  });
+});
+
+describe('ServiceFirmwareUpdate legacy workflow running state', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('sets the background guard before entering hardware processing', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    const withHardwareProcessing = jest
+      .fn()
+      .mockRejectedValue(new Error('hardware processing unavailable'));
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.startUpdateWorkflow({
+        releaseResult: {
+          updateInfos: {},
+        },
+      } as never),
+    ).rejects.toThrow('hardware processing unavailable');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
+    expect(
+      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(withHardwareProcessing.mock.invocationCallOrder[0]);
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+  });
+
+  it('clears the background guard when transport initialization fails', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const withHardwareProcessing = jest.fn(
+      async (callback: () => Promise<void>) => callback(),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockRejectedValue(new Error('transport unavailable')),
+          clearForceTransportType,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.startUpdateWorkflow({
+        releaseResult: {
+          updateInfos: {},
+        },
+      } as never),
+    ).rejects.toThrow('transport unavailable');
+
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenNthCalledWith(
+      1,
+      true,
+    );
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(waitSpy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -671,11 +1153,9 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(runtimeHost).not.toHaveBeenCalled();
   });
 
-  test('keeps the legacy Pro2 rejection when no Plan exists', async () => {
+  test('rejects a resource-only Protocol V2 update without PreparedPlan', async () => {
     const service = createService();
-    const updatingFirmwareV4 = jest
-      .spyOn(service, 'updatingFirmwareV4')
-      .mockResolvedValue({ message: 'ok' });
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
 
     await expect(
       service.startUpdateFirmwareTaskForNewBootVersion({
@@ -683,11 +1163,65 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
         usbConnected: true,
         releaseResult: {
           deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['resource'],
           updateInfos: {},
         } as ICheckAllFirmwareReleaseResult,
       }),
-    ).rejects.toThrow('Do not support update firmware for this device');
+    ).rejects.toThrow(
+      'Firmware update plan is required for Protocol V2 updates',
+    );
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
+  });
 
+  test('rejects Protocol V2 component targets when no prepared Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
+    const createRunTaskWithRetry = jest.spyOn(
+      service,
+      'createRunTaskWithRetry',
+    );
+
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow(
+      'Firmware update plan is required for Protocol V2 updates',
+    );
+
+    expect(createRunTaskWithRetry).not.toHaveBeenCalled();
+    expect(updatingFirmwareV4).not.toHaveBeenCalled();
+  });
+
+  test('fails closed before inspecting Protocol V2 targets when no Plan exists', async () => {
+    const service = createService();
+    const updatingFirmwareV4 = jest.spyOn(service, 'updatingFirmwareV4');
+    const createRunTaskWithRetry = jest.spyOn(
+      service,
+      'createRunTaskWithRetry',
+    );
+
+    await expect(
+      service.startUpdateFirmwareTaskForNewBootVersion({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          deviceType: EDeviceType.Pro2,
+          pro2TargetsToUpdate: ['app_v1', 'invalid-target'],
+          updateInfos: {},
+        } as unknown as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow(
+      'Firmware update plan is required for Protocol V2 updates',
+    );
+
+    expect(createRunTaskWithRetry).not.toHaveBeenCalled();
     expect(updatingFirmwareV4).not.toHaveBeenCalled();
   });
 
@@ -695,7 +1229,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     const service = createService();
     const plan = {
       executor: 'v4',
-      targetsToUpdate: ['boot', 'app_v1'],
+      targetsToUpdate: ['boot', 'app_v1', 'resource'],
     };
     jest
       .spyOn(
@@ -722,6 +1256,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
       releaseResult: {
         deviceType: EDeviceType.Pro2,
         firmwareUpdatePlanDigest: 'c'.repeat(64),
+        pro2TargetsToUpdate: ['boot', 'app_v1', 'resource'],
         updateInfos: {},
       } as ICheckAllFirmwareReleaseResult,
     });
@@ -729,7 +1264,7 @@ describe('ServiceFirmwareUpdate legacy Pro firmware fallback', () => {
     expect(updatingFirmwareV4).toHaveBeenCalledWith(
       expect.objectContaining({
         requirePreparedArtifacts: true,
-        targetsToUpdate: ['boot', 'app_v1'],
+        targetsToUpdate: ['boot', 'app_v1', 'resource'],
       }),
       undefined,
     );

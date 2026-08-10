@@ -177,6 +177,7 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
         aggregateTokenMap: {},
         deviceConnectId: connectId,
         totalFiat,
+        totalFiatCurrency: 'usd',
         totalTokenCount: 0,
         tokenMap: {},
         tokens: [],
@@ -240,6 +241,7 @@ describe('ServiceHardwarePortfolioSync settled event debounce', () => {
       aggregateTokenMap: {},
       deviceConnectId: 'PRO2_A',
       totalFiat: '2',
+      totalFiatCurrency: 'usd',
       totalTokenCount: 0,
       tokenMap: {},
       tokens: [],
@@ -350,6 +352,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       deviceDbId: 'db-device-1',
       indexedAccountId: 'indexed-account-1',
       totalFiat: '0.00007276',
+      totalFiatCurrency: 'usd',
       totalTokenCount: 1,
       tokenMap: {
         eth: {

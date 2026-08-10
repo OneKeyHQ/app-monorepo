@@ -19,7 +19,10 @@ import { PRO2_FIRMWARE_UPDATE_TARGETS } from '@onekeyhq/shared/types/device';
 import { FirmwareUpdateActions } from '../Tab/DevSettingsSection/FirmwareUpdateActions';
 
 const PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS = PRO2_FIRMWARE_UPDATE_TARGETS.map(
-  (value) => ({ value, label: value }),
+  (value) => ({
+    value,
+    label: value,
+  }),
 );
 
 const EMPTY_PRO2_FIRMWARE_UPDATE_TARGETS: IPro2FirmwareUpdateTarget[] = [];
@@ -60,7 +63,10 @@ function Pro2FirmwareUpdateTargetRow({
       const nextTargets = enabled
         ? Array.from(new Set([...targets, target.value]))
         : targets.filter((item) => item !== target.value);
-      await updateTargets({ nextTargets, nextOnceTargets: onceTargets });
+      const nextOnceTargets = enabled
+        ? onceTargets.filter((item) => item !== target.value)
+        : onceTargets;
+      await updateTargets({ nextTargets, nextOnceTargets });
     },
     [onceTargets, target.value, targets, updateTargets],
   );
@@ -70,7 +76,10 @@ function Pro2FirmwareUpdateTargetRow({
       const nextOnceTargets = enabled
         ? Array.from(new Set([...onceTargets, target.value]))
         : onceTargets.filter((item) => item !== target.value);
-      await updateTargets({ nextTargets: targets, nextOnceTargets });
+      const nextTargets = enabled
+        ? targets.filter((item) => item !== target.value)
+        : targets;
+      await updateTargets({ nextTargets, nextOnceTargets });
     },
     [onceTargets, target.value, targets, updateTargets],
   );
@@ -126,7 +135,7 @@ function FirmwareUpdatePro2DevSettings() {
     <YStack>
       <ListItem
         title="Pro2 force targets"
-        subtitle="Select persistent or one-time targets passed to firmwareUpdateV4"
+        subtitle="Configured resources are included automatically. Resource force/once means reinstall."
         titleProps={{ color: '$textCritical' }}
       />
       {PRO2_FIRMWARE_UPDATE_TARGET_OPTIONS.map((target) => (

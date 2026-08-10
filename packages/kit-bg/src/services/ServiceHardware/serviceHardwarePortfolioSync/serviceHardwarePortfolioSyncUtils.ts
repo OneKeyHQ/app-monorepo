@@ -104,6 +104,7 @@ export function buildPortfolioSyncArtifacts({
     currencyMap,
     displayCurrency,
     totalFiat: eventPayload.totalFiat,
+    totalFiatCurrency: eventPayload.totalFiatCurrency,
     totalTokenCount: eventPayload.totalTokenCount,
     timestamp,
     tokenMap: eventPayload.tokenMap,

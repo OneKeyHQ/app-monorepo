@@ -1,3 +1,5 @@
+import { EFirmwareType } from '@onekeyfe/hd-shared';
+
 import {
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
@@ -114,13 +116,43 @@ export function resolveDeviceState({
 export function resolveUsableWalletWithDevice(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
-  if (
-    walletWithDevice?.wallet?.deprecated ||
-    walletWithDevice?.wallet?.isMocked
-  ) {
+  if (!isDeviceManagementWalletUsable(walletWithDevice)) {
     return undefined;
   }
   return walletWithDevice;
+}
+
+export function isDeviceManagementWalletUsable(
+  walletWithDevice?: IHwQrWalletWithDevice,
+) {
+  const wallet = walletWithDevice?.wallet;
+  const device = walletWithDevice?.device;
+  if (!wallet || wallet.isMocked) {
+    return false;
+  }
+  if (!wallet.deprecated) {
+    return true;
+  }
+
+  const deviceType =
+    device?.deviceStateInfo?.identity.deviceType ?? device?.deviceType;
+  if (!deviceType || !deviceUtils.checkAllowChangeFirmwareType(deviceType)) {
+    return false;
+  }
+
+  const currentFirmwareType =
+    device?.deviceStateInfo?.identity.firmwareType ??
+    device?.featuresInfo?.$app_firmware_type ??
+    device?.featuresInfo?.firmwareType;
+  if (!currentFirmwareType) {
+    return false;
+  }
+
+  // Legacy wallets were created on Universal firmware. Switching firmware
+  // invalidates accounts, but the device must remain manageable to switch back.
+  const firmwareTypeAtCreated =
+    wallet.firmwareTypeAtCreated ?? EFirmwareType.Universal;
+  return currentFirmwareType !== firmwareTypeAtCreated;
 }
 
 export function resolveDeviceWithCurrentType<

@@ -290,42 +290,26 @@ export const executePreparedFirmwareUpdateV4 = ({
   firmwareType: EFirmwareType | undefined;
   targetsToUpdate: FirmwareUpdateV4Target[];
   forcedUpdateRes: boolean;
-} & IFirmwareExecutionArtifacts) =>
-  sdk.firmwareUpdateV4(connectId, {
+} & IFirmwareExecutionArtifacts) => {
+  if (preparedArtifacts) {
+    return sdk.firmwareUpdateV4(connectId, {
+      platform,
+      preparedPlan: preparedArtifacts.preparedPlan,
+      hostBindingGeneration: requireHostBindingGeneration(
+        preparedArtifacts,
+        hostBindingGeneration,
+      ),
+    });
+  }
+
+  return sdk.firmwareUpdateV4(connectId, {
     platform,
     firmwareType,
     targetsToUpdate,
     ...getBridgeFirmwareV4BinaryParams(bridgeBinaries),
-    ...(!preparedArtifacts ? { forcedUpdateRes } : {}),
-    ...(preparedArtifacts
-      ? {
-          preparedPlan: preparedArtifacts.preparedPlan,
-          expectedDeviceId: preparedArtifacts.plan.deviceIdentity,
-          expectedTargetVersions: Object.fromEntries(
-            preparedArtifacts.plan.artifacts.flatMap((artifact) =>
-              artifact.targetVersion &&
-              FIRMWARE_UPDATE_V4_TARGETS.has(
-                artifact.target as FirmwareUpdateV4Target,
-              )
-                ? [
-                    [
-                      artifact.target as FirmwareUpdateV4Target,
-                      artifact.targetVersion,
-                    ] as const,
-                  ]
-                : [],
-            ),
-          ),
-          componentArtifacts: preparedArtifacts.selected.componentArtifacts,
-          resourceBundleArtifacts:
-            preparedArtifacts.selected.resourceBundleArtifacts,
-          hostBindingGeneration: requireHostBindingGeneration(
-            preparedArtifacts,
-            hostBindingGeneration,
-          ),
-        }
-      : {}),
+    forcedUpdateRes,
   });
+};
 
 export const executePreparedFirmwareUpdateV3 = ({
   sdk,

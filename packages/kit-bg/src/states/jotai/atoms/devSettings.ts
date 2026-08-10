@@ -229,6 +229,19 @@ export const {
   },
 });
 
+// Firmware update dev settings only take effect while global developer mode is
+// enabled; callers outside ServiceDevSetting must go through this gate too.
+export async function getGatedFirmwareUpdateDevSetting<
+  T extends IFirmwareUpdateDevSettingsKeys,
+>(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
+  const dev = await devSettingsPersistAtom.get();
+  if (!dev.enabled) {
+    return undefined;
+  }
+  const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
+  return fwDev[key];
+}
+
 export type INotificationsDevSettings = {
   showMessagePushSource?: boolean;
   disabledWebSocket?: boolean;

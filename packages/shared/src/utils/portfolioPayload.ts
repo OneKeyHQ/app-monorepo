@@ -61,6 +61,7 @@ export type IBuildPortfolioPayloadParams = {
   currencyMap: Record<string, ICurrencyItem>;
   displayCurrency: IPortfolioDisplayCurrency;
   totalFiat: string;
+  totalFiatCurrency: string;
   totalTokenCount: number;
   timestamp: number;
   tokenMap: Record<string, ITokenFiat>;
@@ -390,6 +391,7 @@ export function buildPortfolioPayload({
   currencyMap,
   displayCurrency,
   totalFiat: rawTotalFiat,
+  totalFiatCurrency,
   totalTokenCount,
   timestamp,
   tokenMap,
@@ -449,7 +451,23 @@ export function buildPortfolioPayload({
     };
   });
 
-  const totalFiatValue = toPortfolioAllocationValue(rawTotalFiat);
+  if (!totalFiatCurrency) {
+    throw new OneKeyLocalError('Portfolio total source currency is required');
+  }
+  const convertedTotalFiat = convertFiatStrictToDisplayCurrency({
+    currencyMap,
+    sourceCurrency: totalFiatCurrency,
+    targetCurrency: displayCurrency.id,
+    value: rawTotalFiat,
+  });
+  if (convertedTotalFiat.value === null) {
+    throw new OneKeyLocalError(
+      `Unable to convert Portfolio total from ${totalFiatCurrency} to ${displayCurrency.id}: ${
+        convertedTotalFiat.reason ?? 'unknown'
+      }`,
+    );
+  }
+  const totalFiatValue = toPortfolioAllocationValue(convertedTotalFiat.value);
   const totalFiat = formatPortfolioTotalFiat(totalFiatValue, currencyPrefix);
   const topTokensFiatValue = tokenBuildResults.reduce(
     (total, result) => total.plus(result.allocationValue),

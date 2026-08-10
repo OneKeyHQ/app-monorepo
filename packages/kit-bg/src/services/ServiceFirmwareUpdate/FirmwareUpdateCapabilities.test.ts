@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
 import {
   cancelFirmwareArtifactPreparations,
@@ -22,6 +24,7 @@ import { FirmwarePreparedArtifactController } from './FirmwarePreparedArtifactCo
 import {
   executePreparedFirmwareUpdateV2,
   executePreparedFirmwareUpdateV3,
+  executePreparedFirmwareUpdateV4,
 } from './FirmwarePreparedExecution';
 
 import type { IPreparedFirmwareArtifacts } from './FirmwareArtifactPreflight';
@@ -31,6 +34,10 @@ import type {
   FirmwareUpdatePlan,
   FirmwareUpdatePreparedPlan,
 } from '@onekeyfe/hd-core';
+
+jest.mock('../../states/jotai/atoms/devSettings', () => ({
+  getGatedFirmwareUpdateDevSetting: jest.fn(async () => undefined),
+}));
 
 const ready = {
   planSchemaVersion: 2,
@@ -133,7 +140,6 @@ describe('prepared firmware execution', () => {
       },
       selected: {
         componentArtifacts: {},
-        resourceBundleArtifacts: [],
         ...selected,
       },
     }) as unknown as IPreparedFirmwareArtifacts;
@@ -325,6 +331,31 @@ describe('prepared firmware execution', () => {
     );
   });
 
+  test('uses the prepared plan as the sole V4 execution source', async () => {
+    const firmwareUpdateV4 = jest.fn();
+    const sdk = { firmwareUpdateV4 } as unknown as CoreApi;
+    const prepared = createPreparedArtifacts({});
+    prepared.plan.executor = 'v4';
+    prepared.plan.targetsToUpdate = ['resource'];
+
+    await executePreparedFirmwareUpdateV4({
+      sdk,
+      connectId: 'device',
+      preparedArtifacts: prepared,
+      hostBindingGeneration: 7,
+      platform: 'native',
+      firmwareType: EFirmwareType.Universal,
+      targetsToUpdate: ['resource'],
+      forcedUpdateRes: true,
+    });
+
+    expect(firmwareUpdateV4).toHaveBeenCalledWith('device', {
+      platform: 'native',
+      preparedPlan: prepared.preparedPlan,
+      hostBindingGeneration: 7,
+    });
+  });
+
   test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
@@ -474,6 +505,75 @@ describe('prepared firmware execution', () => {
     }
   });
 
+  test('fails a required prepared flow when the fresh manifest has no Plan', async () => {
+    const controller = createController();
+
+    await expect(
+      controller.cachePlanDigestIfPreparedSupported({
+        hasUpgrade: true,
+        plan: undefined,
+        connectId: 'device',
+        transportType: EHardwareTransportType.Bridge,
+        expectedTargets: ['firmware'],
+        requirePreparedPlan: true,
+      }),
+    ).rejects.toThrow(
+      'Firmware update plan is unavailable from the fresh firmware manifest',
+    );
+  });
+
+  test('fails a required prepared flow when the host capability is unavailable', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest
+        .spyOn(firmwareArtifactAdapter, 'getCapabilities')
+        .mockRejectedValue(new Error('artifact module unavailable'));
+      const controller = createController();
+      const plan = {
+        planDigest: 'd'.repeat(64),
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:app_v1',
+            role: 'component',
+            target: 'app_v1',
+            url: 'https://firmware.example/application-p1.okpkg',
+            container: 'raw',
+            expectedSize: 1024,
+            expectedSha256: '1'.repeat(64),
+          },
+        ],
+        targetsToUpdate: ['app_v1'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['app_v1'],
+          requirePreparedPlan: true,
+        }),
+      ).rejects.toThrow(
+        'Firmware prepared artifact capability is unavailable on this runtime',
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
   test('rejects empty and partial Desktop Bridge plans before preparation', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
@@ -545,6 +645,188 @@ describe('prepared firmware execution', () => {
       Object.assign(platformEnv, previousPlatform);
     }
   });
+
+  test('accepts exact Protocol V2 component targets', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
+        firmwareArtifactProtocolVersion: 4,
+        maxReadBytes: 256 * 1024,
+        supportsArchiveMaterialization: true,
+        supportedRouteTypes: ['domain'],
+      });
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'c'.repeat(64),
+        executor: 'v4',
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:coprocessor',
+            role: 'component',
+            target: 'coprocessor',
+            url: 'https://firmware.example/coprocessor.okpkg',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['coprocessor'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['coprocessor'],
+        }),
+      ).resolves.toBe(true);
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('rejects Protocol V2 target mismatches before artifact preparation', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'd'.repeat(64),
+        executor: 'v4',
+        deviceIdentity: 'device',
+        deviceModel: 'pro2',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'component:coprocessor',
+            role: 'component',
+            target: 'coprocessor',
+            url: 'https://firmware.example/coprocessor.okpkg',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['coprocessor'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['ble'],
+        }),
+      ).rejects.toThrow(
+        'Firmware update plan targets do not match the selected Protocol V2 targets',
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
+  test('requires the Protocol V2 resource target to use one ZIP bundle', async () => {
+    const controller = createController();
+    const plan = {
+      schemaVersion: 2,
+      planDigest: 'f'.repeat(64),
+      executor: 'v4',
+      deviceIdentity: 'device',
+      deviceModel: 'pro2',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'desktop',
+      artifacts: [
+        {
+          artifactId: 'resource:archive',
+          role: 'resource',
+          target: 'resource',
+          url: 'https://firmware.example/resource.zip',
+          container: 'zip',
+        },
+      ],
+      targetsToUpdate: ['resource'],
+    } as unknown as FirmwareUpdatePlan;
+
+    await expect(
+      controller.cachePlanIfPreparedSupported({
+        plan,
+        connectId: 'device',
+        transportType: EHardwareTransportType.Bridge,
+        expectedTargets: ['resource'],
+      }),
+    ).rejects.toThrow(
+      'Protocol V2 resource target requires exactly one ZIP archive artifact',
+    );
+  });
+
+  test('keeps legacy target aliases bound to matching artifact roles', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: true,
+      appPlatform: 'desktop',
+      symbol: 'desktop',
+    });
+    try {
+      const controller = createController();
+      const plan = {
+        schemaVersion: 2,
+        planDigest: 'e'.repeat(64),
+        executor: 'v3',
+        deviceIdentity: 'device',
+        deviceModel: 'pro',
+        firmwareType: EFirmwareType.Universal,
+        platform: 'desktop',
+        artifacts: [
+          {
+            artifactId: 'malformed-firmware',
+            role: 'resource',
+            target: 'firmware',
+            url: 'https://firmware.example/resource.bin',
+            container: 'raw',
+          },
+        ],
+        targetsToUpdate: ['firmware'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanIfPreparedSupported({
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.Bridge,
+          expectedTargets: ['firmware'],
+        }),
+      ).rejects.toThrow(
+        'Firmware update plan does not cover every selected target',
+      );
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
 });
 
 describe('downloadFirmwareArtifact', () => {
@@ -596,6 +878,37 @@ describe('downloadFirmwareArtifact', () => {
     expect(trace).toHaveBeenCalledWith(
       expect.stringContaining('"stage":"artifact-download-complete"'),
     );
+    expect(download.mock.calls[0][0].allowPreReleaseHosts).toBeUndefined();
+  });
+
+  test('forwards the pre-release host admission only while the dev setting is on', async () => {
+    jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
+    jest
+      .mocked(getGatedFirmwareUpdateDevSetting)
+      .mockResolvedValueOnce(true as never);
+    const artifact = testFirmwareArtifact;
+    const download = jest
+      .spyOn(firmwareArtifactAdapter, 'download')
+      .mockResolvedValue({
+        artifactRef: `fw:${artifact.expectedSha256}`,
+        size: artifact.expectedSize,
+        sha256: artifact.expectedSha256,
+        expectedSha256Verified: true,
+      });
+
+    await downloadFirmwareArtifact({
+      artifact,
+      artifactId: 'bootloader',
+      taskId: 'bootloader-download',
+      transactionId: 'fwtx:pre-release-hosts',
+      leaseRef: 'fwlease:pre-release-hosts',
+      deadlineAt: Date.now() + 20 * 60 * 1000,
+    });
+
+    expect(getGatedFirmwareUpdateDevSetting).toHaveBeenCalledWith(
+      'usePreReleaseConfig',
+    );
+    expect(download.mock.calls[0][0].allowPreReleaseHosts).toBe(true);
   });
 
   test('records a bounded error code when the native download fails', async () => {
@@ -700,6 +1013,34 @@ describe('Desktop Bridge firmware binaries', () => {
     jest.restoreAllMocks();
   });
 
+  test('rejects Protocol V2 resource ZIP plans before downloading', async () => {
+    const download = jest.spyOn(firmwareArtifactAdapter, 'download');
+    const plan = {
+      schemaVersion: 2,
+      planDigest: 'f'.repeat(64),
+      executor: 'v4',
+      deviceIdentity: 'device',
+      deviceModel: 'pro2',
+      firmwareType: EFirmwareType.Universal,
+      platform: 'desktop',
+      artifacts: [
+        {
+          artifactId: 'resource:archive',
+          role: 'resourceBundle',
+          target: 'resource',
+          url: 'https://firmware.example/resource.zip',
+          container: 'zip',
+        },
+      ],
+      targetsToUpdate: ['resource'],
+    } as unknown as FirmwareUpdatePlan;
+
+    await expect(prepareBridgeFirmwareBinaries(plan)).rejects.toThrow(
+      'Desktop Bridge does not support Protocol V2 resource ZIP updates',
+    );
+    expect(download).not.toHaveBeenCalled();
+  });
+
   test('downloads and reads a small admitted artifact before releasing its lease', async () => {
     const { artifact, plan } = createBridgePlan();
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
@@ -743,10 +1084,8 @@ describe('Desktop Bridge firmware binaries', () => {
     });
   });
 
-  test('downloads a remote plan URL without requiring an App-bundled catalog', async () => {
+  test('downloads a verified remote plan URL without requiring an App-bundled catalog', async () => {
     const { plan } = createBridgePlan();
-    delete plan.artifacts[0].expectedSize;
-    delete plan.artifacts[0].expectedSha256;
     jest.spyOn(firmwareArtifactAdapter, 'getCapabilities').mockReturnValue({
       firmwareArtifactProtocolVersion: 4,
       maxReadBytes: 256 * 1024,
@@ -756,14 +1095,14 @@ describe('Desktop Bridge firmware binaries', () => {
     jest
       .spyOn(firmwareArtifactAdapter, 'createLease')
       .mockResolvedValue({ leaseRef: 'fwlease:catalog' });
-    const actualSha256 = '2'.repeat(64);
+    const actualSha256 = plan.artifacts[0].expectedSha256;
     const download = jest
       .spyOn(firmwareArtifactAdapter, 'download')
       .mockResolvedValue({
         artifactRef: `fw:${actualSha256}`,
         size: testFirmwareArtifact.expectedSize,
         sha256: actualSha256,
-        expectedSha256Verified: false,
+        expectedSha256Verified: true,
       });
     jest.spyOn(firmwareArtifactAdapter, 'open').mockResolvedValue({
       readerId: 'reader',
@@ -784,11 +1123,11 @@ describe('Desktop Bridge firmware binaries', () => {
       expect.objectContaining({
         artifactId: 'bootloader',
         url: plan.artifacts[0].url,
-        maxBytes: 512 * 1024 * 1024,
+        expectedSize: plan.artifacts[0].expectedSize,
+        expectedSha256: plan.artifacts[0].expectedSha256,
+        maxBytes: plan.artifacts[0].expectedSize,
       }),
     );
-    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSize');
-    expect(download.mock.calls[0][0]).not.toHaveProperty('expectedSha256');
   });
 
   test('cancels an active preparation after a download failure', async () => {
@@ -947,8 +1286,8 @@ describe('external firmware artifact preparation', () => {
       platform: 'native',
       artifacts: [
         {
-          artifactId: 'resource',
-          role: 'resource',
+          artifactId: 'resource:archive',
+          role: 'resourceBundle',
           target: 'resource',
           url: 'https://firmware.example/resources.zip',
           container: 'zip',
@@ -1019,7 +1358,7 @@ describe('external firmware artifact preparation', () => {
       expect.objectContaining({
         artifacts: [
           expect.objectContaining({
-            artifactId: 'resource',
+            artifactId: 'resource:archive',
             materializedEntries: [
               {
                 entryName: 'resource.bin',
@@ -1064,11 +1403,12 @@ describe('external firmware artifact preparation', () => {
       planDigest: plan.planDigest,
     } as FirmwareUpdatePreparedPlan;
     const validateFirmwareUpdatePreparedPlan = jest.fn(() => preparedPlan);
+    const registerFirmwareUpdateHostBinding = jest.fn(() => 9);
     const unregisterFirmwareUpdateHostBinding = jest.fn(() => true);
     const sdk = {
       prepareFirmwareUpdatePlan: jest.fn(() => preparedPlan),
       validateFirmwareUpdatePreparedPlan,
-      registerFirmwareUpdateHostBinding: jest.fn(() => 9),
+      registerFirmwareUpdateHostBinding,
       unregisterFirmwareUpdateHostBinding,
     } as unknown as CoreApi;
     jest.spyOn(loggerUtils, 'consoleFunc').mockImplementation(() => undefined);
@@ -1110,6 +1450,11 @@ describe('external firmware artifact preparation', () => {
 
     expect(validateFirmwareUpdatePreparedPlan).toHaveBeenCalledWith(
       preparedPlan,
+    );
+    expect(registerFirmwareUpdateHostBinding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preparedPlanDigest: preparedPlan.preparedPlanDigest,
+      }),
     );
     expect(unregisterFirmwareUpdateHostBinding).toHaveBeenCalledWith(9);
     expect(releaseLease).toHaveBeenCalledWith({

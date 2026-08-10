@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { emptyMetaState } from './atoms';
 import {
@@ -13,13 +13,153 @@ import {
 } from './deviceStateManagement';
 
 describe('device reset wallet isolation', () => {
+  const firmwareTypeSwitchDeviceTypes = [
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Pro,
+  ];
+
+  const unsupportedDeviceTypes = [
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro2,
+    EDeviceType.Neo,
+  ];
+
   it('does not expose a deprecated hardware wallet to device details', () => {
     expect(
       resolveUsableWalletWithDevice({
-        wallet: { id: 'hw-wallet-1', deprecated: true },
-        device: { id: 'old-device-1' },
+        wallet: {
+          id: 'hw-wallet-1',
+          deprecated: true,
+          firmwareTypeAtCreated: EFirmwareType.BitcoinOnly,
+        },
+        device: {
+          id: 'old-device-1',
+          featuresInfo: {
+            $app_firmware_type: EFirmwareType.BitcoinOnly,
+          },
+        },
       } as never),
     ).toBeUndefined();
+  });
+
+  it.each(firmwareTypeSwitchDeviceTypes)(
+    'keeps a deprecated %s wallet manageable after switching firmware type',
+    (deviceType) => {
+      const walletWithDevice = {
+        wallet: {
+          id: `hw-wallet-${deviceType}`,
+          deprecated: true,
+          firmwareTypeAtCreated: EFirmwareType.Universal,
+        },
+        device: {
+          id: `device-${deviceType}`,
+          deviceType,
+          featuresInfo: {
+            deviceType,
+            $app_firmware_type: EFirmwareType.BitcoinOnly,
+          },
+        },
+      };
+
+      expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
+        walletWithDevice,
+      );
+    },
+  );
+
+  it.each(unsupportedDeviceTypes)(
+    'does not expose a deprecated %s wallet without a firmware type switch action',
+    (deviceType) => {
+      const walletWithDevice = {
+        wallet: {
+          id: `hw-wallet-${deviceType}`,
+          deprecated: true,
+          firmwareTypeAtCreated: EFirmwareType.Universal,
+        },
+        device: {
+          id: `device-${deviceType}`,
+          deviceType,
+          deviceStateInfo: {
+            identity: {
+              deviceType,
+              firmwareType: EFirmwareType.BitcoinOnly,
+            },
+          },
+        },
+      };
+
+      expect(
+        resolveUsableWalletWithDevice(walletWithDevice as never),
+      ).toBeUndefined();
+    },
+  );
+
+  it('keeps a Bitcoin-only wallet manageable after switching back to Universal firmware', () => {
+    const walletWithDevice = {
+      wallet: {
+        id: 'hw-wallet-1',
+        deprecated: true,
+        firmwareTypeAtCreated: EFirmwareType.BitcoinOnly,
+      },
+      device: {
+        id: 'device-1',
+        deviceType: EDeviceType.Pro,
+        featuresInfo: {
+          $app_firmware_type: EFirmwareType.Universal,
+        },
+      },
+    };
+
+    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
+      walletWithDevice,
+    );
+  });
+
+  it('uses normalized firmwareType for legacy Protocol V1 device records', () => {
+    const walletWithDevice = {
+      wallet: {
+        id: 'legacy-classic1s-wallet',
+        deprecated: true,
+        firmwareTypeAtCreated: EFirmwareType.Universal,
+      },
+      device: {
+        id: 'legacy-classic1s-device',
+        deviceType: EDeviceType.Classic1s,
+        featuresInfo: {
+          deviceType: EDeviceType.Classic1s,
+          firmwareType: EFirmwareType.BitcoinOnly,
+        },
+      },
+    };
+
+    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
+      walletWithDevice,
+    );
+  });
+
+  it('treats legacy wallets without firmwareTypeAtCreated as universal', () => {
+    const walletWithDevice = {
+      wallet: {
+        id: 'legacy-hw-wallet-1',
+        deprecated: true,
+      },
+      device: {
+        id: 'device-1',
+        deviceType: EDeviceType.Pro,
+        deviceStateInfo: {
+          identity: {
+            firmwareType: EFirmwareType.BitcoinOnly,
+          },
+        },
+      },
+    };
+
+    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
+      walletWithDevice,
+    );
   });
 });
 

@@ -25,6 +25,7 @@ import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvat
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isDeviceManagementWalletUsable } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -310,7 +311,7 @@ function DeviceManagementV2ListWeb() {
       const devices: Array<IDeviceManagementListItem> = Object.values(r)
         .filter(
           (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && !item.wallet.deprecated,
+            Boolean(item.device) && isDeviceManagementWalletUsable(item),
         )
         .toSorted((a, b) => {
           const orderA = a.wallet.walletOrder || a.wallet.walletNo;

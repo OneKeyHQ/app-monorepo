@@ -24,8 +24,10 @@ export function clearFirmwareManifestSnapshotCache(): void {
 
 async function refreshFirmwareManifestSnapshot({
   preRelease,
+  allowStaleFallback,
 }: {
   preRelease: boolean;
+  allowStaleFallback: boolean;
 }): Promise<RemoteConfigResponse> {
   const cached = firmwareManifestCache.get(preRelease);
   try {
@@ -41,7 +43,7 @@ async function refreshFirmwareManifestSnapshot({
     // Keep using the last known-good remote snapshot below.
   }
 
-  if (cached) {
+  if (allowStaleFallback && cached) {
     defaultLogger.ipTable.request.info({
       info: '[FirmwareManifest] config_fetch route=cache outcome=stale_fallback',
     });
@@ -68,11 +70,12 @@ export async function getFirmwareManifestSnapshot({
     return pendingRefresh;
   }
 
-  const refresh = refreshFirmwareManifestSnapshot({ preRelease }).finally(
-    () => {
-      firmwareManifestRefreshes.delete(preRelease);
-    },
-  );
+  const refresh = refreshFirmwareManifestSnapshot({
+    preRelease,
+    allowStaleFallback: !forceRefresh,
+  }).finally(() => {
+    firmwareManifestRefreshes.delete(preRelease);
+  });
   firmwareManifestRefreshes.set(preRelease, refresh);
   return refresh;
 }

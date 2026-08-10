@@ -172,6 +172,15 @@ export const getFirmwareArtifactSelfTestArtifact = async (
   if (!url) {
     throw new OneKeyLocalError(`${label} URL is unavailable`);
   }
+  if (
+    typeof expectedSize !== 'number' ||
+    !Number.isSafeInteger(expectedSize) ||
+    expectedSize <= 0 ||
+    typeof expectedSha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/iu.test(expectedSha256)
+  ) {
+    throw new OneKeyLocalError(`${label} integrity metadata is unavailable`);
+  }
   const artifact = resolveFirmwarePlanArtifact({
     artifactId,
     role: artifactId,
