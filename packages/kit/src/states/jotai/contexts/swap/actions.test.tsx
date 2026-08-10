@@ -17,8 +17,10 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import {
+  WALLET_NO_IMPORTED,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
+  WALLET_TYPE_IMPORTED,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -206,6 +208,13 @@ const ltcToken: ISwapToken = {
   contractAddress: '',
   symbol: 'LTC',
   decimals: 8,
+  isNative: true,
+};
+const trxToken: ISwapToken = {
+  networkId: 'tron--0x2b6653dc',
+  contractAddress: '',
+  symbol: 'TRX',
+  decimals: 6,
   isNative: true,
 };
 const ethProToken: IToken = {
@@ -3744,6 +3753,56 @@ describe('useSwapActions', () => {
         }),
       }),
     ]);
+  });
+
+  it('does not report an unsupported source account when only the cross-chain recipient is missing', async () => {
+    const importedWallet: IDBWallet = {
+      id: WALLET_TYPE_IMPORTED,
+      name: 'Imported',
+      type: WALLET_TYPE_IMPORTED,
+      backuped: true,
+      accounts: [],
+      nextIds: {},
+      walletNo: WALLET_NO_IMPORTED,
+    };
+    const importedAccountInfo: IAccountSelectorActiveAccountInfo = {
+      ...activeAccountInfo,
+      wallet: importedWallet,
+      network: { id: bnbToken.networkId } as NonNullable<
+        IAccountSelectorActiveAccountInfo['network']
+      >,
+    };
+    const importedFromAddressInfo: ISwapAddressInfo = {
+      ...fromAddressInfo,
+      networkId: bnbToken.networkId,
+      accountInfo: importedAccountInfo,
+      activeAccount: importedAccountInfo,
+    };
+    const missingRecipientAddressInfo: ISwapAddressInfo = {
+      ...importedFromAddressInfo,
+      address: undefined,
+      networkId: trxToken.networkId,
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), trxToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          importedFromAddressInfo,
+          missingRecipientAddressInfo,
+        );
+      });
+    });
+
+    expect(mockCheckAccountNetworkNotSupported).not.toHaveBeenCalled();
+    expect(store.get(swapAlertsAtom()).states).toEqual([]);
   });
 
   it('keeps the unsupported-account alert after address resolution completes', async () => {
