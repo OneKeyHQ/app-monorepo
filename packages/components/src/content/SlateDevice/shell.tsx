@@ -63,11 +63,11 @@ import type { ISlateDeviceAnimation } from './animation';
  * body's rounded overflow, which is exactly the Main frame's clipsContent
  * in the file.
  *
- * The screen glow layer is not in the Figma spec (its screen is empty); it
- * is the animation contract's wake luminance, the same treatment the sibling
- * touchscreen shell uses. Screen content targets the 288x484 canvas and is
- * scaled uniformly into the 301.5x506.2 screen (~1.047, with 0.3pt of
- * vertical overrun clipped by the screen).
+ * The screen stays pure black at all times — "lighting up" is only the
+ * content rendering in, so there is no separate glow layer. Screen content
+ * targets the 288x484 canvas and is scaled uniformly into the
+ * 301.5x506.2 screen (~1.047, with 0.3pt of vertical overrun clipped by
+ * the screen).
  *
  * Plain RN View + StyleSheet rather than Tamagui Stack is forced, not
  * stylistic: @tamagui/web lists `boxShadow` in webPropsToSkip.native, so a
@@ -128,13 +128,6 @@ const styles = StyleSheet.create({
     borderRadius: px(132),
     backgroundColor: '#000',
     overflow: 'hidden',
-  },
-  // The lit panel's light, read off the glass rather than out of the UI, so
-  // it washes the content too. Same rationale as the sibling touchscreen
-  // shell: the content is the signal, not the lift.
-  screenGlow: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   // 288x484 content canvas centered in the cutout, uniformly scaled to its
   // width; the 0.3pt of vertical overrun is clipped by the screen.
@@ -438,17 +431,9 @@ const DeviceBody = memo(function DeviceBody({
   animation: ISlateDeviceAnimation;
   screenContent?: ReactNode;
 }) {
-  const glowStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenGlow.value }),
-    [animation],
-  );
   const slotStyle = useAnimatedStyle(
     () => ({ opacity: animation.screenContent.value }),
     [animation],
-  );
-  const glowLayerStyle = useMemo(
-    () => [styles.screenGlow, glowStyle],
-    [glowStyle],
   );
   const slotLayerStyle = useMemo(
     () => [styles.screenSlot, slotStyle],
@@ -463,8 +448,6 @@ const DeviceBody = memo(function DeviceBody({
               {screenContent}
             </Animated.View>
           ) : null}
-          {/* The wake luminance reads off the glass, above the content. */}
-          <Animated.View pointerEvents="none" style={glowLayerStyle} />
         </View>
         {METAL_LIGHTS}
       </View>
