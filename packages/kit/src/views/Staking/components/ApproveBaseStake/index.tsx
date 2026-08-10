@@ -47,6 +47,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
@@ -61,7 +62,7 @@ import { useEarnEventActive } from '../../hooks/useEarnEventActive';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
@@ -1013,7 +1014,7 @@ export function ApproveBaseStake({
                       borderRadius="$2"
                     />
                     <SizableText size="$bodyMd">
-                      {capitalizeString(providerName || '')}
+                      {getEarnProviderDisplayName(providerName || '')}
                     </SizableText>
                   </XStack>
                   <XStack>

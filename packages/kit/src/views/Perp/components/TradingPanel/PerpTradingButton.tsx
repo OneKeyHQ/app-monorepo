@@ -10,12 +10,12 @@ import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -79,7 +79,8 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const midPriceRef = useRef<string | undefined>(undefined);
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
@@ -110,7 +111,7 @@ export function PerpTradingButton({
     perpsAccountLoading.selectAccountLoading,
   ]);
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
 
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');

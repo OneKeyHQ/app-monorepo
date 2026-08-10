@@ -61,6 +61,7 @@ import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -96,6 +97,12 @@ import type {
 
 function loadKeylessOAuthAccessTokenUtils() {
   return import('./utils/keylessOAuthAccessToken');
+}
+
+function logMaskedKeylessError(stage: string, error: unknown) {
+  defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+    reason: `${stage}: ${getSanitizedErrorLogText(error)}`,
+  });
 }
 
 const juiceboxClientDiagnosticContextCache = new Map<
@@ -933,7 +940,11 @@ class ServiceKeylessWallet extends ServiceBase {
         ownerId: result.ownerId,
         ownerProvider: result.ownerProvider,
       };
-    } catch (_e) {
+    } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet backend-share decryption failed and was replaced with a generic error',
+        error,
+      );
       throw new OneKeyLocalError('Failed to decrypt keyless backend share');
     }
   }
@@ -1054,7 +1065,12 @@ class ServiceKeylessWallet extends ServiceBase {
         await this.apiReleaseCreationLock({
           token,
           lockId: lock.lockId,
-        }).catch(() => undefined);
+        }).catch((error) => {
+          logMaskedKeylessError(
+            'ServiceKeylessWallet creation lock release failed',
+            error,
+          );
+        });
       }
     }
 
@@ -1330,7 +1346,11 @@ class ServiceKeylessWallet extends ServiceBase {
       try {
         keylessWallet =
           await this.backgroundApi.serviceAccount.getKeylessWallet();
-      } catch {
+      } catch (error) {
+        logMaskedKeylessError(
+          'ServiceKeylessWallet local Keyless wallet lookup failed while matching OAuth session',
+          error,
+        );
         return null;
       }
     }
@@ -1711,7 +1731,11 @@ class ServiceKeylessWallet extends ServiceBase {
         return 'token_provider_mismatch';
       }
       return undefined;
-    } catch {
+    } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet access token identity validation failed and was treated as identity mismatch',
+        error,
+      );
       return 'token_identity_mismatch';
     }
   }
@@ -2056,6 +2080,10 @@ class ServiceKeylessWallet extends ServiceBase {
         },
       );
     } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet passive backend-share migration failed and was downgraded to a result status',
+        error,
+      );
       if (this.isKeylessPassiveMigrationNetworkLikeError(error)) {
         // Roll back the throttle write so the next natural trigger (app
         // launch / password cache) retries without delay once the network
@@ -2881,6 +2909,10 @@ class ServiceKeylessWallet extends ServiceBase {
         throwOnSessionRefreshError: true,
       });
     } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet current OneKey ID session refresh failed during Keyless creation preparation',
+        error,
+      );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
           error,
@@ -3729,6 +3761,10 @@ class ServiceKeylessWallet extends ServiceBase {
       }
       previousAccessToken = activeAccessToken;
     } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet OAuth access token refresh preparation failed and was downgraded to a recovery status',
+        error,
+      );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
           error,
@@ -3928,7 +3964,11 @@ class ServiceKeylessWallet extends ServiceBase {
         await this.apiUpdatePinConfirmStatus({ token: params.token });
       });
       return true;
-    } catch (_error) {
+    } catch (error) {
+      logMaskedKeylessError(
+        'ServiceKeylessWallet PIN confirmation status update failed after successful verification',
+        error,
+      );
       return false;
     }
   }
@@ -3983,13 +4023,28 @@ class ServiceKeylessWallet extends ServiceBase {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServiceKeylessWallet auth server health check returned HTTP ${response.status}`,
+        });
         return false;
       }
 
       const result = (await response.json()) as { status?: string };
-      return result?.status === 'ok';
-    } catch (_error) {
+      const isHealthy = result?.status === 'ok';
+      if (!isHealthy) {
+        defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+          reason: `ServiceKeylessWallet auth server health check returned status=${String(
+            result?.status || 'missing',
+          )}`,
+        });
+      }
+      return isHealthy;
+    } catch (error) {
       // Handle timeout or any other errors
+      logMaskedKeylessError(
+        'ServiceKeylessWallet auth server health check failed and was downgraded to unhealthy',
+        error,
+      );
       return false;
     }
   }

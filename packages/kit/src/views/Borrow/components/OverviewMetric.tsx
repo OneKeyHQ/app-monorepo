@@ -27,7 +27,12 @@ export function OverviewMetric({
   widthMode = 'columns',
 }: IOverviewMetricProps) {
   const valueContent = isLoading ? (
-    <Skeleton w={72} h="$6" borderRadius="$1" />
+    <>
+      <Skeleton w={72} h="$6" borderRadius="$1" />
+      {valueLayout === 'stacked' ? (
+        <Skeleton w={56} h="$5" borderRadius="$1" />
+      ) : null}
+    </>
   ) : (
     <>
       {text ? (
@@ -80,11 +85,11 @@ export function OverviewMetric({
         {tooltip}
       </XStack>
       {valueLayout === 'stacked' ? (
-        <YStack ai="flex-start" gap="$0.5">
+        <YStack ai="flex-start" gap="$0.5" minHeight={46}>
           {valueContent}
         </YStack>
       ) : (
-        <XStack ai="center" gap="$1">
+        <XStack ai="center" gap="$1" minHeight="$6">
           {valueContent}
         </XStack>
       )}

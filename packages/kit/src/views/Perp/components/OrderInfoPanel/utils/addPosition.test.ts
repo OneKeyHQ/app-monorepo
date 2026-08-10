@@ -109,13 +109,21 @@ describe('add position guards', () => {
     };
     expect(
       buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'usd' }),
-    ).toBe('$10');
+    ).toBe('$10.00');
     expect(
       buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'token' }),
     ).toBe('0.10 ETH');
     expect(
       buildAddPositionMinimumAmountLabel({ ...base, sizeInputUnit: 'margin' }),
     ).toBe('$2.00');
+    expect(
+      buildAddPositionMinimumAmountLabel({
+        ...base,
+        price: '3.39',
+        szDecimals: 1,
+        sizeInputUnit: 'usd',
+      }),
+    ).toBe('$10.17');
   });
 
   it('falls back to the usd minimum when price or leverage is unusable', () => {

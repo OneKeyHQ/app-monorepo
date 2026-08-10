@@ -26,15 +26,20 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
   ISwapProSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapProAnalyticsTokenSelectFrom,
+  ESwapProTradeType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   estimateMarketPresetGasFeeFiatValues,
@@ -78,6 +83,7 @@ interface ISwapProContainerProps {
   marketPresetSettings?: IMarketPresetSettingsState;
   config: {
     isLoading: boolean;
+    isAccountContextReady: boolean;
     speedConfigReady: boolean;
     speedConfig: ISwapProSpeedConfig;
     balanceLoading: boolean;
@@ -104,6 +110,7 @@ const SwapProContainer = ({
 }: ISwapProContainerProps) => {
   const {
     isLoading,
+    isAccountContextReady,
     speedConfigReady,
     speedConfig,
     balanceLoading,
@@ -194,13 +201,26 @@ const SwapProContainer = ({
 
   const onTokenPressCallback = useCallback(
     (token: ISwapToken) => {
+      if (
+        !token.isStock &&
+        !equalTokenNoCaseSensitive({
+          token1: token,
+          token2: swapProSelectToken,
+        })
+      ) {
+        defaultLogger.swap.swapPro.swapProTokenSwitch({
+          selectFrom: ESwapProAnalyticsTokenSelectFrom.POSITIONS,
+          tokenSymbol: token.symbol,
+          network: token.networkId,
+        });
+      }
       onTokenPress(token);
       scrollViewRef.current?.scrollTo({
         y: 0,
         animated: true,
       });
     },
-    [onTokenPress],
+    [onTokenPress, swapProSelectToken],
   );
 
   const netAccountAddress = netAccountRes.result?.addressDetail.address;
@@ -361,8 +381,10 @@ const SwapProContainer = ({
         />
       ) : (
         <SwapProErrorAlert
-          title={swapProErrorAlert?.title}
-          message={swapProErrorAlert?.message}
+          title={isAccountContextReady ? swapProErrorAlert?.title : undefined}
+          message={
+            isAccountContextReady ? swapProErrorAlert?.message : undefined
+          }
         />
       )}
       <SwapProTabListContainer

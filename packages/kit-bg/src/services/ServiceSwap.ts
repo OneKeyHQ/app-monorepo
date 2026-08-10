@@ -122,6 +122,7 @@ import {
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
   ESwapTabSwitchType,
+  ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -145,7 +146,9 @@ import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
+  mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
+  shouldShowSwapHistoryStatusToast,
   shouldUpdateSwapHistoryAfterTxState,
 } from './utils/swapHistoryStatusUtils';
 
@@ -1379,6 +1382,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     walletType,
+    tradeSource,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1393,6 +1397,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    tradeSource: ESwapTradeSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
       accountId,
@@ -1413,6 +1418,7 @@ export default class ServiceSwap extends ServiceBase {
       quoteResultCtx,
       kind,
       walletType,
+      tradeSource,
       ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -1655,11 +1661,20 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchSwapNativeTokenConfig({ networkId }: { networkId: string }) {
+  async fetchSwapNativeTokenConfig({
+    networkId,
+    throwOnError,
+  }: {
+    networkId: string;
+    throwOnError?: boolean;
+  }) {
     try {
       return await this.fetchSwapNativeTokenConfigMemo(networkId);
     } catch (e) {
       console.error(e);
+      if (throwOnError) {
+        throw e;
+      }
       return {
         networkId,
         reserveGas: 0,
@@ -2866,7 +2881,6 @@ export default class ServiceSwap extends ServiceBase {
         })
       ) {
         const rawStatus = txStatusRes.state;
-        const previousStateDetail = previousSwapTxHistory.stateDetail;
         const shouldPreserveExistingExtraStatus =
           fetchResult?.shouldPreserveExistingExtraStatus &&
           !isSwapTxHistoryStatusTerminal(rawStatus);
@@ -2886,15 +2900,19 @@ export default class ServiceSwap extends ServiceBase {
               txStatusRes.chainFlipExplorerUrl ??
               currentSwapTxHistory.swapInfo?.chainFlipExplorerUrl,
           },
-          swapOrderHash:
-            txStatusRes.swapOrderHash ?? currentSwapTxHistory.swapOrderHash,
+          swapOrderHash: mergeSwapOrderHash(
+            currentSwapTxHistory.swapOrderHash,
+            txStatusRes.swapOrderHash,
+          ),
           crossChainStatus:
             txStatusRes.crossChainStatus ??
             currentSwapTxHistory?.crossChainStatus,
           txInfo: {
             ...currentSwapTxHistory.txInfo,
             txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
-            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+            receiverTransactionId:
+              txStatusRes.crossChainReceiveTxHash ||
+              currentSwapTxHistory.txInfo.receiverTransactionId,
             gasFeeInNative: txStatusRes.gasFee
               ? txStatusRes.gasFee
               : currentSwapTxHistory.txInfo.gasFeeInNative,
@@ -2910,7 +2928,11 @@ export default class ServiceSwap extends ServiceBase {
           },
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory, {
-          shouldShowToast,
+          shouldShowToast: shouldShowSwapHistoryStatusToast({
+            previousSwapTxHistory,
+            swapTxHistory: currentSwapTxHistory,
+            shouldShowToast,
+          }),
         });
         const finalStatus = currentSwapTxHistory.status;
         trackPrivateSendOrderFinalStatusIfNeeded({
@@ -2927,8 +2949,8 @@ export default class ServiceSwap extends ServiceBase {
         if (
           shouldEmitSwapHistoryBalanceUpdate({
             swapTxHistory: currentSwapTxHistory,
+            previousSwapTxHistory,
             txStatusRes,
-            previousStateDetail,
           })
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
@@ -3745,6 +3767,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     kind,
     quoteResultCtx,
+    tradeSource,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -3758,6 +3781,7 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     quoteResultCtx?: any;
+    tradeSource: ESwapTradeSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     let headers = await getRequestHeaders();
     const walletType =
@@ -3785,6 +3809,7 @@ export default class ServiceSwap extends ServiceBase {
         kind,
         walletType,
         quoteResultCtx,
+        tradeSource,
       }),
       ...(await this.getSwapReferralBuildTxParams({
         accountId,
@@ -3882,6 +3907,7 @@ export default class ServiceSwap extends ServiceBase {
         fromTokenAddress: params.fromTokenAddress,
         userAddress: params.userAddress,
         receivingAddress: params.receivingAddress,
+        tradeSource: ESwapTradeSource.PERPS,
       };
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(

@@ -53,6 +53,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IApproveConfirmFnParams,
@@ -77,13 +78,13 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
+import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
@@ -194,7 +195,7 @@ function ProtocolSwitchTriggerRow({
   isSwitchEnabled: boolean;
   onPress: () => void;
 }) {
-  const providerName = capitalizeString(
+  const providerName = getEarnProviderDisplayName(
     currentProtocol?.provider.name || fallbackProviderName || '',
   );
   const tvlText = formatTvl(currentProtocol?.provider.tvl);
@@ -1216,6 +1217,20 @@ export function UniversalStake({
       }
     }
 
+    // OK-59196 (review P2): gate here, before submitting/wrap progress state
+    // transitions, so rejecting the risk dialog leaves the form untouched —
+    // the gate inside useUniversalStake would otherwise return void and the
+    // caller would resetAmount() as if the flow had completed
+    const earnRiskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
+    });
+    if (!earnRiskConfirmed) {
+      return;
+    }
+
     // Stakefish ETH: sign before building the staking transaction.
     if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);
@@ -1390,6 +1405,12 @@ export function UniversalStake({
   // Holds the latest onApprove so the USDT reset flow (defined before onApprove)
   // can re-enter the approve step once the allowance has been reset to 0.
   const onApproveRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  // Whitelist flag for the deliberate USDT-reset re-entry (OK-58027): that
+  // flow re-enters onApprove while approving === true, so the reentry guard
+  // must let it through (review P0). A ref (not a param) keeps onApprove
+  // zero-arg — it is passed directly to the footer button's onPress, where a
+  // press event would otherwise land in the options slot.
+  const usdtResetReentryRef = useRef(false);
 
   const resetUSDTApproveValue = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -1436,6 +1457,9 @@ export function UniversalStake({
                 // navigationToTxConfirm outside any try/catch, and a swallowed
                 // reject would leave the confirm button stuck loading+disabled.
                 if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                  // Bypass the approving-reentry guard: this deliberate
+                  // re-entry runs with approving === true (OK-58027)
+                  usdtResetReentryRef.current = true;
                   void onApproveRef.current?.().catch((e) => {
                     console.error(
                       'Re-enter approve after USDT reset failed:',
@@ -1569,7 +1593,32 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    // Take the approving lock synchronously BEFORE any await (review P1):
+    // the confirm button's loading derives from `approving`, so awaiting
+    // first would leave a double-tap window as wide as one bg IPC roundtrip.
+    // The USDT reset flow (OK-58027) re-enters deliberately with
+    // approving === true, so it is whitelisted via usdtResetReentryRef —
+    // blocking it would dead-end the flow with the button stuck loading
+    // (review P0)
+    const isUsdtResetReentry = usdtResetReentryRef.current;
+    usdtResetReentryRef.current = false;
+    if (approving && !isUsdtResetReentry) {
+      return;
+    }
     setApproving(true);
+    // OK-59196: the approve step is the user's first on-chain action in the
+    // two-step flow and bypasses useUniversalStake, so the one-time risk
+    // disclaimer must gate here too (once accepted it resolves immediately)
+    const riskConfirmed = await showEarnRiskWarningDialog({
+      provider: providerName,
+      symbol: actionSymbol,
+      networkId: approveTarget.networkId,
+      title: intl.formatMessage({ id: ETranslations.global_warning }),
+    });
+    if (!riskConfirmed) {
+      setApproving(false);
+      return;
+    }
     let approveAllowance = allowance;
     try {
       const allowanceInfo = await fetchAllowanceResponse();
@@ -1694,6 +1743,7 @@ export function UniversalStake({
       },
     });
   }, [
+    approving,
     allowance,
     amountValue,
     tokenInfo?.token,
@@ -1709,11 +1759,13 @@ export function UniversalStake({
     getPermitCache,
     getPermitSignature,
     providerName,
+    actionSymbol,
     updatePermitCache,
     onSubmit,
     waitForAllowanceAfterApprove,
     fetchEstimateFeeResp,
     trackAllowance,
+    intl,
   ]);
 
   // Keep the ref pointing at the latest onApprove so the earlier-defined USDT
@@ -2369,7 +2421,7 @@ export function UniversalStake({
                                 borderRadius="$2"
                               />
                               <SizableText size="$bodyMd">
-                                {capitalizeString(providerName || '')}
+                                {getEarnProviderDisplayName(providerName || '')}
                               </SizableText>
                             </XStack>
                             <YStack

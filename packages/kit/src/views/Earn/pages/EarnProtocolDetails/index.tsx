@@ -86,6 +86,7 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ApyChart } from './components/ApyChart';
 import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 
@@ -625,6 +626,8 @@ const DetailsPartComponent = ({
                 provider={provider}
                 vault={vault}
               />
+              {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
+              <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
             </YStack>
             <EarnPlatformBonusSection
               appearance="alert"
@@ -732,6 +735,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     symbol: string;
     provider: string;
     vault: string | undefined;
+    logoURI?: string;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -767,13 +771,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     // Old format: normal navigation
-    const { networkId, symbol, provider, vault } = routeParams;
+    const { networkId, symbol, provider, vault, logoURI } = routeParams;
 
     return {
       networkId,
       symbol,
       provider,
       vault,
+      logoURI,
     };
   }, [route.params]);
 
@@ -782,7 +787,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const accountId = selectedAccount.othersWalletAccountId || '';
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
-  const { networkId, symbol, provider, vault } = resolvedParams;
+  const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
 
   const {
     detailInfo,
@@ -831,16 +836,21 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tokenInfo,
   });
 
+  // OK-59304: `tokenInfo` only exists once getProtocolDetailsV2 resolves, so
+  // without the logo the entry list handed over the header would render the
+  // placeholder icon on every entry and swap to the real logo on response.
+  const headerTokenLogoURI = tokenInfo?.token?.logoURI ?? logoURI;
+
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" tokenImageUri={tokenInfo?.token?.logoURI} />
+        <Token size="md" tokenImageUri={headerTokenLogoURI} />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, tokenInfo?.token?.logoURI],
+    [symbol, headerTokenLogoURI],
   );
 
   const handleOpenManageModal = useCallback(
@@ -973,7 +983,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               symbol={symbol}
               provider={provider}
               vault={vault}
-              tokenImageUri={tokenInfo?.token?.logoURI}
+              tokenImageUri={headerTokenLogoURI}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}

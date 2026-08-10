@@ -48,7 +48,6 @@ import {
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
-  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -59,7 +58,6 @@ import type {
   TPerpTradePriceMode,
   TPerpTradeValidationState,
 } from '@onekeyhq/shared/src/logger/scopes/perp/type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -121,10 +119,13 @@ import {
 import { getScaleOrderValidationErrorMessage } from '../../utils/scaleOrderValidation';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
+import {
+  type ISizeInputMinimumOrderAction,
+  getMinimumOrderToastActionProps,
+} from './inputs/SizeInput';
 import { showEnableTradingStepsDialog } from './modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
-import type { ISizeInputMinimumOrderAction } from './inputs/SizeInput';
 import type { LayoutChangeEvent } from 'react-native';
 
 const TWAP_MIN_DURATION_MINUTES = 5;
@@ -139,26 +140,6 @@ interface ITradingButtonGroupProps {
   minimumOrderActionRef?: MutableRefObject<
     ISizeInputMinimumOrderAction | undefined
   >;
-}
-
-function getMinimumOrderToastActionProps(
-  action?: ISizeInputMinimumOrderAction,
-  actionLabel?: string,
-) {
-  if (platformEnv.isNative || !action || !actionLabel) return {};
-  return {
-    actionsAlign: 'left' as const,
-    actions: (
-      <Button
-        testID="perp-minimum-order-toast-action"
-        size="small"
-        variant="primary"
-        onPress={action.onPress}
-      >
-        {actionLabel}
-      </Button>
-    ),
-  };
 }
 
 function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
@@ -465,7 +446,8 @@ function SideButtonInternal({
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const isSpot = tradingMode === 'spot';
   // SizeInput already collapses 'margin' → 'usd' in spot to keep the input
   // box consistent. Mirror that here so secondary text and minimum-order
@@ -502,7 +484,7 @@ function SideButtonInternal({
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const handleDepositFromToast = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
@@ -1866,7 +1848,8 @@ function EmptySizeSideButton({
     enableTradingModeOverride ?? enableTradingMode;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const formData = useTradingFormOrderPriceParams();
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [isSubmitting] = useTradingLoadingAtom();
   const isSpot = tradingMode === 'spot';
@@ -1874,7 +1857,8 @@ function EmptySizeSideButton({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -2431,7 +2415,8 @@ function TradingButtonGroupLive({
   onRequestSizeInputFocus,
   minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
@@ -2540,7 +2525,8 @@ function TradingButtonGroupEmptySize({
   onRequestSizeInputFocus,
   minimumOrderActionRef,
 }: ITradingButtonGroupProps) {
-  const [tradingMode] = useTradingModeAtom();
+  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
+  const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';

@@ -17,6 +17,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EBorrowDataStatus } from './borrowDataStatus';
+import { getBorrowEarnAccountForNetwork } from './borrowEarnAccount';
+import { buildBorrowMarketKey } from './borrowMarketKey';
 import { useBorrowMarketMemory } from './hooks/useBorrowMarketMemory';
 
 import type { ISwapConfig } from './components/BorrowTableList';
@@ -28,6 +30,7 @@ export type IAsyncData<T> = {
   data: T;
   loading: boolean;
   refresh: () => Promise<void>;
+  ownerMarketKey?: string;
 };
 
 export type IBorrowEarnAccount = {
@@ -128,6 +131,42 @@ export const BorrowProvider = ({
     setMarket,
   });
 
+  const currentMarketKey = useMemo(
+    () => (market ? buildBorrowMarketKey(market) : undefined),
+    [market],
+  );
+  const scopedEarnAccount = useMemo(() => {
+    if (currentMarketKey && earnAccount.ownerMarketKey !== currentMarketKey) {
+      return {
+        ...earnAccount,
+        data: null,
+        loading: true,
+      };
+    }
+    if (
+      !market?.networkId ||
+      !earnAccount.data ||
+      getBorrowEarnAccountForNetwork(earnAccount.data, market.networkId)
+    ) {
+      return earnAccount;
+    }
+    return {
+      ...earnAccount,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, earnAccount, market?.networkId]);
+  const scopedReserves = useMemo(() => {
+    if (!currentMarketKey || reserves.ownerMarketKey === currentMarketKey) {
+      return reserves;
+    }
+    return {
+      ...reserves,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, reserves]);
+
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
     async () => {
@@ -151,9 +190,9 @@ export const BorrowProvider = ({
       setMarket,
       rememberMarket,
       rememberedMarketKey,
-      earnAccount,
+      earnAccount: scopedEarnAccount,
       setEarnAccount,
-      reserves,
+      reserves: scopedReserves,
       setReserves,
       borrowDataStatus,
       setBorrowDataStatus,
@@ -168,8 +207,8 @@ export const BorrowProvider = ({
       market,
       rememberMarket,
       rememberedMarketKey,
-      earnAccount,
-      reserves,
+      scopedEarnAccount,
+      scopedReserves,
       borrowDataStatus,
       swapConfig,
       pendingTxs,

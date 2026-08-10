@@ -447,12 +447,13 @@ export function isOndoUSMarketStock(
  * two-state badge) and for tokens without stock signals.
  *
  * Signal priority:
- *   1. per-stock halt (`isPaused`) — overlays everything;
+ *   1. per-stock halt (`isPaused`) — Halted unless the token is still
+ *      explicitly tradable (`isOpen === true`), then ClosedTradable;
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
  *   3. market-wide closure (backend CLOSED / weekend) → ClosedTradable for a
  *      tradable instrument (`isOpen === true`) — the special 7×24-Ondo case;
- *   4. inter-session gap (clock math) → Halted: the underlying venues pause
- *      trading while switching session state;
+ *   4. inter-session gap (clock math) → ClosedTradable: the underlying venues
+ *      pause while the token remains explicitly tradable;
  *   5. market-wide session refines HOW it is open.
  *
  * When the market-status API is unavailable, falls back to pure clock math:
@@ -475,7 +476,9 @@ export function resolveUSMarketStatusVariant({
     return undefined;
   }
   if (isPaused === true) {
-    return EUSMarketStatusVariant.Halted;
+    return isOpen === true
+      ? EUSMarketStatusVariant.ClosedTradable
+      : EUSMarketStatusVariant.Halted;
   }
   if (isOpen === undefined) {
     return undefined;
@@ -503,10 +506,11 @@ export function resolveUSMarketStatusVariant({
       return EUSMarketStatusVariant.ClosedTradable;
     }
     const tradingHours = getUSMarketTradingHours(now);
-    // Inter-session gap: the underlying venues pause trading while switching
-    // session state (OK-58509), overriding the backend session refinement.
+    // The underlying venues pause during a session switch, but `isOpen ===
+    // true` is the token-level trading contract. Keep the badge aligned
+    // with the executable quote path instead of declaring a full halt.
     if (tradingHours.isNowInSessionGap) {
-      return EUSMarketStatusVariant.Halted;
+      return EUSMarketStatusVariant.ClosedTradable;
     }
     const sessionKey = usMarketSessionKeyFromBackendSession(status.session);
     // Unknown session value (future contract addition): fall back to the
@@ -521,9 +525,9 @@ export function resolveUSMarketStatusVariant({
   ) {
     return EUSMarketStatusVariant.ClosedTradable;
   }
-  // Same gap-to-halt rule as the status branch above.
+  // Same tradable-gap rule as the status branch above.
   if (tradingHours.isNowInSessionGap) {
-    return EUSMarketStatusVariant.Halted;
+    return EUSMarketStatusVariant.ClosedTradable;
   }
   return sessionKeyToVariant(tradingHours.currentSessionKey);
 }

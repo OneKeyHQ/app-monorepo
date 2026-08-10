@@ -69,6 +69,7 @@ unpermitted
 wcm
 perp
 hyperliquid
+UNITREE
 Delisted
 inferrable
 PerpTrade
@@ -1579,3 +1580,6 @@ mispunched
 unifold
 hypercore
 lookback
+
+# @rehookify/datepicker package name
+rehookify

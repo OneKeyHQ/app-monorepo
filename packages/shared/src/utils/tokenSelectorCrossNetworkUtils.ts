@@ -1,9 +1,77 @@
+import { getNetworkIdsMap } from '../config/networkIds';
+
+import { memoFn } from './cacheUtils';
+
 import type { IServerNetwork } from '../../types';
 import type { IAccountToken } from '../../types/token';
 
 // Longest preset network name is 3 words ("Ethereum Sepolia Testnet"); 4 keeps
 // headroom while bounding the span scan.
 const MAX_NETWORK_NAME_WORDS = 4;
+
+const SEPARATOR_CHARS = new Set(['-', '_', '/', '+']);
+
+// CJK detection is a hand-rolled range check: Hermes lacks reliable
+// \p{Script} support, and regex lookbehind is unavailable there too.
+function isCjkCodePoint(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x2e_80 && codePoint <= 0x2f_ff) || // CJK radicals
+    (codePoint >= 0x30_40 && codePoint <= 0x30_ff) || // Hiragana / Katakana
+    (codePoint >= 0x34_00 && codePoint <= 0x4d_bf) || // CJK ext A
+    (codePoint >= 0x4e_00 && codePoint <= 0x9f_ff) || // CJK unified
+    (codePoint >= 0xac_00 && codePoint <= 0xd7_af) || // Hangul syllables
+    (codePoint >= 0xf9_00 && codePoint <= 0xfa_ff) || // CJK compatibility
+    (codePoint >= 0x2_00_00 && codePoint <= 0x3_ff_ff) // CJK ext B and beyond
+  );
+}
+
+// Splits a raw search string into lowercase words on whitespace, common
+// symbol-network separators (- _ / +), and ASCII↔CJK boundaries, so grassroots
+// spellings like "USDT-Trc20" or "usdt波场" become ['usdt', 'trc20'-like]
+// pairs. Anything else (dots, colons, 0x…) stays inside the word, keeping
+// separator-free contract addresses verbatim.
+export function tokenizeTokenSearchKeywords(raw: string): string[] {
+  const text = raw.toLowerCase();
+  const tokens: string[] = [];
+  let current = '';
+  let currentIsCjk = false;
+  const flush = () => {
+    if (current) {
+      tokens.push(current);
+      current = '';
+    }
+  };
+  for (const char of text) {
+    if (SEPARATOR_CHARS.has(char) || /\s/.test(char)) {
+      flush();
+    } else {
+      const isCjk = isCjkCodePoint(char.codePointAt(0) ?? 0);
+      if (current && isCjk !== currentIsCjk) {
+        flush();
+      }
+      current += char;
+      currentIsCjk = isCjk;
+    }
+  }
+  flush();
+  return tokens;
+}
+
+// First batch of user-facing network aliases, sourced from support-ticket
+// vocabulary. Matched with exact equality only — never includes — so "trc"
+// or "c20" cannot accidentally scope a search. Extend per new complaint data.
+export const getTokenNetworkAliasMap = memoFn((): Record<string, string[]> => {
+  const networkIds = getNetworkIdsMap();
+  return {
+    [networkIds.trx]: ['trc20', '波场', '波場'],
+    [networkIds.eth]: ['erc20'],
+    [networkIds.bsc]: ['bep20'],
+  };
+});
+
+function normalizePhrase(value: string): string {
+  return tokenizeTokenSearchKeywords(value).join(' ');
+}
 
 export enum ETokenSelectorSyntheticRowType {
   CurrentNetworkHeader = 'currentNetworkHeader',
@@ -38,10 +106,11 @@ export function isTokenSelectorSyntheticRow(
 
 // The token-search backend matches the keyword string as a whole, so a
 // combined query like "usdt trx" returns nothing from any networkId. When one
-// keyword names a network exactly (name/code/shortcode/shortname), strip it
-// and scope the backend request to that network instead — the local AND filter
-// still applies the full query afterwards. Conservative by design: only
-// extracts when the network is unambiguous and at least one keyword remains.
+// keyword names a network exactly (name/code/shortcode/shortname or a curated
+// alias like "trc20"), strip it and scope the backend request to that network
+// instead — the local AND filter still applies the full query afterwards.
+// Conservative by design: only extracts when the network is unambiguous and at
+// least one keyword remains.
 export function extractCrossNetworkSearchQuery({
   keywords,
   networks,
@@ -49,10 +118,33 @@ export function extractCrossNetworkSearchQuery({
   keywords: string;
   networks: IServerNetwork[];
 }): { networkId?: string; keywords: string } {
-  const words = keywords.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const words = tokenizeTokenSearchKeywords(keywords);
   if (words.length < 2) {
     return { keywords };
   }
+
+  // Compare tokenizer-normalized phrases on both sides: preset fields may
+  // themselves contain separators ("dot-bifrost"), which the tokenizer splits
+  // in the query. Custom networks are excluded — their token lookup goes
+  // through raw RPC contract calls, so scoping a symbol query to one would
+  // turn an empty result into an error state.
+  const aliasMap = getTokenNetworkAliasMap();
+  const networkMatchers = networks
+    .filter((network) => !network.isAllNetworks && !network.isCustomNetwork)
+    .map((network) => ({
+      network,
+      phrases: new Set(
+        [
+          network.name,
+          network.code,
+          network.shortcode,
+          network.shortname,
+          ...(aliasMap[network.id] ?? []),
+        ]
+          .filter(Boolean)
+          .map((value) => normalizePhrase(value as string)),
+      ),
+    }));
 
   // Network names are often several words ("Bitcoin Cash", "BNB Chain"), so
   // match every contiguous run of words rather than single words only.
@@ -66,14 +158,9 @@ export function extractCrossNetworkSearchQuery({
     const maxEnd = Math.min(words.length, start + MAX_NETWORK_NAME_WORDS);
     for (let end = start + 1; end <= maxEnd; end += 1) {
       const phrase = words.slice(start, end).join(' ');
-      const matched = networks.filter(
-        (network) =>
-          !network.isAllNetworks &&
-          (network.name?.toLowerCase() === phrase ||
-            network.code?.toLowerCase() === phrase ||
-            network.shortcode?.toLowerCase() === phrase ||
-            network.shortname?.toLowerCase() === phrase),
-      );
+      const matched = networkMatchers
+        .filter((matcher) => matcher.phrases.has(phrase))
+        .map((matcher) => matcher.network);
       if (matched.length > 0) {
         spans.push({ start, end, phrase, networks: matched });
       }
