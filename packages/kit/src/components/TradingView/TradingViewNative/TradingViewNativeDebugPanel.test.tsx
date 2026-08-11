@@ -18,36 +18,6 @@ import {
 } from './data/tradingViewNativeDebugLogger';
 import { TradingViewNativeDebugPanel } from './TradingViewNativeDebugPanel';
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  const mockDevSettings: {
-    enabled: boolean;
-    settings: { showTradingViewNativeDebugPanel?: boolean };
-  } = {
-    enabled: true,
-    settings: { showTradingViewNativeDebugPanel: true },
-  };
-  return {
-    mockDevSettings,
-    useDevSettingsPersistAtom: () => {
-      const [value, setValue] = React.useState(mockDevSettings);
-      const setPersistedValue = React.useCallback(
-        (
-          updater: (previous: typeof mockDevSettings) => typeof mockDevSettings,
-        ) => {
-          setValue((previous) => {
-            const next = updater(previous);
-            Object.assign(mockDevSettings, next);
-            return next;
-          });
-        },
-        [],
-      );
-      return [value, setPersistedValue];
-    },
-  };
-});
-
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -56,27 +26,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-const mockDevSettings = jest.requireMock(
-  '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings',
-).mockDevSettings as {
-  enabled: boolean;
-  settings: { showTradingViewNativeDebugPanel?: boolean };
-};
-const mockPlatformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv')
-  .default as {
-  isDev: boolean;
-  isWeb: boolean;
-};
 const mockWriteClipboardText = jest.fn<Promise<void>, [string]>();
+const mockOnClose = jest.fn();
 const originalResizeObserver = globalThis.ResizeObserver;
 let triggerResizeObserver: (() => void) | undefined;
 
 describe('TradingViewNativeDebugPanel', () => {
   beforeEach(() => {
-    mockDevSettings.enabled = true;
-    mockDevSettings.settings = { showTradingViewNativeDebugPanel: true };
-    mockPlatformEnv.isDev = true;
-    mockPlatformEnv.isWeb = true;
+    mockOnClose.mockReset();
     clearTradingViewNativeDebugEvents();
     globalThis.localStorage.clear();
     Object.defineProperty(globalThis, 'innerHeight', {
@@ -126,7 +83,7 @@ describe('TradingViewNativeDebugPanel', () => {
       name: 'history.response',
     });
 
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
     const panel = screen.getByTestId('trading-view-native-debug-panel');
     expect(panel.style.zIndex).toBe(
@@ -141,7 +98,7 @@ describe('TradingViewNativeDebugPanel', () => {
   });
 
   it('can be dragged and persists its position', () => {
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
     const panel = screen.getByTestId('trading-view-native-debug-panel');
     const dragHandle = screen.getByTestId(
       'trading-view-native-debug-panel-drag-handle',
@@ -183,7 +140,7 @@ describe('TradingViewNativeDebugPanel', () => {
       level: 'warning',
       name: 'history.response',
     });
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy event log' }));
 
@@ -204,7 +161,7 @@ describe('TradingViewNativeDebugPanel', () => {
       new Error('Clipboard unavailable'),
     );
     emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy event log' }));
 
@@ -212,7 +169,7 @@ describe('TradingViewNativeDebugPanel', () => {
   });
 
   it('uses native resize and persists the observed size', () => {
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
     const panel = screen.getByTestId('trading-view-native-debug-panel');
     expect(panel.style.resize).toBe('both');
     expect(panel.style.minHeight).toBe('180px');
@@ -243,7 +200,7 @@ describe('TradingViewNativeDebugPanel', () => {
 
   it('does not force the event list to the bottom after the user scrolls up', () => {
     emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
-    render(<TradingViewNativeDebugPanel />);
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
     const eventList = screen.getByTestId(
       'trading-view-native-debug-event-list',
@@ -277,39 +234,11 @@ describe('TradingViewNativeDebugPanel', () => {
     expect(eventList.scrollTop).toBe(scrollHeight);
   });
 
-  it('closes the panel and persists the developer setting', () => {
-    const { unmount } = render(<TradingViewNativeDebugPanel />);
+  it('notifies the global owner when the panel is closed', () => {
+    render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Close event log' }));
 
-    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
-    expect(mockDevSettings.settings.showTradingViewNativeDebugPanel).toBe(
-      false,
-    );
-
-    unmount();
-    render(<TradingViewNativeDebugPanel />);
-    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
-  });
-
-  it('defaults the panel to visible when the setting is missing', () => {
-    mockDevSettings.settings = {};
-    render(<TradingViewNativeDebugPanel />);
-
-    expect(screen.getByTestId('trading-view-native-debug-panel')).toBeTruthy();
-  });
-
-  it('stays hidden when developer mode is disabled', () => {
-    mockDevSettings.enabled = false;
-    render(<TradingViewNativeDebugPanel />);
-
-    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
-  });
-
-  it('stays hidden outside a local Web development build', () => {
-    mockPlatformEnv.isDev = false;
-    render(<TradingViewNativeDebugPanel />);
-
-    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -17,7 +17,6 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
-import { TradingViewNativeDebugPanel } from './TradingViewNativeDebugPanel';
 import {
   DEFAULT_TRADING_VIEW_NATIVE_INDICATORS,
   type ITradingViewNativeIndicator,
@@ -433,7 +432,6 @@ export const TradingViewNativeContainer = memo(
             </YStack>
           ) : null}
         </Stack>
-        <TradingViewNativeDebugPanel />
       </Stack>
     );
   },

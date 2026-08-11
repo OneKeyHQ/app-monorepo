@@ -13,9 +13,7 @@ import {
 
 import { createPortal } from 'react-dom';
 
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   clearTradingViewNativeDebugEvents,
@@ -267,8 +265,13 @@ function getEventColor(level: ITradingViewNativeDebugEvent['level']) {
   return '#8b949e';
 }
 
-function BasicTradingViewNativeDebugPanel() {
-  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
+export interface ITradingViewNativeDebugPanelProps {
+  onClose: () => void;
+}
+
+function BasicTradingViewNativeDebugPanel({
+  onClose,
+}: ITradingViewNativeDebugPanelProps) {
   const events = useSyncExternalStore(
     subscribeTradingViewNativeDebugEvents,
     getTradingViewNativeDebugEvents,
@@ -400,16 +403,6 @@ function BasicTradingViewNativeDebugPanel() {
     [],
   );
 
-  const handleClose = useCallback(() => {
-    setDevSettings((current) => ({
-      ...current,
-      settings: {
-        ...current.settings,
-        showTradingViewNativeDebugPanel: false,
-      },
-    }));
-  }, [setDevSettings]);
-
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if ((event.target as HTMLElement).closest('button')) {
@@ -466,16 +459,6 @@ function BasicTradingViewNativeDebugPanel() {
     },
     [],
   );
-
-  if (
-    !platformEnv.isDev ||
-    !platformEnv.isWeb ||
-    !devSettings.enabled ||
-    devSettings.settings?.showTradingViewNativeDebugPanel === false ||
-    !globalThis.document?.body
-  ) {
-    return null;
-  }
 
   const panelSize = getPanelSize(size, isCollapsed);
   const panelSizeLimits = getPanelSizeLimits(position);
@@ -604,7 +587,7 @@ function BasicTradingViewNativeDebugPanel() {
         </button>
         <button
           aria-label="Close event log"
-          onClick={handleClose}
+          onClick={onClose}
           style={{
             background: 'transparent',
             border: 0,
@@ -668,3 +651,5 @@ function BasicTradingViewNativeDebugPanel() {
 export const TradingViewNativeDebugPanel = memo(
   BasicTradingViewNativeDebugPanel,
 );
+
+export default TradingViewNativeDebugPanel;

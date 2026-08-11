@@ -105,10 +105,6 @@ jest.mock('./TradingViewNativeChartControlsContainer', () => ({
     mockTradingViewNativeChartControlsContainer(props),
 }));
 
-jest.mock('./TradingViewNativeDebugPanel', () => ({
-  TradingViewNativeDebugPanel: () => null,
-}));
-
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
