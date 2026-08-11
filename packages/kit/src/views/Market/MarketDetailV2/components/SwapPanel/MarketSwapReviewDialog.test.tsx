@@ -62,6 +62,7 @@ describe('MarketSwapReviewDialog', () => {
 
   it('delegates to the generic swap review shell with market-specific config', () => {
     const onDone = jest.fn();
+    const onConfirmStart = jest.fn();
     const adapter = {
       prepareReview: jest.fn(),
       sendApproveTx: jest.fn(),
@@ -84,6 +85,7 @@ describe('MarketSwapReviewDialog', () => {
     render(
       <MarketSwapReviewDialog
         onDone={onDone}
+        onConfirmStart={onConfirmStart}
         adapter={adapter}
         reviewState={reviewState}
       />,
@@ -91,6 +93,7 @@ describe('MarketSwapReviewDialog', () => {
 
     expect(swapReviewDialogMock).toHaveBeenCalledWith({
       onDone,
+      onConfirmStart,
       adapter,
       reviewState,
       storeName: EJotaiContextStoreNames.marketSwapReview,
