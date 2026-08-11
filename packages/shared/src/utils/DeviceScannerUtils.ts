@@ -116,7 +116,18 @@ export class DeviceScannerUtils {
       const currentSearchTask = this.currentSearchTask;
       if (currentSearchTask) {
         const currentSearchIdentity = this.currentSearchIdentity;
-        const sharedSearchResponse = await currentSearchTask;
+        let sharedSearchResponse: ISearchResponse;
+        try {
+          sharedSearchResponse = await currentSearchTask;
+        } catch (error) {
+          if (
+            this.scanMap[scanIndex] &&
+            currentSearchIdentity !== searchIdentity
+          ) {
+            return searchDevices();
+          }
+          throw error;
+        }
         shouldResetSession = false;
         if (!this.scanMap[scanIndex]) {
           return sharedSearchResponse;
@@ -193,6 +204,9 @@ export class DeviceScannerUtils {
       try {
         await searchDevices();
       } catch (error) {
+        if (!this.scanMap[searchIndex]) {
+          return;
+        }
         reportError(error);
         this.stopScan();
         onSearchStateChange('stop');
