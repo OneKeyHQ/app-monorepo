@@ -9,6 +9,7 @@ export enum ECustomOneKeyHardwareError {
   NeedFirmwareUpgrade = 4030,
   NeedOneKeyBridgeUpgrade = 4031,
   NeedFirmwareUpgradeFromWeb = 4032,
+  UnknownHardwareError = 4033,
   DeviceMethodCallTimeout = 4080,
   FirmwareUpdateBatteryTooLow = 4081,
 }

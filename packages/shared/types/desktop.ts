@@ -23,6 +23,9 @@ export type INobleBleApi = {
   stopScan: () => Promise<void>;
   getDevice: (uuid: string) => Promise<{ id: string; name: string } | null>;
   connect: (uuid: string) => Promise<void>;
+  // Logical end-of-operation: the link stays up and the main process starts its
+  // idle countdown. `keepSession` holds it on the longer busy backstop instead.
+  release: (uuid: string, keepSession?: boolean) => Promise<void>;
   disconnect: (uuid: string) => Promise<void>;
   subscribe: (uuid: string) => Promise<void>;
   unsubscribe: (uuid: string) => Promise<void>;
