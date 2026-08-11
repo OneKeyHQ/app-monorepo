@@ -7,7 +7,6 @@ import { Button, SizableText, YStack, useMedia } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
-  ResponsiveFourColumnLayout,
   RewardHeaderLayout,
   StatCard,
 } from '@onekeyhq/kit/src/views/ReferFriends/components';
@@ -42,8 +41,8 @@ export function SwapRewardHeader({
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { format } = useFormatDate();
-  const { lg, md } = useMedia();
-  const isWideScreen = !lg;
+  const { md } = useMedia();
+  const isWideScreen = !md;
 
   const formattedNextDistributionDate = useMemo(() => {
     const value = data?.nextDistribution;
@@ -86,15 +85,6 @@ export function SwapRewardHeader({
       }),
       value: data.totalRewardFiatValue,
     }),
-    md
-      ? formatFiatSubtitle({
-          currencySymbol: currencyInfo.symbol,
-          label: intl.formatMessage({
-            id: ETranslations.referral_pending,
-          }),
-          value: data.pendingRewardFiatValue,
-        })
-      : undefined,
     formattedNextDistributionDate
       ? `${intl.formatMessage({
           id: ETranslations.referral_next_distribution,
@@ -140,7 +130,6 @@ export function SwapRewardHeader({
         value: data.totalFeeFiatValue,
       })}
       isWide={isWideScreen}
-      fullWidth={!isWideScreen && !md}
     />
   );
 
@@ -159,45 +148,18 @@ export function SwapRewardHeader({
         { number: walletCount },
       )}
       isWide={isWideScreen}
-      fullWidth={!isWideScreen && !md}
     />
   );
 
-  if (md) {
-    return (
-      <RewardHeaderLayout
-        primaryCard={undistributedCard}
-        secondaryCards={
-          <>
-            {volumeCard}
-            {invitedAddressesCard}
-          </>
-        }
-      />
-    );
-  }
-
   return (
-    <ResponsiveFourColumnLayout
-      gap="$3"
-      pb="$8"
-      px="$5"
-      firstColumn={undistributedCard}
-      secondColumn={
-        <StatCard
-          icon="ClockTimeHistoryOutline"
-          iconBgColor="$bgStrong"
-          iconColor="$icon"
-          title={intl.formatMessage({
-            id: ETranslations.referral_pending,
-          })}
-          value={data.pendingRewardFiatValue || '0'}
-          isWide={isWideScreen}
-          fullWidth={!isWideScreen}
-        />
+    <RewardHeaderLayout
+      primaryCard={undistributedCard}
+      secondaryCards={
+        <>
+          {volumeCard}
+          {invitedAddressesCard}
+        </>
       }
-      thirdColumn={volumeCard}
-      fourthColumn={invitedAddressesCard}
     />
   );
 }

@@ -8,6 +8,7 @@ import type {
   ISwapPreSwapData,
   ISwapStep,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
 
 export type ISwapReviewGasInfoEntry = {
   encodeTx: IEncodedTx;
@@ -19,6 +20,34 @@ export type ISwapReviewState = {
   preSwapData: ISwapPreSwapData;
   quoteResult?: IFetchQuoteResult;
 };
+
+export function hasInFlightSwapReviewSteps({ steps }: { steps: ISwapStep[] }) {
+  return steps.some(
+    (step) =>
+      step.status === ESwapStepStatus.LOADING ||
+      step.status === ESwapStepStatus.PENDING,
+  );
+}
+
+export function shouldCloseSwapReviewOnFocusLoss({
+  isFocused,
+  isAppLocked,
+  hasInFlightSteps,
+  initialRootRouterCount,
+  currentRootRouterCount,
+}: {
+  isFocused: boolean;
+  isAppLocked: boolean;
+  hasInFlightSteps: boolean;
+  initialRootRouterCount: number;
+  currentRootRouterCount: number;
+}) {
+  if (isFocused || isAppLocked || hasInFlightSteps) {
+    return false;
+  }
+
+  return currentRootRouterCount <= initialRootRouterCount;
+}
 
 export function shouldShowSwapReviewToAmountSkeleton({
   swapBuildLoading,

@@ -218,9 +218,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
-        const target = params.isInternalSwap
-          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
-          : EModalSignatureConfirmRoutes.TxConfirm;
+        const target =
+          params.isInternalSwap && !transferPayloadBase?.isPrivateSend
+            ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+            : EModalSignatureConfirmRoutes.TxConfirm;
 
         try {
           const preActionsBeforeConfirmResult =

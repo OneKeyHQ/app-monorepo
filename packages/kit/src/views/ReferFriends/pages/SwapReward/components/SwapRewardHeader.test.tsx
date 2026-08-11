@@ -105,20 +105,24 @@ describe('SwapRewardHeader', () => {
     mockMedia.md = false;
   });
 
-  it('associates the next distribution date with undistributed rewards', () => {
+  it('renders only the three Perps-style summary cards on wide screens', () => {
     render(<SwapRewardHeader data={data} />);
 
     const undistributedCard = mockCards.find(
       (card) => card.title === ETranslations.referral_undistributed,
     );
-    const pendingCard = mockCards.find(
-      (card) => card.title === ETranslations.referral_pending,
-    );
 
+    expect(mockCards.map((card) => card.title)).toEqual([
+      ETranslations.referral_undistributed,
+      ETranslations.referral_perps_volume,
+      ETranslations.referral_perps_invited_addresses,
+    ]);
+    expect(undistributedCard?.subtitle).toContain(
+      `${ETranslations.referral_perps_total}: $3.00`,
+    );
     expect(undistributedCard?.subtitle).toContain(
       `${ETranslations.referral_next_distribution}: Aug 1`,
     );
-    expect(pendingCard?.subtitle).toBeUndefined();
   });
 
   it('uses the Perps-style primary and two-card layout on mobile', () => {
@@ -133,7 +137,10 @@ describe('SwapRewardHeader', () => {
       ETranslations.referral_perps_invited_addresses,
     ]);
     expect(mockCards[0].subtitle).toContain(
-      `${ETranslations.referral_pending}: $1.00`,
+      `${ETranslations.referral_perps_total}: $3.00`,
+    );
+    expect(mockCards[0].subtitle).toContain(
+      `${ETranslations.referral_next_distribution}: Aug 1`,
     );
     expect(mockCards[0].fullWidth).toBe(true);
   });

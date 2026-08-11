@@ -119,6 +119,7 @@ function MarketDetail({
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
             onChartFullscreenChange={onChartFullscreenChange}
+            isNative={isNativeBoolean}
             networkId={networkId}
             tokenAddress={tokenAddress}
             showFavoriteButton={showFavoriteButton}
