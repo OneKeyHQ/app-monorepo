@@ -64,3 +64,76 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
     expect(entity.entityKey in store).toBe(false); // cache stays cleared
   });
 });
+
+// A corrupted external blob makes every read reject forever, and builder-based
+// setRawData reads first — without self-heal the record could never be repaired.
+describe('SimpleDbEntityBase unreadable-record self-heal', () => {
+  class HealTestEntity extends SimpleDbEntityBase<{ v: number }> {
+    override readonly entityName = 'test-heal-entity';
+
+    override readonly enableCache = false;
+  }
+
+  // Unreadable until removeItem drops it, mirroring a corrupted blob record.
+  const makeBrokenStorage = (errorName: string) => {
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let broken = true;
+    return {
+      store,
+      calls,
+      storage: {
+        getItem: async (k: string) => {
+          calls.push('getItem');
+          if (broken) {
+            const error = new Error('Failed to read large IndexedDB value');
+            error.name = errorName;
+            throw error;
+          }
+          return (k in store ? store[k] : null) as string | null;
+        },
+        setItem: async (k: string, v: unknown) => {
+          calls.push('setItem');
+          store[k] = v;
+        },
+        removeItem: async (k: string) => {
+          calls.push('removeItem');
+          delete store[k];
+          broken = false;
+        },
+      },
+    };
+  };
+
+  test('getRawData drops the unreadable record and returns null', async () => {
+    const entity = new HealTestEntity();
+    const { storage, calls } = makeBrokenStorage('UnknownError');
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).resolves.toBeNull();
+    expect(calls).toEqual(['getItem', 'removeItem']);
+  });
+
+  test('setRawData(builder) rebuilds the record after a read failure', async () => {
+    const entity = new HealTestEntity();
+    const { storage, store } = makeBrokenStorage('NotReadableError');
+    (entity as any).appStorage = storage;
+
+    await expect(
+      entity.setRawData((prev) => ({ v: (prev?.v ?? 0) + 1 })),
+    ).resolves.toEqual({ v: 1 });
+    expect(entity.entityKey in store).toBe(true);
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+  });
+
+  test('non-storage read errors still propagate without deleting the record', async () => {
+    const entity = new HealTestEntity();
+    const { storage, calls } = makeBrokenStorage('SomeRandomError');
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']);
+  });
+});

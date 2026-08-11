@@ -14,6 +14,13 @@ type ISimpleDbEntitySavedData<T> = {
   data: T;
   updatedAt: number;
 };
+
+// Chromium rejects reads with these names when a value's external blob file
+// is corrupted (e.g. crash mid-write); the record stays unreadable forever.
+function isUnreadableStorageValueError(error: unknown): boolean {
+  const name = (error as { name?: string } | null | undefined)?.name;
+  return name === 'UnknownError' || name === 'NotReadableError';
+}
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
   appStorage: AsyncStorageStatic =
@@ -55,7 +62,18 @@ abstract class SimpleDbEntityBase<T> {
     }
     this.cachedRawDataPromise = (async () => {
       dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
-      const savedDataStr = await this.appStorage.getItem(this.entityKey);
+      let savedDataStr: string | null = null;
+      try {
+        savedDataStr = await this.appStorage.getItem(this.entityKey);
+      } catch (error) {
+        if (!isUnreadableStorageValueError(error)) {
+          throw error;
+        }
+        console.error(error);
+        // Drop the dead record so builder-based setRawData can rebuild it; use
+        // appStorage directly — clearRawData() would deadlock on the shared mutex.
+        await this.appStorage.removeItem(this.entityKey).catch(() => undefined);
+      }
       let updatedAt = 0;
       // @ts-ignore
       let data: T | undefined | null;

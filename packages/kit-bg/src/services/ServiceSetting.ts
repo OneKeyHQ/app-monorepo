@@ -336,6 +336,10 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
       await this.backgroundApi.simpleDb.recentNetworks.clearRawData();
     }
+    if (values.perpsData) {
+      // Recovery exit for a perp record IndexedDB can no longer read.
+      await this.backgroundApi.simpleDb.perp.clearRawData();
+    }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
 
