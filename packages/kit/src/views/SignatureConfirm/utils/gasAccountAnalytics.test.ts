@@ -79,6 +79,20 @@ describe('buildGasAccountAnalyticsContext', () => {
     expect(result.gasShortfallNative).toBeUndefined();
   });
 
+  it('keeps the client custom RPC unavailable reason', () => {
+    const result = buildGasAccountAnalyticsContext({
+      ...baseParams,
+      gasAccountRequested: false,
+      gasAccountSupported: false,
+      gasAccountEligible: null,
+      selectedPayer: 'user',
+      effectiveFeePayer: 'user',
+      unavailableReason: 'customRpcEnabled',
+    });
+
+    expect(result.unavailableReason).toBe('customRpcEnabled');
+  });
+
   it('treats MegaFuel as a sponsored fee payer for action telemetry', () => {
     expect(
       isGasSponsoredAnalyticsContext({
