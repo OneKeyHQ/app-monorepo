@@ -76,6 +76,7 @@ type IMarketDirectSendParams = {
   useDefaultRpc?: boolean;
   gasAccountAnalytics?: {
     fiatCurrency?: string;
+    nativeBalance?: string;
     useGasAccountByDefault?: boolean;
   };
 };
@@ -935,6 +936,7 @@ export async function estimateMarketDirectGasInfos({
   gasFeeFiatValue?: string;
   preparedUnsignedTx: IUnsignedTxPro;
   gasAccountAnalyticsContext?: IGasAccountAnalyticsContext;
+  gasAccountAnalyticsNativeBalance?: string;
 }> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -963,6 +965,7 @@ export async function estimateMarketDirectGasInfos({
   });
 
   let gasAccountAnalyticsContext: IGasAccountAnalyticsContext | undefined;
+  let gasAccountAnalyticsNativeBalance: string | undefined;
   const swapGasInfo = findGasInfo(gasInfos, unsignedTx.encodedTx);
   if (gasAccountAnalytics && swapGasInfo && unsignedTx.swapInfo) {
     const nativeToken = buildNativeTokenFromGasInfo({
@@ -978,13 +981,14 @@ export async function estimateMarketDirectGasInfos({
           accountId,
         })
       : undefined;
+    gasAccountAnalyticsNativeBalance = latestNativeBalance?.balance;
     gasAccountAnalyticsContext = buildDirectSwapGasAccountAnalyticsContext({
       entryPoint: 'marketSwapDirect',
       networkId,
       unsignedTx,
       gasInfo: swapGasInfo.gasInfo,
       estimateFeeParams: swapGasInfo.estimateFeeParams,
-      nativeBalance: latestNativeBalance?.balance,
+      nativeBalance: gasAccountAnalyticsNativeBalance,
       useGasAccountByDefault: gasAccountAnalytics.useGasAccountByDefault,
       fiatCurrency: gasAccountAnalytics.fiatCurrency,
     });
@@ -995,6 +999,7 @@ export async function estimateMarketDirectGasInfos({
     gasFeeFiatValue: buildGasFeeFiatValue(gasInfos),
     preparedUnsignedTx: unsignedTx,
     gasAccountAnalyticsContext,
+    gasAccountAnalyticsNativeBalance,
   };
 }
 
@@ -1043,7 +1048,6 @@ export async function estimateMarketApproveGasInfos({
 }
 
 async function updateUnsignedTxAndSendTx({
-  accountAddress,
   accountId,
   networkId,
   unsignedTxItem,
@@ -1053,7 +1057,6 @@ async function updateUnsignedTxAndSendTx({
   useDefaultRpc,
   gasAccountAnalytics,
 }: {
-  accountAddress: string;
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
@@ -1086,29 +1089,13 @@ async function updateUnsignedTxAndSendTx({
     estimateFeeParams,
   });
 
-  const shouldTrackGasAccount = Boolean(unsignedTxItem.swapInfo);
-  const nativeToken = shouldTrackGasAccount
-    ? buildNativeTokenFromGasInfo({
-        gasInfo,
-        networkId,
-        fromToken: unsignedTxItem.swapInfo?.sender.token,
-      })
-    : undefined;
-  const latestNativeBalance = nativeToken
-    ? await checkSwapLatestBalanceSufficient({
-        token: nativeToken,
-        amount: '0',
-        accountAddress,
-        accountId,
-      })
-    : undefined;
   const gasAccountAnalyticsContext = buildDirectSwapGasAccountAnalyticsContext({
     entryPoint: 'marketSwapDirect',
     networkId,
     unsignedTx: unsignedTxItem,
     gasInfo,
     estimateFeeParams,
-    nativeBalance: latestNativeBalance?.balance,
+    nativeBalance: gasAccountAnalytics?.nativeBalance,
     useGasAccountByDefault: gasAccountAnalytics?.useGasAccountByDefault,
     fiatCurrency: gasAccountAnalytics?.fiatCurrency,
   });
@@ -1290,7 +1277,6 @@ export async function sendMarketDirectUnsignedTxs({
 
     results.push(
       await updateUnsignedTxAndSendTx({
-        accountAddress,
         accountId,
         networkId,
         unsignedTxItem,

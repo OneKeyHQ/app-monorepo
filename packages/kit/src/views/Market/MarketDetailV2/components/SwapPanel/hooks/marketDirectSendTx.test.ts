@@ -372,10 +372,12 @@ describe('marketDirectSendTx', () => {
       },
       gasAccountAnalytics: {
         fiatCurrency: 'usd',
+        nativeBalance: '0.005',
         useGasAccountByDefault: true,
       },
     });
 
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
     expect(mockGasAccountDecision).not.toHaveBeenCalled();
     expect(mockGasAccountAction).toHaveBeenNthCalledWith(
       1,
@@ -419,6 +421,8 @@ describe('marketDirectSendTx', () => {
         orderId: 'order-id',
       }),
     );
+    expect(result.gasAccountAnalyticsNativeBalance).toBe('0.005');
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
     expect(mockGasAccountDecision).not.toHaveBeenCalled();
   });
 

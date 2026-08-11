@@ -152,6 +152,7 @@ type IMarketReviewExecutionSnapshot = {
   swapInfo: ISwapTxInfo;
   buildRes?: IFetchBuildTxResponse;
   gasAccountAnalyticsContext?: IGasAccountAnalyticsContext;
+  gasAccountAnalyticsNativeBalance?: string;
   // customPriorityFee is owned by the swapStepNetFeeLevel atom; never snapshot
   // it here, or a cleared preset fee would resurrect via `?? snapshot.value`.
 };
@@ -1270,6 +1271,8 @@ export function useSpeedSwapActions(props: {
           ) {
             snapshot.gasAccountAnalyticsContext =
               feeState.gasAccountAnalyticsContext;
+            snapshot.gasAccountAnalyticsNativeBalance =
+              feeState.gasAccountAnalyticsNativeBalance;
           }
 
           netWorkFee = {
@@ -2212,6 +2215,7 @@ export function useSpeedSwapActions(props: {
           customPriorityFee,
           gasAccountAnalytics: {
             fiatCurrency: settingsAtom.currencyInfo.id,
+            nativeBalance: snapshot.gasAccountAnalyticsNativeBalance,
             useGasAccountByDefault: settingsAtom.useGasAccountByDefault,
           },
         });
