@@ -266,7 +266,7 @@ describe('prepared firmware execution', () => {
     );
   });
 
-  test('logs and passes matching prepared firmware and resource inputs to V3', async () => {
+  test('passes prepared V3 inputs without legacy version fields', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
     const firmware = {
@@ -303,22 +303,21 @@ describe('prepared firmware execution', () => {
       ...executionArtifacts,
       platform: 'native',
       firmwareType: EFirmwareType.Universal,
-      bleVersion: undefined,
+      bleVersion: [2, 3, 7],
       firmwareVersion: [4, 21, 0],
-      bootloaderVersion: undefined,
+      bootloaderVersion: [2, 8, 4],
     });
 
-    expect(firmwareUpdateV3).toHaveBeenCalledWith(
-      'device',
-      expect.objectContaining({
-        preparedPlan: prepared.preparedPlan,
-        hostBindingGeneration: 105,
-        artifacts: {
-          firmware,
-          resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
-        },
-      }),
-    );
+    expect(firmwareUpdateV3).toHaveBeenCalledWith('device', {
+      preparedPlan: prepared.preparedPlan,
+      platform: 'native',
+      firmwareType: EFirmwareType.Universal,
+      hostBindingGeneration: 105,
+      artifacts: {
+        firmware,
+        resourceEntries: [{ entryName: 'resource.bin', artifact: resource }],
+      },
+    });
     expect(localLog).toHaveBeenCalledWith(
       expect.stringContaining(
         '"stage":"sdk-handoff","executor":"v3","sdkMethod":"firmwareUpdateV3"',
@@ -356,7 +355,7 @@ describe('prepared firmware execution', () => {
     });
   });
 
-  test('logs and passes Desktop Bridge binaries without claiming a resource input', async () => {
+  test('passes Desktop Bridge binaries with legacy version fields', async () => {
     const firmwareUpdateV3 = jest.fn();
     const sdk = { firmwareUpdateV3 } as unknown as CoreApi;
     const firmware = new ArrayBuffer(4);
@@ -385,12 +384,14 @@ describe('prepared firmware execution', () => {
       bootloaderVersion: undefined,
     });
 
-    expect(firmwareUpdateV3).toHaveBeenCalledWith(
-      'device',
-      expect.objectContaining({
-        firmwareBinary: firmware,
-      }),
-    );
+    expect(firmwareUpdateV3).toHaveBeenCalledWith('device', {
+      platform: 'desktop',
+      bleVersion: undefined,
+      firmwareVersion: [4, 21, 0],
+      bootloaderVersion: undefined,
+      firmwareType: EFirmwareType.Universal,
+      firmwareBinary: firmware,
+    });
     expect(firmwareUpdateV3.mock.calls[0][1]).not.toHaveProperty(
       'resourceBinary',
     );
