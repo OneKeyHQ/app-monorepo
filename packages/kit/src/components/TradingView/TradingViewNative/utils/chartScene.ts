@@ -466,12 +466,14 @@ export function buildTradingViewNativeChartScene({
   const zoomScale = clampTradingViewNativeZoomScale(viewport.zoomScale);
   const offset = clampTradingViewNativePanOffset({
     chartWidth,
+    initialRightOffset: viewport.initialRightOffset,
     offset: viewport.offset,
     pointCount: points.length,
     zoomScale,
   });
   const visiblePointRange = getTradingViewNativeVisiblePointRange({
     chartWidth,
+    initialRightOffset: viewport.initialRightOffset,
     offset,
     pointCount: points.length,
     zoomScale,
@@ -495,7 +497,16 @@ export function buildTradingViewNativeChartScene({
     });
   }
 
-  const normalizedViewport = { offset, zoomScale };
+  const normalizedViewport = {
+    ...(viewport.initialRightOffset
+      ? { initialRightOffset: viewport.initialRightOffset }
+      : {}),
+    ...(viewport.initialRightOffsetResolved
+      ? { initialRightOffsetResolved: true as const }
+      : {}),
+    offset,
+    zoomScale,
+  };
   const emptyScene = {
     commands,
     crosshairPointIndex: null,
@@ -546,6 +557,7 @@ export function buildTradingViewNativeChartScene({
   const getPointX = (index: number) =>
     getTradingViewNativeCandleX({
       index,
+      initialRightOffset: viewport.initialRightOffset,
       offset,
       pointCount: points.length,
       priceAxisX,
@@ -809,6 +821,7 @@ export function buildTradingViewNativeChartScene({
 
   const crosshairPointIndex = crosshair.visible
     ? getTradingViewNativePointIndexAtX({
+        initialRightOffset: viewport.initialRightOffset,
         offset,
         pointCount: points.length,
         priceAxisX,

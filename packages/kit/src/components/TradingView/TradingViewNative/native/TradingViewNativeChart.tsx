@@ -70,6 +70,7 @@ import {
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartType,
+  ITradingViewNativeInitialRightOffset,
 } from '../types';
 
 const PAN_DRAG_RATIO = 1.1;
@@ -115,6 +116,7 @@ interface ITradingViewNativeChartProps {
   chartPictureVersion: number;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -132,16 +134,20 @@ function getInitialRuntime({
   chartType,
   hasVolume,
   indicatorSeries,
+  initialRightOffset,
   points,
 }: {
   candleIntervalSeconds: number;
   chartType: ITradingViewNativeChartType;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
   points: IMarketTokenKLineDataPoint[];
 }): ITradingViewNativeChartRuntime {
   return {
-    ...createTradingViewNativeChartRuntimeState(),
+    ...createTradingViewNativeChartRuntimeState({
+      initialRightOffset,
+    }),
     candleIntervalSeconds,
     chartType,
     hasVolume,
@@ -170,6 +176,7 @@ export const TradingViewNativeChart = memo(
     chartPictureVersion,
     hasVolume,
     indicatorSeries,
+    initialRightOffset,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -190,6 +197,7 @@ export const TradingViewNativeChart = memo(
         chartType,
         hasVolume,
         indicatorSeries,
+        initialRightOffset,
         points,
       }),
     );
@@ -425,6 +433,13 @@ export const TradingViewNativeChart = memo(
         'worklet';
 
         const runtime = chartRuntime.value;
+        const runtimeAfterInitialMeasure = {
+          ...runtime,
+          ...reduceTradingViewNativeChartRuntime(runtime, {
+            type: 'initialWidthMeasured',
+            width: nextSize.width,
+          }),
+        };
         const nextPoints =
           replacementPoints ??
           (latestPoint ? [...runtime.points.slice(0, -1), latestPoint] : []);
@@ -446,12 +461,15 @@ export const TradingViewNativeChart = memo(
           nextSize.width,
           priceAxisWidth.value,
         );
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
-          appendedPointCount: dataUpdateMetadata.appendedPointCount,
-          chartWidth: nextChartWidth,
-          pointCount: nextPoints.length,
-          type: 'dataUpdated',
-        });
+        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
+          runtimeAfterInitialMeasure,
+          {
+            appendedPointCount: dataUpdateMetadata.appendedPointCount,
+            chartWidth: nextChartWidth,
+            pointCount: nextPoints.length,
+            type: 'dataUpdated',
+          },
+        );
         const nextOffset = nextRuntimeState.viewport.offset;
         const offsetDelta = nextOffset - runtime.viewport.offset;
         decayOffset.value = nextOffset;
@@ -706,6 +724,7 @@ export const TradingViewNativeChart = memo(
               runtime.size.width,
               priceAxisWidth.value,
             ),
+            initialRightOffset: runtime.viewport.initialRightOffset,
             pointCount: runtime.points.length,
             zoomScale: runtime.viewport.zoomScale,
           });

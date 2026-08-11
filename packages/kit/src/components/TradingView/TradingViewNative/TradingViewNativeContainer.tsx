@@ -47,6 +47,7 @@ export const TradingViewNativeContainer = memo(
     testID,
     source,
     enableNativeChartSettings,
+    initialRightOffset,
     nativeControlsLayoutMode,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
@@ -396,6 +397,7 @@ export const TradingViewNativeContainer = memo(
             chartPictureVersion={chartPictureVersion}
             hasVolume={hasVolume}
             indicatorSeries={indicatorSeries}
+            initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
             onChartWidthChange={setChartWidth}
             onViewportRequestApplied={handleViewportRequestApplied}
