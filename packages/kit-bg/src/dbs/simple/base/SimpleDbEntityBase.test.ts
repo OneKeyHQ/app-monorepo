@@ -219,4 +219,50 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     expect(calls).not.toContain('removeItem'); // guard kept the fresh write
     expect(entity.entityKey in store).toBe(true);
   });
+
+  test('self-heal delete is skipped while a write is still in flight', async () => {
+    const entity = new HealTestEntity();
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let releaseWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      signalWriteStarted = resolve;
+    });
+    const makeError = () => {
+      const error = new Error('Failed to read large IndexedDB value');
+      error.name = 'UnknownError';
+      return error;
+    };
+    (entity as any).appStorage = {
+      getItem: () => {
+        calls.push('getItem');
+        return Promise.reject(makeError());
+      },
+      setItem: async (k: string, v: unknown) => {
+        calls.push('setItem');
+        signalWriteStarted();
+        await writeGate; // parked mid-write while the failing read races it
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        calls.push('removeItem');
+        delete store[k];
+      },
+    };
+
+    const writeP = entity.setRawData({ v: 7 }); // non-builder: no read involved
+    await writeStarted; // setRawData is parked inside setItem, seq bumped
+    const readP = entity.getRawData(); // fails while the write is in flight
+
+    await expect(readP).resolves.toBeNull();
+    releaseWrite();
+    await writeP;
+
+    expect(calls).not.toContain('removeItem'); // in-flight write already vetoed
+    expect(entity.entityKey in store).toBe(true);
+  });
 });

@@ -58,9 +58,13 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
-  // Bumped on every persisted write so a failing read can tell whether a
-  // concurrent setRawData landed after it started.
+  // Bumped when a persisted write starts so a failing read can tell whether a
+  // concurrent setRawData started after the read began.
   private writeSeq = 0;
+
+  // Writes currently awaiting setItem; a failing read must not delete while
+  // one is in flight, whichever of the two started first.
+  private pendingWrites = 0;
 
   @backgroundMethod()
   clearRawDataCache() {
@@ -96,9 +100,11 @@ abstract class SimpleDbEntityBase<T> {
           console.error(retryError);
           // Drop the dead record so builder-based setRawData can rebuild it;
           // use appStorage directly — clearRawData() would deadlock on the
-          // shared mutex. Skip if a write landed after this read started:
-          // deleting would erase that fresh value.
-          if (this.writeSeq === writeSeqBefore) {
+          // shared mutex. Skip if a write is in flight or started after this
+          // read began: deleting would erase that fresh value. (A write that
+          // starts after this check wins anyway — same-store ops keep issue
+          // order, so its setItem lands after this removeItem.)
+          if (this.pendingWrites === 0 && this.writeSeq === writeSeqBefore) {
             await this.appStorage
               .removeItem(this.entityKey)
               .catch(() => undefined);
@@ -173,13 +179,18 @@ abstract class SimpleDbEntityBase<T> {
       };
 
       dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
-      await this.appStorage.setItem(
-        this.entityKey,
-        appStorageUtils.canSaveAsObject() && !isString(savedData)
-          ? (savedData as any)
-          : JSON.stringify(savedData),
-      );
       this.writeSeq += 1;
+      this.pendingWrites += 1;
+      try {
+        await this.appStorage.setItem(
+          this.entityKey,
+          appStorageUtils.canSaveAsObject() && !isString(savedData)
+            ? (savedData as any)
+            : JSON.stringify(savedData),
+        );
+      } finally {
+        this.pendingWrites -= 1;
+      }
 
       this.updatedAt = updatedAt;
       return data;
