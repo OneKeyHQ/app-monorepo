@@ -84,7 +84,8 @@ export function screenContentTrack(sleepStart: number): IKeyframe[] {
  * reduced motion it holds `restMs` instead, so the device still reads awake
  * and mid-scenario rather than going dark. `startDelayMs` holds the clock
  * at 0 before the first pass, for scenes whose entrance (a separate screen
- * wake) must finish before the loop begins.
+ * wake) must finish before the loop begins. A `loopMs` of 0 means no loop
+ * at all: the clock rests at 0, so still scenes share the machinery.
  */
 export function useSceneClock(
   loopMs: number,
@@ -94,8 +95,8 @@ export function useSceneClock(
   const clock = useSharedValue(0);
   const reducedMotion = useReducedMotion();
   useEffect(() => {
-    if (reducedMotion) {
-      clock.value = restMs;
+    if (!loopMs || reducedMotion) {
+      clock.value = reducedMotion ? restMs : 0;
       return undefined;
     }
     clock.value = 0;
