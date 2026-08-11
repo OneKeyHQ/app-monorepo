@@ -27,7 +27,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INewBrowserTabPosition } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppEventBusNames,
@@ -44,6 +47,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { showCustomInjectionSettingsDialog } from '../../components/CustomInjectionSettingsDialog';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
@@ -52,6 +56,7 @@ import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
+const isCustomInjectionDevelopmentBuild = process.env.NODE_ENV !== 'production';
 
 // Persist the last active tab ID across component mount/unmount cycles
 // so that returning to MultiTabBrowser restores the previously viewed dApp.
@@ -106,7 +111,19 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
     [reportPopoverOpen],
   );
   const [{ newBrowserTabPosition }] = useSettingsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
   const currentTabPosition = newBrowserTabPosition ?? 'bottom';
+  const customInjectionSettings = isCustomInjectionDevelopmentBuild
+    ? devSettings.settings?.customInjection
+    : undefined;
+  const showWebviewDevTools = isCustomInjectionDevelopmentBuild
+    ? Boolean(devSettings.settings?.showWebviewDevTools)
+    : false;
+  const isCustomInjectionEnabled =
+    isCustomInjectionDevelopmentBuild &&
+    platformEnv.isDesktop &&
+    devSettings.enabled &&
+    Boolean(customInjectionSettings?.enabled);
   const newTabPositionSections = useMemo<IActionListSection[]>(() => {
     const options = [
       {
@@ -120,7 +137,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
         icon: 'ArrowBottomOutline' as const,
       },
     ];
-    return [
+    const sections: IActionListSection[] = [
       {
         title: intl.formatMessage({
           id: 'settings_browser_new_tab_position' as ETranslations,
@@ -141,7 +158,66 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
         })),
       },
     ];
-  }, [currentTabPosition, intl]);
+    if (
+      isCustomInjectionDevelopmentBuild &&
+      platformEnv.isDesktop &&
+      devSettings.enabled
+    ) {
+      const customInjection = customInjectionSettings;
+      sections.push({
+        items: [
+          {
+            label: 'Custom Injection',
+            icon: 'CodeInsertOutline',
+            iconProps: customInjection?.enabled
+              ? { color: '$iconSuccess' }
+              : undefined,
+            extra: (
+              <SizableText
+                size="$bodySmMedium"
+                color={
+                  customInjection?.enabled ? '$textSuccess' : '$textSubdued'
+                }
+              >
+                {customInjection?.enabled ? 'On' : 'Off'}
+              </SizableText>
+            ),
+            onPress: (close) => {
+              close();
+              void showCustomInjectionSettingsDialog();
+            },
+            testID: 'browser-sidebar-custom-injection',
+          },
+          {
+            label: 'WebView DevTools',
+            icon: 'BugOutline',
+            extra: (
+              <SizableText
+                size="$bodySmMedium"
+                color={showWebviewDevTools ? '$textSuccess' : '$textSubdued'}
+              >
+                {showWebviewDevTools ? 'On' : 'Off'}
+              </SizableText>
+            ),
+            onPress: async () => {
+              await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                'showWebviewDevTools',
+                !showWebviewDevTools,
+              );
+            },
+            testID: 'browser-sidebar-webview-dev-tools',
+          },
+        ],
+      });
+    }
+    return sections;
+  }, [
+    currentTabPosition,
+    customInjectionSettings,
+    devSettings.enabled,
+    intl,
+    showWebviewDevTools,
+  ]);
 
   const { pinnedTabs, unpinnedTabs } = useMemo(() => {
     const allTabs = tabs ?? [];
@@ -542,6 +618,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
             onOpenChange={handleNewTabMenuOpenChange}
             renderTrigger={
               <Stack
+                position="relative"
                 p="$1"
                 borderRadius="$2"
                 hoverStyle={{ bg: '$bgHover' }}
@@ -551,6 +628,30 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
                 onPress={() => {}}
               >
                 <Icon name="SettingsOutline" size="$5" color="$iconSubdued" />
+                {isCustomInjectionEnabled ? (
+                  <Stack
+                    position="absolute"
+                    top="50%"
+                    left={-7}
+                    mt={-7}
+                    width={14}
+                    height={14}
+                    alignItems="center"
+                    justifyContent="center"
+                    borderRadius="$full"
+                    borderWidth={1}
+                    borderColor="$borderSubdued"
+                    bg="$bgApp"
+                    pointerEvents="none"
+                    testID="browser-sidebar-custom-injection-active-badge"
+                  >
+                    <Icon
+                      name="CodeInsertOutline"
+                      size={10}
+                      color="$iconSuccess"
+                    />
+                  </Stack>
+                ) : null}
               </Stack>
             }
           />

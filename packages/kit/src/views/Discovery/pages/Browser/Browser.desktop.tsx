@@ -19,8 +19,11 @@ import { HistoryIconButton } from '../components/HistoryIconButton';
 import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
 import { withBrowserProvider } from './WithBrowserProvider';
+import DevelopmentDesktopBrowserEntry, {
+  DevelopmentDesktopBrowser as DevelopmentDesktopBrowserComponent,
+} from '@onekeyhq/kit/src/developmentDesktop/browser.desktop';
 
-function DesktopBrowser() {
+function StandardDesktopBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
@@ -79,4 +82,8 @@ function DesktopBrowser() {
   );
 }
 
-export default memo(withBrowserProvider(DesktopBrowser));
+export const DesktopBrowser =
+  DevelopmentDesktopBrowserComponent || StandardDesktopBrowser;
+
+export default DevelopmentDesktopBrowserEntry ||
+  memo(withBrowserProvider(StandardDesktopBrowser));

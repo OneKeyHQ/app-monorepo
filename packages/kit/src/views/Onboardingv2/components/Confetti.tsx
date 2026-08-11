@@ -86,63 +86,66 @@ function buildFlakes(): IFlakeConfig[] {
   });
 }
 
-const ConfettiFlake = memo(function ConfettiFlake({
-  config,
-  blast,
-  fall,
-}: {
-  config: IFlakeConfig;
-  blast: ReturnType<typeof useSharedValue<number>>;
-  fall: ReturnType<typeof useSharedValue<number>>;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const b = blast.value;
-    const f = fall.value;
-    // Per-piece blast can start late (delayBlast), unclamped like PIConfetti's
-    // Extrapolation.IDENTITY.
-    const delayedBlast = (b - config.delayBlast) / (1 - config.delayBlast);
-    const jiggle = interpolate(f, JIGGLE_STOPS, config.jiggleValues);
-    const translateX =
-      config.blastTargetX * delayedBlast + config.randomOffsetX * f + jiggle;
-    const translateY =
-      config.blastTargetY * delayedBlast +
-      FALL_DISTANCE * f +
-      config.randomOffsetY * f;
-    const rotateZ =
-      config.initialRotation + config.rotDir * config.maxRotationZ * f;
-    const rotateX =
-      config.initialRotation + config.rotDir * config.maxRotationX * f;
-    // |cos(rotateX)| fakes the 3D flip by oscillating the uniform scale, exactly
-    // as PIConfetti does in its transform buffer.
-    const oscillatingScale = Math.abs(Math.cos(rotateX));
-    const blastScale = interpolate(b, [0, 0.2, 1], [0, 1, 1]);
-    return {
-      opacity: interpolate(f, [0, 1], [1, 0]),
-      transform: [
-        { translateX },
-        { translateY },
-        { rotateZ: `${rotateZ}rad` },
-        { scale: blastScale * oscillatingScale },
-      ],
-    };
-  });
+const ConfettiFlake = memo(
+  ({
+    config,
+    blast,
+    fall,
+  }: {
+    config: IFlakeConfig;
+    blast: ReturnType<typeof useSharedValue<number>>;
+    fall: ReturnType<typeof useSharedValue<number>>;
+  }) => {
+    const animatedStyle = useAnimatedStyle(() => {
+      const b = blast.value;
+      const f = fall.value;
+      // Per-piece blast can start late (delayBlast), unclamped like PIConfetti's
+      // Extrapolation.IDENTITY.
+      const delayedBlast = (b - config.delayBlast) / (1 - config.delayBlast);
+      const jiggle = interpolate(f, JIGGLE_STOPS, config.jiggleValues);
+      const translateX =
+        config.blastTargetX * delayedBlast + config.randomOffsetX * f + jiggle;
+      const translateY =
+        config.blastTargetY * delayedBlast +
+        FALL_DISTANCE * f +
+        config.randomOffsetY * f;
+      const rotateZ =
+        config.initialRotation + config.rotDir * config.maxRotationZ * f;
+      const rotateX =
+        config.initialRotation + config.rotDir * config.maxRotationX * f;
+      // |cos(rotateX)| fakes the 3D flip by oscillating the uniform scale, exactly
+      // as PIConfetti does in its transform buffer.
+      const oscillatingScale = Math.abs(Math.cos(rotateX));
+      const blastScale = interpolate(b, [0, 0.2, 1], [0, 1, 1]);
+      return {
+        opacity: interpolate(f, [0, 1], [1, 0]),
+        transform: [
+          { translateX },
+          { translateY },
+          { rotateZ: `${rotateZ}rad` },
+          { scale: blastScale * oscillatingScale },
+        ],
+      };
+    });
 
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: ANCHOR_LEFT,
-          top: ANCHOR_TOP,
-          width: config.width,
-          height: config.height,
-          backgroundColor: config.color,
-        },
-        animatedStyle,
-      ]}
-    />
-  );
-});
+    return (
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            left: ANCHOR_LEFT,
+            top: ANCHOR_TOP,
+            width: config.width,
+            height: config.height,
+            backgroundColor: config.color,
+          },
+          animatedStyle,
+        ]}
+      />
+    );
+  },
+);
+ConfettiFlake.displayName = 'ConfettiFlake';
 
 function ConfettiOverlay() {
   const blast = useSharedValue(0);

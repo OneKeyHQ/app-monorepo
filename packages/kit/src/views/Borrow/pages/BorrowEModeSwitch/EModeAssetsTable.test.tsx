@@ -9,7 +9,7 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/components', () => {
   const { Text, View } = jest.requireActual(
     'react-native',
-  ) as typeof import('react-native');
+  );
 
   return {
     Alert: View,
@@ -27,16 +27,16 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/components/Token', () => {
   const { View } = jest.requireActual(
     'react-native',
-  ) as typeof import('react-native');
+  );
 
   return { Token: View };
 });
 
 jest.mock('@onekeyhq/kit/src/views/Borrow/components/BorrowTableList', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
   const { Text, View } = jest.requireActual(
     'react-native',
-  ) as typeof import('react-native');
+  );
 
   return {
     BorrowTableList: ({

@@ -27,7 +27,6 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import {
   getFiatPaySiteWhitelistDomainKeys,
   getFiatPaySiteWhitelistOrigins,
@@ -57,6 +56,10 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import {
+  assertDesktopApiMethodAccess,
+  isTrustedDesktopApiRendererUrl,
+} from './libs/desktopApiAccess';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -897,8 +900,23 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  const guardMainRendererNavigation = (event: Electron.Event, url: string) => {
+    if (
+      isTrustedDesktopApiRendererUrl({
+        candidateUrl: url,
+        trustedEntryUrl: src,
+      })
+    ) {
+      return;
+    }
+    event.preventDefault();
+    logger.warn('[main renderer] blocked untrusted navigation', url);
+  };
+  browserWindow.webContents.on('will-navigate', guardMainRendererNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainRendererNavigation);
+
   if (isDevServer && !isDesktopE2EMode) {
-    browserWindow.webContents.openDevTools();
+    browserWindow.webContents.openDevTools({ mode: 'detach', activate: false });
   }
 
   void browserWindow.loadURL(src);
@@ -1129,9 +1147,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
   );
 
-  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
-  desktopApi.desktopApiSetup();
-
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
   const allowedModules = new Set([
@@ -1163,13 +1178,24 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // pointed at the current renderer instead of the destroyed one.
       const currentMainWebContentsId =
         getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      const senderFrameUrl = event.senderFrame?.url ?? '';
+      const senderIsTrustedMainFrame =
+        event.sender.id === currentMainWebContentsId &&
+        event.senderFrame === event.sender.mainFrame &&
+        isTrustedDesktopApiRendererUrl({
+          candidateUrl: senderFrameUrl,
+          trustedEntryUrl: src,
+        });
+      if (!senderIsTrustedMainFrame) {
         logger.warn(
-          '[DESKTOP_API_CALL] Rejected call from non-main renderer',
-          event.sender.id,
+          '[DESKTOP_API_CALL] Rejected call from untrusted renderer',
+          {
+            senderId: event.sender.id,
+            senderUrl: senderFrameUrl,
+          },
         );
         throw new OneKeyLocalError(
-          'DESKTOP_API_CALL is only allowed from the main window',
+          'DESKTOP_API_CALL is only allowed from the trusted main frame',
         );
       }
       const { module, method, params } = payload;
@@ -1190,6 +1216,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
       }
+      assertDesktopApiMethodAccess({ module, method });
       try {
         const result: unknown = await desktopApi.callDesktopApiMethod({
           type: 'DESKTOP_API_IPC_MESSAGE',

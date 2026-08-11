@@ -7,7 +7,10 @@ import {
   notifyTabNavigation,
   notifyTabNavigationEnd,
 } from '@onekeyhq/kit/src/components/WebView/translateBridge';
-import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
+import type {
+  IElectronWebView,
+  IWebViewRef,
+} from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
@@ -25,9 +28,17 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
+import { useDevelopmentDesktopWebContent } from '@onekeyhq/kit/src/developmentDesktop/webContent.desktop';
+import { getDesktopNavigationState } from './desktopNavigationState';
+
 import type { IWebTab } from '../../types';
+import type { IDevelopmentDesktopWebContentProps } from './developmentDesktopWebContentTypes';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
+import type {
+  DidFailLoadEvent,
+  DidStartNavigationEvent,
+  PageTitleUpdatedEvent,
+} from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
@@ -35,7 +46,7 @@ type IWebContentProps = IWebTab &
   WebViewProps & {
     isCurrent?: boolean;
     customReceiveHandler?: IJsBridgeReceiveHandler;
-  };
+  } & IDevelopmentDesktopWebContentProps;
 
 function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   return (
@@ -45,10 +56,13 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   );
 }
 
-function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
+function WebContent(props: IWebContentProps) {
+  const { id, url, customReceiveHandler } = props;
+  const development = useDevelopmentDesktopWebContent(props);
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
+  const attachedWebViewRef = useRef<IWebViewRef | null>(null);
   const [navigationBlockAccessView, setNavigationBlockAccessView] =
     useState(false);
   const [navigationUrlValidateState, setNavigationUrlValidateState] =
@@ -89,6 +103,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   }, [id, shouldBlockCurrentUrl]);
 
   const getNavStatusInfo = useCallback(() => {
+    if (!development.isCurrent()) {
+      return;
+    }
     const ref = webviewRefs[id];
     // Fix: Prevent crash when ref is undefined during webview destruction or race conditions
     const webviewRef = ref?.innerRef as IElectronWebView;
@@ -104,13 +121,21 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     } catch {
       return undefined;
     }
-  }, [id]);
+  }, [development, id]);
   const onDidStartLoading = useCallback(() => {
+    if (!development.isCurrent()) {
+      return;
+    }
     onNavigation({ id, loading: true });
-  }, [id, onNavigation]);
+  }, [development, id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
+    (event: DidStartNavigationEvent) => {
+      if (!development.isCurrent()) {
+        return;
+      }
+      const { url: willNavigationUrl, isMainFrame, isInPlace } = event;
       if (isMainFrame) {
+        const navigationState = getDesktopNavigationState(isInPlace);
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
         setNavigationBlockedUrl(undefined);
@@ -118,8 +143,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         onNavigation({
           id,
           url: willNavigationUrl,
-          loading: true,
-          isInPlace: true,
+          ...navigationState,
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             setNavigationBlockAccessView(true);
@@ -130,27 +154,61 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         });
         urlRef.current = willNavigationUrl;
       }
+      development.didStartNavigation(event);
     },
-    [getNavStatusInfo, id, onNavigation],
+    [getNavStatusInfo, id, development, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
+    if (!development.isCurrent()) {
+      return;
+    }
     notifyTabNavigationEnd(id);
     onNavigation({
       id,
       loading: false,
       ...getNavStatusInfo(),
     });
-  }, [getNavStatusInfo, id, onNavigation]);
+    development.navigationSettled(true);
+  }, [getNavStatusInfo, id, development, onNavigation]);
+  const onDidStopLoading = useCallback(() => {
+    if (!development.isCurrent()) {
+      return;
+    }
+    notifyTabNavigationEnd(id);
+    onNavigation({
+      id,
+      loading: false,
+      ...getNavStatusInfo(),
+    });
+  }, [development, getNavStatusInfo, id, onNavigation]);
+  const onDidFailLoad = useCallback(
+    (event: DidFailLoadEvent) => {
+      if (!development.isCurrent()) {
+        return;
+      }
+      onDidStopLoading();
+      if (event.isMainFrame) {
+        development.navigationSettled(false);
+      }
+    },
+    [development, onDidStopLoading],
+  );
   const onPageTitleUpdated = useCallback(
     ({ title }: PageTitleUpdatedEvent) => {
+      if (!development.isCurrent()) {
+        return;
+      }
       if (title && title.length) {
         onNavigation({ id, title });
       }
     },
-    [id, onNavigation],
+    [development, id, onNavigation],
   );
   const onPageFaviconUpdated = useCallback(
     (e: PageFaviconUpdatedEvent) => {
+      if (!development.isCurrent()) {
+        return;
+      }
       if (e.favicons.length > 0) {
         const newFavicon = e.favicons[0];
         const newOrigin = uriUtils.getOriginFromUrl({ url: newFavicon });
@@ -163,10 +221,13 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         }
       }
     },
-    [getWebTabById, id, setWebTabData],
+    [development, getWebTabById, id, setWebTabData],
   );
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      if (!development.isCurrent()) {
+        return false;
+      }
       const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
       const validateState = validateWebviewSrc({
         url: navUrl,
@@ -185,7 +246,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       phishingUrlRef.current = navUrl;
       return false;
     },
-    [validateWebviewSrc],
+    [development, validateWebviewSrc],
   );
   // Keep a ref to the latest url so onDomReady can read it without depending
   // on `url`. Making `url` a dep of onDomReady invalidates the `webview`
@@ -199,11 +260,15 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   }, [url]);
 
   const onDomReady = useCallback(() => {
+    if (!development.isCurrent()) {
+      return;
+    }
     const ref = webviewRefs[id];
     if (ref) {
       // @ts-expect-error
       ref.__domReady = true;
     }
+    development.domReady();
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.
@@ -221,7 +286,40 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         // best-effort injection
       }
     }
-  }, [id]);
+  }, [development, id]);
+
+  const handleWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      const previouslyAttachedRef = attachedWebViewRef.current;
+      if (ref?.innerRef) {
+        attachedWebViewRef.current = ref;
+        if (!webviewRefs[id]) {
+          void setWebTabData({
+            id,
+            refReady: true,
+          });
+        }
+        webviewRefs[id] = ref;
+        return;
+      }
+
+      if (previouslyAttachedRef && webviewRefs[id] === previouslyAttachedRef) {
+        delete webviewRefs[id];
+      }
+      attachedWebViewRef.current = null;
+    },
+    [id, setWebTabData],
+  );
+
+  useEffect(
+    () => () => {
+      const attachedRef = attachedWebViewRef.current;
+      if (attachedRef && webviewRefs[id] === attachedRef) {
+        delete webviewRefs[id];
+      }
+    },
+    [id],
+  );
 
   const webview = useMemo(
     () => {
@@ -230,26 +328,19 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
       return (
         <WebView
+          key={development.webViewKey || id}
           id={id}
           src={url}
+          {...development.webViewProps}
           customReceiveHandler={customReceiveHandler}
-          onWebViewRef={(ref) => {
-            if (ref && ref.innerRef) {
-              if (!webviewRefs[id]) {
-                void setWebTabData({
-                  id,
-                  refReady: true,
-                });
-              }
-              webviewRefs[id] = ref;
-            }
-          }}
+          onWebViewRef={handleWebViewRef}
           allowpopups
           onDidStartLoading={onDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
+          onDidRedirectNavigation={development.didRedirectNavigation}
           onDidFinishLoad={onDidFinishLoad}
-          onDidStopLoading={onDidFinishLoad}
-          onDidFailLoad={onDidFinishLoad}
+          onDidStopLoading={onDidStopLoading}
+          onDidFailLoad={onDidFailLoad}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
@@ -264,10 +355,14 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       onDidFinishLoad,
       onDidStartLoading,
       onDidStartNavigation,
+      onDidStopLoading,
+      onDidFailLoad,
       onShouldStartLoadWithRequest,
       onDomReady,
       shouldBlockCurrentUrl,
       customReceiveHandler,
+      development,
+      handleWebViewRef,
       // onPageTitleUpdated,
       // onPageFaviconUpdated,
     ],

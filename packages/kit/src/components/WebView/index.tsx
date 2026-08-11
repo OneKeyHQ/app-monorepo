@@ -3,12 +3,19 @@ import { useCallback, useRef } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  getDevelopmentDesktopWebViewBridgeContext,
+  prepareDevelopmentDesktopWebViewBridgePayload,
+} from '@onekeyhq/kit/src/developmentDesktop/webViewHost';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
 import type {
+  ICustomInjectionAutoReviewEvent,
+  ICustomInjectionRecordingCommand,
+  ICustomInjectionRecordingEvent,
   IElectronWebViewEvents,
   IWebViewOnScroll,
   IWebViewRef,
@@ -91,20 +98,43 @@ export interface IWebViewProps
    * @see IInpageProviderWebViewProps.partition
    */
   partition?: string;
+  /** @platform desktop
+   * @description Confirmed developer-only Electron preload override.
+   */
+  desktopPreloadUrl?: string;
+  /** @platform desktop
+   * @description Receives a trusted Custom Injection repository-icon detection.
+   */
+  onCustomInjectionAutoReview?: (
+    event: ICustomInjectionAutoReviewEvent,
+  ) => void;
+  /** @platform desktop
+   * @description Controls the isolated Custom Injection recorder.
+   */
+  customInjectionRecordingCommand?: ICustomInjectionRecordingCommand;
+  /** @platform desktop
+   * @description Receives isolated Custom Injection recorder events.
+   */
+  onCustomInjectionRecordingEvent?: (
+    event: ICustomInjectionRecordingEvent,
+  ) => void;
 }
 
-const WebView: FC<IWebViewProps> = ({
-  src = '',
-  openUrlInExt = false,
-  allowpopups = false,
-  onWebViewRef = () => {},
-  customReceiveHandler,
-  containerProps,
-  webviewDebuggingEnabled,
-  pullToRefreshEnabled,
-  skipBackgroundBridge,
-  ...rest
-}) => {
+const WebView: FC<IWebViewProps> = (props) => {
+  const {
+    src = '',
+    openUrlInExt = false,
+    allowpopups = false,
+    onWebViewRef = () => {},
+    customReceiveHandler,
+    containerProps,
+    webviewDebuggingEnabled,
+    pullToRefreshEnabled,
+    skipBackgroundBridge,
+    ...rest
+  } = props;
+  const developmentDesktopBridgeContext =
+    getDevelopmentDesktopWebViewBridgeContext(props);
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
       const customResult = await customReceiveHandler?.(payload, hostBridge);
@@ -114,12 +144,21 @@ const WebView: FC<IWebViewProps> = ({
         return customResult;
       }
 
-      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
+      const result = await backgroundApiProxy.bridgeReceiveHandler(
+        prepareDevelopmentDesktopWebViewBridgePayload(
+          developmentDesktopBridgeContext,
+          payload,
+        ),
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
-    [customReceiveHandler, skipBackgroundBridge],
+    [
+      customReceiveHandler,
+      developmentDesktopBridgeContext,
+      skipBackgroundBridge,
+    ],
   );
   const webviewRef = useRef<IWebViewRef | null>(null);
   const handleWebViewRef = useCallback(

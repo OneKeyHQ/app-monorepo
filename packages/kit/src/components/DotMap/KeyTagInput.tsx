@@ -125,132 +125,135 @@ type IKeyTagGridRowProps = {
   onHoverOut?: () => void;
 };
 
-const KeyTagGridRow = memo(function KeyTagGridRowBase({
-  rowIndex,
-  localIndex,
-  displayLabel,
-  value,
-  touched,
-  cellSize,
-  placeholder,
-  flagIncomplete,
-  mismatch,
-  selected,
-  onSelectRow,
-  hoverRow,
-  hoverCol,
-  line,
-  onToggleHole,
-  onHoverCell,
-  onHoverOut,
-}: IKeyTagGridRowProps) {
-  const isFirstRow = localIndex === 0;
-  const editable = !placeholder;
-  const status = editable
-    ? decodeKeyTagRow(value, { touched }).status
-    : EKeyTagRowStatus.Verified;
-  const invalidValue = status === EKeyTagRowStatus.Invalid;
-  const mismatched = editable && !!mismatch;
-  // Red dots: an impossible (>2048) OR a valid-but-wrong (verify) row.
-  const invalid = invalidValue || mismatched;
-  // Missing a valid word and the user just tried to confirm.
-  const flaggedEmpty =
-    editable && !!flagIncomplete && status !== EKeyTagRowStatus.Verified;
-  // Any reason this row's number should read red / blink on a failed Confirm.
-  const flagged = flaggedEmpty || mismatched;
-  // Map mode: the whole row is one target, so the row — not a cell — carries
-  // the press, and "active" means selected rather than hovered.
-  const selectMode = !!onSelectRow;
-  const rowActive = selectMode ? !!selected : hoverRow === localIndex;
+const KeyTagGridRow = memo(
+  ({
+    rowIndex,
+    localIndex,
+    displayLabel,
+    value,
+    touched,
+    cellSize,
+    placeholder,
+    flagIncomplete,
+    mismatch,
+    selected,
+    onSelectRow,
+    hoverRow,
+    hoverCol,
+    line,
+    onToggleHole,
+    onHoverCell,
+    onHoverOut,
+  }: IKeyTagGridRowProps) => {
+    const isFirstRow = localIndex === 0;
+    const editable = !placeholder;
+    const status = editable
+      ? decodeKeyTagRow(value, { touched }).status
+      : EKeyTagRowStatus.Verified;
+    const invalidValue = status === EKeyTagRowStatus.Invalid;
+    const mismatched = editable && !!mismatch;
+    // Red dots: an impossible (>2048) OR a valid-but-wrong (verify) row.
+    const invalid = invalidValue || mismatched;
+    // Missing a valid word and the user just tried to confirm.
+    const flaggedEmpty =
+      editable && !!flagIncomplete && status !== EKeyTagRowStatus.Verified;
+    // Any reason this row's number should read red / blink on a failed Confirm.
+    const flagged = flaggedEmpty || mismatched;
+    // Map mode: the whole row is one target, so the row — not a cell — carries
+    // the press, and "active" means selected rather than hovered.
+    const selectMode = !!onSelectRow;
+    const rowActive = selectMode ? !!selected : hoverRow === localIndex;
 
-  let labelColor = '$textDisabled';
-  if (invalid || flagged) {
-    labelColor = '$textCritical';
-  } else if (rowActive) {
-    labelColor = '$text';
-  }
-
-  // On a failed Confirm the flagged row's number is already red; blink just
-  // that number a few times to draw the eye, then hold it solid. Only the
-  // number blinks — flashing the whole row reads as too loud when several rows
-  // fail at once. Fires only on Confirm (flagged), never live.
-  const reducedMotion = useReducedMotion();
-  const numberPulse = useSharedValue(1);
-  useEffect(() => {
-    if (!flagged || reducedMotion) {
-      numberPulse.value = 1;
-      return;
+    let labelColor = '$textDisabled';
+    if (invalid || flagged) {
+      labelColor = '$textCritical';
+    } else if (rowActive) {
+      labelColor = '$text';
     }
-    numberPulse.value = withSequence(
-      withTiming(0.25, { duration: 220 }),
-      withTiming(1, { duration: 220 }),
-      withTiming(0.25, { duration: 220 }),
-      withTiming(1, { duration: 220 }),
-      withTiming(0.25, { duration: 220 }),
-      withTiming(1, { duration: 220 }),
-    );
-  }, [flagged, reducedMotion, numberPulse]);
-  const numberPulseStyle = useAnimatedStyle(() => ({
-    opacity: numberPulse.value,
-  }));
 
-  const rowSelectable = editable && selectMode;
+    // On a failed Confirm the flagged row's number is already red; blink just
+    // that number a few times to draw the eye, then hold it solid. Only the
+    // number blinks — flashing the whole row reads as too loud when several rows
+    // fail at once. Fires only on Confirm (flagged), never live.
+    const reducedMotion = useReducedMotion();
+    const numberPulse = useSharedValue(1);
+    useEffect(() => {
+      if (!flagged || reducedMotion) {
+        numberPulse.value = 1;
+        return;
+      }
+      numberPulse.value = withSequence(
+        withTiming(0.25, { duration: 220 }),
+        withTiming(1, { duration: 220 }),
+        withTiming(0.25, { duration: 220 }),
+        withTiming(1, { duration: 220 }),
+        withTiming(0.25, { duration: 220 }),
+        withTiming(1, { duration: 220 }),
+      );
+    }, [flagged, reducedMotion, numberPulse]);
+    const numberPulseStyle = useAnimatedStyle(() => ({
+      opacity: numberPulse.value,
+    }));
 
-  return (
-    <XStack
-      alignItems="center"
-      gap={KEYTAG_GRID_GAP}
-      {...(rowSelectable && {
-        onPress: () => onSelectRow?.(rowIndex),
-        focusable: true,
-        focusVisibleStyle: CELL_FOCUS_STYLE,
-      })}
-    >
-      <Stack
-        width={ROW_LABEL_W}
-        height={cellSize}
-        justifyContent="center"
-        alignItems="flex-end"
-        opacity={placeholder ? 0.4 : 1}
+    const rowSelectable = editable && selectMode;
+
+    return (
+      <XStack
+        alignItems="center"
+        gap={KEYTAG_GRID_GAP}
+        {...(rowSelectable && {
+          onPress: () => onSelectRow?.(rowIndex),
+          focusable: true,
+          focusVisibleStyle: CELL_FOCUS_STYLE,
+        })}
       >
-        <Animated.View style={numberPulseStyle}>
-          <SizableText size="$headingXs" color={labelColor}>
-            {displayLabel}
-          </SizableText>
-        </Animated.View>
-      </Stack>
-      <XStack opacity={placeholder ? 0.4 : 1}>
-        {Array.from({ length: KEY_TAG_ROW_BITS }).map((_, col) => (
-          <GridCell
-            key={col}
-            on={editable && isKeyTagRowBitOn(value, col)}
-            invalid={invalid}
-            size={cellSize}
-            isFirstRow={isFirstRow}
-            isFirstCol={col === 0}
-            banded={editable && (rowActive || hoverCol === col)}
-            line={line}
-            onPress={
-              editable && !selectMode && onToggleHole
-                ? () => {
-                    onToggleHole(rowIndex, col);
-                    // Anchor the active row on touch too (no hover fires there).
-                    onHoverCell?.(localIndex, col);
-                  }
-                : undefined
-            }
-            onHoverIn={
-              editable && !selectMode && onHoverCell
-                ? () => onHoverCell(localIndex, col)
-                : undefined
-            }
-            onHoverOut={editable && !selectMode ? onHoverOut : undefined}
-          />
-        ))}
+        <Stack
+          width={ROW_LABEL_W}
+          height={cellSize}
+          justifyContent="center"
+          alignItems="flex-end"
+          opacity={placeholder ? 0.4 : 1}
+        >
+          <Animated.View style={numberPulseStyle}>
+            <SizableText size="$headingXs" color={labelColor}>
+              {displayLabel}
+            </SizableText>
+          </Animated.View>
+        </Stack>
+        <XStack opacity={placeholder ? 0.4 : 1}>
+          {Array.from({ length: KEY_TAG_ROW_BITS }).map((_, col) => (
+            <GridCell
+              key={col}
+              on={editable ? isKeyTagRowBitOn(value, col) : false}
+              invalid={invalid}
+              size={cellSize}
+              isFirstRow={isFirstRow}
+              isFirstCol={col === 0}
+              banded={editable ? rowActive || hoverCol === col : false}
+              line={line}
+              onPress={
+                editable && !selectMode && onToggleHole
+                  ? () => {
+                      onToggleHole(rowIndex, col);
+                      // Anchor the active row on touch too (no hover fires there).
+                      onHoverCell?.(localIndex, col);
+                    }
+                  : undefined
+              }
+              onHoverIn={
+                editable && !selectMode && onHoverCell
+                  ? () => onHoverCell(localIndex, col)
+                  : undefined
+              }
+              onHoverOut={editable && !selectMode ? onHoverOut : undefined}
+            />
+          ))}
+        </XStack>
       </XStack>
-    </XStack>
-  );
-});
+    );
+  },
+);
+KeyTagGridRow.displayName = 'KeyTagGridRow';
 
 // --- plate ----------------------------------------------------------------
 

@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
+import { DevelopmentDesktopWebView } from '@onekeyhq/kit/src/developmentDesktop/webView.desktop';
 import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type {
@@ -38,6 +39,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   DidFailLoadEvent,
+  DidRedirectNavigationEvent,
   DidStartNavigationEvent,
   Event,
   PageFaviconUpdatedEvent,
@@ -46,6 +48,7 @@ import type {
 
 export type {
   DidFailLoadEvent,
+  DidRedirectNavigationEvent,
   DidStartNavigationEvent,
   Event,
   PageFaviconUpdatedEvent,
@@ -100,7 +103,7 @@ function getPreloadJsUrl() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const WEBVIEW_TAG = 'webview';
 
-const DesktopWebView = forwardRef(
+const StandardDesktopWebView = forwardRef(
   (
     {
       src,
@@ -661,6 +664,8 @@ const DesktopWebView = forwardRef(
     );
   },
 );
-DesktopWebView.displayName = 'DesktopWebView';
+StandardDesktopWebView.displayName = 'StandardDesktopWebView';
+
+const DesktopWebView = DevelopmentDesktopWebView || StandardDesktopWebView;
 
 export { DesktopWebView };

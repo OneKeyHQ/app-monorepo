@@ -124,7 +124,7 @@ export function QuickAmountSelector({
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={0}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-            disabled={tradeType === ESwapDirection.SELL && !balance}
+            disabled={tradeType === ESwapDirection.SELL ? !balance : null}
             onPress={() => handleAmountSelect(amount, index)}
           >
             <SizableText size="$bodyMdMedium" color="$textSubdued">

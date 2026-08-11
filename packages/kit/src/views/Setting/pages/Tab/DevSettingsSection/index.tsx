@@ -2145,7 +2145,7 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
                       <SectionFieldItem
-                        icon="ChromeBrand"
+                        icon="BugOutline"
                         name="showWebviewDevTools"
                         title="开启 Electron Webview 调试工具"
                         subtitle=""

@@ -36,7 +36,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
   const Container = ({ children }: { children?: import('react').ReactNode }) =>
     React.createElement('div', null, children);
 

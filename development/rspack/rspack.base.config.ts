@@ -7,6 +7,8 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
+import { DevelopmentDesktopBuildScopePlugin } from './plugins/DevelopmentDesktopBuildScopePlugin';
+import { ProductionDevelopmentDesktopModulePlugin } from './plugins/ProductionDevelopmentDesktopModulePlugin';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -282,6 +284,16 @@ function buildDefineMap(
   return { ...envDefines, ...explicitDefines };
 }
 
+function buildProductionDesktopModuleReplacementPlugins(
+  platform: string,
+): RspackPluginInstance[] {
+  if (isDev || platform !== 'desktop') {
+    return [];
+  }
+
+  return [new ProductionDevelopmentDesktopModulePlugin()];
+}
+
 const buildBasePlugins: (
   platform: string,
   basePath: string,
@@ -290,6 +302,10 @@ const buildBasePlugins: (
   basePath,
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
+  ...buildProductionDesktopModuleReplacementPlugins(platform),
+  platform !== 'desktop'
+    ? new DevelopmentDesktopBuildScopePlugin(platform)
+    : undefined,
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),

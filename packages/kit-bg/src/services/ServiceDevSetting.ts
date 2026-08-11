@@ -27,6 +27,11 @@ import {
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
+import {
+  getDevelopmentDesktopSettingsAfterDisable,
+  syncDevelopmentDesktopSettings,
+  validateDevelopmentDesktopSettingUpdate,
+} from '../developmentDesktop/features';
 
 import type {
   IDevSettings,
@@ -62,6 +67,7 @@ class ServiceDevSetting extends ServiceBase {
       EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
+    syncDevelopmentDesktopSettings({ devSettings });
     devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
       networkThrottleEnabledForNativeSync,
@@ -216,9 +222,13 @@ class ServiceDevSetting extends ServiceBase {
       return;
     }
 
+    const settingsAfterDisable =
+      await getDevelopmentDesktopSettingsAfterDisable({
+        previousDevSettings,
+      });
     await devSettingsPersistAtom.set(() => ({
       enabled: false,
-      settings: {},
+      settings: settingsAfterDisable,
     }));
     await this.saveDevModeToSyncStorage();
     await this.syncCryptoSettings();
@@ -239,6 +249,11 @@ class ServiceDevSetting extends ServiceBase {
     value: IDevSettings[IDevSettingsKeys],
   ): Promise<IDevSettings[IDevSettingsKeys] | boolean> {
     const previousDevSettings = await devSettingsPersistAtom.get();
+    validateDevelopmentDesktopSettingUpdate({
+      name,
+      value,
+      previousDevSettings,
+    });
     const updatePersistedDevSetting = async (
       nextValue: IDevSettings[IDevSettingsKeys],
     ) => {

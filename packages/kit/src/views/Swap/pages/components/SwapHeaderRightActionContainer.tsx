@@ -1032,8 +1032,7 @@ const SwapHeaderRightActionContainer = ({
 
         {/* On mobile every tab has its own Order History list, so the global
             history button is hidden there; keep it on desktop / web / ext. */}
-        {!platformEnv.isNative &&
-          (historyBadgeCount > 0 ? (
+        {!platformEnv.isNative ? historyBadgeCount > 0 ? (
             <Stack
               testID={SwapTestIDs.historyButton}
               m={compact ? '$0' : '$0.5'}
@@ -1074,7 +1073,7 @@ const SwapHeaderRightActionContainer = ({
               }}
               size={resolvedButtonSize}
             />
-          ))}
+          ) : null}
       </HeaderButtonGroup>
     </GlassButtonCapsule>
   );

@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { developmentDesktopModalRoutes } from '@onekeyhq/kit/src/developmentDesktop/modalRoutes';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -41,4 +42,5 @@ export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
     name: EDiscoveryModalRoutes.HistoryListModal,
     component: HistoryListModal,
   },
+  ...developmentDesktopModalRoutes,
 ];

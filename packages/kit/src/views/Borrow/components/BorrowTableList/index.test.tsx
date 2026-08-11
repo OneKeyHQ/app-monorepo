@@ -5,7 +5,7 @@ const mockTableList = jest.fn();
 jest.mock('@onekeyhq/components', () => {
   const { View } = jest.requireActual(
     'react-native',
-  ) as typeof import('react-native');
+  );
 
   return { Empty: View };
 });

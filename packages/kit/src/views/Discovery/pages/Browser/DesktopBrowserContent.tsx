@@ -30,6 +30,10 @@ import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanu
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import { useDevelopmentDesktopBrowserContent } from '@onekeyhq/kit/src/developmentDesktop/browserContent.desktop';
+
+import type { IDevelopmentDesktopBrowserContentProps } from './developmentDesktopBrowserContentTypes';
+
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
   findInPage: (
@@ -235,23 +239,33 @@ const Find = memo(BasicFind);
 
 const DESKTOP_HOME_PAGE_VISIBLE_DELAY_MS = 200;
 
-function BasicDesktopBrowserContent({
-  id,
-  activeTabId,
-}: {
-  id: string;
-  activeTabId: string | null;
-}) {
+function BasicDesktopBrowserContent(
+  props: {
+    id: string;
+    activeTabId: string | null;
+  } & IDevelopmentDesktopBrowserContentProps,
+) {
+  const { id, activeTabId } = props;
   const { tab } = useWebTabDataById(id);
+  const {
+    effectiveUrl,
+    isWebViewInstanceCurrent,
+    webContentProps,
+    webViewInstanceKey,
+  } = useDevelopmentDesktopBrowserContent({
+    id,
+    props,
+    tabUrl: tab?.url,
+  });
   const isActive = activeTabId === id;
-  const isHomeTab = !tab?.url;
+  const isHomeTab = !effectiveUrl;
   const [homePageReady, setHomePageReady] = useState(!isHomeTab);
 
   // Keep-alive LRU: only the most-recently-active window of tabs keeps its
   // WebView mounted. Evicted (cold) tabs unmount their WebView to free memory;
   // the home/dashboard tab has no WebView and is unaffected.
   const keepAlive = useShouldKeepWebViewAlive(id);
-  const shouldMountWebView = Boolean(tab?.url) && keepAlive;
+  const shouldMountWebView = Boolean(effectiveUrl) && keepAlive;
 
   // Aggressively release the webview's resources when this tab closes OR when it
   // is evicted from the keep-alive window.
@@ -281,7 +295,7 @@ function BasicDesktopBrowserContent({
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   let body: ReactNode = null;
-  if (!tab?.url) {
+  if (!effectiveUrl) {
     body = (
       <Stack flex={1} opacity={homePageReady ? 1 : 0}>
         <DashboardContent tabId={id} />
@@ -290,8 +304,11 @@ function BasicDesktopBrowserContent({
   } else if (shouldMountWebView) {
     body = (
       <WebContent
+        key={webViewInstanceKey}
         id={id}
-        url={tab.url}
+        url={effectiveUrl}
+        isWebViewInstanceCurrent={isWebViewInstanceCurrent}
+        {...webContentProps}
         isCurrent={isActive}
         customReceiveHandler={customReceiveHandler}
       />

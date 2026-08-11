@@ -171,7 +171,7 @@ jest.mock('@onekeyhq/kit/src/routes/config/deeplink', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React: typeof import('react') = jest.requireActual('react');
   return {
     usePromiseResult: (fn: () => unknown) => {
       React.useEffect(() => {

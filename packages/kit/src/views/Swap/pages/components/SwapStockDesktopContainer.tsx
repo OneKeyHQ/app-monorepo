@@ -1202,7 +1202,7 @@ function StockAmountInput({
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
           showPercentageInput={
-            showPercentageInputDebounce && balanceActionsReady
+            showPercentageInputDebounce ? balanceActionsReady : false
           }
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}

@@ -68,7 +68,7 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   const baseline = captureNodeRuntimeBaseline();
   const canonicalDriftsBeforeAppLoad = auditCanonicalNodeGlobals();
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { app } = require('electron') as typeof import('electron');
+  const { app } = require('electron');
   const isolatedUserDataDir = process.env.DESKTOP_E2E_USER_DATA_DIR;
   if (!isolatedUserDataDir) {
     throw new RuntimeHarnessError(

@@ -31,6 +31,15 @@ export interface ITestAccount {
   name?: string;
 }
 
+export interface ICustomInjectionDevSettings {
+  enabled: boolean;
+  workspace: string;
+  // Suppresses connection approval modals triggered by Custom Injection pages.
+  muteConnectionRequests?: boolean;
+  // Restores the source-qualified protocol toolbar and its WebView after Desktop restarts.
+  lastSelectedProtocolId?: string;
+}
+
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
@@ -129,6 +138,10 @@ export interface IDevSettings {
   networkThrottleEnabled?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
+  // Desktop-only local injected bundle used by the DApp Browser.
+  // The value is retained while developer settings are disabled, but must never
+  // take effect unless both developer settings and this switch are enabled.
+  customInjection?: ICustomInjectionDevSettings;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

@@ -16,6 +16,7 @@ jest.mock('@onekeyfe/cross-inpage-provider-core', () => ({
 jest.mock('@onekeyfe/onekey-cross-webview', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    Icon: () => null,
     JsBridgeDesktopHost: class MockJsBridgeDesktopHost {
       globalOnMessageEnabled = false;
 
@@ -68,6 +69,12 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('div', { 'data-testid': 'progress', ...props }),
     Spinner: (props: Record<string, unknown>) =>
       React.createElement('div', { 'data-testid': 'spinner', ...props }),
+    useTheme: () => ({
+      bgAccent: { val: '#000' },
+      bgAccentActive: { val: '#111' },
+      bgBackdrop: { val: '#222' },
+      iconOnColor: { val: '#fff' },
+    }),
   };
 });
 
