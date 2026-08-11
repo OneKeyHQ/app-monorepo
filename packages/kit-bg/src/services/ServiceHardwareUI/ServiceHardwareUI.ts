@@ -20,6 +20,7 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -501,14 +502,20 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async isHardwareChannelBusy(_params?: { connectId?: string }) {
-    const [hardwareUiState, firmwareUpdateWorkflowRunning] = await Promise.all([
+    const [
+      hardwareUiState,
+      firmwareUpdateWorkflowRunning,
+      deviceSearchInProgress,
+    ] = await Promise.all([
       hardwareUiStateAtom.get(),
       firmwareUpdateWorkflowRunningAtom.get(),
+      this.backgroundApi.serviceHardware.isDeviceSearchInProgress(),
     ]);
     return (
       this.processingNestedNum > 0 ||
       this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked() ||
       firmwareUpdateWorkflowRunning ||
+      deviceSearchInProgress ||
       Boolean(hardwareUiState)
     );
   }
@@ -545,7 +552,7 @@ class ServiceHardwareUI extends ServiceBase {
     // Keep operation-level serialization during the mixed-SDK rollout and for
     // shared lifecycle work outside the correlated PIN/passphrase response path.
     try {
-      return await this.runExclusiveOneKeyOperation(
+      const result = await this.runExclusiveOneKeyOperation(
         (lease) => this.withHardwareProcessingInternal(() => fn(lease), params),
         {
           deviceKey:
@@ -553,6 +560,15 @@ class ServiceHardwareUI extends ServiceBase {
           lease: params.oneKeyOperationLease,
         },
       );
+      if (platformEnv.isNative && device?.id) {
+        void this.backgroundApi.serviceHardwarePortfolioSync
+          .notifyInteractiveHardwareOperationSucceeded({
+            connectId: device.connectId,
+            deviceDbId: device.id,
+          })
+          .catch(() => undefined);
+      }
+      return result;
     } finally {
       if (tracksFirmwareUpdateExclusivity) {
         this.firmwareUpdateExclusiveDepth = Math.max(

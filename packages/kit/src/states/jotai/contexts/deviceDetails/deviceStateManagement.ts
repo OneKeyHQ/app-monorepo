@@ -113,25 +113,21 @@ export function resolveDeviceState({
   return snapshot?.state ?? persistedState;
 }
 
-export function resolveUsableWalletWithDevice(
-  walletWithDevice?: IHwQrWalletWithDevice,
-) {
-  if (!isDeviceManagementWalletUsable(walletWithDevice)) {
-    return undefined;
-  }
-  return walletWithDevice;
-}
-
 export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
   const wallet = walletWithDevice?.wallet;
   const device = walletWithDevice?.device;
-  if (!wallet || wallet.isMocked) {
+  if (!wallet) {
     return false;
   }
   if (!wallet.deprecated) {
+    // Hidden-only devices retain a mocked standard wallet as their
+    // device-management proxy.
     return true;
+  }
+  if (wallet.isMocked) {
+    return false;
   }
 
   const deviceType =
@@ -153,6 +149,15 @@ export function isDeviceManagementWalletUsable(
   const firmwareTypeAtCreated =
     wallet.firmwareTypeAtCreated ?? EFirmwareType.Universal;
   return currentFirmwareType !== firmwareTypeAtCreated;
+}
+
+export function resolveUsableWalletWithDevice(
+  walletWithDevice?: IHwQrWalletWithDevice,
+) {
+  if (!isDeviceManagementWalletUsable(walletWithDevice)) {
+    return undefined;
+  }
+  return walletWithDevice;
 }
 
 export function resolveDeviceWithCurrentType<

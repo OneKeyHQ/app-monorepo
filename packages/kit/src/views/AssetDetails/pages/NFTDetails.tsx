@@ -209,6 +209,7 @@ export default function NFTDetails() {
 
           originW,
           originH,
+          includeHex: false,
         });
 
         if (isProtocolV2Product) {
@@ -223,10 +224,16 @@ export default function NFTDetails() {
             height: config.thumbnailSize.height,
             originW: config.size.width,
             originH: config.size.height,
+            includeHex: false,
           });
+          if (!img.base64 || !thumbnail.base64) {
+            throw new OneKeyAppError({
+              message: 'Pro2 NFT JPEG data is missing',
+            });
+          }
           pro2UploadParams = {
-            imageHex: img.hex,
-            thumbnailHex: thumbnail.hex,
+            imageJpegBase64: img.base64,
+            thumbnailJpegBase64: thumbnail.base64,
             ...generatePro2NftMetadata({
               title:
                 name && name.length > 0 ? name : `#${nft.collectionAddress}`,

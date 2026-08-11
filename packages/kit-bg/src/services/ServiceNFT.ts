@@ -29,8 +29,8 @@ import type { IDBAccount } from '../dbs/local/types';
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 
 export type IPro2NftUploadParams = {
-  imageHex: string;
-  thumbnailHex: string;
+  imageJpegBase64: string;
+  thumbnailJpegBase64: string;
   title: string;
   subtitle: string;
   timestampMs?: number;

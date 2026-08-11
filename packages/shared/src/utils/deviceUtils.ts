@@ -954,16 +954,11 @@ async function getAutoShutDownOptions({
     getAutoShutDownOptions: sdkGetAutoShutDownOptions,
     PROTOCOL_V2_NEVER_TIMEOUT_MS,
   } = await CoreSDKLoader();
-  return sdkGetAutoShutDownOptions(deviceType, protocol)
-    .filter(
-      (option) =>
-        deviceType !== EDeviceType.Pro2 || option.valueMs !== 30 * 60_000,
-    )
-    .map((option) => ({
-      ...option,
-      isNever:
-        option.valueMs === 0 || option.valueMs === PROTOCOL_V2_NEVER_TIMEOUT_MS,
-    }));
+  return sdkGetAutoShutDownOptions(deviceType, protocol).map((option) => ({
+    ...option,
+    isNever:
+      option.valueMs === 0 || option.valueMs === PROTOCOL_V2_NEVER_TIMEOUT_MS,
+  }));
 }
 
 export enum ESupportSettings {

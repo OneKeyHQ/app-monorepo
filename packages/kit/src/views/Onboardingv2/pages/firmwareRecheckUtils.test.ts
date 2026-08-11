@@ -38,6 +38,31 @@ describe('createFirmwareRecheckTimer', () => {
     expect(onFire).not.toHaveBeenCalled();
   });
 
+  it('reschedules a canceled recheck from the original finish time', () => {
+    const onFire = jest.fn();
+    let now = 12_000;
+    const cancel = createFirmwareRecheckTimer({
+      finishTime: 10_000,
+      delayMs: 10_000,
+      now: () => now,
+      onFire,
+    });
+
+    cancel();
+    now = 15_000;
+    createFirmwareRecheckTimer({
+      finishTime: 10_000,
+      delayMs: 10_000,
+      now: () => now,
+      onFire,
+    });
+
+    jest.advanceTimersByTime(4999);
+    expect(onFire).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(onFire).toHaveBeenCalledTimes(1);
+  });
+
   it('caps the delay when the system clock moves backwards', () => {
     const onFire = jest.fn();
     createFirmwareRecheckTimer({
