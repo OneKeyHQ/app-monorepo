@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - onekey
-      - codex/fix-codacy-security-scan
   pull_request:
     branches:
       - onekey
