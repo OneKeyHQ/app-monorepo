@@ -20,6 +20,24 @@ export type ISwapReviewState = {
   quoteResult?: IFetchQuoteResult;
 };
 
+export function shouldCloseSwapReviewOnFocusLoss({
+  isFocused,
+  isAppLocked,
+  initialRootRouterCount,
+  currentRootRouterCount,
+}: {
+  isFocused: boolean;
+  isAppLocked: boolean;
+  initialRootRouterCount: number;
+  currentRootRouterCount: number;
+}) {
+  if (isFocused || isAppLocked) {
+    return false;
+  }
+
+  return currentRootRouterCount <= initialRootRouterCount;
+}
+
 export function shouldShowSwapReviewToAmountSkeleton({
   swapBuildLoading,
   toTokenAmount,

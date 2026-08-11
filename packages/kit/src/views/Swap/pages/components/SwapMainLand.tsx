@@ -23,7 +23,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useRateDifferenceAtom,
@@ -56,6 +59,7 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -134,6 +138,7 @@ import {
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import { shouldCloseSwapReviewOnFocusLoss } from '../../utils/swapReviewState';
 import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -167,6 +172,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
+  const [isAppLocked] = useAppIsLockedAtom();
+  const initialRootRouterCountRef = useRef(getRootRoutersLength());
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
   const onPopSwapModal = useCallback(() => {
@@ -247,10 +254,24 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     void dialogRef.current?.close();
   }, [resetPendingReview]);
   useEffect(() => {
-    if (!isFocused) {
+    if (isFocused) {
+      return;
+    }
+    if (reviewDialogTimerRef.current !== undefined) {
+      dialogClose();
+      return;
+    }
+    if (
+      shouldCloseSwapReviewOnFocusLoss({
+        isFocused,
+        isAppLocked,
+        initialRootRouterCount: initialRootRouterCountRef.current,
+        currentRootRouterCount: getRootRoutersLength(),
+      })
+    ) {
       dialogClose();
     }
-  }, [dialogClose, isFocused]);
+  }, [dialogClose, isAppLocked, isFocused]);
   useEffect(
     () => () => {
       dialogClose();

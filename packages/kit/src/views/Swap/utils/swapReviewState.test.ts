@@ -1,4 +1,38 @@
-import { shouldShowSwapReviewToAmountSkeleton } from './swapReviewState';
+import {
+  shouldCloseSwapReviewOnFocusLoss,
+  shouldShowSwapReviewToAmountSkeleton,
+} from './swapReviewState';
+
+describe('shouldCloseSwapReviewOnFocusLoss', () => {
+  const baseParams = {
+    isFocused: false,
+    isAppLocked: false,
+    initialRootRouterCount: 1,
+    currentRootRouterCount: 1,
+  };
+
+  it('closes the review after the swap route actually loses focus', () => {
+    expect(shouldCloseSwapReviewOnFocusLoss(baseParams)).toBe(true);
+  });
+
+  it('keeps the review while the app lock covers the swap route', () => {
+    expect(
+      shouldCloseSwapReviewOnFocusLoss({
+        ...baseParams,
+        isAppLocked: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the review while a root modal covers the swap route', () => {
+    expect(
+      shouldCloseSwapReviewOnFocusLoss({
+        ...baseParams,
+        currentRootRouterCount: 2,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('shouldShowSwapReviewToAmountSkeleton', () => {
   it('keeps the frozen quote amount visible while the build is loading', () => {
