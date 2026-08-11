@@ -108,7 +108,11 @@ function MobileBrowser() {
         {/* custom header */}
         <YStack my="$2">
           <XStack mx="$5">
-            <LegacyUniversalSearchInput size="medium" initialTab="market" />
+            <LegacyUniversalSearchInput
+              size="medium"
+              initialTab="market"
+              tabRoute={ETabRoutes.Discovery}
+            />
           </XStack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}

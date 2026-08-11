@@ -44,6 +44,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useLanguageSelector } from '../../views/Setting/hooks/useLanguageSelector';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { ListItem } from '../ListItem';
 
@@ -430,8 +431,11 @@ function RightActions({
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+      },
     });
-  }, [navigation]);
+  }, [navigation, tabRoute]);
 
   return (
     <XStack ai="center" gap="$5">
@@ -582,7 +586,7 @@ export function DappHeader({
       />
       {!hideSearch ? (
         <XStack px="$pagePadding" pt="$2" pb="$2">
-          <UniversalSearchInput />
+          <UniversalSearchInput tabRoute={tabRoute} />
         </XStack>
       ) : null}
       <XStack h="$px" bg="$borderSubdued" />

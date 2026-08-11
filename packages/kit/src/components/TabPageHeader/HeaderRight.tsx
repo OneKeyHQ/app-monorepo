@@ -65,7 +65,11 @@ export function SelectorTrigger() {
 
 export function SearchInput({
   isUrlWallet = false,
-}: { isUrlWallet?: boolean } = {}) {
+  tabRoute,
+}: {
+  isUrlWallet?: boolean;
+  tabRoute: ETabRoutes;
+}) {
   const { gtXl, gtLg, gt2xl } = useMedia();
 
   let size: boolean;
@@ -75,7 +79,12 @@ export function SearchInput({
     size = platformEnv.isWeb ? gtXl : gtLg;
   }
 
-  return <LegacyUniversalSearchInput size={size ? 'large' : 'small'} />;
+  return (
+    <LegacyUniversalSearchInput
+      size={size ? 'large' : 'small'}
+      tabRoute={tabRoute}
+    />
+  );
 }
 
 export function HeaderRight({

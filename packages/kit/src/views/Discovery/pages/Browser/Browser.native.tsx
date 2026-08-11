@@ -101,6 +101,14 @@ function getExploreTabName(tab: ETranslations): IExploreTabName {
   return 'browser';
 }
 
+// Native Discovery hosts three business tabs under one route. Pass the active
+// business route to universal search so analytics can distinguish the entry.
+const UNIVERSAL_SEARCH_TAB_ROUTE_MAP: Record<IExploreTabName, ETabRoutes> = {
+  market: ETabRoutes.Market,
+  earn: ETabRoutes.Earn,
+  browser: ETabRoutes.Discovery,
+};
+
 const styles = StyleSheet.create({
   // iOS WKWebViews must stay in the native layout tree. In nested layouts,
   // display:none can reload the page even though React keeps it mounted.
@@ -252,6 +260,8 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
+  const universalSearchTabRoute =
+    UNIVERSAL_SEARCH_TAB_ROUTE_MAP[getExploreTabName(selectedHeaderTab)];
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -760,6 +770,7 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
+              tabRoute={universalSearchTabRoute}
             />
           </Stack>
           <TabPageHeader

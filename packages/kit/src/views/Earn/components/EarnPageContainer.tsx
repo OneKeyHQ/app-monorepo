@@ -203,7 +203,11 @@ export function EarnPageContainer({
       ) : (
         <YStack mx="$pagePadding" mt="$2" mb="$1">
           <Page.Header headerShown={false} />
-          <LegacyUniversalSearchInput size="medium" initialTab="dapp" />
+          <LegacyUniversalSearchInput
+            size="medium"
+            initialTab="dapp"
+            tabRoute={tabRoute}
+          />
         </YStack>
       )}
       {body}
