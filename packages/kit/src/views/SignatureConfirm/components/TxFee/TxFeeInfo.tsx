@@ -607,7 +607,12 @@ function TxFeeInfo(props: IProps) {
           gasAccountDisabledByScenario
         ) {
           resetGasAccountUiState();
-          if (
+          if (isCustomRpcEnabled) {
+            updateGasAccountUiState({
+              payer: 'user',
+              sponsorDisabledByCustomRpc: true,
+            });
+          } else if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
             sponsorDisabledForPrivateSend ||

@@ -231,6 +231,7 @@ export const defaultGasAccountUiState = {
   lockedUserNonce: undefined as number | undefined,
   idempotencyKey: '',
   gasAccountScenarioReason: undefined as string | undefined,
+  sponsorDisabledByCustomRpc: false,
 };
 
 export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
@@ -242,6 +243,7 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     lockedUserNonce?: number;
     idempotencyKey: string;
     gasAccountScenarioReason?: string;
+    sponsorDisabledByCustomRpc: boolean;
   }>({ ...defaultGasAccountUiState });
 
 export const {

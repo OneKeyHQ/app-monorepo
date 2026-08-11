@@ -62,8 +62,12 @@ export function useGasAccountAnalyticsContext({
       gasAccountScenario as IGasAccountDisabledScenario,
     );
     const disabledForBatch = unsignedTxs.length > 1;
+    const disabledByCustomRpc = gasAccountUiState.sponsorDisabledByCustomRpc;
     const clientUnsupported =
-      disabledByScenario || isPrivateSend || disabledForBatch;
+      disabledByScenario ||
+      isPrivateSend ||
+      disabledForBatch ||
+      disabledByCustomRpc;
     const gasAccountRequested =
       settings.useGasAccountByDefault !== false &&
       !clientUnsupported &&
@@ -84,6 +88,8 @@ export function useGasAccountAnalyticsContext({
     if (!hasEligibleQuote) {
       if (settings.useGasAccountByDefault === false) {
         unavailableReason = 'userDisabled';
+      } else if (disabledByCustomRpc) {
+        unavailableReason = 'customRpcEnabled';
       } else if (disabledByScenario) {
         unavailableReason = 'unsupportedScenario';
       } else if (isPrivateSend) {
@@ -133,6 +139,7 @@ export function useGasAccountAnalyticsContext({
     gasAccountUiState.gasAccountQuote?.quoteId,
     gasAccountUiState.gasAccountScenarioReason,
     gasAccountUiState.selectedPayer,
+    gasAccountUiState.sponsorDisabledByCustomRpc,
     isPrivateSend,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
