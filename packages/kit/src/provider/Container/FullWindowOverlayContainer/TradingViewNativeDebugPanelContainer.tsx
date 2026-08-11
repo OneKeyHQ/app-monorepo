@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useLayoutEffect } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -29,7 +29,8 @@ function TradingViewNativeDebugPanelSettingGate() {
     }));
   }, [setDevSettings]);
 
-  useEffect(() => {
+  // Enable collection before chart passive effects emit initial lifecycle events.
+  useLayoutEffect(() => {
     setTradingViewNativeDebugEventCollectionEnabled(isEnabled);
     return () => {
       setTradingViewNativeDebugEventCollectionEnabled(false);
