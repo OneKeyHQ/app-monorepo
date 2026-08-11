@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Spinner, Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewProps } from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
@@ -38,6 +38,7 @@ export default function TradingViewRuntimeView({
   const customReceiveHandlerRef = useRef(customReceiveHandler);
   const onLoadStartRef = useRef(onLoadStart);
   const [fallback, setFallback] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [runtimeUrl, setRuntimeUrl] = useState(src);
   const [reloadRevision, setReloadRevision] = useState(0);
 
@@ -79,6 +80,7 @@ export default function TradingViewRuntimeView({
 
   useEffect(() => {
     setFallback(false);
+    setMounted(false);
   }, [reloadRevision, runtimeUrl]);
 
   useEffect(() => {
@@ -132,6 +134,7 @@ export default function TradingViewRuntimeView({
           return;
         }
         handleRef.current = handle;
+        setMounted(true);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -166,7 +169,24 @@ export default function TradingViewRuntimeView({
 
   return (
     <Stack flex={1} bg="$bgApp" {...containerProps}>
+      {/* The container must stay mounted at all times: the effect resolves it
+          through containerRef before the Embed runtime is available, so the
+          pending state is an overlay rather than a conditional branch. */}
       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+      {mounted ? null : (
+        <Stack
+          position="absolute"
+          left={0}
+          right={0}
+          top={0}
+          bottom={0}
+          alignItems="center"
+          justifyContent="center"
+          pointerEvents="none"
+        >
+          <Spinner size="large" />
+        </Stack>
+      )}
     </Stack>
   );
 }

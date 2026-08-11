@@ -78,7 +78,14 @@ const bootstrapPreloadPromises = new Map<string, Promise<void>>();
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
-const SERVICE_WORKER_PREFETCH_TIMEOUT_MS = 60_000;
+// The service worker replies as soon as the bootstrap subset (entry + styles +
+// standalone loader + the current locale's bundles, a few MB) is cached, not
+// after the full package. Cap the wait well below the old 60s: past this point
+// the hosted iframe — which streams its own progressive loading UI — is the
+// better bet. Do not lower it much further: falling back does not save
+// bandwidth (the iframe downloads a comparable payload), so an over-eager
+// timeout only pushes slow-network users off the optimized path for nothing.
+const SERVICE_WORKER_PREFETCH_TIMEOUT_MS = 20_000;
 const TRUSTED_MANIFEST_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL).origin,
   new URL(TRADING_VIEW_URL_TEST).origin,
