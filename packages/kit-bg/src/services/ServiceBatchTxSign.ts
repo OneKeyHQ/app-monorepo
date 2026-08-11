@@ -117,6 +117,16 @@ export default class ServiceBatchTxSign extends ServiceBase {
     return state.status === EBatchTxSignStatus.Cancelled;
   }
 
+  // Only clear the shared atom if it still holds THIS batch's progress —
+  // otherwise a second batch created after this one finished/disposed would
+  // have its live progress wiped by this batch's stale cleanup.
+  private async clearAtomIfOwnedBy(batchId: string): Promise<void> {
+    const current = await batchTxSignAtom.get();
+    if (current?.batchId === batchId) {
+      await batchTxSignAtom.set(undefined);
+    }
+  }
+
   @backgroundMethod()
   async createBatch({
     accountId,
@@ -136,11 +146,13 @@ export default class ServiceBatchTxSign extends ServiceBase {
       isSigning: false,
       abortRequested: false,
       currentIndex: undefined,
-      items: items.map((item) => ({
+      // Force summary.index to the array position so it can never diverge
+      // from currentIndex (also an array position) or from item lookups.
+      items: items.map((item, index) => ({
         unsignedTx: item.unsignedTx,
         inputsToSign: item.inputsToSign,
         autoFinalized: item.autoFinalized,
-        summary: { ...item.summary },
+        summary: { ...item.summary, index },
       })),
     };
     this.batches.set(batchId, state);
@@ -184,6 +196,11 @@ export default class ServiceBatchTxSign extends ServiceBase {
     signedPsbtHex: string;
   }): Promise<void> {
     const state = this.requireBatch(batchId);
+    // A late drill-down callback (TxConfirm onSuccess arriving after the user
+    // already cancelled) must not resurrect a cancelled batch into Complete.
+    if (this.isCancelled(state)) {
+      return;
+    }
     const item = this.requireItem(state, index);
     item.signedPsbtHex = signedPsbtHex;
     item.summary.status = EBatchTxSignItemStatus.Signed;
@@ -242,6 +259,14 @@ export default class ServiceBatchTxSign extends ServiceBase {
               unsignedTx: item.unsignedTx,
               signOnly: true,
             });
+            // psbtHex is optional on ISignedTxPro. A missing hex here would
+            // otherwise mark the item Signed with nothing to finalize, so
+            // takeFinalizedResults could never succeed and the user dead-ends
+            // after already approving on the device. Route it through the
+            // same failure handling as a thrown signing error.
+            if (!signedTx.psbtHex) {
+              throw new OneKeyLocalError('signed tx missing psbtHex');
+            }
           } catch (error) {
             item.summary.status = EBatchTxSignItemStatus.Failed;
             item.summary.errorMessage =
@@ -287,9 +312,15 @@ export default class ServiceBatchTxSign extends ServiceBase {
     state.status = EBatchTxSignStatus.Cancelled;
     state.currentIndex = undefined;
     // Product rule: cancellation discards any signature already produced but
-    // not yet handed back to the caller via takeFinalizedResults.
+    // not yet handed back to the caller via takeFinalizedResults. Reset the
+    // affected items back to Ready so "Signed" always implies a stored hex —
+    // the published Cancelled snapshot must show signedCount 0.
     state.items.forEach((item) => {
-      item.signedPsbtHex = undefined;
+      if (item.signedPsbtHex) {
+        item.signedPsbtHex = undefined;
+        item.summary.status = EBatchTxSignItemStatus.Ready;
+        item.summary.errorMessage = undefined;
+      }
     });
     await this.publishProgress(state);
   }
@@ -336,7 +367,7 @@ export default class ServiceBatchTxSign extends ServiceBase {
     }
 
     this.batches.delete(batchId);
-    await batchTxSignAtom.set(undefined);
+    await this.clearAtomIfOwnedBy(batchId);
     return results;
   }
 
@@ -347,8 +378,14 @@ export default class ServiceBatchTxSign extends ServiceBase {
     const state = this.batches.get(batchId);
     if (state) {
       state.abortRequested = true;
+      // Set Cancelled BEFORE removing from the map: an item still in-flight
+      // at the hardware (e.g. the extension popup died and the provider's
+      // finally called dispose) reads this status on completion and takes
+      // the existing drop branch, instead of writing a zombie progress
+      // update into the atom for a batch that no longer exists.
+      state.status = EBatchTxSignStatus.Cancelled;
     }
     this.batches.delete(batchId);
-    await batchTxSignAtom.set(undefined);
+    await this.clearAtomIfOwnedBy(batchId);
   }
 }

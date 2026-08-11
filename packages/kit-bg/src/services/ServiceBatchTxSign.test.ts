@@ -25,9 +25,23 @@ jest.mock('./ServiceBase', () => ({
   },
 }));
 
-jest.mock('../states/jotai/atoms', () => ({
-  batchTxSignAtom: { set: jest.fn() },
-}));
+// Backs the mocked atom with a real get/set pair (rather than a bare
+// jest.fn()) so tests can assert on clearAtomIfOwnedBy's ownership check and
+// on whether a given signRemaining branch published at all. Everything the
+// factory needs is created inside it (a closure variable), since jest.mock()
+// calls are hoisted above any outer const/let — referencing an outer
+// variable here would hit the temporal dead zone.
+jest.mock('../states/jotai/atoms', () => {
+  let current: unknown;
+  return {
+    batchTxSignAtom: {
+      set: jest.fn(async (value: unknown) => {
+        current = value;
+      }),
+      get: jest.fn(async () => current),
+    },
+  };
+});
 
 // eslint-disable-next-line import-js/order, import/first
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -39,9 +53,13 @@ import {
   EBatchTxSignStatus,
 } from '@onekeyhq/shared/types/batchTxSign';
 // eslint-disable-next-line import-js/order, import/first
+import { batchTxSignAtom } from '../states/jotai/atoms';
+// eslint-disable-next-line import-js/order, import/first
 import type { IBatchTxSignCreateItem } from './ServiceBatchTxSign';
 // eslint-disable-next-line import-js/order, import/first
 import ServiceBatchTxSign from './ServiceBatchTxSign';
+
+const mockAtomSet = batchTxSignAtom.set as unknown as jest.Mock;
 
 const accountId = 'hd-1--btc--0';
 const networkId = 'btc--0';
@@ -116,6 +134,10 @@ function createDeferred<T>() {
 }
 
 describe('ServiceBatchTxSign', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('signs remaining items sequentially and completes', async () => {
     const { service, signTransaction } = makeService();
     const { batchId } = await service.createBatch({
@@ -250,9 +272,103 @@ describe('ServiceBatchTxSign', () => {
 
     const progress = await service.getBatchProgress({ batchId });
     expect(progress.status).toBe(EBatchTxSignStatus.Cancelled);
+    // The in-flight item's signature must never land: signedCount stays 0
+    // rather than the item reading Signed with no recorded hex.
+    expect(progress.signedCount).toBe(0);
     expect(signTransaction).toHaveBeenCalledTimes(1);
 
     await expect(service.takeFinalizedResults({ batchId })).rejects.toThrow();
+  });
+
+  test('cancelBatch after partial progress resets signed items and reports signedCount 0', async () => {
+    const { service } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(3),
+    });
+
+    // Sign one item via drill-down before cancelling the rest of the batch.
+    await service.markItemSigned({
+      batchId,
+      index: 0,
+      signedPsbtHex: 'signed-by-drilldown',
+    });
+
+    await service.cancelBatch({ batchId });
+
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Cancelled);
+    expect(progress.signedCount).toBe(0);
+    expect(progress.items.map((item) => item.status)).toEqual([
+      EBatchTxSignItemStatus.Ready,
+      EBatchTxSignItemStatus.Ready,
+      EBatchTxSignItemStatus.Ready,
+    ]);
+  });
+
+  test('treats a signed result missing psbtHex as a signing failure', async () => {
+    const { service, signTransaction } = makeService(async ({ unsignedTx }) => {
+      if (getMarker(unsignedTx) === 'psbt-0') {
+        return { txid: '', rawTx: '', encodedTx: null };
+      }
+      return defaultSignTransaction({ unsignedTx });
+    });
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    await expect(service.signRemaining({ batchId })).rejects.toThrow(
+      'signed tx missing psbtHex',
+    );
+
+    const progress = await service.getBatchProgress({ batchId });
+    expect(progress.status).toBe(EBatchTxSignStatus.Stopped);
+    expect(progress.items[0].status).toBe(EBatchTxSignItemStatus.Failed);
+    expect(progress.items[0].errorMessage).toBe('signed tx missing psbtHex');
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+
+    await expect(service.takeFinalizedResults({ batchId })).rejects.toThrow();
+  });
+
+  test('disposeBatch while an item is in-flight prevents a zombie atom publish', async () => {
+    const inFlight = createDeferred<ISignedTxPro>();
+    const started = createDeferred<void>();
+    const { service, signTransaction } = makeService(async () => {
+      started.resolve();
+      return inFlight.promise;
+    });
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    const signPromise = service.signRemaining({ batchId });
+    await started.promise;
+
+    const callsBeforeDispose = mockAtomSet.mock.calls.length;
+    await service.disposeBatch({ batchId });
+    const callsAfterDispose = mockAtomSet.mock.calls.length;
+    // dispose itself publishes the clear (once ownership is confirmed).
+    expect(callsAfterDispose).toBeGreaterThan(callsBeforeDispose);
+
+    // The in-flight item now completes successfully at the device, after the
+    // batch has already been disposed.
+    inFlight.resolve({
+      txid: '',
+      rawTx: '',
+      encodedTx: null,
+      psbtHex: 'signed-psbt-0',
+    });
+    await expect(signPromise).resolves.toBeUndefined();
+
+    // No further atom writes: the completion must see Cancelled and drop
+    // the signature instead of publishing into the now-deleted batch.
+    expect(mockAtomSet.mock.calls.length).toBe(callsAfterDispose);
+    expect(signTransaction).toHaveBeenCalledTimes(1);
   });
 
   test('disposeBatch after takeFinalizedResults is a no-op', async () => {
