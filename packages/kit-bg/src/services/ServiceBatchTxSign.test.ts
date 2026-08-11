@@ -127,10 +127,12 @@ function makeService(
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
     resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('ServiceBatchTxSign', () => {
@@ -253,6 +255,19 @@ describe('ServiceBatchTxSign', () => {
     expect(results).toEqual(['signed-by-drilldown', 'signed-psbt-1']);
   });
 
+  test('markItemSigned rejects an empty signedPsbtHex', async () => {
+    const { service } = makeService();
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(1),
+    });
+
+    await expect(
+      service.markItemSigned({ batchId, index: 0, signedPsbtHex: '' }),
+    ).rejects.toThrow('invalid markItemSigned call');
+  });
+
   test('cancelBatch mid-flight drops the in-flight signature', async () => {
     const { service, signTransaction } = makeService();
     const { batchId } = await service.createBatch({
@@ -369,6 +384,63 @@ describe('ServiceBatchTxSign', () => {
     // the signature instead of publishing into the now-deleted batch.
     expect(mockAtomSet.mock.calls.length).toBe(callsAfterDispose);
     expect(signTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('disposeBatch while an item is in-flight, then the call rejects, does not overwrite Cancelled', async () => {
+    const inFlight = createDeferred<ISignedTxPro>();
+    const started = createDeferred<void>();
+    const { service, signTransaction } = makeService(async () => {
+      started.resolve();
+      return inFlight.promise;
+    });
+    const { batchId } = await service.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(2),
+    });
+
+    const signPromise = service.signRemaining({ batchId });
+    await started.promise;
+
+    const callsBeforeDispose = mockAtomSet.mock.calls.length;
+    await service.disposeBatch({ batchId });
+    const callsAfterDispose = mockAtomSet.mock.calls.length;
+    expect(callsAfterDispose).toBeGreaterThan(callsBeforeDispose);
+
+    // The common failure shape: the in-flight call rejects (device rejection
+    // / transport drop) after the extension popup already died and disposed
+    // the batch.
+    inFlight.reject(new OneKeyLocalError('device disconnected'));
+
+    await expect(signPromise).rejects.toThrow('device disconnected');
+
+    // Cancelled must not be overwritten by Stopped, and no zombie snapshot
+    // gets published for the already-deleted batch.
+    expect(mockAtomSet.mock.calls.length).toBe(callsAfterDispose);
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('disposeBatch only clears the atom when it still owns the published progress', async () => {
+    const { service: serviceA } = makeService();
+    const { batchId: batchIdA } = await serviceA.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(1),
+    });
+
+    // A second, independent batch becomes the most recently published
+    // progress after batch A's.
+    const { service: serviceB } = makeService();
+    const { batchId: batchIdB } = await serviceB.createBatch({
+      accountId,
+      networkId,
+      items: makeItems(1),
+    });
+
+    await serviceA.disposeBatch({ batchId: batchIdA });
+
+    const current = await batchTxSignAtom.get();
+    expect(current?.batchId).toBe(batchIdB);
   });
 
   test('disposeBatch after takeFinalizedResults is a no-op', async () => {

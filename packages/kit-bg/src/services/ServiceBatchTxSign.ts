@@ -195,6 +195,9 @@ export default class ServiceBatchTxSign extends ServiceBase {
     index: number;
     signedPsbtHex: string;
   }): Promise<void> {
+    if (!signedPsbtHex) {
+      throw new OneKeyLocalError('invalid markItemSigned call');
+    }
     const state = this.requireBatch(batchId);
     // A late drill-down callback (TxConfirm onSuccess arriving after the user
     // already cancelled) must not resurrect a cancelled batch into Complete.
@@ -268,6 +271,14 @@ export default class ServiceBatchTxSign extends ServiceBase {
               throw new OneKeyLocalError('signed tx missing psbtHex');
             }
           } catch (error) {
+            // cancelBatch/disposeBatch may have run while this call was
+            // in-flight and it then rejected (device rejection / transport
+            // drop after the popup died) — the common failure shape. Keep
+            // Cancelled and publish nothing rather than overwriting it with
+            // Stopped and writing a zombie snapshot for a deleted batch.
+            if (this.isCancelled(state)) {
+              throw error;
+            }
             item.summary.status = EBatchTxSignItemStatus.Failed;
             item.summary.errorMessage =
               error instanceof Error ? error.message : String(error);
