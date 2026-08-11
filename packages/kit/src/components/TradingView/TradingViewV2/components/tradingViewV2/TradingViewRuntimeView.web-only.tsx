@@ -7,6 +7,7 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
+import { createTradingViewEmbedReadyMonitor } from './tradingViewEmbedReady.web';
 import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
 
 import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
@@ -91,6 +92,10 @@ export default function TradingViewRuntimeView({
     }
 
     let cancelled = false;
+    let runtimeFailed = false;
+    let readyMonitor: ReturnType<
+      typeof createTradingViewEmbedReadyMonitor
+    > | null = null;
     onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
 
     void loadTradingViewEmbedModule(runtimeUrl)
@@ -111,30 +116,41 @@ export default function TradingViewRuntimeView({
           return;
         }
         const url = new URL(runtimeUrl, globalThis.location.href);
-        const handle = await module.mountTradingView({
-          assetBaseUrl,
-          container,
-          onMessage(payload) {
-            void Promise.resolve(
-              customReceiveHandlerRef.current?.({ data: payload }),
-            ).catch((error: unknown) => {
-              defaultLogger.app.error.log(
-                `[TradingViewRuntimeView] Message handling failed: ${String(
-                  error,
-                )}`,
-              );
-            });
-          },
-          params: url.searchParams,
-        });
-        if (cancelled) {
-          handle.unmount();
-          return;
-        }
-        handleRef.current = handle;
+        const monitor = createTradingViewEmbedReadyMonitor();
+        readyMonitor = monitor;
+        const mountPromise = module
+          .mountTradingView({
+            assetBaseUrl,
+            container,
+            onMessage(payload) {
+              monitor.notify(payload);
+              void Promise.resolve(
+                customReceiveHandlerRef.current?.({ data: payload }),
+              ).catch((error: unknown) => {
+                defaultLogger.app.error.log(
+                  `[TradingViewRuntimeView] Message handling failed: ${String(
+                    error,
+                  )}`,
+                );
+              });
+            },
+            params: url.searchParams,
+          })
+          .then((handle) => {
+            if (cancelled || runtimeFailed) {
+              handle.unmount();
+              return;
+            }
+            handleRef.current = handle;
+          });
+        await Promise.all([mountPromise, monitor.wait()]);
       })
       .catch((error: unknown) => {
+        runtimeFailed = true;
+        readyMonitor?.cancel();
         if (!cancelled) {
+          handleRef.current?.unmount();
+          handleRef.current = null;
           defaultLogger.app.error.log(
             `[TradingViewRuntimeView] DOM runtime failed, using iframe: ${String(
               error,
@@ -146,6 +162,8 @@ export default function TradingViewRuntimeView({
 
     return () => {
       cancelled = true;
+      runtimeFailed = true;
+      readyMonitor?.cancel();
       handleRef.current?.unmount();
       handleRef.current = null;
     };

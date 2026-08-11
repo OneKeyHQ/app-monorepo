@@ -3,6 +3,7 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { buildTradingViewEmbedProxyBaseUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
 
 interface ITradingViewEmbedManifestAsset {
   file: string;
@@ -525,23 +526,36 @@ async function loadModule(
   locale: string,
 ): Promise<ILoadedTradingViewEmbedModule> {
   const { baseUrl, manifest } = await getManifest(manifestUrl);
-  if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
+  const isRemoteManifest = !LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname);
+  let runtimeAssetBaseUrl = baseUrl;
+  if (isRemoteManifest) {
     await ensureServiceWorkerPrefetch(manifestUrl, manifest, locale);
+    const proxyBaseUrl = buildTradingViewEmbedProxyBaseUrl({
+      appOrigin: globalThis.location.origin,
+      sourceBaseUrl: baseUrl,
+    });
+    if (!proxyBaseUrl) {
+      throw new OneKeyLocalError('TradingView embed proxy base URL is invalid');
+    }
+    runtimeAssetBaseUrl = proxyBaseUrl;
   }
   const integrityByFile = new Map(
     manifest.assets.map((asset) => [asset.file, asset.integrity]),
   );
   await Promise.all(
     getManifestStyles(manifest).map((file) =>
-      loadStyle(file, baseUrl, integrityByFile.get(file)),
+      loadStyle(file, runtimeAssetBaseUrl, integrityByFile.get(file)),
     ),
   );
-  const entryUrl = resolveAssetUrl(manifest.entry, baseUrl).toString();
+  const entryUrl = resolveAssetUrl(
+    manifest.entry,
+    runtimeAssetBaseUrl,
+  ).toString();
   const module = (await import(
     /* webpackIgnore: true */ entryUrl
   )) as ITradingViewEmbedModule;
   return {
-    assetBaseUrl: baseUrl,
+    assetBaseUrl: runtimeAssetBaseUrl,
     module,
   };
 }

@@ -6,6 +6,8 @@ import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst } from 'workbox-strategies';
 
+import { resolveTradingViewEmbedProxySourceUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
+
 import { runTradingViewEmbedPrefetch } from './tradingViewEmbedPrefetch';
 
 const VERSION_MANIFEST_URL = '/sw-version-manifest.json';
@@ -914,8 +916,27 @@ async function prepareTradingViewEmbed(
   return bootstrapPromise;
 }
 
+function createTradingViewProxyResponse(response) {
+  const headers = new Headers(response.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+  headers.delete('transfer-encoding');
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
 async function handleTradingViewAssetRequest(request) {
-  const normalizedRequestUrl = new URL(request.url).toString();
+  const proxySourceUrl = resolveTradingViewEmbedProxySourceUrl(request.url);
+  const assetRequest = proxySourceUrl
+    ? new Request(proxySourceUrl, {
+        credentials: 'omit',
+        mode: 'cors',
+      })
+    : request;
+  const normalizedRequestUrl = new URL(assetRequest.url).toString();
   if (isTradingViewManifestRequestUrl(normalizedRequestUrl)) {
     configuredTradingViewManifestUrl = normalizedRequestUrl;
     const completedManifest = await getCompletedTradingViewManifest(
@@ -945,26 +966,38 @@ async function handleTradingViewAssetRequest(request) {
     }
   }
 
-  let baseUrl = getTradingViewBaseUrlFromRequest(request);
+  let baseUrl = getTradingViewBaseUrlFromRequest(assetRequest);
   if (!baseUrl && isTradingViewAssetRequestUrl(normalizedRequestUrl)) {
     baseUrl = await restoreTradingViewManifestState(normalizedRequestUrl);
   }
   if (!baseUrl) {
-    return fetch(request);
+    if (proxySourceUrl) {
+      throw new ServiceWorkerVersionError(
+        'tradingview_proxy_asset_unavailable',
+      );
+    }
+    return fetch(assetRequest);
   }
 
   const manifestState = tradingViewManifestStates.get(baseUrl);
   if (!manifestState) {
-    return fetch(request, {
+    if (proxySourceUrl) {
+      throw new ServiceWorkerVersionError(
+        'tradingview_proxy_manifest_unavailable',
+      );
+    }
+    return fetch(assetRequest, {
       cache: 'reload',
       credentials: 'omit',
       mode: 'cors',
     });
   }
   const cache = await caches.open(manifestState.cacheName);
-  const cachedResponse = await cache.match(request);
+  const cachedResponse = await cache.match(assetRequest);
   if (cachedResponse) {
-    return cachedResponse;
+    return proxySourceUrl
+      ? createTradingViewProxyResponse(cachedResponse)
+      : cachedResponse;
   }
   const requestUrl = normalizedRequestUrl;
   const asset = manifestState.manifest.assets.find((item) => {
@@ -976,7 +1009,9 @@ async function handleTradingViewAssetRequest(request) {
   }
   const fetched = await fetchTradingViewAsset(asset, baseUrl);
   await cache.put(fetched.request, fetched.response.clone());
-  return fetched.response;
+  return proxySourceUrl
+    ? createTradingViewProxyResponse(fetched.response)
+    : fetched.response;
 }
 
 async function fetchCriticalAsset(asset) {
@@ -1665,6 +1700,7 @@ self.addEventListener('message', (event) => {
 
 registerRoute(
   ({ request }) =>
+    Boolean(resolveTradingViewEmbedProxySourceUrl(request.url)) ||
     isTradingViewManifestRequestUrl(new URL(request.url).toString()) ||
     isTradingViewAssetRequestUrl(new URL(request.url).toString()) ||
     Boolean(getTradingViewBaseUrlFromRequest(request)),
