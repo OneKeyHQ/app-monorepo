@@ -2477,7 +2477,7 @@
   "nft.no_nfts": "ไม่มี NFT",
   "nft.no_nfts_found": "ไม่พบ NFT ที่ที่อยู่นี้",
   "nft.token_id": "รหัสโทเค็น",
-  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
+  "nft_storage_limit_reached__msg": "พื้นที่จัดเก็บ NFT เต็มแล้ว โปรดลบ NFT ออกจากอุปกรณ์แล้วลองอีกครั้ง",
   "no_account": "ไม่มีบัญชี",
   "no_backup_found_google_desc": "โปรดยืนยันการลงชื่อเข้าใช้ Google Drive ตรวจสอบให้แน่ใจว่าคุณกำลังใช้บัญชี Google ที่ถูกต้อง หรือเช็กการเชื่อมต่อเครือข่ายของคุณ",
   "no_backup_found_icloud_desc": "โปรดยืนยันการลงชื่อเข้าใช้ iCloud เปิดใช้งาน iCloud และการซิงค์ Keychain หรือ ตรวจสอบการเชื่อมต่อเครือข่ายของคุณ",

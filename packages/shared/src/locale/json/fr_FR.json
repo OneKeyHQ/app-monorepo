@@ -2477,7 +2477,7 @@
   "nft.no_nfts": "Pas de NFT",
   "nft.no_nfts_found": "Aucun NFT trouvé à cette adresse",
   "nft.token_id": "ID de jeton",
-  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
+  "nft_storage_limit_reached__msg": "Limite de stockage des NFT atteinte. Supprimez un NFT de l'appareil, puis réessayez.",
   "no_account": "Aucun compte",
   "no_backup_found_google_desc": "Veuillez vérifier votre connexion à Google Drive, assurez-vous d'utiliser le bon compte Google ou vérifiez votre connexion réseau",
   "no_backup_found_icloud_desc": "Veuillez vérifier votre connexion iCloud, activer la synchronisation iCloud et Trousseau, ou vérifier votre connexion réseau",

@@ -2477,7 +2477,7 @@
   "nft.no_nfts": "Нет NFT",
   "nft.no_nfts_found": "По этому адресу NFT не найдено",
   "nft.token_id": "ID токена",
-  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
+  "nft_storage_limit_reached__msg": "Достигнут лимит хранения NFT. Удалите NFT с устройства и повторите попытку.",
   "no_account": "Нет аккаунта",
   "no_backup_found_google_desc": "Пожалуйста, подтвердите вход в Google Drive, убедитесь, что вы используете правильную учетную запись Google, или проверьте подключение к сети",
   "no_backup_found_icloud_desc": "Пожалуйста, подтвердите вход в iCloud, включите iCloud и синхронизацию Связки ключей или проверьте подключение к сети",
