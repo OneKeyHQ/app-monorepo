@@ -310,6 +310,22 @@ export default function TrezorConnectionFlow() {
       if (!data.device) return;
       await ensureStopScan();
 
+      // The fused scan forced the usbOrBle default; pin the picked device's
+      // real transport, or a BLE device keeps a stale WEBUSB and later
+      // resolves the wrong connectId.
+      const transportLabel = getTrezorDeviceTransportLabel(data.device);
+      const selectedChannel =
+        transportLabel === 'BLE'
+          ? EConnectDeviceChannel.bluetooth
+          : EConnectDeviceChannel.usbOrBle;
+      const correctedTransportType =
+        await getForceTransportType(selectedChannel);
+      if (correctedTransportType) {
+        await backgroundApiProxy.serviceHardware.setForceTransportType({
+          forceTransportType: correctedTransportType,
+        });
+      }
+
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
           ...data,
