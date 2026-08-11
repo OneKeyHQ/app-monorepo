@@ -168,6 +168,30 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
+  it('forwards the initial right-offset configuration to the chart', () => {
+    const initialRightOffset = {
+      type: 'chartWidthPercentage' as const,
+      value: 5,
+    };
+
+    render(
+      <TradingViewNativeContainer
+        initialRightOffset={initialRightOffset}
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({ initialRightOffset }),
+    );
+  });
+
   it('shows the volume section only when loaded candles contain volume', () => {
     mockDataState = { status: 'live' };
     mockPoints = [
