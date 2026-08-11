@@ -1,0 +1,354 @@
+import { finalizeSignedPsbtHex } from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
+import { toPsbtNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import type {
+  ISignedTxPro,
+  ITxInputToSign,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  EBatchTxSignItemStatus,
+  EBatchTxSignStatus,
+} from '@onekeyhq/shared/types/batchTxSign';
+import type {
+  IBatchTxSignItemSummary,
+  IBatchTxSignProgress,
+} from '@onekeyhq/shared/types/batchTxSign';
+
+import { batchTxSignAtom } from '../states/jotai/atoms';
+
+import ServiceBase from './ServiceBase';
+
+import type { networks } from 'bitcoinjs-lib';
+
+export type IBatchTxSignCreateItem = {
+  unsignedTx: IUnsignedTxPro;
+  summary: IBatchTxSignItemSummary;
+  inputsToSign: Array<Pick<ITxInputToSign, 'index'>>;
+  autoFinalized: boolean | undefined;
+};
+
+type IBatchTxSignItemState = {
+  unsignedTx: IUnsignedTxPro;
+  inputsToSign: Array<Pick<ITxInputToSign, 'index'>>;
+  autoFinalized: boolean | undefined;
+  // Drill-down (markItemSigned) or signRemaining result. Cleared on cancel.
+  signedPsbtHex?: string;
+  // Mutated in place; also the source of the published progress.items entry.
+  summary: IBatchTxSignItemSummary;
+};
+
+type IBatchTxSignState = {
+  batchId: string;
+  accountId: string;
+  networkId: string;
+  status: EBatchTxSignStatus;
+  // Only meaningful while status is Signing; cleared on Stopped/Cancelled/Complete.
+  currentIndex?: number;
+  isSigning: boolean;
+  abortRequested: boolean;
+  items: IBatchTxSignItemState[];
+};
+
+@backgroundClass()
+export default class ServiceBatchTxSign extends ServiceBase {
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
+  }
+
+  // Background owns authoritative batch state (items, results, abort) so the
+  // UI (extension popup can die at any moment) never holds it. Keyed by batchId.
+  private batches = new Map<string, IBatchTxSignState>();
+
+  private requireBatch(batchId: string): IBatchTxSignState {
+    const state = this.batches.get(batchId);
+    if (!state) {
+      throw new OneKeyLocalError(`batchTxSign: unknown batchId ${batchId}`);
+    }
+    return state;
+  }
+
+  private requireItem(
+    state: IBatchTxSignState,
+    index: number,
+  ): IBatchTxSignItemState {
+    const item = state.items[index];
+    if (!item) {
+      throw new OneKeyLocalError(
+        `batchTxSign: unknown item index ${index} in batch ${state.batchId}`,
+      );
+    }
+    return item;
+  }
+
+  // Progress is always derived from items — the single source of truth —
+  // rather than tracked as a separate counter that could drift.
+  private buildProgress(state: IBatchTxSignState): IBatchTxSignProgress {
+    const items = state.items.map((item) => item.summary);
+    const signedCount = items.filter(
+      (item) => item.status === EBatchTxSignItemStatus.Signed,
+    ).length;
+    return {
+      batchId: state.batchId,
+      accountId: state.accountId,
+      networkId: state.networkId,
+      status: state.status,
+      totalCount: items.length,
+      signedCount,
+      currentIndex: state.currentIndex,
+      items,
+    };
+  }
+
+  private async publishProgress(state: IBatchTxSignState): Promise<void> {
+    await batchTxSignAtom.set(this.buildProgress(state));
+  }
+
+  // Routed through a method call (rather than comparing state.status inline)
+  // so TS does not over-narrow state.status to a stale literal type across
+  // the awaits in signRemaining's loop — cancelBatch mutates it from a
+  // separate call while an item is in-flight at the device.
+  private isCancelled(state: IBatchTxSignState): boolean {
+    return state.status === EBatchTxSignStatus.Cancelled;
+  }
+
+  @backgroundMethod()
+  async createBatch({
+    accountId,
+    networkId,
+    items,
+  }: {
+    accountId: string;
+    networkId: string;
+    items: IBatchTxSignCreateItem[];
+  }): Promise<{ batchId: string }> {
+    const batchId = generateUUID();
+    const state: IBatchTxSignState = {
+      batchId,
+      accountId,
+      networkId,
+      status: EBatchTxSignStatus.Overview,
+      isSigning: false,
+      abortRequested: false,
+      currentIndex: undefined,
+      items: items.map((item) => ({
+        unsignedTx: item.unsignedTx,
+        inputsToSign: item.inputsToSign,
+        autoFinalized: item.autoFinalized,
+        summary: { ...item.summary },
+      })),
+    };
+    this.batches.set(batchId, state);
+    await this.publishProgress(state);
+    return { batchId };
+  }
+
+  @backgroundMethod()
+  async getBatchProgress({
+    batchId,
+  }: {
+    batchId: string;
+  }): Promise<IBatchTxSignProgress> {
+    const state = this.requireBatch(batchId);
+    return this.buildProgress(state);
+  }
+
+  @backgroundMethod()
+  async getBatchItemUnsignedTx({
+    batchId,
+    index,
+  }: {
+    batchId: string;
+    index: number;
+  }): Promise<IUnsignedTxPro> {
+    const state = this.requireBatch(batchId);
+    const item = this.requireItem(state, index);
+    return item.unsignedTx;
+  }
+
+  // Records a drill-down signature captured by the UI's own TxConfirm
+  // onSuccess flow, so signRemaining later skips this item.
+  @backgroundMethod()
+  async markItemSigned({
+    batchId,
+    index,
+    signedPsbtHex,
+  }: {
+    batchId: string;
+    index: number;
+    signedPsbtHex: string;
+  }): Promise<void> {
+    const state = this.requireBatch(batchId);
+    const item = this.requireItem(state, index);
+    item.signedPsbtHex = signedPsbtHex;
+    item.summary.status = EBatchTxSignItemStatus.Signed;
+    item.summary.errorMessage = undefined;
+    if (
+      state.items.every(
+        (i) => i.summary.status === EBatchTxSignItemStatus.Signed,
+      )
+    ) {
+      state.status = EBatchTxSignStatus.Complete;
+      state.currentIndex = undefined;
+    }
+    await this.publishProgress(state);
+  }
+
+  // Sequential loop over items in index order. Never runs in parallel — the
+  // hardware device can only handle one signing dialog at a time.
+  @backgroundMethod()
+  async signRemaining({ batchId }: { batchId: string }): Promise<void> {
+    const state = this.requireBatch(batchId);
+    if (state.isSigning) {
+      throw new OneKeyLocalError('batch signing already in progress');
+    }
+    state.isSigning = true;
+    try {
+      // A previous round may have stopped on a failure; retry those items.
+      state.items.forEach((item) => {
+        if (item.summary.status === EBatchTxSignItemStatus.Failed) {
+          item.summary.status = EBatchTxSignItemStatus.Ready;
+          item.summary.errorMessage = undefined;
+        }
+      });
+      state.status = EBatchTxSignStatus.Signing;
+      state.abortRequested = false;
+      await this.publishProgress(state);
+
+      for (let index = 0; index < state.items.length; index += 1) {
+        const item = state.items[index];
+        // Skip items already signed (drill-down or a prior successful round).
+        if (item.summary.status !== EBatchTxSignItemStatus.Signed) {
+          if (state.abortRequested) {
+            return;
+          }
+
+          state.currentIndex = index;
+          item.summary.status = EBatchTxSignItemStatus.Signing;
+          // eslint-disable-next-line no-await-in-loop
+          await this.publishProgress(state);
+
+          let signedTx: ISignedTxPro;
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            signedTx = await this.backgroundApi.serviceSend.signTransaction({
+              accountId: state.accountId,
+              networkId: state.networkId,
+              unsignedTx: item.unsignedTx,
+              signOnly: true,
+            });
+          } catch (error) {
+            item.summary.status = EBatchTxSignItemStatus.Failed;
+            item.summary.errorMessage =
+              error instanceof Error ? error.message : String(error);
+            state.status = EBatchTxSignStatus.Stopped;
+            // currentIndex is only meaningful while actively signing.
+            state.currentIndex = undefined;
+            // eslint-disable-next-line no-await-in-loop
+            await this.publishProgress(state);
+            throw error;
+          }
+
+          // cancelBatch may have run while this item was in-flight at the
+          // device; drop the signature we just got instead of recording it.
+          if (this.isCancelled(state)) {
+            return;
+          }
+
+          item.signedPsbtHex = signedTx.psbtHex;
+          item.summary.status = EBatchTxSignItemStatus.Signed;
+          // eslint-disable-next-line no-await-in-loop
+          await this.publishProgress(state);
+        }
+      }
+
+      if (!this.isCancelled(state)) {
+        state.status = EBatchTxSignStatus.Complete;
+        state.currentIndex = undefined;
+        await this.publishProgress(state);
+      }
+    } finally {
+      state.isSigning = false;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelBatch({ batchId }: { batchId: string }): Promise<void> {
+    const state = this.batches.get(batchId);
+    if (!state) {
+      return;
+    }
+    state.abortRequested = true;
+    state.status = EBatchTxSignStatus.Cancelled;
+    state.currentIndex = undefined;
+    // Product rule: cancellation discards any signature already produced but
+    // not yet handed back to the caller via takeFinalizedResults.
+    state.items.forEach((item) => {
+      item.signedPsbtHex = undefined;
+    });
+    await this.publishProgress(state);
+  }
+
+  @backgroundMethod()
+  async takeFinalizedResults({
+    batchId,
+  }: {
+    batchId: string;
+  }): Promise<string[]> {
+    const state = this.requireBatch(batchId);
+    const hasUnsigned = state.items.some((item) => !item.signedPsbtHex);
+    if (hasUnsigned) {
+      throw new OneKeyLocalError(
+        `batchTxSign: not all items are signed for batch ${batchId}`,
+      );
+    }
+
+    // Fetch the psbt network lazily — and only once — so batches made up
+    // entirely of autoFinalized:false items never need it.
+    let psbtNetwork: networks.Network | undefined;
+    const results: string[] = [];
+    for (const item of state.items) {
+      const signedPsbtHex = item.signedPsbtHex as string;
+      if (item.autoFinalized === false) {
+        results.push(signedPsbtHex);
+      } else {
+        if (!psbtNetwork) {
+          // eslint-disable-next-line no-await-in-loop
+          const network = await this.backgroundApi.serviceNetwork.getNetwork({
+            networkId: state.networkId,
+          });
+          psbtNetwork = toPsbtNetwork(network);
+        }
+        results.push(
+          finalizeSignedPsbtHex({
+            signedPsbtHex,
+            psbtNetwork,
+            inputsToSign: item.inputsToSign,
+            autoFinalized: item.autoFinalized,
+          }),
+        );
+      }
+    }
+
+    this.batches.delete(batchId);
+    await batchTxSignAtom.set(undefined);
+    return results;
+  }
+
+  // No-throw cleanup, called from the provider's finally block. Must be a
+  // no-op if takeFinalizedResults already deleted the batch.
+  @backgroundMethod()
+  async disposeBatch({ batchId }: { batchId: string }): Promise<void> {
+    const state = this.batches.get(batchId);
+    if (state) {
+      state.abortRequested = true;
+    }
+    this.batches.delete(batchId);
+    await batchTxSignAtom.set(undefined);
+  }
+}

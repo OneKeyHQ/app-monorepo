@@ -174,6 +174,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceBatchTxSign() {
+    const Service =
+      require('../services/ServiceBatchTxSign') as typeof import('../services/ServiceBatchTxSign');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceBatchTxSign', { value });
+    return value;
+  }
+
   get serviceSwap() {
     const ServiceSwap =
       require('../services/ServiceSwap') as typeof import('../services/ServiceSwap');
