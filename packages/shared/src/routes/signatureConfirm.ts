@@ -31,6 +31,7 @@ import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSignatureConfirmRoutes {
+  BatchPsbtConfirm = 'BatchPsbtConfirm',
   TxDataInput = 'TxDataInput',
   TxAmountInput = 'TxAmountInput',
   TxConfirm = 'TxConfirm',
@@ -51,7 +52,12 @@ export enum EModalSignatureConfirmRoutes {
   WeblnSendPayment = 'WeblnSendPayment',
 }
 
+export type IBatchPsbtWalletType = 'software' | 'hardware';
+
 export type IModalSignatureConfirmParamList = {
+  [EModalSignatureConfirmRoutes.BatchPsbtConfirm]: {
+    walletType: IBatchPsbtWalletType;
+  };
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
