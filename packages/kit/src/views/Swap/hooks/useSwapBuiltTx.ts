@@ -2087,6 +2087,7 @@ export function useSwapBuildTx({
     async (
       buildSwapRes: { orderId?: string; result?: IFetchQuoteResult },
       quoteResult?: IFetchQuoteResult,
+      slippagePercentage?: number,
     ) => {
       const swapType = getSwapExecutionTypeFromQuoteResult(
         buildSwapRes?.result,
@@ -2119,7 +2120,7 @@ export function useSwapBuildTx({
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
-        slippage: slippageItem.value.toString(),
+        slippage: (slippagePercentage ?? slippageItem.value).toString(),
         sourceChain: buildSwapRes.result?.fromTokenInfo.networkId ?? '',
         receivedChain: buildSwapRes.result?.toTokenInfo.networkId ?? '',
         sourceTokenSymbol: buildSwapRes.result?.fromTokenInfo.symbol ?? '',
@@ -2179,6 +2180,12 @@ export function useSwapBuildTx({
         fromAccountNetworkId &&
         fromAccountId
       ) {
+        const reviewSlippage =
+          swapStepsRef.current.preSwapData.slippage ?? slippageItem.value;
+        const effectiveSlippage =
+          data.protocol === EProtocolOfExchange.STOCK
+            ? (data.slippage ?? reviewSlippage)
+            : reviewSlippage;
         const checkLatestBalanceRes = await checkLatestFromTokenBalance(
           data.fromTokenInfo,
           data.fromAmount,
@@ -2190,8 +2197,10 @@ export function useSwapBuildTx({
         if (!checkRes) {
           throw new OneKeyAppError('checkOtherFee failed');
         }
-        if (swapStepsRef.current.preSwapData.swapBuildResultData) {
-          return swapStepsRef.current.preSwapData.swapBuildResultData;
+        const cachedBuildResult =
+          swapStepsRef.current.preSwapData.swapBuildResultData;
+        if (cachedBuildResult?.slippagePercentage === effectiveSlippage) {
+          return cachedBuildResult;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
@@ -2209,10 +2218,7 @@ export function useSwapBuildTx({
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage:
-              data.protocol === EProtocolOfExchange.STOCK
-                ? (data.slippage ?? slippageItem.value)
-                : slippageItem.value,
+            slippagePercentage: effectiveSlippage,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
             provider: data.info.provider,
@@ -2249,7 +2255,7 @@ export function useSwapBuildTx({
             swapProvider: data?.info.provider ?? '',
             swapProviderName: data?.info.providerName ?? '',
             swapType,
-            slippage: slippageItem.value.toString(),
+            slippage: effectiveSlippage.toString(),
             sourceChain: data?.fromTokenInfo.networkId ?? '',
             receivedChain: data?.toTokenInfo.networkId ?? '',
             sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
@@ -2458,7 +2464,7 @@ export function useSwapBuildTx({
               ...buildSwapRes,
               result: {
                 ...buildSwapRes.result,
-                slippage: buildSwapRes.result.slippage ?? slippageItem.value,
+                slippage: buildSwapRes.result.slippage ?? effectiveSlippage,
               },
             },
           };
@@ -2481,16 +2487,18 @@ export function useSwapBuildTx({
               swapBuildResultData: {
                 swapInfo,
                 orderId,
+                slippagePercentage: effectiveSlippage,
                 skipSendTransAction,
                 encodedTx,
                 transferInfo,
               },
             },
           }));
-          void swapBuildFinish(buildSwapRes, data);
+          void swapBuildFinish(buildSwapRes, data, effectiveSlippage);
           return {
             swapInfo,
             orderId,
+            slippagePercentage: effectiveSlippage,
             skipSendTransAction,
             encodedTx,
             transferInfo,

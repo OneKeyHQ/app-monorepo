@@ -67,7 +67,11 @@ import PreSwapStep from '../../components/PreSwapStep';
 import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
-import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  calculateMinToAmountBySlippage,
+  shouldShowSwapReviewToAmountSkeleton,
+} from '../../utils/swapReviewState';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 interface IPreSwapDialogContentProps {
@@ -464,6 +468,31 @@ const PreSwapDialogContent = ({
     [setSwapStepNetFeeLevel],
   );
 
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    setSwapSteps((prev) => {
+      const nextMinToAmount = calculateMinToAmountBySlippage({
+        toTokenAmount: prev.preSwapData.toTokenAmount,
+        toTokenDecimals: prev.preSwapData.toToken?.decimals,
+        slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      });
+      return {
+        ...prev,
+        preSwapData: {
+          ...prev.preSwapData,
+          slippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+          minToAmount: nextMinToAmount ?? prev.preSwapData.minToAmount,
+          swapBuildResultData: undefined,
+          netWorkFee: prev.preSwapData.netWorkFee
+            ? {
+                ...prev.preSwapData.netWorkFee,
+                gasInfos: undefined,
+              }
+            : undefined,
+        },
+      };
+    });
+  }, [setSwapSteps]);
+
   const lastStep = useMemo(() => {
     return swapSteps.steps[swapSteps.steps.length - 1];
   }, [swapSteps]);
@@ -703,6 +732,7 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
+                    onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label
