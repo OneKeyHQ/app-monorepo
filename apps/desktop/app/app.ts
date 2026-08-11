@@ -1623,6 +1623,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
     EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
     EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
     EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
     EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
     EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,

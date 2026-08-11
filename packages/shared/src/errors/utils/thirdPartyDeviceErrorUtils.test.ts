@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
   THIRD_PARTY_HW_NETWORK_ERROR_CODE,
@@ -177,6 +178,18 @@ describe('convertDeviceError', () => {
     expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
     expect(error).toBeInstanceOf(ThirdPartyNetworkError);
     expect(error).toMatchObject({ vendor: EHardwareVendor.ledger });
+  });
+
+  it('keeps a cancelled BLE pairing apart from a generic in-app cancel', () => {
+    const error = convertDeviceError({
+      code: THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+      error: 'Trezor BLE pairing cancelled: BLE-1',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE);
+    expect(error.code).not.toBe(ThirdPartyHwErrorCode.UserAborted);
+    // A cancel the user asked for must not raise a toast.
+    expect(error.autoToast).toBe(false);
   });
 
   it('maps all-network install cancel code before generic hardware fallback', () => {

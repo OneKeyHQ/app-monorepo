@@ -836,6 +836,14 @@ function FinalizeWalletSetupPage({
   );
 
   const retrySetup = useCallback(() => {
+    // A Safe 7 mints a fresh BLE address each time it re-enters pairing mode, so
+    // the connectId in `deviceData` is dead once an attempt ends — go back and
+    // re-scan instead of retrying it. Other vendors keep in-place retry.
+    if (deviceData?.vendor === EHardwareVendor.trezor) {
+      setSetupError(undefined);
+      navigation.pop();
+      return;
+    }
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
@@ -850,7 +858,7 @@ function FinalizeWalletSetupPage({
     // instead of being short-circuited.
     created.current = false;
     void createWallet();
-  }, [createWallet, initialStep]);
+  }, [createWallet, initialStep, deviceData?.vendor, navigation]);
 
   const { gtMd } = useMedia();
   const theme = useTheme();

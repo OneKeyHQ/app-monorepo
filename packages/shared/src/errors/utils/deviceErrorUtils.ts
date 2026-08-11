@@ -4,6 +4,7 @@ import { isArray, isNil } from 'lodash';
 
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
+import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyHardwareErrors';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -34,11 +35,14 @@ export type IConvertDeviceErrorOptions = {
 // OneKey HD-SDK's enum. When convertDeviceError's switch can't match a
 // code, we check this set to decide whether to delegate to the
 // third-party mapper before falling back to UnknownHardwareError.
-const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>(
-  Object.values(HwkHardwareErrorCode).filter(
+const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>([
+  ...Object.values(HwkHardwareErrorCode).filter(
     (v): v is number => typeof v === 'number',
   ),
-);
+  // Codes the installed SDK build predates. Without this the routing gate reads
+  // them as unknown and they never reach the third-party mapper.
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+]);
 
 const REMOTE_CONFIG_REFRESH_ERROR_MESSAGE =
   'Unable to refresh the latest remote config';
