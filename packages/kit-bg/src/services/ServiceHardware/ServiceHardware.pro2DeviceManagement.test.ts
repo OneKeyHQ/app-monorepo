@@ -778,26 +778,11 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(internals.deviceProtocolByConnectId.get('PRO2_USB')).toBe('V2');
   });
 
-  it('deprecates wallets immediately after a successful device wipe', async () => {
+  it('keeps wallets active after a successful device wipe', async () => {
     const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
-    const getWalletDevice = jest.fn().mockResolvedValue({
-      id: 'db-device-1',
-      connectId: 'PRO2_USB',
-      deviceId: 'OLD_DEVICE_ID',
-    });
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
-          getWalletDevice,
-          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
-            'hw-wallet-1': {
-              wallet: {
-                id: 'hw-wallet-1',
-                associatedDevice: 'db-device-1',
-              },
-              device: { id: 'db-device-1' },
-            },
-          }),
           updateWalletsDeprecatedState,
         },
       } as unknown as IBackgroundApi,
@@ -816,11 +801,8 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       }),
     ).resolves.toEqual({ message: 'Success' });
 
-    expect(getWalletDevice).toHaveBeenCalledWith({ walletId: 'hw-wallet-1' });
-    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
-      willUpdateDeprecateMap: { 'hw-wallet-1': true },
-    });
-    expect(emitMock).toHaveBeenCalledWith(
+    expect(updateWalletsDeprecatedState).not.toHaveBeenCalled();
+    expect(emitMock).not.toHaveBeenCalledWith(
       EAppEventBusNames.WalletUpdate,
       undefined,
     );
@@ -1285,7 +1267,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     ).toBe(0);
   });
 
-  it('deprecates the old wallet and suppresses a reset identity event', async () => {
+  it('keeps the old wallet active and suppresses a reset identity event', async () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mocks do not depend on this binding.
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
@@ -1306,15 +1288,6 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
-          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
-            'hw-wallet-1': {
-              wallet: {
-                id: 'hw-wallet-1',
-                associatedDevice: 'db-device-1',
-              },
-              device: { id: 'db-device-1' },
-            },
-          }),
           updateWalletsDeprecatedState,
         },
       } as unknown as IBackgroundApi,
@@ -1341,10 +1314,8 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 
     await listeners.get('state')?.(event);
 
-    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
-      willUpdateDeprecateMap: { 'hw-wallet-1': true },
-    });
-    expect(emitMock).toHaveBeenCalledWith(
+    expect(updateWalletsDeprecatedState).not.toHaveBeenCalled();
+    expect(emitMock).not.toHaveBeenCalledWith(
       EAppEventBusNames.WalletUpdate,
       undefined,
     );
