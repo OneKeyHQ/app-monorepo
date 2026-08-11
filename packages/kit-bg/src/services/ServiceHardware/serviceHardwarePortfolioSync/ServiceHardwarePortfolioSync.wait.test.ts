@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  EHardwareCallContext,
-  EHardwareVendor,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
 
@@ -35,7 +33,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDev: false, isJest: true },
+  default: { isDev: false, isJest: true, isNative: true },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
@@ -391,6 +389,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   }: {
     busyResults: boolean[];
     targetState?: {
+      bleSilentSyncDisabled?: boolean;
+      lastAttemptAt?: number;
       lastContentHash?: string;
       lastTransferAt?: number;
       lastWalletId?: string;
@@ -499,30 +499,106 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
-  test('does not submit portfolio data when the device is unreachable', async () => {
+  test('uses the upload result as the hardware reachability check', async () => {
     const {
       getDeviceState,
       service,
       serviceInternals,
       uploadPortfolioPackage,
     } = prepareHardwareSync({ busyResults: [false] });
-    getDeviceState.mockRejectedValueOnce(new Error('Device not found'));
+    uploadPortfolioPackage.mockRejectedValueOnce(new Error('Device not found'));
 
     await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
-    expect(getDeviceState).toHaveBeenCalledWith({
-      connectId: 'PRO2_CONNECT_ID',
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-      params: { scope: 'runtime' },
-      silentMode: true,
-    });
-    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
-    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(getDeviceState).not.toHaveBeenCalled();
     expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
       expect.objectContaining({
         errorMessage: 'Device not found',
         status: 'error',
       }),
+    );
+  });
+
+  test('suspends mobile BLE sync after link disabled and resumes after an interactive success', async () => {
+    jest.useFakeTimers();
+    const {
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    uploadPortfolioPackage.mockRejectedValueOnce(
+      new BluetoothUnavailableWhileUsbConnectedError(),
+    );
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({
+        bleSilentSyncDisabled: true,
+        bleSilentSyncDisabledReason: 'link-disabled',
+      }),
+    );
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'ble-suspended' }),
+    );
+
+    const latestPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    };
+    await serviceInternals.syncSettledPortfolio(latestPayload);
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+
+    const resumedPayloadHandler = jest.fn();
+    (
+      service as unknown as {
+        handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
+      }
+    ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
+    await expect(
+      service.notifyInteractiveHardwareOperationSucceeded({
+        connectId: 'PRO2_CONNECT_ID',
+        deviceDbId: 'db-device-1',
+      }),
+    ).resolves.toBe(true);
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ bleSilentSyncDisabled: false }),
+    );
+
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(resumedPayloadHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceDbId: 'db-device-1',
+        totalFiat: '2',
+        walletId: 'hw-1',
+      }),
+    );
+    jest.useRealTimers();
+  });
+
+  test('restores the mobile BLE suspension after a bg runtime restart', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        targetState: { bleSilentSyncDisabled: true },
+      });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'ble-suspended' }),
     );
   });
 
@@ -537,9 +613,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       tokens: [],
     };
     await first.serviceInternals.syncSettledPortfolio(emptyPayload);
-    const firstState = first.updateTargetState.mock.calls[0][1] as {
-      lastContentHash: string;
-    };
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string };
 
     const migrated = prepareHardwareSync({
       busyResults: [false, false],
@@ -824,7 +900,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       1,
     );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
-    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledTimes(2);
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastAttemptAt: expect.any(Number) }),
+    );
     jest.useRealTimers();
   });
 
@@ -935,7 +1015,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     expect(uploadPortfolioPackage.mock.calls[0][0].packageBase64).toBe('Ag==');
-    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledTimes(2);
     expect(updateTargetState).toHaveBeenCalledWith(
       'db-device-1',
       expect.objectContaining({ lastContentHash: expect.any(String) }),
