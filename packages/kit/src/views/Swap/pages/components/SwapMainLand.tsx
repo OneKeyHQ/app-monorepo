@@ -23,7 +23,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useRateDifferenceAtom,
@@ -56,6 +59,7 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -134,6 +138,10 @@ import {
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import {
+  hasInFlightSwapReviewSteps,
+  shouldCloseSwapReviewOnFocusLoss,
+} from '../../utils/swapReviewState';
 import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -158,12 +166,21 @@ interface ISwapMainLoadProps {
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
+  const reviewDialogTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
+  const [isAppLocked] = useAppIsLockedAtom();
+  const initialRootRouterCountRef = useRef(getRootRoutersLength());
+  const isFocusedRef = useRef(isFocused);
+  const isAppLockedRef = useRef(isAppLocked);
+  isFocusedRef.current = isFocused;
+  isAppLockedRef.current = isAppLocked;
   const onPopSwapModal = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
@@ -224,6 +241,50 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
+  const hasInFlightSteps = hasInFlightSwapReviewSteps({
+    steps: swapStepData.steps,
+  });
+  const hasInFlightStepsRef = useRef(hasInFlightSteps);
+  hasInFlightStepsRef.current = hasInFlightSteps;
+
+  const resetPendingReview = useCallback(() => {
+    setSwapBuildTxFetching(false);
+    void backgroundApiProxy.serviceGas.abortEstimateFee();
+    setSwapSteps({
+      steps: [],
+      preSwapData: {},
+    });
+  }, [setSwapBuildTxFetching, setSwapSteps]);
+  const dialogClose = useCallback(() => {
+    if (reviewDialogTimerRef.current !== undefined) {
+      clearTimeout(reviewDialogTimerRef.current);
+      reviewDialogTimerRef.current = undefined;
+      resetPendingReview();
+    }
+    void dialogRef.current?.close();
+  }, [resetPendingReview]);
+  const shouldCloseReviewOnFocusLoss = useCallback(
+    () =>
+      shouldCloseSwapReviewOnFocusLoss({
+        isFocused: isFocusedRef.current,
+        isAppLocked: isAppLockedRef.current,
+        hasInFlightSteps: hasInFlightStepsRef.current,
+        initialRootRouterCount: initialRootRouterCountRef.current,
+        currentRootRouterCount: getRootRoutersLength(),
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (shouldCloseReviewOnFocusLoss()) {
+      dialogClose();
+    }
+  }, [dialogClose, isAppLocked, isFocused, shouldCloseReviewOnFocusLoss]);
+  useEffect(
+    () => () => {
+      dialogClose();
+    },
+    [dialogClose],
+  );
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
   if (swapFromTokenRef.current !== fromSelectTokenAtom) {
@@ -1001,10 +1062,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     onActionHandlerBefore();
   }, [onActionHandlerBefore]);
 
-  const dialogClose = useCallback(() => {
-    void dialogRef.current?.close();
-  }, []);
-
   const onPreSwapClose = useCallback(() => {
     dialogClose();
     setSwapBuildTxFetching(false);
@@ -1031,6 +1088,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [navigation]);
 
   const onPreSwap = useCallback(() => {
+    if (reviewDialogTimerRef.current !== undefined) {
+      return;
+    }
     if (focusSwapPro && !swapProAccount?.result?.addressDetail.address) {
       handleSelectAccountClick();
       return;
@@ -1047,7 +1107,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
-    setTimeout(() => {
+    reviewDialogTimerRef.current = setTimeout(() => {
+      reviewDialogTimerRef.current = undefined;
+      if (shouldCloseReviewOnFocusLoss()) {
+        resetPendingReview();
+        return;
+      }
       dialogRef.current = reviewDialogController.show({
         onClose: onPreSwapClose,
         title: intl.formatMessage({
@@ -1101,6 +1166,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     showSwapProReviewCustomNetworkFeeOption,
     handleConfirm,
     storeName,
+    resetPendingReview,
+    shouldCloseReviewOnFocusLoss,
   ]);
 
   const onOpenOrdersClick = useCallback(

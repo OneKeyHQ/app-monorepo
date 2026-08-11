@@ -148,6 +148,7 @@ function useIframeWheelPassthrough({
 export interface IDesktopLayoutProps {
   isChartFullscreen: boolean;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
+  isNative: boolean;
   networkId: string;
   tokenAddress: string;
   showFavoriteButton?: boolean;
@@ -156,6 +157,7 @@ export interface IDesktopLayoutProps {
 export function DesktopLayout({
   isChartFullscreen,
   onChartFullscreenChange,
+  isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
   showFavoriteButton = true,
@@ -164,7 +166,7 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
-    isNative,
+    isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
     isStockToken,
@@ -172,6 +174,10 @@ export function DesktopLayout({
   const useTradingViewNative = useTradingViewNativeInMarketDetail();
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const isNative =
+    networkId === routeNetworkId && tokenAddress === routeTokenAddress
+      ? routeIsNative
+      : storeIsNative;
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
