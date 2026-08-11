@@ -4,15 +4,16 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
-import {
-  EHardwareCallContext,
-  EHardwareVendor,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../../dbs/local/localDb';
@@ -40,6 +41,7 @@ export type IPortfolioSyncStatus =
   | 'empty'
   | 'error'
   | 'hardware-busy'
+  | 'ble-suspended'
   | 'uploaded';
 
 export type IPortfolioSyncLastResult = {
@@ -69,6 +71,7 @@ type IPortfolioServerSubmitResult = NonNullable<
 
 const LOG_PREFIX = '[PRO2-PORTFOLIO-SYNC]';
 const PORTFOLIO_SYNC_HARDWARE_BUSY_RETRY_MS = 1000;
+const PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS = 5000;
 const PORTFOLIO_PACKAGE_MAX_BYTES = PORTFOLIO_ARCHIVE_MAX_BYTES * 2;
 const PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH =
   Math.ceil(PORTFOLIO_PACKAGE_MAX_BYTES / 3) * 4;
@@ -151,6 +154,18 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   >();
 
   private pendingHardwareRetryTimerByConnectId = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+
+  private mobileBleSilentSyncDisabledTargetKeys = new Set<string>();
+
+  private pendingMobileBlePayloadByTargetKey = new Map<
+    string,
+    IPortfolioSyncSettledPayload
+  >();
+
+  private pendingMobileBleResumeTimerByTargetKey = new Map<
     string,
     ReturnType<typeof setTimeout>
   >();
@@ -261,6 +276,128 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       updatedAt: Date.now(),
       walletId: eventPayload.walletId,
     });
+  }
+
+  private setMobileBleSuspendedResult(
+    eventPayload: IPortfolioSyncSettledPayload,
+  ) {
+    this.setLastResult({
+      deviceConnectId: eventPayload.deviceConnectId,
+      status: 'ble-suspended',
+      totalTokenCount: eventPayload.tokens.length,
+      updatedAt: Date.now(),
+      walletId: eventPayload.walletId,
+    });
+  }
+
+  private rememberPendingMobileBlePayload({
+    eventPayload,
+    targetKey,
+  }: {
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }) {
+    this.pendingMobileBlePayloadByTargetKey.set(targetKey, eventPayload);
+  }
+
+  private async isMobileBleSilentSyncDisabled(targetKey: string) {
+    if (!platformEnv.isNative) {
+      return false;
+    }
+    if (this.mobileBleSilentSyncDisabledTargetKeys.has(targetKey)) {
+      return true;
+    }
+    const state = await this.portfolioSyncDb.getTargetState(targetKey);
+    if (state?.bleSilentSyncDisabled) {
+      this.mobileBleSilentSyncDisabledTargetKeys.add(targetKey);
+      return true;
+    }
+    return false;
+  }
+
+  private async suspendMobileBleSilentSync({
+    eventPayload,
+    targetKey,
+  }: {
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }) {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    this.mobileBleSilentSyncDisabledTargetKeys.add(targetKey);
+    this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
+    const resumeTimer =
+      this.pendingMobileBleResumeTimerByTargetKey.get(targetKey);
+    if (resumeTimer) {
+      clearTimeout(resumeTimer);
+      this.pendingMobileBleResumeTimerByTargetKey.delete(targetKey);
+    }
+    await this.portfolioSyncDb.updateTargetState(targetKey, {
+      bleSilentSyncDisabled: true,
+      bleSilentSyncDisabledAt: Date.now(),
+      bleSilentSyncDisabledReason: 'link-disabled',
+    });
+    debugPortfolioSyncLog('suspend-mobile-ble-link-disabled', { targetKey });
+    this.setMobileBleSuspendedResult(eventPayload);
+  }
+
+  @backgroundMethod()
+  async notifyInteractiveHardwareOperationSucceeded({
+    connectId,
+    deviceDbId,
+  }: {
+    connectId?: string;
+    deviceDbId?: string;
+  }) {
+    if (!platformEnv.isNative) {
+      return false;
+    }
+    const targetKey =
+      deviceDbId ||
+      (connectId ? this.targetKeyByConnectId.get(connectId) : undefined);
+    if (!targetKey) {
+      return false;
+    }
+    const state = await this.portfolioSyncDb.getTargetState(targetKey);
+    if (
+      !state?.bleSilentSyncDisabled &&
+      !this.mobileBleSilentSyncDisabledTargetKeys.has(targetKey)
+    ) {
+      return false;
+    }
+
+    this.mobileBleSilentSyncDisabledTargetKeys.delete(targetKey);
+    await this.portfolioSyncDb.updateTargetState(targetKey, {
+      bleSilentSyncDisabled: false,
+      bleSilentSyncDisabledAt: undefined,
+      bleSilentSyncDisabledReason: undefined,
+    });
+    debugPortfolioSyncLog('resume-mobile-ble-after-interaction', {
+      targetKey,
+    });
+
+    const pendingPayload =
+      this.pendingMobileBlePayloadByTargetKey.get(targetKey);
+    if (!pendingPayload) {
+      return true;
+    }
+    const existingTimer =
+      this.pendingMobileBleResumeTimerByTargetKey.get(targetKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+    const timer = setTimeout(() => {
+      this.pendingMobileBleResumeTimerByTargetKey.delete(targetKey);
+      const latestPendingPayload =
+        this.pendingMobileBlePayloadByTargetKey.get(targetKey);
+      this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
+      if (latestPendingPayload) {
+        this.handleAllNetworksTokenListSettled(latestPendingPayload);
+      }
+    }, PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS);
+    this.pendingMobileBleResumeTimerByTargetKey.set(targetKey, timer);
+    return true;
   }
 
   private async isPreparedUploadStillAuthorized({
@@ -379,19 +516,29 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     }
   }
 
-  private handleSyncError({
+  private async handleSyncError({
     contentHash,
     error,
+    eventPayload,
     generation,
     targetKey,
   }: {
     contentHash?: string;
     error: unknown;
+    eventPayload?: IPortfolioSyncSettledPayload;
     generation: number;
     targetKey: string;
   }) {
     if (contentHash) {
       this.releaseInFlightReservation({ contentHash, generation, targetKey });
+    }
+    if (
+      eventPayload &&
+      error instanceof BluetoothUnavailableWhileUsbConnectedError &&
+      platformEnv.isNative
+    ) {
+      await this.suspendMobileBleSilentSync({ eventPayload, targetKey });
+      return;
     }
     if (!this.isCurrentSyncGeneration(targetKey, generation)) {
       return;
@@ -492,12 +639,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private scheduleHardwareBusyRetry({
     contentHash,
     deviceConnectId,
+    eventPayload,
     generation,
     retry,
     targetKey,
   }: {
     contentHash: string;
     deviceConnectId: string;
+    eventPayload?: IPortfolioSyncSettledPayload;
     generation: number;
     retry: () => Promise<void>;
     targetKey: string;
@@ -514,9 +663,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
       void retry().catch((error) => {
-        this.handleSyncError({
+        void this.handleSyncError({
           contentHash,
           error,
+          eventPayload,
           generation,
           targetKey,
         });
@@ -534,6 +684,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }) {
     const state = await this.portfolioSyncDb.getTargetState(targetKey);
     return getPortfolioSyncCooldownRemainingMs({
+      lastAttemptAt: state?.lastAttemptAt,
       lastTransferAt: state?.lastTransferAt,
       now,
     });
@@ -745,6 +896,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             this.scheduleHardwareBusyRetry({
               contentHash: artifacts.contentHash,
               deviceConnectId,
+              eventPayload,
               generation,
               retry: () =>
                 this.uploadPreparedHardwarePortfolio({
@@ -761,6 +913,21 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             });
             return;
           }
+
+          if (await this.isMobileBleSilentSyncDisabled(targetKey)) {
+            this.releaseInFlightReservation({
+              contentHash: artifacts.contentHash,
+              generation,
+              targetKey,
+            });
+            this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
+            this.setMobileBleSuspendedResult(eventPayload);
+            return;
+          }
+
+          await this.portfolioSyncDb.updateTargetState(targetKey, {
+            lastAttemptAt: Date.now(),
+          });
 
           const upload: { portfolioUpdated: boolean } =
             await this.backgroundApi.serviceHardware.uploadPortfolioPackage({
@@ -850,6 +1017,12 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           updatedAt,
           walletId: eventPayload.walletId,
         });
+        return;
+      }
+
+      if (await this.isMobileBleSilentSyncDisabled(targetKey)) {
+        this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
+        this.setMobileBleSuspendedResult(eventPayload);
         return;
       }
 
@@ -978,28 +1151,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         this.scheduleHardwareBusyRetry({
           contentHash: artifacts.contentHash,
           deviceConnectId,
+          eventPayload,
           generation,
           retry: () => this.syncSettledPortfolio(eventPayload, generation),
-          targetKey,
-        });
-        return;
-      }
-
-      await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-        () =>
-          this.backgroundApi.serviceHardware.getDeviceState({
-            connectId: deviceConnectId,
-            hardwareCallContext:
-              EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-            params: { scope: 'runtime' },
-            silentMode: true,
-          }),
-        { deviceKey: targetKey },
-      );
-      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
-        this.releaseInFlightReservation({
-          contentHash: artifacts.contentHash,
-          generation,
           targetKey,
         });
         return;
@@ -1029,9 +1183,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         updatedAt,
       });
     } catch (error) {
-      this.handleSyncError({
+      await this.handleSyncError({
         contentHash: reservedContentHash,
         error,
+        eventPayload,
         generation,
         targetKey,
       });

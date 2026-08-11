@@ -1,6 +1,10 @@
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export type IHardwarePortfolioSyncTargetState = {
+  // Last real hardware upload attempt. Unlike lastTransferAt, this also
+  // throttles failed BLE attempts so a noisy producer cannot keep waking the
+  // device after a transient transport failure.
+  lastAttemptAt?: number;
   // Content hash of the last snapshot actually submitted/uploaded for this
   // target. Used for dedup so an unchanged portfolio is not re-synced.
   lastContentHash?: string;
@@ -10,6 +14,12 @@ export type IHardwarePortfolioSyncTargetState = {
   // Standard wallet whose snapshot was last applied. Missing legacy values
   // force one overwrite so unknown hidden-wallet remnants cannot survive.
   lastWalletId?: string;
+  // Native BLE may be disabled by firmware while USB owns the device link.
+  // Keep this durable across bg runtime restarts; only a successful explicit
+  // mobile hardware operation is allowed to resume silent Portfolio uploads.
+  bleSilentSyncDisabled?: boolean;
+  bleSilentSyncDisabledAt?: number;
+  bleSilentSyncDisabledReason?: 'link-disabled';
 };
 
 export type IHardwarePortfolioSyncData = {
