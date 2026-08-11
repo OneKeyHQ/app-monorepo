@@ -127,7 +127,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   test('setRawData(builder) rebuilds the record after a read failure', async () => {
     const entity = new HealTestEntity();
     const { storage, store } = makeBrokenStorage({
-      errorName: 'NotReadableError',
+      errorName: 'UnknownError',
     });
     (entity as any).appStorage = storage;
 
@@ -142,6 +142,19 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     const entity = new HealTestEntity();
     const { storage, calls } = makeBrokenStorage({
       errorName: 'SomeRandomError',
+    });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']);
+  });
+
+  test('NotReadableError propagates without deleting (transient IO condition)', async () => {
+    const entity = new HealTestEntity();
+    const { storage, calls } = makeBrokenStorage({
+      errorName: 'NotReadableError',
     });
     (entity as any).appStorage = storage;
 

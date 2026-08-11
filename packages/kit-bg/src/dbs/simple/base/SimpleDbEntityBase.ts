@@ -15,19 +15,16 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 
-// Chromium rejects reads with these signatures when a value's external blob
-// file is corrupted (e.g. crash mid-write); the record stays unreadable
-// forever. UnknownError alone is not enough — Chromium also uses it for
-// transient IO failures (disk full, backing store open errors), so it must
-// carry the corrupted-blob message to qualify.
+// Chromium rejects reads with exactly this signature when a value's external
+// blob file is corrupted (e.g. crash mid-write); the record then stays
+// unreadable forever. Match nothing broader: UnknownError without this
+// message and NotReadableError both cover transient IO conditions where
+// deleting would lose recoverable data (OK-59997).
 function isUnreadableStorageValueError(error: unknown): boolean {
   const { name, message } = (error ?? {}) as {
     name?: string;
     message?: string;
   };
-  if (name === 'NotReadableError') {
-    return true;
-  }
   return (
     name === 'UnknownError' &&
     Boolean(message?.includes('Failed to read large IndexedDB value'))
