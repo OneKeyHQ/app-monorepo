@@ -447,6 +447,21 @@ class ServiceWebviewPerp extends ServiceBase {
     );
   }
 
+  @backgroundMethod()
+  async clearPerpsDepositTokenListRuntimeCache() {
+    // Bump every known generation so in-flight fetches skip their simpleDb
+    // write-back; otherwise a "clear Perps data" could be repopulated by a
+    // request that was already running.
+    const cacheKeys = new Set([
+      ...this.perpsDepositTokenListCache.keys(),
+      ...this.perpsDepositTokenListWriteGenerations.keys(),
+    ]);
+    cacheKeys.forEach((cacheKey) =>
+      this.bumpPerpsDepositTokenListWriteGeneration(cacheKey),
+    );
+    this.perpsDepositTokenListCache.clear();
+  }
+
   private buildPerpsDepositTokenListOwnerKey({
     allNetworksAccountId,
     ownerIndexId,
