@@ -613,6 +613,7 @@ class ServiceWebviewPerp extends ServiceBase {
           this.isPerpsDepositTokenListWriteGenerationCurrent({
             cacheKey: options.cacheKey,
             writeGeneration: options.writeGeneration,
+            clearEpoch: options.clearEpoch,
           })
         ) {
           void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
