@@ -95,11 +95,54 @@ export default function TradingViewRuntimeView({
     let cancelled = false;
     onLoadStartRef.current?.(createLoadStartEvent(runtimeUrl));
 
+    // TEMP embed cold-start timing probe (validation branch only, remove
+    // before merging into the feature PR). Prints one console line per mount
+    // splitting the click path into module / mount / first-paint segments so
+    // manual QA runs produce comparable numbers.
+    const timing = { start: performance.now(), module: 0, mount: 0 };
+    let paintWatch: ReturnType<typeof setInterval> | undefined;
+    const stopPaintWatch = () => {
+      if (paintWatch !== undefined) {
+        clearInterval(paintWatch);
+        paintWatch = undefined;
+      }
+    };
+    const watchFirstPaint = () => {
+      const watchStart = performance.now();
+      paintWatch = setInterval(() => {
+        if (performance.now() - watchStart > 30_000) {
+          stopPaintWatch();
+          return;
+        }
+        try {
+          const innerDocument =
+            container.querySelector('iframe')?.contentDocument;
+          if (innerDocument?.querySelector('canvas')) {
+            stopPaintWatch();
+            const now = performance.now();
+            // eslint-disable-next-line no-console
+            console.info(
+              `[TVEmbedTiming] module=${Math.round(
+                timing.module - timing.start,
+              )}ms mount=${Math.round(
+                timing.mount - timing.module,
+              )}ms paint=${Math.round(now - timing.mount)}ms total=${Math.round(
+                now - timing.start,
+              )}ms`,
+            );
+          }
+        } catch {
+          // Inner document not readable yet; keep polling.
+        }
+      }, 100);
+    };
+
     void loadTradingViewEmbedModule(runtimeUrl)
       .then(async ({ assetBaseUrl, module }) => {
         if (cancelled) {
           return;
         }
+        timing.module = performance.now();
         await migrateLegacyTradingViewStorage(runtimeUrl).catch(
           (error: unknown) => {
             defaultLogger.app.error.log(
@@ -134,6 +177,8 @@ export default function TradingViewRuntimeView({
           return;
         }
         handleRef.current = handle;
+        timing.mount = performance.now();
+        watchFirstPaint();
         setMounted(true);
       })
       .catch((error: unknown) => {
@@ -149,6 +194,7 @@ export default function TradingViewRuntimeView({
 
     return () => {
       cancelled = true;
+      stopPaintWatch();
       handleRef.current?.unmount();
       handleRef.current = null;
     };
