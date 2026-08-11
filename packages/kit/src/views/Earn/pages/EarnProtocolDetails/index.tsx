@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -837,17 +838,29 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // without the logo the entry list handed over the header would render the
   // placeholder icon on every entry and swap to the real logo on response.
   const headerTokenLogoURI = tokenInfo?.token?.logoURI ?? logoURI;
+  // OK-59961: entries that carry no logoURI route param (a banner deep link)
+  // have nothing to draw until getProtocolDetailsV2 resolves, so the header
+  // rendered Token's placeholder coin and swapped in the real logo a beat
+  // later. Skeleton it instead while the request is still in flight — gated on
+  // isLoading rather than on the URI alone, so a token that genuinely has no
+  // logo still falls back to the placeholder instead of pulsing forever.
+  const isHeaderTokenLogoPending = !headerTokenLogoURI && isLoading;
 
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" tokenImageUri={headerTokenLogoURI} />
+        {isHeaderTokenLogoPending ? (
+          // Matches Token size="md" (tokenImageSize $8) so nothing shifts
+          <Skeleton w="$8" h="$8" radius="round" />
+        ) : (
+          <Token size="md" tokenImageUri={headerTokenLogoURI} />
+        )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, headerTokenLogoURI],
+    [symbol, headerTokenLogoURI, isHeaderTokenLogoPending],
   );
 
   const handleOpenManageModal = useCallback(

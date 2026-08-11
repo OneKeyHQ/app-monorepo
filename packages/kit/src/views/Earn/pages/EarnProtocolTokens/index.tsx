@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   ListView,
   SizableText,
   Skeleton,
@@ -27,6 +28,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import {
@@ -250,9 +252,30 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
         <ListItem.Text
           flex={1}
           primary={
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {row.symbol}
-            </SizableText>
+            <XStack ai="center" gap="$1.5" minWidth={0}>
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {row.symbol}
+              </SizableText>
+              {/* Sunset protocols (lido/babylon) come back as WithdrawOnly and
+                  are deliberately kept in the aggregation (OK-59305), but this
+                  page never surfaced that state, so their rows looked as if
+                  they still accepted deposits (OK-59959). The protocol list and
+                  the switcher already label the same group with this copy. */}
+              {row.item.provider.group ===
+              EStakeProtocolGroupEnum.WithdrawOnly ? (
+                <Badge badgeType="default" badgeSize="sm" flexShrink={0}>
+                  <Badge.Text>
+                    {intl.formatMessage({
+                      id: ETranslations.earn_withdrawal_only,
+                    })}
+                  </Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
           }
         />
         <YStack ai="flex-end" jc="center" gap="$0.5">

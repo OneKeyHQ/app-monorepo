@@ -186,7 +186,17 @@ const ManageSectionShell = ({
           <XStack h="$11" ai="center" jc="space-between">
             <Skeleton h="$6" w="$24" borderRadius="$2" />
             <XStack ai="center" gap="$1.5">
-              <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+              {/* Everything else in this frame is a Skeleton, but the token
+                  icon was rendered straight away — entries that carry no
+                  tokenImageUri route param (e.g. a banner deep link) then drew
+                  Token's empty placeholder and popped the real logo in once
+                  tokenInfo resolved. Skeleton it at the same size instead so
+                  the swap costs no layout shift (OK-59961). */}
+              {fallbackTokenImageUri ? (
+                <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+              ) : (
+                <Skeleton w="$6" h="$6" radius="round" />
+              )}
               <SizableText size="$headingXl">{symbol}</SizableText>
             </XStack>
           </XStack>

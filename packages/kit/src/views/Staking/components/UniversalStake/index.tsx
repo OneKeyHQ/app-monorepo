@@ -188,6 +188,7 @@ function ProtocolSwitchTriggerRow({
   fallbackAprText,
   isLoading,
   isSwitchEnabled,
+  canSwitchProtocols,
   onPress,
 }: {
   currentProtocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
@@ -195,7 +196,11 @@ function ProtocolSwitchTriggerRow({
   fallbackProviderLogoUri?: string;
   fallbackAprText?: string;
   isLoading?: boolean;
+  /** Interactive right now — false while a tx is in flight (OK-58029) */
   isSwitchEnabled: boolean;
+  /** Switchable in principle. Drives layout only, so a transient lock cannot
+      change the rendered shape and remount the icon (OK-59957) */
+  canSwitchProtocols: boolean;
   onPress: () => void;
 }) {
   const providerName = getEarnProviderDisplayName(
@@ -209,7 +214,9 @@ function ProtocolSwitchTriggerRow({
     protocol: currentProtocol,
     fallbackText: fallbackAprText,
   });
-  const showChevron = isSwitchEnabled || isLoading;
+  // Presence follows canSwitchProtocols so locking the switcher mid-tx dims the
+  // chevron instead of removing it (its removal reflowed the row) (OK-59957)
+  const showChevron = canSwitchProtocols || isLoading;
   let aprElement = null;
 
   if (aprDisplay) {
@@ -319,7 +326,14 @@ function ProtocolSwitcher({
     protocols,
     selectedProtocol,
   } = protocolSwitchConfig;
-  const isSwitchEnabled = protocols.length > 1 && !disabled;
+  // Split structural from interactive (OK-59957). canSwitchProtocols decides
+  // whether the Popover wrapper exists; disabled only removes interactivity.
+  // Deriving the tree shape from `disabled` made pressing the stake button
+  // swap <Popover renderTrigger={trigger}/> for a bare <trigger/>, which
+  // unmounted and remounted the row — reloading the remote protocol image
+  // (the visible flicker) and reflowing it as the chevron vanished.
+  const canSwitchProtocols = protocols.length > 1;
+  const isSwitchEnabled = canSwitchProtocols && !disabled;
   const renderProtocolListContent = useCallback(
     ({
       closePopover,
@@ -353,6 +367,23 @@ function ProtocolSwitcher({
       tokenSymbol,
     ],
   );
+  // Always-controlled open state (OK-59957). Passing `open` only while locked
+  // would flip Popover between controlled and uncontrolled: its internal
+  // isOpen would stay true through the lock and the list would pop itself open
+  // again when the tx finished.
+  const [isProtocolListOpen, setIsProtocolListOpen] = useState(false);
+  const handleProtocolListOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setIsProtocolListOpen(nextOpen && isSwitchEnabled);
+    },
+    [isSwitchEnabled],
+  );
+  useEffect(() => {
+    if (!isSwitchEnabled) {
+      setIsProtocolListOpen(false);
+    }
+  }, [isSwitchEnabled]);
+
   const trigger = (
     <ProtocolSwitchTriggerRow
       currentProtocol={currentProtocol}
@@ -361,11 +392,15 @@ function ProtocolSwitcher({
       fallbackAprText={fallbackAprText}
       isLoading={isLoading}
       isSwitchEnabled={isSwitchEnabled}
+      canSwitchProtocols={canSwitchProtocols}
       onPress={() => {}}
     />
   );
 
-  if (!isSwitchEnabled) {
+  // Only a genuinely single-protocol asset drops the Popover wrapper — that is
+  // stable for the lifetime of the screen, so the trigger is never remounted
+  // mid-interaction (OK-59957)
+  if (!canSwitchProtocols) {
     return trigger;
   }
 
@@ -373,6 +408,10 @@ function ProtocolSwitcher({
     <Popover
       title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
       placement="bottom-end"
+      // Locked mid-tx (OK-58029) simply stays closed, rather than unmounting
+      // the Popover and changing the tree shape (OK-59957)
+      open={isProtocolListOpen}
+      onOpenChange={handleProtocolListOpenChange}
       renderTrigger={trigger}
       floatingPanelProps={{
         w: 360,
@@ -389,6 +428,11 @@ type IUniversalStakeProps = {
   balance: string;
 
   tokenImageUri?: string;
+  /**
+   * Token metadata still resolving and no image came in via route params —
+   * skeleton the icon instead of flashing the placeholder coin (OK-59961)
+   */
+  tokenImageLoading?: boolean;
   tokenSymbol?: string;
 
   decimals?: number;
@@ -451,6 +495,7 @@ export function UniversalStake({
   decimals,
   minTransactionFee = '0',
   tokenImageUri,
+  tokenImageLoading,
   tokenSymbol,
   providerName = '',
   providerLogo,
@@ -2257,6 +2302,7 @@ export function UniversalStake({
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
+                selectedTokenImageLoading: tokenImageLoading,
                 selectedTokenSymbol: tokenSymbol?.toUpperCase(),
                 selectedNetworkImageUri: network?.logoURI,
                 ...tokenSelectorTriggerProps,

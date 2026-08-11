@@ -76,7 +76,18 @@ function EarnMobileHomeContentComponent({
         <RefreshControl refreshing={isPullRefreshing} onRefresh={onRefresh} />
       }
     >
-      <HeaderScrollGestureWrapper onHorizontalSwipe={onHeaderHorizontalSwipe}>
+      {/* disableVerticalScroll is required here (OK-59963): this wrapper drives
+          scrolling through CollapsibleTabContext, but the Earn home is a plain
+          ScrollView with no Tabs.Container above it, so the context is
+          undefined and the vertical pan swallows the drag (cancelsTouchesInView)
+          without scrolling anything — the whole header block, banner included,
+          became unscrollable. Only the horizontal tab-switch swipe is wanted
+          here; its failOffsetY lets vertical drags fall through to the
+          ScrollView. */}
+      <HeaderScrollGestureWrapper
+        onHorizontalSwipe={onHeaderHorizontalSwipe}
+        disableVerticalScroll
+      >
         {/* Token spacing, not raw numbers: narrow Android screens scale the
             token scale by 0.9 and a literal would not follow (OK-59904) */}
         <YStack pt="$6" bg="$bgApp" pointerEvents="box-none">
