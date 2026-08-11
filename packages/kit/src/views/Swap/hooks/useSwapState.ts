@@ -514,6 +514,16 @@ export function useSwapActionState() {
       ),
     [fromToken, quoteCurrentSelect, toToken],
   );
+  const hasValidQuoteInput = useMemo(() => {
+    const amount = new BigNumber(fromTokenAmount.value);
+    return Boolean(
+      fromTokenAmount.isInput &&
+      fromToken &&
+      toToken &&
+      amount.isFinite() &&
+      amount.gt(0),
+    );
+  }, [fromToken, fromTokenAmount, toToken]);
   const quoteResultNoMatch = useMemo(
     () =>
       Boolean(
@@ -599,6 +609,7 @@ export function useSwapActionState() {
     quoteRequestMatchesCurrentInput,
   });
   const canRefreshQuoteFromAction = shouldOfferSwapQuoteRefresh({
+    hasValidQuoteInput,
     isRefreshQuote,
     quoteResultNoMatch,
     quoteResultNoMatchDebounced: quoteResultNoMatchDebounce,
@@ -629,16 +640,6 @@ export function useSwapActionState() {
       quoteResultPairNoMatch,
     ],
   );
-  const hasValidQuoteInput = useMemo(() => {
-    const amount = new BigNumber(fromTokenAmount.value);
-    return Boolean(
-      fromTokenAmount.isInput &&
-      fromToken &&
-      toToken &&
-      amount.isFinite() &&
-      amount.gt(0),
-    );
-  }, [fromToken, fromTokenAmount, toToken]);
   const isQuoteRequestStarting = Boolean(
     quoteRequestMatchesCurrentInput &&
     quoteActionLock.actionLock &&

@@ -709,6 +709,7 @@ describe('swap quote progress', () => {
   it('offers refresh only after quote mismatch and request state settle', () => {
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: false,
         quoteResultNoMatchDebounced: true,
@@ -718,6 +719,7 @@ describe('swap quote progress', () => {
     ).toBe(false);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: true,
         quoteResultNoMatchDebounced: true,
@@ -727,6 +729,7 @@ describe('swap quote progress', () => {
     ).toBe(false);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: true,
         quoteResultNoMatchDebounced: true,
@@ -736,6 +739,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: true,
         quoteResultNoMatch: false,
         quoteResultNoMatchDebounced: false,
@@ -743,6 +747,16 @@ describe('swap quote progress', () => {
         quoteEventFetching: true,
       }),
     ).toBe(true);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: false,
+        isRefreshQuote: true,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(false);
   });
 
   it('stops action loading when the first actionable quote arrives', () => {

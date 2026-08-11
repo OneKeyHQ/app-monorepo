@@ -306,18 +306,23 @@ export function isSwapQuoteInputAmountMatched({
 }
 
 export function shouldOfferSwapQuoteRefresh({
+  hasValidQuoteInput,
   isRefreshQuote,
   quoteResultNoMatch,
   quoteResultNoMatchDebounced,
   quoteLoading,
   quoteEventFetching,
 }: {
+  hasValidQuoteInput: boolean;
   isRefreshQuote: boolean;
   quoteResultNoMatch: boolean;
   quoteResultNoMatchDebounced: boolean;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (!hasValidQuoteInput) {
+    return false;
+  }
   if (isRefreshQuote) {
     return true;
   }
