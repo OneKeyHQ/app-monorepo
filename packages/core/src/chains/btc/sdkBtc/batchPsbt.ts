@@ -44,6 +44,23 @@ function getPsbtOutpointKeys(psbt: Psbt): string[] {
   );
 }
 
+// Outpoint keys (see getPsbtOutpointKeys) carry the txid in internal
+// (little-endian) byte order. Reverse the txid byte-pairs to the display
+// (big-endian) order used by block explorers, for surfacing a conflict's
+// outpoint in a user/developer-facing message. The vout suffix passes
+// through unchanged. Reverses byte-pair by byte-pair on the hex string
+// directly rather than via Buffer#reverse(), since an eslint autofix on the
+// mutating array method rewrites it to Uint8Array#toReversed() (a plain
+// typed array whose toString() drops the 'hex' encoding argument).
+export function outpointToDisplay(outpoint: string): string {
+  const [rawTxid, vout] = outpoint.split(':');
+  let displayTxid = '';
+  for (let i = rawTxid.length - 2; i >= 0; i -= 2) {
+    displayTxid += rawTxid.slice(i, i + 2);
+  }
+  return `${displayTxid}:${vout}`;
+}
+
 // A conflict where EVERY involved psbt index is exempt (isBtcWalletProvider,
 // e.g. Babylon pre-signed alternative spends of the same staking output) is
 // intentionally allowed through and not reported.

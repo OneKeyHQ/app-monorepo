@@ -10,6 +10,7 @@ import {
   findDuplicatePsbtIndexes,
   findPsbtOutpointConflicts,
   getPsbtUnsignedTxHex,
+  outpointToDisplay,
 } from './batchPsbt';
 import { getBtcForkNetwork } from './networks';
 
@@ -395,5 +396,22 @@ describe('finalizeSignedPsbtHex', () => {
     });
 
     expect(result).toBe(signedPsbtHex);
+  });
+});
+
+describe('outpointToDisplay', () => {
+  it('reverses a short txid byte-pair by byte-pair and keeps the vout suffix', () => {
+    expect(outpointToDisplay('aabbcc:1')).toBe('ccbbaa:1');
+  });
+
+  it('reverses a realistic 32-byte txid to display (big-endian) order', () => {
+    const rawTxid = Array.from({ length: 32 }, (_, i) =>
+      i.toString(16).padStart(2, '0'),
+    ).join('');
+    const expectedDisplayTxid = Array.from({ length: 32 }, (_, i) =>
+      (31 - i).toString(16).padStart(2, '0'),
+    ).join('');
+
+    expect(outpointToDisplay(`${rawTxid}:2`)).toBe(`${expectedDisplayTxid}:2`);
   });
 });

@@ -14,6 +14,7 @@ import {
   finalizeSignedPsbtHex,
   findDuplicatePsbtIndexes,
   findPsbtOutpointConflicts,
+  outpointToDisplay,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
 import {
   parseHexContext,
@@ -29,11 +30,7 @@ import type {
   IBtcOutput,
   IEncodedTxBtc,
 } from '@onekeyhq/core/src/chains/btc/types';
-import type {
-  IEncodedTx,
-  ITxInputToSign,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, ITxInputToSign } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -49,6 +46,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EBatchTxSignItemStatus } from '@onekeyhq/shared/types/batchTxSign';
 import {
   BtcDappUniSetChainTypes,
@@ -750,7 +748,31 @@ class ProviderApiBtc extends ProviderApiBase {
       return result;
     }
 
-    // ===== batch flow =====
+    return this._signPsbtsBatchFlow(request, {
+      accountId,
+      networkId,
+      psbtHexs,
+      options,
+      psbtNetwork,
+    });
+  }
+
+  private async _signPsbtsBatchFlow(
+    request: IJsBridgeMessagePayload,
+    {
+      accountId,
+      networkId,
+      psbtHexs,
+      options,
+      psbtNetwork,
+    }: {
+      accountId: string;
+      networkId: string;
+      psbtHexs: string[];
+      options: ISignPsbtOptions | ISignPsbtOptions[];
+      psbtNetwork: BitcoinJS.networks.Network;
+    },
+  ): Promise<string[]> {
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -780,25 +802,17 @@ class ProviderApiBtc extends ProviderApiBase {
       );
     }
 
+    // NOTE: isBtcWalletProvider is dapp-supplied; this exemption makes the
+    // conflict check an accident guard, not a security boundary — per-item
+    // display and input ownership remain the real controls.
     const exemptIndexes = perItemOptions
       .map((o, i) => (o?.isBtcWalletProvider ? i : -1))
       .filter((i) => i >= 0);
     const conflicts = findPsbtOutpointConflicts({ psbts, exemptIndexes });
     if (conflicts.length > 0) {
-      // Outpoint keys use internal (little-endian) byte order; reverse the
-      // txid part for the DApp-facing message so developers see the display
-      // (big-endian) txid they recognize from explorers. Reversed byte-pair
-      // by byte-pair on the hex string directly, rather than via
-      // Buffer#reverse(), since an eslint autofix on the mutating array
-      // method rewrites it to Uint8Array#toReversed() (a plain typed array
-      // whose toString() drops the 'hex' encoding argument).
-      const [rawTxid, vout] = conflicts[0].outpoint.split(':');
-      let displayTxid = '';
-      for (let i = rawTxid.length - 2; i >= 0; i -= 2) {
-        displayTxid += rawTxid.slice(i, i + 2);
-      }
+      const displayOutpoint = outpointToDisplay(conflicts[0].outpoint);
       throw web3Errors.rpc.invalidParams(
-        `conflicting inputs across psbts (double spend): ${displayTxid}:${vout}`,
+        `conflicting inputs across psbts (double spend): ${displayOutpoint}`,
       );
     }
 
@@ -812,7 +826,11 @@ class ProviderApiBtc extends ProviderApiBase {
         options: itemOptions,
         accountId,
         networkId,
+        // Drift (accepted): legacy _signPsbt uses the dapp connection's
+        // accountInfo.address, while the batch flow uses getAccount().address
+        // here — only affects the isChange display flag, never signing.
         address: account.address,
+        account,
       });
       if (!inputsToSign.length) {
         throw web3Errors.rpc.invalidParams(
@@ -838,7 +856,7 @@ class ProviderApiBtc extends ProviderApiBase {
           accountId,
           networkId,
           encodedTx,
-        } as IUnsignedTxPro,
+        },
         summary: {
           index: i,
           recipient: amounts.externalRecipients[0] ?? '',
@@ -885,6 +903,7 @@ class ProviderApiBtc extends ProviderApiBase {
     accountId,
     networkId,
     address,
+    account: providedAccount,
   }: {
     psbt: Psbt;
     psbtNetwork: BitcoinJS.networks.Network;
@@ -892,16 +911,22 @@ class ProviderApiBtc extends ProviderApiBase {
     accountId: string;
     networkId: string;
     address?: string;
+    // Batch flow already resolved the account once for the whole batch and
+    // passes it here to avoid a redundant getAccount call per item. Legacy
+    // `_signPsbt` does not pass it, so its behavior is unchanged.
+    account?: INetworkAccount;
   }): Promise<{
     encodedTx: IEncodedTxBtc;
     inputsToSign: ITxInputToSign[];
   }> {
     const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
 
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const account =
+      providedAccount ??
+      (await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      }));
 
     let inputsToSign: ITxInputToSign[] = [];
     if (
