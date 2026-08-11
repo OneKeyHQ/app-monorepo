@@ -3,10 +3,9 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 /**
- * 按用户实际选中的设备解析创建钱包所使用的 transport。
- * 全局设置只是默认值；OneKey 使用搜索结果的 commType，第三方设备使用
- * raw.connectionType。这样即使 USB/BLE 合并列表与全局设置不同，也不会把
- * USB serial 写入 bleConnectId，或把 BLE 外设 ID 写入 usbConnectId。
+ * Resolve the transport from the device endpoint that was actually selected.
+ * The global transport is only a fallback: OneKey devices expose commType,
+ * while third-party fused scans expose raw.connectionType.
  */
 export function resolveHwWalletTransportType(params: {
   globalTransportType: EHardwareTransportType;

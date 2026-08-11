@@ -68,14 +68,12 @@ function showStoppedScanError(error: Error, intl: IntlShape) {
   ) {
     Toast.error({
       title: intl.formatMessage({ id: ETranslations.global_network_error }),
-      message: error.message || 'DeviceScanError',
     });
     return;
   }
   if (isConnectionTimeoutError(error)) {
     Toast.error({
       title: intl.formatMessage({ id: ETranslations.global_connection_failed }),
-      message: error.message || 'DeviceScanError',
     });
     return;
   }
@@ -93,7 +91,11 @@ function showStoppedScanError(error: Error, intl: IntlShape) {
     });
     return;
   }
-  Toast.error({ title: error.message || 'DeviceScanError' });
+  Toast.error({
+    title: intl.formatMessage({
+      id: ETranslations.device_communication_failed,
+    }),
+  });
 }
 
 export function useOnboardingDeviceScanErrorHandler({

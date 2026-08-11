@@ -32,6 +32,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useOnboardingDeviceScanErrorHandler } from './useOnboardingDeviceScanErrorHandler';
 
@@ -84,5 +85,8 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
     });
 
     expect(stopScan).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith({
+      title: ETranslations.device_communication_failed,
+    });
   });
 });

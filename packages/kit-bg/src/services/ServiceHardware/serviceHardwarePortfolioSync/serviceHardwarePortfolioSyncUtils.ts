@@ -38,7 +38,7 @@ export type IPortfolioSyncArtifacts = {
   portfolioJsonText: string;
 };
 
-export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 20_000;
+export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 60_000;
 
 export function getPortfolioDisplayTimestamp({
   timestamp,
@@ -51,18 +51,21 @@ export function getPortfolioDisplayTimestamp({
 }
 
 export function getPortfolioSyncCooldownRemainingMs({
+  lastAttemptAt,
   cooldownMs = PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   lastTransferAt,
   now,
 }: {
+  lastAttemptAt?: number;
   cooldownMs?: number;
   lastTransferAt?: number;
   now: number;
 }): number {
-  if (!lastTransferAt) {
+  const lastHardwareSyncAt = Math.max(lastAttemptAt ?? 0, lastTransferAt ?? 0);
+  if (!lastHardwareSyncAt) {
     return 0;
   }
-  return Math.max(lastTransferAt + cooldownMs - now, 0);
+  return Math.max(lastHardwareSyncAt + cooldownMs - now, 0);
 }
 
 function buildPortfolioAccountFromEventPayload(

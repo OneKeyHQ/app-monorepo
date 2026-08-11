@@ -57,8 +57,8 @@ describe('ServiceNFT Pro2 upload routing', () => {
     await service.uploadNFTImageToDevice({
       accountId: 'account-id',
       pro2UploadParams: {
-        imageHex: 'full-image',
-        thumbnailHex: 'thumbnail-image',
+        imageJpegBase64: 'full-image',
+        thumbnailJpegBase64: 'thumbnail-image',
         title: 'NFT #1',
         subtitle: 'Collection',
       },
@@ -66,8 +66,8 @@ describe('ServiceNFT Pro2 upload routing', () => {
 
     expect(uploadPro2Nft).toHaveBeenCalledWith({
       connectId: 'device-connect-id',
-      imageHex: 'full-image',
-      thumbnailHex: 'thumbnail-image',
+      imageJpegBase64: 'full-image',
+      thumbnailJpegBase64: 'thumbnail-image',
       title: 'NFT #1',
       subtitle: 'Collection',
     });
@@ -110,8 +110,8 @@ describe('ServiceNFT Pro2 upload routing', () => {
       service.uploadNFTImageToDevice({
         accountId: 'account-id',
         pro2UploadParams: {
-          imageHex: 'full-image',
-          thumbnailHex: 'thumbnail-image',
+          imageJpegBase64: 'full-image',
+          thumbnailJpegBase64: 'thumbnail-image',
           title: 'NFT #1',
           subtitle: 'Collection',
         },
@@ -138,8 +138,8 @@ describe('ServiceNFT Pro2 upload routing', () => {
       service.uploadNFTImageToDevice({
         accountId: 'account-id',
         pro2UploadParams: {
-          imageHex: 'full-image',
-          thumbnailHex: 'thumbnail-image',
+          imageJpegBase64: 'full-image',
+          thumbnailJpegBase64: 'thumbnail-image',
           title: 'NFT #1',
           subtitle: 'Collection',
         },

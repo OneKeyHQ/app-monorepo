@@ -65,7 +65,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     ).toBe(1_784_624_400_000);
   });
 
-  test('calculates the 20s hardware transfer cooldown window', () => {
+  test('calculates the 60s hardware sync cooldown window', () => {
     expect(
       getPortfolioSyncCooldownRemainingMs({
         lastTransferAt: undefined,
@@ -79,6 +79,14 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         now: 6000,
       }),
     ).toBe(PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS - 5000);
+
+    expect(
+      getPortfolioSyncCooldownRemainingMs({
+        lastAttemptAt: 4000,
+        lastTransferAt: 1000,
+        now: 6000,
+      }),
+    ).toBe(PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS - 2000);
 
     expect(
       getPortfolioSyncCooldownRemainingMs({
