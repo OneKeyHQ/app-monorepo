@@ -1,10 +1,10 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import QRCodeUtil from 'qrcode';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
+import { drawDotQRCodeOnCanvas } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -310,28 +310,12 @@ export const ShareImageGenerator = forwardRef<
           ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
 
           try {
-            const qrCodeDataUrl = await QRCodeUtil.toDataURL(
-              referralQrCodeUrl ?? '',
-              {
-                width: qrCodeInnerSize,
-                margin: 0,
-                color: {
-                  dark: '#000000',
-                  light: '#FFFFFF',
-                },
-              },
-            );
-
-            const qrCodeImg = await loadImage(qrCodeDataUrl);
-            if (qrCodeImg) {
-              ctx.drawImage(
-                qrCodeImg,
-                qrCodeX + qrCodePadding,
-                qrCodeY + qrCodePadding,
-                qrCodeInnerSize,
-                qrCodeInnerSize,
-              );
-            }
+            drawDotQRCodeOnCanvas(ctx, {
+              value: referralQrCodeUrl ?? '',
+              x: qrCodeX + qrCodePadding,
+              y: qrCodeY + qrCodePadding,
+              size: qrCodeInnerSize,
+            });
           } catch (error) {
             if (platformEnv.isDev) {
               console.error('Failed to generate QR code:', error);

@@ -6,10 +6,9 @@ import {
   useRef,
 } from 'react';
 
-import QRCodeUtil from 'qrcode';
-
 import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
+import { drawDotQRCodeOnCanvas } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -415,20 +414,14 @@ export const ShareImageGenerator = memo(
           const qrX = cellX + (cellWidth - qr.size) / 2;
           const qrY = qrCellY + qr.cellPaddingY;
           try {
-            const qrCodeDataUrl = await QRCodeUtil.toDataURL(address, {
-              width: qr.size * CANVAS_SCALE,
-              margin: 0,
+            drawDotQRCodeOnCanvas(ctx, {
+              value: address,
+              x: qrX,
+              y: qrY,
+              size: qr.size,
               // high error correction: the center plate occludes part of the code
-              errorCorrectionLevel: 'H',
-              color: {
-                dark: '#000000',
-                light: '#FFFFFF',
-              },
+              ecl: 'H',
             });
-            const qrCodeImg = await loadImage(qrCodeDataUrl);
-            if (qrCodeImg) {
-              ctx.drawImage(qrCodeImg, qrX, qrY, qr.size, qr.size);
-            }
 
             // center token logo on a white plate; skip entirely if the logo
             // failed to load (CORS/404) so the QR stays clean and scannable

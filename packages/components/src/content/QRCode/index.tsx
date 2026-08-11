@@ -18,7 +18,6 @@ import {
   getTokenValue,
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
@@ -32,7 +31,7 @@ import {
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
-export type IQrcodeDrawType = 'dot' | 'line' | 'animated';
+export type IQrcodeDrawType = 'dot' | 'line';
 
 type IBasicQRCodeProps = {
   size: number;
@@ -51,7 +50,6 @@ type IBasicQRCodeProps = {
   enableLinearGradient?: boolean;
   gradientDirection?: string[];
   linearGradient?: string[];
-  // If drawType is line, the logo will not be displayed
   drawType?: IQrcodeDrawType;
 };
 
@@ -96,7 +94,7 @@ function BasicQRCode({
   size,
   value,
   quietZone = 0,
-  drawType = 'line',
+  drawType = 'dot',
   enableLinearGradient = false,
   gradientDirection = ['0%', '0%', '100%', '100%'],
   linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
@@ -106,10 +104,28 @@ function BasicQRCode({
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
   const logoBackgroundColor = logoBGColor || secondaryColor;
   const hasLogo = Boolean(logo || logoSvg);
+  const darkColor = enableLinearGradient ? 'url(#grad)' : primaryColor;
   const result = useMemo(() => {
+    const gradientDefs = enableLinearGradient ? (
+      <Defs key="defs">
+        <LinearGradient
+          id="grad"
+          x1={gradientDirection[0]}
+          y1={gradientDirection[1]}
+          x2={gradientDirection[2]}
+          y2={gradientDirection[3]}
+        >
+          <Stop offset="0" stopColor={linearGradient[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={linearGradient[1]} stopOpacity="1" />
+        </LinearGradient>
+      </Defs>
+    ) : null;
     const matrix = generateMatrix(value, ecl);
     if (drawType === 'dot') {
       const arr: ReactElement[] = [];
+      if (gradientDefs) {
+        arr.push(gradientDefs);
+      }
       const qrList = [
         { x: 0, y: 0 },
         { x: 1, y: 0 },
@@ -123,7 +139,7 @@ function BasicQRCode({
           arr.push(
             <Rect
               key={`Rect${x}${y}${i}`}
-              fill={i % 2 !== 0 ? secondaryColor : primaryColor}
+              fill={i % 2 !== 0 ? secondaryColor : darkColor}
               x={x1 + cellSize * i}
               y={y1 + cellSize * i}
               width={cellSize * (7 - i * 2)}
@@ -147,7 +163,7 @@ function BasicQRCode({
             key={`circle row${y} col${x}`}
             cx={x * cellSize + cellSize / 2}
             cy={y * cellSize + cellSize / 2}
-            fill={primaryColor}
+            fill={darkColor}
             r={cellSize / 3} // calculate size of single dots
           />,
         );
@@ -157,18 +173,7 @@ function BasicQRCode({
     const { path, cellSize } = transformMatrixIntoPath(matrix, size);
     return (
       <>
-        <Defs>
-          <LinearGradient
-            id="grad"
-            x1={gradientDirection[0]}
-            y1={gradientDirection[1]}
-            x2={gradientDirection[2]}
-            y2={gradientDirection[3]}
-          >
-            <Stop offset="0" stopColor={linearGradient[0]} stopOpacity="1" />
-            <Stop offset="1" stopColor={linearGradient[1]} stopOpacity="1" />
-          </LinearGradient>
-        </Defs>
+        {gradientDefs}
         <G>
           <Rect
             x={-quietZone}
@@ -182,7 +187,7 @@ function BasicQRCode({
           <Path
             d={path}
             strokeLinecap="butt"
-            stroke={enableLinearGradient ? 'url(#grad)' : primaryColor}
+            stroke={darkColor}
             strokeWidth={cellSize}
           />
         </G>
@@ -190,14 +195,14 @@ function BasicQRCode({
     );
   }, [
     ecl,
+    darkColor,
     enableLinearGradient,
     gradientDirection,
+    linearGradient,
     drawType,
     hasLogo,
-    linearGradient,
     logoMargin,
     logoSize,
-    primaryColor,
     quietZone,
     secondaryColor,
     size,
@@ -205,8 +210,7 @@ function BasicQRCode({
   ]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
-  const logoRadius =
-    logoBorderRadius ?? (drawType === 'line' ? 9999 : undefined);
+  const logoRadius = logoBorderRadius ?? 9999;
 
   return (
     <Svg height={size} width={size}>
@@ -284,15 +288,14 @@ export function QRCode({
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
-  const isAnimatedCode = useMemo(() => drawType === 'animated', [drawType]);
+  // An air-gap UR is inherently multi-frame, so its presence is what makes the
+  // code animated. Callers that want a static code pass `value` instead.
+  const isAnimatedCode = Boolean(valueUr);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval> | undefined;
     let cancelled = false;
-    if (isAnimatedCode) {
-      if (!valueUr) {
-        throw new OneKeyLocalError('valueUr is required for animated QRCode');
-      }
+    if (valueUr) {
       void (async () => {
         const { airGapUrUtils } = await import('@onekeyhq/qr-wallet-sdk');
         // Guard against unmount/deps-change during the async import so we
@@ -319,7 +322,7 @@ export function QRCode({
       cancelled = true;
       if (timerId) clearInterval(timerId);
     };
-  }, [value, interval, isAnimatedCode, valueUr]);
+  }, [value, interval, valueUr]);
 
   const displayValue = isAnimatedCode ? partValue : value || '';
   if (!displayValue) {

@@ -127,7 +127,6 @@ export function UnifoldDepositQRCard({
             size={QR_CODE_SIZE}
             padding={QR_CODE_PADDING}
             quietZoneModules={QR_QUIET_ZONE_MODULES}
-            drawType="dot"
             logo={
               normalizedChainIconUri
                 ? { uri: normalizedChainIconUri }

@@ -1,9 +1,8 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
-import QRCodeUtil from 'qrcode';
-
 import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
+import { drawDotQRCodeOnCanvas } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IRookieShareData,
@@ -364,24 +363,13 @@ export const ShareImageGenerator = forwardRef<
         const qrCodeX = size - footer.paddingX - qrCode.size;
 
         try {
-          const qrCodeDataUrl = await QRCodeUtil.toDataURL(referralUrl, {
-            width: qrCode.size,
-            margin: 0,
-            color: {
-              dark: qrCode.color,
-              light: '#FFFFFF',
-            },
+          drawDotQRCodeOnCanvas(ctx, {
+            value: referralUrl,
+            x: qrCodeX,
+            y: qrCodeY,
+            size: qrCode.size,
+            darkColor: qrCode.color,
           });
-          const qrCodeImg = await loadImage(qrCodeDataUrl);
-          if (qrCodeImg) {
-            ctx.drawImage(
-              qrCodeImg,
-              qrCodeX,
-              qrCodeY,
-              qrCode.size,
-              qrCode.size,
-            );
-          }
         } catch (error) {
           if (platformEnv.isDev) {
             console.error('Failed to generate QR code:', error);
