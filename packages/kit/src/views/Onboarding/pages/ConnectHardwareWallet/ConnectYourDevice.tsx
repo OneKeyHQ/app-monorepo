@@ -58,6 +58,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   BleLocationServiceError,
+  BluetoothUnavailableWhileUsbConnectedError,
   BridgeTimeoutError,
   BridgeTimeoutErrorForDesktop,
   ConnectTimeoutError,
@@ -69,7 +70,6 @@ import {
   NeedOneKeyBridge,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
@@ -440,6 +440,79 @@ function useDeviceConnection({
     currentTabValueRef.current = tabValue;
   }, [tabValue, deviceScanner]);
 
+  const handleScanError = useCallback(
+    (error: Error) => {
+      isSearchingRef.current = false;
+      setConnectStatus(EConnectionStatus.init);
+      deviceScanner.stopScan();
+
+      if (
+        error instanceof NeedBluetoothTurnedOn ||
+        error instanceof NeedBluetoothPermissions ||
+        error instanceof BleLocationServiceError
+      ) {
+        return;
+      }
+
+      if (error instanceof BluetoothUnavailableWhileUsbConnectedError) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
+          }),
+        });
+        return;
+      }
+
+      if (
+        error instanceof InitIframeLoadFail ||
+        error instanceof InitIframeTimeout
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_network_error,
+          }),
+          message: error.message || 'DeviceScanError',
+        });
+        return;
+      }
+
+      if (
+        error instanceof BridgeTimeoutError ||
+        error instanceof BridgeTimeoutErrorForDesktop ||
+        error instanceof ConnectTimeoutError ||
+        error instanceof DeviceMethodCallTimeout
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_connection_failed,
+          }),
+          message: error.message || 'DeviceScanError',
+        });
+        return;
+      }
+
+      if (error instanceof NeedOneKeyBridge) {
+        Dialog.confirm({
+          icon: 'OnekeyBrand',
+          title: intl.formatMessage({
+            id: ETranslations.onboarding_install_onekey_bridge,
+          }),
+          renderContent: <BridgeNotInstalledDialogContent error={error} />,
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_download_and_install,
+          }),
+          onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+        });
+        return;
+      }
+
+      Toast.error({
+        title: error.message || 'DeviceScanError',
+      });
+    },
+    [deviceScanner, intl],
+  );
+
   const scanDevice = useCallback(async () => {
     if (isSearchingRef.current) {
       return;
@@ -457,73 +530,6 @@ function useDeviceConnection({
     deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
-          const error = convertDeviceError(response.payload);
-          if (platformEnv.isNative) {
-            if (
-              !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions) &&
-              !(error instanceof BleLocationServiceError)
-            ) {
-              Toast.error({
-                title: error.message || 'DeviceScanError',
-              });
-            } else {
-              deviceScanner.stopScan();
-            }
-          } else if (
-            error instanceof InitIframeLoadFail ||
-            error instanceof InitIframeTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_network_error,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof BridgeTimeoutError ||
-            error instanceof BridgeTimeoutErrorForDesktop
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof ConnectTimeoutError ||
-            error instanceof DeviceMethodCallTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              message: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (error instanceof NeedOneKeyBridge) {
-            Dialog.confirm({
-              icon: 'OnekeyBrand',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_install_onekey_bridge,
-              }),
-              renderContent: <BridgeNotInstalledDialogContent error={error} />,
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_download_and_install,
-              }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-            });
-
-            deviceScanner.stopScan();
-          }
           return;
         }
 
@@ -551,8 +557,10 @@ function useDeviceConnection({
       undefined, // pollIntervalRate
       undefined, // pollInterval
       undefined, // maxTryCount
+      undefined, // vendor
+      { onError: handleScanError },
     );
-  }, [deviceScanner, intl, tabValue]);
+  }, [deviceScanner, handleScanError, tabValue]);
 
   const stopScan = useCallback(() => {
     isSearchingRef.current = false;
