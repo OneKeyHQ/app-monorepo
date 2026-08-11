@@ -788,6 +788,44 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     ).resolves.toBe(false);
   });
 
+  it('forwards all tracked identity keys when a device disconnects', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const notifyHardwareDeviceConnected = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const notifyHardwareDeviceDisconnected = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwarePortfolioSync: {
+          notifyHardwareDeviceConnected,
+          notifyHardwareDeviceDisconnected,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+
+    listeners.get(DEVICE.CONNECT)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        serialNo: 'PRO2_SERIAL',
+        uuid: 'PRO2_UUID',
+      },
+    });
+    listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+
+    expect(notifyHardwareDeviceDisconnected).toHaveBeenCalledWith({
+      identityKeys: ['PRO2_USB', 'PRO2_UUID', 'PRO2_SERIAL'],
+    });
+  });
+
   it('普通断连后保留已确认协议，供重连继续固定使用', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({

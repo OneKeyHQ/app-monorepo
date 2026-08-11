@@ -833,15 +833,21 @@ class ServiceHardware extends ServiceBase {
     const disconnectedKeys = new Set(
       this.getConnectedDeviceIdentityKeys(device),
     );
+    const removedIdentityKeys = new Set(disconnectedKeys);
     for (const [connectionKey, identityKeys] of this
       .connectedDeviceIdentityKeysByConnection) {
       if (
         disconnectedKeys.has(connectionKey) ||
         [...disconnectedKeys].some((key) => identityKeys.has(key))
       ) {
+        removedIdentityKeys.add(connectionKey);
+        for (const identityKey of identityKeys) {
+          removedIdentityKeys.add(identityKey);
+        }
         this.connectedDeviceIdentityKeysByConnection.delete(connectionKey);
       }
     }
+    return [...removedIdentityKeys];
   }
 
   private resetHardwareUiEventQueue() {
@@ -1576,7 +1582,16 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
-        this.untrackConnectedDevice(message.device);
+        const disconnectedIdentityKeys = this.untrackConnectedDevice(
+          message.device,
+        );
+        if (disconnectedIdentityKeys.length > 0) {
+          void this.backgroundApi.serviceHardwarePortfolioSync
+            ?.notifyHardwareDeviceDisconnected({
+              identityKeys: disconnectedIdentityKeys,
+            })
+            .catch(() => undefined);
+        }
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           if (this.hardwareUiEventState.connectId === activeConnectId) {

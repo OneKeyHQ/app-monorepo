@@ -3,6 +3,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -397,12 +398,14 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
   function prepareHardwareSync({
     busyResults,
+    hardwareTransportType = EHardwareTransportType.BLE,
     isConnected = true,
     selectedIndexedAccountId = 'indexed-account-1',
     selectedWalletId = 'hw-1',
     targetState,
   }: {
     busyResults: boolean[];
+    hardwareTransportType?: EHardwareTransportType;
     isConnected?: boolean;
     selectedIndexedAccountId?: string;
     selectedWalletId?: string;
@@ -449,6 +452,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       backgroundApi: {
         serviceHardware: {
           getDeviceState,
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(hardwareTransportType),
           isHardwareDeviceConnected,
           uploadPortfolioPackage,
         },
@@ -752,6 +758,75 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(2);
 
     await service.notifyHardwareDeviceConnected({
+      identityKeys: ['PRO2_CONNECT_ID'],
+    });
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '3',
+    });
+
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
+  });
+
+  test('rechecks WebUSB identity and blocks a changed device without caching it', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false, false],
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    });
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '1',
+    });
+    expect(
+      (
+        service as unknown as {
+          verifiedDeviceIdByTargetKey: Map<string, string>;
+        }
+      ).verifiedDeviceIdByTargetKey.size,
+    ).toBe(0);
+
+    getDeviceState.mockResolvedValueOnce({
+      identity: { deviceId: 'CHANGED_DEVICE_ID' },
+      protocol: 'V2',
+    });
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    });
+
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'identity-mismatch' }),
+    );
+  });
+
+  test('clears the verified identity cache when the device disconnects', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false, false] });
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '1',
+    });
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    });
+    expect(getDeviceState).toHaveBeenCalledTimes(1);
+
+    await service.notifyHardwareDeviceDisconnected({
       identityKeys: ['PRO2_CONNECT_ID'],
     });
     await serviceInternals.syncSettledPortfolio({
@@ -1134,6 +1209,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             identity: { deviceId: 'PRO2_DEVICE_ID' },
             protocol: 'V2',
           }),
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
           isHardwareDeviceConnected: jest.fn().mockResolvedValue(true),
           uploadPortfolioPackage,
         },

@@ -14,7 +14,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -173,9 +176,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     IPortfolioSyncSettledPayload
   >();
 
-  // Only cache device identities that were confirmed online in the current
-  // connection session. Clear them on connect events or SDK identity mismatch
-  // so a wiped or re-seeded device never reuses a stale identity conclusion.
+  // Only cache identities for transports with reliable connection-session
+  // events. WebUSB always performs a live identity check before each upload.
   private verifiedDeviceIdByTargetKey = new Map<string, string>();
 
   private mismatchedDeviceIdByTargetKey = new Map<string, string>();
@@ -479,7 +481,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     if (mismatchedDeviceId !== undefined) {
       this.mismatchedDeviceIdByTargetKey.delete(targetKey);
     }
-    if (this.verifiedDeviceIdByTargetKey.get(targetKey) === expectedDeviceId) {
+    const currentTransportType =
+      await this.backgroundApi.serviceHardware.getCurrentTransportType();
+    const canCacheVerifiedDeviceId =
+      currentTransportType !== EHardwareTransportType.WEBUSB;
+    if (!canCacheVerifiedDeviceId) {
+      this.verifiedDeviceIdByTargetKey.delete(targetKey);
+    } else if (
+      this.verifiedDeviceIdByTargetKey.get(targetKey) === expectedDeviceId
+    ) {
       return 'verified';
     }
 
@@ -509,7 +519,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       return 'mismatch';
     }
     this.mismatchedDeviceIdByTargetKey.delete(targetKey);
-    this.verifiedDeviceIdByTargetKey.set(targetKey, expectedDeviceId);
+    if (canCacheVerifiedDeviceId) {
+      this.verifiedDeviceIdByTargetKey.set(targetKey, expectedDeviceId);
+    }
     return 'verified';
   }
 
@@ -667,6 +679,22 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
         this.handleAllNetworksTokenListSettled(pendingPayload);
       }
+    }
+  }
+
+  @backgroundMethod()
+  async notifyHardwareDeviceDisconnected({
+    identityKeys,
+  }: {
+    identityKeys: string[];
+  }) {
+    const targetKeys = uniq(
+      identityKeys
+        .map((identityKey) => this.targetKeyByConnectId.get(identityKey))
+        .filter((targetKey): targetKey is string => Boolean(targetKey)),
+    );
+    for (const targetKey of targetKeys) {
+      this.verifiedDeviceIdByTargetKey.delete(targetKey);
     }
   }
 
