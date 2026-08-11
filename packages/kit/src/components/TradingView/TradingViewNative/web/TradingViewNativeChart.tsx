@@ -65,6 +65,7 @@ import {
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartType,
+  ITradingViewNativeInitialRightOffset,
 } from '../types';
 
 const ONEKEY_WATERMARK_ASSET =
@@ -82,6 +83,7 @@ interface ITradingViewNativeChartProps {
   chartPictureVersion: number;
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   onChartWidthChange?: (width: number) => void;
   onViewportRequestApplied?: (requestId: number) => void;
@@ -347,6 +349,7 @@ export const TradingViewNativeChart = memo(
     chartType,
     hasVolume,
     indicatorSeries,
+    initialRightOffset,
     isSwitchingInterval,
     onChartWidthChange,
     onViewportRequestApplied,
@@ -358,7 +361,9 @@ export const TradingViewNativeChart = memo(
   }: ITradingViewNativeChartProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const runtimeStateRef = useRef<ITradingViewNativeChartRuntimeState>(
-      createTradingViewNativeChartRuntimeState(),
+      createTradingViewNativeChartRuntimeState({
+        initialRightOffset,
+      }),
     );
     const pointerDragStateRef = useRef<IPointerDragState | null>(null);
     const wheelDeltaNormalizerRef = useRef(
@@ -501,6 +506,14 @@ export const TradingViewNativeChart = memo(
         return;
       }
       const chartWidth = getCanvasChartWidth(canvas, priceAxisLabels);
+      const runtimeAfterInitialMeasure = reduceTradingViewNativeChartRuntime(
+        runtimeStateRef.current,
+        {
+          type: 'initialWidthMeasured',
+          width: canvas.clientWidth,
+        },
+      );
+      runtimeStateRef.current = runtimeAfterInitialMeasure;
       const runtimeEvent = {
         appendedPointCount: dataUpdateMetadata.appendedPointCount,
         chartWidth,
@@ -511,8 +524,9 @@ export const TradingViewNativeChart = memo(
       if (dragState) {
         dragState.startOffset = reduceTradingViewNativeChartRuntime(
           {
-            ...runtimeStateRef.current,
+            ...runtimeAfterInitialMeasure,
             viewport: {
+              ...runtimeAfterInitialMeasure.viewport,
               offset: dragState.startOffset,
               zoomScale: dragState.zoomScale,
             },
@@ -521,7 +535,7 @@ export const TradingViewNativeChart = memo(
         ).viewport.offset;
       }
       const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-        runtimeStateRef.current,
+        runtimeAfterInitialMeasure,
         runtimeEvent,
       );
       runtimeStateRef.current = nextRuntimeState;
@@ -597,7 +611,19 @@ export const TradingViewNativeChart = memo(
         return undefined;
       }
       const renderCurrentChart = () => {
-        renderChart(runtimeStateRef.current);
+        const currentRuntimeState = runtimeStateRef.current;
+        const measuredRuntimeState = reduceTradingViewNativeChartRuntime(
+          currentRuntimeState,
+          {
+            type: 'initialWidthMeasured',
+            width: canvas.clientWidth,
+          },
+        );
+        if (measuredRuntimeState !== currentRuntimeState) {
+          runtimeStateRef.current = measuredRuntimeState;
+          setViewportState(measuredRuntimeState.viewport);
+        }
+        renderChart(measuredRuntimeState);
         const nextChartWidth = getCanvasChartWidth(canvas, priceAxisLabels);
         setMeasuredChartWidth((currentWidth) =>
           currentWidth === nextChartWidth ? currentWidth : nextChartWidth,

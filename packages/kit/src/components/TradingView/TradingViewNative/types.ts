@@ -54,10 +54,21 @@ export interface ITradingViewNativeIntervalChangeData {
   toInterval: ITradingViewNativeChartInterval;
 }
 
+export type ITradingViewNativeInitialRightOffset =
+  | {
+      type: 'chartWidthPercentage';
+      value: number;
+    }
+  | {
+      type: 'pointCount';
+      value: number;
+    };
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   enableNativeChartSettings?: boolean;
+  initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
