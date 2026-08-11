@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "沒有 NFT",
   "nft.no_nfts_found": "此地址未持有任何 NFT",
   "nft.token_id": "代幣 ID",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "沒有帳戶",
   "no_backup_found_google_desc": "請驗證您的 Google Drive 登入，確保您使用正確的 Google 帳戶，或檢查您的網絡連接",
   "no_backup_found_icloud_desc": "請驗證 iCloud 登入、啟用 iCloud 和鑰匙圈同步，或檢查網絡連線",

@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "Không NFT",
   "nft.no_nfts_found": "Không tìm thấy NFT nào tại địa chỉ này",
   "nft.token_id": "ID Token",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "Không có tài khoản",
   "no_backup_found_google_desc": "Vui lòng xác minh việc đăng nhập Google Drive của bạn, đảm bảo bạn đang dùng đúng tài khoản Google, hoặc kiểm tra kết nối mạng của bạn",
   "no_backup_found_icloud_desc": "Vui lòng xác minh việc đăng nhập iCloud của bạn, bật iCloud và đồng bộ Chuỗi khóa, hoặc kiểm tra kết nối mạng của bạn",

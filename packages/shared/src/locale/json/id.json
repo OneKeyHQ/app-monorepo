@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "Tidak ada NFT",
   "nft.no_nfts_found": "Tidak ada NFT yang ditemukan di alamat ini",
   "nft.token_id": "ID Token",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "Tidak ada akun",
   "no_backup_found_google_desc": "Harap verifikasi masuk Google Drive Anda, pastikan Anda menggunakan akun Google yang benar, atau periksa koneksi jaringan Anda",
   "no_backup_found_icloud_desc": "Harap verifikasi masuk iCloud Anda, aktifkan sinkronisasi iCloud dan Keychain, atau periksa koneksi jaringan Anda",

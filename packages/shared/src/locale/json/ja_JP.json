@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "NFTなし",
   "nft.no_nfts_found": "このアドレスでNFTが見つかりません",
   "nft.token_id": "トークンID",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "アカウントなし",
   "no_backup_found_google_desc": "Google Drive へのサインインを確認し、正しい Google アカウントを使用していること、またはネットワーク接続を確認してください",
   "no_backup_found_icloud_desc": "iCloudへのサインインを確認し、iCloudとキーチェーンの同期を有効にするか、ネットワーク接続を確認してください",

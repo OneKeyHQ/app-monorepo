@@ -2276,6 +2276,7 @@ export enum ETranslations {
   nft_no_nfts = 'nft.no_nfts',
   nft_no_nfts_found = 'nft.no_nfts_found',
   nft_token_id = 'nft.token_id',
+  nft_storage_limit_reached__msg = 'nft_storage_limit_reached__msg',
   no_account = 'no_account',
   no_backup_found_google_desc = 'no_backup_found_google_desc',
   no_backup_found_icloud_desc = 'no_backup_found_icloud_desc',

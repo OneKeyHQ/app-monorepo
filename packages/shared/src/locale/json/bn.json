@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "কোন এনএফটি নেই",
   "nft.no_nfts_found": "এই ঠিকানায় কোন এনএফটি পাওয়া যায় নি",
   "nft.token_id": "টোকেন আইডি",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "কোন অ্যাকাউন্ট নেই",
   "no_backup_found_google_desc": "অনুগ্রহ করে আপনার Google Drive সাইন-ইন যাচাই করুন, নিশ্চিত করুন আপনি সঠিক Google অ্যাকাউন্ট ব্যবহার করছেন, অথবা আপনার নেটওয়ার্ক সংযোগ পরীক্ষা করুন",
   "no_backup_found_icloud_desc": "অনুগ্রহ করে আপনার iCloud সাইন-ইন যাচাই করুন, iCloud এবং কীচেইন সিঙ্ক চালু করুন, অথবা আপনার নেটওয়ার্ক সংযোগ পরীক্ষা করুন",

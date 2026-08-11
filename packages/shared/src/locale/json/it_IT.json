@@ -2271,6 +2271,7 @@
   "nft.no_nfts": "Nessun NFT",
   "nft.no_nfts_found": "Non sono stati trovati NFT a questo indirizzo",
   "nft.token_id": "ID del token",
+  "nft_storage_limit_reached__msg": "NFT storage limit reached. Remove an NFT from the device and try again.",
   "no_account": "Nessun account",
   "no_backup_found_google_desc": "Verifica l’accesso a Google Drive, assicurati di usare l’account Google corretto oppure controlla la connessione di rete",
   "no_backup_found_icloud_desc": "Verifica l’accesso a iCloud, abilita iCloud e la sincronizzazione del Portachiavi oppure controlla la connessione di rete",
