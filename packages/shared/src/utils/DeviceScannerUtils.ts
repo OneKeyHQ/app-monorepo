@@ -133,13 +133,13 @@ export class DeviceScannerUtils {
           }
           throw error;
         }
-        shouldResetSession = false;
         if (!this.scanMap[scanIndex]) {
           return sharedSearchResponse;
         }
         if (shouldStartOwnSearch()) {
           return searchDevices();
         }
+        shouldResetSession = false;
         deliverSearchResponse(sharedSearchResponse);
         this.tryCount += 1;
         return sharedSearchResponse;

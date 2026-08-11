@@ -295,6 +295,65 @@ describe('DeviceScannerUtils', () => {
     scanner.stopScan();
   });
 
+  it('keeps resetSession when a stopped scan resolves before the restarted scan begins', async () => {
+    const staleBleSearch = createDeferred<Success<SearchDevice[]>>();
+    const currentBleSearch = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest
+      .fn()
+      .mockReturnValueOnce(staleBleSearch.promise)
+      .mockReturnValueOnce(currentBleSearch.promise);
+    const scanner = createScanner(searchDevices);
+    const staleCallback = jest.fn();
+    const currentCallback = jest.fn();
+
+    scanner.startDeviceScan(
+      staleCallback,
+      jest.fn(),
+      1,
+      60_000,
+      1,
+      EHardwareVendor.trezor,
+      {
+        resetSession: true,
+        transportType: 'ble',
+      },
+    );
+    await flushMicrotasks();
+
+    scanner.stopScan();
+    scanner.startDeviceScan(
+      currentCallback,
+      jest.fn(),
+      1,
+      60_000,
+      1,
+      EHardwareVendor.trezor,
+      {
+        resetSession: true,
+        transportType: 'ble',
+      },
+    );
+    await flushMicrotasks();
+
+    staleBleSearch.resolve(successResponse('stale-trezor-ble'));
+    await flushMicrotasks();
+
+    expect(staleCallback).not.toHaveBeenCalled();
+    expect(searchDevices).toHaveBeenCalledTimes(2);
+    expect(searchDevices).toHaveBeenNthCalledWith(2, {
+      resetSession: true,
+      transportType: 'ble',
+      vendor: EHardwareVendor.trezor,
+    });
+
+    const currentResponse = successResponse('current-trezor-ble');
+    currentBleSearch.resolve(currentResponse);
+    await flushMicrotasks();
+
+    expect(currentCallback).toHaveBeenCalledWith(currentResponse);
+    scanner.stopScan();
+  });
+
   it('does not block a different vendor search behind an in-flight search', async () => {
     const trezorSearch = createDeferred<Success<SearchDevice[]>>();
     const ledgerSearch = createDeferred<Success<SearchDevice[]>>();
