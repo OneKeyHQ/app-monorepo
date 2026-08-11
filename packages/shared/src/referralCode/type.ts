@@ -58,6 +58,9 @@ export interface IInviteSummary {
   Onchain: IReward & {
     swap?: IRebateUserInviteSummary[];
   };
+  Perp: IReward & {
+    available: IRewardBalance[];
+  };
   rebateConfig: {
     level: number;
     emoji: string;
