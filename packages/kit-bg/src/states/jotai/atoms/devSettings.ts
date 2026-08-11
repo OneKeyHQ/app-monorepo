@@ -81,6 +81,8 @@ export interface IDevSettings {
   useLocalTradingViewUrl?: boolean;
   // use the data-only native chart in Market Detail
   useTradingViewNativeInMarketDetail?: boolean;
+  // show the TradingViewNative event log panel
+  showTradingViewNativeDebugPanel?: boolean;
   showPerpsRenderStats?: boolean;
   // Route Unifold deposits to the Arbitrum USDC destination instead of
   // HyperCore, so the whole deposit pipeline can be exercised for source-chain
@@ -176,6 +178,7 @@ export const {
       },
       useLocalTradingViewUrl: false,
       useTradingViewNativeInMarketDetail: false,
+      showTradingViewNativeDebugPanel: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
