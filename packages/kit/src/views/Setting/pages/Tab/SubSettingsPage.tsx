@@ -47,10 +47,11 @@ export function SubSettingsPage({
   }, [config?.configs]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header title={titleFromProps || config?.title} />
       <Page.Body>
         <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
