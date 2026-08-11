@@ -68,8 +68,8 @@ abstract class SimpleDbEntityBase<T> {
   // one is in flight or was in flight when the read began.
   private pendingWrites = 0;
 
-  // Bumped by clearRawDataCache so a read that was already in flight when the
-  // clear happened cannot re-publish the stale value into the memory cache.
+  // Bumped by clearRawDataCache and setRawData so a read that was already in
+  // flight cannot re-publish a stale value into the memory cache afterwards.
   private readGeneration = 0;
 
   @backgroundMethod()
@@ -199,6 +199,7 @@ abstract class SimpleDbEntityBase<T> {
 
       dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
       this.writeSeq += 1;
+      this.readGeneration += 1;
       this.pendingWrites += 1;
       try {
         await this.appStorage.setItem(

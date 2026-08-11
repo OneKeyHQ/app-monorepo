@@ -4,14 +4,25 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 yarn jest packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.test.ts
 */
 
-// Concrete entity over a controllable in-memory appStorage so we can park a
-// setRawData mid-flight (inside the mutex) and fire clearRawData concurrently.
-// This proves clearRawData and setRawData are serialized by the shared mutex, so
-// an in-flight write can never resurrect a just-cleared cache.
+// Single configurable entity over controllable in-memory appStorage mocks —
+// oxlint allows one class per file, so cache/self-heal variants are options.
 class TestEntity extends SimpleDbEntityBase<{ v: number }> {
-  override readonly entityName = 'test-entity';
+  override readonly entityName: string;
 
-  override readonly enableCache = false;
+  override readonly enableCache: boolean;
+
+  protected override readonly enableUnreadableRecordSelfHeal: boolean;
+
+  constructor({
+    name = 'test-entity',
+    enableCache = false,
+    selfHeal = false,
+  }: { name?: string; enableCache?: boolean; selfHeal?: boolean } = {}) {
+    super();
+    this.entityName = name;
+    this.enableCache = enableCache;
+    this.enableUnreadableRecordSelfHeal = selfHeal;
+  }
 }
 
 describe('SimpleDbEntityBase clear/set mutex serialization', () => {
@@ -68,20 +79,8 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
 // A corrupted external blob makes every read reject forever, and builder-based
 // setRawData reads first — without self-heal the record could never be repaired.
 describe('SimpleDbEntityBase unreadable-record self-heal', () => {
-  class HealTestEntity extends SimpleDbEntityBase<{ v: number }> {
-    override readonly entityName = 'test-heal-entity';
-
-    override readonly enableCache = false;
-
-    protected override readonly enableUnreadableRecordSelfHeal = true;
-  }
-
-  // Self-heal is opt-in; this entity keeps the default (off).
-  class NoHealTestEntity extends SimpleDbEntityBase<{ v: number }> {
-    override readonly entityName = 'test-no-heal-entity';
-
-    override readonly enableCache = false;
-  }
+  const makeHealEntity = () =>
+    new TestEntity({ name: 'test-heal-entity', selfHeal: true });
 
   // Unreadable until removeItem drops it (or failTimes runs out), mirroring a
   // corrupted blob record vs a transient IO failure.
@@ -96,15 +95,15 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   }) => {
     const store: Record<string, unknown> = {};
     const calls: string[] = [];
-    let failed = 0;
+    let remainingFails = failTimes;
     return {
       store,
       calls,
       storage: {
         getItem: async (k: string) => {
           calls.push('getItem');
-          if (failed < failTimes) {
-            failed += 1;
+          if (remainingFails > 0) {
+            remainingFails -= 1;
             const error = new Error(errorMessage);
             error.name = errorName;
             throw error;
@@ -118,14 +117,14 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
         removeItem: async (k: string) => {
           calls.push('removeItem');
           delete store[k];
-          failTimes = 0;
+          remainingFails = 0;
         },
       },
     };
   };
 
   test('getRawData drops the unreadable record and returns null', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
     (entity as any).appStorage = storage;
 
@@ -134,7 +133,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('setRawData(builder) rebuilds the record after a read failure', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, store } = makeBrokenStorage({
       errorName: 'UnknownError',
     });
@@ -148,7 +147,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('non-storage read errors still propagate without deleting the record', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, calls } = makeBrokenStorage({
       errorName: 'SomeRandomError',
     });
@@ -161,7 +160,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('NotReadableError propagates without deleting (transient IO condition)', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, calls } = makeBrokenStorage({
       errorName: 'NotReadableError',
     });
@@ -174,7 +173,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('UnknownError without the corrupted-blob message propagates without deleting', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, calls } = makeBrokenStorage({
       errorName: 'UnknownError',
       errorMessage: 'Internal error opening backing store',
@@ -188,7 +187,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('a transient read failure recovers via retry and keeps the record', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const { storage, store, calls } = makeBrokenStorage({
       errorName: 'UnknownError',
       failTimes: 1,
@@ -202,7 +201,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('self-heal delete is skipped when a write lands during the failing read', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const store: Record<string, unknown> = {};
     const calls: string[] = [];
     let rejectFirstRead!: (error: Error) => void;
@@ -213,7 +212,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
       return error;
     };
     (entity as any).appStorage = {
-      getItem: (k: string) => {
+      getItem: () => {
         readCount += 1;
         calls.push('getItem');
         if (readCount === 1) {
@@ -243,7 +242,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('self-heal delete is skipped while a write is still in flight', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const store: Record<string, unknown> = {};
     const calls: string[] = [];
     let releaseWrite!: () => void;
@@ -289,7 +288,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('entities without opt-in propagate the corrupted-blob error and keep the record', async () => {
-    const entity = new NoHealTestEntity();
+    const entity = new TestEntity({ name: 'test-no-heal-entity' });
     const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
     (entity as any).appStorage = storage;
 
@@ -300,7 +299,7 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('delete is skipped when a pre-existing write completes during the failing read', async () => {
-    const entity = new HealTestEntity();
+    const entity = makeHealEntity();
     const store: Record<string, unknown> = {};
     const calls: string[] = [];
     let releaseWrite!: () => void;
@@ -354,12 +353,10 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
   });
 
   test('clearRawData during an in-flight read keeps the stale value out of the cache', async () => {
-    class CachedHealTestEntity extends SimpleDbEntityBase<{ v: number }> {
-      override readonly entityName = 'test-cached-heal-entity';
-
-      override readonly enableCache = true;
-    }
-    const entity = new CachedHealTestEntity();
+    const entity = new TestEntity({
+      name: 'test-cached-heal-entity',
+      enableCache: true,
+    });
     const store: Record<string, unknown> = {};
     let resolveFirstRead!: (value: string) => void;
     let readCount = 0;
@@ -388,5 +385,39 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
 
     // The stale value must not have been cached — a fresh read sees the clear.
     await expect(entity.getRawData()).resolves.toBeNull();
+  });
+
+  test('a slow read finishing after a save cannot revert the cached value', async () => {
+    const entity = new TestEntity({
+      name: 'test-cached-save-entity',
+      enableCache: true,
+    });
+    const store: Record<string, unknown> = {};
+    let resolveFirstRead!: (value: string) => void;
+    let readCount = 0;
+    (entity as any).appStorage = {
+      getItem: (k: string) => {
+        readCount += 1;
+        if (readCount === 1) {
+          return new Promise<string | null>((resolve) => {
+            resolveFirstRead = resolve;
+          });
+        }
+        return Promise.resolve((k in store ? store[k] : null) as string | null);
+      },
+      setItem: async (k: string, v: unknown) => {
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        delete store[k];
+      },
+    };
+
+    const slowReadP = entity.getRawData(); // parked reading the old record
+    await entity.setRawData({ v: 7 }); // save lands while the read is parked
+    resolveFirstRead(JSON.stringify({ data: { v: 1 }, updatedAt: 1 }));
+    await slowReadP; // the old value must not overwrite the cache
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 7 });
   });
 });
