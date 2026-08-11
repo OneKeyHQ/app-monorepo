@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { debounce, uniq } from 'lodash';
 
 import {
@@ -17,6 +18,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EHardwareVendor,
+  EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -45,6 +47,7 @@ export type IPortfolioSyncStatus =
   | 'empty'
   | 'error'
   | 'hardware-busy'
+  | 'identity-unavailable'
   | 'identity-mismatch'
   | 'inactive'
   | 'disconnected'
@@ -447,7 +450,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     );
   }
 
-  private async isPreparedUploadDeviceIdentityVerified({
+  private async getPreparedUploadDeviceIdentityStatus({
     deviceConnectId,
     eventPayload,
     targetKey,
@@ -455,28 +458,28 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
     targetKey: string;
-  }) {
+  }): Promise<'verified' | 'unavailable' | 'mismatch'> {
     const deviceDbId = eventPayload.deviceDbId;
     if (!deviceDbId) {
-      return false;
+      return 'mismatch';
     }
     const device = await localDb.getDeviceSafe(deviceDbId);
     const expectedDeviceId =
       device?.deviceStateInfo?.identity.deviceId || device?.deviceId;
     if (!expectedDeviceId) {
       this.mismatchedDeviceIdByTargetKey.set(targetKey, '');
-      return false;
+      return 'mismatch';
     }
     const mismatchedDeviceId =
       this.mismatchedDeviceIdByTargetKey.get(targetKey);
     if (mismatchedDeviceId === expectedDeviceId) {
-      return false;
+      return 'mismatch';
     }
     if (mismatchedDeviceId !== undefined) {
       this.mismatchedDeviceIdByTargetKey.delete(targetKey);
     }
     if (this.verifiedDeviceIdByTargetKey.get(targetKey) === expectedDeviceId) {
-      return true;
+      return 'verified';
     }
 
     const state = await this.backgroundApi.serviceHardware.getDeviceState({
@@ -486,14 +489,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       silentMode: true,
     });
     const liveDeviceId = state.identity?.deviceId;
+    const isPro2LoaderIdentityUnavailable =
+      device?.deviceType === EDeviceType.Pro2 &&
+      !liveDeviceId &&
+      (state.status?.mode === EOneKeyDeviceMode.bootloader ||
+        state.status?.mode === EOneKeyDeviceMode.romloader);
+    if (isPro2LoaderIdentityUnavailable) {
+      // Pro2 Bootloader 不提供 DeviceStatus.device_id。空值表示当前模式不可获取，
+      // 不能覆盖或否定正常固件模式下已经确认过的持久化设备身份。
+      this.verifiedDeviceIdByTargetKey.delete(targetKey);
+      this.mismatchedDeviceIdByTargetKey.delete(targetKey);
+      return 'unavailable';
+    }
     if (!liveDeviceId || liveDeviceId !== expectedDeviceId) {
       this.verifiedDeviceIdByTargetKey.delete(targetKey);
       this.mismatchedDeviceIdByTargetKey.set(targetKey, expectedDeviceId);
-      return false;
+      return 'mismatch';
     }
     this.mismatchedDeviceIdByTargetKey.delete(targetKey);
     this.verifiedDeviceIdByTargetKey.set(targetKey, expectedDeviceId);
-    return true;
+    return 'verified';
   }
 
   private async isDeviceIdentityMismatchPending({
@@ -595,6 +610,34 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'identity-mismatch',
+      totalTokenCount: eventPayload.tokens.length,
+      updatedAt: Date.now(),
+      walletId: eventPayload.walletId,
+    });
+  }
+
+  private handleDeviceIdentityUnavailable({
+    eventPayload,
+    targetKey,
+  }: {
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }) {
+    this.verifiedDeviceIdByTargetKey.delete(targetKey);
+    this.mismatchedDeviceIdByTargetKey.delete(targetKey);
+    // 保留最新快照，等设备退出 Bootloader 并重新连接后再读取完整身份。
+    this.pendingDisconnectedPayloadByTargetKey.set(targetKey, eventPayload);
+    if (eventPayload.deviceConnectId) {
+      this.cancelHardwareBusyRetry(eventPayload.deviceConnectId);
+    }
+    debugPortfolioSyncLog('skip-identity-unavailable', {
+      deviceConnectId: eventPayload.deviceConnectId,
+      targetKey,
+      walletId: eventPayload.walletId,
+    });
+    this.setLastResult({
+      deviceConnectId: eventPayload.deviceConnectId,
+      status: 'identity-unavailable',
       totalTokenCount: eventPayload.tokens.length,
       updatedAt: Date.now(),
       walletId: eventPayload.walletId,
@@ -1184,8 +1227,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             return;
           }
 
-          const isDeviceIdentityVerified =
-            await this.isPreparedUploadDeviceIdentityVerified({
+          const deviceIdentityStatus =
+            await this.getPreparedUploadDeviceIdentityStatus({
               deviceConnectId,
               eventPayload,
               targetKey,
@@ -1198,13 +1241,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             });
             return;
           }
-          if (!isDeviceIdentityVerified) {
+          if (deviceIdentityStatus !== 'verified') {
             this.releaseInFlightReservation({
               contentHash: artifacts.contentHash,
               generation,
               targetKey,
             });
-            this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
+            if (deviceIdentityStatus === 'unavailable') {
+              this.handleDeviceIdentityUnavailable({ eventPayload, targetKey });
+            } else {
+              this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
+            }
             return;
           }
 

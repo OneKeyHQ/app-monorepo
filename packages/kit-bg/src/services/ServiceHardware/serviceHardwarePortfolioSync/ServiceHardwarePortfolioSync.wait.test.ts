@@ -6,6 +6,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EHardwareCallContext,
   EHardwareVendor,
+  EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
@@ -283,6 +284,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       id: 'db-device-1',
       connectId: 'PRO2_CONNECT_ID',
       deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
     } as never);
     jest.mocked(localDb.getIndexedAccountSafe).mockResolvedValue({
       id: 'indexed-account-1',
@@ -635,6 +637,98 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       1,
     );
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('defers Pro2 identity verification when Bootloader omits deviceId', async () => {
+    jest.useFakeTimers();
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getDeviceState.mockResolvedValueOnce({
+      identity: { deviceId: null },
+      protocol: 'V2',
+      status: { mode: EOneKeyDeviceMode.bootloader },
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(updateTargetState).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'identity-unavailable',
+        walletId: 'hw-1',
+      }),
+    );
+
+    getDeviceState.mockResolvedValueOnce({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { mode: EOneKeyDeviceMode.normal },
+    });
+    await service.notifyHardwareDeviceConnected({
+      identityKeys: ['PRO2_CONNECT_ID'],
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(getDeviceState).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('keeps treating a missing Pro2 deviceId in normal mode as a mismatch', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: null },
+      protocol: 'V2',
+      status: { mode: EOneKeyDeviceMode.normal },
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'identity-mismatch',
+        walletId: 'hw-1',
+      }),
+    );
+  });
+
+  test('does not apply the Pro2 Bootloader exception to Neo', async () => {
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Neo,
+    } as never);
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: null },
+      protocol: 'V2',
+      status: { mode: EOneKeyDeviceMode.bootloader },
+    });
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'identity-mismatch' }),
+    );
   });
 
   test('verifies device identity once per connection session', async () => {
