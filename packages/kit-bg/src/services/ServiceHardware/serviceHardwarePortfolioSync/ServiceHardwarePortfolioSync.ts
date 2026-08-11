@@ -170,6 +170,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     ReturnType<typeof setTimeout>
   >();
 
+  private mobileBleResumeInProgressTargetKeys = new Set<string>();
+
   private activeUploadByTargetKey = new Map<string, Promise<unknown>>();
 
   private targetKeyByConnectId = new Map<string, string>();
@@ -367,37 +369,42 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       return false;
     }
 
-    this.mobileBleSilentSyncDisabledTargetKeys.delete(targetKey);
-    await this.portfolioSyncDb.updateTargetState(targetKey, {
-      bleSilentSyncDisabled: false,
-      bleSilentSyncDisabledAt: undefined,
-      bleSilentSyncDisabledReason: undefined,
-    });
-    debugPortfolioSyncLog('resume-mobile-ble-after-interaction', {
-      targetKey,
-    });
+    this.mobileBleResumeInProgressTargetKeys.add(targetKey);
+    try {
+      await this.portfolioSyncDb.updateTargetState(targetKey, {
+        bleSilentSyncDisabled: false,
+        bleSilentSyncDisabledAt: undefined,
+        bleSilentSyncDisabledReason: undefined,
+      });
+      this.mobileBleSilentSyncDisabledTargetKeys.delete(targetKey);
+      debugPortfolioSyncLog('resume-mobile-ble-after-interaction', {
+        targetKey,
+      });
 
-    const pendingPayload =
-      this.pendingMobileBlePayloadByTargetKey.get(targetKey);
-    if (!pendingPayload) {
-      return true;
-    }
-    const existingTimer =
-      this.pendingMobileBleResumeTimerByTargetKey.get(targetKey);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-    const timer = setTimeout(() => {
-      this.pendingMobileBleResumeTimerByTargetKey.delete(targetKey);
-      const latestPendingPayload =
+      const pendingPayload =
         this.pendingMobileBlePayloadByTargetKey.get(targetKey);
-      this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
-      if (latestPendingPayload) {
-        this.handleAllNetworksTokenListSettled(latestPendingPayload);
+      if (!pendingPayload) {
+        return true;
       }
-    }, PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS);
-    this.pendingMobileBleResumeTimerByTargetKey.set(targetKey, timer);
-    return true;
+      const existingTimer =
+        this.pendingMobileBleResumeTimerByTargetKey.get(targetKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+      const timer = setTimeout(() => {
+        this.pendingMobileBleResumeTimerByTargetKey.delete(targetKey);
+        const latestPendingPayload =
+          this.pendingMobileBlePayloadByTargetKey.get(targetKey);
+        this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
+        if (latestPendingPayload) {
+          this.handleAllNetworksTokenListSettled(latestPendingPayload);
+        }
+      }, PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS);
+      this.pendingMobileBleResumeTimerByTargetKey.set(targetKey, timer);
+      return true;
+    } finally {
+      this.mobileBleResumeInProgressTargetKeys.delete(targetKey);
+    }
   }
 
   private async isPreparedUploadStillAuthorized({
@@ -453,6 +460,18 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       totalTokenCount: eventPayload.tokens.length,
     });
     const targetKey = this.getSyncTargetKey(eventPayload);
+    if (this.mobileBleResumeInProgressTargetKeys.has(targetKey)) {
+      this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
+      this.advanceSyncGeneration(targetKey);
+      return;
+    }
+    const pendingResumeTimer =
+      this.pendingMobileBleResumeTimerByTargetKey.get(targetKey);
+    if (pendingResumeTimer) {
+      clearTimeout(pendingResumeTimer);
+      this.pendingMobileBleResumeTimerByTargetKey.delete(targetKey);
+      this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
+    }
     this.advanceSyncGeneration(targetKey);
     let syncDebounced = this.syncDebouncedByTargetKey.get(targetKey);
     if (!syncDebounced) {

@@ -586,6 +586,100 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
+  test('keeps a fresh snapshot that arrives during the BLE resume delay', async () => {
+    jest.useFakeTimers();
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false] });
+    uploadPortfolioPackage.mockRejectedValueOnce(
+      new BluetoothUnavailableWhileUsbConnectedError(),
+    );
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    });
+    await service.notifyInteractiveHardwareOperationSucceeded({
+      connectId: 'PRO2_CONNECT_ID',
+      deviceDbId: 'db-device-1',
+    });
+
+    const resumedSync = jest.fn().mockResolvedValue(undefined);
+    const resumeInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: (
+        payload: IPortfolioSyncSettledPayload,
+      ) => void;
+      syncSettledPortfolio: typeof resumedSync;
+    };
+    resumeInternals.syncSettledPortfolio = resumedSync;
+    const freshPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '3',
+    };
+    resumeInternals.handleAllNetworksTokenListSettled(freshPayload);
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(resumedSync).toHaveBeenCalledTimes(1);
+    expect(resumedSync).toHaveBeenCalledWith(freshPayload, expect.any(Number));
+
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(resumedSync).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  test('keeps a fresh snapshot that arrives while BLE resume state is saving', async () => {
+    jest.useFakeTimers();
+    const {
+      service,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    uploadPortfolioPackage.mockRejectedValueOnce(
+      new BluetoothUnavailableWhileUsbConnectedError(),
+    );
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    let resolveResumeState: (() => void) | undefined;
+    const resumeStateSaved = new Promise<void>((resolve) => {
+      resolveResumeState = resolve;
+    });
+    updateTargetState.mockImplementation(
+      async (_targetKey, state: { bleSilentSyncDisabled?: boolean }) => {
+        if (state.bleSilentSyncDisabled === false) {
+          await resumeStateSaved;
+        }
+      },
+    );
+
+    const resumedSync = jest.fn().mockResolvedValue(undefined);
+    const resumeInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: (
+        payload: IPortfolioSyncSettledPayload,
+      ) => void;
+      syncSettledPortfolio: typeof resumedSync;
+    };
+    resumeInternals.syncSettledPortfolio = resumedSync;
+    const resumePromise = service.notifyInteractiveHardwareOperationSucceeded({
+      connectId: 'PRO2_CONNECT_ID',
+      deviceDbId: 'db-device-1',
+    });
+    await Promise.resolve();
+
+    const freshPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '3',
+    };
+    resumeInternals.handleAllNetworksTokenListSettled(freshPayload);
+    resolveResumeState?.();
+    await expect(resumePromise).resolves.toBe(true);
+
+    await jest.advanceTimersByTimeAsync(6000);
+    expect(resumedSync).toHaveBeenCalledTimes(1);
+    expect(resumedSync).toHaveBeenCalledWith(freshPayload, expect.any(Number));
+    jest.useRealTimers();
+  });
+
   test('restores the mobile BLE suspension after a bg runtime restart', async () => {
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({
