@@ -10,6 +10,12 @@ import {
   getSignPsbtOptionsForPsbtIndex,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  computeBatchPsbtAmounts,
+  finalizeSignedPsbtHex,
+  findDuplicatePsbtIndexes,
+  findPsbtOutpointConflicts,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
+import {
   parseHexContext,
   validateAppName,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHash';
@@ -21,8 +27,13 @@ import {
 import type {
   IBtcInput,
   IBtcOutput,
+  IEncodedTxBtc,
 } from '@onekeyhq/core/src/chains/btc/types';
-import type { IEncodedTx, ITxInputToSign } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ITxInputToSign,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -38,6 +49,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBatchTxSignItemStatus } from '@onekeyhq/shared/types/batchTxSign';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
@@ -49,7 +61,6 @@ import {
   type ISignPsbtParams,
   type ISignPsbtsParams,
   type ISwitchNetworkParams,
-  type IToSignInput,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type { IPushTxParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
 
@@ -58,6 +69,7 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IBatchTxSignCreateItem } from '../services/ServiceBatchTxSign';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
 
@@ -688,71 +700,202 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    if (accountUtils.isHwAccount({ accountId })) {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message:
-          'Partially signed bitcoin transactions is not supported on hardware.',
-      });
-    }
-
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
     if (!network) return null;
 
     const { psbtHexs, options } = params;
+    if (!Array.isArray(psbtHexs) || psbtHexs.length === 0) {
+      throw web3Errors.rpc.invalidParams('psbtHexs must be a non-empty array');
+    }
 
     const psbtNetwork = toPsbtNetwork(network);
-    const result: string[] = [];
 
+    // Batch flow supports hd / imported / hw accounts. QR (air-gap), external
+    // and watching accounts keep the legacy per-psbt modal loop; a single psbt
+    // always uses the legacy path (product decision).
+    const supportsBatchFlow =
+      psbtHexs.length > 1 &&
+      (accountUtils.isHdAccount({ accountId }) ||
+        accountUtils.isImportedAccount({ accountId }) ||
+        accountUtils.isHwAccount({ accountId }));
+
+    if (!supportsBatchFlow) {
+      const result: string[] = [];
+      for (let i = 0; i < psbtHexs.length; i += 1) {
+        // UniSat-compatible `signPsbts` passes `options` as an array (one
+        // entry per psbt), while OneKey/legacy callers pass a single shared
+        // object. Extract per-psbt options for the array form so
+        // `toSignInputs`, `isBtcWalletProvider` and `autoFinalized` are not
+        // lost. Losing them makes `getInputsToSignFromPsbt` skip script-path
+        // inputs (e.g. Babylon staking, whose input address differs from the
+        // account address), yielding an empty `inputsToSign` that throws in
+        // `buildDecodedPsbtTx` and hangs the confirm page on an infinite
+        // loading skeleton.
+        const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
+          options,
+          index: i,
+        });
+        const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
+        const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
+        const respPsbtHex = await this._signPsbt(request, {
+          psbt,
+          psbtNetwork,
+          options: optionsForCurrentPsbt,
+        });
+        result.push(respPsbtHex);
+      }
+
+      return result;
+    }
+
+    // ===== batch flow =====
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    const psbts: Psbt[] = [];
+    const perItemOptions: (ISignPsbtOptions | undefined)[] = [];
     for (let i = 0; i < psbtHexs.length; i += 1) {
-      // UniSat-compatible `signPsbts` passes `options` as an array (one entry
-      // per psbt), while OneKey/legacy callers pass a single shared object.
-      // Extract per-psbt options for the array form so `toSignInputs`,
-      // `isBtcWalletProvider` and `autoFinalized` are not lost. Losing them
-      // makes `getInputsToSignFromPsbt` skip script-path inputs (e.g. Babylon
-      // staking, whose input address differs from the account address),
-      // yielding an empty `inputsToSign` that throws in `buildDecodedPsbtTx`
-      // and hangs the confirm page on an infinite loading skeleton.
-      const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
-        options,
-        index: i,
-      });
-      const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
-      const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
-      const respPsbtHex = await this._signPsbt(request, {
+      try {
+        psbts.push(
+          Psbt.fromHex(formatPsbtHex(psbtHexs[i]), { network: psbtNetwork }),
+        );
+      } catch (error) {
+        throw web3Errors.rpc.invalidParams(
+          `invalid psbt at index ${i}: ${(error as Error)?.message ?? ''}`,
+        );
+      }
+      perItemOptions.push(
+        getSignPsbtOptionsForPsbtIndex({ options, index: i }),
+      );
+    }
+
+    const duplicateIndexes = findDuplicatePsbtIndexes(psbts);
+    if (duplicateIndexes.length > 0) {
+      throw web3Errors.rpc.invalidParams(
+        `duplicate psbt at index ${duplicateIndexes.join(', ')}`,
+      );
+    }
+
+    const exemptIndexes = perItemOptions
+      .map((o, i) => (o?.isBtcWalletProvider ? i : -1))
+      .filter((i) => i >= 0);
+    const conflicts = findPsbtOutpointConflicts({ psbts, exemptIndexes });
+    if (conflicts.length > 0) {
+      // Outpoint keys use internal (little-endian) byte order; reverse the
+      // txid part for the DApp-facing message so developers see the display
+      // (big-endian) txid they recognize from explorers. Reversed byte-pair
+      // by byte-pair on the hex string directly, rather than via
+      // Buffer#reverse(), since an eslint autofix on the mutating array
+      // method rewrites it to Uint8Array#toReversed() (a plain typed array
+      // whose toString() drops the 'hex' encoding argument).
+      const [rawTxid, vout] = conflicts[0].outpoint.split(':');
+      let displayTxid = '';
+      for (let i = rawTxid.length - 2; i >= 0; i -= 2) {
+        displayTxid += rawTxid.slice(i, i + 2);
+      }
+      throw web3Errors.rpc.invalidParams(
+        `conflicting inputs across psbts (double spend): ${displayTxid}:${vout}`,
+      );
+    }
+
+    const items: IBatchTxSignCreateItem[] = [];
+    for (let i = 0; i < psbts.length; i += 1) {
+      const psbt = psbts[i];
+      const itemOptions = perItemOptions[i];
+      const { encodedTx, inputsToSign } = await this.buildPsbtSignFlowPayload({
         psbt,
         psbtNetwork,
-        options: optionsForCurrentPsbt,
+        options: itemOptions,
+        accountId,
+        networkId,
+        address: account.address,
       });
-      result.push(respPsbtHex);
+      if (!inputsToSign.length) {
+        throw web3Errors.rpc.invalidParams(
+          `psbt at index ${i} has no inputs owned by the current account`,
+        );
+      }
+      // Change recognition uses the primary account address only for now;
+      // find-address / change-path outputs are counted as external outgoing.
+      // That inflates the displayed total but never breaks the strict-fee rule.
+      const amounts = computeBatchPsbtAmounts({
+        psbt,
+        psbtNetwork,
+        accountAddresses: [account.address],
+      });
+      if (!amounts) {
+        throw web3Errors.rpc.invalidParams(
+          `psbt at index ${i} has unparseable amounts or fee`,
+        );
+      }
+      items.push({
+        unsignedTx: {
+          uuid: '',
+          accountId,
+          networkId,
+          encodedTx,
+        } as IUnsignedTxPro,
+        summary: {
+          index: i,
+          recipient: amounts.externalRecipients[0] ?? '',
+          extraRecipientCount: Math.max(
+            0,
+            amounts.externalRecipients.length - 1,
+          ),
+          amountValue: amounts.externalOutValue,
+          feeValue: amounts.feeValue,
+          status: EBatchTxSignItemStatus.Ready,
+        },
+        inputsToSign,
+        autoFinalized: itemOptions?.autoFinalized,
+      });
     }
 
-    return result;
+    const { batchId } = await this.backgroundApi.serviceBatchTxSign.createBatch(
+      {
+        accountId,
+        networkId,
+        items,
+      },
+    );
+    try {
+      const result =
+        await this.backgroundApi.serviceDApp.openBatchTxConfirmModal({
+          request,
+          accountId,
+          networkId,
+          batchId,
+        });
+      return result;
+    } finally {
+      // No-op if takeFinalizedResults already disposed it; aborts the queue
+      // if the modal died (extension popup closed, request rejected).
+      await this.backgroundApi.serviceBatchTxSign.disposeBatch({ batchId });
+    }
   }
 
-  async _signPsbt(
-    request: IJsBridgeMessagePayload,
-    params: {
-      psbt: Psbt;
-      psbtNetwork: BitcoinJS.networks.Network;
-      options?: ISignPsbtOptions;
-    },
-  ) {
-    const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, address } = {} } =
-      accountsInfo[0];
-
-    if (!networkId || !accountId) {
-      throw web3Errors.provider.custom({
-        code: 4002,
-        message: `Can not get account`,
-      });
-    }
-
-    const { psbt, psbtNetwork, options } = params;
-
+  private async buildPsbtSignFlowPayload({
+    psbt,
+    psbtNetwork,
+    options,
+    accountId,
+    networkId,
+    address,
+  }: {
+    psbt: Psbt;
+    psbtNetwork: BitcoinJS.networks.Network;
+    options?: ISignPsbtOptions;
+    accountId: string;
+    networkId: string;
+    address?: string;
+  }): Promise<{
+    encodedTx: IEncodedTxBtc;
+    inputsToSign: ITxInputToSign[];
+  }> {
     const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
 
     const account = await this.backgroundApi.serviceAccount.getAccount({
@@ -837,26 +980,61 @@ class ProviderApiBtc extends ProviderApiBase {
       };
     });
 
+    const encodedTx: IEncodedTxBtc = {
+      inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
+        ...v,
+        path: '',
+        value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
+      })) as IBtcInput[],
+      outputs,
+      inputsForCoinSelect: [],
+      outputsForCoinSelect: [],
+      fee: new BigNumber(decodedPsbt.fee).toFixed(),
+      inputsToSign,
+      psbtHex: psbt.toHex(),
+      disabledCoinSelect: true,
+      txSize: undefined,
+    };
+
+    return { encodedTx, inputsToSign };
+  }
+
+  async _signPsbt(
+    request: IJsBridgeMessagePayload,
+    params: {
+      psbt: Psbt;
+      psbtNetwork: BitcoinJS.networks.Network;
+      options?: ISignPsbtOptions;
+    },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const { psbt, psbtNetwork, options } = params;
+
+    const { encodedTx, inputsToSign } = await this.buildPsbtSignFlowPayload({
+      psbt,
+      psbtNetwork,
+      options,
+      accountId,
+      networkId,
+      address,
+    });
+
     const resp =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         accountId,
         networkId,
-        encodedTx: {
-          inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
-            ...v,
-            path: '',
-            value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
-          })) as IBtcInput[],
-          outputs,
-          inputsForCoinSelect: [],
-          outputsForCoinSelect: [],
-          fee: new BigNumber(decodedPsbt.fee).toFixed(),
-          inputsToSign,
-          psbtHex: psbt.toHex(),
-          disabledCoinSelect: true,
-          txSize: undefined,
-        },
+        encodedTx,
         signOnly: true,
       });
 
@@ -866,16 +1044,18 @@ class ProviderApiBtc extends ProviderApiBase {
         message: 'Failed to sign psbt',
       });
     }
-    const respPsbt = Psbt.fromHex(resp.psbtHex, { network: psbtNetwork });
 
-    if (options && options.autoFinalized === false) {
-      // do not finalize
-    } else {
-      inputsToSign.forEach((input: IToSignInput) => {
-        respPsbt.finalizeInput(input.index);
-      });
-    }
-    return respPsbt.toHex();
+    // KNOWN BEHAVIOR NOTE: the old tail always round-tripped
+    // Psbt.fromHex(...).toHex() even when autoFinalized === false; this
+    // helper returns the hex untouched in that case instead. Bytes are
+    // equivalent for our own signer output, so this is intentional.
+    const respPsbtHex = finalizeSignedPsbtHex({
+      signedPsbtHex: resp.psbtHex,
+      psbtNetwork,
+      inputsToSign,
+      autoFinalized: options?.autoFinalized,
+    });
+    return respPsbtHex;
   }
 
   @providerApiMethod()
