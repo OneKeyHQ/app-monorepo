@@ -783,6 +783,66 @@ class ServiceHardware extends ServiceBase {
 
   private connectedDeviceTracked = new Set<string>();
 
+  private connectedDeviceIdentityKeysByConnection = new Map<
+    string,
+    Set<string>
+  >();
+
+  private deviceSearchInProgressCount = 0;
+
+  private getConnectedDeviceIdentityKeys(device: KnownDevice | undefined) {
+    if (!device) {
+      return [];
+    }
+    const deviceWithSerial = device as KnownDevice & { serialNo?: string };
+    let deviceId: string | undefined;
+    if (device.features) {
+      try {
+        deviceId = deviceUtils.getRawDeviceId({
+          device: device as any,
+          features: device.features,
+        });
+      } catch {
+        // 连接事件在 features 尚未完整时仍可使用 connectId/uuid/serialNo。
+      }
+    }
+    return uniq(
+      [
+        device.connectId,
+        device.uuid,
+        deviceWithSerial.serialNo,
+        deviceId,
+      ].filter((value): value is string => Boolean(value)),
+    );
+  }
+
+  private trackConnectedDevice(device: KnownDevice | undefined) {
+    const identityKeys = this.getConnectedDeviceIdentityKeys(device);
+    const connectionKey = device?.connectId || identityKeys[0];
+    if (connectionKey && identityKeys.length > 0) {
+      this.connectedDeviceIdentityKeysByConnection.set(
+        connectionKey,
+        new Set(identityKeys),
+      );
+    }
+    return identityKeys;
+  }
+
+  private untrackConnectedDevice(device: KnownDevice | undefined) {
+    const disconnectedKeys = new Set(
+      this.getConnectedDeviceIdentityKeys(device),
+    );
+    for (const [connectionKey, identityKeys] of this
+      .connectedDeviceIdentityKeysByConnection) {
+      if (
+        disconnectedKeys.has(connectionKey) ||
+        [...disconnectedKeys].some((key) => identityKeys.has(key))
+      ) {
+        this.connectedDeviceIdentityKeysByConnection.delete(connectionKey);
+      }
+    }
+  }
+
   private resetHardwareUiEventQueue() {
     this.hardwareUiEventQueue.reset();
     this.hardwareUiEventState = createHardwareUiEventState();
@@ -1163,6 +1223,7 @@ class ServiceHardware extends ServiceBase {
   ) {
     if (this.registeredSdkEventsInstance !== instance) {
       this.resetHardwareUiEventQueue();
+      this.connectedDeviceIdentityKeysByConnection.clear();
       this.registeredEvents = false;
     }
 
@@ -1380,6 +1441,12 @@ class ServiceHardware extends ServiceBase {
               );
             }
             if (persistenceResult?.kind === 'identity-mismatch') {
+              await this.backgroundApi.serviceHardwarePortfolioSync
+                ?.notifyHardwareDeviceIdentityMismatch({
+                  deviceDbId: persistenceResult.deviceDbId,
+                  expectedDeviceId: persistenceResult.currentDeviceId,
+                })
+                .catch(() => undefined);
               return;
             }
             if (
@@ -1442,6 +1509,14 @@ class ServiceHardware extends ServiceBase {
       );
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const connectedIdentityKeys = this.trackConnectedDevice(message.device);
+        if (connectedIdentityKeys.length > 0) {
+          void this.backgroundApi.serviceHardwarePortfolioSync
+            ?.notifyHardwareDeviceConnected({
+              identityKeys: connectedIdentityKeys,
+            })
+            .catch(() => undefined);
+        }
         const activeConnectId = message.device?.connectId;
         const serialNo = (
           message.device as KnownDevice & {
@@ -1500,6 +1575,7 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        this.untrackConnectedDevice(message.device);
         const activeConnectId = message.device?.connectId;
         if (activeConnectId) {
           if (this.hardwareUiEventState.connectId === activeConnectId) {
@@ -1680,6 +1756,68 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isDeviceSearchInProgress() {
+    return this.deviceSearchInProgressCount > 0;
+  }
+
+  @backgroundMethod()
+  async isHardwareDeviceConnected({
+    deviceDbId,
+    connectId,
+  }: {
+    deviceDbId?: string;
+    connectId?: string;
+  }) {
+    const dbDevice = deviceDbId
+      ? await localDb.getDeviceSafe(deviceDbId)
+      : undefined;
+    const targetIdentityKeys = new Set(
+      uniq(
+        [
+          connectId,
+          dbDevice?.connectId,
+          dbDevice?.usbConnectId,
+          dbDevice?.bleConnectId,
+          dbDevice?.deviceId,
+          dbDevice?.uuid,
+        ].filter((value): value is string => Boolean(value)),
+      ),
+    );
+    if (targetIdentityKeys.size === 0) {
+      return false;
+    }
+
+    const isTrackedAsConnected = [
+      ...this.connectedDeviceIdentityKeysByConnection.values(),
+    ].some((connectedIdentityKeys) =>
+      [...targetIdentityKeys].some((key) => connectedIdentityKeys.has(key)),
+    );
+    if (isTrackedAsConnected) {
+      return true;
+    }
+
+    // 与钱包列表小绿点保持一致：WebUSB 必须枚举到目标设备自身，不能只
+    // 判断“存在任意 OneKey 设备”，否则连接设备 B 会错误放行设备 A。
+    if (platformEnv.isSupportWebUSB) {
+      try {
+        const usb = globalThis?.navigator?.usb;
+        if (usb && typeof usb.getDevices === 'function') {
+          const devices = await usb.getDevices();
+          return devices.some(
+            (device) =>
+              Boolean(device.serialNumber) &&
+              targetIdentityKeys.has(device.serialNumber as string),
+          );
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  @backgroundMethod()
   async searchDevices(params?: {
     connectProtocol?: HardwareConnectProtocol;
     vendor?: EHardwareVendor;
@@ -1687,56 +1825,66 @@ class ServiceHardware extends ServiceBase {
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
   }) {
-    const vendorProfile = params?.vendor
-      ? getVendorProfile(params.vendor)
-      : undefined;
-    if (params?.vendor && vendorProfile?.isThirdParty) {
-      // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
-      return this.backgroundApi.serviceThirdPartyHardware.searchDevices({
-        vendor: params.vendor,
-        resetSession: params.resetSession,
-        waitForAllTransports: params.waitForAllTransports,
-        transportType: params.transportType,
-      });
-    }
-
-    // OneKey 设备搜索也必须先通过统一连接管理器确定 transport。
-    // searchDevices 本身只枚举当前 SDK transport，不负责 USB -> BLE 切换；
-    // 因此必须在创建 SDK 实例前完成 USB 优先、无 USB 再 BLE 的预探测。
-    const hardwareTransportType = await this.prepareHardwareTransport({
-      connectProtocol: params?.connectProtocol,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      ...(params?.transportType
-        ? { requestedTransportType: params.transportType }
-        : {}),
-    });
-    const hardwareSDK = await this.getSDKInstance({
-      connectId: undefined,
-      connectProtocol: params?.connectProtocol,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      hardwareTransportType,
-    });
-    const response = await hardwareSDK?.searchDevices();
-    defaultLogger.hardware.sdkLog.log(
-      'searchDevices response: ',
-      JSON.stringify(response),
-    );
-
-    // Linux may surface missing udev rules either through libusb or Chromium
-    // WebUSB errors, depending on the active transport path.
-    if (response?.success === false) {
-      // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
-      // and retry once, so the user doesn't have to restart the app.
-      if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
-        const retryResponse = await hardwareSDK?.searchDevices();
-        defaultLogger.hardware.sdkLog.log(
-          'searchDevices response after udev rules: ',
-          JSON.stringify(retryResponse),
+    this.deviceSearchInProgressCount += 1;
+    try {
+      const vendorProfile = params?.vendor
+        ? getVendorProfile(params.vendor)
+        : undefined;
+      if (params?.vendor && vendorProfile?.isThirdParty) {
+        // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+        return await this.backgroundApi.serviceThirdPartyHardware.searchDevices(
+          {
+            vendor: params.vendor,
+            resetSession: params.resetSession,
+            waitForAllTransports: params.waitForAllTransports,
+            transportType: params.transportType,
+          },
         );
-        return retryResponse;
       }
+
+      // OneKey 设备搜索也必须先通过统一连接管理器确定 transport。
+      // searchDevices 本身只枚举当前 SDK transport，不负责 USB -> BLE 切换；
+      // 因此必须在创建 SDK 实例前完成 USB 优先、无 USB 再 BLE 的预探测。
+      const hardwareTransportType = await this.prepareHardwareTransport({
+        connectProtocol: params?.connectProtocol,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        ...(params?.transportType
+          ? { requestedTransportType: params.transportType }
+          : {}),
+      });
+      const hardwareSDK = await this.getSDKInstance({
+        connectId: undefined,
+        connectProtocol: params?.connectProtocol,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        hardwareTransportType,
+      });
+      const response = await hardwareSDK?.searchDevices();
+      defaultLogger.hardware.sdkLog.log(
+        'searchDevices response: ',
+        JSON.stringify(response),
+      );
+
+      // Linux may surface missing udev rules either through libusb or Chromium
+      // WebUSB errors, depending on the active transport path.
+      if (response?.success === false) {
+        // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
+        // and retry once, so the user doesn't have to restart the app.
+        if (await this.recoverLinuxWebUsbAccessDeniedError(response.payload)) {
+          const retryResponse = await hardwareSDK?.searchDevices();
+          defaultLogger.hardware.sdkLog.log(
+            'searchDevices response after udev rules: ',
+            JSON.stringify(retryResponse),
+          );
+          return retryResponse;
+        }
+      }
+      return response;
+    } finally {
+      this.deviceSearchInProgressCount = Math.max(
+        this.deviceSearchInProgressCount - 1,
+        0,
+      );
     }
-    return response;
   }
 
   private async ensureLinuxUdevRules() {

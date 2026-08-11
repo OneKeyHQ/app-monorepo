@@ -502,14 +502,20 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async isHardwareChannelBusy(_params?: { connectId?: string }) {
-    const [hardwareUiState, firmwareUpdateWorkflowRunning] = await Promise.all([
+    const [
+      hardwareUiState,
+      firmwareUpdateWorkflowRunning,
+      deviceSearchInProgress,
+    ] = await Promise.all([
       hardwareUiStateAtom.get(),
       firmwareUpdateWorkflowRunningAtom.get(),
+      this.backgroundApi.serviceHardware.isDeviceSearchInProgress(),
     ]);
     return (
       this.processingNestedNum > 0 ||
       this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked() ||
       firmwareUpdateWorkflowRunning ||
+      deviceSearchInProgress ||
       Boolean(hardwareUiState)
     );
   }

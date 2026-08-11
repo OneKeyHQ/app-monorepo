@@ -1553,6 +1553,37 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('marks the hardware channel busy while device discovery is running', async () => {
+    let resolveSearch:
+      | ((result: { success: true; payload: SearchDevice[] }) => void)
+      | undefined;
+    const sdkSearchDevices = jest.fn(
+      () =>
+        new Promise<{ success: true; payload: SearchDevice[] }>((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices: sdkSearchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.prepareHardwareTransport = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+
+    const searchTask = service.searchDevices({ transportType: 'usb' });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    await expect(service.isDeviceSearchInProgress()).resolves.toBe(true);
+
+    resolveSearch?.({ success: true, payload: [] });
+    await searchTask;
+    await expect(service.isDeviceSearchInProgress()).resolves.toBe(false);
+  });
+
   it('locks an explicit BLE discovery to the BLE SDK transport', async () => {
     const sdkSearchDevices = jest.fn().mockResolvedValue({
       success: true,
