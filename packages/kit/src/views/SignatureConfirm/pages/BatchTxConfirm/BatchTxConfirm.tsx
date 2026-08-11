@@ -245,6 +245,18 @@ function BatchTxConfirm() {
       }
     : undefined;
 
+  // 1-based, for the "Signing transaction N of total" title. Prefer the
+  // batch's real currentIndex — signedCount+1 breaks when items were
+  // pre-signed out of order via drill-down (e.g. item 2 signed first would
+  // make signedCount+1 point at item 2 while item 1 is actually signing).
+  // currentIndex is briefly undefined right when signRemaining flips the
+  // batch to Signing but hasn't set it for the first item yet — signedCount+1
+  // is still correct in that narrow window since nothing is out of order.
+  const currentTransactionNumber =
+    batch?.currentIndex !== undefined
+      ? batch.currentIndex + 1
+      : Math.min(signedCount + 1, totalCount);
+
   const handlePageClose = useCallback(
     (extra?: { flag?: string }) => {
       // NOT a harmless no-op on a second call: ServicePromise removes a
@@ -341,13 +353,26 @@ function BatchTxConfirm() {
   );
 
   const startSigning = useCallback(() => {
-    // A rejection here also covers a stale/disposed batch (e.g. the window
-    // reopened against a batch that no longer exists) — without a toast the
-    // Sign button would just silently stop responding.
     void backgroundApiProxy.serviceBatchTxSign
       .signRemaining({ batchId })
-      .catch(() => {
-        Toast.error({ title: 'This signing request is no longer available' });
+      .catch((error: unknown) => {
+        // signRemaining rejects for two very different reasons and only one
+        // deserves this toast:
+        //  - the batch is actually gone (ServiceBatchTxSign.requireBatch
+        //    throws "batchTxSign: unknown batchId ..." — e.g. a stale
+        //    window reopened against a disposed batch), which would
+        //    otherwise leave the Sign button silently unresponsive.
+        //  - a mid-queue item failed (e.g. device rejection): the batch is
+        //    still alive, the item's Failed row + a re-enabled Sign
+        //    remaining CTA already reflect it, and signTransaction's lower
+        //    layer already toasted the real reason — showing this generic
+        //    message on top would be misleading, so stay silent.
+        const message = error instanceof Error ? error.message : '';
+        if (message.includes('unknown batchId')) {
+          Toast.error({
+            title: 'This signing request is no longer available',
+          });
+        }
       });
   }, [batchId]);
 
@@ -518,6 +543,7 @@ function BatchTxConfirm() {
           <BatchSigningProgress
             totalCount={totalCount}
             signedCount={signedCount}
+            currentTransactionNumber={currentTransactionNumber}
             currentRow={currentRow}
           />
         </Page.Body>

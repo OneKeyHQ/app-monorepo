@@ -143,10 +143,15 @@ export function TransactionRow({
 export function BatchSigningProgress({
   totalCount,
   signedCount,
+  currentTransactionNumber,
   currentRow,
 }: {
   totalCount: number;
   signedCount: number;
+  // 1-based. Derived by the container from batch.currentIndex (falling back
+  // to signedCount+1 only when currentIndex is undefined) — signedCount+1
+  // alone is wrong once items are pre-signed out of order via drill-down.
+  currentTransactionNumber: number;
   // amountText is pre-formatted by the container, including any MINUS_SIGN
   // prefix.
   currentRow?: { title: string; recipient: string; amountText: string };
@@ -187,10 +192,7 @@ export function BatchSigningProgress({
         <SizableText size="$headingLg" textAlign="center">
           {isComplete
             ? 'All transactions signed'
-            : `Signing transaction ${Math.min(
-                signedCount + 1,
-                totalCount,
-              )} of ${totalCount}`}
+            : `Signing transaction ${currentTransactionNumber} of ${totalCount}`}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {progressDescription}
