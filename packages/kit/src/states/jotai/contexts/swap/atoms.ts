@@ -405,6 +405,8 @@ export const {
   use: useSwapQuoteAutoRefreshTimerAtom,
 } = contextAtom<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+export const { atom: swapWarningRequestIdAtom } = contextAtom<number>(0);
+
 export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,

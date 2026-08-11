@@ -107,7 +107,8 @@ function useSwapWarningCheck() {
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapActiveSelectedFromTokenBalanceAtom();
-  const { checkSwapWarning } = useSwapActions().current;
+  const { checkSwapWarning, invalidateSwapWarningCheck } =
+    useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
@@ -181,6 +182,8 @@ function useSwapWarningCheck() {
   );
 
   useEffect(() => {
+    invalidateSwapWarningCheck();
+    checkSwapWarningDeb.cancel();
     if (isFocused) {
       asyncRefContainer();
       checkSwapWarningDeb(
@@ -189,6 +192,10 @@ function useSwapWarningCheck() {
         allowNoConnectWallet,
       );
     }
+    return () => {
+      invalidateSwapWarningCheck();
+      checkSwapWarningDeb.cancel();
+    };
   }, [
     allowNoConnectWallet,
     asyncRefContainer,
@@ -202,6 +209,7 @@ function useSwapWarningCheck() {
     quoteEventError,
     quoteEventTotalCount,
     isFocused,
+    invalidateSwapWarningCheck,
     swapLimitUseRate,
   ]);
 }
