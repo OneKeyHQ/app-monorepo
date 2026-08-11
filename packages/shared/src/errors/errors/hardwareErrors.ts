@@ -872,6 +872,7 @@ export class NftStorageLimitReachedError extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage:
           'NFT storage limit reached. Remove an NFT from the device and try again.',
+        defaultKey: ETranslations.nft_storage_limit_reached__msg,
       }),
     );
   }

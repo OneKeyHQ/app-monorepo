@@ -3189,15 +3189,26 @@ class ServiceHardware extends ServiceBase {
   }: {
     dbDeviceId: string | undefined;
   }): Promise<IDeviceHomeScreenConfig> {
+    const { getNftSize } = await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const size = serviceHardwareUtils.getPro2NftSizeFallback({
-      deviceType: device.deviceType,
-      thumbnail: false,
-    });
-    const thumbnailSize = serviceHardwareUtils.getPro2NftSizeFallback({
-      deviceType: device.deviceType,
-      thumbnail: true,
-    });
+    const size =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: false,
+      });
+    const thumbnailSize =
+      getNftSize({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      }) ??
+      serviceHardwareUtils.getPro2NftSizeFallback({
+        deviceType: device.deviceType,
+        thumbnail: true,
+      });
 
     return { names: [], size, thumbnailSize };
   }
