@@ -66,6 +66,22 @@ describe('checkAndUpdateStepState', () => {
     expect(isCheckAndUpdateReady(steps)).toBe(false);
   });
 
+  it('blocks manual checks while a post-update recheck timer is pending', () => {
+    const steps = [
+      {
+        id: ECheckAndUpdateStepId.GenuineCheck,
+        state: ECheckAndUpdateStepState.Idle,
+      },
+      {
+        id: ECheckAndUpdateStepId.FirmwareCheck,
+        state: ECheckAndUpdateStepState.Idle,
+      },
+    ];
+
+    expect(isCheckAndUpdateRetryDisabled(steps)).toBe(false);
+    expect(isCheckAndUpdateRetryDisabled(steps, true)).toBe(true);
+  });
+
   it('preserves a completed genuine check during post-update recheck', () => {
     const steps = beginPostUpdateRecheck([
       {

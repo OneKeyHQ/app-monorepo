@@ -41,9 +41,13 @@ export function isCheckAndUpdateReady(steps: ICheckAndUpdateStep[]) {
   );
 }
 
-export function isCheckAndUpdateRetryDisabled(steps: ICheckAndUpdateStep[]) {
-  return steps.some(
-    (step) => step.state === ECheckAndUpdateStepState.InProgress,
+export function isCheckAndUpdateRetryDisabled(
+  steps: ICheckAndUpdateStep[],
+  isFirmwareRecheckPending = false,
+) {
+  return (
+    isFirmwareRecheckPending ||
+    steps.some((step) => step.state === ECheckAndUpdateStepState.InProgress)
   );
 }
 

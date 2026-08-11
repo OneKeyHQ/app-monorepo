@@ -7,10 +7,6 @@ import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalFirmwareUpdateRoutes,
@@ -160,24 +156,12 @@ function PageFirmwareUpdateInstallV2() {
       scrollEnabled
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateInstall unmounted');
-        try {
-          await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-          if (result?.originalConnectId) {
-            await backgroundApiProxy.serviceHardware.cancel({
-              connectId: result.originalConnectId,
-              forceDeviceResetToHome: true,
-            });
-          }
-        } finally {
-          if (!isDone) {
-            // The device may have rebooted from loader mode after cancellation or an
-            // error. Notify onboarding to discard the stale connection and run the
-            // same delayed rebind used after a successful update.
-            appEventBus.emit(
-              EAppEventBusNames.FirmwareUpdateInterrupted,
-              undefined,
-            );
-          }
+        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+        if (result?.originalConnectId) {
+          await backgroundApiProxy.serviceHardware.cancel({
+            connectId: result.originalConnectId,
+            forceDeviceResetToHome: true,
+          });
         }
       }}
     >

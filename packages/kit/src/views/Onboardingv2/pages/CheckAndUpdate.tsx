@@ -126,7 +126,7 @@ function CheckAndUpdatePage({
   >(null);
   const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
   // Track "the device may still be rebooting" separately. Set it when an update
-  // succeeds or is interrupted, and clear it only after a check completes successfully.
+  // succeeds, and clear it only after a check completes successfully.
   // While set, every check, including manual retries, uses the patient reconnect path.
   const pendingPostUpdateReconnectRef = useRef(false);
   const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
@@ -251,7 +251,10 @@ function CheckAndUpdatePage({
     (step) => step.id === ECheckAndUpdateStepId.FirmwareCheck,
   )?.state;
   const isReady = isCheckAndUpdateReady(steps);
-  const isAnyStepInProgress = isCheckAndUpdateRetryDisabled(steps);
+  const isAnyStepInProgress = isCheckAndUpdateRetryDisabled(
+    steps,
+    isFirmwareRecheckPending,
+  );
   useEffect(() => {
     setCelebrate(
       isReady && firmwareStepState === ECheckAndUpdateStepState.Success,
@@ -619,7 +622,7 @@ function CheckAndUpdatePage({
 
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
-  // Refresh the live runtime state after an update succeeds, is canceled, or fails.
+  // Refresh the live runtime state after an update succeeds.
   useEffect(() => {
     const handleFirmwareRuntimeChanged = () => {
       console.log('Firmware update runtime changed, recording timestamp...');
@@ -631,18 +634,10 @@ function CheckAndUpdatePage({
       EAppEventBusNames.FinishFirmwareUpdate,
       handleFirmwareRuntimeChanged,
     );
-    appEventBus.on(
-      EAppEventBusNames.FirmwareUpdateInterrupted,
-      handleFirmwareRuntimeChanged,
-    );
 
     return () => {
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
-        handleFirmwareRuntimeChanged,
-      );
-      appEventBus.off(
-        EAppEventBusNames.FirmwareUpdateInterrupted,
         handleFirmwareRuntimeChanged,
       );
     };
@@ -831,8 +826,11 @@ function CheckAndUpdatePage({
   );
 
   const handleVerifyHardware = useCallback(async () => {
+    if (isAnyStepInProgress) {
+      return;
+    }
     await runGenuineCheck(true);
-  }, [runGenuineCheck]);
+  }, [isAnyStepInProgress, runGenuineCheck]);
 
   useEffect(() => {
     if (
@@ -981,7 +979,10 @@ function CheckAndUpdatePage({
     onPress: () => void;
     label: string;
   } | null = null;
-  if (!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle)) {
+  if (
+    !isAnyStepInProgress &&
+    !steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle)
+  ) {
     bottomCta = {
       key: 'verify',
       testID: OnboardingTestIDs.checkAndUpdateVerifyBtn,

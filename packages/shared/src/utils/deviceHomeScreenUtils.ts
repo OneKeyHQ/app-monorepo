@@ -269,6 +269,9 @@ async function buildCustomScreenHex({
       includeHex: !isProtocolV2Product,
     });
     screenHex = isProtocolV2Product ? '' : imgScreen.hex;
+    if (isProtocolV2Product && !imgScreen.base64) {
+      throw new OneKeyLocalError('Pro2 wallpaper JPEG data is missing');
+    }
     screenBase64 = imageUtils.stripBase64UriPrefix(
       imgScreen.base64 || base64Uri,
     );
@@ -285,7 +288,7 @@ async function buildCustomScreenHex({
 
   return {
     screenHex,
-    screenBase64,
+    screenBase64: isProtocolV2Product ? screenBase64 : undefined,
     thumbnailHex: imgThumb?.hex,
     blurScreenHex: blurScreen.hex,
   };
