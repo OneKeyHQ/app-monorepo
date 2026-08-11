@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -37,7 +37,10 @@ import {
   EBatchTxSignItemStatus,
   EBatchTxSignStatus,
 } from '@onekeyhq/shared/types/batchTxSign';
-import type { IBatchTxSignItemSummary } from '@onekeyhq/shared/types/batchTxSign';
+import type {
+  IBatchTxSignItemSummary,
+  IBatchTxSignProgress,
+} from '@onekeyhq/shared/types/batchTxSign';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -50,6 +53,7 @@ import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection
 
 import {
   BatchSigningProgress,
+  MINUS_SIGN,
   SummaryRow,
   TransactionRow,
   formatRecipientLine,
@@ -96,11 +100,26 @@ function BatchTxConfirm() {
     }
   }, [batchId]);
 
+  // Guards against a redundant dappApprove.reject() firing for an
+  // already-settled id (see handlePageClose below) from any close path that
+  // does not flow through Page.FooterActions' `extra` flag — e.g. the
+  // usePreventRemove guard's navigation.dispatch().
+  const hasSettledRef = useRef(false);
+
+  // Frozen while handleDone is closing the page: takeFinalizedResults clears
+  // the shared atom as soon as it succeeds, and without this freeze the
+  // component would re-render on the stale seeded snapshot (back to
+  // Overview) for a frame before closePageStack actually unmounts the page.
+  const [closingSnapshot, setClosingSnapshot] = useState<
+    IBatchTxSignProgress | undefined
+  >(undefined);
+
   // The atom is a single global slot shared by whatever batch is currently
   // in-flight — only trust it when it is actually describing THIS route's
   // batch, otherwise fall back to the direct seed snapshot.
   const batch =
-    atomProgress?.batchId === batchId ? atomProgress : seededProgress;
+    closingSnapshot ??
+    (atomProgress?.batchId === batchId ? atomProgress : seededProgress);
 
   const isHw = useMemo(
     () => accountUtils.isHwAccount({ accountId }),
@@ -110,22 +129,34 @@ function BatchTxConfirm() {
   const { result: network } = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
+    // Fall back to undefined instead of rethrowing — decimals/symbol below
+    // already default sanely, and an unguarded rethrow here would surface as
+    // an unhandled rejection.
+    { undefinedResultIfError: true },
   );
   const decimals = network?.decimals ?? 8;
   const symbol = network?.symbol ?? 'BTC';
 
-  const { result: nativePrice } = usePromiseResult(async () => {
-    const nativeTokenAddress =
-      await backgroundApiProxy.serviceToken.getNativeTokenAddress({
-        networkId,
-      });
-    const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      networkId,
-      accountId,
-      contractList: [nativeTokenAddress],
-    });
-    return tokenResp?.[0]?.price;
-  }, [networkId, accountId]);
+  const { result: nativePrice } = usePromiseResult(
+    async () => {
+      const nativeTokenAddress =
+        await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+          networkId,
+        });
+      const tokenResp =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountId,
+          contractList: [nativeTokenAddress],
+        });
+      return tokenResp?.[0]?.price;
+    },
+    [networkId, accountId],
+    // An offline/failed price fetch degrades to "no fiat line" (formatFiat
+    // already handles `nativePrice` being undefined); don't let it rethrow
+    // as an unhandled rejection.
+    { undefinedResultIfError: true },
+  );
 
   const formatAmount = useCallback(
     (satoshiValue: string) =>
@@ -134,6 +165,19 @@ function BatchTxConfirm() {
         { formatter: 'balance' },
       )} ${symbol}`,
     [decimals, symbol],
+  );
+
+  // Per-row outgoing amount: prefixed with MINUS_SIGN, except when the
+  // amount is zero — a pure consolidation psbt has no external outgoing
+  // value, and "−0 BTC" would misleadingly read as negative.
+  const formatOutgoingAmount = useCallback(
+    (satoshiValue: string) => {
+      const amountText = formatAmount(satoshiValue);
+      return new BigNumber(satoshiValue).isZero()
+        ? amountText
+        : `${MINUS_SIGN}${amountText}`;
+    },
+    [formatAmount],
   );
 
   const formatFiat = useCallback(
@@ -196,7 +240,7 @@ function BatchTxConfirm() {
           recipient: currentItem.recipient,
           extraRecipientCount: currentItem.extraRecipientCount,
         }),
-        amountText: formatAmount(currentItem.amountValue),
+        amountText: formatOutgoingAmount(currentItem.amountValue),
       }
     : undefined;
 
@@ -204,13 +248,20 @@ function BatchTxConfirm() {
     (extra?: { flag?: string }) => {
       // NOT a harmless no-op on a second call: ServicePromise removes a
       // settled callback via Array.splice, which reindexes its backing
-      // array, so a stray reject() here after Done already resolved this id
-      // could reject a *different*, still-pending dapp request that shifted
-      // into the freed slot. Only fire on a genuine dismissal (back gesture
-      // / X button / Reject / Cancel) that did not already resolve via Done.
-      if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
-        dappApprove.reject();
+      // array, so a stray reject() here after this id already settled could
+      // reject a *different*, still-pending dapp request that shifted into
+      // the freed slot. Skip when this id was already settled explicitly —
+      // via the Confirmed flag (paths that close through Page.FooterActions)
+      // or hasSettledRef (paths that close via navigation.dispatch(), which
+      // carries no flag). Only fire on a genuine dismissal (back gesture / X
+      // button) that never went through Done/Reject/Cancel.
+      if (
+        hasSettledRef.current ||
+        extra?.flag === EDAppModalPageStatus.Confirmed
+      ) {
+        return;
       }
+      dappApprove.reject();
     },
     [dappApprove],
   );
@@ -272,9 +323,14 @@ function BatchTxConfirm() {
   );
 
   const startSigning = useCallback(() => {
+    // A rejection here also covers a stale/disposed batch (e.g. the window
+    // reopened against a batch that no longer exists) — without a toast the
+    // Sign button would just silently stop responding.
     void backgroundApiProxy.serviceBatchTxSign
       .signRemaining({ batchId })
-      .catch(() => {});
+      .catch(() => {
+        Toast.error({ title: 'This signing request is no longer available' });
+      });
   }, [batchId]);
 
   const showSigningNotice = useCallback(() => {
@@ -309,6 +365,7 @@ function BatchTxConfirm() {
 
   const closeAndReject = useCallback(
     (closePageStack: () => void) => {
+      hasSettledRef.current = true;
       dappApprove.reject();
       closePageStack();
     },
@@ -347,6 +404,11 @@ function BatchTxConfirm() {
 
   const handleDone = useCallback(
     async (closePageStack: (extra?: { flag?: string }) => void) => {
+      // Freeze the currently-rendered (Complete) stage before
+      // takeFinalizedResults clears the shared atom, so the fallback to
+      // seededProgress below never gets a chance to flash the page back to
+      // a stale Overview for a frame while this closes.
+      setClosingSnapshot(batch);
       try {
         const results =
           await backgroundApiProxy.serviceBatchTxSign.takeFinalizedResults({
@@ -356,15 +418,17 @@ function BatchTxConfirm() {
         // Mark this close as an already-resolved success so handlePageClose
         // does not fire a redundant reject() for the same (now-settled) id —
         // see the comment on handlePageClose for why that is unsafe.
+        hasSettledRef.current = true;
         closePageStack({ flag: EDAppModalPageStatus.Confirmed });
       } catch (_error) {
         // Keep the page open on failure: takeFinalizedResults/resolve did
         // not settle the dapp request, so the user can retry Done or fall
         // back to Cancel request instead of silently losing the batch.
+        setClosingSnapshot(undefined);
         Toast.error({ title: 'Failed to collect signatures' });
       }
     },
-    [batchId, dappApprove],
+    [batch, batchId, dappApprove],
   );
 
   const handlePreventRemove = useCallback(
@@ -380,6 +444,7 @@ function BatchTxConfirm() {
           void backgroundApiProxy.serviceBatchTxSign
             .cancelBatch({ batchId })
             .catch(() => {});
+          hasSettledRef.current = true;
           dappApprove.reject();
           navigation.dispatch(data.action);
         },
@@ -490,13 +555,15 @@ function BatchTxConfirm() {
               </SizableText>
             </XStack>
 
+            {/* Plain .map, no cap per product decision — migrate to FlashList
+                if batches beyond ~100 items become a real use case. */}
             {items.map((item) => (
               <TransactionRow
                 key={item.index}
                 index={item.index}
                 recipient={item.recipient}
                 extraRecipientCount={item.extraRecipientCount}
-                amountText={formatAmount(item.amountValue)}
+                amountText={formatOutgoingAmount(item.amountValue)}
                 fiatText={formatFiat(item.amountValue)}
                 signed={item.status === EBatchTxSignItemStatus.Signed}
                 failed={item.status === EBatchTxSignItemStatus.Failed}

@@ -8,8 +8,10 @@ import {
 } from '@onekeyhq/components';
 
 // U+2212 MINUS SIGN (not a hyphen) to match the outgoing-amount style used
-// across the app's transaction rows.
-const MINUS_SIGN = '−';
+// across the app's transaction rows. Exported so the container can decide
+// whether to prefix it (it owns amount formatting, including the zero-amount
+// exception for pure consolidation psbts).
+export const MINUS_SIGN = '−';
 
 // Shared between TransactionRow and BatchSigningProgress's "current
 // transaction" card so both surfaces describe multi-output items the same
@@ -56,6 +58,7 @@ export function TransactionRow({
   index: number;
   recipient: string;
   extraRecipientCount: number;
+  // Pre-formatted by the container, including any MINUS_SIGN prefix.
   amountText: string;
   fiatText?: string;
   signed: boolean;
@@ -124,9 +127,7 @@ export function TransactionRow({
       </YStack>
 
       <YStack flexShrink={0} alignItems="flex-end">
-        <SizableText size="$bodyMdMedium">
-          {`${MINUS_SIGN}${amountText}`}
-        </SizableText>
+        <SizableText size="$bodyMdMedium">{amountText}</SizableText>
         {fiatText ? (
           <SizableText size="$bodySm" color="$textSubdued">
             {fiatText}
@@ -146,6 +147,8 @@ export function BatchSigningProgress({
 }: {
   totalCount: number;
   signedCount: number;
+  // amountText is pre-formatted by the container, including any MINUS_SIGN
+  // prefix.
   currentRow?: { title: string; recipient: string; amountText: string };
 }) {
   const remainingCount = totalCount - signedCount;
@@ -231,7 +234,7 @@ export function BatchSigningProgress({
               </SizableText>
             </YStack>
             <SizableText size="$bodyMdMedium">
-              {`${MINUS_SIGN}${currentRow.amountText}`}
+              {currentRow.amountText}
             </SizableText>
           </XStack>
         </YStack>
