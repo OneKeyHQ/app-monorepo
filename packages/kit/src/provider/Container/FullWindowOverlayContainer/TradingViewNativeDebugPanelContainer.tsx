@@ -6,13 +6,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ITradingViewNativeDebugPanelProps } from '../../../components/TradingView/TradingViewNative/TradingViewNativeDebugPanel';
 
-const TradingViewNativeDebugPanel =
-  LazyLoad<ITradingViewNativeDebugPanelProps>(
-    () =>
-      import(
-        '../../../components/TradingView/TradingViewNative/TradingViewNativeDebugPanel'
-      ),
-  );
+const TradingViewNativeDebugPanel = LazyLoad<ITradingViewNativeDebugPanelProps>(
+  () =>
+    import('../../../components/TradingView/TradingViewNative/TradingViewNativeDebugPanel'),
+);
 
 function TradingViewNativeDebugPanelSettingGate() {
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
@@ -37,11 +34,7 @@ function TradingViewNativeDebugPanelSettingGate() {
 }
 
 function BasicTradingViewNativeDebugPanelContainer() {
-  if (
-    !platformEnv.isDev ||
-    !platformEnv.isWeb ||
-    !globalThis.document?.body
-  ) {
+  if (!platformEnv.isDev || !platformEnv.isWeb || !globalThis.document?.body) {
     return null;
   }
 

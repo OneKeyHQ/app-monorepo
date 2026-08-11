@@ -14,19 +14,15 @@ const mockDevSettings: {
   settings: { showTradingViewNativeDebugPanel: true },
 };
 const mockSetDevSettings = jest.fn(
-  (
-    updater: (current: typeof mockDevSettings) => typeof mockDevSettings,
-  ) => {
+  (updater: (current: typeof mockDevSettings) => typeof mockDevSettings) => {
     Object.assign(mockDevSettings, updater(mockDevSettings));
   },
 );
-const mockPanelRender = jest.fn(
-  ({ onClose }: { onClose: () => void }) => (
-    <button data-testid="trading-view-native-debug-panel" onClick={onClose}>
-      Close
-    </button>
-  ),
-);
+const mockPanelRender = jest.fn(({ onClose }: { onClose: () => void }) => (
+  <button data-testid="trading-view-native-debug-panel" onClick={onClose}>
+    Close
+  </button>
+));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
   useDevSettingsPersistAtom: () => {
@@ -50,10 +46,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
 
 jest.mock('@onekeyhq/shared/src/lazyLoad', () => ({
   __esModule: true,
-  default:
-    () =>
-    (props: { onClose: () => void }) =>
-      mockPanelRender(props),
+  default: () => (props: { onClose: () => void }) => mockPanelRender(props),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -83,9 +76,7 @@ describe('TradingViewNativeDebugPanelContainer', () => {
   it('mounts the panel from the global owner when debug mode is enabled', () => {
     render(<TradingViewNativeDebugPanelContainer />);
 
-    expect(
-      screen.getByTestId('trading-view-native-debug-panel'),
-    ).toBeTruthy();
+    expect(screen.getByTestId('trading-view-native-debug-panel')).toBeTruthy();
     expect(mockPanelRender).toHaveBeenCalledTimes(1);
   });
 
@@ -93,9 +84,7 @@ describe('TradingViewNativeDebugPanelContainer', () => {
     mockDevSettings.settings.showTradingViewNativeDebugPanel = false;
     render(<TradingViewNativeDebugPanelContainer />);
 
-    expect(
-      screen.queryByTestId('trading-view-native-debug-panel'),
-    ).toBeNull();
+    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
     expect(mockPanelRender).not.toHaveBeenCalled();
   });
 
@@ -113,17 +102,13 @@ describe('TradingViewNativeDebugPanelContainer', () => {
   it('persists close through the global developer setting gate', () => {
     const { rerender } = render(<TradingViewNativeDebugPanelContainer />);
 
-    fireEvent.click(
-      screen.getByTestId('trading-view-native-debug-panel'),
-    );
+    fireEvent.click(screen.getByTestId('trading-view-native-debug-panel'));
     expect(mockDevSettings.settings.showTradingViewNativeDebugPanel).toBe(
       false,
     );
 
     rerender(<TradingViewNativeDebugPanelContainer />);
-    expect(
-      screen.queryByTestId('trading-view-native-debug-panel'),
-    ).toBeNull();
+    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
     expect(mockPanelRender).toHaveBeenCalledTimes(1);
   });
 });
