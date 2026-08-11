@@ -1,8 +1,6 @@
-import { useMemo } from 'react';
-
 import { Easing, makeMutable } from 'react-native-reanimated';
 
-import { easeInFn, easeOutFn, useSceneClock } from '../deviceScene';
+import { easeInFn, easeOutFn } from '../deviceScene';
 
 import type { IKeyframe } from '../deviceScene';
 import type { SharedValue } from 'react-native-reanimated';
@@ -44,17 +42,8 @@ export const SLATE_DEVICE_SCREEN_ON: ISlateDeviceAnimation = {
  * must sequence between two scenes (the stage's word swap, say) queues
  * after SCREEN_SWAP_MS. */
 
-/** Content-in: the whole of an entry, for content drawn from views. */
+/** Content-in: the whole of an entry. */
 export const CONTENT_IN_MS = 760;
-/**
- * Content-in for a scene carrying an image, deliberately longer. The file
- * is small, but decoded it is past the size iOS will keep in its image
- * cache, so every entrance decodes it afresh and hands a full-screen
- * bitmap to the compositor; measured frame by frame, a ramp of the length
- * above loses most of its frames to that and the picture reads as simply
- * appearing. This one is long enough to survive it.
- */
-export const IMAGE_CONTENT_IN_MS = 1800;
 /**
  * Slow-start curve for the content-in, and the reason it is not the
  * shared ease-out: opacity over black composites in sRGB, where half
@@ -68,17 +57,6 @@ export const contentInEase = Easing.bezierFn(0.6, 0, 0.7, 1);
 export const SCREEN_SWAP_OUT_MS = 300;
 /** A full lit-to-lit handover, out then in — the beat callers queue after. */
 export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
-
-/** Wraps the resident screen opacity into the shell contract. */
-export function useSlateScreenAnimation(
-  screenIn: Readonly<SharedValue<number>>,
-) {
-  const animation: ISlateDeviceAnimation = useMemo(
-    () => ({ screenContent: screenIn }),
-    [screenIn],
-  );
-  return { animation };
-}
 
 /* ------------------------- enter PIN ------------------------- *
  * The keyboard sheen and the entry dots. One soft light crosses the keypad
@@ -97,9 +75,8 @@ const PIN_DOT_STEP_MS = 300;
 const PIN_DOT_IN_MS = 180;
 const PIN_DOTS_OUT_START_MS = 4000;
 const PIN_DOTS_OUT_MS = 300;
-const PIN_LOOP_MS = 4800;
-/** Reduced-motion rest: all four dots shown, keyboard quiet. */
-const PIN_REST_MS = 3200;
+/** Scene loop for the registry; rest = all four dots shown, keyboard quiet. */
+export const PIN_LOOP = { loopMs: 4800, restMs: 3200 };
 
 /** One pass of the traveling sheen over one element: a soft pulse. */
 function sheenPulseTrack(startMs: number, pulseMs: number): IKeyframe[] {
@@ -138,26 +115,6 @@ function pinDotTrack(index: number): IKeyframe[] {
 export const PIN_SHEEN_TRACKS = [0, 1, 2, 3, 4, 5].map(pinKeySheenTrack);
 export const PIN_DOT_TRACKS = [0, 1, 2, 3].map(pinDotTrack);
 
-/**
- * Shell contract plus a scene's looping choreography clock, which holds
- * at 0 (a clean screen) until the entry has finished rendering in.
- */
-function useSlateSceneAnimation(
-  screenIn: Readonly<SharedValue<number>>,
-  loopMs: number,
-  restMs: number,
-) {
-  const { animation } = useSlateScreenAnimation(screenIn);
-  const clock = useSceneClock(loopMs, restMs, CONTENT_IN_MS);
-  return { animation, clock };
-}
-
-export function useEnterPinOnSlateAnimation(
-  screenIn: Readonly<SharedValue<number>>,
-) {
-  return useSlateSceneAnimation(screenIn, PIN_LOOP_MS, PIN_REST_MS);
-}
-
 /* ------------------------- confirm ------------------------- *
  * The one gradient light crossing the glass, top-left corner to
  * bottom-right corner. It lives on the screen, not on the content: the
@@ -167,9 +124,8 @@ export function useEnterPinOnSlateAnimation(
 const CONFIRM_SWEEP_START_MS = 300;
 /** Corner-to-corner travel of the band. */
 const CONFIRM_SWEEP_MS = 900;
-const CONFIRM_LOOP_MS = 3200;
-/** Reduced-motion rest: the plain still, the light already gone. */
-const CONFIRM_REST_MS = 2000;
+/** Scene loop for the registry; rest = the plain still, the light gone. */
+export const CONFIRM_LOOP = { loopMs: 3200, restMs: 2000 };
 
 /**
  * Travel of the light: 0 parked off past the top-left corner, 1 off past
@@ -180,9 +136,3 @@ export const CONFIRM_SWEEP_TRACK: IKeyframe[] = [
   { t: CONFIRM_SWEEP_START_MS, v: 0 },
   { t: CONFIRM_SWEEP_START_MS + CONFIRM_SWEEP_MS, v: 1 },
 ];
-
-export function useConfirmOnSlateAnimation(
-  screenIn: Readonly<SharedValue<number>>,
-) {
-  return useSlateSceneAnimation(screenIn, CONFIRM_LOOP_MS, CONFIRM_REST_MS);
-}
