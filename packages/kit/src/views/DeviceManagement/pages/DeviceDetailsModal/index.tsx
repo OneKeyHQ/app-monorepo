@@ -242,19 +242,21 @@ function DeviceDetailsModalV2Cmp({
                 <>
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
-                  {/* Wipe device is a OneKey-SDK op; the danger zone is wipe-only
-                      for third-party (Trezor/Ledger), so hide it for them. */}
-                  {vendorProfile?.isThirdParty ? null : (
-                    <DeviceSectionDangerZone
-                      onPressCheckForUpdates={onPressCheckForUpdates}
-                    />
-                  )}
                 </>
               ) : null}
               {showPassphraseSettings && showInteractiveSections ? (
                 <DeviceSectionAdvance />
               ) : null}
               {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+              {/* Last of the user-facing sections so a destructive action is
+                  never adjacent to the routine settings above. Wipe device is a
+                  OneKey-SDK op; the danger zone is wipe-only for third-party
+                  (Trezor/Ledger), so hide it for them. */}
+              {showDeviceSettings && !vendorProfile?.isThirdParty ? (
+                <DeviceSectionDangerZone
+                  onPressCheckForUpdates={onPressCheckForUpdates}
+                />
+              ) : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
             <DeviceGetStartedLayout

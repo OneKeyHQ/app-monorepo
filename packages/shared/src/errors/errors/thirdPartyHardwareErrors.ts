@@ -23,6 +23,8 @@ export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
 export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
+// Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
+export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -141,6 +143,25 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UserAborted;
+}
+
+/**
+ * The user cancelled BLE pairing while it was still waiting on the OS pairing
+ * window. Kept apart from ThirdPartyUserAborted so the pairing flow can be told
+ * from a generic in-app cancel; both stay silent and share the cancel copy until
+ * this gets its own string.
+ */
+export class ThirdPartyBlePairingCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_user_cancel_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE;
 }
 
 export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {

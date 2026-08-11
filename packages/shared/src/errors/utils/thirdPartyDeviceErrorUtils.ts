@@ -112,6 +112,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserAborted:
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE:
+      return new ThirdPartyErrors.ThirdPartyBlePairingCancelled(props);
+
     case ThirdPartyHwErrorCode.PinInvalid:
       return new ThirdPartyErrors.ThirdPartyPinInvalid(props);
 
