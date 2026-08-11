@@ -69,27 +69,33 @@ describe('resolveHwWalletTransportType', () => {
     ).toBe(EHardwareTransportType.WEBUSB);
   });
 
-  it('uses OneKey electron-ble commType instead of the USB global default', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.WEBUSB,
-        deviceConnectionType: undefined,
-        deviceCommType: 'electron-ble',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.DesktopWebBle);
-  });
+  it.each(['ble', 'webble', 'electron-ble'] as const)(
+    'persists a desktop OneKey %s selection as DesktopWebBle under a USB default',
+    (deviceCommType) => {
+      expect(
+        resolveHwWalletTransportType({
+          globalTransportType: EHardwareTransportType.WEBUSB,
+          deviceConnectionType: undefined,
+          deviceCommType,
+          isNative: false,
+        }),
+      ).toBe(EHardwareTransportType.DesktopWebBle);
+    },
+  );
 
-  it('uses OneKey webusb commType instead of the BLE global default', () => {
-    expect(
-      resolveHwWalletTransportType({
-        globalTransportType: EHardwareTransportType.DesktopWebBle,
-        deviceConnectionType: undefined,
-        deviceCommType: 'webusb',
-        isNative: false,
-      }),
-    ).toBe(EHardwareTransportType.WEBUSB);
-  });
+  it.each(['usb', 'webusb', 'bridge'] as const)(
+    'persists a desktop OneKey %s selection as WEBUSB under a BLE default',
+    (deviceCommType) => {
+      expect(
+        resolveHwWalletTransportType({
+          globalTransportType: EHardwareTransportType.DesktopWebBle,
+          deviceConnectionType: undefined,
+          deviceCommType,
+          isNative: false,
+        }),
+      ).toBe(EHardwareTransportType.WEBUSB);
+    },
+  );
 
   it('does not pull a USB device to WEBUSB on native (USB is not a native transport)', () => {
     expect(

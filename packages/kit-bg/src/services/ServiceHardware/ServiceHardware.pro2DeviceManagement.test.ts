@@ -78,6 +78,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getDeviceSafe: jest.fn(),
     getDeviceByQuery: jest.fn(),
     updateDeviceState: jest.fn(),
   },
@@ -749,6 +750,82 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it('按设备身份跟踪连接状态，而不是把任意硬件设备视为目标设备在线', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-a',
+      connectId: 'DEVICE_A_USB',
+      deviceId: 'DEVICE_A_ID',
+    } as never);
+
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'DEVICE_B_USB' },
+    });
+    await expect(
+      service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
+    ).resolves.toBe(false);
+
+    listeners.get(DEVICE.CONNECT)?.({
+      device: { connectId: 'DEVICE_A_USB' },
+    });
+    await expect(
+      service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
+    ).resolves.toBe(true);
+
+    listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'DEVICE_A_USB' },
+    });
+    await expect(
+      service.isHardwareDeviceConnected({ deviceDbId: 'db-device-a' }),
+    ).resolves.toBe(false);
+  });
+
+  it('forwards all tracked identity keys when a device disconnects', async () => {
+    const listeners = new Map<string, (payload: unknown) => void>();
+    const notifyHardwareDeviceConnected = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const notifyHardwareDeviceDisconnected = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwarePortfolioSync: {
+          notifyHardwareDeviceConnected,
+          notifyHardwareDeviceDisconnected,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    await service.registerSdkEvents({
+      on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+        listeners.set(event, listener),
+      ),
+    } as never);
+
+    listeners.get(DEVICE.CONNECT)?.({
+      device: {
+        connectId: 'PRO2_USB',
+        serialNo: 'PRO2_SERIAL',
+        uuid: 'PRO2_UUID',
+      },
+    });
+    listeners.get(DEVICE.DISCONNECT)?.({
+      device: { connectId: 'PRO2_USB' },
+    });
+
+    expect(notifyHardwareDeviceDisconnected).toHaveBeenCalledWith({
+      identityKeys: ['PRO2_USB', 'PRO2_UUID', 'PRO2_SERIAL'],
+    });
+  });
+
   it('普通断连后保留已确认协议，供重连继续固定使用', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({
@@ -778,26 +855,11 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     expect(internals.deviceProtocolByConnectId.get('PRO2_USB')).toBe('V2');
   });
 
-  it('deprecates wallets immediately after a successful device wipe', async () => {
+  it('keeps wallets active after a successful device wipe', async () => {
     const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
-    const getWalletDevice = jest.fn().mockResolvedValue({
-      id: 'db-device-1',
-      connectId: 'PRO2_USB',
-      deviceId: 'OLD_DEVICE_ID',
-    });
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
-          getWalletDevice,
-          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
-            'hw-wallet-1': {
-              wallet: {
-                id: 'hw-wallet-1',
-                associatedDevice: 'db-device-1',
-              },
-              device: { id: 'db-device-1' },
-            },
-          }),
           updateWalletsDeprecatedState,
         },
       } as unknown as IBackgroundApi,
@@ -816,11 +878,8 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       }),
     ).resolves.toEqual({ message: 'Success' });
 
-    expect(getWalletDevice).toHaveBeenCalledWith({ walletId: 'hw-wallet-1' });
-    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
-      willUpdateDeprecateMap: { 'hw-wallet-1': true },
-    });
-    expect(emitMock).toHaveBeenCalledWith(
+    expect(updateWalletsDeprecatedState).not.toHaveBeenCalled();
+    expect(emitMock).not.toHaveBeenCalledWith(
       EAppEventBusNames.WalletUpdate,
       undefined,
     );
@@ -1285,7 +1344,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     ).toBe(0);
   });
 
-  it('deprecates the old wallet and suppresses a reset identity event', async () => {
+  it('keeps the old wallet active and suppresses a reset identity event', async () => {
     // oxlint-disable-next-line typescript/unbound-method -- Jest mocks do not depend on this binding.
     const updateDeviceStateMock = jest.mocked(localDb.updateDeviceState);
     updateDeviceStateMock.mockReset();
@@ -1303,19 +1362,16 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       (payload: unknown) => void | Promise<void>
     >();
     const updateWalletsDeprecatedState = jest.fn().mockResolvedValue(true);
+    const notifyHardwareDeviceIdentityMismatch = jest
+      .fn()
+      .mockResolvedValue(undefined);
     const service = new ServiceHardware({
       backgroundApi: {
         serviceAccount: {
-          getAllHwQrWalletWithDevice: jest.fn().mockResolvedValue({
-            'hw-wallet-1': {
-              wallet: {
-                id: 'hw-wallet-1',
-                associatedDevice: 'db-device-1',
-              },
-              device: { id: 'db-device-1' },
-            },
-          }),
           updateWalletsDeprecatedState,
+        },
+        serviceHardwarePortfolioSync: {
+          notifyHardwareDeviceIdentityMismatch,
         },
       } as unknown as IBackgroundApi,
     });
@@ -1341,10 +1397,12 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
 
     await listeners.get('state')?.(event);
 
-    expect(updateWalletsDeprecatedState).toHaveBeenCalledWith({
-      willUpdateDeprecateMap: { 'hw-wallet-1': true },
+    expect(updateWalletsDeprecatedState).not.toHaveBeenCalled();
+    expect(notifyHardwareDeviceIdentityMismatch).toHaveBeenCalledWith({
+      deviceDbId: 'db-device-1',
+      expectedDeviceId: 'OLD_DEVICE_ID',
     });
-    expect(emitMock).toHaveBeenCalledWith(
+    expect(emitMock).not.toHaveBeenCalledWith(
       EAppEventBusNames.WalletUpdate,
       undefined,
     );

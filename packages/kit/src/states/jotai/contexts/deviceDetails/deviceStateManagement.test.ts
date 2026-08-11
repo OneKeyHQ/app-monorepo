@@ -5,6 +5,7 @@ import {
   buildDeviceMetaStateFromState,
   getDeviceMetaStaticDataFromState,
   getDeviceStateSnapshotFromEvent,
+  isDeviceManagementWalletUsable,
   mergeDeviceSettingState,
   resolveDeviceState,
   resolveDeviceWithCurrentType,
@@ -37,6 +38,47 @@ describe('device reset wallet isolation', () => {
         },
         device: {
           id: 'old-device-1',
+          featuresInfo: {
+            $app_firmware_type: EFirmwareType.BitcoinOnly,
+          },
+        },
+      } as never),
+    ).toBeUndefined();
+  });
+
+  it('keeps an active mocked standard wallet as the hidden-only device proxy', () => {
+    const walletWithDevice = {
+      wallet: {
+        id: 'hw-wallet-1',
+        associatedDevice: 'device-1',
+        deprecated: false,
+        isMocked: true,
+      },
+      device: {
+        id: 'device-1',
+      },
+    };
+
+    expect(isDeviceManagementWalletUsable(walletWithDevice as never)).toBe(
+      true,
+    );
+    expect(resolveUsableWalletWithDevice(walletWithDevice as never)).toBe(
+      walletWithDevice,
+    );
+  });
+
+  it('does not expose a deprecated mocked wallet after a firmware switch', () => {
+    expect(
+      resolveUsableWalletWithDevice({
+        wallet: {
+          id: 'hw-wallet-1',
+          deprecated: true,
+          isMocked: true,
+          firmwareTypeAtCreated: EFirmwareType.Universal,
+        },
+        device: {
+          id: 'device-1',
+          deviceType: EDeviceType.Pro,
           featuresInfo: {
             $app_firmware_type: EFirmwareType.BitcoinOnly,
           },
