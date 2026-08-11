@@ -3,6 +3,7 @@ import {
   emitTradingViewNativeDebugEvent,
   getTradingViewNativeDebugErrorMessage,
   getTradingViewNativeDebugEvents,
+  setTradingViewNativeDebugEventCollectionEnabled,
   subscribeTradingViewNativeDebugEvents,
 } from './tradingViewNativeDebugLogger';
 
@@ -24,7 +25,12 @@ describe('TradingViewNative debug event logger', () => {
   beforeEach(() => {
     mockPlatformEnv.isDev = true;
     mockPlatformEnv.isWeb = true;
+    setTradingViewNativeDebugEventCollectionEnabled(true);
     clearTradingViewNativeDebugEvents();
+  });
+
+  afterEach(() => {
+    setTradingViewNativeDebugEventCollectionEnabled(false);
   });
 
   it('keeps a bounded chronological event list and notifies subscribers', () => {
@@ -58,6 +64,13 @@ describe('TradingViewNative debug event logger', () => {
     mockPlatformEnv.isDev = true;
     mockPlatformEnv.isWeb = false;
     emitTradingViewNativeDebugEvent({ name: 'native-event' });
+
+    expect(getTradingViewNativeDebugEvents()).toEqual([]);
+  });
+
+  it('does not collect when the diagnostics setting is disabled', () => {
+    setTradingViewNativeDebugEventCollectionEnabled(false);
+    emitTradingViewNativeDebugEvent({ name: 'disabled-event' });
 
     expect(getTradingViewNativeDebugEvents()).toEqual([]);
   });

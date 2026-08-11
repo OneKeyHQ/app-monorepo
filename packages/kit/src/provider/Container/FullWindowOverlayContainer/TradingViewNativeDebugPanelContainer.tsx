@@ -1,8 +1,10 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { setTradingViewNativeDebugEventCollectionEnabled } from '../../../components/TradingView/TradingViewNative/data/tradingViewNativeDebugLogger';
 
 import type { ITradingViewNativeDebugPanelProps } from '../../../components/TradingView/TradingViewNative/TradingViewNativeDebugPanel';
 
@@ -13,6 +15,10 @@ const TradingViewNativeDebugPanel = LazyLoad<ITradingViewNativeDebugPanelProps>(
 
 function TradingViewNativeDebugPanelSettingGate() {
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
+  const isEnabled = Boolean(
+    devSettings.enabled &&
+    devSettings.settings?.showTradingViewNativeDebugPanel === true,
+  );
   const handleClose = useCallback(() => {
     setDevSettings((current) => ({
       ...current,
@@ -23,10 +29,14 @@ function TradingViewNativeDebugPanelSettingGate() {
     }));
   }, [setDevSettings]);
 
-  if (
-    !devSettings.enabled ||
-    devSettings.settings?.showTradingViewNativeDebugPanel === false
-  ) {
+  useEffect(() => {
+    setTradingViewNativeDebugEventCollectionEnabled(isEnabled);
+    return () => {
+      setTradingViewNativeDebugEventCollectionEnabled(false);
+    };
+  }, [isEnabled]);
+
+  if (!isEnabled) {
     return null;
   }
 

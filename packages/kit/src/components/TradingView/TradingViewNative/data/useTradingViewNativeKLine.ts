@@ -1333,45 +1333,46 @@ export function useTradingViewNativeKLine({
         });
         try {
           const data = await rawHistoryProvider.fetchHistory(request);
-          emitTradingViewNativeDebugEvent({
-            details: {
-              durationMs: Date.now() - startedAt,
-              historySource: data?.historySource ?? 'primary',
-              interval: request.interval.value,
-              pointType: data?.pointType,
-              points: data?.points.length ?? 0,
-              providerKey: seriesKey,
-              requestId: debugRequestId,
-            },
-            level: data?.historySource === 'fallback' ? 'warning' : 'info',
-            name: 'history.response',
-          });
+          const responseDataSource: IHistoryDataSource =
+            data?.historySource === 'fallback' ? 'fallback' : 'primary';
+          const responseDetails = {
+            durationMs: Date.now() - startedAt,
+            historySource: responseDataSource,
+            interval: request.interval.value,
+            pointType: data?.pointType,
+            points: data?.points.length ?? 0,
+            providerKey: seriesKey,
+            requestId: debugRequestId,
+          };
 
-          if (data?.historySource === 'fallback') {
+          if (request.signal.aborted) {
             emitTradingViewNativeDebugEvent({
-              details: {
-                interval: request.interval.value,
-                points: data.points.length,
-                providerKey: seriesKey,
-                requestId: debugRequestId,
-              },
+              details: responseDetails,
               level: 'warning',
-              name: 'history.fallback.used',
+              name: 'history.response.aborted',
             });
+            return data;
           }
 
-          if (!request.signal.aborted && data && data.points.length > 0) {
+          if (data && data.points.length > 0) {
             const scopeKey = getHistoryPointTypeScopeKey(
               seriesKey,
               request.interval.value,
             );
-            const responseDataSource: IHistoryDataSource =
-              data.historySource === 'fallback' ? 'fallback' : 'primary';
             const selectedDataSource = historyDataSourceScopes.get(scopeKey);
             if (
               selectedDataSource &&
               selectedDataSource !== responseDataSource
             ) {
+              emitTradingViewNativeDebugEvent({
+                details: {
+                  ...responseDetails,
+                  reason: 'source-mismatch',
+                  selectedHistorySource: selectedDataSource,
+                },
+                level: 'warning',
+                name: 'history.response.dropped',
+              });
               return { ...data, points: [], total: 0 };
             }
             historyDataSourceScopes.set(scopeKey, responseDataSource);
@@ -1388,6 +1389,24 @@ export function useTradingViewNativeKLine({
                 scopes: new Map(historyPointTypeScopes),
               });
             }
+          }
+
+          emitTradingViewNativeDebugEvent({
+            details: responseDetails,
+            level: responseDataSource === 'fallback' ? 'warning' : 'info',
+            name: 'history.response',
+          });
+          if (responseDataSource === 'fallback') {
+            emitTradingViewNativeDebugEvent({
+              details: {
+                interval: request.interval.value,
+                points: data?.points.length ?? 0,
+                providerKey: seriesKey,
+                requestId: debugRequestId,
+              },
+              level: 'warning',
+              name: 'history.fallback.used',
+            });
           }
           return data;
         } catch (error) {

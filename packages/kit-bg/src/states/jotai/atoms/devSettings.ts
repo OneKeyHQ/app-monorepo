@@ -178,7 +178,7 @@ export const {
       },
       useLocalTradingViewUrl: false,
       useTradingViewNativeInMarketDetail: false,
-      showTradingViewNativeDebugPanel: true,
+      showTradingViewNativeDebugPanel: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,

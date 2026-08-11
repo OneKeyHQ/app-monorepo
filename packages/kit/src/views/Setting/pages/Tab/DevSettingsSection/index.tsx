@@ -2222,7 +2222,7 @@ const BaseDevSettingsSection = () => {
                               size={ESwitchSize.small}
                               value={
                                 devSettings.settings
-                                  ?.showTradingViewNativeDebugPanel ?? true
+                                  ?.showTradingViewNativeDebugPanel ?? false
                               }
                               onChange={(value) => {
                                 void backgroundApiProxy.serviceDevSetting.updateDevSetting(

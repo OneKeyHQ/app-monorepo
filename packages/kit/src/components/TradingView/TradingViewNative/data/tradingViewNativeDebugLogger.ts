@@ -21,10 +21,19 @@ type ITradingViewNativeDebugEventListener = () => void;
 
 let debugEventSequence = 0;
 let debugEvents: readonly ITradingViewNativeDebugEvent[] = [];
+let isDebugEventCollectionEnabled = false;
 const debugEventListeners = new Set<ITradingViewNativeDebugEventListener>();
 
 function isTradingViewNativeDebugLoggerEnabled() {
-  return Boolean(platformEnv.isDev && platformEnv.isWeb);
+  return Boolean(
+    platformEnv.isDev && platformEnv.isWeb && isDebugEventCollectionEnabled,
+  );
+}
+
+export function setTradingViewNativeDebugEventCollectionEnabled(
+  enabled: boolean,
+) {
+  isDebugEventCollectionEnabled = enabled;
 }
 
 function notifyTradingViewNativeDebugEventListeners() {

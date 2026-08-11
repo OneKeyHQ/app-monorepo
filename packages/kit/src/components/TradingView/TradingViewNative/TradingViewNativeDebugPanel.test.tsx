@@ -15,6 +15,7 @@ import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zI
 import {
   clearTradingViewNativeDebugEvents,
   emitTradingViewNativeDebugEvent,
+  setTradingViewNativeDebugEventCollectionEnabled,
 } from './data/tradingViewNativeDebugLogger';
 import { TradingViewNativeDebugPanel } from './TradingViewNativeDebugPanel';
 
@@ -33,6 +34,7 @@ let triggerResizeObserver: (() => void) | undefined;
 
 describe('TradingViewNativeDebugPanel', () => {
   beforeEach(() => {
+    setTradingViewNativeDebugEventCollectionEnabled(true);
     mockOnClose.mockReset();
     clearTradingViewNativeDebugEvents();
     globalThis.localStorage.clear();
@@ -70,6 +72,7 @@ describe('TradingViewNativeDebugPanel', () => {
   });
 
   afterEach(() => {
+    setTradingViewNativeDebugEventCollectionEnabled(false);
     globalThis.ResizeObserver = originalResizeObserver;
   });
 

@@ -23,6 +23,7 @@ const mockPanelRender = jest.fn(({ onClose }: { onClose: () => void }) => (
     Close
   </button>
 ));
+const mockSetDebugEventCollectionEnabled = jest.fn();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
   useDevSettingsPersistAtom: () => {
@@ -57,6 +58,17 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock(
+  '../../../components/TradingView/TradingViewNative/data/tradingViewNativeDebugLogger',
+  () => ({
+    setTradingViewNativeDebugEventCollectionEnabled: (
+      enabled: boolean,
+    ): void => {
+      mockSetDebugEventCollectionEnabled(enabled);
+    },
+  }),
+);
+
 const mockPlatformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv')
   .default as {
   isDev: boolean;
@@ -71,6 +83,7 @@ describe('TradingViewNativeDebugPanelContainer', () => {
     mockPlatformEnv.isWeb = true;
     mockPanelRender.mockClear();
     mockSetDevSettings.mockClear();
+    mockSetDebugEventCollectionEnabled.mockClear();
   });
 
   it('mounts the panel from the global owner when debug mode is enabled', () => {
@@ -78,6 +91,7 @@ describe('TradingViewNativeDebugPanelContainer', () => {
 
     expect(screen.getByTestId('trading-view-native-debug-panel')).toBeTruthy();
     expect(mockPanelRender).toHaveBeenCalledTimes(1);
+    expect(mockSetDebugEventCollectionEnabled).toHaveBeenCalledWith(true);
   });
 
   it('keeps the panel unmounted when the developer setting is disabled', () => {
@@ -86,6 +100,16 @@ describe('TradingViewNativeDebugPanelContainer', () => {
 
     expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
     expect(mockPanelRender).not.toHaveBeenCalled();
+    expect(mockSetDebugEventCollectionEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('defaults a missing diagnostics setting to disabled', () => {
+    mockDevSettings.settings = {};
+    render(<TradingViewNativeDebugPanelContainer />);
+
+    expect(screen.queryByTestId('trading-view-native-debug-panel')).toBeNull();
+    expect(mockPanelRender).not.toHaveBeenCalled();
+    expect(mockSetDebugEventCollectionEnabled).toHaveBeenCalledWith(false);
   });
 
   it('keeps the panel unmounted outside a local Web development build', () => {

@@ -310,6 +310,87 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
+  it('logs a fallback response as dropped after primary history is selected', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockResolvedValueOnce({
+        ...buildResponse(110, 100_000),
+        historySource: 'fallback',
+      });
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    mockEmitTradingViewNativeDebugEvent.mockClear();
+
+    updateVisibility(false);
+    updateVisibility(true);
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
+
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          historySource: 'fallback',
+          reason: 'source-mismatch',
+          selectedHistorySource: 'primary',
+        }),
+        level: 'warning',
+        name: 'history.response.dropped',
+      }),
+    );
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) => event.name === 'history.fallback.used',
+      ),
+    ).toBe(false);
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) =>
+          event.name === 'history.response' &&
+          event.details?.historySource === 'fallback',
+      ),
+    ).toBe(false);
+  });
+
+  it('logs a resolved response as aborted after its request is cancelled', async () => {
+    const historyRequest =
+      createDeferred<ITradingViewNativeHistoryResponse | null>();
+    mockFetchHistory.mockReturnValue(historyRequest.promise);
+
+    const { unmount } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(1));
+    const request = mockFetchHistory.mock.calls[0]?.[0];
+
+    unmount();
+    expect(request?.signal.aborted).toBe(true);
+    mockEmitTradingViewNativeDebugEvent.mockClear();
+    historyRequest.resolve({
+      ...buildResponse(100, 100_000),
+      historySource: 'fallback',
+    });
+
+    await waitFor(() =>
+      expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          details: expect.objectContaining({ historySource: 'fallback' }),
+          level: 'warning',
+          name: 'history.response.aborted',
+        }),
+      ),
+    );
+    expect(
+      mockEmitTradingViewNativeDebugEvent.mock.calls.some(
+        ([event]) =>
+          event.name === 'history.response' ||
+          event.name === 'history.fallback.used',
+      ),
+    ).toBe(false);
+  });
+
   it('selects a line chart from single-value history metadata', async () => {
     mockHistoryBatchSize = 2;
     mockHistoryRequestCandleCount = 2;
