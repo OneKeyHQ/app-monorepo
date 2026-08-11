@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 
-import { HeaderButtonGroup, Page, SizableText } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
@@ -171,21 +170,6 @@ function PageFirmwareUpdateChangeLog() {
           shouldShowChangeLog ? (
             <FirmwareUpdatePageHeaderTitle result={result} />
           ) : undefined
-        }
-        headerRight={
-          platformEnv.isNativeIOS && shouldShowChangeLog
-            ? () => (
-                <HeaderButtonGroup>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                  >
-                    {result?.deviceBleName}
-                  </SizableText>
-                </HeaderButtonGroup>
-              )
-            : undefined
         }
         containerStyle={{
           p:

@@ -13,13 +13,13 @@ import type { IntlShape } from 'react-intl';
 export function getFirmwareUpdateDeviceTitle(
   result: ICheckAllFirmwareReleaseResult,
 ) {
-  if (result.deviceType && isProtocolV2ProductType(result.deviceType)) {
-    return (
-      deviceUtils.getDefaultDeviceLabel(result.deviceType) || result.deviceName
-    );
+  if (result.deviceName) {
+    return result.deviceName;
   }
 
-  return result.deviceName;
+  return result.deviceType
+    ? deviceUtils.getDefaultDeviceLabel(result.deviceType)
+    : undefined;
 }
 
 export function isPro2SafeOSFirmwareUpdate(
