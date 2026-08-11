@@ -46,6 +46,7 @@ export default function MarketChart() {
     () =>
       getTradingViewNativeSource({
         hyperliquidCoin: '',
+        hyperliquidWhitelistBranch: 'wallet',
         isNative,
         marketDataSource: undefined,
         networkId,
