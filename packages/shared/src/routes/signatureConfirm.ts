@@ -38,6 +38,8 @@ export enum EModalSignatureConfirmRoutes {
   TxConfirmFromDApp = 'TxConfirmFromDApp',
   MessageConfirmFromDApp = 'MessageConfirmFromDApp',
   TxConfirmFromSwap = 'TxConfirmFromSwap',
+  BatchTxConfirm = 'BatchTxConfirm',
+  BatchTxConfirmFromDApp = 'BatchTxConfirmFromDApp',
 
   TxReplace = 'TxReplace',
   TxSelectToken = 'TxSelectToken',
@@ -107,6 +109,13 @@ export type IModalSignatureConfirmParamList = {
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
   };
+  [EModalSignatureConfirmRoutes.BatchTxConfirm]: {
+    batchId: string;
+    accountId: string;
+    networkId: string;
+    sourceInfo?: IDappSourceInfo;
+  };
+  [EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp]: undefined;
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
     networkId: string;
