@@ -138,7 +138,10 @@ import {
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
-import { shouldCloseSwapReviewOnFocusLoss } from '../../utils/swapReviewState';
+import {
+  hasInFlightSwapReviewSteps,
+  shouldCloseSwapReviewOnFocusLoss,
+} from '../../utils/swapReviewState';
 import { getSwapAnalyticsTokenListType } from '../../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -238,6 +241,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const swapProAccount = useSwapProAccount();
   const tokenDetailActions = useTokenDetailActions();
+  const hasInFlightSteps = hasInFlightSwapReviewSteps({
+    steps: swapStepData.steps,
+  });
+  const hasInFlightStepsRef = useRef(hasInFlightSteps);
+  hasInFlightStepsRef.current = hasInFlightSteps;
 
   const resetPendingReview = useCallback(() => {
     setSwapBuildTxFetching(false);
@@ -260,6 +268,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       shouldCloseSwapReviewOnFocusLoss({
         isFocused: isFocusedRef.current,
         isAppLocked: isAppLockedRef.current,
+        hasInFlightSteps: hasInFlightStepsRef.current,
         initialRootRouterCount: initialRootRouterCountRef.current,
         currentRootRouterCount: getRootRoutersLength(),
       }),

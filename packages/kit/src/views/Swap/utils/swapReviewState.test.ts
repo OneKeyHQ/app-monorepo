@@ -1,4 +1,8 @@
+import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
+
 import {
+  hasInFlightSwapReviewSteps,
   shouldCloseSwapReviewOnFocusLoss,
   shouldShowSwapReviewToAmountSkeleton,
 } from './swapReviewState';
@@ -7,6 +11,7 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
   const baseParams = {
     isFocused: false,
     isAppLocked: false,
+    hasInFlightSteps: false,
     initialRootRouterCount: 1,
     currentRootRouterCount: 1,
   };
@@ -32,6 +37,38 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
       }),
     ).toBe(false);
   });
+
+  it('keeps the review after a tab switch while a swap step is in flight', () => {
+    expect(
+      shouldCloseSwapReviewOnFocusLoss({
+        ...baseParams,
+        hasInFlightSteps: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('hasInFlightSwapReviewSteps', () => {
+  const step = (status: ESwapStepStatus) => ({ status }) as ISwapStep;
+
+  it('does not treat prepared steps as in flight', () => {
+    expect(
+      hasInFlightSwapReviewSteps({
+        steps: [step(ESwapStepStatus.READY)],
+      }),
+    ).toBe(false);
+  });
+
+  it.each([ESwapStepStatus.LOADING, ESwapStepStatus.PENDING])(
+    'treats a %s step as in flight',
+    (status) => {
+      expect(
+        hasInFlightSwapReviewSteps({
+          steps: [step(status)],
+        }),
+      ).toBe(true);
+    },
+  );
 });
 
 describe('shouldShowSwapReviewToAmountSkeleton', () => {
