@@ -2939,7 +2939,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           this.updatingFirmwareV4(
             {
               ...updateParams,
-              requirePreparedArtifacts: true,
+              requirePreparedArtifacts:
+                platformEnv.isNative || platformEnv.isDesktop,
               targetsToUpdate,
             },
             firmwareArtifacts,

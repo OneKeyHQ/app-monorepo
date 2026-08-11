@@ -624,6 +624,66 @@ describe('prepared firmware execution', () => {
     }
   });
 
+  test('keeps Protocol V2 plans SDK-managed on Extension', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      isNative: platformEnv.isNative,
+      appPlatform: platformEnv.appPlatform,
+      symbol: platformEnv.symbol,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: false,
+      isNative: false,
+      appPlatform: 'ext',
+      symbol: 'ext',
+    });
+    try {
+      const getCapabilities = jest
+        .spyOn(firmwareArtifactAdapter, 'getCapabilities')
+        .mockRejectedValue(new Error('artifact module unavailable'));
+      const controller = createController();
+      const plan = {
+        executor: 'v4',
+        planDigest: 'e'.repeat(64),
+        deviceIdentity: 'unavailable',
+        deviceModel: 'pro2',
+        platform: 'ext',
+        artifacts: [
+          {
+            artifactId: 'component:app_v1',
+            role: 'component',
+            target: 'app_v1',
+            url: 'https://firmware.example/application-p1.okpkg',
+            container: 'raw',
+            expectedSize: 1024,
+            expectedSha256: '1'.repeat(64),
+          },
+        ],
+        targetsToUpdate: ['app_v1'],
+      } as unknown as FirmwareUpdatePlan;
+
+      await expect(
+        controller.cachePlanDigestIfPreparedSupported({
+          hasUpgrade: true,
+          plan,
+          connectId: 'device',
+          transportType: EHardwareTransportType.WEBUSB,
+          expectedTargets: ['app_v1'],
+          requirePreparedPlan: true,
+        }),
+      ).resolves.toBe(plan.planDigest);
+      await expect(
+        controller.prepareWorkflowArtifacts({
+          deviceType: 'pro2',
+          firmwareUpdatePlanDigest: plan.planDigest,
+        } as ICheckAllFirmwareReleaseResult),
+      ).resolves.toBeUndefined();
+      expect(getCapabilities).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, previousPlatform);
+    }
+  });
+
   test('rejects empty and partial Desktop Bridge plans before preparation', async () => {
     const previousPlatform = {
       isDesktop: platformEnv.isDesktop,
