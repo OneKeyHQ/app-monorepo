@@ -65,3 +65,53 @@ export function getQRCodeLogoClearArenaSize({
 }) {
   return Math.ceil((logoSize + logoMargin * 2 + 3) / cellSize);
 }
+
+// Dark modules the dot renderer has to draw, in matrix coordinates where
+// x is the column and y is the row. The three finder patterns are excluded
+// because they are drawn separately as rounded squares, and the modules under
+// the logo are dropped so the logo plate does not sit on top of stray dots.
+export function getQRCodeDotCells({
+  matrix,
+  hasLogo,
+  logoSize,
+  logoMargin,
+  cellSize,
+}: {
+  matrix: number[][];
+  hasLogo: boolean;
+  logoSize: number;
+  logoMargin: number;
+  cellSize: number;
+}): { x: number; y: number }[] {
+  const size = matrix.length;
+  const clearArenaSize = getQRCodeLogoClearArenaSize({
+    logoSize,
+    logoMargin,
+    cellSize,
+  });
+  const clearAreaStart = size / 2 - clearArenaSize / 2;
+  const clearAreaEnd = size / 2 + clearArenaSize / 2 - 1;
+  const cells: { x: number; y: number }[] = [];
+  matrix.forEach((row, y) => {
+    row.forEach((module, x) => {
+      if (!module) {
+        return;
+      }
+      const isFinderPattern =
+        (y < 7 && x < 7) || (y < 7 && x > size - 8) || (y > size - 8 && x < 7);
+      if (isFinderPattern) {
+        return;
+      }
+      const isInsideLogoClearArea =
+        y >= clearAreaStart &&
+        y <= clearAreaEnd &&
+        x >= clearAreaStart &&
+        x <= clearAreaEnd;
+      if (hasLogo && isInsideLogoClearArea) {
+        return;
+      }
+      cells.push({ x, y });
+    });
+  });
+  return cells;
+}

@@ -25,8 +25,8 @@ import { Stack } from '../../primitives/Stack';
 
 import {
   generateMatrix,
+  getQRCodeDotCells,
   getQRCodeLayoutMetrics,
-  getQRCodeLogoClearArenaSize,
 } from './QRCode.utils';
 
 import type { IIconProps } from '../../primitives';
@@ -135,42 +135,22 @@ function BasicQRCode({
         }
       });
 
-      const clearArenaSize = getQRCodeLogoClearArenaSize({
+      getQRCodeDotCells({
+        matrix,
+        hasLogo,
         logoSize,
         logoMargin,
         cellSize,
-      });
-      const matrixMiddleStart = matrix.length / 2 - clearArenaSize / 2;
-      const matrixMiddleEnd = matrix.length / 2 + clearArenaSize / 2 - 1;
-      matrix.forEach((row: any[], i: number) => {
-        row.forEach((column, j) => {
-          if (matrix[i][j]) {
-            if (
-              !(
-                (i < 7 && j < 7) ||
-                (i > matrix.length - 8 && j < 7) ||
-                (i < 7 && j > matrix.length - 8)
-              )
-            ) {
-              const isInsideLogoClearArea =
-                i >= matrixMiddleStart &&
-                i <= matrixMiddleEnd &&
-                j >= matrixMiddleStart &&
-                j <= matrixMiddleEnd;
-              if (!hasLogo || !isInsideLogoClearArea) {
-                arr.push(
-                  <Circle
-                    key={`circle row${i} col${j}`}
-                    cx={i * cellSize + cellSize / 2}
-                    cy={j * cellSize + cellSize / 2}
-                    fill={primaryColor}
-                    r={cellSize / 3} // calculate size of single dots
-                  />,
-                );
-              }
-            }
-          }
-        });
+      }).forEach(({ x, y }) => {
+        arr.push(
+          <Circle
+            key={`circle row${y} col${x}`}
+            cx={x * cellSize + cellSize / 2}
+            cy={y * cellSize + cellSize / 2}
+            fill={primaryColor}
+            r={cellSize / 3} // calculate size of single dots
+          />,
+        );
       });
       return arr;
     }

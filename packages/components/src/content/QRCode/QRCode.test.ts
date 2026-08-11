@@ -1,4 +1,6 @@
 import {
+  generateMatrix,
+  getQRCodeDotCells,
   getQRCodeLayoutMetrics,
   getQRCodeLogoClearArenaSize,
 } from './QRCode.utils';
@@ -46,4 +48,49 @@ describe('QRCode layout metrics', () => {
       ).toBeCloseTo((LOGO_SIZE + LOGO_MARGIN * 2) / QR_SIZE, 10);
     },
   );
+});
+
+describe('QRCode dot rendering', () => {
+  // Regression guard for OK-59643: the dot renderer used to read the matrix
+  // as [x][y], which drew the symbol transposed along its main diagonal. The
+  // three finder patterns are drawn separately and map onto themselves under
+  // a transpose, so the result still looked like a valid QR code while the
+  // data region was mirrored — scanners without mirror support could not read
+  // it, and scanners with mirror support needed a second decode pass.
+  it.each([
+    ['EVM', '0x8dE690AcD6A938d0aE3bE6e08Ce80a54Bb0b928D'],
+    ['Bitcoin', 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'],
+    ['Solana', 'So11111111111111111111111111111111111111112'],
+  ])('draws every dot on a dark module of the %s matrix', (_chain, value) => {
+    const matrix = generateMatrix(value, 'H');
+    const cells = getQRCodeDotCells({
+      matrix,
+      hasLogo: false,
+      logoSize: 0,
+      logoMargin: 0,
+      cellSize: 1,
+    });
+
+    expect(cells.length).toBeGreaterThan(0);
+    for (const { x, y } of cells) {
+      expect(matrix[y][x]).toBe(1);
+    }
+
+    const size = matrix.length;
+    const expectedCells = matrix.reduce(
+      (total, row, y) =>
+        total +
+        row.filter(
+          (module, x) =>
+            module &&
+            !(
+              (y < 7 && x < 7) ||
+              (y < 7 && x > size - 8) ||
+              (y > size - 8 && x < 7)
+            ),
+        ).length,
+      0,
+    );
+    expect(cells).toHaveLength(expectedCells);
+  });
 });
