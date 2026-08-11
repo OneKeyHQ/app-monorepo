@@ -23,6 +23,7 @@ import {
   useBatchTxSignAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -285,10 +286,27 @@ function BatchTxConfirm() {
             batchId,
             index: item.index,
           });
+        // Backfill the top-level txSize the same way the legacy single-psbt
+        // dapp flow gets it (BTC Vault._buildUnsignedTxFromEncodedTx, run by
+        // serviceSend.prepareSendConfirmUnsignedTx via SendConfirmFromDApp).
+        // This batch item's unsignedTx is built directly in
+        // ProviderApiBtc._signPsbtsBatchFlow and never goes through that
+        // pass, so it never gets a txSize. TxFeeInfo's feeUTXO branch
+        // computes displayed fee as `feeRate * (txSize ?? 0)` — without
+        // this, the drill-down shows "Est. network fee 0 BTC" even though
+        // encodedTx.fee (used for signing) is correct. encodedTx.txSize is
+        // always undefined and inputsForCoinSelect always empty for this
+        // flow (see buildPsbtSignFlowPayload), so the vault's own fallback
+        // always resolves to this same placeholder — replicate it exactly
+        // so the fee shown here matches the legacy flow for the same psbt.
+        const unsignedTxWithFeeDisplay = {
+          ...unsignedTx,
+          txSize: unsignedTx.txSize ?? BTC_TX_PLACEHOLDER_VSIZE,
+        };
         navigation.push(EModalSignatureConfirmRoutes.TxConfirm, {
           accountId,
           networkId,
-          unsignedTxs: [unsignedTx],
+          unsignedTxs: [unsignedTxWithFeeDisplay],
           signOnly: true,
           feeInfoEditable: false,
           popStack: false,
