@@ -281,18 +281,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
     try {
       const result = await adapter.connectDevice(bleConnectId);
       if (!result.success) {
-        // Probe suppressed the pairing request — "not this device", not an error.
-        if (adapter.wasBindingProbeCancelled?.()) {
-          defaultLogger.hardware.sdkLog.log(
-            `[TrezorBLEBind] candidate rejected by probe cancel bleConnectId=${bleConnectId}`,
-          );
-          return null;
-        }
         defaultLogger.hardware.sdkLog.log(
           `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
         );
         throw convertThirdPartyDeviceError(result.payload, {
           vendor: EHardwareVendor.trezor,
+        });
+      }
+      // No device_id = "could not verify", never "different device".
+      if (!result.payload.deviceId) {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorBLEBind] candidate identity unavailable bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId}`,
+        );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.hardware_connect_failed,
+          }),
+          autoToast: true,
         });
       }
       if (result.payload.deviceId !== featuresDeviceId) {
@@ -322,6 +327,16 @@ class ServiceThirdPartyHardware extends ServiceBase {
         dbDeviceId: device.id,
         bleConnectId,
       });
+      // Drain THP credentials minted during binding, or the pairing code is
+      // re-entered on every connect. Best-effort: must never fail the bind.
+      try {
+        await this.persistTrezorThpCredentials({
+          connectId: bleConnectId,
+          deviceId: featuresDeviceId,
+        });
+      } catch {
+        // ignore — non-critical to binding
+      }
       // The DB write emits nothing on its own; notify the device-details UI so
       // the "bind Bluetooth" row reflects the new bleConnectId immediately.
       appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
@@ -431,11 +446,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
     deviceId: string;
   }): Promise<void> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    defaultLogger.hardware.sdkLog.log(
-      `[TrezorTHPTrace][service.persist] connectId=${String(
-        connectId,
-      )} deviceId=${deviceId}`,
-    );
     await adapter?.flushThpCredentials?.(deviceId, { connectId });
   }
 
