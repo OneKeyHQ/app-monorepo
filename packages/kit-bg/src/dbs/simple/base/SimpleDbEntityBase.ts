@@ -15,11 +15,23 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 
-// Chromium rejects reads with these names when a value's external blob file
-// is corrupted (e.g. crash mid-write); the record stays unreadable forever.
+// Chromium rejects reads with these signatures when a value's external blob
+// file is corrupted (e.g. crash mid-write); the record stays unreadable
+// forever. UnknownError alone is not enough — Chromium also uses it for
+// transient IO failures (disk full, backing store open errors), so it must
+// carry the corrupted-blob message to qualify.
 function isUnreadableStorageValueError(error: unknown): boolean {
-  const name = (error as { name?: string } | null | undefined)?.name;
-  return name === 'UnknownError' || name === 'NotReadableError';
+  const { name, message } = (error ?? {}) as {
+    name?: string;
+    message?: string;
+  };
+  if (name === 'NotReadableError') {
+    return true;
+  }
+  return (
+    name === 'UnknownError' &&
+    Boolean(message?.includes('Failed to read large IndexedDB value'))
+  );
 }
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
@@ -46,6 +58,10 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
+  // Bumped on every persisted write so a failing read can tell whether a
+  // concurrent setRawData landed after it started.
+  private writeSeq = 0;
+
   @backgroundMethod()
   clearRawDataCache() {
     this.cachedRawData = null;
@@ -62,6 +78,7 @@ abstract class SimpleDbEntityBase<T> {
     }
     this.cachedRawDataPromise = (async () => {
       dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
+      const writeSeqBefore = this.writeSeq;
       let savedDataStr: string | null = null;
       try {
         savedDataStr = await this.appStorage.getItem(this.entityKey);
@@ -69,10 +86,24 @@ abstract class SimpleDbEntityBase<T> {
         if (!isUnreadableStorageValueError(error)) {
           throw error;
         }
-        console.error(error);
-        // Drop the dead record so builder-based setRawData can rebuild it; use
-        // appStorage directly — clearRawData() would deadlock on the shared mutex.
-        await this.appStorage.removeItem(this.entityKey).catch(() => undefined);
+        try {
+          // One retry separates transient IO failures from true corruption.
+          savedDataStr = await this.appStorage.getItem(this.entityKey);
+        } catch (retryError) {
+          if (!isUnreadableStorageValueError(retryError)) {
+            throw retryError;
+          }
+          console.error(retryError);
+          // Drop the dead record so builder-based setRawData can rebuild it;
+          // use appStorage directly — clearRawData() would deadlock on the
+          // shared mutex. Skip if a write landed after this read started:
+          // deleting would erase that fresh value.
+          if (this.writeSeq === writeSeqBefore) {
+            await this.appStorage
+              .removeItem(this.entityKey)
+              .catch(() => undefined);
+          }
+        }
       }
       let updatedAt = 0;
       // @ts-ignore
@@ -148,6 +179,7 @@ abstract class SimpleDbEntityBase<T> {
           ? (savedData as any)
           : JSON.stringify(savedData),
       );
+      this.writeSeq += 1;
 
       this.updatedAt = updatedAt;
       return data;
