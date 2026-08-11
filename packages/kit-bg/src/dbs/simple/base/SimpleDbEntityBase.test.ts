@@ -72,6 +72,15 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
     override readonly entityName = 'test-heal-entity';
 
     override readonly enableCache = false;
+
+    protected override readonly enableUnreadableRecordSelfHeal = true;
+  }
+
+  // Self-heal is opt-in; this entity keeps the default (off).
+  class NoHealTestEntity extends SimpleDbEntityBase<{ v: number }> {
+    override readonly entityName = 'test-no-heal-entity';
+
+    override readonly enableCache = false;
   }
 
   // Unreadable until removeItem drops it (or failTimes runs out), mirroring a
@@ -277,5 +286,107 @@ describe('SimpleDbEntityBase unreadable-record self-heal', () => {
 
     expect(calls).not.toContain('removeItem'); // in-flight write already vetoed
     expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('entities without opt-in propagate the corrupted-blob error and keep the record', async () => {
+    const entity = new NoHealTestEntity();
+    const { storage, calls } = makeBrokenStorage({ errorName: 'UnknownError' });
+    (entity as any).appStorage = storage;
+
+    await expect(entity.getRawData()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(calls).toEqual(['getItem']); // no retry, no delete
+  });
+
+  test('delete is skipped when a pre-existing write completes during the failing read', async () => {
+    const entity = new HealTestEntity();
+    const store: Record<string, unknown> = {};
+    const calls: string[] = [];
+    let releaseWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let signalWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      signalWriteStarted = resolve;
+    });
+    let rejectFirstRead!: (error: Error) => void;
+    let readCount = 0;
+    const makeError = () => {
+      const error = new Error('Failed to read large IndexedDB value');
+      error.name = 'UnknownError';
+      return error;
+    };
+    (entity as any).appStorage = {
+      getItem: () => {
+        readCount += 1;
+        calls.push('getItem');
+        if (readCount === 1) {
+          return new Promise<string | null>((_, reject) => {
+            rejectFirstRead = reject;
+          });
+        }
+        return Promise.reject(makeError());
+      },
+      setItem: async (k: string, v: unknown) => {
+        calls.push('setItem');
+        signalWriteStarted();
+        await writeGate;
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        calls.push('removeItem');
+        delete store[k];
+      },
+    };
+
+    const writeP = entity.setRawData({ v: 7 });
+    await writeStarted; // write is in flight before the read begins
+    const readP = entity.getRawData(); // snapshot sees the pending write
+    releaseWrite();
+    await writeP; // write fully lands while the read is still failing
+    rejectFirstRead(makeError());
+
+    await expect(readP).resolves.toBeNull();
+    expect(calls).not.toContain('removeItem'); // snapshot veto kept the value
+    expect(entity.entityKey in store).toBe(true);
+  });
+
+  test('clearRawData during an in-flight read keeps the stale value out of the cache', async () => {
+    class CachedHealTestEntity extends SimpleDbEntityBase<{ v: number }> {
+      override readonly entityName = 'test-cached-heal-entity';
+
+      override readonly enableCache = true;
+    }
+    const entity = new CachedHealTestEntity();
+    const store: Record<string, unknown> = {};
+    let resolveFirstRead!: (value: string) => void;
+    let readCount = 0;
+    (entity as any).appStorage = {
+      getItem: (k: string) => {
+        readCount += 1;
+        if (readCount === 1) {
+          return new Promise<string | null>((resolve) => {
+            resolveFirstRead = resolve;
+          });
+        }
+        return Promise.resolve((k in store ? store[k] : null) as string | null);
+      },
+      setItem: async (k: string, v: unknown) => {
+        store[k] = v;
+      },
+      removeItem: async (k: string) => {
+        delete store[k];
+      },
+    };
+
+    const staleReadP = entity.getRawData(); // parked reading the old record
+    await entity.clearRawData(); // user clears while the read is in flight
+    resolveFirstRead(JSON.stringify({ data: { v: 9 }, updatedAt: 1 }));
+    await expect(staleReadP).resolves.toEqual({ v: 9 }); // its caller still gets the old value
+
+    // The stale value must not have been cached — a fresh read sees the clear.
+    await expect(entity.getRawData()).resolves.toBeNull();
   });
 });
