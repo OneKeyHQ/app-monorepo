@@ -20,7 +20,6 @@ import {
   Popover,
   SegmentControl,
   SizableText,
-  Stack,
   Toast,
   Video,
   XStack,
@@ -29,26 +28,11 @@ import {
   usePopoverContext,
   useThemeName,
 } from '@onekeyhq/components';
+import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/useOnboardingDeviceScanErrorHandler';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  HARDWARE_BRIDGE_DOWNLOAD_URL,
-  HARDWARE_TROUBLESHOOTING_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
-import {
-  BleLocationServiceError,
-  BluetoothUnavailableWhileUsbConnectedError,
-  BridgeTimeoutError,
-  BridgeTimeoutErrorForDesktop,
-  ConnectTimeoutError,
-  DeviceMethodCallTimeout,
-  InitIframeLoadFail,
-  InitIframeTimeout,
-  NeedBluetoothPermissions,
-  NeedBluetoothTurnedOn,
-  NeedOneKeyBridge,
-  OneKeyHardwareError,
-} from '@onekeyhq/shared/src/errors';
+import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
@@ -81,7 +65,6 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
-import { HyperlinkText } from '../../../components/HyperlinkText';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -113,22 +96,6 @@ enum EConnectionStatus {
   listing = 'listing',
 }
 
-function BridgeNotInstalledDialogContent(_props: { error: NeedOneKeyBridge }) {
-  return (
-    <Stack>
-      <HyperlinkText
-        size="$bodyLg"
-        mt="$1.5"
-        translationId={
-          platformEnv.isSupportWebUSB
-            ? ETranslations.device_communication_failed
-            : ETranslations.onboarding_install_onekey_bridge_help_text
-        }
-      />
-    </Stack>
-  );
-}
-
 interface IDeviceConnectionProps {
   tabValue: EConnectDeviceChannel;
   deviceTypeItems: EDeviceType[];
@@ -149,7 +116,6 @@ function useDeviceConnection({
   onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
   vendor?: EHardwareVendor;
 }) {
-  const intl = useIntl();
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
@@ -203,78 +169,18 @@ function useDeviceConnection({
     currentTabValueRef.current = tabValue;
   }, [tabValue, deviceScanner]);
 
-  const handleScanError = useCallback(
-    (error: Error) => {
-      isSearchingRef.current = false;
-      setConnectStatus(EConnectionStatus.init);
-      deviceScanner.stopScan();
+  const stopScan = useCallback(() => {
+    isSearchingRef.current = false;
+    deviceScanner.stopScan();
+  }, [deviceScanner]);
 
-      if (
-        error instanceof NeedBluetoothTurnedOn ||
-        error instanceof NeedBluetoothPermissions ||
-        error instanceof BleLocationServiceError
-      ) {
-        return;
-      }
+  const stopScanAfterError = useCallback(() => {
+    setConnectStatus(EConnectionStatus.init);
+    stopScan();
+  }, [stopScan]);
 
-      if (error instanceof BluetoothUnavailableWhileUsbConnectedError) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.troubleshooting_desktop_bluetooth_usb_priority,
-          }),
-        });
-        return;
-      }
-
-      if (
-        error instanceof InitIframeLoadFail ||
-        error instanceof InitIframeTimeout
-      ) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_network_error,
-          }),
-          message: error.message || 'DeviceScanError',
-        });
-        return;
-      }
-
-      if (
-        error instanceof BridgeTimeoutError ||
-        error instanceof BridgeTimeoutErrorForDesktop ||
-        error instanceof ConnectTimeoutError ||
-        error instanceof DeviceMethodCallTimeout
-      ) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_connection_failed,
-          }),
-          message: error.message || 'DeviceScanError',
-        });
-        return;
-      }
-
-      if (error instanceof NeedOneKeyBridge) {
-        Dialog.confirm({
-          icon: 'OnekeyBrand',
-          title: intl.formatMessage({
-            id: ETranslations.onboarding_install_onekey_bridge,
-          }),
-          renderContent: <BridgeNotInstalledDialogContent error={error} />,
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_download_and_install,
-          }),
-          onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-        });
-        return;
-      }
-
-      Toast.error({
-        title: error.message || 'DeviceScanError',
-      });
-    },
-    [deviceScanner, intl],
-  );
+  const { handleScanError, resetScanError } =
+    useOnboardingDeviceScanErrorHandler({ stopScan: stopScanAfterError });
 
   const scanDevice = useCallback(async () => {
     if (isSearchingRef.current) {
@@ -300,6 +206,7 @@ function useDeviceConnection({
         if (!response.success) {
           return;
         }
+        resetScanError();
 
         const sortedDevices = response.payload.toSorted((a, b) =>
           natsort({ insensitive: true })(
@@ -328,12 +235,7 @@ function useDeviceConnection({
       vendor,
       { transportType, onError: handleScanError },
     );
-  }, [deviceScanner, handleScanError, tabValue, vendor]);
-
-  const stopScan = useCallback(() => {
-    isSearchingRef.current = false;
-    deviceScanner.stopScan();
-  }, [deviceScanner]);
+  }, [deviceScanner, handleScanError, resetScanError, tabValue, vendor]);
 
   const ensureStopScan = useCallback(async () => {
     // Force stop scanning and wait for any ongoing search to complete
@@ -910,8 +812,19 @@ function BluetoothConnectionIndicator({
     vendor,
   });
 
-  const { devicesData, scanDevice, stopScan, handleDeviceSelect } =
-    deviceConnection;
+  const {
+    connectStatus,
+    setConnectStatus,
+    devicesData,
+    scanDevice,
+    stopScan,
+    handleDeviceSelect,
+  } = deviceConnection;
+
+  const listingDevice = useCallback(async () => {
+    setConnectStatus(EConnectionStatus.listing);
+    await scanDevice();
+  }, [scanDevice, setConnectStatus]);
 
   const handleOpenPrivacySettings = useCallback(() => {
     void globalThis.desktopApiProxy.bluetooth.openPrivacySettings();
@@ -936,11 +849,11 @@ function BluetoothConnectionIndicator({
   // Start scanning when bluetooth is enabled and focused
   useEffect(() => {
     if (isFocused && bluetoothStatus === EBluetoothStatus.enabled) {
-      void scanDevice();
+      void listingDevice();
     } else if (!isFocused) {
       stopScan();
     }
-  }, [bluetoothStatus, isFocused, scanDevice, stopScan]);
+  }, [bluetoothStatus, isFocused, listingDevice, stopScan]);
 
   // Cleanup on unmount
   useEffect(
@@ -1013,7 +926,10 @@ function BluetoothConnectionIndicator({
   return (
     <>
       <ConnectionIndicator>
-        <BluetoothCard />
+        <BluetoothCard
+          onConnect={listingDevice}
+          connectStatus={connectStatus}
+        />
         <ConnectionIndicator.Footer>
           <YStack px="$5">
             <XStack alignItems="center" justifyContent="space-between">
