@@ -3,9 +3,15 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
-} from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
+  buildDirectSwapGasAccountAnalyticsContext,
+  buildDirectSwapGasAccountUiState,
+  runDirectSwapGasAccountStep,
+  sendDirectSwapWithGasAccountAnalytics,
+} from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
+import {
+  buildNativeTokenFromGasInfo,
+  checkSwapLatestBalanceSufficient,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import type {
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -16,7 +22,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import type { IGasAccountAnalyticsContext } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
@@ -30,7 +36,6 @@ import type {
   IFeeTron,
   IFeeUTXO,
   IGasAccountQuote,
-  IGasAccountUiState,
   IGasEIP1559,
   IGasLegacy,
   IGasPayer,
@@ -69,6 +74,11 @@ type IMarketDirectSendParams = {
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
+  gasAccountAnalytics?: {
+    fiatCurrency?: string;
+    nativeBalance?: string;
+    useGasAccountByDefault?: boolean;
+  };
 };
 
 type IEstimateMarketDirectGasInfosParams = Omit<
@@ -155,6 +165,7 @@ function buildGasInfo(
     payer?: IGasPayer;
     gasAccountEligible?: boolean;
     gasAccountQuote?: IGasAccountQuote;
+    gasAccountScenarioReason?: string;
   },
   gasCommon: {
     baseFee?: string;
@@ -191,6 +202,7 @@ function buildGasInfo(
     payer: gasRes.payer,
     gasAccountEligible: gasRes.gasAccountEligible,
     gasAccountQuote: gasRes.gasAccountQuote,
+    gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
   };
 }
 
@@ -918,10 +930,13 @@ export async function estimateMarketDirectGasInfos({
   approveUnsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
+  gasAccountAnalytics,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
   preparedUnsignedTx: IUnsignedTxPro;
+  gasAccountAnalyticsContext?: IGasAccountAnalyticsContext;
+  gasAccountAnalyticsNativeBalance?: string;
 }> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -949,10 +964,42 @@ export async function estimateMarketDirectGasInfos({
     customPriorityFee,
   });
 
+  let gasAccountAnalyticsContext: IGasAccountAnalyticsContext | undefined;
+  let gasAccountAnalyticsNativeBalance: string | undefined;
+  const swapGasInfo = findGasInfo(gasInfos, unsignedTx.encodedTx);
+  if (gasAccountAnalytics && swapGasInfo && unsignedTx.swapInfo) {
+    const nativeToken = buildNativeTokenFromGasInfo({
+      gasInfo: swapGasInfo.gasInfo,
+      networkId,
+      fromToken: unsignedTx.swapInfo.sender.token,
+    });
+    const latestNativeBalance = nativeToken
+      ? await checkSwapLatestBalanceSufficient({
+          token: nativeToken,
+          amount: '0',
+          accountAddress,
+          accountId,
+        })
+      : undefined;
+    gasAccountAnalyticsNativeBalance = latestNativeBalance?.balance;
+    gasAccountAnalyticsContext = buildDirectSwapGasAccountAnalyticsContext({
+      entryPoint: 'marketSwapDirect',
+      networkId,
+      unsignedTx,
+      gasInfo: swapGasInfo.gasInfo,
+      estimateFeeParams: swapGasInfo.estimateFeeParams,
+      nativeBalance: gasAccountAnalyticsNativeBalance,
+      useGasAccountByDefault: gasAccountAnalytics.useGasAccountByDefault,
+      fiatCurrency: gasAccountAnalytics.fiatCurrency,
+    });
+  }
+
   return {
     gasInfos,
     gasFeeFiatValue: buildGasFeeFiatValue(gasInfos),
     preparedUnsignedTx: unsignedTx,
+    gasAccountAnalyticsContext,
+    gasAccountAnalyticsNativeBalance,
   };
 }
 
@@ -1008,6 +1055,7 @@ async function updateUnsignedTxAndSendTx({
   estimateFeeParams,
   tronResourceRentalInfo,
   useDefaultRpc,
+  gasAccountAnalytics,
 }: {
   accountId: string;
   networkId: string;
@@ -1016,6 +1064,7 @@ async function updateUnsignedTxAndSendTx({
   estimateFeeParams?: IEstimateFeeParams;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
+  gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
@@ -1027,20 +1076,6 @@ async function updateUnsignedTxAndSendTx({
       feeInfo,
       tronResourceRentalInfo,
     });
-
-  await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-    networkId,
-    accountId,
-    unsignedTxs: [updatedUnsignedTxItem],
-    precheckTiming: ESendPreCheckTimingEnum.Confirm,
-  });
-
-  await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
-    accountId,
-    networkId,
-    unsignedTxs: [updatedUnsignedTxItem],
-    tronResourceRentalInfo,
-  });
 
   const {
     totalNative,
@@ -1054,37 +1089,59 @@ async function updateUnsignedTxAndSendTx({
     estimateFeeParams,
   });
 
-  await backgroundApiProxy.serviceTransaction.verifyTransaction({
+  const gasAccountAnalyticsContext = buildDirectSwapGasAccountAnalyticsContext({
+    entryPoint: 'marketSwapDirect',
     networkId,
-    accountId,
-    verifyTxTasks: ['feeInfo'],
-    verifyTxFeeInfoParams: {
-      feeAmount: totalNative,
-      feeTokenSymbol: feeInfo.common.nativeSymbol,
-      doubleConfirm: true,
-    },
-    encodedTx: updatedUnsignedTxItem.encodedTx,
+    unsignedTx: unsignedTxItem,
+    gasInfo,
+    estimateFeeParams,
+    nativeBalance: gasAccountAnalytics?.nativeBalance,
+    useGasAccountByDefault: gasAccountAnalytics?.useGasAccountByDefault,
+    fiatCurrency: gasAccountAnalytics?.fiatCurrency,
+  });
+  await runDirectSwapGasAccountStep({
+    context: gasAccountAnalyticsContext,
+    failureStage: 'precheck',
+    task: () =>
+      backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs: [updatedUnsignedTxItem],
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      }),
+  });
+  await runDirectSwapGasAccountStep({
+    context: gasAccountAnalyticsContext,
+    failureStage: 'prepare',
+    task: () =>
+      backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending({
+        accountId,
+        networkId,
+        unsignedTxs: [updatedUnsignedTxItem],
+        tronResourceRentalInfo,
+      }),
+  });
+  await runDirectSwapGasAccountStep({
+    context: gasAccountAnalyticsContext,
+    failureStage: 'precheck',
+    task: () =>
+      backgroundApiProxy.serviceTransaction.verifyTransaction({
+        networkId,
+        accountId,
+        verifyTxTasks: ['feeInfo'],
+        verifyTxFeeInfoParams: {
+          feeAmount: totalNative,
+          feeTokenSymbol: feeInfo.common.nativeSymbol,
+          doubleConfirm: true,
+        },
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+      }),
   });
 
-  // When estimate-fee confirmed Gas Account sponsorship, attach the quote so the
-  // broadcast pays via the sponsor. Mirrors the transaction-confirm page.
-  const gasAccountUiState: IGasAccountUiState | undefined =
-    gasInfo.gasAccountEligible &&
-    gasInfo.payer === 'gasAccount' &&
-    gasInfo.gasAccountQuote?.quoteId
-      ? {
-          payer: gasInfo.payer,
-          gasAccountEligible: true,
-          gasAccountQuote: gasInfo.gasAccountQuote,
-          selectedPayer: 'gasAccount',
-          // Same nonce the quote was bound to at estimate-fee time.
-          lockedUserNonce:
-            typeof updatedUnsignedTxItem.nonce === 'number'
-              ? updatedUnsignedTxItem.nonce
-              : undefined,
-          idempotencyKey: `gas-account:${gasInfo.gasAccountQuote.quoteId}`,
-        }
-      : undefined;
+  const gasAccountUiState = buildDirectSwapGasAccountUiState({
+    gasInfo,
+    unsignedTx: updatedUnsignedTxItem,
+  });
 
   const sendTxParams = {
     networkId,
@@ -1094,28 +1151,15 @@ async function updateUnsignedTxAndSendTx({
     tronResourceRentalInfo,
     useDefaultRpc,
   };
-  let signedTx: Awaited<
-    ReturnType<typeof backgroundApiProxy.serviceSend.signAndSendTransaction>
-  >;
-  try {
-    signedTx = await backgroundApiProxy.serviceSend.signAndSendTransaction({
-      ...sendTxParams,
-      gasAccountUiState,
-    });
-  } catch (e) {
-    // Gas Account Fallback codes (pool exhausted, daily limit, sponsor down):
-    // drop the sponsor quote and resend once as user-paid, mirroring the
-    // confirm page. Refresh/Hint and non gas-account errors propagate to the UI
-    // (useSpeedSwapActions maps them to a sponsor toast). See useSwapBuiltTx.
-    const entry = gasAccountUiState
-      ? getGasAccountErrorEntry(getGasAccountErrorCode(e))
-      : undefined;
-    if (entry?.strategy !== EGasAccountErrorStrategy.Fallback) {
-      throw e;
-    }
-    signedTx =
-      await backgroundApiProxy.serviceSend.signAndSendTransaction(sendTxParams);
-  }
+  const signedTx = await sendDirectSwapWithGasAccountAnalytics({
+    context: gasAccountAnalyticsContext,
+    gasAccountUiState,
+    send: (uiState) =>
+      backgroundApiProxy.serviceSend.signAndSendTransaction({
+        ...sendTxParams,
+        gasAccountUiState: uiState,
+      }),
+  });
 
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
     networkId,
@@ -1177,6 +1221,7 @@ export async function sendMarketDirectUnsignedTxs({
   customPriorityFee,
   tronResourceRentalInfo,
   useDefaultRpc,
+  gasAccountAnalytics,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -1239,6 +1284,7 @@ export async function sendMarketDirectUnsignedTxs({
         estimateFeeParams: gasInfoEntry.estimateFeeParams,
         tronResourceRentalInfo,
         useDefaultRpc,
+        gasAccountAnalytics,
       }),
     );
   }
