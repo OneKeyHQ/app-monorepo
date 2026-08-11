@@ -173,8 +173,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     IPortfolioSyncSettledPayload
   >();
 
-  // 只缓存当前连接会话中已经在线确认过的设备身份。连接事件或 SDK
-  // 上报身份冲突时会清空，避免 wipe/换种子后复用旧身份结论。
+  // Only cache device identities that were confirmed online in the current
+  // connection session. Clear them on connect events or SDK identity mismatch
+  // so a wiped or re-seeded device never reuses a stale identity conclusion.
   private verifiedDeviceIdByTargetKey = new Map<string, string>();
 
   private mismatchedDeviceIdByTargetKey = new Map<string, string>();
@@ -495,8 +496,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       (state.status?.mode === EOneKeyDeviceMode.bootloader ||
         state.status?.mode === EOneKeyDeviceMode.romloader);
     if (isPro2LoaderIdentityUnavailable) {
-      // Pro2 Bootloader 不提供 DeviceStatus.device_id。空值表示当前模式不可获取，
-      // 不能覆盖或否定正常固件模式下已经确认过的持久化设备身份。
+      // Pro2 bootloader mode does not expose DeviceStatus.device_id. An empty
+      // value means the identity is unavailable in this mode and must not
+      // override or invalidate the persisted identity confirmed in firmware.
       this.verifiedDeviceIdByTargetKey.delete(targetKey);
       this.mismatchedDeviceIdByTargetKey.delete(targetKey);
       return 'unavailable';
@@ -625,7 +627,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }) {
     this.verifiedDeviceIdByTargetKey.delete(targetKey);
     this.mismatchedDeviceIdByTargetKey.delete(targetKey);
-    // 保留最新快照，等设备退出 Bootloader 并重新连接后再读取完整身份。
+    // Keep the latest snapshot until the device exits bootloader mode and
+    // reconnects with its full identity available.
     this.pendingDisconnectedPayloadByTargetKey.set(targetKey, eventPayload);
     if (eventPayload.deviceConnectId) {
       this.cancelHardwareBusyRetry(eventPayload.deviceConnectId);

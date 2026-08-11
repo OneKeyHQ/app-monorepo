@@ -803,7 +803,8 @@ class ServiceHardware extends ServiceBase {
           features: device.features,
         });
       } catch {
-        // 连接事件在 features 尚未完整时仍可使用 connectId/uuid/serialNo。
+        // Connect events can arrive before features are complete, so fall back
+        // to connectId, uuid, or serialNo.
       }
     }
     return uniq(
@@ -1796,8 +1797,9 @@ class ServiceHardware extends ServiceBase {
       return true;
     }
 
-    // 与钱包列表小绿点保持一致：WebUSB 必须枚举到目标设备自身，不能只
-    // 判断“存在任意 OneKey 设备”，否则连接设备 B 会错误放行设备 A。
+    // Match the wallet-list connection dot: WebUSB must enumerate the target
+    // device itself, not just "any OneKey device", otherwise connecting device
+    // B would wrongly authorize device A.
     if (platformEnv.isSupportWebUSB) {
       try {
         const usb = globalThis?.navigator?.usb;
@@ -1842,9 +1844,10 @@ class ServiceHardware extends ServiceBase {
         );
       }
 
-      // OneKey 设备搜索也必须先通过统一连接管理器确定 transport。
-      // searchDevices 本身只枚举当前 SDK transport，不负责 USB -> BLE 切换；
-      // 因此必须在创建 SDK 实例前完成 USB 优先、无 USB 再 BLE 的预探测。
+      // OneKey device discovery must also resolve the transport through the
+      // unified connection manager. searchDevices enumerates only the current
+      // SDK transport and does not switch from USB to BLE, so probe USB first
+      // and fall back to BLE before creating the SDK instance.
       const hardwareTransportType = await this.prepareHardwareTransport({
         connectProtocol: params?.connectProtocol,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
