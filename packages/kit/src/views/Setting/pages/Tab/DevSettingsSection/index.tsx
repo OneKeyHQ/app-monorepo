@@ -881,7 +881,7 @@ const BaseDevSettingsSection = () => {
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
         keywords:
-          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL',
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL TradingViewNative 事件日志 event log',
       },
       {
         key: 'galleries',
@@ -2211,6 +2211,29 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isWeb ? (
+                        <SearchFilterItem keywords="TradingViewNative event log debug panel 事件日志 调试窗口">
+                          <ListItem
+                            icon="CodeOutline"
+                            title="显示 TradingViewNative 事件日志"
+                            subtitle="关闭浮窗会同步关闭此开关"
+                          >
+                            <Switch
+                              size={ESwitchSize.small}
+                              value={
+                                devSettings.settings
+                                  ?.showTradingViewNativeDebugPanel ?? true
+                              }
+                              onChange={(value) => {
+                                void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                                  'showTradingViewNativeDebugPanel',
+                                  value,
+                                );
+                              }}
+                            />
+                          </ListItem>
+                        </SearchFilterItem>
+                      ) : null}
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"

@@ -6,6 +6,10 @@ import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  emitTradingViewNativeDebugEvent,
+  getTradingViewNativeDebugErrorMessage,
+} from './data/tradingViewNativeDebugLogger';
+import {
   buildTradingViewNativeGoToDateTimeRange,
   getTradingViewNativeKLineInterval,
   getTradingViewNativeKLineIntervalForTimeRange,
@@ -13,6 +17,7 @@ import {
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { TradingViewNativeDebugPanel } from './TradingViewNativeDebugPanel';
 import {
   DEFAULT_TRADING_VIEW_NATIVE_INDICATORS,
   type ITradingViewNativeIndicator,
@@ -21,9 +26,22 @@ import {
 import { hasTradingViewNativeVolume } from './utils/chartLayout';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
-import type { ITradingViewNativeProps } from './types';
+import type {
+  ITradingViewNativeDataState,
+  ITradingViewNativeProps,
+} from './types';
 import type { ITradingViewNativeViewportTarget } from './utils/chartViewport';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewChartControls/calendarControls/CalendarPanelPopover';
+
+function getDataStateDebugLevel(status: ITradingViewNativeDataState['status']) {
+  if (status === 'error') {
+    return 'error' as const;
+  }
+  if (status === 'stale' || status === 'reconnecting') {
+    return 'warning' as const;
+  }
+  return 'info' as const;
+}
 
 export const TradingViewNativeContainer = memo(
   ({
@@ -120,6 +138,72 @@ export const TradingViewNativeContainer = memo(
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
     const latestPriceTimestamp = latestPoint?.t;
+    const sourceCoin = source.kind === 'hyperliquid' ? source.coin : undefined;
+    const sourceEnvironment =
+      source.kind === 'hyperliquid' ? source.environment : undefined;
+    const sourceNetworkId =
+      source.kind === 'market' ? source.networkId : undefined;
+    const sourceRealtime =
+      source.kind === 'market' ? source.realtime : undefined;
+    const sourceSymbol = source.kind === 'market' ? source.symbol : undefined;
+    const sourceTokenAddress =
+      source.kind === 'market' ? source.tokenAddress : undefined;
+
+    useEffect(() => {
+      emitTradingViewNativeDebugEvent({ name: 'chart.mount' });
+      return () => {
+        emitTradingViewNativeDebugEvent({ name: 'chart.unmount' });
+      };
+    }, []);
+
+    useEffect(() => {
+      emitTradingViewNativeDebugEvent({
+        details: {
+          coin: sourceCoin,
+          environment: sourceEnvironment,
+          kind: source.kind,
+          networkId: sourceNetworkId,
+          providerKey: dataProviderKey,
+          realtime: sourceRealtime,
+          symbol: sourceSymbol,
+          tokenAddress: sourceTokenAddress,
+        },
+        name: 'source.selected',
+      });
+    }, [
+      dataProviderKey,
+      source.kind,
+      sourceCoin,
+      sourceEnvironment,
+      sourceNetworkId,
+      sourceRealtime,
+      sourceSymbol,
+      sourceTokenAddress,
+    ]);
+
+    useEffect(() => {
+      emitTradingViewNativeDebugEvent({
+        details: {
+          error: dataState.error
+            ? getTradingViewNativeDebugErrorMessage(dataState.error)
+            : undefined,
+          interval: intervalConfig.activeInterval,
+          lastUpdatedAt: dataState.lastUpdatedAt,
+          points: points.length,
+          providerKey: dataProviderKey,
+          status: dataState.status,
+        },
+        level: getDataStateDebugLevel(dataState.status),
+        name: 'data.state',
+      });
+    }, [
+      dataProviderKey,
+      dataState.error,
+      dataState.lastUpdatedAt,
+      dataState.status,
+      intervalConfig.activeInterval,
+      points.length,
+    ]);
 
     useEffect(() => {
       realtimePointRef.current = undefined;
@@ -155,9 +239,26 @@ export const TradingViewNativeContainer = memo(
         const nextInterval = getTradingViewNativeKLineInterval(interval);
         const fromInterval = intervalConfig.activeInterval;
         if (!nextInterval || nextInterval.value === fromInterval) {
+          emitTradingViewNativeDebugEvent({
+            details: {
+              fromInterval,
+              requestedInterval: interval,
+              resolvedInterval: nextInterval?.value,
+            },
+            level: 'warning',
+            name: 'interval.change.ignored',
+          });
           return;
         }
 
+        emitTradingViewNativeDebugEvent({
+          details: {
+            fromInterval,
+            skipNextHistoryRequest: Boolean(options?.skipNextHistoryRequest),
+            toInterval: nextInterval.value,
+          },
+          name: 'interval.change.requested',
+        });
         handleIntervalChange(nextInterval.value, options);
         onIntervalChange?.({
           fromInterval,
@@ -332,6 +433,7 @@ export const TradingViewNativeContainer = memo(
             </YStack>
           ) : null}
         </Stack>
+        <TradingViewNativeDebugPanel />
       </Stack>
     );
   },

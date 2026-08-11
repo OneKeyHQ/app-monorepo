@@ -11,6 +11,7 @@ import type {
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
+import { emitTradingViewNativeDebugEvent } from './tradingViewNativeDebugLogger';
 import {
   readTradingViewNativeActiveInterval,
   saveTradingViewNativeActiveInterval,
@@ -73,6 +74,12 @@ jest.mock('./providers/createTradingViewNativeDataProvider', () => ({
   createTradingViewNativeDataProvider: jest.fn(),
 }));
 
+jest.mock('./tradingViewNativeDebugLogger', () => ({
+  emitTradingViewNativeDebugEvent: jest.fn(),
+  getTradingViewNativeDebugErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 jest.mock('./tradingViewNativeIntervalStorage', () => {
   const actual = jest.requireActual<
     typeof import('./tradingViewNativeIntervalStorage')
@@ -88,6 +95,9 @@ const mockCreateTradingViewNativeDataProvider =
   createTradingViewNativeDataProvider as jest.MockedFunction<
     typeof createTradingViewNativeDataProvider
   >;
+const mockEmitTradingViewNativeDebugEvent = jest.mocked(
+  emitTradingViewNativeDebugEvent,
+);
 const mockReadTradingViewNativeActiveInterval = jest.mocked(
   readTradingViewNativeActiveInterval,
 );
@@ -267,6 +277,35 @@ describe('TradingViewNative K-line data state machine', () => {
       expect.objectContaining({
         timeFrom: 89_200,
         timeTo: 100_000,
+      }),
+    );
+  });
+
+  it('publishes history and fallback decisions to the development event log', async () => {
+    mockFetchHistory.mockResolvedValue({
+      ...buildResponse(100, 100_000),
+      historySource: 'fallback',
+    });
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'history.request' }),
+    );
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({ historySource: 'fallback' }),
+        level: 'warning',
+        name: 'history.response',
+      }),
+    );
+    expect(mockEmitTradingViewNativeDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'warning',
+        name: 'history.fallback.used',
       }),
     );
   });
