@@ -112,7 +112,7 @@ export function InvitationDetailsSection({
               nextDistribution={cumulativeRewards.nextDistribution}
             />
           }
-          secondColumn={<PerpsReward perpsRewards={Perp.available} />}
+          secondColumn={<PerpsReward perpsRewards={Perp?.available ?? []} />}
           thirdColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
           fourthColumn={<OnChainReward onChain={Onchain} />}
         />

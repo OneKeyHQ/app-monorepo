@@ -16,7 +16,7 @@ export function SwapEmptyData() {
   }, [copyUrl, referralQrCodeUrl]);
 
   return (
-    <YStack ai="center">
+    <YStack ai="center" py="$8">
       <Empty
         mt="$-10"
         illustration="ShakeHands"
