@@ -4103,6 +4103,35 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  // bleConnectId when the call should go over BLE, else undefined. A USB-family
+  // target is re-verified with the Trezor-scoped probe — the global one can be
+  // true while this Trezor is BLE-only, leaking its calls to the USB handle.
+  private async resolveTrezorPreferredBleConnectId({
+    device,
+    bleConnectId,
+    targetType,
+  }: {
+    device: { vendor?: string };
+    bleConnectId?: string;
+    targetType: EHardwareTransportType;
+  }): Promise<string | undefined> {
+    if (!bleConnectId) {
+      return undefined;
+    }
+    if (targetType === EHardwareTransportType.DesktopWebBle) {
+      return bleConnectId;
+    }
+    if (device.vendor !== EHardwareVendor.trezor) {
+      return undefined;
+    }
+    const trezorUsbPresent =
+      await this.connectionManager.detectTrezorUSBDeviceAvailability();
+    if (trezorUsbPresent) {
+      return undefined;
+    }
+    return bleConnectId;
+  }
+
   @backgroundMethod()
   async getCompatibleConnectId({
     hardwareCallContext,
@@ -4166,26 +4195,24 @@ class ServiceHardware extends ServiceBase {
             EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
         ) {
           const currentTransportType = await this.getCurrentTransportType();
-          if (
-            currentTransportType === EHardwareTransportType.DesktopWebBle &&
-            persistedDesktopBleConnectId
-          ) {
-            return persistedDesktopBleConnectId;
-          }
-          return device.connectId || connectId;
+          const preferredBle = await this.resolveTrezorPreferredBleConnectId({
+            device,
+            bleConnectId: persistedDesktopBleConnectId,
+            targetType: currentTransportType,
+          });
+          return preferredBle || device.connectId || connectId;
         }
 
         const result = await this.connectionManager.resolveTransportType({
           connectId: device.connectId || connectId,
           hardwareCallContext,
         });
-        if (
-          result.targetType === EHardwareTransportType.DesktopWebBle &&
-          persistedDesktopBleConnectId
-        ) {
-          return persistedDesktopBleConnectId;
-        }
-        return device.connectId || connectId;
+        const preferredBle = await this.resolveTrezorPreferredBleConnectId({
+          device,
+          bleConnectId: persistedDesktopBleConnectId,
+          targetType: result.targetType,
+        });
+        return preferredBle || device.connectId || connectId;
       }
     }
 
