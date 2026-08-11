@@ -1380,16 +1380,6 @@ class ServiceHardware extends ServiceBase {
               );
             }
             if (persistenceResult?.kind === 'identity-mismatch') {
-              try {
-                await this.deprecateWalletsForResetDevice(
-                  persistenceResult.deviceDbId,
-                );
-              } catch (error) {
-                serviceHardwareUtils.hardwareLog(
-                  'device reset wallet isolation failed',
-                  error,
-                );
-              }
               return;
             }
             if (
@@ -1579,34 +1569,6 @@ class ServiceHardware extends ServiceBase {
           }
         },
       );
-    }
-  }
-
-  private async deprecateWalletsForResetDevice(deviceDbId: string) {
-    const allHwWallets =
-      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: false,
-        filterQrWallet: true,
-      });
-    const willUpdateDeprecateMap: Record<string, boolean> = {};
-    for (const walletWithDevice of Object.values(allHwWallets)) {
-      const { wallet, device } = walletWithDevice;
-      if (
-        wallet?.id &&
-        (wallet.associatedDevice === deviceDbId || device?.id === deviceDbId)
-      ) {
-        willUpdateDeprecateMap[wallet.id] = true;
-      }
-    }
-    if (Object.keys(willUpdateDeprecateMap).length === 0) {
-      return;
-    }
-    const updated =
-      await this.backgroundApi.serviceAccount.updateWalletsDeprecatedState({
-        willUpdateDeprecateMap,
-      });
-    if (updated) {
-      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     }
   }
 
@@ -2915,24 +2877,7 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async wipeDevice(p: IWipeDeviceParams) {
-    let deviceDbId: string | undefined;
-    if (p.walletId) {
-      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
-        walletId: p.walletId,
-      });
-      deviceDbId = device?.id;
-    } else if (p.connectId || p.featuresDeviceId) {
-      const device = await localDb.getDeviceByQuery({
-        connectId: p.connectId,
-        featuresDeviceId: p.featuresDeviceId,
-      });
-      deviceDbId = device?.id;
-    }
-    const result = await this.deviceSettingsManager.wipeDevice(p);
-    if (deviceDbId) {
-      await this.deprecateWalletsForResetDevice(deviceDbId);
-    }
-    return result;
+    return this.deviceSettingsManager.wipeDevice(p);
   }
 
   @backgroundMethod()
