@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import { Dimensions, type LayoutChangeEvent } from 'react-native';
+import {
+  Dimensions,
+  type LayoutChangeEvent,
+  useWindowDimensions,
+} from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -283,6 +287,13 @@ function MobilePerpMarket() {
   ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
+  const { height: windowHeight } = useWindowDimensions();
+  // Android native tabs measure the inline SUB page by intrinsic content, so
+  // its flex-only chart needs an explicit viewport bound to avoid collapsing.
+  const splitDetailPageMinHeight =
+    isSplitDetailActive && platformEnv.isNativeAndroid
+      ? windowHeight
+      : undefined;
 
   const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
     setIsTradingViewInteractionOverlayOpen(isOpen);
@@ -534,7 +545,7 @@ function MobilePerpMarket() {
       scrollProps={pageScrollProps}
     >
       {pageHeader}
-      <Page.Body p="$0">
+      <Page.Body p="$0" minHeight={splitDetailPageMinHeight}>
         {inlineHeader}
         <YStack
           flex={1}
