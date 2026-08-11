@@ -338,9 +338,6 @@ export const executePreparedFirmwareUpdateV3 = ({
         params: {
           preparedPlan: FirmwareUpdatePreparedPlan;
           platform: string;
-          bleVersion: number[] | undefined;
-          firmwareVersion: number[] | undefined;
-          bootloaderVersion: number[] | undefined;
           firmwareType: EFirmwareType | undefined;
           hostBindingGeneration: number;
           artifacts: {
@@ -357,9 +354,6 @@ export const executePreparedFirmwareUpdateV3 = ({
     )(connectId, {
       preparedPlan: preparedArtifacts.preparedPlan,
       platform,
-      bleVersion,
-      firmwareVersion,
-      bootloaderVersion,
       firmwareType,
       hostBindingGeneration: requireHostBindingGeneration(
         preparedArtifacts,
