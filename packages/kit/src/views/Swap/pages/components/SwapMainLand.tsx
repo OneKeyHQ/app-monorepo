@@ -175,7 +175,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [isAppLocked] = useAppIsLockedAtom();
   const initialRootRouterCountRef = useRef(getRootRoutersLength());
   const isFocusedRef = useRef(isFocused);
+  const isAppLockedRef = useRef(isAppLocked);
   isFocusedRef.current = isFocused;
+  isAppLockedRef.current = isAppLocked;
   const onPopSwapModal = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
@@ -253,25 +255,21 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     void dialogRef.current?.close();
   }, [resetPendingReview]);
-  useEffect(() => {
-    if (isFocused) {
-      return;
-    }
-    if (reviewDialogTimerRef.current !== undefined) {
-      dialogClose();
-      return;
-    }
-    if (
+  const shouldCloseReviewOnFocusLoss = useCallback(
+    () =>
       shouldCloseSwapReviewOnFocusLoss({
-        isFocused,
-        isAppLocked,
+        isFocused: isFocusedRef.current,
+        isAppLocked: isAppLockedRef.current,
         initialRootRouterCount: initialRootRouterCountRef.current,
         currentRootRouterCount: getRootRoutersLength(),
-      })
-    ) {
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (shouldCloseReviewOnFocusLoss()) {
       dialogClose();
     }
-  }, [dialogClose, isAppLocked, isFocused]);
+  }, [dialogClose, isAppLocked, isFocused, shouldCloseReviewOnFocusLoss]);
   useEffect(
     () => () => {
       dialogClose();
@@ -1102,7 +1100,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     setSwapBuildTxFetching(true);
     reviewDialogTimerRef.current = setTimeout(() => {
       reviewDialogTimerRef.current = undefined;
-      if (!isFocusedRef.current) {
+      if (shouldCloseReviewOnFocusLoss()) {
         resetPendingReview();
         return;
       }
@@ -1160,6 +1158,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     handleConfirm,
     storeName,
     resetPendingReview,
+    shouldCloseReviewOnFocusLoss,
   ]);
 
   const onOpenOrdersClick = useCallback(

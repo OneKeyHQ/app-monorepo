@@ -11,11 +11,11 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
     currentRootRouterCount: 1,
   };
 
-  it('closes the review after the swap route actually loses focus', () => {
+  it('closes an open or pending review after the route actually loses focus', () => {
     expect(shouldCloseSwapReviewOnFocusLoss(baseParams)).toBe(true);
   });
 
-  it('keeps the review while the app lock covers the swap route', () => {
+  it('keeps an open or pending review while app lock covers the route', () => {
     expect(
       shouldCloseSwapReviewOnFocusLoss({
         ...baseParams,
@@ -24,7 +24,7 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
     ).toBe(false);
   });
 
-  it('keeps the review while a root modal covers the swap route', () => {
+  it('keeps an open or pending review while a root modal covers the route', () => {
     expect(
       shouldCloseSwapReviewOnFocusLoss({
         ...baseParams,
