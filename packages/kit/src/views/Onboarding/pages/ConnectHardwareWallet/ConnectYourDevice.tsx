@@ -471,7 +471,6 @@ function useDeviceConnection({
           title: intl.formatMessage({
             id: ETranslations.global_network_error,
           }),
-          message: error.message || 'DeviceScanError',
         });
         return;
       }
@@ -486,7 +485,6 @@ function useDeviceConnection({
           title: intl.formatMessage({
             id: ETranslations.global_connection_failed,
           }),
-          message: error.message || 'DeviceScanError',
         });
         return;
       }
@@ -507,7 +505,9 @@ function useDeviceConnection({
       }
 
       Toast.error({
-        title: error.message || 'DeviceScanError',
+        title: intl.formatMessage({
+          id: ETranslations.device_communication_failed,
+        }),
       });
     },
     [deviceScanner, intl],

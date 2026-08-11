@@ -243,6 +243,58 @@ describe('DeviceScannerUtils', () => {
     scanner.stopScan();
   });
 
+  it('does not attribute a stopped BLE rejection to a restarted BLE scan', async () => {
+    const staleBleSearch = createDeferred<Success<SearchDevice[]>>();
+    const currentBleSearch = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest
+      .fn()
+      .mockReturnValueOnce(staleBleSearch.promise)
+      .mockReturnValueOnce(currentBleSearch.promise);
+    const scanner = createScanner(searchDevices);
+    const staleCallback = jest.fn();
+    const currentCallback = jest.fn();
+    const staleOnError = jest.fn();
+    const currentOnError = jest.fn();
+
+    scanner.startDeviceScan(staleCallback, jest.fn(), 1, 60_000, 1, undefined, {
+      connectProtocol: 'V2',
+      transportType: 'ble',
+      onError: staleOnError,
+    });
+    await flushMicrotasks();
+
+    scanner.stopScan();
+    scanner.startDeviceScan(
+      currentCallback,
+      jest.fn(),
+      1,
+      60_000,
+      1,
+      undefined,
+      {
+        connectProtocol: 'V2',
+        transportType: 'ble',
+        onError: currentOnError,
+      },
+    );
+    await flushMicrotasks();
+
+    staleBleSearch.reject(new Error('stale BLE search failed'));
+    await flushMicrotasks();
+
+    expect(staleCallback).not.toHaveBeenCalled();
+    expect(staleOnError).not.toHaveBeenCalled();
+    expect(currentOnError).not.toHaveBeenCalled();
+    expect(searchDevices).toHaveBeenCalledTimes(2);
+
+    const currentResponse = successResponse('pro2-current-ble');
+    currentBleSearch.resolve(currentResponse);
+    await flushMicrotasks();
+
+    expect(currentCallback).toHaveBeenCalledWith(currentResponse);
+    scanner.stopScan();
+  });
+
   it('does not block a different vendor search behind an in-flight search', async () => {
     const trezorSearch = createDeferred<Success<SearchDevice[]>>();
     const ledgerSearch = createDeferred<Success<SearchDevice[]>>();

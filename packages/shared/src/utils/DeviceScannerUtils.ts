@@ -59,6 +59,8 @@ export class DeviceScannerUtils {
 
   currentSearchIdentity: string | null = null;
 
+  currentSearchOwnerIndex: number | null = null;
+
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
     onSearchStateChange: (state: 'start' | 'stop') => void,
@@ -116,14 +118,17 @@ export class DeviceScannerUtils {
       const currentSearchTask = this.currentSearchTask;
       if (currentSearchTask) {
         const currentSearchIdentity = this.currentSearchIdentity;
+        const currentSearchOwnerIndex = this.currentSearchOwnerIndex;
+        const shouldStartOwnSearch = () =>
+          this.scanMap[scanIndex] &&
+          (currentSearchIdentity !== searchIdentity ||
+            (currentSearchOwnerIndex !== null &&
+              !this.scanMap[currentSearchOwnerIndex]));
         let sharedSearchResponse: ISearchResponse;
         try {
           sharedSearchResponse = await currentSearchTask;
         } catch (error) {
-          if (
-            this.scanMap[scanIndex] &&
-            currentSearchIdentity !== searchIdentity
-          ) {
+          if (shouldStartOwnSearch()) {
             return searchDevices();
           }
           throw error;
@@ -132,12 +137,12 @@ export class DeviceScannerUtils {
         if (!this.scanMap[scanIndex]) {
           return sharedSearchResponse;
         }
-        if (currentSearchIdentity === searchIdentity) {
-          deliverSearchResponse(sharedSearchResponse);
-          this.tryCount += 1;
-          return sharedSearchResponse;
+        if (shouldStartOwnSearch()) {
+          return searchDevices();
         }
-        return searchDevices();
+        deliverSearchResponse(sharedSearchResponse);
+        this.tryCount += 1;
+        return sharedSearchResponse;
       }
 
       onSearchStateChange('start');
@@ -170,10 +175,12 @@ export class DeviceScannerUtils {
           if (this.currentSearchTask === searchTask) {
             this.currentSearchTask = null;
             this.currentSearchIdentity = null;
+            this.currentSearchOwnerIndex = null;
           }
         });
       this.currentSearchTask = searchTask;
       this.currentSearchIdentity = searchIdentity;
+      this.currentSearchOwnerIndex = scanIndex;
 
       const searchResponse = await searchTask;
       shouldResetSession = false;
