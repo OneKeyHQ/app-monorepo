@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - x
+      - hotfix/*
+      - release/*
   pull_request:
     branches:
       - x
+      - hotfix/*
+      - release/*
   schedule:
     - cron: "36 17 * * 0"
   workflow_dispatch:

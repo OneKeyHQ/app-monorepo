@@ -2,9 +2,9 @@ name: Codacy Security Scan
 
 on:
   push:
-    branches: [ "x" ]
+    branches: [ "x", "hotfix/*", "release/*" ]
   pull_request:
-    branches: [ "x" ]
+    branches: [ "x", "hotfix/*", "release/*" ]
   schedule:
     - cron: "36 17 * * 0"
   workflow_dispatch:
@@ -42,17 +42,30 @@ jobs:
         run: "${RUNNER_TEMP}/codacy-cli-v2 init"
 
       - name: Run Codacy security analysis
-        run: >-
-          "${RUNNER_TEMP}/codacy-cli-v2" analyze
-          --tool opengrep
-          --format sarif
-          --output results.sarif
-          .
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/codacy-cli-v2" analyze \
+            --tool opengrep \
+            --format sarif \
+            --output results.sarif \
+            .
+          test -s results.sarif
+          if ! jq -e '.runs | type == "array" and length > 0' results.sarif > /dev/null; then
+            echo "::error::Codacy Opengrep produced no SARIF runs; analysis did not execute"
+            exit 1
+          fi
 
       - name: Normalize SARIF for GitHub
         run: |
+          set -euo pipefail
           jq '(.runs[].tool.driver.rules //= [])' \
             results.sarif > normalized-results.sarif
+          test -s normalized-results.sarif
+          jq -e '
+            .version == "2.1.0" and
+            (.runs | type == "array" and length > 0) and
+            all(.runs[]; (.tool.driver.rules | type) == "array")
+          ' normalized-results.sarif > /dev/null
           mv normalized-results.sarif results.sarif
 
       - name: Upload SARIF results
