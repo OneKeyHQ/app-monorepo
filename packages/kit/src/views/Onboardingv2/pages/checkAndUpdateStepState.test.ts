@@ -1,6 +1,7 @@
 import {
   ECheckAndUpdateStepId,
   ECheckAndUpdateStepState,
+  armPostUpdateRecheck,
   beginPostUpdateRecheck,
   isCheckAndUpdateReady,
   isCheckAndUpdateRetryDisabled,
@@ -8,6 +9,33 @@ import {
 } from './checkAndUpdateStepState';
 
 describe('checkAndUpdateStepState', () => {
+  it('keeps the firmware row resumable while a post-update recheck is armed', () => {
+    const steps = armPostUpdateRecheck([
+      {
+        id: ECheckAndUpdateStepId.GenuineCheck,
+        state: ECheckAndUpdateStepState.Error,
+        errorMessage: 'Device is in bootloader mode',
+      },
+      {
+        id: ECheckAndUpdateStepId.FirmwareCheck,
+        state: ECheckAndUpdateStepState.Warning,
+      },
+    ]);
+
+    expect(steps).toEqual([
+      {
+        id: ECheckAndUpdateStepId.GenuineCheck,
+        state: ECheckAndUpdateStepState.Idle,
+        errorMessage: undefined,
+      },
+      {
+        id: ECheckAndUpdateStepId.FirmwareCheck,
+        state: ECheckAndUpdateStepState.Warning,
+      },
+    ]);
+    expect(isCheckAndUpdateRetryDisabled(steps)).toBe(false);
+  });
+
   it('retires a stale genuine-check error when post-update recheck starts', () => {
     const steps = beginPostUpdateRecheck([
       {

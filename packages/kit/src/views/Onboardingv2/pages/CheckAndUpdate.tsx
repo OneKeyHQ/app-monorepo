@@ -64,6 +64,7 @@ import { getForceTransportType } from '../utils';
 import {
   ECheckAndUpdateStepId,
   ECheckAndUpdateStepState,
+  armPostUpdateRecheck,
   beginPostUpdateRecheck,
   isCheckAndUpdateReady,
   isCheckAndUpdateRetryDisabled,
@@ -677,7 +678,7 @@ function CheckAndUpdatePage({
           genuineStepStateRef.current,
         ),
       );
-      setSteps((prev) => beginPostUpdateRecheck(prev));
+      setSteps((prev) => armPostUpdateRecheck(prev));
 
       // Wait for remaining delay (0 if already >= 10s), then recheck firmware.
       // Keep the previous state during this cancellable window so a blur can
@@ -703,6 +704,7 @@ function CheckAndUpdatePage({
           // The patient-path upgrade for later rounds is carried by
           // pendingPostUpdateReconnectRef instead.
           setFirmwareRuntimeChangeTime(null);
+          setSteps((prev) => beginPostUpdateRecheck(prev));
           void checkFirmwareUpdate({
             checkAfterUpdate: true,
           });
