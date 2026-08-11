@@ -21,6 +21,41 @@ describe('TradingViewNative source resolver', () => {
     });
   });
 
+  it('applies Hyperliquid mappings only for the requested branch', () => {
+    const tokenIdentity = {
+      hyperliquidCoin: '',
+      isNative: true,
+      marketDataSource: undefined,
+      networkId: 'evm--999',
+      symbol: 'HYPE',
+      tokenAddress: '',
+    } as const;
+
+    expect(
+      getTradingViewNativeSource({
+        ...tokenIdentity,
+        hyperliquidWhitelistBranch: 'swap',
+      }),
+    ).toEqual({
+      kind: 'hyperliquid',
+      coin: '@107',
+      environment: 'mainnet',
+    });
+    expect(
+      getTradingViewNativeSource({
+        ...tokenIdentity,
+        hyperliquidWhitelistBranch: 'market',
+      }),
+    ).toEqual({
+      kind: 'market',
+      isNative: true,
+      networkId: 'evm--999',
+      tokenAddress: '',
+      symbol: 'HYPE',
+      realtime: 'disabled',
+    });
+  });
+
   it('keeps the Market transport in the Market source variant', () => {
     const source = getTradingViewNativeSource({
       hyperliquidCoin: '',
