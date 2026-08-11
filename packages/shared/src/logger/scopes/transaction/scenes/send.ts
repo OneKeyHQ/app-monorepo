@@ -4,6 +4,11 @@ import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type {
+  IGasAccountActionParams,
+  IGasAccountAnalyticsContext,
+} from '../types';
+
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
 type IPrivateSendFinalStatus = 'done' | 'failed';
@@ -358,23 +363,26 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public insufficientFeeOnConfirm({
-    network,
-    tokenSymbol,
-    fillUpAmount,
-    feeType,
-  }: {
-    network: string | undefined;
-    tokenSymbol: string | undefined;
-    fillUpAmount: string | undefined;
-    feeType: 'native' | 'token';
-  }) {
+  public gasAccountDecision(params: IGasAccountAnalyticsContext) {
+    return params;
+  }
+
+  @LogToServer()
+  public gasAccountAction(params: IGasAccountActionParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public insufficientFeeOnConfirm(
+    params: {
+      tokenSymbol: string | undefined;
+      fillUpAmount: string | undefined;
+      feeType: 'native' | 'token';
+    } & IGasAccountAnalyticsContext,
+  ) {
     return {
       sendFlowId: this._sendFlowId,
-      network,
-      tokenSymbol,
-      fillUpAmount,
-      feeType,
+      ...params,
     };
   }
 
