@@ -10,14 +10,13 @@ import { trackAt } from '../deviceScene';
 import { LinearGradient } from '../LinearGradient';
 
 import {
+  CONFIRM_LOOP,
   CONFIRM_SWEEP_TRACK,
   PIN_DOT_TRACKS,
+  PIN_LOOP,
   PIN_SHEEN_TRACKS,
-  useConfirmOnSlateAnimation,
-  useEnterPinOnSlateAnimation,
-  useSlateScreenAnimation,
 } from './animation';
-import { SLATE_SCREEN_H, SLATE_SCREEN_W, SlateDeviceShell } from './shell';
+import { SLATE_SCREEN_H, SLATE_SCREEN_W } from './shell';
 
 import type { IKeyframe } from '../deviceScene';
 import type { ViewStyle } from 'react-native';
@@ -29,13 +28,14 @@ import type { SharedValue } from 'react-native-reanimated';
  * Figma frames (enterPin 20553:1290 authored at 480x813, scaled x0.6;
  * confirm 20553:1265 authored on the 934x1582 screen raster, scaled
  * x288/934 — both land on the same 288x484 canvas grid); connecting shows
- * the wallpaper the device idles on. SlateDevice renders a scene's content
- * onto the black glass as it settles and fades it off before handing over
- * (the resident opacity every scene receives), and no scene ever sleeps.
- * Once lit, connecting holds the wallpaper while enterPin
- * and confirm loop their light choreography: the keypad sheen with the
- * entry dots landing, and the one light crossing the whole confirm
- * screen.
+ * the wallpaper the device idles on. Once lit, connecting holds the
+ * wallpaper while enterPin and confirm loop their light choreography: the
+ * keypad sheen with the entry dots landing, and the one light crossing the
+ * whole confirm screen.
+ *
+ * A scene is nothing but screen content plus the SCENES registry entry
+ * declaring how SlateDevice runs it; entrances, exits and the clock are
+ * the device's shared machinery, so no scene carries transition code.
  */
 export type ISlateDeviceScene =
   | 'connecting'
@@ -43,38 +43,30 @@ export type ISlateDeviceScene =
   | 'enterPassphrase'
   | 'confirm';
 
-/**
- * Which scenes put content on the glass. SlateDevice consults the scene
- * being replaced to decide whether there is anything to fade off before
- * the next one takes over.
- */
-export const SCENE_LIT: Record<ISlateDeviceScene, boolean> = {
-  connecting: true,
-  enterPin: true,
-  enterPassphrase: false,
-  confirm: true,
-};
-
-/**
- * Scenes whose pixels are not on screen when their layout is. An image's
- * are fetched and decoded asynchronously, well after the layout event, so
- * such a scene reports readiness itself (`onReady`) and SlateDevice holds
- * its entrance until then; otherwise the ramp plays over an empty view and
- * the picture lands on it already bright.
- */
-export const SCENE_DEFERS_ENTRY: Record<ISlateDeviceScene, boolean> = {
-  connecting: true,
-  enterPin: false,
-  enterPassphrase: false,
-  confirm: false,
-};
-
-interface ISceneProps {
-  width?: number;
-  /** Resident opacity of the scene's screen content, driven by SlateDevice. */
-  screenIn: Readonly<SharedValue<number>>;
-  /** Call when the scene's pixels are on the glass; see SCENE_DEFERS_ENTRY. */
+/** What a scene's content component receives. */
+export interface ISlateSceneContentProps {
+  /** Scene clock for looping choreography, held at 0 through the entry. */
+  clock: SharedValue<number>;
+  /** Report the pixels on the glass; only `defersEntry` scenes need to. */
   onReady: () => void;
+}
+
+interface ISlateSceneSpec {
+  /**
+   * Screen content on the 288x484 canvas, or null while a scene has no
+   * design yet: the glass then just stays dark, and a swap treats the
+   * scene as having nothing to fade.
+   */
+  content: ComponentType<ISlateSceneContentProps> | null;
+  /**
+   * The content's pixels land later than its layout (an image is decoded
+   * asynchronously, well after the layout event), so the entrance must
+   * additionally wait for the content's own `onReady` — otherwise the
+   * ramp plays over an empty view and the picture lands already bright.
+   */
+  defersEntry?: true;
+  /** Looping choreography, evaluated on the scene clock after the entry. */
+  loop?: { loopMs: number; restMs: number };
 }
 
 /* --------------------------- palette --------------------------- *
@@ -125,6 +117,13 @@ const sceneStyles = StyleSheet.create({
  * The wallpaper the physical device idles on while the app reaches for it
  * (an exact 288x484 render, laid flat with no cropping). */
 
+/**
+ * Decoded-size budget for this asset: iOS only keeps decoded bitmaps of
+ * up to 2 MiB in its image cache (RCTImageCache), i.e. width x height must
+ * stay under 524,288 px at 4 bytes per pixel. Past that every entrance
+ * re-decodes the file and the pixels land mid-ramp. Current export is
+ * 540x908 (~1.87 MiB) - keep any replacement under the line.
+ */
 const WALLPAPER_SOURCE = require('./screen-connecting.png');
 
 /* ------------------------- enter PIN ------------------------- *
@@ -455,65 +454,28 @@ function ConfirmScreen({ clock }: { clock: SharedValue<number> }) {
   );
 }
 
-/* --------------------------- scenes --------------------------- */
+/* --------------------------- registry --------------------------- */
 
-function ConnectingScene({ width, screenIn, onReady }: ISceneProps) {
-  const { animation } = useSlateScreenAnimation(screenIn);
-  // Referentially stable: the shell memoizes its body on screenContent.
-  const screen = useMemo(
-    () => (
-      <Image
-        source={WALLPAPER_SOURCE}
-        style={sceneStyles.wallpaper}
-        fadeDuration={0}
-        onLoad={onReady}
-      />
-    ),
-    [onReady],
-  );
+function ConnectingContent({ onReady }: ISlateSceneContentProps) {
   return (
-    <SlateDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screen}
+    <Image
+      source={WALLPAPER_SOURCE}
+      style={sceneStyles.wallpaper}
+      fadeDuration={0}
+      onLoad={onReady}
     />
   );
 }
 
-function EnterPinScene({ width, screenIn }: ISceneProps) {
-  const { animation, clock } = useEnterPinOnSlateAnimation(screenIn);
-  // Referentially stable: the shell memoizes its body on screenContent.
-  const screen = useMemo(() => <PinScreen clock={clock} />, [clock]);
-  return (
-    <SlateDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screen}
-    />
-  );
-}
-
-/** No design yet: the passphrase step holds the dark glass. */
-function EnterPassphraseScene({ width }: ISceneProps) {
-  return <SlateDeviceShell width={width} />;
-}
-
-function ConfirmScene({ width, screenIn }: ISceneProps) {
-  const { animation, clock } = useConfirmOnSlateAnimation(screenIn);
-  // Referentially stable: the shell memoizes its body on screenContent.
-  const screen = useMemo(() => <ConfirmScreen clock={clock} />, [clock]);
-  return (
-    <SlateDeviceShell
-      width={width}
-      animation={animation}
-      screenContent={screen}
-    />
-  );
-}
-
-export const SCENES: Record<ISlateDeviceScene, ComponentType<ISceneProps>> = {
-  connecting: ConnectingScene,
-  enterPin: EnterPinScene,
-  enterPassphrase: EnterPassphraseScene,
-  confirm: ConfirmScene,
+/**
+ * The scene registry — the one table every per-scene trait lives in.
+ * Adding a scene is adding one entry; nothing else consults a scene by
+ * name.
+ */
+export const SCENES: Record<ISlateDeviceScene, ISlateSceneSpec> = {
+  connecting: { content: ConnectingContent, defersEntry: true },
+  enterPin: { content: PinScreen, loop: PIN_LOOP },
+  // No design yet: the passphrase step holds the dark glass.
+  enterPassphrase: { content: null },
+  confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },
 };
