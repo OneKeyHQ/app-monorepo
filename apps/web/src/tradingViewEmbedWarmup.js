@@ -1,8 +1,7 @@
 const PREFETCH_MESSAGE_TYPE = 'PREFETCH_TRADINGVIEW_EMBED';
 const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
-const PREFETCH_IDLE_TIMEOUT_MS = 5000;
 
-let idleHandle;
+let warming = false;
 
 function shouldWarmTradingViewEmbed() {
   return (
@@ -42,28 +41,30 @@ export function warmTradingViewEmbedAssets() {
   if (
     !controller ||
     !hasPinnedManifest ||
-    idleHandle !== undefined ||
+    warming ||
     !shouldWarmTradingViewEmbed()
   ) {
     return;
   }
-  idleHandle = requestIdleCallback(
-    () => {
-      idleHandle = undefined;
-      void getPinnedTradingViewEmbedManifest().then((manifest) => {
-        const currentController = navigator.serviceWorker?.controller;
-        if (!currentController || !manifest || !shouldWarmTradingViewEmbed()) {
-          return;
-        }
-        currentController.postMessage({
-          type: PREFETCH_MESSAGE_TYPE,
-          payload: {
-            manifestUrl,
-            manifestVersion: manifest.version,
-          },
-        });
-      });
-    },
-    { timeout: PREFETCH_IDLE_TIMEOUT_MS },
-  );
+  // No idle deferral: the heavy work (bootstrap download + hashing) runs on
+  // the service-worker thread; the only main-thread cost here is a tiny
+  // same-origin JSON fetch. The SW also self-starts a locale-agnostic warmup
+  // on its first intercepted request, so this message mainly re-checks the
+  // version and lets repeated triggers (visibilitychange, 30-min interval)
+  // pick up a new release; the SW dedupes by version internally.
+  warming = true;
+  void getPinnedTradingViewEmbedManifest().then((manifest) => {
+    warming = false;
+    const currentController = navigator.serviceWorker?.controller;
+    if (!currentController || !manifest || !shouldWarmTradingViewEmbed()) {
+      return;
+    }
+    currentController.postMessage({
+      type: PREFETCH_MESSAGE_TYPE,
+      payload: {
+        manifestUrl,
+        manifestVersion: manifest.version,
+      },
+    });
+  });
 }

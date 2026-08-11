@@ -1622,6 +1622,67 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+// Self-start the TradingView bootstrap warmup on the first intercepted
+// request after this worker takes control. Deliberately NOT done in the
+// `activate` handler: promises passed to activate's waitUntil delay the
+// worker's transition to `activated`, which queues every page fetch behind
+// the (potentially slow) bootstrap download. A plain extra fetch listener
+// that never calls respondWith has no such cost. Combined with the early
+// registration in index.html.ejs, the bootstrap subset starts downloading
+// within seconds of first navigation — long before the page-side warmup
+// (window.load + version check) would have triggered it — so a user's first
+// Market-detail click lands on a warm cache. The page-side warmup remains
+// the authority for locale-specific assets and re-checks; prepare/prefetch
+// are deduped version-keyed on the SW side, so the later message is cheap.
+let tradingViewEmbedWarmupKicked = false;
+
+self.addEventListener('fetch', (event) => {
+  if (tradingViewEmbedWarmupKicked || !TRADINGVIEW_EMBED_BUILD_MANIFEST_URL) {
+    return;
+  }
+  tradingViewEmbedWarmupKicked = true;
+  if (self.navigator?.connection?.saveData === true) {
+    return;
+  }
+  event.waitUntil(
+    (async () => {
+      const response = await fetch(
+        new URL(TRADINGVIEW_EMBED_BUILD_MANIFEST_URL, self.location.origin),
+        {
+          cache: 'force-cache',
+          credentials: 'omit',
+          integrity: TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY,
+          mode: 'cors',
+          redirect: 'error',
+        },
+      );
+      if (!response.ok) {
+        return;
+      }
+      const pinnedManifest = await response.json();
+      if (
+        typeof pinnedManifest?.version !== 'string' ||
+        typeof pinnedManifest?.baseUrl !== 'string'
+      ) {
+        return;
+      }
+      // Derive the remote manifest identity from the pinned baseUrl so the
+      // cache markers this warmup writes match the URL the page-side warmup
+      // will use (test vs prod origin).
+      const manifestUrl = new URL(
+        '/embed/latest.json',
+        pinnedManifest.baseUrl,
+      ).toString();
+      await runTradingViewEmbedPrefetch({
+        getErrorCode: getVersionErrorCode,
+        prepare: () =>
+          prepareTradingViewEmbed(manifestUrl, pinnedManifest.version),
+        replyPort: undefined,
+      });
+    })().catch(() => undefined),
+  );
+});
+
 self.addEventListener('message', (event) => {
   const type = event.data?.type;
   const payload = event.data?.payload || {};

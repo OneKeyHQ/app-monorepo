@@ -28,6 +28,28 @@
     </script>
     <% } %>
 
+    <% if ( platform === 'web' && !isDev ) { %>
+    <script>
+      // Kick off service-worker registration during HTML parse instead of the
+      // window.load handler in index.js (~10s later on a cold boot). This SW
+      // precaches nothing, so install is trivial and does not compete with
+      // page assets. index.js still calls register() with the same URL/scope
+      // — that call is idempotent and only wires the version protocol on top
+      // of this early registration. Being registered this early lets the SW
+      // claim the page within ~1-2s, which in turn triggers its first-fetch
+      // TradingView bootstrap warmup long before any human can reach the
+      // Market detail page.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker
+          .register('/service-worker.js', {
+            scope: '/',
+            updateViaCache: 'none',
+          })
+          .catch(function () {});
+      }
+    </script>
+    <% } %>
+
     <% if ( (platform === 'desktop' || platform === 'web') && isDev ) { %>
     <script>
       // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the cold-start
