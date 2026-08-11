@@ -1,8 +1,12 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+
+import { BluetoothUnavailableWhileUsbConnectedError } from '../errors/errors/hardwareErrors';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 
-import type { SearchDevice, Success } from '@onekeyfe/hd-core';
+import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -317,6 +321,59 @@ describe('DeviceScannerUtils', () => {
     search.resolve(successResponse('pro2'));
     await flushMicrotasks();
     scanner.stopScan();
+  });
+
+  it('routes unsuccessful responses through the normalized error handler', async () => {
+    const search = createDeferred<Unsuccessful>();
+    const searchDevices = jest.fn(() => search.promise);
+    const scanner = createScanner(searchDevices);
+    const callback = jest.fn();
+    const onError = jest.fn();
+
+    scanner.startDeviceScan(callback, jest.fn(), 1, 60_000, 1, undefined, {
+      onError,
+    });
+    await flushMicrotasks();
+
+    search.resolve({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.RuntimeError,
+        error: 'Failure_ProcessError,link disabled',
+      },
+    });
+    await flushMicrotasks();
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(
+      BluetoothUnavailableWhileUsbConnectedError,
+    );
+    scanner.stopScan();
+  });
+
+  it('reports rejected searches and stops polling', async () => {
+    const searchError = new Error('search transport unavailable');
+    const searchDevices = jest.fn().mockRejectedValue(searchError);
+    const scanner = createScanner(searchDevices);
+    const onError = jest.fn();
+    const onSearchStateChange = jest.fn();
+
+    scanner.startDeviceScan(
+      jest.fn(),
+      onSearchStateChange,
+      1,
+      60_000,
+      1,
+      undefined,
+      { onError },
+    );
+    await flushMicrotasks();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(searchError);
+    expect(onSearchStateChange).toHaveBeenLastCalledWith('stop');
+    expect(Object.values(scanner.scanMap).every((value) => !value)).toBe(true);
   });
 
   it('waits for the active search and Noble scan cleanup before stopping', async () => {
