@@ -423,19 +423,25 @@ export function AccountSelectorAccountListItem({
                 autoChangeToAccountMatchedNetworkId =
                   selectedAccount?.networkId;
               }
-              await actions.current.confirmAccountSelect({
+              const confirmed = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount: undefined,
                 othersWalletAccount: account,
                 autoChangeToAccountMatchedNetworkId,
               });
+              if (!confirmed) {
+                return;
+              }
             } else if (focusedWalletInfo) {
-              await actions.current.confirmAccountSelect({
+              const confirmed = await actions.current.confirmAccountSelect({
                 num,
                 indexedAccount,
                 othersWalletAccount: undefined,
                 autoChangeToAccountMatchedNetworkId: undefined,
               });
+              if (!confirmed) {
+                return;
+              }
             }
             resetAccountManagerStacksModal();
           },
