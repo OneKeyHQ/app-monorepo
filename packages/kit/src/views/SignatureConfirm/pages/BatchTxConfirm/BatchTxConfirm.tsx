@@ -38,6 +38,7 @@ import {
   EBatchTxSignStatus,
 } from '@onekeyhq/shared/types/batchTxSign';
 import type { IBatchTxSignItemSummary } from '@onekeyhq/shared/types/batchTxSign';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -199,13 +200,20 @@ function BatchTxConfirm() {
       }
     : undefined;
 
-  const handlePageClose = useCallback(() => {
-    // Safe to call unconditionally: once resolve()/reject() has already
-    // settled this dapp request, the background promise container is a
-    // no-op on a second call, so this only matters for a genuine dismissal
-    // (back gesture / X button) that never went through Done/Reject/Cancel.
-    dappApprove.reject();
-  }, [dappApprove]);
+  const handlePageClose = useCallback(
+    (extra?: { flag?: string }) => {
+      // NOT a harmless no-op on a second call: ServicePromise removes a
+      // settled callback via Array.splice, which reindexes its backing
+      // array, so a stray reject() here after Done already resolved this id
+      // could reject a *different*, still-pending dapp request that shifted
+      // into the freed slot. Only fire on a genuine dismissal (back gesture
+      // / X button / Reject / Cancel) that did not already resolve via Done.
+      if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+        dappApprove.reject();
+      }
+    },
+    [dappApprove],
+  );
 
   useEffect(() => {
     // Mirrors TxConfirm: SendConfirmFromDApp/BatchTxConfirmFromDApp arm a
@@ -238,14 +246,21 @@ function BatchTxConfirm() {
           onSuccess: (data: ISendTxOnSuccessData[]) => {
             const hex = data?.[0]?.signedTx?.psbtHex;
             if (hex) {
+              // Only toast once the mark actually landed — a failed
+              // markItemSigned (e.g. the batch was disposed/cancelled
+              // meanwhile) must not claim the item is signed.
               void backgroundApiProxy.serviceBatchTxSign
                 .markItemSigned({
                   batchId,
                   index: item.index,
                   signedPsbtHex: hex,
                 })
+                .then(() => {
+                  Toast.success({
+                    title: `Transaction ${item.index + 1} signed`,
+                  });
+                })
                 .catch(() => {});
-              Toast.success({ title: `Transaction ${item.index + 1} signed` });
             }
           },
         });
@@ -331,15 +346,22 @@ function BatchTxConfirm() {
   );
 
   const handleDone = useCallback(
-    async (closePageStack: () => void) => {
+    async (closePageStack: (extra?: { flag?: string }) => void) => {
       try {
         const results =
           await backgroundApiProxy.serviceBatchTxSign.takeFinalizedResults({
             batchId,
           });
         await dappApprove.resolve({ result: results });
-      } finally {
-        closePageStack();
+        // Mark this close as an already-resolved success so handlePageClose
+        // does not fire a redundant reject() for the same (now-settled) id —
+        // see the comment on handlePageClose for why that is unsafe.
+        closePageStack({ flag: EDAppModalPageStatus.Confirmed });
+      } catch (_error) {
+        // Keep the page open on failure: takeFinalizedResults/resolve did
+        // not settle the dapp request, so the user can retry Done or fall
+        // back to Cancel request instead of silently losing the batch.
+        Toast.error({ title: 'Failed to collect signatures' });
       }
     },
     [batchId, dappApprove],
