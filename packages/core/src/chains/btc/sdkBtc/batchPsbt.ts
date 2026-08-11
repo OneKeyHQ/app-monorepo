@@ -97,6 +97,13 @@ export function computeBatchPsbtAmounts({
   psbtNetwork: networks.Network;
   accountAddresses: string[];
 }): IBatchPsbtAmountInfo | null {
+  // A zero-output tx is invalid (and can't happen for a real spend); without
+  // this guard the loop below would compute externalOutValue/changeValue as 0
+  // and misreport the entire input value as fee.
+  if (psbt.txOutputs.length === 0) {
+    return null;
+  }
+
   const accountAddressSet = new Set(accountAddresses);
 
   let totalInValue = 0n;

@@ -1,6 +1,6 @@
 import { getBitcoinECPair, initBitcoinEcc } from '.';
 
-import { Psbt, payments } from 'bitcoinjs-lib';
+import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -143,6 +143,31 @@ describe('findDuplicatePsbtIndexes', () => {
 
     expect(findDuplicatePsbtIndexes([psbtA, psbtC])).toEqual([]);
   });
+
+  it('is keyed on the unsigned tx, not the full psbt hex, so per-input metadata differences do not defeat dedupe', () => {
+    const { script: fundingScript } = makeP2wpkh();
+    const { script: outputScript } = makeP2wpkh();
+
+    const psbtA = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: fundingScript },
+      ],
+      outputs: [{ script: outputScript, value: 90_000n }],
+    });
+    const psbtADup = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: fundingScript },
+      ],
+      outputs: [{ script: outputScript, value: 90_000n }],
+    });
+    // Attaching per-input metadata changes the full psbt hex (it's stored in
+    // a separate keyvalue map from the global unsigned tx) but must not
+    // affect the unsigned-tx-keyed dedupe below.
+    psbtADup.updateInput(0, { sighashType: Transaction.SIGHASH_ALL });
+
+    expect(psbtA.toHex()).not.toBe(psbtADup.toHex());
+    expect(findDuplicatePsbtIndexes([psbtA, psbtADup])).toEqual([1]);
+  });
 });
 
 describe('findPsbtOutpointConflicts', () => {
@@ -248,6 +273,104 @@ describe('computeBatchPsbtAmounts', () => {
       inputs: [{ txid: TXID_A, vout: 0, value: 1000n, script: accountScript }],
       outputs: [{ script: externalScript, value: 2000n }],
     });
+
+    expect(
+      computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
+    ).toBeNull();
+  });
+
+  it('returns null for a psbt with zero outputs', () => {
+    const { script: accountScript } = makeP2wpkh();
+    const psbt = new Psbt({ network: psbtNetwork });
+    psbt.addInput({
+      hash: TXID_A,
+      index: 0,
+      witnessUtxo: { script: accountScript, value: 1000n },
+    });
+    // No addOutput call -> a zero-output tx, which is invalid and must not
+    // be reported as a valid all-fee summary.
+
+    expect(
+      computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
+    ).toBeNull();
+  });
+
+  it('handles an all-change consolidation spend (no external output)', () => {
+    const { address: accountAddress, script: accountScript } = makeP2wpkh();
+
+    const psbt = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: accountScript },
+      ],
+      outputs: [{ script: accountScript, value: 95_000n }],
+    });
+
+    const result = computeBatchPsbtAmounts({
+      psbt,
+      psbtNetwork,
+      accountAddresses: [accountAddress],
+    });
+
+    expect(result).toEqual({
+      feeValue: '5000',
+      externalOutValue: '0',
+      changeValue: '95000',
+      externalRecipients: [],
+    });
+  });
+});
+
+describe('computeBatchPsbtAmounts - nonWitnessUtxo branch', () => {
+  it('resolves the input value via nonWitnessUtxo when witnessUtxo is absent', () => {
+    const { address: accountAddress, script: accountScript } = makeP2wpkh();
+    const { address: externalAddress, script: externalScript } = makeP2wpkh();
+
+    const fundingTx = new Transaction();
+    fundingTx.addInput(Buffer.alloc(32), 0xff_ff_ff_ff);
+    fundingTx.addOutput(accountScript, 100_000n);
+
+    const psbt = new Psbt({ network: psbtNetwork });
+    // bitcoinjs validates (at signing time) that the nonWitnessUtxo's txid
+    // matches the input hash, so the input hash must be the funding tx's
+    // real hash rather than an arbitrary placeholder.
+    psbt.addInput({
+      hash: fundingTx.getHash(),
+      index: 0,
+      nonWitnessUtxo: fundingTx.toBuffer(),
+    });
+    psbt.addOutput({ script: externalScript, value: 60_000n });
+    psbt.addOutput({ script: accountScript, value: 30_000n });
+
+    const result = computeBatchPsbtAmounts({
+      psbt,
+      psbtNetwork,
+      accountAddresses: [accountAddress],
+    });
+
+    expect(result).toEqual({
+      feeValue: '10000',
+      externalOutValue: '60000',
+      changeValue: '30000',
+      externalRecipients: [externalAddress],
+    });
+  });
+
+  it('returns null when the referenced vout is out of range for the funding tx', () => {
+    const { script: accountScript } = makeP2wpkh();
+    const { script: externalScript } = makeP2wpkh();
+
+    const fundingTx = new Transaction();
+    fundingTx.addInput(Buffer.alloc(32), 0xff_ff_ff_ff);
+    // Only output index 0 exists.
+    fundingTx.addOutput(accountScript, 100_000n);
+
+    const psbt = new Psbt({ network: psbtNetwork });
+    psbt.addInput({
+      hash: fundingTx.getHash(),
+      index: 5,
+      nonWitnessUtxo: fundingTx.toBuffer(),
+    });
+    psbt.addOutput({ script: externalScript, value: 1000n });
 
     expect(
       computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
