@@ -1,4 +1,4 @@
-name: CodeQL Security Scan
+name: Trivy Security Scan
 
 on:
   push:
@@ -16,8 +16,8 @@ permissions:
   contents: read
 
 jobs:
-  codeql-security-scan:
-    name: CodeQL Security Scan
+  trivy-security-scan:
+    name: Trivy Security Scan
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -25,13 +25,23 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          languages: javascript-typescript
-          queries: security-extended
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: '0'
+          timeout: 20m0s
 
-      - name: Analyze code
-        uses: github/codeql-action/analyze@v4
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
