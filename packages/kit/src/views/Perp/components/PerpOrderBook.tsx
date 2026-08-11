@@ -795,9 +795,12 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 7;
+    // Spot settles on its own level count, and the enable-trading flag reads
+    // true until the account address resolves, so checking it first made every
+    // spot cold start render 7 levels and then collapse the first-screen grid.
     if (activeTradeInstrument.mode === 'spot')
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
+    if (shouldShowEnableTradingButton) return 7;
     if (formData.hasTpsl) return 9;
     return 7;
   }, [
