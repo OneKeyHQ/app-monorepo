@@ -15,8 +15,9 @@ export * from './type';
 export * from './utils';
 export { getOnramperConfig } from './realClient.native';
 
-// Minimum iOS version the Onramper Headless SDK supports. Plan open question #4 —
-// confirm the exact floor with Onramper before shipping.
+// Minimum iOS version the Onramper Headless SDK supports — its pod spec pins
+// `:ios => '16.0'`. The app deployment target matches (16.0), so this guard
+// only matters if that floor ever diverges again.
 const ONRAMPER_MIN_IOS = 16;
 
 export function canUseHeadless(): boolean {
