@@ -81,6 +81,10 @@ import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import {
+  getExploreTabName,
+  getExploreUniversalSearchTabRoute,
+} from './exploreTabUtils';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
@@ -88,26 +92,7 @@ import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorro
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
 
-type IExploreTabName = 'market' | 'earn' | 'browser';
 type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
-
-function getExploreTabName(tab: ETranslations): IExploreTabName {
-  if (tab === ETranslations.global_market) {
-    return 'market';
-  }
-  if (tab === ETranslations.global_earn) {
-    return 'earn';
-  }
-  return 'browser';
-}
-
-// Native Discovery hosts three business tabs under one route. Pass the active
-// business route to universal search so analytics can distinguish the entry.
-const UNIVERSAL_SEARCH_TAB_ROUTE_MAP: Record<IExploreTabName, ETabRoutes> = {
-  market: ETabRoutes.Market,
-  earn: ETabRoutes.Earn,
-  browser: ETabRoutes.Discovery,
-};
 
 const styles = StyleSheet.create({
   // iOS WKWebViews must stay in the native layout tree. In nested layouts,
@@ -261,7 +246,7 @@ function MobileBrowser() {
     return undefined;
   }, [selectedHeaderTab]);
   const universalSearchTabRoute =
-    UNIVERSAL_SEARCH_TAB_ROUTE_MAP[getExploreTabName(selectedHeaderTab)];
+    getExploreUniversalSearchTabRoute(selectedHeaderTab);
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
