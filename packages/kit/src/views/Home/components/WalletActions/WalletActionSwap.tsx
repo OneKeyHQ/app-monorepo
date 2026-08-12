@@ -23,17 +23,17 @@ import { buildWalletHomeSwapInitParams } from './WalletActionSwap.utils';
 
 import type { IActionCustomization } from './types';
 
-function WalletActionSwap({
-  customization,
-  inList,
-  onClose,
-  showButtonStyle,
-}: {
+interface IWalletActionSwapOptions {
   customization?: IActionCustomization;
   inList?: boolean;
   onClose?: () => void;
   showButtonStyle?: boolean;
-}) {
+}
+
+function useWalletActionSwap({
+  customization,
+  onClose,
+}: IWalletActionSwapOptions = {}) {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
@@ -80,42 +80,46 @@ function WalletActionSwap({
     navigation,
   ]);
 
+  return {
+    disabled:
+      customization?.disabled ??
+      (vaultSettings?.disabledSwapAction ||
+        accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' })),
+    icon: customization?.icon,
+    label: intl.formatMessage({
+      id: customization?.labelId ?? ETranslations.global_trade,
+    }),
+    onPress: handleOnSwap,
+  };
+}
+
+function WalletActionSwap(options: IWalletActionSwapOptions) {
+  const { customization, inList, showButtonStyle } = options;
+  const action = useWalletActionSwap(options);
   if (inList) {
     return (
       <ActionList.Item
         trackID="wallet-trade"
         icon={customization?.icon ?? 'SwitchHorOutline'}
-        label={intl.formatMessage({
-          id: customization?.labelId ?? ETranslations.global_trade,
-        })}
+        label={action.label}
         onClose={() => {}}
-        onPress={handleOnSwap}
-        disabled={
-          customization?.disabled ??
-          (vaultSettings?.disabledSwapAction ||
-            accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' }))
-        }
+        onPress={action.onPress}
+        disabled={action.disabled}
       />
     );
   }
 
   return (
     <RawActions.Swap
-      onPress={handleOnSwap}
-      label={intl.formatMessage({
-        id: customization?.labelId ?? ETranslations.global_trade,
-      })}
-      icon={customization?.icon}
+      onPress={action.onPress}
+      label={action.label}
+      icon={action.icon}
       showButtonStyle={showButtonStyle}
-      disabled={
-        customization?.disabled ??
-        (vaultSettings?.disabledSwapAction ||
-          accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' }))
-      }
+      disabled={action.disabled}
       trackID="wallet-trade"
       testID={HomeTestIDs.swapButton}
     />
   );
 }
 
-export { WalletActionSwap };
+export { useWalletActionSwap, WalletActionSwap };

@@ -47,13 +47,11 @@ import { WalletActionSwap } from './WalletActionSwap';
 
 import type { IActionCustomization, IWalletActionType } from './types';
 
-function WalletActionSend({
+function useWalletActionSend({
   customization,
-  showButtonStyle,
 }: {
   customization?: IActionCustomization;
-  showButtonStyle?: boolean;
-}) {
+} = {}) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
@@ -401,16 +399,30 @@ function WalletActionSend({
     isBotWalletReceiveBlocked,
   ]);
 
+  return {
+    disabled: customization?.disabled ?? vaultSettings?.disabledSendAction,
+    icon: customization?.icon,
+    label: customization?.labelId
+      ? intl.formatMessage({ id: customization.labelId })
+      : undefined,
+    onPress: customization?.onPress || handleOnSend,
+  };
+}
+
+function WalletActionSend({
+  customization,
+  showButtonStyle,
+}: {
+  customization?: IActionCustomization;
+  showButtonStyle?: boolean;
+}) {
+  const action = useWalletActionSend({ customization });
   return (
     <RawActions.Send
-      onPress={customization?.onPress || handleOnSend}
-      disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
-      icon={customization?.icon}
+      onPress={action.onPress}
+      disabled={action.disabled}
+      label={action.label}
+      icon={action.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-send"
       testID={HomeTestIDs.sendButton}
@@ -512,4 +524,4 @@ function WalletActions({ ...rest }: IXStackProps) {
   );
 }
 
-export { WalletActions };
+export { useWalletActionSend, WalletActions };

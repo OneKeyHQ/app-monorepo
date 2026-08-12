@@ -18,7 +18,7 @@
 
 #include "INativeHomeViewModel.hpp"
 #include <optional>
-#include "INativeHomeDiagnosticIntent.hpp"
+#include "INativeHomeIntent.hpp"
 #include <functional>
 #include <memory>
 #include "HybridHomeContainerSpec.hpp"
@@ -45,7 +45,7 @@ namespace margelo::nitro::onekeynativecomponents::views {
 
   public:
     CachedProp<std::optional<INativeHomeViewModel>> state;
-    CachedProp<std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>> onIntent;
+    CachedProp<std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>> onIntent;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridHomeContainerSpec>& /* ref */)>>> hybridRef;
 
   private:

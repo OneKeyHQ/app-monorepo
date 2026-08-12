@@ -14,10 +14,10 @@
 
 namespace margelo::nitro::onekeynativecomponents::bridge::swift {
 
-  // pragma MARK: std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>
-  Func_void_INativeHomeDiagnosticIntent create_Func_void_INativeHomeDiagnosticIntent(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = OneKeyNativeComponents::Func_void_INativeHomeDiagnosticIntent::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const INativeHomeDiagnosticIntent& intent) mutable -> void {
+  // pragma MARK: std::function<void(const INativeHomeIntent& /* intent */)>
+  Func_void_INativeHomeIntent create_Func_void_INativeHomeIntent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = OneKeyNativeComponents::Func_void_INativeHomeIntent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const INativeHomeIntent& intent) mutable -> void {
       swiftClosure.call(intent);
     };
   }

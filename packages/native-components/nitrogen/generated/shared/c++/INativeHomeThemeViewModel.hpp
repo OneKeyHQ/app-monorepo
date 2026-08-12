@@ -46,11 +46,12 @@ namespace margelo::nitro::onekeynativecomponents {
     std::string surfaceColor     SWIFT_PRIVATE;
     std::string primaryTextColor     SWIFT_PRIVATE;
     std::string secondaryTextColor     SWIFT_PRIVATE;
+    std::string disabledTextColor     SWIFT_PRIVATE;
     std::string accentColor     SWIFT_PRIVATE;
 
   public:
     INativeHomeThemeViewModel() = default;
-    explicit INativeHomeThemeViewModel(NativeHomeColorScheme colorScheme, std::string backgroundColor, std::string surfaceColor, std::string primaryTextColor, std::string secondaryTextColor, std::string accentColor): colorScheme(colorScheme), backgroundColor(backgroundColor), surfaceColor(surfaceColor), primaryTextColor(primaryTextColor), secondaryTextColor(secondaryTextColor), accentColor(accentColor) {}
+    explicit INativeHomeThemeViewModel(NativeHomeColorScheme colorScheme, std::string backgroundColor, std::string surfaceColor, std::string primaryTextColor, std::string secondaryTextColor, std::string disabledTextColor, std::string accentColor): colorScheme(colorScheme), backgroundColor(backgroundColor), surfaceColor(surfaceColor), primaryTextColor(primaryTextColor), secondaryTextColor(secondaryTextColor), disabledTextColor(disabledTextColor), accentColor(accentColor) {}
 
   public:
     friend bool operator==(const INativeHomeThemeViewModel& lhs, const INativeHomeThemeViewModel& rhs) = default;
@@ -71,6 +72,7 @@ namespace margelo::nitro {
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "surfaceColor"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "primaryTextColor"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "secondaryTextColor"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "disabledTextColor"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "accentColor")))
       );
     }
@@ -81,6 +83,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "surfaceColor"), JSIConverter<std::string>::toJSI(runtime, arg.surfaceColor));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "primaryTextColor"), JSIConverter<std::string>::toJSI(runtime, arg.primaryTextColor));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "secondaryTextColor"), JSIConverter<std::string>::toJSI(runtime, arg.secondaryTextColor));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "disabledTextColor"), JSIConverter<std::string>::toJSI(runtime, arg.disabledTextColor));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "accentColor"), JSIConverter<std::string>::toJSI(runtime, arg.accentColor));
       return obj;
     }
@@ -97,6 +100,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "surfaceColor")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "primaryTextColor")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "secondaryTextColor")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "disabledTextColor")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "accentColor")))) return false;
       return true;
     }

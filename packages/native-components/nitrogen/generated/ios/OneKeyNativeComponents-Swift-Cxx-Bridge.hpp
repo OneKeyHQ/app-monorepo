@@ -10,10 +10,12 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridHomeContainerSpec` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { class HybridHomeContainerSpec; }
-// Forward declaration of `INativeHomeDiagnosticIntent` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeDiagnosticIntent; }
+// Forward declaration of `INativeHomeHeaderActionViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderActionViewModel; }
 // Forward declaration of `INativeHomeHeaderViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewModel; }
+// Forward declaration of `INativeHomeIntent` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
@@ -26,6 +28,14 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewMo
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeColorScheme; }
+// Forward declaration of `NativeHomeHeaderActionIcon` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionIcon; }
+// Forward declaration of `NativeHomeHeaderActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionId; }
+// Forward declaration of `NativeHomeHeaderActionLayout` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
+// Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
@@ -35,14 +45,19 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 
 // Include C++ defined types
 #include "HybridHomeContainerSpec.hpp"
-#include "INativeHomeDiagnosticIntent.hpp"
+#include "INativeHomeHeaderActionViewModel.hpp"
 #include "INativeHomeHeaderViewModel.hpp"
+#include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "INativeHomeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
+#include "NativeHomeHeaderActionIcon.hpp"
+#include "NativeHomeHeaderActionId.hpp"
+#include "NativeHomeHeaderActionLayout.hpp"
+#include "NativeHomeHeaderState.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>
@@ -56,6 +71,17 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
  */
 namespace margelo::nitro::onekeynativecomponents::bridge::swift {
 
+  // pragma MARK: std::vector<INativeHomeHeaderActionViewModel>
+  /**
+   * Specialized version of `std::vector<INativeHomeHeaderActionViewModel>`.
+   */
+  using std__vector_INativeHomeHeaderActionViewModel_ = std::vector<INativeHomeHeaderActionViewModel>;
+  inline std::vector<INativeHomeHeaderActionViewModel> create_std__vector_INativeHomeHeaderActionViewModel_(size_t size) noexcept {
+    std::vector<INativeHomeHeaderActionViewModel> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
   // pragma MARK: std::vector<INativeHomeTabViewModel>
   /**
    * Specialized version of `std::vector<INativeHomeTabViewModel>`.
@@ -82,40 +108,40 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     return *optional;
   }
   
-  // pragma MARK: std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>
+  // pragma MARK: std::function<void(const INativeHomeIntent& /* intent */)>
   /**
-   * Specialized version of `std::function<void(const INativeHomeDiagnosticIntent&)>`.
+   * Specialized version of `std::function<void(const INativeHomeIntent&)>`.
    */
-  using Func_void_INativeHomeDiagnosticIntent = std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>;
+  using Func_void_INativeHomeIntent = std::function<void(const INativeHomeIntent& /* intent */)>;
   /**
-   * Wrapper class for a `std::function<void(const INativeHomeDiagnosticIntent& / * intent * /)>`, this can be used from Swift.
+   * Wrapper class for a `std::function<void(const INativeHomeIntent& / * intent * /)>`, this can be used from Swift.
    */
-  class Func_void_INativeHomeDiagnosticIntent_Wrapper final {
+  class Func_void_INativeHomeIntent_Wrapper final {
   public:
-    explicit Func_void_INativeHomeDiagnosticIntent_Wrapper(std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>&& func): _function(std::make_unique<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>(std::move(func))) {}
-    inline void call(INativeHomeDiagnosticIntent intent) const noexcept {
+    explicit Func_void_INativeHomeIntent_Wrapper(std::function<void(const INativeHomeIntent& /* intent */)>&& func): _function(std::make_unique<std::function<void(const INativeHomeIntent& /* intent */)>>(std::move(func))) {}
+    inline void call(INativeHomeIntent intent) const noexcept {
       _function->operator()(intent);
     }
   private:
-    std::unique_ptr<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>> _function;
+    std::unique_ptr<std::function<void(const INativeHomeIntent& /* intent */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_INativeHomeDiagnosticIntent create_Func_void_INativeHomeDiagnosticIntent(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_INativeHomeDiagnosticIntent_Wrapper wrap_Func_void_INativeHomeDiagnosticIntent(Func_void_INativeHomeDiagnosticIntent value) noexcept {
-    return Func_void_INativeHomeDiagnosticIntent_Wrapper(std::move(value));
+  Func_void_INativeHomeIntent create_Func_void_INativeHomeIntent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_INativeHomeIntent_Wrapper wrap_Func_void_INativeHomeIntent(Func_void_INativeHomeIntent value) noexcept {
+    return Func_void_INativeHomeIntent_Wrapper(std::move(value));
   }
   
-  // pragma MARK: std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>
+  // pragma MARK: std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>
   /**
-   * Specialized version of `std::optional<std::function<void(const INativeHomeDiagnosticIntent& / * intent * /)>>`.
+   * Specialized version of `std::optional<std::function<void(const INativeHomeIntent& / * intent * /)>>`.
    */
-  using std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______ = std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>;
-  inline std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>> create_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______(const std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>& value) noexcept {
-    return std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>(value);
+  using std__optional_std__function_void_const_INativeHomeIntent_____intent______ = std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>;
+  inline std::optional<std::function<void(const INativeHomeIntent& /* intent */)>> create_std__optional_std__function_void_const_INativeHomeIntent_____intent______(const std::function<void(const INativeHomeIntent& /* intent */)>& value) noexcept {
+    return std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>(value);
   }
-  inline bool has_value_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______(const std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>& optional) noexcept {
+  inline bool has_value_std__optional_std__function_void_const_INativeHomeIntent_____intent______(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& optional) noexcept {
     return optional.has_value();
   }
-  inline std::function<void(const INativeHomeDiagnosticIntent& /* intent */)> get_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______(const std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>& optional) noexcept {
+  inline std::function<void(const INativeHomeIntent& /* intent */)> get_std__optional_std__function_void_const_INativeHomeIntent_____intent______(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& optional) noexcept {
     return *optional;
   }
   

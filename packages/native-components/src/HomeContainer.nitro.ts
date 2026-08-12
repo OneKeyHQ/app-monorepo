@@ -12,6 +12,27 @@ export type NativeHomeTabId =
   | 'perps';
 
 export type NativeHomeColorScheme = 'light' | 'dark';
+export type NativeHomeHeaderState = 'loading' | 'ready';
+export type NativeHomeHeaderActionLayout = 'loading' | 'zero' | 'funded';
+export type NativeHomeHeaderActionId =
+  | 'addMoney'
+  | 'buy'
+  | 'more'
+  | 'perp'
+  | 'receive'
+  | 'send'
+  | 'staking'
+  | 'swap'
+  | 'toggleBalanceVisibility';
+export type NativeHomeHeaderActionIcon =
+  | 'add'
+  | 'buy'
+  | 'more'
+  | 'perp'
+  | 'receive'
+  | 'send'
+  | 'staking'
+  | 'swap';
 
 export interface INativeHomeOwnerToken {
   scopeKey: string;
@@ -24,6 +45,7 @@ export interface INativeHomeThemeViewModel {
   surfaceColor: string;
   primaryTextColor: string;
   secondaryTextColor: string;
+  disabledTextColor: string;
   accentColor: string;
 }
 
@@ -34,9 +56,21 @@ export interface INativeHomeTabViewModel {
 }
 
 export interface INativeHomeHeaderViewModel {
-  isDiagnostic: boolean;
+  state: NativeHomeHeaderState;
+  balanceText: string;
+  balanceHidden: boolean;
+  balanceActionId: NativeHomeHeaderActionId;
+  balanceActionEnabled: boolean;
+  actionLayout: NativeHomeHeaderActionLayout;
+  actionSubtitle: string;
+  actions: INativeHomeHeaderActionViewModel[];
+}
+
+export interface INativeHomeHeaderActionViewModel {
+  id: NativeHomeHeaderActionId;
   title: string;
-  subtitle: string;
+  icon: NativeHomeHeaderActionIcon;
+  enabled: boolean;
 }
 
 export interface INativeHomePortfolioViewModel {
@@ -55,13 +89,14 @@ export interface INativeHomeViewModel {
   theme: INativeHomeThemeViewModel;
 }
 
-export interface INativeHomeDiagnosticIntent {
+export interface INativeHomeIntent {
   owner: INativeHomeOwnerToken;
+  actionId: NativeHomeHeaderActionId;
 }
 
 export interface IHomeContainerNativeProps extends HybridViewProps {
   state?: INativeHomeViewModel;
-  onIntent?: (intent: INativeHomeDiagnosticIntent) => void;
+  onIntent?: (intent: INativeHomeIntent) => void;
 }
 
 export type IHomeContainerNativeMethods = HybridViewMethods;

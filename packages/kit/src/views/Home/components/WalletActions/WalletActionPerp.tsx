@@ -12,17 +12,17 @@ import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
 
-function WalletActionPerp({
-  customization,
-  inList,
-  onClose,
-  showButtonStyle,
-}: {
+interface IWalletActionPerpOptions {
   customization?: IActionCustomization;
   inList?: boolean;
   onClose?: () => void;
   showButtonStyle?: boolean;
-}) {
+}
+
+function useWalletActionPerp({
+  customization,
+  onClose,
+}: IWalletActionPerpOptions = {}) {
   const intl = useIntl();
 
   const handlePress = useCallback(() => {
@@ -34,33 +34,40 @@ function WalletActionPerp({
     onClose?.();
   }, [customization, onClose]);
 
+  return {
+    disabled: customization?.disabled ?? false,
+    icon: customization?.icon,
+    label: intl.formatMessage({
+      id: customization?.labelId ?? ETranslations.global_perp,
+    }),
+    onPress: handlePress,
+  };
+}
+
+function WalletActionPerp(options: IWalletActionPerpOptions = {}) {
+  const { customization, inList, showButtonStyle } = options;
+  const action = useWalletActionPerp(options);
   if (inList) {
     return (
       <ActionList.Item
         trackID="wallet-perp"
         icon={customization?.icon ?? 'TradeOutline'}
-        label={intl.formatMessage({
-          id: customization?.labelId ?? ETranslations.global_perp,
-        })}
+        label={action.label}
         onClose={() => {}}
-        onPress={handlePress}
+        onPress={action.onPress}
       />
     );
   }
 
   return (
     <RawActions.Perp
-      onPress={handlePress}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
-      icon={customization?.icon}
+      onPress={action.onPress}
+      label={action.label}
+      icon={action.icon}
       showButtonStyle={showButtonStyle}
-      disabled={customization?.disabled}
+      disabled={action.disabled}
     />
   );
 }
 
-export { WalletActionPerp };
+export { useWalletActionPerp, WalletActionPerp };

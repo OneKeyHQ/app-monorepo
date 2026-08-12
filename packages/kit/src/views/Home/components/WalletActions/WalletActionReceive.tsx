@@ -22,16 +22,7 @@ import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
 
-function WalletActionReceive({
-  customization,
-  renderTrigger,
-  source,
-  variant,
-  sameModal,
-  useSelector,
-  showButtonStyle,
-  highlighted,
-}: {
+interface IWalletActionReceiveOptions {
   customization?: IActionCustomization;
   renderTrigger?: (props: {
     onPress: () => void;
@@ -43,7 +34,15 @@ function WalletActionReceive({
   useSelector?: boolean;
   showButtonStyle?: boolean;
   highlighted?: boolean;
-} = {}) {
+}
+
+function useWalletActionReceive({
+  customization,
+  source,
+  variant,
+  sameModal,
+  useSelector,
+}: IWalletActionReceiveOptions = {}) {
   const intl = useIntl();
   const {
     activeAccount: {
@@ -142,25 +141,36 @@ function WalletActionReceive({
     useSelector,
   ]);
 
+  return {
+    allowPressWhenDisabled: isBotWalletDeactivated,
+    disabled: customization?.disabled ?? isReceiveDisabled,
+    icon: customization?.icon,
+    label: customization?.labelId
+      ? intl.formatMessage({ id: customization.labelId })
+      : undefined,
+    onPress: handleReceiveOnPress,
+  };
+}
+
+function WalletActionReceive(options: IWalletActionReceiveOptions = {}) {
+  const { highlighted, renderTrigger, showButtonStyle } = options;
+  const action = useWalletActionReceive(options);
+
   if (renderTrigger) {
     return renderTrigger({
-      disabled: customization?.disabled ?? isReceiveDisabled,
-      onPress: handleReceiveOnPress,
+      disabled: action.disabled,
+      onPress: action.onPress,
     });
   }
 
   return (
     <RawActions.Receive
-      disabled={customization?.disabled ?? isReceiveDisabled}
-      allowPressWhenDisabled={isBotWalletDeactivated}
-      highlighted={Boolean(highlighted && !isReceiveDisabled)}
-      onPress={handleReceiveOnPress}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
-      icon={customization?.icon}
+      disabled={action.disabled}
+      allowPressWhenDisabled={action.allowPressWhenDisabled}
+      highlighted={Boolean(highlighted && !action.disabled)}
+      onPress={action.onPress}
+      label={action.label}
+      icon={action.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-receive"
       testID={HomeTestIDs.receiveButton}
@@ -168,4 +178,4 @@ function WalletActionReceive({
   );
 }
 
-export { WalletActionReceive };
+export { useWalletActionReceive, WalletActionReceive };

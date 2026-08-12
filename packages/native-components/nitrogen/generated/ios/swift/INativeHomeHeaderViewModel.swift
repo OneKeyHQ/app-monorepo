@@ -19,22 +19,53 @@ public extension INativeHomeHeaderViewModel {
   /**
    * Create a new instance of `INativeHomeHeaderViewModel`.
    */
-  init(isDiagnostic: Bool, title: String, subtitle: String) {
-    self.init(isDiagnostic, std.string(title), std.string(subtitle))
+  init(state: NativeHomeHeaderState, balanceText: String, balanceHidden: Bool, balanceActionId: NativeHomeHeaderActionId, balanceActionEnabled: Bool, actionLayout: NativeHomeHeaderActionLayout, actionSubtitle: String, actions: [INativeHomeHeaderActionViewModel]) {
+    self.init(state, std.string(balanceText), balanceHidden, balanceActionId, balanceActionEnabled, actionLayout, std.string(actionSubtitle), { () -> bridge.std__vector_INativeHomeHeaderActionViewModel_ in
+      var __vector = bridge.create_std__vector_INativeHomeHeaderActionViewModel_(actions.count)
+      for __item in actions {
+        __vector.push_back(__item)
+      }
+      return __vector
+    }())
   }
 
   @inline(__always)
-  var isDiagnostic: Bool {
-    return self.__isDiagnostic
+  var state: NativeHomeHeaderState {
+    return self.__state
   }
   
   @inline(__always)
-  var title: String {
-    return String(self.__title)
+  var balanceText: String {
+    return String(self.__balanceText)
   }
   
   @inline(__always)
-  var subtitle: String {
-    return String(self.__subtitle)
+  var balanceHidden: Bool {
+    return self.__balanceHidden
+  }
+  
+  @inline(__always)
+  var balanceActionId: NativeHomeHeaderActionId {
+    return self.__balanceActionId
+  }
+  
+  @inline(__always)
+  var balanceActionEnabled: Bool {
+    return self.__balanceActionEnabled
+  }
+  
+  @inline(__always)
+  var actionLayout: NativeHomeHeaderActionLayout {
+    return self.__actionLayout
+  }
+  
+  @inline(__always)
+  var actionSubtitle: String {
+    return String(self.__actionSubtitle)
+  }
+  
+  @inline(__always)
+  var actions: [INativeHomeHeaderActionViewModel] {
+    return self.__actions.map({ __item in __item })
   }
 }

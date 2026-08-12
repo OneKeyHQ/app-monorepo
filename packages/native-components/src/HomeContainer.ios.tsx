@@ -7,14 +7,14 @@ import HomeContainerConfig from '../nitrogen/generated/shared/json/HomeContainer
 import type {
   IHomeContainerNativeMethods,
   IHomeContainerNativeProps,
-  INativeHomeDiagnosticIntent,
+  INativeHomeIntent,
   INativeHomeViewModel,
 } from './HomeContainer.nitro';
 import type { ViewProps } from 'react-native';
 
 export interface IHomeContainerProps extends ViewProps {
   state: INativeHomeViewModel;
-  onIntent: (intent: INativeHomeDiagnosticIntent) => void;
+  onIntent: (intent: INativeHomeIntent) => void;
 }
 
 const HomeContainerHost = getHostComponent<

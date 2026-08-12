@@ -13,13 +13,12 @@ import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
 
-function WalletActionStaking({
+function useWalletActionStaking({
   customization,
-  showButtonStyle,
 }: {
   customization?: IActionCustomization;
   showButtonStyle?: boolean;
-}) {
+} = {}) {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const { network, wallet } = activeAccount;
@@ -41,20 +40,34 @@ function WalletActionStaking({
       noop();
     }
   }, [customization, isSoftwareWalletOnlyUser, network?.id, wallet?.type]);
+  return {
+    disabled: customization?.disabled ?? false,
+    icon: customization?.icon,
+    label: customization?.labelId
+      ? intl.formatMessage({ id: customization.labelId })
+      : undefined,
+    onPress: handleStaking,
+  };
+}
+
+function WalletActionStaking({
+  customization,
+  showButtonStyle,
+}: {
+  customization?: IActionCustomization;
+  showButtonStyle?: boolean;
+}) {
+  const action = useWalletActionStaking({ customization });
   return (
     <RawActions.Staking
-      onPress={handleStaking}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
-      icon={customization?.icon}
+      onPress={action.onPress}
+      label={action.label}
+      icon={action.icon}
       showButtonStyle={showButtonStyle}
-      disabled={customization?.disabled}
+      disabled={action.disabled}
       testID={HomeTestIDs.stakingButton}
     />
   );
 }
 
-export { WalletActionStaking };
+export { useWalletActionStaking, WalletActionStaking };

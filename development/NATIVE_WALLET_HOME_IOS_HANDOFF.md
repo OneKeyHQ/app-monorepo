@@ -5,7 +5,7 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: Slice 1 accepted; Slice 2 is next
+- Current phase: Slice 2 implemented; awaiting manual acceptance
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -218,6 +218,83 @@ Manual acceptance:
 - Tapping an old-owner Header action never executes.
 - Header height and sticky transition do not jump as values resolve.
 
+Implementation checkpoint (2026-08-12):
+
+- Expected: Header data resolves independently from later Portfolio/tab data;
+  a slow balance publishes `loading`, then replaces only the Header fields when
+  an exact-owner value becomes available.
+- Current before Slice 2: the Swift diagnostic shell has no business data and
+  emits only a diagnostic owner round trip.
+- Failure conditions: reusing another owner's last balance, keeping funded
+  actions enabled while a new owner is loading, executing an action absent
+  from the current Header ViewModel, or invoking a different action handler
+  than Legacy Home.
+- Automated pass condition: the shared balance resolver is used by both Legacy
+  and Native producers; focused tests cover loading/zero/funded transitions and
+  stale-owner action rejection; TypeScript and iOS compilation pass.
+- Visual pass condition: a stable-height Native Header shows skeleton, zero,
+  and funded states; account/network switching immediately clears the previous
+  owner's interactive state before the new value resolves.
+
+Implementation result (2026-08-12):
+
+- The Native Header now consumes the current owner-scoped balance result and
+  the same resolved-balance calculation used by Legacy Home. Slow data remains
+  an explicit Header `loading` state and does not block the later Portfolio
+  producer.
+- Legacy Wallet action components and the Native producer call the same action
+  hooks. Native emits only an owner token and concrete Header action ID; the JS
+  boundary checks the current owner session and verifies that the action is
+  still enabled in the current Header ViewModel before executing it.
+- The mounted Swift view renders loading, zero, and funded Header layouts. It
+  owns the Header pixels and scrolling surface, while the Portfolio area
+  remains an intentionally non-interactive Slice 2 shell.
+- After the first manual review, the funded Header was aligned with the Legacy
+  mobile layout: an empty action subtitle no longer reserves height, funded
+  actions fill the available row evenly, labels stay on one line at the Legacy
+  body-small scale, and action foreground/background colors use the existing
+  neutral and primary theme values instead of the brand tint.
+- The follow-up pixel pass now uses the registered Roobert faces and the exact
+  Legacy metrics instead of UIKit preferred fonts: balance is 48/48 medium,
+  action labels are 12/16 regular, and the focused text tab is 18/24 semibold.
+  The balance decimal uses the concrete theme `disabledTextColor`, while action
+  icons use `secondaryTextColor` to match `$icon` rather than `$text`.
+- Funded actions now use a section-specific `UIControl` with the Legacy 10/24/
+  4/16/8 vertical geometry and concrete OneKey icon paths. This replaces SF
+  Symbols and `UIButton.Configuration` without adding an icon framework,
+  dependency, renderer store, or business state. The 20 pt Header gap, 62 pt
+  action height, 10 pt inter-card gap, 16 pt radius, 32 pt Header bottom inset,
+  and 14 pt text-tab top inset match the current Legacy component tokens.
+- The rebuilt app was covered-installed and launched on the iPhone 17 Pro
+  simulator without clearing app data. The funded Header screenshot confirms
+  proportional Roobert balance digits, disabled-color decimals, OneKey action
+  shapes, and the corrected Portfolio baseline. The Native More control opened
+  the existing JS action sheet, and the 48 pt balance control toggled the exact
+  Legacy `****` privacy text and restored the value.
+- The iOS Debug simulator build passed, and the signed app was installed and
+  launched on an iPhone 17 Pro simulator. A funded All Networks fixture showed
+  the expected Send/Receive/Buy/More actions, working balance privacy
+  toggling, and the existing More action sheet.
+- Focused validation passed: native-components lint, repository TypeScript,
+  four focused Jest suites (nine tests), Nitro code generation, CocoaPods
+  integration, and the iOS Debug build.
+- Automated stale-owner coverage includes A -> B -> A session reuse, absent
+  actions, and mismatched owner tokens. Rapid live account/network switching,
+  zero-balance layout, single-network layout, and sticky-height behavior remain
+  manual acceptance items.
+
+Manual launch for this checkpoint:
+
+```sh
+yarn app:native-bundle
+xcodebuild -workspace apps/mobile/ios/OneKeyWallet.xcworkspace \
+  -scheme OneKeyWallet -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+```
+
+Stop condition: do not begin Slice 3 until the Slice 2 manual matrix is
+accepted.
+
 ### Slice 3 - Portfolio structure and vertical scrolling
 
 Deliverable:
@@ -317,8 +394,7 @@ Slice 1 may touch only the following logical scope:
   - package manifest, podspec, Nitro specification, generated bridge files,
     TypeScript protocol/wrapper, and iOS Swift implementation;
 - `packages/kit/src/views/Home/`
-  - Native-only renderer loader, development feature gate, diagnostic Native
-    page, and focused tests;
+  - iOS main-runtime renderer selection, Native page, and focused tests;
 - `packages/kit/package.json`;
 - `apps/mobile/package.json`;
 - `yarn.lock`;

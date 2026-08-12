@@ -28,9 +28,21 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomeHeaderActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionId; }
+// Forward declaration of `NativeHomeHeaderActionLayout` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
+// Forward declaration of `INativeHomeHeaderActionViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderActionViewModel; }
 
-
+#include "NativeHomeHeaderState.hpp"
 #include <string>
+#include "NativeHomeHeaderActionId.hpp"
+#include "NativeHomeHeaderActionLayout.hpp"
+#include "INativeHomeHeaderActionViewModel.hpp"
+#include <vector>
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -39,13 +51,18 @@ namespace margelo::nitro::onekeynativecomponents {
    */
   struct INativeHomeHeaderViewModel final {
   public:
-    bool isDiagnostic     SWIFT_PRIVATE;
-    std::string title     SWIFT_PRIVATE;
-    std::string subtitle     SWIFT_PRIVATE;
+    NativeHomeHeaderState state     SWIFT_PRIVATE;
+    std::string balanceText     SWIFT_PRIVATE;
+    bool balanceHidden     SWIFT_PRIVATE;
+    NativeHomeHeaderActionId balanceActionId     SWIFT_PRIVATE;
+    bool balanceActionEnabled     SWIFT_PRIVATE;
+    NativeHomeHeaderActionLayout actionLayout     SWIFT_PRIVATE;
+    std::string actionSubtitle     SWIFT_PRIVATE;
+    std::vector<INativeHomeHeaderActionViewModel> actions     SWIFT_PRIVATE;
 
   public:
     INativeHomeHeaderViewModel() = default;
-    explicit INativeHomeHeaderViewModel(bool isDiagnostic, std::string title, std::string subtitle): isDiagnostic(isDiagnostic), title(title), subtitle(subtitle) {}
+    explicit INativeHomeHeaderViewModel(NativeHomeHeaderState state, std::string balanceText, bool balanceHidden, NativeHomeHeaderActionId balanceActionId, bool balanceActionEnabled, NativeHomeHeaderActionLayout actionLayout, std::string actionSubtitle, std::vector<INativeHomeHeaderActionViewModel> actions): state(state), balanceText(balanceText), balanceHidden(balanceHidden), balanceActionId(balanceActionId), balanceActionEnabled(balanceActionEnabled), actionLayout(actionLayout), actionSubtitle(actionSubtitle), actions(actions) {}
 
   public:
     friend bool operator==(const INativeHomeHeaderViewModel& lhs, const INativeHomeHeaderViewModel& rhs) = default;
@@ -61,16 +78,26 @@ namespace margelo::nitro {
     static inline margelo::nitro::onekeynativecomponents::INativeHomeHeaderViewModel fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::onekeynativecomponents::INativeHomeHeaderViewModel(
-        JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "subtitle")))
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderState>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceText"))),
+        JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId"))),
+        JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionLayout"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle"))),
+        JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actions")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::onekeynativecomponents::INativeHomeHeaderViewModel& arg) {
       jsi::Object obj(runtime);
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic"), JSIConverter<bool>::toJSI(runtime, arg.isDiagnostic));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "title"), JSIConverter<std::string>::toJSI(runtime, arg.title));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "subtitle"), JSIConverter<std::string>::toJSI(runtime, arg.subtitle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "state"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderState>::toJSI(runtime, arg.state));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceText"), JSIConverter<std::string>::toJSI(runtime, arg.balanceText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden"), JSIConverter<bool>::toJSI(runtime, arg.balanceHidden));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::toJSI(runtime, arg.balanceActionId));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled"), JSIConverter<bool>::toJSI(runtime, arg.balanceActionEnabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "actionLayout"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::toJSI(runtime, arg.actionLayout));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle"), JSIConverter<std::string>::toJSI(runtime, arg.actionSubtitle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "actions"), JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::toJSI(runtime, arg.actions));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -81,9 +108,14 @@ namespace margelo::nitro {
       if (!nitro::isPlainObject(runtime, obj)) {
         return false;
       }
-      if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic")))) return false;
-      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title")))) return false;
-      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "subtitle")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderState>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceText")))) return false;
+      if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceHidden")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionId")))) return false;
+      if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceActionEnabled")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionLayout>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionLayout")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionSubtitle")))) return false;
+      if (!JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomeHeaderActionViewModel>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actions")))) return false;
       return true;
     }
   };

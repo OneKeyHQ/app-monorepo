@@ -139,14 +139,14 @@ open class HybridHomeContainerSpec_cxx {
     }
   }
   
-  public final var onIntent: bridge.std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______ {
+  public final var onIntent: bridge.std__optional_std__function_void_const_INativeHomeIntent_____intent______ {
     @inline(__always)
     get {
-      return { () -> bridge.std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______ in
+      return { () -> bridge.std__optional_std__function_void_const_INativeHomeIntent_____intent______ in
         if let __unwrappedValue = self.__implementation.onIntent {
-          return bridge.create_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______({ () -> bridge.Func_void_INativeHomeDiagnosticIntent in
-            let __closureWrapper = Func_void_INativeHomeDiagnosticIntent(__unwrappedValue)
-            return bridge.create_Func_void_INativeHomeDiagnosticIntent(__closureWrapper.toUnsafe())
+          return bridge.create_std__optional_std__function_void_const_INativeHomeIntent_____intent______({ () -> bridge.Func_void_INativeHomeIntent in
+            let __closureWrapper = Func_void_INativeHomeIntent(__unwrappedValue)
+            return bridge.create_Func_void_INativeHomeIntent(__closureWrapper.toUnsafe())
           }())
         } else {
           return .init()
@@ -155,12 +155,12 @@ open class HybridHomeContainerSpec_cxx {
     }
     @inline(__always)
     set {
-      self.__implementation.onIntent = { () -> ((_ intent: INativeHomeDiagnosticIntent) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_INativeHomeDiagnosticIntent_____intent______(newValue)
-          return { () -> (INativeHomeDiagnosticIntent) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_INativeHomeDiagnosticIntent(__unwrapped)
-            return { (__intent: INativeHomeDiagnosticIntent) -> Void in
+      self.__implementation.onIntent = { () -> ((_ intent: INativeHomeIntent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_INativeHomeIntent_____intent______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_INativeHomeIntent_____intent______(newValue)
+          return { () -> (INativeHomeIntent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_INativeHomeIntent(__unwrapped)
+            return { (__intent: INativeHomeIntent) -> Void in
               __wrappedFunction.call(__intent)
             }
           }()

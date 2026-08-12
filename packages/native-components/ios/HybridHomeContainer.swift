@@ -7,7 +7,7 @@ final class HybridHomeContainer: HybridHomeContainerSpec {
   var view: UIView { containerView }
 
   var state: INativeHomeViewModel?
-  var onIntent: ((_ intent: INativeHomeDiagnosticIntent) -> Void)?
+  var onIntent: ((_ intent: INativeHomeIntent) -> Void)?
 
   func afterUpdate() {
     containerView.apply(state: state, onIntent: onIntent)

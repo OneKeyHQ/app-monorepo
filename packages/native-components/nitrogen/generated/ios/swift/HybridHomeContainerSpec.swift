@@ -12,7 +12,7 @@ import NitroModules
 public protocol HybridHomeContainerSpec_protocol: HybridObject, HybridView {
   // Properties
   var state: INativeHomeViewModel? { get set }
-  var onIntent: ((_ intent: INativeHomeDiagnosticIntent) -> Void)? { get set }
+  var onIntent: ((_ intent: INativeHomeIntent) -> Void)? { get set }
 
   // Methods
   

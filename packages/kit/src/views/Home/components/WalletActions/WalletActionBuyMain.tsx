@@ -18,11 +18,11 @@ import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
 
-function WalletActionBuyMain({
+function useWalletActionBuyMain({
   customization,
 }: {
   customization?: IActionCustomization;
-}) {
+} = {}) {
   const intl = useIntl();
   const {
     activeAccount: { network, wallet, account },
@@ -116,25 +116,37 @@ function WalletActionBuyMain({
     customization,
   ]);
 
+  return {
+    allowPressWhenDisabled:
+      isAddMoneyBlockedByBotWallet === true
+        ? !shouldOpenSellForBotWallet
+        : undefined,
+    disabled: customization?.disabled ?? isBuyAndSellDisabled,
+    icon: customization?.icon,
+    label: customization?.labelId
+      ? intl.formatMessage({ id: customization.labelId })
+      : undefined,
+    onPress: handleBuyToken,
+  };
+}
+
+function WalletActionBuyMain({
+  customization,
+}: {
+  customization?: IActionCustomization;
+}) {
+  const action = useWalletActionBuyMain({ customization });
   return (
     <RawActions.Buy
-      onPress={handleBuyToken}
-      label={
-        customization?.labelId
-          ? intl.formatMessage({ id: customization.labelId })
-          : undefined
-      }
-      icon={customization?.icon}
-      disabled={customization?.disabled ?? isBuyAndSellDisabled}
-      allowPressWhenDisabled={
-        isAddMoneyBlockedByBotWallet === true
-          ? !shouldOpenSellForBotWallet
-          : undefined
-      }
+      onPress={action.onPress}
+      label={action.label}
+      icon={action.icon}
+      disabled={action.disabled}
+      allowPressWhenDisabled={action.allowPressWhenDisabled}
       trackID="wallet-buy"
       testID={HomeTestIDs.buyButton}
     />
   );
 }
 
-export { WalletActionBuyMain };
+export { useWalletActionBuyMain, WalletActionBuyMain };

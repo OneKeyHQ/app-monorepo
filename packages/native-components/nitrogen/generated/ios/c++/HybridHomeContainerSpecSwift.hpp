@@ -20,6 +20,16 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken;
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 // Forward declaration of `INativeHomeHeaderViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewModel; }
+// Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomeHeaderActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionId; }
+// Forward declaration of `NativeHomeHeaderActionLayout` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
+// Forward declaration of `INativeHomeHeaderActionViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderActionViewModel; }
+// Forward declaration of `NativeHomeHeaderActionIcon` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionIcon; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeTabViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
@@ -28,8 +38,8 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioVi
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeColorScheme; }
-// Forward declaration of `INativeHomeDiagnosticIntent` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeDiagnosticIntent; }
+// Forward declaration of `INativeHomeIntent` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 
 #include "INativeHomeViewModel.hpp"
 #include <optional>
@@ -37,12 +47,17 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeDiagnosticI
 #include <string>
 #include "NativeHomeTabId.hpp"
 #include "INativeHomeHeaderViewModel.hpp"
-#include "INativeHomeTabViewModel.hpp"
+#include "NativeHomeHeaderState.hpp"
+#include "NativeHomeHeaderActionId.hpp"
+#include "NativeHomeHeaderActionLayout.hpp"
+#include "INativeHomeHeaderActionViewModel.hpp"
 #include <vector>
+#include "NativeHomeHeaderActionIcon.hpp"
+#include "INativeHomeTabViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
-#include "INativeHomeDiagnosticIntent.hpp"
+#include "INativeHomeIntent.hpp"
 #include <functional>
 
 #include "OneKeyNativeComponents-Swift-Cxx-Umbrella.hpp"
@@ -98,11 +113,11 @@ namespace margelo::nitro::onekeynativecomponents {
     inline void setState(const std::optional<INativeHomeViewModel>& state) noexcept override {
       _swiftPart.setState(state);
     }
-    inline std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>> getOnIntent() noexcept override {
+    inline std::optional<std::function<void(const INativeHomeIntent& /* intent */)>> getOnIntent() noexcept override {
       auto __result = _swiftPart.getOnIntent();
       return __result;
     }
-    inline void setOnIntent(const std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>& onIntent) noexcept override {
+    inline void setOnIntent(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& onIntent) noexcept override {
       _swiftPart.setOnIntent(onIntent);
     }
 

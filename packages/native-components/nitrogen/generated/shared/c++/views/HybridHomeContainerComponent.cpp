@@ -36,12 +36,12 @@ namespace margelo::nitro::onekeynativecomponents::views {
         throw std::runtime_error(std::string("HomeContainer.state: ") + exc.what());
       }
     }()),
-    onIntent([&]() -> CachedProp<std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>> {
+    onIntent([&]() -> CachedProp<std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onIntent", nullptr, nullptr);
         if (rawValue == nullptr) return sourceProps.onIntent;
         const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onIntent);
+        return CachedProp<std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onIntent);
       } catch (const std::exception& exc) {
         throw std::runtime_error(std::string("HomeContainer.onIntent: ") + exc.what());
       }

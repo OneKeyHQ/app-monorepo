@@ -15,12 +15,12 @@
 
 // Forward declaration of `INativeHomeViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeViewModel; }
-// Forward declaration of `INativeHomeDiagnosticIntent` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeDiagnosticIntent; }
+// Forward declaration of `INativeHomeIntent` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 
 #include "INativeHomeViewModel.hpp"
 #include <optional>
-#include "INativeHomeDiagnosticIntent.hpp"
+#include "INativeHomeIntent.hpp"
 #include <functional>
 
 namespace margelo::nitro::onekeynativecomponents {
@@ -52,8 +52,8 @@ namespace margelo::nitro::onekeynativecomponents {
       // Properties
       virtual std::optional<INativeHomeViewModel> getState() = 0;
       virtual void setState(const std::optional<INativeHomeViewModel>& state) = 0;
-      virtual std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>> getOnIntent() = 0;
-      virtual void setOnIntent(const std::optional<std::function<void(const INativeHomeDiagnosticIntent& /* intent */)>>& onIntent) = 0;
+      virtual std::optional<std::function<void(const INativeHomeIntent& /* intent */)>> getOnIntent() = 0;
+      virtual void setOnIntent(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& onIntent) = 0;
 
     public:
       // Methods

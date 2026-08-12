@@ -54,7 +54,11 @@ appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 // during account switches when neither source has data for the new owner yet.
 //
 // Requires the tokenList jotai context (HomeTokenListProviderMirror) in scope.
-export function useHomeBalanceState(): IHomeBalanceState {
+function useHomeBalanceStateBase({
+  keepWalletStateWhileOwnerLoads,
+}: {
+  keepWalletStateWhileOwnerLoads: boolean;
+}): IHomeBalanceState {
   const {
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -182,5 +186,15 @@ export function useHomeBalanceState(): IHomeBalanceState {
     stickyRef.current = { key: walletKey, state: computed };
   }
 
-  return computed === 'unknown' ? stickyRef.current.state : computed;
+  return computed === 'unknown' && keepWalletStateWhileOwnerLoads
+    ? stickyRef.current.state
+    : computed;
+}
+
+export function useHomeBalanceState(): IHomeBalanceState {
+  return useHomeBalanceStateBase({ keepWalletStateWhileOwnerLoads: true });
+}
+
+export function useOwnerScopedHomeBalanceState(): IHomeBalanceState {
+  return useHomeBalanceStateBase({ keepWalletStateWhileOwnerLoads: false });
 }

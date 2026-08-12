@@ -12,7 +12,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   settingsValuePersistAtom,
   useCurrencyPersistAtom,
@@ -20,8 +19,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -33,10 +30,6 @@ import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  calculateAccountTokensValue,
-  calculateAccountTotalValue,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -44,7 +37,6 @@ import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWra
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
-  useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
@@ -57,7 +49,7 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
-import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
+import { useHomeOverviewResolvedBalance } from '../hooks/useHomeOverviewResolvedBalance';
 import { HomeTestIDs } from '../testIDs';
 
 // Grace period (ms) after an account switch during which the previous
@@ -108,7 +100,6 @@ function HomeOverviewContainer() {
   >({});
 
   const [accountWorth] = useAccountWorthAtom();
-  const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
@@ -132,54 +123,11 @@ function HomeOverviewContainer() {
   } = useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-  const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
-    network,
-  });
-
-  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
-    async () => {
-      if (!isPerpsEnabled) return undefined;
-      const accountId = account?.id;
-      const indexedAccountId = account?.indexedAccountId;
-      if (!accountId && !indexedAccountId) return undefined;
-
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        });
-      if (!deriveType) return undefined;
-
-      let address = '';
-      try {
-        const acc = await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: indexedAccountId ? undefined : accountId,
-          indexedAccountId,
-          deriveType,
-          networkId: PERPS_NETWORK_ID,
-        });
-        address = acc?.addressDetail?.normalizedAddress || acc?.address || '';
-      } catch {
-        return undefined;
-      }
-
-      if (!address) return undefined;
-
-      const snapshot =
-        await backgroundApiProxy.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-          { address },
-        );
-
-      return snapshot?.netWorthUsd;
-    },
-    [account?.id, account?.indexedAccountId, isPerpsEnabled],
-    {
-      swrKey:
-        account?.id || account?.indexedAccountId
-          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
-          : undefined,
-      pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-    },
-  );
+  const {
+    isFullyReady: isCurrentAllNetworksBalanceFullyReady,
+    ownerKey: currentOverviewOwnerKey,
+    resolvedBalanceUsd: resolvedBalanceString,
+  } = useHomeOverviewResolvedBalance();
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -568,149 +516,6 @@ function HomeOverviewContainer() {
       },
     });
   }, [account, network, deriveInfoItems, intl]);
-
-  const currentWorthKey = useMemo(() => {
-    if (!account?.id || !network?.id || network.isAllNetworks) {
-      return undefined;
-    }
-
-    return accountUtils.buildAccountValueKey({
-      accountId: account.id,
-      networkId: network.id,
-    });
-  }, [account?.id, network?.id, network?.isAllNetworks]);
-
-  const currentOverviewOwnerKey = useMemo(
-    () => buildOverviewOwnerKey(account?.id, network?.id),
-    [account?.id, network?.id],
-  );
-
-  const isCurrentAccountWorthReady = useMemo(() => {
-    if (!account?.id || !network?.id) {
-      return false;
-    }
-
-    if (
-      !accountWorth.accountId ||
-      (accountWorth.accountId !== (account?.id ?? '') &&
-        accountWorth.accountId !== (account?.indexedAccountId ?? ''))
-    ) {
-      return false;
-    }
-
-    if (network.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled) {
-      // Has actual worth data from at least one network
-      if (Object.keys(accountWorth.worth).length > 0) {
-        return true;
-      }
-      // All networks confirmed loaded with no data
-      return accountWorth.initialized && !!accountWorth.updateAll;
-    }
-
-    if (!currentWorthKey) {
-      return false;
-    }
-
-    return Object.prototype.hasOwnProperty.call(
-      accountWorth.worth,
-      currentWorthKey,
-    );
-  }, [
-    account?.id,
-    account?.indexedAccountId,
-    network?.id,
-    network?.isAllNetworks,
-    accountWorth.accountId,
-    accountWorth.initialized,
-    accountWorth.updateAll,
-    accountWorth.worth,
-    currentWorthKey,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
-
-  const isCurrentAccountDeFiReady = useMemo(() => {
-    if (!account?.id || !network?.id) {
-      return false;
-    }
-
-    return (
-      overviewDeFiDataState.ownerKey === currentOverviewOwnerKey &&
-      overviewDeFiDataState.isReady !== undefined
-    );
-  }, [
-    account?.id,
-    network?.id,
-    currentOverviewOwnerKey,
-    overviewDeFiDataState.isReady,
-    overviewDeFiDataState.ownerKey,
-  ]);
-
-  // Returns a USD-basis string. DeFi data arrives in display currency from
-  // DeFiListBlock, so it's converted back to USD here before summing.
-  const resolvedBalanceString = useMemo(() => {
-    const isAllNetworks = !!network?.isAllNetworks;
-
-    // All Networks: show partial results as each network loads in.
-    // Single network: require both token worth and DeFi to be ready.
-    if (isAllNetworks) {
-      if (!isCurrentAccountWorthReady && !isCurrentAccountDeFiReady) {
-        return undefined;
-      }
-    } else if (!isCurrentAccountWorthReady || !isCurrentAccountDeFiReady) {
-      return undefined;
-    }
-
-    const tokenWorth =
-      !isAllNetworks || isCurrentAccountWorthReady
-        ? calculateAccountTokensValue({
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-            tokensWorth: accountWorth,
-            mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
-          })
-        : '0';
-    const tokenWorthUsd = convertFiat({
-      value: tokenWorth,
-      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
-      targetCurrency: USD_CURRENCY_ID,
-      currencyMap,
-    });
-
-    const deFiWorthRaw =
-      !isAllNetworks || isCurrentAccountDeFiReady
-        ? (accountDeFiOverview.netWorth ?? 0)
-        : 0;
-    const deFiWorthUsd = convertFiat({
-      value: deFiWorthRaw,
-      sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
-      targetCurrency: USD_CURRENCY_ID,
-      currencyMap,
-    });
-    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
-
-    return calculateAccountTotalValue({
-      tokensValue: tokenWorthUsd,
-      deFiNetWorth: new BigNumber(deFiWorthUsd).plus(perpsWorthUsd).toFixed(),
-    });
-  }, [
-    account?.id,
-    network?.id,
-    accountWorth,
-    accountDeFiOverview.netWorth,
-    accountDeFiOverview.currency,
-    currencyMap,
-    isCurrentAccountDeFiReady,
-    isCurrentAccountWorthReady,
-    isPerpsEnabled,
-    network?.isAllNetworks,
-    perpsNetWorthUsd,
-    settings.currencyInfo.id,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
-
-  const isCurrentAllNetworksBalanceFullyReady =
-    !network?.isAllNetworks ||
-    (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
 
   const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
     useState(false);

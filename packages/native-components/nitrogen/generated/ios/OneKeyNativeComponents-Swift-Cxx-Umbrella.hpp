@@ -10,10 +10,12 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridHomeContainerSpec` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { class HybridHomeContainerSpec; }
-// Forward declaration of `INativeHomeDiagnosticIntent` to properly resolve imports.
-namespace margelo::nitro::onekeynativecomponents { struct INativeHomeDiagnosticIntent; }
+// Forward declaration of `INativeHomeHeaderActionViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderActionViewModel; }
 // Forward declaration of `INativeHomeHeaderViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewModel; }
+// Forward declaration of `INativeHomeIntent` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
@@ -26,19 +28,32 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewMo
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeColorScheme; }
+// Forward declaration of `NativeHomeHeaderActionIcon` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionIcon; }
+// Forward declaration of `NativeHomeHeaderActionId` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionId; }
+// Forward declaration of `NativeHomeHeaderActionLayout` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
+// Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
 // Include C++ defined types
 #include "HybridHomeContainerSpec.hpp"
-#include "INativeHomeDiagnosticIntent.hpp"
+#include "INativeHomeHeaderActionViewModel.hpp"
 #include "INativeHomeHeaderViewModel.hpp"
+#include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "INativeHomeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
+#include "NativeHomeHeaderActionIcon.hpp"
+#include "NativeHomeHeaderActionId.hpp"
+#include "NativeHomeHeaderActionLayout.hpp"
+#include "NativeHomeHeaderState.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>

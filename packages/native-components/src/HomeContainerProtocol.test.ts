@@ -10,9 +10,21 @@ describe('Native Home protocol', () => {
       },
       selectedTab: 'portfolio',
       header: {
-        isDiagnostic: true,
-        title: 'Native Home',
-        subtitle: 'iOS bridge foundation',
+        state: 'ready',
+        balanceText: '$1,234.56',
+        balanceHidden: false,
+        balanceActionId: 'toggleBalanceVisibility',
+        balanceActionEnabled: true,
+        actionLayout: 'funded',
+        actionSubtitle: '',
+        actions: [
+          {
+            id: 'send',
+            title: 'Send',
+            icon: 'send',
+            enabled: true,
+          },
+        ],
       },
       tabs: [
         {
@@ -32,6 +44,7 @@ describe('Native Home protocol', () => {
         surfaceColor: '#1C1C1E',
         primaryTextColor: '#FFFFFF',
         secondaryTextColor: '#8E8E93',
+        disabledTextColor: '#636366',
         accentColor: '#44D62C',
       },
     } satisfies INativeHomeViewModel;
