@@ -1,6 +1,7 @@
 import { createElement, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -9,33 +10,40 @@ import {
 import type { IWalletBackupPreCheckPendingEvent } from './WalletBackupPreCheckContainerLazy.utils';
 
 type IWalletBackupPreCheckContainerComponent = ComponentType;
+const bus = appEventBus;
 const eventName = EAppEventBusNames.CheckWalletBackupStatus;
 
-function settlePendingEvents(
-  pendingEvents: IWalletBackupPreCheckPendingEvent[],
+function settleEvents(
+  pending: IWalletBackupPreCheckPendingEvent[],
   error: Error,
-  logLoadFailure = false,
+  logFailure = false,
+  settler = import('./WalletBackupPreCheckContainerLazy.utils'),
 ) {
-  return import('./WalletBackupPreCheckContainerLazy.utils').then((module) =>
-    module.settleWalletBackupPreCheckPendingEvents({
-      error,
-      pendingEvents: pendingEvents.splice(0),
-      logLoadFailure,
-    }),
-  );
+  const events = pending.splice(0);
+  return settler
+    .then((module) => module.settle(events, error, logFailure))
+    .catch(() =>
+      Promise.allSettled(
+        events.map((event) =>
+          backgroundApiProxy.servicePromise.rejectCallback({
+            id: event.promiseId,
+            error,
+          }),
+        ),
+      ),
+    );
 }
 
 export function WalletBackupPreCheckContainerLazy() {
-  const [Container, setContainer] =
+  const [Impl, setImpl] =
     useState<IWalletBackupPreCheckContainerComponent | null>(null);
-  const pendingRef = useRef<IWalletBackupPreCheckPendingEvent[]>([]);
+  const queueRef = useRef<IWalletBackupPreCheckPendingEvent[]>([]);
 
   useEffect(() => {
-    if (Container) {
-      const pendingEvents = pendingRef.current.splice(0);
+    if (Impl) {
       const timer = setTimeout(() => {
-        pendingEvents.forEach((payload) =>
-          appEventBus.emitToSelf({
+        queueRef.current.splice(0).forEach((payload) =>
+          bus.emitToSelf({
             type: eventName,
             payload,
           }),
@@ -44,36 +52,35 @@ export function WalletBackupPreCheckContainerLazy() {
       return () => clearTimeout(timer);
     }
     let mounted = true;
-    const handleEvent = (payload: IWalletBackupPreCheckPendingEvent) => {
-      pendingRef.current.push(payload);
+    const handle = (payload: IWalletBackupPreCheckPendingEvent) => {
+      queueRef.current.push(payload);
+      const settler = import('./WalletBackupPreCheckContainerLazy.utils');
+      void settler.catch(() => null);
       void import('../../components/WalletBackup/WalletBackupPreCheckContainer')
         .then((module) => {
           if (mounted) {
-            setContainer(() => module.WalletBackupPreCheckContainer);
+            setImpl(() => module.WalletBackupPreCheckContainer);
           }
         })
         .catch((error: Error) => {
           if (mounted) {
-            void settlePendingEvents(pendingRef.current, error, true);
+            void settleEvents(queueRef.current, error, true, settler);
           }
         });
     };
-    appEventBus.on(eventName, handleEvent);
+    bus.on(eventName, handle);
     return () => {
       mounted = false;
-      appEventBus.off(eventName, handleEvent);
+      bus.off(eventName, handle);
     };
-  }, [Container]);
+  }, [Impl]);
 
   useEffect(
     () => () => {
-      void settlePendingEvents(
-        pendingRef.current,
-        new Error('Wallet backup pre-check unmounted'),
-      );
+      void settleEvents(queueRef.current, new Error('unmounted'));
     },
     [],
   );
 
-  return Container ? createElement(Container) : null;
+  return Impl ? createElement(Impl) : null;
 }

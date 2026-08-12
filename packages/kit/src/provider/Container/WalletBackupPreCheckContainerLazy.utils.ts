@@ -9,16 +9,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 export type IWalletBackupPreCheckPendingEvent =
   IAppEventBusPayload[EAppEventBusNames.CheckWalletBackupStatus];
 
-export async function settleWalletBackupPreCheckPendingEvents({
-  error,
-  pendingEvents,
-  logLoadFailure = false,
-}: {
-  error: Error;
-  pendingEvents: IWalletBackupPreCheckPendingEvent[];
-  logLoadFailure?: boolean;
-}) {
-  if (logLoadFailure) {
+export async function settle(
+  pendingEvents: IWalletBackupPreCheckPendingEvent[],
+  error: Error,
+  logFailure = false,
+) {
+  if (logFailure) {
     defaultLogger.app.error.log(
       `[WalletBackupPreCheckContainerLazy] load failed: ${error.message}`,
     );

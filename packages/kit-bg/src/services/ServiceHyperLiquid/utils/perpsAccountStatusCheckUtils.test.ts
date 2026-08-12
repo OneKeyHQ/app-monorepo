@@ -62,6 +62,18 @@ describe('canApplyPerpsNotActivatedZeroState', () => {
       }),
     ).toBe(true);
   });
+
+  it('preserves balances when a funded event triggered the activation check', () => {
+    expect(
+      canApplyPerpsNotActivatedZeroState({
+        checkSeq: 2,
+        latestCheckSeq: 2,
+        checkedAddress: '0xabc',
+        activeAddress: '0xabc',
+        preserveFundedBalances: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('hasPositivePerpsBalance', () => {

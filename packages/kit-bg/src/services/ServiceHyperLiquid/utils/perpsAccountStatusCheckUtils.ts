@@ -20,12 +20,17 @@ export function canApplyPerpsNotActivatedZeroState({
   latestCheckSeq,
   checkedAddress,
   activeAddress,
+  preserveFundedBalances = false,
 }: {
   checkSeq: number;
   latestCheckSeq: number;
   checkedAddress: string;
   activeAddress: string | null | undefined;
+  preserveFundedBalances?: boolean;
 }): boolean {
+  if (preserveFundedBalances) {
+    return false;
+  }
   // A check that resolved before activation may return 'missing' after a newer
   // check already confirmed activation; only the latest check may write zeros
   if (checkSeq !== latestCheckSeq) {

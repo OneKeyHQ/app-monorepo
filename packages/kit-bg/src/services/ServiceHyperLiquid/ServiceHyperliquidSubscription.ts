@@ -318,7 +318,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         address: normalizedEventAddress,
         delayMs:
           ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
-        refreshAttempt: refreshAttempt + 1,
+        refreshAttempt,
       });
       return;
     }
@@ -369,13 +369,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       const statusCheck =
-        this.backgroundApi.serviceHyperliquid.startPerpsAccountStatusCheckIfIdle();
+        this.backgroundApi.serviceHyperliquid.startPerpsAccountStatusCheckIfIdle(
+          { preserveFundedBalances: true },
+        );
       if (!statusCheck) {
         this._scheduleFundedActivationRefreshRetry({
           address: normalizedEventAddress,
           delayMs:
             ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
-          refreshAttempt: refreshAttempt + 1,
+          refreshAttempt,
         });
         return;
       }

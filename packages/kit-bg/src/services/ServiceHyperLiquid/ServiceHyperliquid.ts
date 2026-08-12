@@ -3086,17 +3086,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     return refreshedMode;
   }
 
-  startPerpsAccountStatusCheckIfIdle(): Promise<void> | undefined {
+  startPerpsAccountStatusCheckIfIdle(
+    params: { preserveFundedBalances?: boolean } = {},
+  ): Promise<void> | undefined {
     if (this.perpsAccountStatusChecksInFlight > 0) {
       return undefined;
     }
-    return this.checkPerpsAccountStatus();
+    return this.checkPerpsAccountStatus(params);
   }
 
   @backgroundMethod()
   async checkPerpsAccountStatus(
     params: {
       isEnableTradingTrigger?: boolean;
+      preserveFundedBalances?: boolean;
     } = {},
   ): Promise<void> {
     this.perpsAccountStatusChecksInFlight += 1;
@@ -3109,8 +3112,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async _checkPerpsAccountStatus({
     isEnableTradingTrigger = false,
+    preserveFundedBalances = false,
   }: {
     isEnableTradingTrigger?: boolean;
+    preserveFundedBalances?: boolean;
   } = {}): Promise<void> {
     const { infoClient } = hyperLiquidApiClients;
     this.perpsAccountStatusCheckSeq += 1;
@@ -3177,6 +3182,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             latestCheckSeq: this.perpsAccountStatusCheckSeq,
             checkedAddress: accountAddress,
             activeAddress: latestActiveAccount?.accountAddress,
+            preserveFundedBalances,
           })
         ) {
           await spotBalancesAtom.set({ balances: [], isLoaded: true });

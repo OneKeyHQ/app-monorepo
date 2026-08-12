@@ -391,6 +391,9 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
       hasFundedBalance: true,
     });
     expect(startStatusCheck).toHaveBeenCalledTimes(1);
+    expect(startStatusCheck).toHaveBeenCalledWith({
+      preserveFundedBalances: true,
+    });
     expect(internals._fundedActivationRefreshPendingAddress).toBe(
       accountAddress,
     );
@@ -399,6 +402,43 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
 
     expect(startStatusCheck).toHaveBeenCalledTimes(2);
     expect(internals._fundedActivationRefreshPendingAddress).toBeNull();
+    expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
+  });
+
+  it('does not consume activation attempts while another status check is busy', async () => {
+    const startStatusCheck = jest
+      .fn<Promise<void> | undefined, []>()
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        activatedOk = true;
+      });
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      _refreshActivationFromFundedState: (params: {
+        eventAddress: string;
+        hasFundedBalance: boolean;
+      }) => Promise<void>;
+      _fundedActivationConfirmedAddress: string | null;
+    };
+
+    await internals._refreshActivationFromFundedState({
+      eventAddress: accountAddress,
+      hasFundedBalance: true,
+    });
+    await jest.advanceTimersByTimeAsync(1500);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(7);
     expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
   });
 
