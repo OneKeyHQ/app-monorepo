@@ -95,6 +95,17 @@ export interface IUpdateProgressUpdate {
   transferred: number;
 }
 
+interface IMacUpdaterRehydrateCandidate {
+  downloadedFile: string;
+  detectedAt: number;
+}
+
+interface IMacUpdaterRehydrateAttempt {
+  downloadedFile: string;
+  startedAt: number;
+  networkProgressObserved: boolean;
+}
+
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
@@ -129,6 +140,27 @@ class DesktopApiAppUpdate {
   downloadedEvent: IUpdateDownloadedEvent;
 
   updateCancellationToken: CancellationToken | undefined;
+
+  private macUpdaterRehydrateCandidate:
+    | IMacUpdaterRehydrateCandidate
+    | undefined;
+
+  private activeMacUpdaterRehydrate: IMacUpdaterRehydrateAttempt | undefined;
+
+  private failActiveMacUpdaterRehydrate(error: unknown): void {
+    const attempt = this.activeMacUpdaterRehydrate;
+    if (!attempt) {
+      return;
+    }
+    logger.warn('auto-updater', [
+      'Mac updater cache rehydrate failed:',
+      `- Downloaded file: ${path.basename(attempt.downloadedFile)}`,
+      `- Duration: ${Date.now() - attempt.startedAt}ms`,
+      `- Error code: ${(error as NodeJS.ErrnoException)?.code || 'UNKNOWN'}`,
+      '- Next action: retry with cache clear',
+    ]);
+    this.activeMacUpdaterRehydrate = undefined;
+  }
 
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
     return (
@@ -226,7 +258,9 @@ class DesktopApiAppUpdate {
 
     autoUpdater.on('error', (err) => {
       logger.error('auto-updater', `An error happened: ${err.toString()}`);
+      this.failActiveMacUpdaterRehydrate(err);
       this.downloadedEvent = undefined;
+      this.isDownloading = false;
       const mainWindow = this.getMainWindow();
       if (!mainWindow) {
         return;
@@ -236,7 +270,6 @@ class DesktopApiAppUpdate {
         ? 'Network exception, please check your internet connection.'
         : err.message;
 
-      this.isDownloading = false;
       if (mainWindow.isDestroyed()) {
         void dialog
           .showMessageBox({
@@ -260,6 +293,18 @@ class DesktopApiAppUpdate {
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
+      if (
+        this.activeMacUpdaterRehydrate &&
+        !this.activeMacUpdaterRehydrate.networkProgressObserved
+      ) {
+        this.activeMacUpdaterRehydrate.networkProgressObserved = true;
+        logger.info('auto-updater', [
+          'Mac updater cache rehydrate is using network fallback:',
+          `- Downloaded file: ${path.basename(
+            this.activeMacUpdaterRehydrate.downloadedFile,
+          )}`,
+        ]);
+      }
       logger.debug(
         'auto-updater',
         `Downloading ${progressObj.percent}% (${toHumanReadable(
@@ -282,14 +327,28 @@ class DesktopApiAppUpdate {
     autoUpdater.on(
       'update-downloaded',
       ({ version, releaseDate, downloadedFile, files }) => {
+        const rehydrateAttempt = this.activeMacUpdaterRehydrate;
         const downloadUrl = files.find((file) =>
           file.url.endsWith(path.basename(downloadedFile)),
         )?.url;
 
+        this.macUpdaterRehydrateCandidate = undefined;
+        this.activeMacUpdaterRehydrate = undefined;
         this.downloadedEvent = {
           downloadedFile,
           downloadUrl,
         };
+
+        if (rehydrateAttempt) {
+          logger.info('auto-updater', [
+            'Mac updater cache rehydrate prepared:',
+            `- Downloaded file: ${path.basename(downloadedFile)}`,
+            `- Duration: ${Date.now() - rehydrateAttempt.startedAt}ms`,
+            `- Network progress observed: ${b2t(
+              rehydrateAttempt.networkProgressObserved,
+            )}`,
+          ]);
+        }
 
         logger.info('auto-updater', [
           'Update downloaded:',
@@ -331,10 +390,33 @@ class DesktopApiAppUpdate {
   ): Promise<IAppUpdatePackageAvailability> {
     // MacUpdater serves the ZIP through a process-local proxy. A persisted path
     // is not installable after relaunch until this process emits update-downloaded.
-    return resolveDownloadedFileAvailability(downloadedFile, {
+    const availability = resolveDownloadedFileAvailability(downloadedFile, {
       requireCurrentProcessPreparation: isMac,
       preparedDownloadedFile: this.downloadedEvent?.downloadedFile,
     });
+    if (isMac && downloadedFile) {
+      if (
+        availability.status ===
+          EAppUpdatePackageAvailabilityStatus.unavailable &&
+        availability.errorCode === EAppUpdatePackageErrorCode.packageNotPrepared
+      ) {
+        if (
+          this.macUpdaterRehydrateCandidate?.downloadedFile !== downloadedFile
+        ) {
+          this.macUpdaterRehydrateCandidate = {
+            downloadedFile,
+            detectedAt: Date.now(),
+          };
+          logger.info('auto-updater', [
+            'Mac updater cache rehydrate candidate detected:',
+            `- Downloaded file: ${path.basename(downloadedFile)}`,
+          ]);
+        }
+      } else {
+        this.macUpdaterRehydrateCandidate = undefined;
+      }
+    }
+    return availability;
   }
 
   private async assertDownloadedFileAvailable(
@@ -365,6 +447,8 @@ class DesktopApiAppUpdate {
       this.updateCancellationToken.cancel();
     }
     this.isDownloading = false;
+    this.macUpdaterRehydrateCandidate = undefined;
+    this.activeMacUpdaterRehydrate = undefined;
     this.downloadedEvent = undefined;
     try {
       // @ts-ignore
@@ -462,7 +546,27 @@ class DesktopApiAppUpdate {
     if (this.updateCancellationToken) {
       this.updateCancellationToken.cancel();
     }
-    await clearUpdateCache();
+    const rehydrateCandidate = isMac
+      ? this.macUpdaterRehydrateCandidate
+      : undefined;
+    this.macUpdaterRehydrateCandidate = undefined;
+    this.activeMacUpdaterRehydrate = undefined;
+    if (rehydrateCandidate) {
+      this.activeMacUpdaterRehydrate = {
+        downloadedFile: rehydrateCandidate.downloadedFile,
+        startedAt: Date.now(),
+        networkProgressObserved: false,
+      };
+      logger.info('auto-updater', [
+        'Mac updater cache rehydrate started:',
+        `- Downloaded file: ${path.basename(
+          rehydrateCandidate.downloadedFile,
+        )}`,
+        `- Candidate age: ${Date.now() - rehydrateCandidate.detectedAt}ms`,
+      ]);
+    } else {
+      await clearUpdateCache();
+    }
     this.updateCancellationToken = new CancellationToken();
 
     try {
@@ -470,6 +574,7 @@ class DesktopApiAppUpdate {
       await autoUpdater.downloadUpdate(this.updateCancellationToken);
       logger.info('auto-updater', 'Download update success');
     } catch (e) {
+      this.failActiveMacUpdaterRehydrate(e);
       this.isDownloading = false;
       logger.info('auto-updater', 'Update cancelled', e);
       // CancellationError
