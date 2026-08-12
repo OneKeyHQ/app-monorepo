@@ -10,6 +10,7 @@ import {
   getSignPsbtOptionsForPsbtIndex,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  buildOwnedAddressesForBatchDisplay,
   computeBatchPsbtAmounts,
   finalizeSignedPsbtHex,
   findDuplicatePsbtIndexes,
@@ -67,6 +68,7 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IDBUtxoAccount } from '../dbs/local/types';
 import type { IBatchTxSignCreateItem } from '../services/ServiceBatchTxSign';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
@@ -867,6 +869,18 @@ class ProviderApiBtc extends ProviderApiBase {
       );
     }
 
+    // getAccount() spreads the DB account, so the UTXO address maps ride
+    // along on the network account — no extra DB read needed here.
+    const utxoAccount = account as unknown as IDBUtxoAccount;
+    const ownedAddresses = buildOwnedAddressesForBatchDisplay({
+      primaryAddress: account.address,
+      addressMaps: [
+        utxoAccount.addresses,
+        utxoAccount.customAddresses,
+        utxoAccount.findAddresses,
+      ],
+    });
+
     const items: IBatchTxSignCreateItem[] = [];
     for (let i = 0; i < psbts.length; i += 1) {
       const psbt = psbts[i];
@@ -888,13 +902,13 @@ class ProviderApiBtc extends ProviderApiBase {
           `psbt at index ${i} has no inputs owned by the current account`,
         );
       }
-      // Change recognition uses the primary account address only for now;
-      // find-address / change-path outputs are counted as external outgoing.
-      // That inflates the displayed total but never breaks the strict-fee rule.
+      // Change recognition covers every wallet-owned address (primary +
+      // derived + custom + claimed find-address), so change returned to any
+      // of them is never displayed as an external transfer.
       const amounts = computeBatchPsbtAmounts({
         psbt,
         psbtNetwork,
-        accountAddresses: [account.address],
+        accountAddresses: ownedAddresses,
       });
       if (!amounts) {
         // A psbt whose amounts/fee can't be summarized honestly must never

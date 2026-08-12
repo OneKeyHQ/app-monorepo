@@ -5,6 +5,7 @@ import { Psbt, Transaction, payments } from 'bitcoinjs-lib';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
+  buildOwnedAddressesForBatchDisplay,
   computeBatchPsbtAmounts,
   finalizeSignedPsbtHex,
   findDuplicatePsbtIndexes,
@@ -317,6 +318,105 @@ describe('computeBatchPsbtAmounts', () => {
       externalOutValue: '0',
       changeValue: '95000',
       externalRecipients: [],
+    });
+  });
+});
+
+describe('buildOwnedAddressesForBatchDisplay', () => {
+  it('merges primary, derived, custom and claimed addresses with dedupe', () => {
+    const owned = buildOwnedAddressesForBatchDisplay({
+      primaryAddress: 'addr-primary',
+      addressMaps: [
+        // derived map repeats the primary address under its relPath
+        { '0/0': 'addr-primary', '0/1': 'addr-derived' },
+        { '0/2': 'addr-custom' },
+        { '0/100': 'addr-claimed' },
+      ],
+    });
+    expect(owned).toEqual([
+      'addr-primary',
+      'addr-derived',
+      'addr-custom',
+      'addr-claimed',
+    ]);
+  });
+
+  it('skips undefined maps and empty address values', () => {
+    const owned = buildOwnedAddressesForBatchDisplay({
+      primaryAddress: 'addr-primary',
+      addressMaps: [undefined, { '0/1': '' }, undefined],
+    });
+    expect(owned).toEqual(['addr-primary']);
+  });
+});
+
+describe('computeBatchPsbtAmounts - wallet-owned output classification', () => {
+  // One case per wallet-owned address source: change sent to a derived,
+  // custom, or claimed (find-address) address must be classified as change,
+  // not as an external transfer inflating the displayed outgoing total.
+  it.each(['derived', 'custom', 'claimed'] as const)(
+    'counts an output to a %s wallet address as change',
+    (source) => {
+      const { address: primaryAddress, script: primaryScript } = makeP2wpkh();
+      const { address: ownedAddress, script: ownedScript } = makeP2wpkh();
+      const { address: externalAddress, script: externalScript } = makeP2wpkh();
+
+      const addressMaps = {
+        derived: [{ '0/1': ownedAddress }, undefined, undefined],
+        custom: [undefined, { '0/2': ownedAddress }, undefined],
+        claimed: [undefined, undefined, { '0/100': ownedAddress }],
+      }[source];
+
+      const psbt = buildPsbt({
+        inputs: [
+          { txid: TXID_A, vout: 0, value: 100_000n, script: primaryScript },
+        ],
+        outputs: [
+          { script: externalScript, value: 50_000n },
+          { script: ownedScript, value: 40_000n },
+        ],
+      });
+
+      const result = computeBatchPsbtAmounts({
+        psbt,
+        psbtNetwork,
+        accountAddresses: buildOwnedAddressesForBatchDisplay({
+          primaryAddress,
+          addressMaps,
+        }),
+      });
+
+      expect(result).toEqual({
+        feeValue: '10000',
+        externalOutValue: '50000',
+        changeValue: '40000',
+        externalRecipients: [externalAddress],
+      });
+    },
+  );
+
+  it('still counts the same output as external when the ownership set only has the primary address', () => {
+    const { address: primaryAddress, script: primaryScript } = makeP2wpkh();
+    const { address: ownedAddress, script: ownedScript } = makeP2wpkh();
+
+    const psbt = buildPsbt({
+      inputs: [
+        { txid: TXID_A, vout: 0, value: 100_000n, script: primaryScript },
+      ],
+      outputs: [{ script: ownedScript, value: 90_000n }],
+    });
+
+    const result = computeBatchPsbtAmounts({
+      psbt,
+      psbtNetwork,
+      accountAddresses: [primaryAddress],
+    });
+
+    expect(result).toEqual({
+      feeValue: '10000',
+      externalOutValue: '90000',
+      changeValue: '0',
+      externalRecipients: [ownedAddress],
     });
   });
 });

@@ -101,6 +101,34 @@ export function findPsbtOutpointConflicts({
   return conflicts;
 }
 
+// Ownership set for the batch overview's change-vs-external classification.
+// The primary account address alone is not enough for BTC: xpub-derived
+// (`addresses`), custom (`customAddresses`) and claimed find-address
+// (`findAddresses`) entries are all wallet-owned, and change returned to any
+// of them must not be displayed as an external transfer in the batch totals.
+// Display-only: input-signing ownership intentionally stays primary-address
+// (getInputsToSignFromPsbt), matching the legacy per-psbt flow.
+export function buildOwnedAddressesForBatchDisplay({
+  primaryAddress,
+  addressMaps,
+}: {
+  primaryAddress: string;
+  addressMaps: Array<Record<string, string> | undefined>;
+}): string[] {
+  const owned = new Set<string>();
+  if (primaryAddress) {
+    owned.add(primaryAddress);
+  }
+  addressMaps.forEach((addressMap) => {
+    Object.values(addressMap ?? {}).forEach((address) => {
+      if (address) {
+        owned.add(address);
+      }
+    });
+  });
+  return Array.from(owned);
+}
+
 // Strict parsing: any input without a resolvable spent value, or a
 // non-positive fee, makes the whole psbt impossible to summarize for the
 // batch overview — a negative fee is even legitimate for
