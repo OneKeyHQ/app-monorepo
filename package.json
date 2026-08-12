@@ -402,6 +402,7 @@
     "@alephium/walletconnect-provider": "3.0.4",
     "@alephium/web3-wallet": "3.0.4",
     "@noble/curves": "1.9.7",
+    "@noble/hashes@^2.2.0": "2.2.0",
     "@ledgerhq/devices": "8.14.0",
     "@ledgerhq/hw-transport": "6.35.0",
     "@ledgerhq/device-signer-kit-solana": "1.7.1",
