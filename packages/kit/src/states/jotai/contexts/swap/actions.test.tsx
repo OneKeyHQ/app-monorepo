@@ -2959,6 +2959,59 @@ describe('useSwapActions', () => {
     expect(store.get(swapQuoteEventCompletedAtom())).toBe(true);
   });
 
+  it('preserves the locked BUY kind when retrying an exact-buy quote', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      storeInstance.set(swapSelectFromTokenAtom(), ethToken);
+      storeInstance.set(swapSelectToTokenAtom(), bnbToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '5',
+        isInput: false,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: '21',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: false,
+        type: ESwapTabSwitchType.LIMIT,
+        fromToken: ethToken,
+        toToken: bnbToken,
+        fromTokenAmount: '5',
+        toTokenAmount: '21',
+        kind: ESwapQuoteKind.BUY,
+        quoteRequestId: 'failed-buy-request',
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+        true,
+      );
+    });
+
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
+    expect(store.get(swapQuoteActionLockAtom())).toEqual(
+      expect.objectContaining({ kind: ESwapQuoteKind.BUY }),
+    );
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromTokenAmount: '5',
+        kind: ESwapQuoteKind.BUY,
+        toTokenAmount: '21',
+      }),
+    );
+  });
+
   it('normalizes quote event results with the dispatch-time input amount', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);

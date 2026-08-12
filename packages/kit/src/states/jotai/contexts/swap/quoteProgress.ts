@@ -306,18 +306,23 @@ export function isSwapQuoteInputAmountMatched({
 }
 
 export function shouldOfferSwapQuoteRefresh({
+  hasValidQuoteInput,
   isRefreshQuote,
   quoteResultNoMatch,
   quoteResultNoMatchDebounced,
   quoteLoading,
   quoteEventFetching,
 }: {
+  hasValidQuoteInput: boolean;
   isRefreshQuote: boolean;
   quoteResultNoMatch: boolean;
   quoteResultNoMatchDebounced: boolean;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
 }) {
+  if (!hasValidQuoteInput) {
+    return false;
+  }
   if (isRefreshQuote) {
     return true;
   }
@@ -327,6 +332,26 @@ export function shouldOfferSwapQuoteRefresh({
     !quoteEventFetching &&
     quoteResultNoMatch &&
     quoteResultNoMatchDebounced
+  );
+}
+
+export function isSwapQuoteInputAmountValid({
+  quoteKind,
+  fromTokenAmount,
+  toTokenAmount,
+  hasTokenPair,
+}: {
+  quoteKind: ESwapQuoteKind;
+  fromTokenAmount: { value: string; isInput: boolean };
+  toTokenAmount: { value: string; isInput: boolean };
+  hasTokenPair: boolean;
+}) {
+  const inputAmount =
+    quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount;
+  const amount = new BigNumber(inputAmount.value);
+
+  return Boolean(
+    hasTokenPair && inputAmount.isInput && amount.isFinite() && amount.gt(0),
   );
 }
 
