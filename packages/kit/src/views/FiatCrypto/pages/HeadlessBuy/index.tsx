@@ -34,7 +34,6 @@ import type {
   IOnramperEvent,
   IOnramperQuote,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -466,24 +465,25 @@ function HeadlessBuyPage() {
     });
   }, [providerOptions]);
 
-  // Dev-only: drop the stored OnramperID login so the next checkout re-runs
-  // email + phone verification (needed to switch the verified phone country
-  // on staging).
-  const renderDevSignOutButton = useCallback(
-    () =>
-      platformEnv.isDev ? (
-        <HeaderIconButton
-          testID="headless-buy-dev-signout"
-          icon="LogoutOutline"
-          onPress={async () => {
-            await signOut();
-            Toast.success({
-              title: 'Signed out of OnramperID',
-              message: 'The next purchase will re-verify email and phone',
-            });
-          }}
-        />
-      ) : null,
+  // Drops the stored OnramperID login so the next checkout re-runs email +
+  // phone verification. User-facing on all builds: the SDK keeps the OIDC
+  // login in native storage and offers no in-flow way to switch accounts —
+  // without this, a user whose OnramperID cannot transact (e.g. KYC country
+  // vs current region mismatch) is stuck with no way to try another account.
+  const renderSignOutButton = useCallback(
+    () => (
+      <HeaderIconButton
+        testID="headless-buy-signout"
+        icon="LogoutOutline"
+        onPress={async () => {
+          await signOut();
+          Toast.success({
+            title: 'Signed out of OnramperID',
+            message: 'The next purchase will re-verify email and phone',
+          });
+        }}
+      />
+    ),
     [signOut],
   );
 
@@ -493,7 +493,7 @@ function HeadlessBuyPage() {
           interception above. */}
       <Page.Header
         title={activeToken?.symbol ? `Buy ${activeToken.symbol}` : 'Buy'}
-        headerRight={renderDevSignOutButton}
+        headerRight={renderSignOutButton}
       />
       <Page.Body>
         <YStack flex={1} px="$5" pb="$3">

@@ -48,7 +48,8 @@ type IResult = {
   payMock: () => void;
   retry: () => void;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
-  // re-runs email + phone verification. Exposed for the dev/debug button.
+  // re-runs email + phone verification. Exposed for the header sign-out
+  // button.
   signOut: () => Promise<void>;
 };
 
