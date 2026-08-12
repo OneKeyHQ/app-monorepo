@@ -1,3 +1,5 @@
+import { Psbt, Transaction } from 'bitcoinjs-lib';
+
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
@@ -5,6 +7,7 @@ import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 import { EAddressEncodings } from '../../types';
 
 import CoreChainHd from './CoreChainHd';
+import { getBtcForkNetwork } from './sdkBtc';
 
 const {
   hdCredential,
@@ -114,5 +117,40 @@ describe('BTC Core tests', () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
     throw new NotImplemented();
+  });
+
+  it('rejects SIGHASH_NONE before reaching the software signer', async () => {
+    const network = getBtcForkNetwork('tbtc');
+    const psbt = new Psbt({ network });
+    psbt.addInput({
+      hash: Buffer.alloc(32),
+      index: 0,
+      sighashType: Transaction.SIGHASH_NONE,
+      witnessUtxo: {
+        script: Buffer.from(`0014${'00'.repeat(20)}`, 'hex'),
+        value: BigInt(1000),
+      },
+    });
+    psbt.addOutput({
+      script: Buffer.from(`0014${'11'.repeat(20)}`, 'hex'),
+      value: BigInt(900),
+    });
+
+    const coreApi = new CoreChainHd();
+    await expect(
+      coreApi.signPsbt({
+        encodedTx: null,
+        network,
+        psbt,
+        signers: {},
+        inputsToSign: [
+          {
+            index: 0,
+            publicKey: '',
+            address: '',
+          },
+        ],
+      }),
+    ).rejects.toThrow('SIGHASH_NONE is not supported for input 0');
   });
 });
