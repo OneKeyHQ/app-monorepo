@@ -19,8 +19,8 @@ public extension INativeHomePortfolioViewModel {
   /**
    * Create a new instance of `INativeHomePortfolioViewModel`.
    */
-  init(title: String, state: NativeHomePortfolioState, emptyText: String, items: [INativeHomePortfolioItemViewModel]) {
-    self.init(std.string(title), state, std.string(emptyText), { () -> bridge.std__vector_INativeHomePortfolioItemViewModel_ in
+  init(title: String, state: NativeHomePortfolioState, emptyText: String, showMoreTitle: String, showLessTitle: String, initialVisibleItemCount: Double, items: [INativeHomePortfolioItemViewModel]) {
+    self.init(std.string(title), state, std.string(emptyText), std.string(showMoreTitle), std.string(showLessTitle), initialVisibleItemCount, { () -> bridge.std__vector_INativeHomePortfolioItemViewModel_ in
       var __vector = bridge.create_std__vector_INativeHomePortfolioItemViewModel_(items.count)
       for __item in items {
         __vector.push_back(__item)
@@ -42,6 +42,21 @@ public extension INativeHomePortfolioViewModel {
   @inline(__always)
   var emptyText: String {
     return String(self.__emptyText)
+  }
+
+  @inline(__always)
+  var showMoreTitle: String {
+    return String(self.__showMoreTitle)
+  }
+
+  @inline(__always)
+  var showLessTitle: String {
+    return String(self.__showLessTitle)
+  }
+
+  @inline(__always)
+  var initialVisibleItemCount: Double {
+    return self.__initialVisibleItemCount
   }
 
   @inline(__always)

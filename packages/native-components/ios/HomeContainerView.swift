@@ -8,6 +8,7 @@ final class HomeContainerView: UIView {
   private enum Item: Hashable {
     case title
     case token(String)
+    case toggle(Bool)
     case loading(Int)
     case empty
   }
@@ -17,6 +18,12 @@ final class HomeContainerView: UIView {
     let symbol: String
     let iconURL: String
     let networkIconURL: String
+    let priceText: String
+    let priceChangeText: String
+    let priceChangeDirection: NativeHomePriceChangeDirection
+    let balanceText: String
+    let valueText: String
+    let valuationState: NativeHomePortfolioValuationState
     let enabled: Bool
   }
 
@@ -43,6 +50,10 @@ final class HomeContainerView: UIView {
   private var portfolioRows: [String: PortfolioRow] = [:]
   private var portfolioTitle = ""
   private var portfolioEmptyText = ""
+  private var portfolioShowMoreTitle = ""
+  private var portfolioShowLessTitle = ""
+  private var portfolioInitialVisibleItemCount = 6
+  private var showsAllPortfolioItems = false
   private var currentHeaderHeight = HomeContainerView.fundedHeaderHeight
   private var currentOwnerSessionId = ""
   private var tabTitle = ""
@@ -58,6 +69,8 @@ final class HomeContainerView: UIView {
   private var portfolioSurfaceColor = UIColor.secondarySystemBackground
   private var portfolioPrimaryTextColor = UIColor.label
   private var portfolioSecondaryTextColor = UIColor.secondaryLabel
+  private var portfolioSuccessTextColor = UIColor.systemGreen
+  private var portfolioCriticalTextColor = UIColor.systemRed
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -88,12 +101,16 @@ final class HomeContainerView: UIView {
     let ownerChanged = currentOwnerSessionId != state.owner.sessionId
     if ownerChanged {
       currentOwnerSessionId = state.owner.sessionId
+      showsAllPortfolioItems = false
     }
     applyTheme(state.theme)
     applyHeader(state.header)
     tabTitle = state.tabs.first(where: { $0.id == state.selectedTab })?.title ?? ""
     portfolioTitle = state.portfolio.title
     portfolioEmptyText = state.portfolio.emptyText
+    portfolioShowMoreTitle = state.portfolio.showMoreTitle
+    portfolioShowLessTitle = state.portfolio.showLessTitle
+    portfolioInitialVisibleItemCount = max(Int(state.portfolio.initialVisibleItemCount), 1)
     var rows: [String: PortfolioRow] = [:]
     for item in state.portfolio.items {
       rows[item.id] = PortfolioRow(
@@ -101,6 +118,12 @@ final class HomeContainerView: UIView {
         symbol: item.symbol,
         iconURL: item.iconUrl,
         networkIconURL: item.networkIconUrl,
+        priceText: item.priceText,
+        priceChangeText: item.priceChangeText,
+        priceChangeDirection: item.priceChangeDirection,
+        balanceText: item.balanceText,
+        valueText: item.valueText,
+        valuationState: item.valuationState,
         enabled: item.enabled
       )
     }
@@ -197,6 +220,10 @@ final class HomeContainerView: UIView {
       forCellWithReuseIdentifier: HomeContainerPortfolioStatusCell.reuseIdentifier
     )
     collectionView.register(
+      HomeContainerPortfolioToggleCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioToggleCell.reuseIdentifier
+    )
+    collectionView.register(
       HomeContainerTabHeaderView.self,
       forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
       withReuseIdentifier: HomeContainerTabHeaderView.reuseIdentifier
@@ -250,6 +277,8 @@ final class HomeContainerView: UIView {
     let primary = UIColor(homeHex: theme.primaryTextColor, fallback: .label)
     let secondary = UIColor(homeHex: theme.secondaryTextColor, fallback: .secondaryLabel)
     let disabled = UIColor(homeHex: theme.disabledTextColor, fallback: .tertiaryLabel)
+    let success = UIColor(homeHex: theme.successTextColor, fallback: .systemGreen)
+    let critical = UIColor(homeHex: theme.criticalTextColor, fallback: .systemRed)
     let accent = UIColor(homeHex: theme.accentColor, fallback: .systemGreen)
 
     backgroundColor = background
@@ -272,6 +301,8 @@ final class HomeContainerView: UIView {
     portfolioSurfaceColor = surface
     portfolioPrimaryTextColor = primary
     portfolioSecondaryTextColor = secondary
+    portfolioSuccessTextColor = success
+    portfolioCriticalTextColor = critical
     tintColor = primary
   }
 
@@ -341,11 +372,38 @@ final class HomeContainerView: UIView {
             symbol: row.symbol,
             iconURL: row.iconURL,
             networkIconURL: row.networkIconURL,
+            priceText: row.priceText,
+            priceChangeText: row.priceChangeText,
+            priceChangeDirection: row.priceChangeDirection,
+            balanceText: row.balanceText,
+            valueText: row.valueText,
+            valuationState: row.valuationState,
             enabled: row.enabled,
             backgroundColor: portfolioBackgroundColor,
             surfaceColor: portfolioSurfaceColor,
-            primaryTextColor: portfolioPrimaryTextColor
+            primaryTextColor: portfolioPrimaryTextColor,
+            secondaryTextColor: portfolioSecondaryTextColor,
+            successTextColor: portfolioSuccessTextColor,
+            criticalTextColor: portfolioCriticalTextColor
           )
+        }
+        return cell
+      case let .toggle(isExpanded):
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioToggleCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioToggleCell
+        cell?.apply(
+          title: isExpanded ? portfolioShowLessTitle : portfolioShowMoreTitle,
+          isExpanded: isExpanded,
+          backgroundColor: portfolioBackgroundColor,
+          surfaceColor: portfolioSurfaceColor,
+          activeSurfaceColor: portfolioPrimaryTextColor.withAlphaComponent(0.122),
+          textColor: portfolioPrimaryTextColor
+        ) { [weak self] in
+          guard let self else { return }
+          showsAllPortfolioItems.toggle()
+          applyPortfolioSnapshot(animatingDifferences: true)
         }
         return cell
       case .loading:
@@ -410,7 +468,14 @@ final class HomeContainerView: UIView {
     case .ready:
       var seenIds = Set<String>()
       let allIds = portfolio.items.map(\.id).filter { seenIds.insert($0).inserted }
-      items.append(contentsOf: allIds.map(Item.token))
+      let hasOverflow = allIds.count > portfolioInitialVisibleItemCount
+      let visibleIds = showsAllPortfolioItems
+        ? allIds
+        : Array(allIds.prefix(portfolioInitialVisibleItemCount))
+      items.append(contentsOf: visibleIds.map(Item.token))
+      if hasOverflow {
+        items.append(.toggle(showsAllPortfolioItems))
+      }
     }
     snapshot.appendItems(items, toSection: .portfolio)
 
@@ -561,7 +626,8 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
     }
     let height: CGFloat = switch item {
     case .title: 64
-    case .token, .loading: 56
+    case .token, .loading: 60
+    case let .toggle(isExpanded): isExpanded ? 70 : 50
     case .empty: 240
     }
     return CGSize(width: collectionView.bounds.width, height: height)
@@ -585,7 +651,7 @@ extension HomeContainerView: UICollectionViewDelegateFlowLayout {
     case let .token(id):
       guard portfolioRows[id]?.enabled == true else { return }
       emitPortfolioItem(id)
-    case .title, .loading, .empty:
+    case .title, .toggle, .loading, .empty:
       break
     }
   }
@@ -713,6 +779,10 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
   private let tokenImageView = UIImageView()
   private let networkImageView = UIImageView()
   private let titleLabel = UILabel()
+  private let priceLabel = UILabel()
+  private let priceChangeLabel = UILabel()
+  private let balanceLabel = UILabel()
+  private let valueLabel = UILabel()
   private let leadingSkeleton = UIView()
   private let trailingTopSkeleton = UIView()
   private let trailingBottomSkeleton = UIView()
@@ -738,8 +808,28 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
 
     titleLabel.font = HomeContainerTypography.medium(16)
     titleLabel.adjustsFontForContentSizeCategory = false
+    titleLabel.lineBreakMode = .byTruncatingTail
     titleLabel.translatesAutoresizingMaskIntoConstraints = false
     contentView.addSubview(titleLabel)
+
+    for label in [priceLabel, priceChangeLabel, valueLabel] {
+      label.font = HomeContainerTypography.regular(14)
+      label.adjustsFontForContentSizeCategory = false
+      label.lineBreakMode = .byTruncatingTail
+      label.translatesAutoresizingMaskIntoConstraints = false
+      contentView.addSubview(label)
+    }
+    balanceLabel.font = HomeContainerTypography.medium(16)
+    balanceLabel.adjustsFontForContentSizeCategory = false
+    balanceLabel.textAlignment = .right
+    balanceLabel.lineBreakMode = .byTruncatingHead
+    balanceLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(balanceLabel)
+    valueLabel.textAlignment = .right
+
+    balanceLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+    valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+    priceChangeLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
     for skeleton in [leadingSkeleton, trailingTopSkeleton, trailingBottomSkeleton] {
       skeleton.layer.cornerRadius = 5
@@ -760,19 +850,34 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
       networkImageView.widthAnchor.constraint(equalToConstant: 16),
       networkImageView.heightAnchor.constraint(equalToConstant: 16),
       titleLabel.leadingAnchor.constraint(equalTo: tokenImageView.trailingAnchor, constant: 12),
-      titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
+      titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
       titleLabel.heightAnchor.constraint(equalToConstant: 24),
-      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingTopSkeleton.leadingAnchor, constant: -12),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: balanceLabel.leadingAnchor, constant: -12),
+      priceLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+      priceLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 32),
+      priceLabel.heightAnchor.constraint(equalToConstant: 20),
+      priceChangeLabel.leadingAnchor.constraint(equalTo: priceLabel.trailingAnchor, constant: 4),
+      priceChangeLabel.topAnchor.constraint(equalTo: priceLabel.topAnchor),
+      priceChangeLabel.heightAnchor.constraint(equalTo: priceLabel.heightAnchor),
+      priceChangeLabel.trailingAnchor.constraint(lessThanOrEqualTo: valueLabel.leadingAnchor, constant: -12),
+      balanceLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      balanceLabel.topAnchor.constraint(equalTo: titleLabel.topAnchor),
+      balanceLabel.heightAnchor.constraint(equalTo: titleLabel.heightAnchor),
+      balanceLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.centerXAnchor),
+      valueLabel.trailingAnchor.constraint(equalTo: balanceLabel.trailingAnchor),
+      valueLabel.topAnchor.constraint(equalTo: priceLabel.topAnchor),
+      valueLabel.heightAnchor.constraint(equalTo: priceLabel.heightAnchor),
+      valueLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.centerXAnchor),
       leadingSkeleton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-      leadingSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 36),
+      leadingSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 37),
       leadingSkeleton.widthAnchor.constraint(equalToConstant: 88),
       leadingSkeleton.heightAnchor.constraint(equalToConstant: 10),
       trailingTopSkeleton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-      trailingTopSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 9),
+      trailingTopSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
       trailingTopSkeleton.widthAnchor.constraint(equalToConstant: 72),
       trailingTopSkeleton.heightAnchor.constraint(equalToConstant: 12),
       trailingBottomSkeleton.trailingAnchor.constraint(equalTo: trailingTopSkeleton.trailingAnchor),
-      trailingBottomSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 35),
+      trailingBottomSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 37),
       trailingBottomSkeleton.widthAnchor.constraint(equalToConstant: 52),
       trailingBottomSkeleton.heightAnchor.constraint(equalToConstant: 10),
     ])
@@ -799,10 +904,19 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     symbol: String,
     iconURL: String,
     networkIconURL: String,
+    priceText: String,
+    priceChangeText: String,
+    priceChangeDirection: NativeHomePriceChangeDirection,
+    balanceText: String,
+    valueText: String,
+    valuationState: NativeHomePortfolioValuationState,
     enabled: Bool,
     backgroundColor: UIColor,
     surfaceColor: UIColor,
-    primaryTextColor: UIColor
+    primaryTextColor: UIColor,
+    secondaryTextColor: UIColor,
+    successTextColor: UIColor,
+    criticalTextColor: UIColor
   ) {
     representedId = id
     contentView.backgroundColor = backgroundColor
@@ -812,16 +926,35 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     networkImageView.layer.borderColor = backgroundColor.cgColor
     titleLabel.text = symbol
     titleLabel.textColor = primaryTextColor
+    priceLabel.text = priceText
+    priceLabel.textColor = secondaryTextColor
+    priceChangeLabel.text = priceChangeText
+    priceChangeLabel.textColor = switch priceChangeDirection {
+    case .positive: successTextColor
+    case .negative: criticalTextColor
+    case .neutral: secondaryTextColor
+    }
+    balanceLabel.text = balanceText
+    balanceLabel.textColor = primaryTextColor
+    valueLabel.text = valueText
+    valueLabel.textColor = secondaryTextColor
     leadingSkeleton.backgroundColor = surfaceColor
     trailingTopSkeleton.backgroundColor = surfaceColor
     trailingBottomSkeleton.backgroundColor = surfaceColor
-    leadingSkeleton.isHidden = false
-    trailingTopSkeleton.isHidden = false
-    trailingBottomSkeleton.isHidden = false
+    let showsValuation = valuationState == .ready
+    priceLabel.isHidden = !showsValuation
+    priceChangeLabel.isHidden = !showsValuation
+    balanceLabel.isHidden = !showsValuation
+    valueLabel.isHidden = !showsValuation
+    leadingSkeleton.isHidden = showsValuation
+    trailingTopSkeleton.isHidden = showsValuation
+    trailingBottomSkeleton.isHidden = showsValuation
     alpha = enabled ? 1 : 0.4
     isUserInteractionEnabled = enabled
     accessibilityIdentifier = "native-home-portfolio-item-\(id)"
-    accessibilityLabel = symbol
+    accessibilityLabel = [symbol, priceText, priceChangeText, balanceText, valueText]
+      .filter { !$0.isEmpty }
+      .joined(separator: ", ")
     accessibilityTraits = enabled ? .button : .button.union(.notEnabled)
     loadImage(from: iconURL, representedId: id, imageView: tokenImageView, isNetwork: false)
     networkImageView.isHidden = networkIconURL.isEmpty
@@ -843,6 +976,14 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
     tokenImageView.backgroundColor = surfaceColor
     networkImageView.isHidden = true
     titleLabel.text = ""
+    priceLabel.text = ""
+    priceChangeLabel.text = ""
+    balanceLabel.text = ""
+    valueLabel.text = ""
+    priceLabel.isHidden = true
+    priceChangeLabel.isHidden = true
+    balanceLabel.isHidden = true
+    valueLabel.isHidden = true
     leadingSkeleton.backgroundColor = surfaceColor
     trailingTopSkeleton.backgroundColor = surfaceColor
     trailingBottomSkeleton.backgroundColor = surfaceColor
@@ -887,6 +1028,83 @@ private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
       tokenImageTask = task
     }
     task.resume()
+  }
+}
+
+private final class HomeContainerPortfolioToggleCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioToggleCell"
+
+  private let button = UIButton(type: .custom)
+  private var onPress: (() -> Void)?
+  private var normalBackgroundColor = UIColor.secondarySystemBackground
+  private var activeBackgroundColor = UIColor.tertiarySystemBackground
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    button.titleLabel?.font = HomeContainerTypography.medium(16)
+    button.titleLabel?.adjustsFontForContentSizeCategory = false
+    button.layer.cornerRadius = 18
+    button.translatesAutoresizingMaskIntoConstraints = false
+    button.addTarget(self, action: #selector(handlePress), for: .touchUpInside)
+    button.addTarget(self, action: #selector(handleTouchDown), for: .touchDown)
+    button.addTarget(
+      self,
+      action: #selector(handleTouchUp),
+      for: [.touchCancel, .touchDragExit, .touchUpInside, .touchUpOutside]
+    )
+    contentView.addSubview(button)
+    NSLayoutConstraint.activate([
+      button.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+      button.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      button.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      button.heightAnchor.constraint(equalToConstant: 36),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    onPress = nil
+  }
+
+  func apply(
+    title: String,
+    isExpanded: Bool,
+    backgroundColor: UIColor,
+    surfaceColor: UIColor,
+    activeSurfaceColor: UIColor,
+    textColor: UIColor,
+    onPress: @escaping () -> Void
+  ) {
+    contentView.backgroundColor = backgroundColor
+    normalBackgroundColor = surfaceColor
+    activeBackgroundColor = activeSurfaceColor
+    button.backgroundColor = surfaceColor
+    button.setTitle(title, for: .normal)
+    button.setTitleColor(textColor, for: .normal)
+    button.accessibilityIdentifier = isExpanded
+      ? "native-home-token-list-show-less"
+      : "native-home-token-list-show-more"
+    self.onPress = onPress
+  }
+
+  @objc
+  private func handleTouchDown() {
+    button.backgroundColor = activeBackgroundColor
+  }
+
+  @objc
+  private func handleTouchUp() {
+    button.backgroundColor = normalBackgroundColor
+  }
+
+  @objc
+  private func handlePress() {
+    onPress?()
   }
 }
 

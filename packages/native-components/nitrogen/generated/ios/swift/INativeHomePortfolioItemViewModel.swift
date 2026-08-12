@@ -19,8 +19,8 @@ public extension INativeHomePortfolioItemViewModel {
   /**
    * Create a new instance of `INativeHomePortfolioItemViewModel`.
    */
-  init(id: String, symbol: String, iconUrl: String, networkIconUrl: String, enabled: Bool) {
-    self.init(std.string(id), std.string(symbol), std.string(iconUrl), std.string(networkIconUrl), enabled)
+  init(id: String, symbol: String, iconUrl: String, networkIconUrl: String, priceText: String, priceChangeText: String, priceChangeDirection: NativeHomePriceChangeDirection, balanceText: String, valueText: String, valuationState: NativeHomePortfolioValuationState, enabled: Bool) {
+    self.init(std.string(id), std.string(symbol), std.string(iconUrl), std.string(networkIconUrl), std.string(priceText), std.string(priceChangeText), priceChangeDirection, std.string(balanceText), std.string(valueText), valuationState, enabled)
   }
 
   @inline(__always)
@@ -41,6 +41,36 @@ public extension INativeHomePortfolioItemViewModel {
   @inline(__always)
   var networkIconUrl: String {
     return String(self.__networkIconUrl)
+  }
+
+  @inline(__always)
+  var priceText: String {
+    return String(self.__priceText)
+  }
+
+  @inline(__always)
+  var priceChangeText: String {
+    return String(self.__priceChangeText)
+  }
+
+  @inline(__always)
+  var priceChangeDirection: NativeHomePriceChangeDirection {
+    return self.__priceChangeDirection
+  }
+
+  @inline(__always)
+  var balanceText: String {
+    return String(self.__balanceText)
+  }
+
+  @inline(__always)
+  var valueText: String {
+    return String(self.__valueText)
+  }
+
+  @inline(__always)
+  var valuationState: NativeHomePortfolioValuationState {
+    return self.__valuationState
   }
 
   @inline(__always)

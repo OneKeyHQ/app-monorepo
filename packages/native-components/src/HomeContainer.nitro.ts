@@ -15,6 +15,11 @@ export type NativeHomeColorScheme = 'light' | 'dark';
 export type NativeHomeHeaderState = 'loading' | 'ready';
 export type NativeHomeHeaderActionLayout = 'loading' | 'zero' | 'funded';
 export type NativeHomePortfolioState = 'initialLoading' | 'ready' | 'empty';
+export type NativeHomePortfolioValuationState = 'loading' | 'ready';
+export type NativeHomePriceChangeDirection =
+  | 'negative'
+  | 'neutral'
+  | 'positive';
 export type NativeHomeHeaderActionId =
   | 'addMoney'
   | 'buy'
@@ -47,6 +52,8 @@ export interface INativeHomeThemeViewModel {
   primaryTextColor: string;
   secondaryTextColor: string;
   disabledTextColor: string;
+  successTextColor: string;
+  criticalTextColor: string;
   accentColor: string;
 }
 
@@ -78,6 +85,9 @@ export interface INativeHomePortfolioViewModel {
   title: string;
   state: NativeHomePortfolioState;
   emptyText: string;
+  showMoreTitle: string;
+  showLessTitle: string;
+  initialVisibleItemCount: number;
   items: INativeHomePortfolioItemViewModel[];
 }
 
@@ -86,6 +96,12 @@ export interface INativeHomePortfolioItemViewModel {
   symbol: string;
   iconUrl: string;
   networkIconUrl: string;
+  priceText: string;
+  priceChangeText: string;
+  priceChangeDirection: NativeHomePriceChangeDirection;
+  balanceText: string;
+  valueText: string;
+  valuationState: NativeHomePortfolioValuationState;
   enabled: boolean;
 }
 

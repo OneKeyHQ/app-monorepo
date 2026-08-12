@@ -11,6 +11,15 @@ describe('Native Home renderer decision', () => {
     expect(shouldRenderNativeHomeDiagnostic(eligibleIOSMain)).toBe(true);
   });
 
+  it('allows the development controller to select Legacy Home', () => {
+    expect(
+      shouldRenderNativeHomeDiagnostic({
+        ...eligibleIOSMain,
+        rendererMode: 'legacy',
+      }),
+    ).toBe(false);
+  });
+
   it.each([
     ['the Home path is not eligible', { isEligible: false }],
     ['the platform is not iOS', { isNativeIOS: false }],

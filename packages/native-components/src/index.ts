@@ -18,5 +18,7 @@ export type {
   NativeHomeHeaderActionLayout,
   NativeHomeHeaderState,
   NativeHomePortfolioState,
+  NativeHomePortfolioValuationState,
+  NativeHomePriceChangeDirection,
   NativeHomeTabId,
 } from './HomeContainer.nitro';

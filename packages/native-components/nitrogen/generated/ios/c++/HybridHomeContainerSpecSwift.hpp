@@ -38,6 +38,10 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioVi
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
+// Forward declaration of `NativeHomePriceChangeDirection` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePriceChangeDirection; }
+// Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioValuationState; }
 // Forward declaration of `INativeHomeThemeViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
@@ -61,6 +65,8 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 #include "INativeHomePortfolioViewModel.hpp"
 #include "NativeHomePortfolioState.hpp"
 #include "INativeHomePortfolioItemViewModel.hpp"
+#include "NativeHomePriceChangeDirection.hpp"
+#include "NativeHomePortfolioValuationState.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
 #include "INativeHomeIntent.hpp"

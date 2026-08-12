@@ -19,40 +19,50 @@ public extension INativeHomeThemeViewModel {
   /**
    * Create a new instance of `INativeHomeThemeViewModel`.
    */
-  init(colorScheme: NativeHomeColorScheme, backgroundColor: String, surfaceColor: String, primaryTextColor: String, secondaryTextColor: String, disabledTextColor: String, accentColor: String) {
-    self.init(colorScheme, std.string(backgroundColor), std.string(surfaceColor), std.string(primaryTextColor), std.string(secondaryTextColor), std.string(disabledTextColor), std.string(accentColor))
+  init(colorScheme: NativeHomeColorScheme, backgroundColor: String, surfaceColor: String, primaryTextColor: String, secondaryTextColor: String, disabledTextColor: String, successTextColor: String, criticalTextColor: String, accentColor: String) {
+    self.init(colorScheme, std.string(backgroundColor), std.string(surfaceColor), std.string(primaryTextColor), std.string(secondaryTextColor), std.string(disabledTextColor), std.string(successTextColor), std.string(criticalTextColor), std.string(accentColor))
   }
 
   @inline(__always)
   var colorScheme: NativeHomeColorScheme {
     return self.__colorScheme
   }
-  
+
   @inline(__always)
   var backgroundColor: String {
     return String(self.__backgroundColor)
   }
-  
+
   @inline(__always)
   var surfaceColor: String {
     return String(self.__surfaceColor)
   }
-  
+
   @inline(__always)
   var primaryTextColor: String {
     return String(self.__primaryTextColor)
   }
-  
+
   @inline(__always)
   var secondaryTextColor: String {
     return String(self.__secondaryTextColor)
   }
-  
+
   @inline(__always)
   var disabledTextColor: String {
     return String(self.__disabledTextColor)
   }
-  
+
+  @inline(__always)
+  var successTextColor: String {
+    return String(self.__successTextColor)
+  }
+
+  @inline(__always)
+  var criticalTextColor: String {
+    return String(self.__criticalTextColor)
+  }
+
   @inline(__always)
   var accentColor: String {
     return String(self.__accentColor)

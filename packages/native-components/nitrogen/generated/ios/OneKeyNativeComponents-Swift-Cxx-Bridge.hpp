@@ -40,6 +40,10 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
 // Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
+// Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioValuationState; }
+// Forward declaration of `NativeHomePriceChangeDirection` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePriceChangeDirection; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
@@ -64,6 +68,8 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
 #include "NativeHomePortfolioState.hpp"
+#include "NativeHomePortfolioValuationState.hpp"
+#include "NativeHomePriceChangeDirection.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>

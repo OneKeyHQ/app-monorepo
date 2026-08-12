@@ -5,7 +5,7 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: Slice 3 implemented; awaiting manual acceptance
+- Current phase: Slice 3 valuation/style follow-up implemented; awaiting manual acceptance
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -365,6 +365,50 @@ Implementation result (2026-08-12):
 The valuation-shaped placeholders are deliberate in Slice 3. Token quantity,
 price, fiat value, same-owner refreshing, and pull to refresh belong to Slice 4
 and must not be started before this gate is accepted.
+
+Slice 3 valuation/style follow-up (2026-08-13):
+
+- The approved follow-up connects each displayed token ID to its existing
+  normal or aggregate fiat cell. It reuses the current formatting, currency
+  conversion, rebasing, privacy, and unavailable-value utilities; it does not
+  start a request or create another Home Store.
+- Token structure remains independently progressive. Metadata rows render
+  immediately, unresolved valuation fields use stable-height skeletons, and a
+  settled missing value renders `--` instead of leaving a permanent skeleton.
+- The first version continues to submit the current full typed ViewModel on a
+  valuation tick. There is no partial update, patch, revision, ACK, cache, or
+  persistence protocol.
+- Swift token rows now match the Legacy mobile row geometry and typography:
+  40 pt token icon, 60 pt row, 20 pt horizontal inset, 12 pt icon/text gap,
+  16/24 primary text, 14/20 secondary text, and semantic positive/negative
+  colors.
+- The mounted Native list initially exposes the same six items as Legacy. A
+  concrete local `Show more` / `Show less` cell changes only the mounted view's
+  visible rows; it neither mutates business state nor emits a business intent.
+  Owner change resets this local expansion state.
+- A development-only, main-runtime controller enables same-account visual A/B
+  checks without an environment variable or persisted flag:
+
+  ```js
+  $onekeyNativeHomeRenderer.set('legacy');
+  $onekeyNativeHomeRenderer.set('native');
+  $onekeyNativeHomeRenderer.toggle();
+  ```
+
+  The controller is absent from the iOS background runtime and production
+  builds continue to select Native for eligible Home state.
+- Focused tests cover renderer selection, item formatting, progressive
+  loading-to-unavailable behavior, protocol fields, and current-owner intent
+  validation. The iOS Debug app compiled, was cover-installed, and ran on the
+  iPhone 17 Pro simulator.
+- Runtime verification on the same Account #2 fixture confirmed resolved
+  price/change/balance/value pixels, a six-row collapsed list, vertical fling,
+  `Show more`, full-list recycling to the real bottom, `Show less`, and collapse
+  back to six rows. Legacy/Native switching also resolved immediately in the
+  main runtime while the background runtime exposed no controller.
+- This follow-up does not claim Slice 4 completion: same-owner refresh state,
+  Native pull-to-refresh, owner/request-scoped refresh completion, and release
+  instrumentation remain in Slice 4.
 
 ### Slice 4 - Portfolio valuation and pull to refresh
 

@@ -1,4 +1,11 @@
-import { useCallback, useId, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet, useColorScheme } from 'react-native';
@@ -11,6 +18,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useListStructureAtom,
   useTokenListSortAtom,
+  useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useTokenListContextData } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/atoms';
 import { useHomeTokenListOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
@@ -65,7 +73,10 @@ import { useWalletActionSwap } from '../components/WalletActions/WalletActionSwa
 import { useHomeOverviewResolvedBalance } from '../hooks/useHomeOverviewResolvedBalance';
 
 import { isNativeHomeIntentExecutable } from './nativeHomeIntentValidation';
-import { buildNativeHomePortfolioViewModel } from './nativeHomePortfolioViewModel';
+import {
+  buildNativeHomePortfolioItemViewModel,
+  buildNativeHomePortfolioViewModel,
+} from './nativeHomePortfolioViewModel';
 
 import type { IWalletActionType } from '../components/WalletActions/types';
 
@@ -371,12 +382,17 @@ function useNativeHomePortfolio(): {
   } = useActiveAccount({ num: 0 });
   const ownerKey = useHomeTokenListOwnerKey();
   const [listStructure] = useListStructureAtom();
+  const [tokenListState] = useTokenListStateAtom();
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [settings] = useSettingsPersistAtom();
+  const [settingsValue] = useSettingsValuePersistAtom();
+  const [valuationRevision, setValuationRevision] = useState(0);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tokenListStore = useTokenListContextData().store!;
   const ownerMatches = !!ownerKey && listStructure.ownerKey === ownerKey;
 
-  return useMemo(() => {
+  const displayIds = useMemo(() => {
     const getMeta = (key: string) =>
       tokenListStore.get(meta(tokenListStore, key));
     const getFiat = (key: string) => {
@@ -385,7 +401,7 @@ function useNativeHomePortfolio(): {
         ? tokenListStore.get(aggCell(tokenListStore, key))
         : tokenListStore.get(cell(tokenListStore, key));
     };
-    const displayIds = ownerMatches
+    return ownerMatches
       ? projectHomeDisplayIds({
           orderedIds: listStructure.orderedIds,
           smallBalanceIds: listStructure.smallBalanceIds,
@@ -399,6 +415,39 @@ function useNativeHomePortfolio(): {
           getMeta,
         })
       : [];
+  }, [
+    listStructure,
+    network?.isAllNetworks,
+    ownerMatches,
+    sortDirection,
+    sortType,
+    tokenListStore,
+  ]);
+
+  useEffect(() => {
+    if (!ownerMatches) return undefined;
+    const unsubscribeFns = displayIds.map((id) => {
+      const tokenMeta = tokenListStore.get(meta(tokenListStore, id));
+      const fiatAtom = isAgg(id, tokenMeta)
+        ? aggCell(tokenListStore, id)
+        : cell(tokenListStore, id);
+      return tokenListStore.sub(fiatAtom, () => {
+        setValuationRevision((revision) => revision + 1);
+      });
+    });
+    return () => unsubscribeFns.forEach((unsubscribe) => unsubscribe());
+  }, [displayIds, ownerMatches, tokenListStore]);
+
+  return useMemo(() => {
+    void valuationRevision;
+    const getMeta = (key: string) =>
+      tokenListStore.get(meta(tokenListStore, key));
+    const getFiat = (key: string) => {
+      const token = getMeta(key);
+      return isAgg(key, token)
+        ? tokenListStore.get(aggCell(tokenListStore, key))
+        : tokenListStore.get(cell(tokenListStore, key));
+    };
     const tokensById = new Map<string, IAccountToken>();
     const items = displayIds
       .map((id): INativeHomePortfolioItemViewModel | undefined => {
@@ -410,15 +459,21 @@ function useNativeHomePortfolio(): {
         const networkLogo = network?.isAllNetworks
           ? networkUtils.getLocalNetworkInfo(token.networkId ?? '')?.logoURI
           : undefined;
-        return {
+        return buildNativeHomePortfolioItemViewModel({
           id,
           symbol: token.isAggregateToken
             ? (token.commonSymbol ?? token.symbol ?? '')
             : (token.symbol ?? ''),
           iconUrl: token.logoURI ?? '',
           networkIconUrl: networkLogo ?? '',
+          fiat: getFiat(id),
+          valuationSettled: tokenListState.initialized,
+          hideValue: settingsValue.hideValue,
+          currencyMap,
+          targetCurrencyId: settings.currencyInfo.id,
+          targetCurrencySymbol: settings.currencyInfo.symbol,
           enabled: true,
-        };
+        });
       })
       .filter((item): item is INativeHomePortfolioItemViewModel => !!item);
 
@@ -434,17 +489,29 @@ function useNativeHomePortfolio(): {
         emptyText: intl.formatMessage({
           id: ETranslations.send_no_token_message,
         }),
+        showMoreTitle: intl.formatMessage({
+          id: ETranslations.global_show_more,
+        }),
+        showLessTitle: intl.formatMessage({
+          id: ETranslations.global_show_less,
+        }),
+        initialVisibleItemCount: 6,
       }),
       tokensById,
     };
   }, [
+    currencyMap,
+    displayIds,
     intl,
-    listStructure,
+    listStructure.generation,
     network?.isAllNetworks,
     ownerMatches,
-    sortDirection,
-    sortType,
+    settings.currencyInfo.id,
+    settings.currencyInfo.symbol,
+    settingsValue.hideValue,
+    tokenListState.initialized,
     tokenListStore,
+    valuationRevision,
   ]);
 }
 
@@ -495,6 +562,8 @@ function NativeHomeContent({
               primaryTextColor: '#FFFFFFED',
               secondaryTextColor: '#FFFFFFAF',
               disabledTextColor: '#FFFFFF64',
+              successTextColor: '#46FEA5D4',
+              criticalTextColor: '#FF9592',
               accentColor: '#FFFFFFED',
             }
           : {
@@ -504,6 +573,8 @@ function NativeHomeContent({
               primaryTextColor: '#000000DF',
               secondaryTextColor: '#0000009B',
               disabledTextColor: '#00000072',
+              successTextColor: '#00713FDE',
+              criticalTextColor: '#C40006D3',
               accentColor: '#000000DF',
             },
     };

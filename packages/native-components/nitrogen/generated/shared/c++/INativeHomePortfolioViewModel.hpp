@@ -48,11 +48,14 @@ namespace margelo::nitro::onekeynativecomponents {
     std::string title     SWIFT_PRIVATE;
     NativeHomePortfolioState state     SWIFT_PRIVATE;
     std::string emptyText     SWIFT_PRIVATE;
+    std::string showMoreTitle     SWIFT_PRIVATE;
+    std::string showLessTitle     SWIFT_PRIVATE;
+    double initialVisibleItemCount     SWIFT_PRIVATE;
     std::vector<INativeHomePortfolioItemViewModel> items     SWIFT_PRIVATE;
 
   public:
     INativeHomePortfolioViewModel() = default;
-    explicit INativeHomePortfolioViewModel(std::string title, NativeHomePortfolioState state, std::string emptyText, std::vector<INativeHomePortfolioItemViewModel> items): title(title), state(state), emptyText(emptyText), items(items) {}
+    explicit INativeHomePortfolioViewModel(std::string title, NativeHomePortfolioState state, std::string emptyText, std::string showMoreTitle, std::string showLessTitle, double initialVisibleItemCount, std::vector<INativeHomePortfolioItemViewModel> items): title(title), state(state), emptyText(emptyText), showMoreTitle(showMoreTitle), showLessTitle(showLessTitle), initialVisibleItemCount(initialVisibleItemCount), items(items) {}
 
   public:
     friend bool operator==(const INativeHomePortfolioViewModel& lhs, const INativeHomePortfolioViewModel& rhs) = default;
@@ -71,6 +74,9 @@ namespace margelo::nitro {
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title"))),
         JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "emptyText"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showMoreTitle"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount"))),
         JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))
       );
     }
@@ -79,6 +85,9 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "title"), JSIConverter<std::string>::toJSI(runtime, arg.title));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "state"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::toJSI(runtime, arg.state));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "emptyText"), JSIConverter<std::string>::toJSI(runtime, arg.emptyText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showMoreTitle"), JSIConverter<std::string>::toJSI(runtime, arg.showMoreTitle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle"), JSIConverter<std::string>::toJSI(runtime, arg.showLessTitle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount"), JSIConverter<double>::toJSI(runtime, arg.initialVisibleItemCount));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "items"), JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::toJSI(runtime, arg.items));
       return obj;
     }
@@ -93,6 +102,9 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title")))) return false;
       if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "emptyText")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showMoreTitle")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showLessTitle")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "initialVisibleItemCount")))) return false;
       if (!JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))) return false;
       return true;
     }

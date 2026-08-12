@@ -28,9 +28,14 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `NativeHomePriceChangeDirection` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePriceChangeDirection; }
+// Forward declaration of `NativeHomePortfolioValuationState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioValuationState; }
 
 #include <string>
+#include "NativeHomePriceChangeDirection.hpp"
+#include "NativeHomePortfolioValuationState.hpp"
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -43,11 +48,17 @@ namespace margelo::nitro::onekeynativecomponents {
     std::string symbol     SWIFT_PRIVATE;
     std::string iconUrl     SWIFT_PRIVATE;
     std::string networkIconUrl     SWIFT_PRIVATE;
+    std::string priceText     SWIFT_PRIVATE;
+    std::string priceChangeText     SWIFT_PRIVATE;
+    NativeHomePriceChangeDirection priceChangeDirection     SWIFT_PRIVATE;
+    std::string balanceText     SWIFT_PRIVATE;
+    std::string valueText     SWIFT_PRIVATE;
+    NativeHomePortfolioValuationState valuationState     SWIFT_PRIVATE;
     bool enabled     SWIFT_PRIVATE;
 
   public:
     INativeHomePortfolioItemViewModel() = default;
-    explicit INativeHomePortfolioItemViewModel(std::string id, std::string symbol, std::string iconUrl, std::string networkIconUrl, bool enabled): id(id), symbol(symbol), iconUrl(iconUrl), networkIconUrl(networkIconUrl), enabled(enabled) {}
+    explicit INativeHomePortfolioItemViewModel(std::string id, std::string symbol, std::string iconUrl, std::string networkIconUrl, std::string priceText, std::string priceChangeText, NativeHomePriceChangeDirection priceChangeDirection, std::string balanceText, std::string valueText, NativeHomePortfolioValuationState valuationState, bool enabled): id(id), symbol(symbol), iconUrl(iconUrl), networkIconUrl(networkIconUrl), priceText(priceText), priceChangeText(priceChangeText), priceChangeDirection(priceChangeDirection), balanceText(balanceText), valueText(valueText), valuationState(valuationState), enabled(enabled) {}
 
   public:
     friend bool operator==(const INativeHomePortfolioItemViewModel& lhs, const INativeHomePortfolioItemViewModel& rhs) = default;
@@ -67,6 +78,12 @@ namespace margelo::nitro {
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "symbol"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "iconUrl"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "networkIconUrl"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceText"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceChangeText"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePriceChangeDirection>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceChangeDirection"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceText"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "valueText"))),
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioValuationState>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "valuationState"))),
         JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "enabled")))
       );
     }
@@ -76,6 +93,12 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "symbol"), JSIConverter<std::string>::toJSI(runtime, arg.symbol));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "iconUrl"), JSIConverter<std::string>::toJSI(runtime, arg.iconUrl));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "networkIconUrl"), JSIConverter<std::string>::toJSI(runtime, arg.networkIconUrl));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "priceText"), JSIConverter<std::string>::toJSI(runtime, arg.priceText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "priceChangeText"), JSIConverter<std::string>::toJSI(runtime, arg.priceChangeText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "priceChangeDirection"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePriceChangeDirection>::toJSI(runtime, arg.priceChangeDirection));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "balanceText"), JSIConverter<std::string>::toJSI(runtime, arg.balanceText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "valueText"), JSIConverter<std::string>::toJSI(runtime, arg.valueText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "valuationState"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioValuationState>::toJSI(runtime, arg.valuationState));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "enabled"), JSIConverter<bool>::toJSI(runtime, arg.enabled));
       return obj;
     }
@@ -91,6 +114,12 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "symbol")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "iconUrl")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "networkIconUrl")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceText")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceChangeText")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePriceChangeDirection>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "priceChangeDirection")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "balanceText")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "valueText")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioValuationState>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "valuationState")))) return false;
       if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "enabled")))) return false;
       return true;
     }
