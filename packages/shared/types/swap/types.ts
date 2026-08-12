@@ -1015,6 +1015,8 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  /** The payer selected by the final estimate-fee/send path. */
+  isNetworkFeeSponsored?: boolean;
   swapRequiredApproves?: IDecodedTxActionTokenApprove[];
 }
 
@@ -1135,6 +1137,7 @@ export interface ISwapTxHistory {
     socketBridgeScanUrl?: string;
     chainFlipExplorerUrl?: string;
     instantRate: string;
+    isFreeNetworkFee?: boolean;
     protocolFee?: number;
     hideProtocolFee?: boolean;
     oneKeyFee?: number;
