@@ -55,7 +55,7 @@ export type IHardwareDeviceType =
  * only one device drops out of the shared set instead of being wrongly
  * offered. A device may implement a scene as a dark screen when that is
  * what the physical device shows at that moment (connecting on the
- * Classic and Pro, enterPassphrase on the not-yet-designed Slate).
+ * Classic and Pro).
  */
 export type IHardwareDeviceScene = IClassicDeviceScene &
   IProDeviceScene &
