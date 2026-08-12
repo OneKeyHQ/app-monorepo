@@ -157,6 +157,7 @@ export function MDHeader({
                   <LegacyUniversalSearchInput
                     size="medium"
                     glass
+                    tabRoute={tabRoute}
                     containerProps={{
                       width: '100%',
                       $gtLg: undefined,
