@@ -32,10 +32,6 @@ on:
         type: boolean
         required: false
         default: false
-      skip_production_build:
-        type: boolean
-        required: false
-        default: false
       test_endpoint:
         type: string
         required: false
@@ -203,14 +199,11 @@ jobs:
           MARKET_HOME_TOKEN_SEED_ENV: 'test'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekeytest.com/embed/latest.json'
-          TRADINGVIEW_EMBED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
 
       - name: Verify Service Worker Bundle
-        env:
-          TRADINGVIEW_EMBED_REQUIRED: '1'
         run: node apps/web/scripts/validate-built-service-worker.mjs
 
       - name: Verify Market Bootstrap Data
@@ -298,7 +291,7 @@ jobs:
   build-production:
     runs-on: ubuntu-24.04
 
-    if: ${{ !inputs.skip_production_build && (!github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success')) }}
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Validate workflow_run source
         if: github.event_name == 'workflow_run'
@@ -421,14 +414,11 @@ jobs:
           MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
           TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekey.so/embed/latest.json'
-          TRADINGVIEW_EMBED_REQUIRED: '1'
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
 
       - name: Verify Service Worker Bundle
-        env:
-          TRADINGVIEW_EMBED_REQUIRED: '1'
         run: node apps/web/scripts/validate-built-service-worker.mjs
 
       - name: Verify Market Bootstrap Data

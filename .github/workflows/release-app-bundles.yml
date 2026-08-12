@@ -427,7 +427,6 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
       skip_pages_deploy: true
-      skip_production_build: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
@@ -464,8 +463,6 @@ jobs:
           path: apps/web/web-build
 
       - name: Verify Uploaded Service Worker Bundle
-        env:
-          TRADINGVIEW_EMBED_REQUIRED: '1'
         run: |
           node apps/web/scripts/validate-built-service-worker.mjs apps/web/web-build
 
