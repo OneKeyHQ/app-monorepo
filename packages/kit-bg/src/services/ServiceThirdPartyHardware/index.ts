@@ -246,8 +246,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * `bleConnectId`. We connect to it — the user's OWN device auto-connects via the
    * shared THP credential (no pairing) — read its `device_id`, and if it matches
    * the USB-known device we persist `bleConnectId` on the SAME DB record. A
-   * different device (device_id mismatch, or it asks to pair) → return null so
-   * the UI says "not this one, pick another".
+   * different device (device_id mismatch) → return null so the UI says "not
+   * this one, pick another"; an unreadable device_id or a user-aborted
+   * pairing → throw ("could not verify", never a mismatch verdict).
    *
    * Trezor-only by construction (uses the trezor adapter); never touches the
    * OneKey / Ledger BLE paths.
@@ -271,11 +272,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    // A picked candidate that ISN'T this device asks to pair (its static key
-    // doesn't match the shared credential). Suppress the THP pairing dialog and
-    // cancel silently during the probe — treat the pairing request as "not this
-    // one". Handled inside the adapter so it overrides its own pairing UI
-    // (a second listener can't stop the adapter's own handler from firing).
+    // Probe lifecycle bookkeeping only. Pairing requests are never suppressed
+    // (an expired THP credential makes the user's own device ask to pair);
+    // identity is settled by the post-handshake device_id comparison.
     adapter.beginBindingProbe?.(bleConnectId);
 
     try {
