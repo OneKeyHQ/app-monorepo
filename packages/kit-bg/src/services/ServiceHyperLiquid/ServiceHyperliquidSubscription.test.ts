@@ -374,6 +374,9 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
       backgroundApi: {
         serviceHyperliquid: {
           startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: jest
+            .fn()
+            .mockResolvedValue(undefined),
         },
       } as unknown as IBackgroundApi,
     });
@@ -409,18 +412,21 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
     const startStatusCheck = jest
       .fn<Promise<void> | undefined, []>()
       .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(undefined)
       .mockImplementationOnce(async () => {
         activatedOk = true;
       });
+    let releaseBusyCheck: (() => void) | undefined;
+    const waitForIdle = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseBusyCheck = resolve;
+        }),
+    );
     const service = new ServiceHyperliquidSubscription({
       backgroundApi: {
         serviceHyperliquid: {
           startPerpsAccountStatusCheckIfIdle: startStatusCheck,
+          waitForPerpsAccountStatusCheckIdle: waitForIdle,
         },
       } as unknown as IBackgroundApi,
     });
@@ -432,13 +438,20 @@ describe('ServiceHyperliquidSubscription funded activation refresh', () => {
       _fundedActivationConfirmedAddress: string | null;
     };
 
-    await internals._refreshActivationFromFundedState({
+    const refreshPromise = internals._refreshActivationFromFundedState({
       eventAddress: accountAddress,
       hasFundedBalance: true,
     });
     await jest.advanceTimersByTimeAsync(1500);
 
-    expect(startStatusCheck).toHaveBeenCalledTimes(7);
+    expect(startStatusCheck).toHaveBeenCalledTimes(1);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+
+    releaseBusyCheck?.();
+    await refreshPromise;
+    await jest.advanceTimersByTimeAsync(250);
+
+    expect(startStatusCheck).toHaveBeenCalledTimes(2);
     expect(internals._fundedActivationConfirmedAddress).toBe(accountAddress);
   });
 

@@ -314,12 +314,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     if (this._fundedActivationRefreshInFlightAddress) {
-      this._scheduleFundedActivationRefreshRetry({
-        address: normalizedEventAddress,
-        delayMs:
-          ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
-        refreshAttempt,
-      });
       return;
     }
 
@@ -373,6 +367,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           { preserveFundedBalances: true },
         );
       if (!statusCheck) {
+        shouldScheduleRetry = false;
+        await this.backgroundApi.serviceHyperliquid.waitForPerpsAccountStatusCheckIdle();
         this._scheduleFundedActivationRefreshRetry({
           address: normalizedEventAddress,
           delayMs:

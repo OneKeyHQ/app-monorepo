@@ -2920,6 +2920,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private perpsAccountStatusChecksInFlight = 0;
 
+  private perpsAccountStatusCheckIdleWaiters = new Set<() => void>();
+
   fetchUserAbstractionRawWithCache = createFetchUserAbstractionRawWithCache(
     async (accountAddress) => {
       const { infoClient } = hyperLiquidApiClients;
@@ -3095,6 +3097,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this.checkPerpsAccountStatus(params);
   }
 
+  waitForPerpsAccountStatusCheckIdle(): Promise<void> {
+    if (this.perpsAccountStatusChecksInFlight === 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.perpsAccountStatusCheckIdleWaiters.add(resolve);
+    });
+  }
+
   @backgroundMethod()
   async checkPerpsAccountStatus(
     params: {
@@ -3107,6 +3118,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       await this._checkPerpsAccountStatus(params);
     } finally {
       this.perpsAccountStatusChecksInFlight -= 1;
+      if (this.perpsAccountStatusChecksInFlight === 0) {
+        this.perpsAccountStatusCheckIdleWaiters.forEach((resolve) => resolve());
+        this.perpsAccountStatusCheckIdleWaiters.clear();
+      }
     }
   }
 
