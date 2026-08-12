@@ -1,6 +1,8 @@
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
 type IShouldUseSwapCustomRecipientAddressParams = {
   type: ESwapDirectionType;
   swapToAnotherAccountSwitchOn: boolean;
@@ -39,6 +41,26 @@ type IGetSwapAddressAccountSelectorNumParams = {
   type: ESwapDirectionType;
   swapToAnotherAccountSwitchOn: boolean;
 };
+
+type IGetSwapRecipientEditorAccountInfoParams = {
+  recipientAccountInfo?: IAccountSelectorActiveAccountInfo;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
+};
+
+export function getSwapRecipientEditorAccountInfo({
+  recipientAccountInfo,
+  activeAccount,
+}: IGetSwapRecipientEditorAccountInfoParams) {
+  if (recipientAccountInfo?.account) {
+    return recipientAccountInfo;
+  }
+
+  if (activeAccount?.account) {
+    return activeAccount;
+  }
+
+  return undefined;
+}
 
 export function getSwapAddressAccountSelectorNum({
   type,

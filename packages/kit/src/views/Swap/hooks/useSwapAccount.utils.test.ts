@@ -2,10 +2,67 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
+  getSwapRecipientEditorAccountInfo,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
+
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+function buildAccountInfo(
+  accountId?: string,
+): IAccountSelectorActiveAccountInfo {
+  return {
+    ready: true,
+    account: accountId
+      ? ({ id: accountId } as IAccountSelectorActiveAccountInfo['account'])
+      : undefined,
+    indexedAccount: undefined,
+    dbAccount: undefined,
+    accountName: '',
+    wallet: undefined,
+    device: undefined,
+    network: undefined,
+    vaultSettings: undefined,
+    deriveType: undefined,
+    deriveInfoItems: [],
+  };
+}
+
+describe('getSwapRecipientEditorAccountInfo', () => {
+  it('uses recipient ownership information when it is available', () => {
+    const recipientAccountInfo = buildAccountInfo('recipient-account');
+    const activeAccount = buildAccountInfo('active-account');
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo,
+        activeAccount,
+      }),
+    ).toBe(recipientAccountInfo);
+  });
+
+  it('falls back to the active account when an external recipient has no account ownership information', () => {
+    const activeAccount = buildAccountInfo('active-account');
+
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('waits for an account context before rendering the editor', () => {
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: buildAccountInfo(),
+        activeAccount: buildAccountInfo(),
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('getSwapAddressAccountSelectorNum', () => {
   it('uses the source account for the FROM address', () => {
