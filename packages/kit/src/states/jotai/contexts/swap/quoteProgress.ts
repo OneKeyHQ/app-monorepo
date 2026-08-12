@@ -335,6 +335,26 @@ export function shouldOfferSwapQuoteRefresh({
   );
 }
 
+export function isSwapQuoteInputAmountValid({
+  quoteKind,
+  fromTokenAmount,
+  toTokenAmount,
+  hasTokenPair,
+}: {
+  quoteKind: ESwapQuoteKind;
+  fromTokenAmount: { value: string; isInput: boolean };
+  toTokenAmount: { value: string; isInput: boolean };
+  hasTokenPair: boolean;
+}) {
+  const inputAmount =
+    quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount;
+  const amount = new BigNumber(inputAmount.value);
+
+  return Boolean(
+    hasTokenPair && inputAmount.isInput && amount.isFinite() && amount.gt(0),
+  );
+}
+
 export function isSwapQuoteManualRefreshRequired({
   shouldRefreshQuote,
   quoteRequestMatchesCurrentInput,

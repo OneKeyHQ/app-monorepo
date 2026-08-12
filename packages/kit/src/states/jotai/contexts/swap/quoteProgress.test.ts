@@ -17,6 +17,7 @@ import {
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteInputAmountValid,
   isSwapQuoteManualRefreshRequired,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
@@ -59,6 +60,33 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('validates the amount on the active quote side', () => {
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.SELL,
+        fromTokenAmount: { value: '5', isInput: true },
+        toTokenAmount: { value: '21', isInput: false },
+        hasTokenPair: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.BUY,
+        fromTokenAmount: { value: '5', isInput: false },
+        toTokenAmount: { value: '21', isInput: true },
+        hasTokenPair: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.BUY,
+        fromTokenAmount: { value: '5', isInput: false },
+        toTokenAmount: { value: '21', isInput: false },
+        hasTokenPair: true,
+      }),
+    ).toBe(false);
+  });
+
   it('allows exactly five automatic refresh requests before requiring manual refresh', () => {
     expect(
       resolveSwapQuoteRefreshAction({

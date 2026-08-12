@@ -77,6 +77,7 @@ import {
   isSwapOrBridgeQuoteType,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteInputAmountValid,
   isSwapQuoteManualRefreshRequired,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
@@ -514,16 +515,22 @@ export function useSwapActionState() {
       ),
     [fromToken, quoteCurrentSelect, toToken],
   );
-  const hasValidQuoteInput = useMemo(() => {
-    const amount = new BigNumber(fromTokenAmount.value);
-    return Boolean(
-      fromTokenAmount.isInput &&
-      fromToken &&
-      toToken &&
-      amount.isFinite() &&
-      amount.gt(0),
-    );
-  }, [fromToken, fromTokenAmount, toToken]);
+  const quoteKind =
+    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+    toTokenAmount.isInput &&
+    toTokenAmount.value
+      ? ESwapQuoteKind.BUY
+      : ESwapQuoteKind.SELL;
+  const hasValidQuoteInput = useMemo(
+    () =>
+      isSwapQuoteInputAmountValid({
+        quoteKind,
+        fromTokenAmount,
+        toTokenAmount,
+        hasTokenPair: Boolean(fromToken && toToken),
+      }),
+    [fromToken, fromTokenAmount, quoteKind, toToken, toTokenAmount],
+  );
   const quoteResultNoMatch = useMemo(
     () =>
       Boolean(
@@ -571,12 +578,6 @@ export function useSwapActionState() {
     ],
   );
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
-  const quoteKind =
-    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
-    toTokenAmount.isInput &&
-    toTokenAmount.value
-      ? ESwapQuoteKind.BUY
-      : ESwapQuoteKind.SELL;
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
