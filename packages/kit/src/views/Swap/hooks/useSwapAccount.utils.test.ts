@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
@@ -9,6 +12,7 @@ import {
   resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
+  shouldShowSwapRecipientEntry,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
 
@@ -230,6 +234,90 @@ describe('getSwapRecipientActionState', () => {
       shouldEnterRecipient: false,
       shouldDisableAction: false,
     });
+  });
+});
+
+describe('shouldShowSwapRecipientEntry', () => {
+  const baseParams = {
+    swapType: ESwapTabSwitchType.SWAP,
+    incognitoMode: false,
+    recipientAddressSettingOn: false,
+    recipientRequired: false,
+    providerSupportReceiveAddress: true,
+    hasFromToken: true,
+    hasToToken: true,
+  };
+
+  it('shows the entry when the custom recipient setting is on', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientAddressSettingOn: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('hides the entry when the setting is off and no recipient is required', () => {
+    expect(shouldShowSwapRecipientEntry(baseParams)).toBe(false);
+  });
+
+  it('forces the entry when a recipient is required even with the setting off (OK-58326)', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('never shows the entry when the provider does not support a recipient', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        recipientAddressSettingOn: true,
+        providerSupportReceiveAddress: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the entry hidden in incognito mode on Swap where the inline input owns it', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows the entry in incognito mode on Limit and Stock', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).toBe(true);
+  });
+
+  it('requires both tokens to be selected', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        hasToToken: false,
+      }),
+    ).toBe(false);
   });
 });
 

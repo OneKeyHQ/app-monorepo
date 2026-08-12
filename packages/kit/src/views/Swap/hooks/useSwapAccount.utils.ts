@@ -2,7 +2,10 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -138,6 +141,43 @@ export function getSwapRecipientEditorAccountInfo({
   }
 
   return undefined;
+}
+
+type IShouldShowSwapRecipientEntryParams = {
+  swapType: ESwapTabSwitchType;
+  incognitoMode: boolean;
+  recipientAddressSettingOn: boolean;
+  recipientRequired: boolean;
+  providerSupportReceiveAddress: boolean;
+  hasFromToken: boolean;
+  hasToToken: boolean;
+};
+
+export function shouldShowSwapRecipientEntry({
+  swapType,
+  incognitoMode,
+  recipientAddressSettingOn,
+  recipientRequired,
+  providerSupportReceiveAddress,
+  hasFromToken,
+  hasToToken,
+}: IShouldShowSwapRecipientEntryParams) {
+  // Incognito mode has its own inline recipient input on Swap/Bridge.
+  const incognitoAllows =
+    swapType === ESwapTabSwitchType.LIMIT ||
+    swapType === ESwapTabSwitchType.STOCK ||
+    !incognitoMode;
+  return Boolean(
+    incognitoAllows &&
+    // The recipient is mandatory when the target chain has no account
+    // address (e.g. a single-network private-key wallet doing a
+    // cross-chain swap), so surface the entry even while the custom
+    // recipient setting is off. (OK-58326)
+    (recipientAddressSettingOn || recipientRequired) &&
+    providerSupportReceiveAddress &&
+    hasFromToken &&
+    hasToToken,
+  );
 }
 
 export function getSwapRecipientValidationAccountId({

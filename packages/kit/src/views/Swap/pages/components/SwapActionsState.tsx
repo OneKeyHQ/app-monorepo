@@ -68,6 +68,7 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
+import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -232,18 +233,21 @@ const SwapActionsState = ({
 
   const shouldShowRecipient = useMemo(
     () =>
-      !!(
-        (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
-          swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-          !swapIncognitoMode) &&
-        swapEnableRecipientAddress &&
-        providerSupportReceiveAddressSettled &&
-        fromToken &&
-        toToken
-      ),
+      shouldShowSwapRecipientEntry({
+        swapType: swapTypeSwitch,
+        incognitoMode: swapIncognitoMode,
+        recipientAddressSettingOn: swapEnableRecipientAddress,
+        recipientRequired: Boolean(swapActionState.shouldEnterRecipient),
+        providerSupportReceiveAddress: Boolean(
+          providerSupportReceiveAddressSettled,
+        ),
+        hasFromToken: Boolean(fromToken),
+        hasToToken: Boolean(toToken),
+      }),
     [
       swapIncognitoMode,
       swapEnableRecipientAddress,
+      swapActionState.shouldEnterRecipient,
       providerSupportReceiveAddressSettled,
       fromToken,
       swapTypeSwitch,
