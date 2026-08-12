@@ -40,6 +40,7 @@ export enum EAppUpdatePackageAvailabilityStatus {
 export enum EAppUpdatePackageErrorCode {
   packageMissing = 'APP_PACKAGE_MISSING',
   packageUnavailable = 'APP_PACKAGE_UNAVAILABLE',
+  packageNotPrepared = 'APP_PACKAGE_NOT_PREPARED',
 }
 
 export type IAppUpdatePackageAvailability =

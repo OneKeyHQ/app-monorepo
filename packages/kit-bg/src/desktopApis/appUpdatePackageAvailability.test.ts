@@ -2,7 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import {
+  EAppUpdatePackageAvailabilityStatus,
+  EAppUpdatePackageErrorCode,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
 
@@ -35,6 +38,43 @@ describe('getDownloadedFileAvailability', () => {
 
     expect(getDownloadedFileAvailability(packagePath)).toEqual({
       status: EAppUpdatePackageAvailabilityStatus.available,
+    });
+  });
+
+  test('requires the updater to prepare a macOS package in the current process', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    fs.writeFileSync(packagePath, 'package');
+
+    expect(
+      getDownloadedFileAvailability(packagePath, {
+        requireCurrentProcessPreparation: true,
+      }),
+    ).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.unavailable,
+      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+    });
+    expect(
+      getDownloadedFileAvailability(packagePath, {
+        requireCurrentProcessPreparation: true,
+        preparedDownloadedFile: packagePath,
+      }),
+    ).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.available,
+    });
+  });
+
+  test('does not accept a different package prepared in the current process', () => {
+    const packagePath = path.join(tempDir, 'package.zip');
+    fs.writeFileSync(packagePath, 'package');
+
+    expect(
+      getDownloadedFileAvailability(packagePath, {
+        requireCurrentProcessPreparation: true,
+        preparedDownloadedFile: path.join(tempDir, 'other.zip'),
+      }),
+    ).toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.unavailable,
+      errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
     });
   });
 

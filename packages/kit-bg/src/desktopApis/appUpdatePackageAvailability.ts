@@ -8,6 +8,10 @@ import {
 
 export function getDownloadedFileAvailability(
   downloadedFile?: string,
+  options?: {
+    requireCurrentProcessPreparation?: boolean;
+    preparedDownloadedFile?: string;
+  },
 ): IAppUpdatePackageAvailability {
   if (!downloadedFile) {
     return {
@@ -42,9 +46,16 @@ export function getDownloadedFileAvailability(
         status: EAppUpdatePackageAvailabilityStatus.missing,
       };
     }
-    return {
-      status: EAppUpdatePackageAvailabilityStatus.available,
-    };
+    if (
+      options?.requireCurrentProcessPreparation &&
+      options.preparedDownloadedFile !== downloadedFile
+    ) {
+      return {
+        status: EAppUpdatePackageAvailabilityStatus.unavailable,
+        errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      };
+    }
+    return { status: EAppUpdatePackageAvailabilityStatus.available };
   } catch (error) {
     const errorCode = (error as NodeJS.ErrnoException)?.code;
     if (errorCode === 'ENOENT' || errorCode === 'ENOTDIR') {

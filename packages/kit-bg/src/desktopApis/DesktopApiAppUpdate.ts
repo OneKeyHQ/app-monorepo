@@ -142,7 +142,7 @@ class DesktopApiAppUpdate {
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
-    this.downloadedEvent = {} as IUpdateDownloadedEvent;
+    this.downloadedEvent = undefined;
     if (!isStoreVersion) {
       if (app.isReady()) {
         this.initAppAutoUpdateEvents();
@@ -226,6 +226,7 @@ class DesktopApiAppUpdate {
 
     autoUpdater.on('error', (err) => {
       logger.error('auto-updater', `An error happened: ${err.toString()}`);
+      this.downloadedEvent = undefined;
       const mainWindow = this.getMainWindow();
       if (!mainWindow) {
         return;
@@ -285,6 +286,11 @@ class DesktopApiAppUpdate {
           file.url.endsWith(path.basename(downloadedFile)),
         )?.url;
 
+        this.downloadedEvent = {
+          downloadedFile,
+          downloadUrl,
+        };
+
         logger.info('auto-updater', [
           'Update downloaded:',
           `- Last version: ${version}`,
@@ -323,7 +329,12 @@ class DesktopApiAppUpdate {
   async getDownloadedFileAvailability(
     downloadedFile?: string,
   ): Promise<IAppUpdatePackageAvailability> {
-    return resolveDownloadedFileAvailability(downloadedFile);
+    // MacUpdater serves the ZIP through a process-local proxy. A persisted path
+    // is not installable after relaunch until this process emits update-downloaded.
+    return resolveDownloadedFileAvailability(downloadedFile, {
+      requireCurrentProcessPreparation: isMac,
+      preparedDownloadedFile: this.downloadedEvent?.downloadedFile,
+    });
   }
 
   private async assertDownloadedFileAvailable(
@@ -354,6 +365,7 @@ class DesktopApiAppUpdate {
       this.updateCancellationToken.cancel();
     }
     this.isDownloading = false;
+    this.downloadedEvent = undefined;
     try {
       // @ts-ignore
       const baseCachePath = autoUpdater?.app?.baseCachePath;
@@ -428,6 +440,7 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    this.downloadedEvent = undefined;
     clearWindowProgressBar(this.getMainWindow());
     store.setUpdateBuildNumber('');
     logger.info(

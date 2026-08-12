@@ -20,6 +20,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -483,6 +484,38 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test('macOS package not prepared in the current process invalidates ready state', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.checkPackageAvailability.mockResolvedValueOnce({
+        status: 'unavailable',
+        errorCode: EAppUpdatePackageErrorCode.packageNotPrepared,
+      });
+      resetAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+        downloadedEvent: {
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.zip',
+          downloadedFile: '/tmp/app-2.0.0.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage();
+
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.downloadedEvent).toBeUndefined();
+
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellPackageRecovery' },
+      );
     });
 
     test('missing package during verification enters the recovery flow', async () => {
