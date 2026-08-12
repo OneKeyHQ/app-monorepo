@@ -1,3 +1,23 @@
+import type { IEarnAvailableAssetAprInfo } from '@onekeyhq/shared/types/earn';
+
+export function getProtocolAprColor(
+  aprInfo?: IEarnAvailableAssetAprInfo,
+): NonNullable<IEarnAvailableAssetAprInfo['normal']>['color'] | undefined {
+  if (aprInfo?.highlight?.text) {
+    return aprInfo.highlight.color;
+  }
+
+  if (aprInfo?.normal?.text) {
+    return aprInfo.normal.color;
+  }
+
+  if (aprInfo?.deprecated?.text) {
+    return aprInfo.deprecated.color;
+  }
+
+  return undefined;
+}
+
 export function shouldShowProtocolListBalances(
   protocols: Array<{ network?: { networkId?: string } }>,
 ) {

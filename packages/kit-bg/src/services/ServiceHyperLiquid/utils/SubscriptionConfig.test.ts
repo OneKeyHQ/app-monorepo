@@ -21,6 +21,26 @@ describe('getSubscriptionResumeAction', () => {
     ).toBe('waitForOpen');
   });
 
+  it('reconnects an open transport whose stream has gone stale', () => {
+    expect(
+      getSubscriptionResumeAction({
+        isOpen: true,
+        isClosedOrClosing: false,
+        isStreamStale: true,
+      }),
+    ).toBe('reconnect');
+  });
+
+  it('reconciles an open transport while the stream is fresh', () => {
+    expect(
+      getSubscriptionResumeAction({
+        isOpen: true,
+        isClosedOrClosing: false,
+        isStreamStale: false,
+      }),
+    ).toBe('reconcile');
+  });
+
   it('reconciles open transports and reconnects closed transports', () => {
     expect(
       getSubscriptionResumeAction({

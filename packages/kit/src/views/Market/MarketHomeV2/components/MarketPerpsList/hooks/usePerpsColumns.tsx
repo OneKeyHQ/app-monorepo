@@ -16,6 +16,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { MarketPerpsStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,6 +77,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                     {record.displayName}
                   </SizableText>
                   <LeverageBadge leverage={record.maxLeverage} />
+                  <PerpDexBadge dexLabel={record.dexLabel} />
                 </XStack>
                 {record.subtitle ? (
                   <SubtitleText subtitle={record.subtitle} />

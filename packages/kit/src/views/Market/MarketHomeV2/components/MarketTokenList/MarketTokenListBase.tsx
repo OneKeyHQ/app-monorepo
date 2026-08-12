@@ -66,7 +66,6 @@ const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
-const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
@@ -250,6 +249,7 @@ type IMarketTokenListBaseProps = {
   ) => void;
   onScrollBegin?: () => void;
   showStockSubtitle?: boolean | 'auto';
+  forceStockMetadataColumns?: boolean;
   hiddenDesktopColumns?: readonly string[];
   change24hColumnTitle?: string;
   liveTokenOverride?: IMarketTokenListLiveOverride;
@@ -279,6 +279,7 @@ function MarketTokenListBase({
   onItemContextMenu,
   onScrollBegin,
   showStockSubtitle = true,
+  forceStockMetadataColumns = false,
   hiddenDesktopColumns,
   change24hColumnTitle,
   liveTokenOverride,
@@ -449,20 +450,14 @@ function MarketTokenListBase({
   }, [rawData, showStockSubtitle]);
   const useStockMetadataColumns = useMemo(
     () =>
-      (showStockSubtitle === 'auto' ||
-        (isWatchlistMode && showStockSubtitle !== false)) &&
-      shouldUseStockMetadataColumnsForTokens(rawData),
-    [isWatchlistMode, rawData, showStockSubtitle],
+      shouldUseStockMetadataColumnsForTokens(rawData, {
+        forceStockMetadataColumns,
+        enableAutoDetection:
+          showStockSubtitle === 'auto' ||
+          (isWatchlistMode && showStockSubtitle !== false),
+      }),
+    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
   );
-  // Web tab integration gives the inner FlatList the full tab height so the
-  // outer Tabs.Container can own vertical scroll. During cold start, keep only
-  // the first rows rich and defer extra media/interactive decoration until
-  // after the measured startup window.
-  const deferRichRowAfterIndex =
-    platformEnv.isWeb && webTabIntegrated && !enableDeferredWebFeatures
-      ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
-      : undefined;
-
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
     isWatchlistMode,
@@ -474,7 +469,6 @@ function MarketTokenListBase({
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
-    deferRichRowAfterIndex,
   );
 
   const data = useMemo(() => {
