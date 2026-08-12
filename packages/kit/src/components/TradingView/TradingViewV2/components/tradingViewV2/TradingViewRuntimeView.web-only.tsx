@@ -177,6 +177,7 @@ export default function TradingViewRuntimeView({
         customReceiveHandler={customReceiveHandler}
         onLoadStart={onLoadStart}
         onWebViewRef={onWebViewRef}
+        skipBackgroundBridge
         src={runtimeUrl}
       />
     );

@@ -14,6 +14,7 @@ const buildDirectory = resolve(
 );
 const serviceWorkerPath = resolve(buildDirectory, 'service-worker.js');
 const serviceWorker = await readFile(serviceWorkerPath, 'utf8');
+const requirePinnedManifest = process.env.TRADINGVIEW_EMBED_REQUIRED === '1';
 const forbiddenPatterns = [
   'process.env',
   '.toSorted(',
@@ -56,6 +57,9 @@ if (manifestFileName) {
     `[service-worker] verified pinned TradingView manifest: ${manifestFileName}`,
   );
 } else {
+  if (requirePinnedManifest) {
+    fail('Web build does not contain a pinned TradingView embed manifest');
+  }
   console.log(
     '[service-worker] no TradingView manifest was pinned; iframe fallback remains enabled.',
   );
