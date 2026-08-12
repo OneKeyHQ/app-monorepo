@@ -1,5 +1,8 @@
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -47,19 +50,145 @@ type IGetSwapRecipientEditorAccountInfoParams = {
   activeAccount?: IAccountSelectorActiveAccountInfo;
 };
 
+type IGetSwapRecipientEditorAccountIdParams = {
+  editorAccountInfo?: IAccountSelectorActiveAccountInfo;
+  targetNetworkId?: string;
+};
+
+type IShouldRequireSwapRecipientAddressParams = {
+  fromNetworkId?: string;
+  toNetworkId?: string;
+  fromAddress?: string;
+  toAddress?: string;
+  hasActionableQuote: boolean;
+  hasSelectedRecipient: boolean;
+  isAddressInfoReady: boolean;
+  incognitoMode: boolean;
+  providerSupportsRecipient: boolean;
+  swapType: ESwapTabSwitchType;
+  targetCanCreateAddress?: boolean;
+};
+
+type IShouldActivateSwapCustomRecipientAddressParams = {
+  type: ESwapDirectionType;
+  swapToAnotherAccountSwitchOn: boolean;
+  selectedRecipientAddress?: string;
+  swapEnableRecipientAddress: boolean;
+  fromNetworkId?: string;
+  toNetworkId?: string;
+  incognitoMode: boolean;
+  providerSupportsRecipient: boolean;
+  swapType: ESwapTabSwitchType;
+  targetCanCreateAddress?: boolean;
+};
+
+export function shouldRequireSwapRecipientAddress({
+  fromNetworkId,
+  toNetworkId,
+  fromAddress,
+  toAddress,
+  hasActionableQuote,
+  hasSelectedRecipient,
+  isAddressInfoReady,
+  incognitoMode,
+  providerSupportsRecipient,
+  swapType,
+  targetCanCreateAddress,
+}: IShouldRequireSwapRecipientAddressParams) {
+  if (
+    incognitoMode ||
+    swapType === ESwapTabSwitchType.LIMIT ||
+    swapType === ESwapTabSwitchType.STOCK
+  ) {
+    return false;
+  }
+
+  return Boolean(
+    fromNetworkId &&
+    toNetworkId &&
+    fromNetworkId !== toNetworkId &&
+    fromAddress &&
+    providerSupportsRecipient &&
+    targetCanCreateAddress === false &&
+    (hasSelectedRecipient ||
+      (isAddressInfoReady && !toAddress && hasActionableQuote)),
+  );
+}
+
+export function shouldActivateSwapCustomRecipientAddress({
+  type,
+  swapToAnotherAccountSwitchOn,
+  selectedRecipientAddress,
+  swapEnableRecipientAddress,
+  fromNetworkId,
+  toNetworkId,
+  incognitoMode,
+  providerSupportsRecipient,
+  swapType,
+  targetCanCreateAddress,
+}: IShouldActivateSwapCustomRecipientAddressParams) {
+  if (
+    type !== ESwapDirectionType.TO ||
+    !swapToAnotherAccountSwitchOn ||
+    !selectedRecipientAddress ||
+    !providerSupportsRecipient
+  ) {
+    return false;
+  }
+
+  if (swapEnableRecipientAddress) {
+    return true;
+  }
+
+  if (
+    incognitoMode ||
+    swapType === ESwapTabSwitchType.LIMIT ||
+    swapType === ESwapTabSwitchType.STOCK
+  ) {
+    return false;
+  }
+
+  return Boolean(
+    fromNetworkId &&
+    toNetworkId &&
+    fromNetworkId !== toNetworkId &&
+    targetCanCreateAddress === false,
+  );
+}
+
 export function getSwapRecipientEditorAccountInfo({
   recipientAccountInfo,
   activeAccount,
 }: IGetSwapRecipientEditorAccountInfoParams) {
-  if (recipientAccountInfo?.account) {
+  if (recipientAccountInfo?.ready) {
     return recipientAccountInfo;
   }
 
-  if (activeAccount?.account) {
+  if (activeAccount?.ready) {
     return activeAccount;
   }
 
   return undefined;
+}
+
+export function getSwapRecipientEditorAccountId({
+  editorAccountInfo,
+  targetNetworkId,
+}: IGetSwapRecipientEditorAccountIdParams) {
+  const account = editorAccountInfo?.account;
+  const accountNetworkId = account?.addressDetail?.networkId;
+
+  if (
+    !account?.id ||
+    !areSwapRecipientNetworksCompatible({
+      selectedRecipientNetworkId: accountNetworkId,
+      targetNetworkId,
+    })
+  ) {
+    return undefined;
+  }
+
+  return account.id;
 }
 
 export function getSwapAddressAccountSelectorNum({

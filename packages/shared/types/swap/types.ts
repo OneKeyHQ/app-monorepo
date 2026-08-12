@@ -845,6 +845,7 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  toAccountNetworkNotSupported?: boolean;
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;

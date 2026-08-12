@@ -39,7 +39,10 @@ import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQui
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
 import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { getSwapRecipientEditorAccountInfo } from '../../hooks/useSwapAccount.utils';
+import {
+  getSwapRecipientEditorAccountId,
+  getSwapRecipientEditorAccountInfo,
+} from '../../hooks/useSwapAccount.utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
@@ -62,6 +65,10 @@ const SwapToAnotherAddressPage = () => {
   const editorAccountInfo = getSwapRecipientEditorAccountInfo({
     recipientAccountInfo: accountInfo,
     activeAccount,
+  });
+  const editorAccountId = getSwapRecipientEditorAccountId({
+    editorAccountInfo,
+    targetNetworkId: networkId,
   });
 
   const [, setSettings] = useSettingsAtom();
@@ -195,7 +202,7 @@ const SwapToAnotherAddressPage = () => {
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation
-            accountId={editorAccountInfo.account?.id}
+            accountId={editorAccountId}
             hasQuickSelectMatches={hasQuickSelectMatches}
           />
           <XStack gap="$1.5" alignItems="center">
@@ -207,7 +214,7 @@ const SwapToAnotherAddressPage = () => {
             </SizableText>
           </XStack>
           <RecipientQuickSelect
-            accountId={editorAccountInfo.account?.id ?? ''}
+            accountId={editorAccountId ?? ''}
             networkId={networkId}
             senderDeriveType={activeAccount?.deriveType}
             searchKey={toAddressRaw}

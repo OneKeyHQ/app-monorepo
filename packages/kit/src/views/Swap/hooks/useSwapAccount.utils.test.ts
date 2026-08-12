@@ -1,8 +1,14 @@
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
+  getSwapRecipientEditorAccountId,
   getSwapRecipientEditorAccountInfo,
+  shouldActivateSwapCustomRecipientAddress,
+  shouldRequireSwapRecipientAddress,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
   shouldUseSwapCustomRecipientAddress,
@@ -12,11 +18,21 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 
 function buildAccountInfo(
   accountId?: string,
+  {
+    networkId,
+    ready = true,
+  }: {
+    networkId?: string;
+    ready?: boolean;
+  } = {},
 ): IAccountSelectorActiveAccountInfo {
   return {
-    ready: true,
+    ready,
     account: accountId
-      ? ({ id: accountId } as IAccountSelectorActiveAccountInfo['account'])
+      ? ({
+          id: accountId,
+          addressDetail: networkId ? { networkId } : undefined,
+        } as IAccountSelectorActiveAccountInfo['account'])
       : undefined,
     indexedAccount: undefined,
     dbAccount: undefined,
@@ -54,13 +70,202 @@ describe('getSwapRecipientEditorAccountInfo', () => {
     ).toBe(activeAccount);
   });
 
-  it('waits for an account context before rendering the editor', () => {
+  it('uses a ready account context even before its network account is created', () => {
+    const activeAccount = buildAccountInfo();
+
     expect(
       getSwapRecipientEditorAccountInfo({
-        recipientAccountInfo: buildAccountInfo(),
-        activeAccount: buildAccountInfo(),
+        recipientAccountInfo: undefined,
+        activeAccount,
+      }),
+    ).toBe(activeAccount);
+  });
+
+  it('waits until an account context is ready before rendering the editor', () => {
+    expect(
+      getSwapRecipientEditorAccountInfo({
+        recipientAccountInfo: buildAccountInfo(undefined, { ready: false }),
+        activeAccount: buildAccountInfo(undefined, { ready: false }),
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('getSwapRecipientEditorAccountId', () => {
+  it('uses an account ID from the target network implementation', () => {
+    expect(
+      getSwapRecipientEditorAccountId({
+        editorAccountInfo: buildAccountInfo('evm-account', {
+          networkId: 'evm--1',
+        }),
+        targetNetworkId: 'evm--137',
+      }),
+    ).toBe('evm-account');
+  });
+
+  it('omits an account ID from an incompatible network implementation', () => {
+    expect(
+      getSwapRecipientEditorAccountId({
+        editorAccountInfo: buildAccountInfo('evm-account', {
+          networkId: 'evm--1',
+        }),
+        targetNetworkId: 'sol--101',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('omits the account ID when no network account has been created', () => {
+    expect(
+      getSwapRecipientEditorAccountId({
+        editorAccountInfo: buildAccountInfo(),
+        targetNetworkId: 'sol--101',
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('shouldRequireSwapRecipientAddress', () => {
+  const crossChainRecipientParams = {
+    fromNetworkId: 'evm--1',
+    toNetworkId: 'sol--101',
+    fromAddress: '0x1234',
+    toAddress: undefined,
+    hasActionableQuote: true,
+    hasSelectedRecipient: false,
+    isAddressInfoReady: true,
+    incognitoMode: false,
+    providerSupportsRecipient: true,
+    swapType: ESwapTabSwitchType.SWAP,
+    targetCanCreateAddress: false,
+  };
+
+  it('requires a recipient for an actionable cross-chain quote without a target account', () => {
+    expect(shouldRequireSwapRecipientAddress(crossChainRecipientParams)).toBe(
+      true,
+    );
+  });
+
+  it('does not require a recipient after the target address is resolved', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        toAddress: 'solana-address',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps an automatically selected recipient active after it is resolved', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        toAddress: 'solana-address',
+        hasActionableQuote: false,
+        hasSelectedRecipient: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('uses address creation instead of recipient input when the target address can be created', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        targetCanCreateAddress: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('waits for target address capability resolution', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        isAddressInfoReady: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not require a recipient for same-chain swaps', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        toNetworkId: 'evm--1',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not require a recipient when the selected provider cannot receive one', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        providerSupportsRecipient: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps incognito recipient input on its dedicated path', () => {
+    expect(
+      shouldRequireSwapRecipientAddress({
+        ...crossChainRecipientParams,
+        incognitoMode: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldActivateSwapCustomRecipientAddress', () => {
+  const automaticRecipientParams = {
+    type: ESwapDirectionType.TO,
+    swapToAnotherAccountSwitchOn: true,
+    selectedRecipientAddress: 'solana-address',
+    swapEnableRecipientAddress: false,
+    fromNetworkId: 'evm--1',
+    toNetworkId: 'sol--101',
+    incognitoMode: false,
+    providerSupportsRecipient: true,
+    swapType: ESwapTabSwitchType.SWAP,
+    targetCanCreateAddress: false,
+  };
+
+  it('activates an automatically selected recipient for the cross-chain pair', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress(automaticRecipientParams),
+    ).toBe(true);
+  });
+
+  it('deactivates an automatic recipient after switching back to the source network', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress({
+        ...automaticRecipientParams,
+        toNetworkId: 'evm--1',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the explicit setting path available for same-chain recipients', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress({
+        ...automaticRecipientParams,
+        swapEnableRecipientAddress: true,
+        toNetworkId: 'evm--1',
+      }),
+    ).toBe(true);
+  });
+
+  it('deactivates a recipient when the selected provider does not support it', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress({
+        ...automaticRecipientParams,
+        providerSupportsRecipient: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('deactivates an automatic recipient when the new target can create an address', () => {
+    expect(
+      shouldActivateSwapCustomRecipientAddress({
+        ...automaticRecipientParams,
+        targetCanCreateAddress: true,
+      }),
+    ).toBe(false);
   });
 });
 
