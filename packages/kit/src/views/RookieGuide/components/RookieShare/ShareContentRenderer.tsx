@@ -236,8 +236,7 @@ export function ShareContentRenderer({
                 value={referralUrl}
                 size={qrCode.size - 10}
                 padding={5}
-                enableLinearGradient
-                linearGradient={[qrCode.color, qrCode.color]}
+                darkColor={qrCode.color}
                 logoBackgroundColor="white"
               />
               <SizableText

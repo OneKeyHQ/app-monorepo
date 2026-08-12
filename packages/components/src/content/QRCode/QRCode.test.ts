@@ -53,46 +53,29 @@ describe('QRCode layout metrics', () => {
 });
 
 describe('QRCode plate border radius', () => {
-  // Real (size, padding) pairs from the call sites, smallest margin first.
+  // The plate margin is half the `padding` each call site passes, so these are
+  // the three distinct margins in the app: RookieShare (5), Perp PositionShare
+  // (8), and everything on the default (10).
   it.each([
-    ['RookieShare', 78, 5],
-    ['Perp PositionShare', 115, 8],
-    ['Receive', 176, 10],
-    ['OpenInApp', 224, 10],
+    ['RookieShare', 2.5],
+    ['Perp PositionShare', 4],
+    ['Receive / OpenInApp / Prime', 5],
   ])(
-    'never lets the symbol corner escape the rounded plate for %s',
-    (_surface, size, padding) => {
-      const { canvasSize, qrCodeSize, quietZoneSize } = getQRCodeLayoutMetrics({
-        value: 'https://onekey.so/r/A1B2C3/app',
-        ecl: 'H',
-        size,
-        padding,
-        quietZoneModules: 0,
-      });
+    'keeps the symbol corner inside the rounded plate for %s',
+    (_surface, quietZoneSize) => {
       const radius = getQRCodePlateBorderRadius(quietZoneSize);
 
       expect(radius).toBeGreaterThan(0);
       expect(radius).toBeLessThanOrEqual(QR_CODE_PLATE_BORDER_RADIUS);
-      expect(radius).toBeLessThanOrEqual(canvasSize / 2);
-
       // the symbol's own corner must sit inside the plate's corner arc
-      const inset = (canvasSize - qrCodeSize) / 2;
-      const distanceToArcCentre = Math.SQRT2 * Math.max(radius - inset, 0);
+      const distanceToArcCentre =
+        Math.SQRT2 * Math.max(radius - quietZoneSize, 0);
       expect(distanceToArcCentre).toBeLessThanOrEqual(radius + 1e-9);
     },
   );
 
   it('gives the full radius once the plate margin can carry it', () => {
-    const { quietZoneSize } = getQRCodeLayoutMetrics({
-      value: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      ecl: 'H',
-      size: 176,
-      padding: 10,
-      quietZoneModules: 0,
-    });
-    expect(getQRCodePlateBorderRadius(quietZoneSize)).toBe(
-      QR_CODE_PLATE_BORDER_RADIUS,
-    );
+    expect(getQRCodePlateBorderRadius(5)).toBe(QR_CODE_PLATE_BORDER_RADIUS);
   });
 });
 
@@ -109,34 +92,43 @@ describe('QRCode dot rendering', () => {
     ['Solana', 'So11111111111111111111111111111111111111112'],
   ])('draws every dot on a dark module of the %s matrix', (_chain, value) => {
     const matrix = generateMatrix(value, 'H');
-    const cells = getQRCodeDotCells({
-      matrix,
-      hasLogo: false,
-      logoSize: 0,
-      logoMargin: 0,
-      cellSize: 1,
-    });
+    const size = matrix.length;
+    const cells = getQRCodeDotCells({ matrix });
 
     expect(cells.length).toBeGreaterThan(0);
     for (const { x, y } of cells) {
       expect(matrix[y][x]).toBe(1);
     }
 
-    const size = matrix.length;
-    const expectedCells = matrix.reduce(
-      (total, row, y) =>
+    // count the dark modules independently of the exclusion rule, then remove
+    // the three 7x7 finder squares by their coordinates rather than by
+    // re-stating the predicate the implementation uses
+    const darkModules = matrix.flat().filter(Boolean).length;
+    const finderOrigins = [
+      [0, 0],
+      [0, size - 7],
+      [size - 7, 0],
+    ];
+    const darkInsideFinders = finderOrigins.reduce(
+      (total, [originY, originX]) =>
         total +
-        row.filter(
-          (module, x) =>
-            module &&
-            !(
-              (y < 7 && x < 7) ||
-              (y < 7 && x > size - 8) ||
-              (y > size - 8 && x < 7)
-            ),
-        ).length,
+        matrix
+          .slice(originY, originY + 7)
+          .flatMap((row) => row.slice(originX, originX + 7))
+          .filter(Boolean).length,
       0,
     );
-    expect(cells).toHaveLength(expectedCells);
+    expect(cells).toHaveLength(darkModules - darkInsideFinders);
+  });
+
+  it('drops the modules a logo would cover', () => {
+    const matrix = generateMatrix('https://onekey.so', 'H');
+    const withoutLogo = getQRCodeDotCells({ matrix });
+    const withLogo = getQRCodeDotCells({ matrix, clearArenaModules: 8 });
+
+    expect(withLogo.length).toBeLessThan(withoutLogo.length);
+    for (const { x, y } of withLogo) {
+      expect(matrix[y][x]).toBe(1);
+    }
   });
 });

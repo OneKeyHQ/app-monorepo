@@ -1,17 +1,6 @@
-import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  G,
-  Image,
-  LinearGradient,
-  Path,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Image, Path, Rect } from 'react-native-svg';
 
 import {
   TamaguiTheme as Theme,
@@ -25,10 +14,14 @@ import { Stack } from '../../primitives/Stack';
 import {
   generateMatrix,
   getQRCodeDotCells,
+  getQRCodeDotsPath,
+  getQRCodeFinderRings,
   getQRCodeLayoutMetrics,
+  getQRCodeLogoClearArenaSize,
   getQRCodePlateBorderRadius,
 } from './QRCode.utils';
 
+import type { IQRCodeErrorCorrectionLevel } from './QRCode.utils';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
@@ -36,7 +29,7 @@ export type IQrcodeDrawType = 'dot' | 'line';
 
 type IBasicQRCodeProps = {
   size: number;
-  ecl?: 'L' | 'M' | 'Q' | 'H';
+  ecl?: IQRCodeErrorCorrectionLevel;
   logo?: ImageProps['source'];
   logoSvg?: IIconProps['name'];
   logoSvgColor?: IIconProps['color'];
@@ -46,11 +39,9 @@ type IBasicQRCodeProps = {
   logoMargin?: number;
   logoSize?: number;
   value: string;
-  interval?: number;
-  quietZone?: number;
-  enableLinearGradient?: boolean;
-  gradientDirection?: string[];
-  linearGradient?: string[];
+  // Color of the dark modules. Keep it far from the light background so the
+  // code stays scannable.
+  darkColor?: string;
   drawType?: IQrcodeDrawType;
 };
 
@@ -94,117 +85,64 @@ function BasicQRCode({
   logoSize = DEFAULT_LOGO_SIZE,
   size,
   value,
-  quietZone = 0,
   drawType = 'dot',
-  enableLinearGradient = false,
-  gradientDirection = ['0%', '0%', '100%', '100%'],
-  linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
+  darkColor: darkColorProp,
 }: IBasicQRCodeProps) {
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = getTokenValue('$textLight', 'color');
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
   const logoBackgroundColor = logoBGColor || secondaryColor;
   const hasLogo = Boolean(logo || logoSvg);
-  const darkColor = enableLinearGradient ? 'url(#grad)' : primaryColor;
+  const darkColor = darkColorProp || primaryColor;
   const result = useMemo(() => {
-    const gradientDefs = enableLinearGradient ? (
-      <Defs key="defs">
-        <LinearGradient
-          id="grad"
-          x1={gradientDirection[0]}
-          y1={gradientDirection[1]}
-          x2={gradientDirection[2]}
-          y2={gradientDirection[3]}
-        >
-          <Stop offset="0" stopColor={linearGradient[0]} stopOpacity="1" />
-          <Stop offset="1" stopColor={linearGradient[1]} stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-    ) : null;
     const matrix = generateMatrix(value, ecl);
+    const cellSize = size / matrix.length;
     if (drawType === 'dot') {
-      const arr: ReactElement[] = [];
-      if (gradientDefs) {
-        arr.push(gradientDefs);
-      }
-      const qrList = [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
-        { x: 0, y: 1 },
-      ];
-      const cellSize = size / matrix.length;
-      qrList.forEach(({ x, y }) => {
-        const x1 = (matrix.length - 7) * cellSize * x;
-        const y1 = (matrix.length - 7) * cellSize * y;
-        for (let i = 0; i < 3; i += 1) {
-          arr.push(
-            <Rect
-              key={`Rect${x}${y}${i}`}
-              fill={i % 2 !== 0 ? secondaryColor : darkColor}
-              x={x1 + cellSize * i}
-              y={y1 + cellSize * i}
-              width={cellSize * (7 - i * 2)}
-              height={cellSize * (7 - i * 2)}
-              rx={(i - 3) * -6 + (i === 0 ? 2 : 0)} // calculated border radius for corner squares
-              ry={(i - 3) * -6 + (i === 0 ? 2 : 0)} // calculated border radius for corner squares
-            />,
-          );
-        }
-      });
-
-      getQRCodeDotCells({
-        matrix,
-        hasLogo,
-        logoSize,
-        logoMargin,
+      const clearArenaModules = hasLogo
+        ? getQRCodeLogoClearArenaSize({ logoSize, logoMargin, cellSize })
+        : 0;
+      // one path for the whole dot field: the dots share a fill and never
+      // overlap, so this is a single node instead of one per dark module
+      const dotsPath = getQRCodeDotsPath(
+        getQRCodeDotCells({ matrix, clearArenaModules }),
         cellSize,
-      }).forEach(({ x, y }) => {
-        arr.push(
-          <Circle
-            key={`circle row${y} col${x}`}
-            cx={x * cellSize + cellSize / 2}
-            cy={y * cellSize + cellSize / 2}
-            fill={darkColor}
-            r={cellSize / 3} // calculate size of single dots
-          />,
-        );
-      });
-      return arr;
+      );
+      return (
+        <>
+          {getQRCodeFinderRings({ matrixSize: matrix.length, cellSize }).map(
+            (ring) => (
+              <Rect
+                key={`finder-${ring.x}-${ring.y}-${ring.size}`}
+                fill={ring.isDark ? darkColor : secondaryColor}
+                x={ring.x}
+                y={ring.y}
+                width={ring.size}
+                height={ring.size}
+                rx={ring.radius}
+                ry={ring.radius}
+              />
+            ),
+          )}
+          <Path d={dotsPath} fill={darkColor} />
+        </>
+      );
     }
-    const { path, cellSize } = transformMatrixIntoPath(matrix, size);
+    const { path } = transformMatrixIntoPath(matrix, size);
     return (
-      <>
-        {gradientDefs}
-        <G>
-          <Rect
-            x={-quietZone}
-            y={-quietZone}
-            width={size + quietZone * 2}
-            height={size + quietZone * 2}
-            fill={secondaryColor}
-          />
-        </G>
-        <G>
-          <Path
-            d={path}
-            strokeLinecap="butt"
-            stroke={darkColor}
-            strokeWidth={cellSize}
-          />
-        </G>
-      </>
+      <Path
+        d={path}
+        strokeLinecap="butt"
+        stroke={darkColor}
+        strokeWidth={cellSize}
+      />
     );
   }, [
     ecl,
     darkColor,
-    enableLinearGradient,
-    gradientDirection,
-    linearGradient,
     drawType,
     hasLogo,
     logoMargin,
     logoSize,
-    quietZone,
     secondaryColor,
     size,
     value,
@@ -289,9 +227,6 @@ export function QRCode({
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
-  // An air-gap UR is inherently multi-frame, so its presence is what makes the
-  // code animated. Callers that want a static code pass `value` instead.
-  const isAnimatedCode = Boolean(valueUr);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval> | undefined;
@@ -325,7 +260,9 @@ export function QRCode({
     };
   }, [value, interval, valueUr]);
 
-  const displayValue = isAnimatedCode ? partValue : value || '';
+  // An air-gap UR is inherently multi-frame, so its presence is what makes the
+  // code animated. Callers that want a static code pass `value` instead.
+  const displayValue = valueUr ? partValue : value || '';
   if (!displayValue) {
     // TODO return Skeleton
     return null;
