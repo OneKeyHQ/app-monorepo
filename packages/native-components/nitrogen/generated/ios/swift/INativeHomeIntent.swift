@@ -19,17 +19,41 @@ public extension INativeHomeIntent {
   /**
    * Create a new instance of `INativeHomeIntent`.
    */
-  init(owner: INativeHomeOwnerToken, actionId: NativeHomeHeaderActionId) {
-    self.init(owner, actionId)
+  init(owner: INativeHomeOwnerToken, headerActionId: NativeHomeHeaderActionId?, portfolioItemId: String?) {
+    self.init(owner, { () -> bridge.std__optional_NativeHomeHeaderActionId_ in
+      if let __unwrappedValue = headerActionId {
+        return bridge.create_std__optional_NativeHomeHeaderActionId_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__string_ in
+      if let __unwrappedValue = portfolioItemId {
+        return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+      } else {
+        return .init()
+      }
+    }())
   }
 
   @inline(__always)
   var owner: INativeHomeOwnerToken {
     return self.__owner
   }
-  
+
   @inline(__always)
-  var actionId: NativeHomeHeaderActionId {
-    return self.__actionId
+  var headerActionId: NativeHomeHeaderActionId? {
+    return self.__headerActionId.value
+  }
+
+  @inline(__always)
+  var portfolioItemId: String? {
+    return { () -> String? in
+      if bridge.has_value_std__optional_std__string_(self.__portfolioItemId) {
+        let __unwrapped = bridge.get_std__optional_std__string_(self.__portfolioItemId)
+        return String(__unwrapped)
+      } else {
+        return nil
+      }
+    }()
   }
 }

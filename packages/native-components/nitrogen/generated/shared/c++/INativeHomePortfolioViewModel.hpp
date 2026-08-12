@@ -28,9 +28,15 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
+// Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
 
 #include <string>
+#include "NativeHomePortfolioState.hpp"
+#include "INativeHomePortfolioItemViewModel.hpp"
+#include <vector>
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -39,13 +45,14 @@ namespace margelo::nitro::onekeynativecomponents {
    */
   struct INativeHomePortfolioViewModel final {
   public:
-    bool isDiagnostic     SWIFT_PRIVATE;
     std::string title     SWIFT_PRIVATE;
-    std::string message     SWIFT_PRIVATE;
+    NativeHomePortfolioState state     SWIFT_PRIVATE;
+    std::string emptyText     SWIFT_PRIVATE;
+    std::vector<INativeHomePortfolioItemViewModel> items     SWIFT_PRIVATE;
 
   public:
     INativeHomePortfolioViewModel() = default;
-    explicit INativeHomePortfolioViewModel(bool isDiagnostic, std::string title, std::string message): isDiagnostic(isDiagnostic), title(title), message(message) {}
+    explicit INativeHomePortfolioViewModel(std::string title, NativeHomePortfolioState state, std::string emptyText, std::vector<INativeHomePortfolioItemViewModel> items): title(title), state(state), emptyText(emptyText), items(items) {}
 
   public:
     friend bool operator==(const INativeHomePortfolioViewModel& lhs, const INativeHomePortfolioViewModel& rhs) = default;
@@ -61,16 +68,18 @@ namespace margelo::nitro {
     static inline margelo::nitro::onekeynativecomponents::INativeHomePortfolioViewModel fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::onekeynativecomponents::INativeHomePortfolioViewModel(
-        JSIConverter<bool>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "message")))
+        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state"))),
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "emptyText"))),
+        JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::onekeynativecomponents::INativeHomePortfolioViewModel& arg) {
       jsi::Object obj(runtime);
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic"), JSIConverter<bool>::toJSI(runtime, arg.isDiagnostic));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "title"), JSIConverter<std::string>::toJSI(runtime, arg.title));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "message"), JSIConverter<std::string>::toJSI(runtime, arg.message));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "state"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::toJSI(runtime, arg.state));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "emptyText"), JSIConverter<std::string>::toJSI(runtime, arg.emptyText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "items"), JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::toJSI(runtime, arg.items));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -81,9 +90,10 @@ namespace margelo::nitro {
       if (!nitro::isPlainObject(runtime, obj)) {
         return false;
       }
-      if (!JSIConverter<bool>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDiagnostic")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "title")))) return false;
-      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "message")))) return false;
+      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomePortfolioState>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "state")))) return false;
+      if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "emptyText")))) return false;
+      if (!JSIConverter<std::vector<margelo::nitro::onekeynativecomponents::INativeHomePortfolioItemViewModel>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "items")))) return false;
       return true;
     }
   };

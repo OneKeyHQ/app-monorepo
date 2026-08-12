@@ -1,4 +1,5 @@
 import {
+  type MutableRefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -222,15 +223,24 @@ function isSameActiveAccountTokenListRequestContext(
   );
 }
 
+export type IHomeTokenPressHandler = (token: IAccountToken) => Promise<void>;
+
 function TokenListBlock({
   tableLayout,
   showRecentHistory,
+  producerOnly,
+  forceFocused,
+  tokenPressHandlerRef,
 }: {
   tableLayout?: boolean;
   showRecentHistory?: boolean;
+  producerOnly?: boolean;
+  forceFocused?: boolean;
+  tokenPressHandlerRef?: MutableRefObject<IHomeTokenPressHandler | undefined>;
 }) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
+  const isPortfolioFocused = forceFocused || isFocused;
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
   // when a modal is presented above Home, or when the app is locked. Combined
   // below with `isFocused` (inner Home-tab) so app-resume only refreshes when
@@ -743,7 +753,7 @@ function TokenListBlock({
     ],
     {
       overrideIsFocused: (isPageFocused) =>
-        (isPageFocused && isFocused) || shouldAlwaysFetch,
+        (isPageFocused && isPortfolioFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
       revalidateOnFocus: true,
@@ -2331,6 +2341,19 @@ function TokenListBlock({
     ],
   );
 
+  if (tokenPressHandlerRef) {
+    tokenPressHandlerRef.current = handleOnPressToken;
+  }
+
+  useEffect(
+    () => () => {
+      if (tokenPressHandlerRef?.current === handleOnPressToken) {
+        tokenPressHandlerRef.current = undefined;
+      }
+    },
+    [handleOnPressToken, tokenPressHandlerRef],
+  );
+
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
     defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -2384,12 +2407,12 @@ function TokenListBlock({
 
   useEffect(() => {
     const removeSubscription = onVisibilityStateChange((visible) => {
-      if (visible && isFocused && isRouteFocused) {
+      if (visible && isPortfolioFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();
       }
     });
     return removeSubscription;
-  }, [handleRefreshOnVisibilityActive, isFocused, isRouteFocused]);
+  }, [handleRefreshOnVisibilityActive, isPortfolioFocused, isRouteFocused]);
 
   useEffect(() => {
     const fn = () => {
@@ -2456,7 +2479,7 @@ function TokenListBlock({
       showRecentHistory,
     ],
     {
-      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isPortfolioFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
@@ -2618,7 +2641,7 @@ function TokenListBlock({
     };
 
     const fn = () => {
-      if (isFocused) {
+      if (isPortfolioFocused) {
         refresh(undefined);
       }
     };
@@ -2633,7 +2656,7 @@ function TokenListBlock({
   }, [
     handleRefreshAllNetworkData,
     handleRefreshAllNetworkDataByAccounts,
-    isFocused,
+    isPortfolioFocused,
     network?.isAllNetworks,
     run,
     runAllNetworksRequests,
@@ -2820,6 +2843,10 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
+  if (producerOnly) {
+    return null;
+  }
+
   return (
     <RichBlock
       withTitleSeparator
@@ -2835,4 +2862,18 @@ function TokenListBlock({
   );
 }
 
-export { TokenListBlock };
+function HomeTokenListDataProducer({
+  tokenPressHandlerRef,
+}: {
+  tokenPressHandlerRef: MutableRefObject<IHomeTokenPressHandler | undefined>;
+}) {
+  return (
+    <TokenListBlock
+      forceFocused
+      producerOnly
+      tokenPressHandlerRef={tokenPressHandlerRef}
+    />
+  );
+}
+
+export { HomeTokenListDataProducer, TokenListBlock };

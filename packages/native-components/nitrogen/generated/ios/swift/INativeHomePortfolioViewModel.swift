@@ -19,22 +19,33 @@ public extension INativeHomePortfolioViewModel {
   /**
    * Create a new instance of `INativeHomePortfolioViewModel`.
    */
-  init(isDiagnostic: Bool, title: String, message: String) {
-    self.init(isDiagnostic, std.string(title), std.string(message))
+  init(title: String, state: NativeHomePortfolioState, emptyText: String, items: [INativeHomePortfolioItemViewModel]) {
+    self.init(std.string(title), state, std.string(emptyText), { () -> bridge.std__vector_INativeHomePortfolioItemViewModel_ in
+      var __vector = bridge.create_std__vector_INativeHomePortfolioItemViewModel_(items.count)
+      for __item in items {
+        __vector.push_back(__item)
+      }
+      return __vector
+    }())
   }
 
-  @inline(__always)
-  var isDiagnostic: Bool {
-    return self.__isDiagnostic
-  }
-  
   @inline(__always)
   var title: String {
     return String(self.__title)
   }
-  
+
   @inline(__always)
-  var message: String {
-    return String(self.__message)
+  var state: NativeHomePortfolioState {
+    return self.__state
+  }
+
+  @inline(__always)
+  var emptyText: String {
+    return String(self.__emptyText)
+  }
+
+  @inline(__always)
+  var items: [INativeHomePortfolioItemViewModel] {
+    return self.__items.map({ __item in __item })
   }
 }

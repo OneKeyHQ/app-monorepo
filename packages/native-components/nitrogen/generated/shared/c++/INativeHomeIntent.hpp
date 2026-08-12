@@ -35,6 +35,8 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 
 #include "INativeHomeOwnerToken.hpp"
 #include "NativeHomeHeaderActionId.hpp"
+#include <optional>
+#include <string>
 
 namespace margelo::nitro::onekeynativecomponents {
 
@@ -44,11 +46,12 @@ namespace margelo::nitro::onekeynativecomponents {
   struct INativeHomeIntent final {
   public:
     INativeHomeOwnerToken owner     SWIFT_PRIVATE;
-    NativeHomeHeaderActionId actionId     SWIFT_PRIVATE;
+    std::optional<NativeHomeHeaderActionId> headerActionId     SWIFT_PRIVATE;
+    std::optional<std::string> portfolioItemId     SWIFT_PRIVATE;
 
   public:
     INativeHomeIntent() = default;
-    explicit INativeHomeIntent(INativeHomeOwnerToken owner, NativeHomeHeaderActionId actionId): owner(owner), actionId(actionId) {}
+    explicit INativeHomeIntent(INativeHomeOwnerToken owner, std::optional<NativeHomeHeaderActionId> headerActionId, std::optional<std::string> portfolioItemId): owner(owner), headerActionId(headerActionId), portfolioItemId(portfolioItemId) {}
 
   public:
     friend bool operator==(const INativeHomeIntent& lhs, const INativeHomeIntent& rhs) = default;
@@ -65,13 +68,15 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::onekeynativecomponents::INativeHomeIntent(
         JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "owner"))),
-        JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionId")))
+        JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headerActionId"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::onekeynativecomponents::INativeHomeIntent& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "owner"), JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::toJSI(runtime, arg.owner));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "actionId"), JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::toJSI(runtime, arg.actionId));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "headerActionId"), JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::toJSI(runtime, arg.headerActionId));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.portfolioItemId));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -83,7 +88,8 @@ namespace margelo::nitro {
         return false;
       }
       if (!JSIConverter<margelo::nitro::onekeynativecomponents::INativeHomeOwnerToken>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "owner")))) return false;
-      if (!JSIConverter<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "actionId")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::onekeynativecomponents::NativeHomeHeaderActionId>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headerActionId")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "portfolioItemId")))) return false;
       return true;
     }
   };

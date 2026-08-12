@@ -18,11 +18,23 @@ export function isNativeHomeIntentExecutable({
     return false;
   }
 
-  if (intent.actionId === viewModel.header.balanceActionId) {
+  const hasHeaderAction = intent.headerActionId !== undefined;
+  const hasPortfolioItem = intent.portfolioItemId !== undefined;
+  if (hasHeaderAction === hasPortfolioItem) {
+    return false;
+  }
+
+  if (intent.portfolioItemId) {
+    return viewModel.portfolio.items.some(
+      (item) => item.id === intent.portfolioItemId && item.enabled,
+    );
+  }
+
+  if (intent.headerActionId === viewModel.header.balanceActionId) {
     return viewModel.header.balanceActionEnabled;
   }
 
   return viewModel.header.actions.some(
-    (action) => action.id === intent.actionId && action.enabled,
+    (action) => action.id === intent.headerActionId && action.enabled,
   );
 }

@@ -8,6 +8,18 @@ import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/To
 import { useOwnerScopedHomeBalanceState } from '@onekeyhq/kit/src/hooks/useHomeBalanceState';
 import { useLastConfirmedOverviewBalanceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useListStructureAtom,
+  useTokenListSortAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListContextData } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/atoms';
+import { useHomeTokenListOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
+import { projectHomeDisplayIds } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/homeProjection';
+import {
+  aggCell,
+  cell,
+  meta,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   settingsValuePersistAtom,
@@ -15,25 +27,33 @@ import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import {
   HomeContainer,
   type INativeHomeHeaderActionViewModel,
   type INativeHomeHeaderViewModel,
   type INativeHomeIntent,
   type INativeHomeOwnerToken,
+  type INativeHomePortfolioItemViewModel,
   type INativeHomeViewModel,
   type NativeHomeHeaderActionId,
 } from '@onekeyhq/native-components';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   formatDisplayNumber,
   formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
+import {
+  HomeTokenListDataProducer,
+  type IHomeTokenPressHandler,
+} from '../components/TokenListBlock/TokenListBlock';
 import { useWalletActionSend } from '../components/WalletActions';
 import { useWalletActionConfig } from '../components/WalletActions/useWalletActionConfig';
 import { useWalletActionBuyMain } from '../components/WalletActions/WalletActionBuyMain';
@@ -45,6 +65,7 @@ import { useWalletActionSwap } from '../components/WalletActions/WalletActionSwa
 import { useHomeOverviewResolvedBalance } from '../hooks/useHomeOverviewResolvedBalance';
 
 import { isNativeHomeIntentExecutable } from './nativeHomeIntentValidation';
+import { buildNativeHomePortfolioViewModel } from './nativeHomePortfolioViewModel';
 
 import type { IWalletActionType } from '../components/WalletActions/types';
 
@@ -340,17 +361,110 @@ function useNativeHomeHeaderActions(): {
   };
 }
 
+function useNativeHomePortfolio(): {
+  portfolio: INativeHomeViewModel['portfolio'];
+  tokensById: Map<string, IAccountToken>;
+} {
+  const intl = useIntl();
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
+  const ownerKey = useHomeTokenListOwnerKey();
+  const [listStructure] = useListStructureAtom();
+  const [{ sortType, sortDirection }] = useTokenListSortAtom();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const tokenListStore = useTokenListContextData().store!;
+  const ownerMatches = !!ownerKey && listStructure.ownerKey === ownerKey;
+
+  return useMemo(() => {
+    const getMeta = (key: string) =>
+      tokenListStore.get(meta(tokenListStore, key));
+    const getFiat = (key: string) => {
+      const token = getMeta(key);
+      return isAgg(key, token)
+        ? tokenListStore.get(aggCell(tokenListStore, key))
+        : tokenListStore.get(cell(tokenListStore, key));
+    };
+    const displayIds = ownerMatches
+      ? projectHomeDisplayIds({
+          orderedIds: listStructure.orderedIds,
+          smallBalanceIds: listStructure.smallBalanceIds,
+          nonZeroIds: listStructure.nonZeroIds,
+          searchKey: '',
+          sortType,
+          sortDirection,
+          hideZero: !!network?.isAllNetworks,
+          hideDeFiMarked: true,
+          getFiat,
+          getMeta,
+        })
+      : [];
+    const tokensById = new Map<string, IAccountToken>();
+    const items = displayIds
+      .map((id): INativeHomePortfolioItemViewModel | undefined => {
+        const tokenMeta = getMeta(id);
+        if (!tokenMeta) return undefined;
+
+        const token = { $key: id, ...tokenMeta } as IAccountToken;
+        tokensById.set(id, token);
+        const networkLogo = network?.isAllNetworks
+          ? networkUtils.getLocalNetworkInfo(token.networkId ?? '')?.logoURI
+          : undefined;
+        return {
+          id,
+          symbol: token.isAggregateToken
+            ? (token.commonSymbol ?? token.symbol ?? '')
+            : (token.symbol ?? ''),
+          iconUrl: token.logoURI ?? '',
+          networkIconUrl: networkLogo ?? '',
+          enabled: true,
+        };
+      })
+      .filter((item): item is INativeHomePortfolioItemViewModel => !!item);
+
+    return {
+      portfolio: buildNativeHomePortfolioViewModel({
+        ownerMatches,
+        generation: listStructure.generation,
+        sourceItemCount: displayIds.length,
+        items,
+        title: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        }),
+        emptyText: intl.formatMessage({
+          id: ETranslations.send_no_token_message,
+        }),
+      }),
+      tokensById,
+    };
+  }, [
+    intl,
+    listStructure,
+    network?.isAllNetworks,
+    ownerMatches,
+    sortDirection,
+    sortType,
+    tokenListStore,
+  ]);
+}
+
 function NativeHomeContent({
   sceneName,
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  const intl = useIntl();
   const colorScheme = useColorScheme();
   const owner = useNativeHomeOwnerToken(sceneName);
   const balance = useNativeHomeHeaderBalance();
   const headerActions = useNativeHomeHeaderActions();
+  const { portfolio, tokensById } = useNativeHomePortfolio();
   const viewModelRef = useRef<INativeHomeViewModel | null>(null);
   const actionHandlersRef = useRef<IHeaderActionHandlers>({});
+  const portfolioTokensRef = useRef<Map<string, IAccountToken>>(new Map());
+  const tokenPressHandlerRef = useRef<IHomeTokenPressHandler | undefined>(
+    undefined,
+  );
 
   const state = useMemo<INativeHomeViewModel>(() => {
     return {
@@ -367,16 +481,11 @@ function NativeHomeContent({
       tabs: [
         {
           id: 'portfolio',
-          title: 'Portfolio',
+          title: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
           enabled: true,
         },
       ],
-      portfolio: {
-        isDiagnostic: true,
-        title: 'Portfolio migration is next',
-        message:
-          'Header data and actions are native. Portfolio remains a non-interactive Slice 2 shell.',
-      },
+      portfolio,
       theme:
         colorScheme === 'dark'
           ? {
@@ -404,26 +513,41 @@ function NativeHomeContent({
     headerActions.actionLayout,
     headerActions.actionSubtitle,
     headerActions.actions,
+    intl,
     owner,
+    portfolio,
   ]);
   viewModelRef.current = state;
   actionHandlersRef.current = headerActions.handlers;
+  portfolioTokensRef.current = tokensById;
 
   const handleIntent = useCallback((intent: INativeHomeIntent) => {
     const currentViewModel = viewModelRef.current;
     if (!isNativeHomeIntentExecutable({ intent, viewModel: currentViewModel }))
       return;
 
-    const handler = actionHandlersRef.current[intent.actionId];
-    if (handler) void handler();
+    if (intent.headerActionId) {
+      const handler = actionHandlersRef.current[intent.headerActionId];
+      if (handler) void handler();
+      return;
+    }
+
+    if (intent.portfolioItemId) {
+      const token = portfolioTokensRef.current.get(intent.portfolioItemId);
+      const handler = tokenPressHandlerRef.current;
+      if (token && handler) void handler(token);
+    }
   }, []);
 
   return (
-    <HomeContainer
-      style={styles.container}
-      state={state}
-      onIntent={handleIntent}
-    />
+    <>
+      <HomeTokenListDataProducer tokenPressHandlerRef={tokenPressHandlerRef} />
+      <HomeContainer
+        style={styles.container}
+        state={state}
+        onIntent={handleIntent}
+      />
+    </>
   );
 }
 

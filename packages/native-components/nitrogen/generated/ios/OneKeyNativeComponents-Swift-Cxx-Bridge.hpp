@@ -18,6 +18,8 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewM
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
@@ -36,6 +38,8 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
 // Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
@@ -49,6 +53,7 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 #include "INativeHomeHeaderViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
+#include "INativeHomePortfolioItemViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
@@ -58,6 +63,7 @@ namespace OneKeyNativeComponents { class HybridHomeContainerSpec_cxx; }
 #include "NativeHomeHeaderActionId.hpp"
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
+#include "NativeHomePortfolioState.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>
@@ -81,7 +87,7 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
   // pragma MARK: std::vector<INativeHomeTabViewModel>
   /**
    * Specialized version of `std::vector<INativeHomeTabViewModel>`.
@@ -92,7 +98,18 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
     vector.reserve(size);
     return vector;
   }
-  
+
+  // pragma MARK: std::vector<INativeHomePortfolioItemViewModel>
+  /**
+   * Specialized version of `std::vector<INativeHomePortfolioItemViewModel>`.
+   */
+  using std__vector_INativeHomePortfolioItemViewModel_ = std::vector<INativeHomePortfolioItemViewModel>;
+  inline std::vector<INativeHomePortfolioItemViewModel> create_std__vector_INativeHomePortfolioItemViewModel_(size_t size) noexcept {
+    std::vector<INativeHomePortfolioItemViewModel> vector;
+    vector.reserve(size);
+    return vector;
+  }
+
   // pragma MARK: std::optional<INativeHomeViewModel>
   /**
    * Specialized version of `std::optional<INativeHomeViewModel>`.
@@ -107,7 +124,37 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
   inline INativeHomeViewModel get_std__optional_INativeHomeViewModel_(const std::optional<INativeHomeViewModel>& optional) noexcept {
     return *optional;
   }
-  
+
+  // pragma MARK: std::optional<NativeHomeHeaderActionId>
+  /**
+   * Specialized version of `std::optional<NativeHomeHeaderActionId>`.
+   */
+  using std__optional_NativeHomeHeaderActionId_ = std::optional<NativeHomeHeaderActionId>;
+  inline std::optional<NativeHomeHeaderActionId> create_std__optional_NativeHomeHeaderActionId_(const NativeHomeHeaderActionId& value) noexcept {
+    return std::optional<NativeHomeHeaderActionId>(value);
+  }
+  inline bool has_value_std__optional_NativeHomeHeaderActionId_(const std::optional<NativeHomeHeaderActionId>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline NativeHomeHeaderActionId get_std__optional_NativeHomeHeaderActionId_(const std::optional<NativeHomeHeaderActionId>& optional) noexcept {
+    return *optional;
+  }
+
+  // pragma MARK: std::optional<std::string>
+  /**
+   * Specialized version of `std::optional<std::string>`.
+   */
+  using std__optional_std__string_ = std::optional<std::string>;
+  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
+    return std::optional<std::string>(value);
+  }
+  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
+    return *optional;
+  }
+
   // pragma MARK: std::function<void(const INativeHomeIntent& /* intent */)>
   /**
    * Specialized version of `std::function<void(const INativeHomeIntent&)>`.
@@ -129,7 +176,7 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
   inline Func_void_INativeHomeIntent_Wrapper wrap_Func_void_INativeHomeIntent(Func_void_INativeHomeIntent value) noexcept {
     return Func_void_INativeHomeIntent_Wrapper(std::move(value));
   }
-  
+
   // pragma MARK: std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>
   /**
    * Specialized version of `std::optional<std::function<void(const INativeHomeIntent& / * intent * /)>>`.
@@ -144,7 +191,7 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
   inline std::function<void(const INativeHomeIntent& /* intent */)> get_std__optional_std__function_void_const_INativeHomeIntent_____intent______(const std::optional<std::function<void(const INativeHomeIntent& /* intent */)>>& optional) noexcept {
     return *optional;
   }
-  
+
   // pragma MARK: std::shared_ptr<HybridHomeContainerSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridHomeContainerSpec>`.
@@ -152,7 +199,7 @@ namespace margelo::nitro::onekeynativecomponents::bridge::swift {
   using std__shared_ptr_HybridHomeContainerSpec_ = std::shared_ptr<HybridHomeContainerSpec>;
   std::shared_ptr<HybridHomeContainerSpec> create_std__shared_ptr_HybridHomeContainerSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
   void* NON_NULL get_std__shared_ptr_HybridHomeContainerSpec_(std__shared_ptr_HybridHomeContainerSpec_ cppType);
-  
+
   // pragma MARK: std::weak_ptr<HybridHomeContainerSpec>
   using std__weak_ptr_HybridHomeContainerSpec_ = std::weak_ptr<HybridHomeContainerSpec>;
   inline std__weak_ptr_HybridHomeContainerSpec_ weakify_std__shared_ptr_HybridHomeContainerSpec_(const std::shared_ptr<HybridHomeContainerSpec>& strong) noexcept { return strong; }

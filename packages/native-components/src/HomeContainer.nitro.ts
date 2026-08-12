@@ -14,6 +14,7 @@ export type NativeHomeTabId =
 export type NativeHomeColorScheme = 'light' | 'dark';
 export type NativeHomeHeaderState = 'loading' | 'ready';
 export type NativeHomeHeaderActionLayout = 'loading' | 'zero' | 'funded';
+export type NativeHomePortfolioState = 'initialLoading' | 'ready' | 'empty';
 export type NativeHomeHeaderActionId =
   | 'addMoney'
   | 'buy'
@@ -74,9 +75,18 @@ export interface INativeHomeHeaderActionViewModel {
 }
 
 export interface INativeHomePortfolioViewModel {
-  isDiagnostic: boolean;
   title: string;
-  message: string;
+  state: NativeHomePortfolioState;
+  emptyText: string;
+  items: INativeHomePortfolioItemViewModel[];
+}
+
+export interface INativeHomePortfolioItemViewModel {
+  id: string;
+  symbol: string;
+  iconUrl: string;
+  networkIconUrl: string;
+  enabled: boolean;
 }
 
 export interface INativeHomeViewModel {
@@ -91,7 +101,8 @@ export interface INativeHomeViewModel {
 
 export interface INativeHomeIntent {
   owner: INativeHomeOwnerToken;
-  actionId: NativeHomeHeaderActionId;
+  headerActionId?: NativeHomeHeaderActionId;
+  portfolioItemId?: string;
 }
 
 export interface IHomeContainerNativeProps extends HybridViewProps {

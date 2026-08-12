@@ -7,6 +7,7 @@ export type {
   INativeHomeHeaderViewModel,
   INativeHomeIntent,
   INativeHomeOwnerToken,
+  INativeHomePortfolioItemViewModel,
   INativeHomePortfolioViewModel,
   INativeHomeTabViewModel,
   INativeHomeThemeViewModel,
@@ -16,5 +17,6 @@ export type {
   NativeHomeHeaderActionId,
   NativeHomeHeaderActionLayout,
   NativeHomeHeaderState,
+  NativeHomePortfolioState,
   NativeHomeTabId,
 } from './HomeContainer.nitro';

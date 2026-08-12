@@ -18,6 +18,8 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeHeaderViewM
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 // Forward declaration of `INativeHomeOwnerToken` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeOwnerToken; }
+// Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
 // Forward declaration of `INativeHomeTabViewModel` to properly resolve imports.
@@ -36,6 +38,8 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderActionLayout; }
 // Forward declaration of `NativeHomeHeaderState` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderState; }
+// Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
 // Forward declaration of `NativeHomeTabId` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 
@@ -45,6 +49,7 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 #include "INativeHomeHeaderViewModel.hpp"
 #include "INativeHomeIntent.hpp"
 #include "INativeHomeOwnerToken.hpp"
+#include "INativeHomePortfolioItemViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
@@ -54,6 +59,7 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeTabId; }
 #include "NativeHomeHeaderActionId.hpp"
 #include "NativeHomeHeaderActionLayout.hpp"
 #include "NativeHomeHeaderState.hpp"
+#include "NativeHomePortfolioState.hpp"
 #include "NativeHomeTabId.hpp"
 #include <functional>
 #include <memory>

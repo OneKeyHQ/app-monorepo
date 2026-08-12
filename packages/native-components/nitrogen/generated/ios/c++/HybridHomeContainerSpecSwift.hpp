@@ -34,6 +34,10 @@ namespace margelo::nitro::onekeynativecomponents { enum class NativeHomeHeaderAc
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeTabViewModel; }
 // Forward declaration of `INativeHomePortfolioViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioViewModel; }
+// Forward declaration of `NativeHomePortfolioState` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { enum class NativeHomePortfolioState; }
+// Forward declaration of `INativeHomePortfolioItemViewModel` to properly resolve imports.
+namespace margelo::nitro::onekeynativecomponents { struct INativeHomePortfolioItemViewModel; }
 // Forward declaration of `INativeHomeThemeViewModel` to properly resolve imports.
 namespace margelo::nitro::onekeynativecomponents { struct INativeHomeThemeViewModel; }
 // Forward declaration of `NativeHomeColorScheme` to properly resolve imports.
@@ -55,6 +59,8 @@ namespace margelo::nitro::onekeynativecomponents { struct INativeHomeIntent; }
 #include "NativeHomeHeaderActionIcon.hpp"
 #include "INativeHomeTabViewModel.hpp"
 #include "INativeHomePortfolioViewModel.hpp"
+#include "NativeHomePortfolioState.hpp"
+#include "INativeHomePortfolioItemViewModel.hpp"
 #include "INativeHomeThemeViewModel.hpp"
 #include "NativeHomeColorScheme.hpp"
 #include "INativeHomeIntent.hpp"
@@ -123,7 +129,7 @@ namespace margelo::nitro::onekeynativecomponents {
 
   public:
     // Methods
-    
+
 
   private:
     OneKeyNativeComponents::HybridHomeContainerSpec_cxx _swiftPart;

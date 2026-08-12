@@ -24,7 +24,20 @@ function buildViewModel(): INativeHomeViewModel {
       ],
     },
     tabs: [{ id: 'portfolio', title: 'Portfolio', enabled: true }],
-    portfolio: { isDiagnostic: true, title: '', message: '' },
+    portfolio: {
+      title: 'Tokens',
+      state: 'ready',
+      emptyText: 'No tokens',
+      items: [
+        {
+          id: 'eth',
+          symbol: 'ETH',
+          iconUrl: '',
+          networkIconUrl: '',
+          enabled: true,
+        },
+      ],
+    },
     theme: {
       colorScheme: 'light',
       backgroundColor: '#FFFFFF',
@@ -42,12 +55,12 @@ describe('Native Home intent validation', () => {
     const viewModel = buildViewModel();
     const intent: INativeHomeIntent = {
       owner: viewModel.owner,
-      actionId: 'send',
+      headerActionId: 'send',
     };
     expect(isNativeHomeIntentExecutable({ intent, viewModel })).toBe(true);
     expect(
       isNativeHomeIntentExecutable({
-        intent: { ...intent, actionId: 'buy' },
+        intent: { ...intent, headerActionId: 'buy' },
         viewModel,
       }),
     ).toBe(false);
@@ -57,7 +70,7 @@ describe('Native Home intent validation', () => {
     const viewModel = buildViewModel();
     const staleIntent: INativeHomeIntent = {
       owner: { ...viewModel.owner, sessionId: 'a:1' },
-      actionId: 'send',
+      headerActionId: 'send',
     };
     expect(
       isNativeHomeIntentExecutable({ intent: staleIntent, viewModel }),
@@ -68,7 +81,37 @@ describe('Native Home intent validation', () => {
     const viewModel = buildViewModel();
     expect(
       isNativeHomeIntentExecutable({
-        intent: { owner: viewModel.owner, actionId: 'receive' },
+        intent: { owner: viewModel.owner, headerActionId: 'receive' },
+        viewModel,
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts only an enabled Portfolio item from the current ViewModel', () => {
+    const viewModel = buildViewModel();
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: { owner: viewModel.owner, portfolioItemId: 'eth' },
+        viewModel,
+      }),
+    ).toBe(true);
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: { owner: viewModel.owner, portfolioItemId: 'btc' },
+        viewModel,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects ambiguous intents carrying two commands', () => {
+    const viewModel = buildViewModel();
+    expect(
+      isNativeHomeIntentExecutable({
+        intent: {
+          owner: viewModel.owner,
+          headerActionId: 'send',
+          portfolioItemId: 'eth',
+        },
         viewModel,
       }),
     ).toBe(false);

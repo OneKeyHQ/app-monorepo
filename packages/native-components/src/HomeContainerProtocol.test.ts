@@ -34,9 +34,18 @@ describe('Native Home protocol', () => {
         },
       ],
       portfolio: {
-        isDiagnostic: true,
-        title: 'Portfolio shell',
-        message: 'No business data is rendered in Slice 1.',
+        title: 'Tokens',
+        state: 'ready',
+        emptyText: 'No tokens',
+        items: [
+          {
+            id: 'eth',
+            symbol: 'ETH',
+            iconUrl: 'https://example.com/eth.png',
+            networkIconUrl: '',
+            enabled: true,
+          },
+        ],
       },
       theme: {
         colorScheme: 'dark',
@@ -54,6 +63,7 @@ describe('Native Home protocol', () => {
       sessionId: 'session-1',
     });
     expect(state.tabs).toHaveLength(1);
+    expect(state.portfolio.items[0]?.id).toBe('eth');
     expect('sections' in state).toBe(false);
   });
 });

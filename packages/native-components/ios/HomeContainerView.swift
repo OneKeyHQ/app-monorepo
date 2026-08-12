@@ -1,22 +1,51 @@
 import UIKit
 
 final class HomeContainerView: UIView {
-  private let scrollView = UIScrollView()
-  private let contentStack = UIStackView()
+  private enum Section: Hashable {
+    case portfolio
+  }
+
+  private enum Item: Hashable {
+    case title
+    case token(String)
+    case loading(Int)
+    case empty
+  }
+
+  private struct PortfolioRow {
+    let id: String
+    let symbol: String
+    let iconURL: String
+    let networkIconURL: String
+    let enabled: Bool
+  }
+
+  private static let fundedHeaderHeight: CGFloat = 182
+  private static let zeroHeaderHeight: CGFloat = 214
+
+  private let collectionLayout = HomeContainerCollectionLayout()
+  private lazy var collectionView = UICollectionView(
+    frame: .zero,
+    collectionViewLayout: collectionLayout
+  )
+  private let headerHost = UIView()
+  private let headerStack = UIStackView()
   private let balanceHost = UIView()
   private let balanceButton = UIButton(type: .system)
   private let balanceSkeleton = UIView()
   private let actionSubtitleLabel = UILabel()
   private let actionsScrollView = UIScrollView()
   private let actionsStack = UIStackView()
-  private let tabHost = UIView()
-  private let tabLabel = UILabel()
-  private let portfolioCard = UIView()
-  private let portfolioTitleLabel = UILabel()
-  private let portfolioMessageLabel = UILabel()
 
   private var currentState: INativeHomeViewModel?
   private var onIntent: ((_ intent: INativeHomeIntent) -> Void)?
+  private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
+  private var portfolioRows: [String: PortfolioRow] = [:]
+  private var portfolioTitle = ""
+  private var portfolioEmptyText = ""
+  private var currentHeaderHeight = HomeContainerView.fundedHeaderHeight
+  private var currentOwnerSessionId = ""
+  private var tabTitle = ""
   private var actionSurfaceColor = UIColor.secondarySystemBackground
   private var actionActiveSurfaceColor = UIColor.tertiarySystemBackground
   private var actionForegroundColor = UIColor.label
@@ -25,6 +54,10 @@ final class HomeContainerView: UIView {
   private var actionPrimaryForegroundColor = UIColor.systemBackground
   private var balancePrimaryColor = UIColor.label
   private var balanceDisabledColor = UIColor.tertiaryLabel
+  private var portfolioBackgroundColor = UIColor.systemBackground
+  private var portfolioSurfaceColor = UIColor.secondarySystemBackground
+  private var portfolioPrimaryTextColor = UIColor.label
+  private var portfolioSecondaryTextColor = UIColor.secondaryLabel
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -47,14 +80,32 @@ final class HomeContainerView: UIView {
     guard let state else {
       balanceButton.isEnabled = false
       actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+      portfolioRows = [:]
+      applyPortfolioSnapshot(animatingDifferences: false)
       return
     }
 
+    let ownerChanged = currentOwnerSessionId != state.owner.sessionId
+    if ownerChanged {
+      currentOwnerSessionId = state.owner.sessionId
+    }
     applyTheme(state.theme)
     applyHeader(state.header)
-    tabLabel.text = state.tabs.first(where: { $0.id == state.selectedTab })?.title
-    portfolioTitleLabel.text = state.portfolio.title
-    portfolioMessageLabel.text = state.portfolio.message
+    tabTitle = state.tabs.first(where: { $0.id == state.selectedTab })?.title ?? ""
+    portfolioTitle = state.portfolio.title
+    portfolioEmptyText = state.portfolio.emptyText
+    var rows: [String: PortfolioRow] = [:]
+    for item in state.portfolio.items {
+      rows[item.id] = PortfolioRow(
+        id: item.id,
+        symbol: item.symbol,
+        iconURL: item.iconUrl,
+        networkIconURL: item.networkIconUrl,
+        enabled: item.enabled
+      )
+    }
+    portfolioRows = rows
+    applyPortfolioSnapshot(animatingDifferences: !ownerChanged)
   }
 
   func dispose() {
@@ -62,20 +113,37 @@ final class HomeContainerView: UIView {
     onIntent = nil
     balanceButton.isEnabled = false
     actionsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+    portfolioRows = [:]
+    applyPortfolioSnapshot(animatingDifferences: false)
   }
 
   private func configureView() {
-    accessibilityIdentifier = "native-home-slice-2"
+    accessibilityIdentifier = "native-home-slice-3"
 
-    scrollView.alwaysBounceVertical = true
-    scrollView.showsVerticalScrollIndicator = false
-    scrollView.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(scrollView)
+    collectionLayout.minimumLineSpacing = 0
+    collectionLayout.minimumInteritemSpacing = 0
+    collectionView.alwaysBounceVertical = true
+    collectionView.showsVerticalScrollIndicator = false
+    collectionView.contentInsetAdjustmentBehavior = .never
+    collectionView.contentInset = UIEdgeInsets(
+      top: currentHeaderHeight,
+      left: 0,
+      bottom: 96,
+      right: 0
+    )
+    collectionView.scrollIndicatorInsets = collectionView.contentInset
+    collectionView.delegate = self
+    collectionView.accessibilityIdentifier = "native-home-portfolio-list"
+    collectionView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(collectionView)
 
-    contentStack.axis = .vertical
-    contentStack.spacing = 20
-    contentStack.translatesAutoresizingMaskIntoConstraints = false
-    scrollView.addSubview(contentStack)
+    headerHost.translatesAutoresizingMaskIntoConstraints = true
+    collectionView.addSubview(headerHost)
+
+    headerStack.axis = .vertical
+    headerStack.spacing = 0
+    headerStack.translatesAutoresizingMaskIntoConstraints = false
+    headerHost.addSubview(headerStack)
 
     balanceHost.translatesAutoresizingMaskIntoConstraints = false
     balanceHost.heightAnchor.constraint(equalToConstant: 48).isActive = true
@@ -110,48 +178,41 @@ final class HomeContainerView: UIView {
     actionsStack.translatesAutoresizingMaskIntoConstraints = false
     actionsScrollView.addSubview(actionsStack)
 
-    tabHost.translatesAutoresizingMaskIntoConstraints = false
-    tabHost.heightAnchor.constraint(equalToConstant: 52).isActive = true
-    tabLabel.font = HomeContainerTypography.semibold(18)
-    tabLabel.adjustsFontForContentSizeCategory = false
-    tabLabel.translatesAutoresizingMaskIntoConstraints = false
-    tabHost.addSubview(tabLabel)
+    headerStack.addArrangedSubview(balanceHost)
+    headerStack.addArrangedSubview(actionSubtitleLabel)
+    headerStack.setCustomSpacing(20, after: balanceHost)
+    headerStack.setCustomSpacing(12, after: actionSubtitleLabel)
+    headerStack.addArrangedSubview(actionsScrollView)
 
-    portfolioCard.layer.cornerRadius = 16
-    portfolioCard.translatesAutoresizingMaskIntoConstraints = false
-    let portfolioStack = UIStackView(arrangedSubviews: [
-      portfolioTitleLabel,
-      portfolioMessageLabel,
-    ])
-    portfolioStack.axis = .vertical
-    portfolioStack.spacing = 10
-    portfolioStack.translatesAutoresizingMaskIntoConstraints = false
-    portfolioCard.addSubview(portfolioStack)
+    collectionView.register(
+      HomeContainerPortfolioTitleCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioTitleCell.reuseIdentifier
+    )
+    collectionView.register(
+      HomeContainerPortfolioTokenCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioTokenCell.reuseIdentifier
+    )
+    collectionView.register(
+      HomeContainerPortfolioStatusCell.self,
+      forCellWithReuseIdentifier: HomeContainerPortfolioStatusCell.reuseIdentifier
+    )
+    collectionView.register(
+      HomeContainerTabHeaderView.self,
+      forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+      withReuseIdentifier: HomeContainerTabHeaderView.reuseIdentifier
+    )
 
-    portfolioTitleLabel.font = HomeContainerTypography.regular(22)
-    portfolioTitleLabel.adjustsFontForContentSizeCategory = false
-    portfolioMessageLabel.font = HomeContainerTypography.regular(17)
-    portfolioMessageLabel.adjustsFontForContentSizeCategory = false
-    portfolioMessageLabel.numberOfLines = 0
-
-    contentStack.addArrangedSubview(balanceHost)
-    contentStack.addArrangedSubview(actionSubtitleLabel)
-    contentStack.setCustomSpacing(20, after: balanceHost)
-    contentStack.setCustomSpacing(12, after: actionSubtitleLabel)
-    contentStack.addArrangedSubview(actionsScrollView)
-    contentStack.setCustomSpacing(32, after: actionsScrollView)
-    contentStack.addArrangedSubview(tabHost)
-    contentStack.addArrangedSubview(portfolioCard)
+    configureDataSource()
 
     NSLayoutConstraint.activate([
-      scrollView.topAnchor.constraint(equalTo: topAnchor),
-      scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-      scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-      contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
-      contentStack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 20),
-      contentStack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -20),
-      contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
+      collectionView.topAnchor.constraint(equalTo: topAnchor),
+      collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      collectionView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      headerStack.topAnchor.constraint(equalTo: headerHost.topAnchor, constant: 20),
+      headerStack.leadingAnchor.constraint(equalTo: headerHost.leadingAnchor, constant: 20),
+      headerStack.trailingAnchor.constraint(equalTo: headerHost.trailingAnchor, constant: -20),
+      headerStack.bottomAnchor.constraint(equalTo: headerHost.bottomAnchor, constant: -32),
       balanceButton.topAnchor.constraint(equalTo: balanceHost.topAnchor),
       balanceButton.leadingAnchor.constraint(equalTo: balanceHost.leadingAnchor),
       balanceButton.trailingAnchor.constraint(equalTo: balanceHost.trailingAnchor),
@@ -165,15 +226,22 @@ final class HomeContainerView: UIView {
       actionsStack.topAnchor.constraint(equalTo: actionsScrollView.contentLayoutGuide.topAnchor),
       actionsStack.bottomAnchor.constraint(equalTo: actionsScrollView.contentLayoutGuide.bottomAnchor),
       actionsStack.heightAnchor.constraint(equalTo: actionsScrollView.frameLayoutGuide.heightAnchor),
-      tabLabel.leadingAnchor.constraint(equalTo: tabHost.leadingAnchor),
-      tabLabel.trailingAnchor.constraint(lessThanOrEqualTo: tabHost.trailingAnchor),
-      tabLabel.topAnchor.constraint(equalTo: tabHost.topAnchor, constant: 14),
-      tabLabel.heightAnchor.constraint(equalToConstant: 24),
-      portfolioStack.topAnchor.constraint(equalTo: portfolioCard.topAnchor, constant: 20),
-      portfolioStack.leadingAnchor.constraint(equalTo: portfolioCard.leadingAnchor, constant: 20),
-      portfolioStack.trailingAnchor.constraint(equalTo: portfolioCard.trailingAnchor, constant: -20),
-      portfolioStack.bottomAnchor.constraint(equalTo: portfolioCard.bottomAnchor, constant: -20),
     ])
+
+    collectionView.setContentOffset(
+      CGPoint(x: 0, y: -currentHeaderHeight),
+      animated: false
+    )
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    headerHost.frame = CGRect(
+      x: 0,
+      y: -currentHeaderHeight,
+      width: collectionView.bounds.width,
+      height: currentHeaderHeight
+    )
   }
 
   private func applyTheme(_ theme: INativeHomeThemeViewModel) {
@@ -185,14 +253,11 @@ final class HomeContainerView: UIView {
     let accent = UIColor(homeHex: theme.accentColor, fallback: .systemGreen)
 
     backgroundColor = background
-    scrollView.backgroundColor = background
+    collectionView.backgroundColor = background
+    headerHost.backgroundColor = background
     balanceButton.setTitleColor(primary, for: .normal)
     balanceSkeleton.backgroundColor = surface
     actionSubtitleLabel.textColor = secondary
-    tabLabel.textColor = primary
-    portfolioCard.backgroundColor = surface
-    portfolioTitleLabel.textColor = primary
-    portfolioMessageLabel.textColor = secondary
     actionSurfaceColor = surface
     actionActiveSurfaceColor = primary.withAlphaComponent(
       theme.colorScheme == .dark ? 0.134 : 0.122
@@ -203,6 +268,10 @@ final class HomeContainerView: UIView {
     actionPrimaryForegroundColor = background
     balancePrimaryColor = primary
     balanceDisabledColor = disabled
+    portfolioBackgroundColor = background
+    portfolioSurfaceColor = surface
+    portfolioPrimaryTextColor = primary
+    portfolioSecondaryTextColor = secondary
     tintColor = primary
   }
 
@@ -222,13 +291,135 @@ final class HomeContainerView: UIView {
     case .loading:
       actionSubtitleLabel.text = header.actionSubtitle
       showLoadingActions()
+      updateHeaderHeight(Self.fundedHeaderHeight)
     case .zero:
       actionSubtitleLabel.text = header.actionSubtitle
       showActions(header.actions, layout: .zero)
+      updateHeaderHeight(Self.zeroHeaderHeight)
     case .funded:
       actionSubtitleLabel.text = header.actionSubtitle
       showActions(header.actions, layout: .funded)
+      updateHeaderHeight(Self.fundedHeaderHeight)
     }
+  }
+
+  private func updateHeaderHeight(_ height: CGFloat) {
+    guard height != currentHeaderHeight else { return }
+    let previousHeight = currentHeaderHeight
+    currentHeaderHeight = height
+    collectionView.contentInset.top = height
+    collectionView.scrollIndicatorInsets.top = height
+    collectionView.contentOffset.y -= height - previousHeight
+    setNeedsLayout()
+  }
+
+  private func configureDataSource() {
+    dataSource = UICollectionViewDiffableDataSource<Section, Item>(
+      collectionView: collectionView
+    ) { [weak self] collectionView, indexPath, item in
+      guard let self else { return nil }
+      switch item {
+      case .title:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioTitleCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioTitleCell
+        cell?.apply(
+          title: portfolioTitle,
+          backgroundColor: portfolioBackgroundColor,
+          textColor: portfolioPrimaryTextColor
+        )
+        return cell
+      case let .token(id):
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioTokenCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioTokenCell
+        if let row = portfolioRows[id] {
+          cell?.apply(
+            id: row.id,
+            symbol: row.symbol,
+            iconURL: row.iconURL,
+            networkIconURL: row.networkIconURL,
+            enabled: row.enabled,
+            backgroundColor: portfolioBackgroundColor,
+            surfaceColor: portfolioSurfaceColor,
+            primaryTextColor: portfolioPrimaryTextColor
+          )
+        }
+        return cell
+      case .loading:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioTokenCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioTokenCell
+        cell?.applyLoading(
+          backgroundColor: portfolioBackgroundColor,
+          surfaceColor: portfolioSurfaceColor
+        )
+        return cell
+      case .empty:
+        let cell = collectionView.dequeueReusableCell(
+          withReuseIdentifier: HomeContainerPortfolioStatusCell.reuseIdentifier,
+          for: indexPath
+        ) as? HomeContainerPortfolioStatusCell
+        cell?.apply(
+          text: portfolioEmptyText,
+          backgroundColor: portfolioBackgroundColor,
+          textColor: portfolioSecondaryTextColor,
+          surfaceColor: portfolioSurfaceColor
+        )
+        return cell
+      }
+    }
+
+    dataSource?.supplementaryViewProvider = {
+      [weak self] collectionView, kind, indexPath in
+      guard let self, kind == UICollectionView.elementKindSectionHeader else {
+        return nil
+      }
+      let view = collectionView.dequeueReusableSupplementaryView(
+        ofKind: kind,
+        withReuseIdentifier: HomeContainerTabHeaderView.reuseIdentifier,
+        for: indexPath
+      ) as? HomeContainerTabHeaderView
+      view?.apply(
+        title: tabTitle,
+        backgroundColor: portfolioBackgroundColor,
+        textColor: portfolioPrimaryTextColor
+      )
+      return view
+    }
+  }
+
+  private func applyPortfolioSnapshot(animatingDifferences: Bool) {
+    guard let dataSource else { return }
+    var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+    snapshot.appendSections([.portfolio])
+    guard let portfolio = currentState?.portfolio else {
+      dataSource.apply(snapshot, animatingDifferences: false)
+      return
+    }
+
+    var items: [Item] = [.title]
+    switch portfolio.state {
+    case .initialloading:
+      items.append(contentsOf: (0..<4).map(Item.loading))
+    case .empty:
+      items.append(.empty)
+    case .ready:
+      var seenIds = Set<String>()
+      let allIds = portfolio.items.map(\.id).filter { seenIds.insert($0).inserted }
+      items.append(contentsOf: allIds.map(Item.token))
+    }
+    snapshot.appendItems(items, toSection: .portfolio)
+
+    let previousItems = Set(dataSource.snapshot().itemIdentifiers)
+    let reloadItems = items.filter(previousItems.contains)
+    if !reloadItems.isEmpty {
+      snapshot.reloadItems(reloadItems)
+    }
+    dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
   private func showLoadingActions() {
@@ -338,7 +529,421 @@ final class HomeContainerView: UIView {
 
   private func emit(_ actionId: NativeHomeHeaderActionId) {
     guard let owner = currentState?.owner else { return }
-    onIntent?(INativeHomeIntent(owner: owner, actionId: actionId))
+    onIntent?(
+      INativeHomeIntent(
+        owner: owner,
+        headerActionId: actionId,
+        portfolioItemId: nil
+      )
+    )
+  }
+
+  private func emitPortfolioItem(_ itemId: String) {
+    guard let owner = currentState?.owner else { return }
+    onIntent?(
+      INativeHomeIntent(
+        owner: owner,
+        headerActionId: nil,
+        portfolioItemId: itemId
+      )
+    )
+  }
+}
+
+extension HomeContainerView: UICollectionViewDelegateFlowLayout {
+  func collectionView(
+    _ collectionView: UICollectionView,
+    layout collectionViewLayout: UICollectionViewLayout,
+    sizeForItemAt indexPath: IndexPath
+  ) -> CGSize {
+    guard let item = dataSource?.itemIdentifier(for: indexPath) else {
+      return CGSize(width: collectionView.bounds.width, height: 56)
+    }
+    let height: CGFloat = switch item {
+    case .title: 64
+    case .token, .loading: 56
+    case .empty: 240
+    }
+    return CGSize(width: collectionView.bounds.width, height: height)
+  }
+
+  func collectionView(
+    _ collectionView: UICollectionView,
+    layout collectionViewLayout: UICollectionViewLayout,
+    referenceSizeForHeaderInSection section: Int
+  ) -> CGSize {
+    CGSize(width: collectionView.bounds.width, height: 52)
+  }
+
+  func collectionView(
+    _ collectionView: UICollectionView,
+    didSelectItemAt indexPath: IndexPath
+  ) {
+    collectionView.deselectItem(at: indexPath, animated: false)
+    guard let item = dataSource?.itemIdentifier(for: indexPath) else { return }
+    switch item {
+    case let .token(id):
+      guard portfolioRows[id]?.enabled == true else { return }
+      emitPortfolioItem(id)
+    case .title, .loading, .empty:
+      break
+    }
+  }
+}
+
+private final class HomeContainerCollectionLayout: UICollectionViewFlowLayout {
+  override func layoutAttributesForElements(
+    in rect: CGRect
+  ) -> [UICollectionViewLayoutAttributes]? {
+    guard let collectionView,
+          var attributes = super.layoutAttributesForElements(in: rect)?.compactMap({
+            $0.copy() as? UICollectionViewLayoutAttributes
+          })
+    else {
+      return super.layoutAttributesForElements(in: rect)
+    }
+    if !attributes.contains(where: {
+      $0.representedElementKind == UICollectionView.elementKindSectionHeader
+    }),
+      let header = super.layoutAttributesForSupplementaryView(
+        ofKind: UICollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: 0)
+      )?.copy() as? UICollectionViewLayoutAttributes
+    {
+      attributes.append(header)
+    }
+    for attribute in attributes
+      where attribute.representedElementKind == UICollectionView.elementKindSectionHeader {
+      attribute.frame.origin.y = max(attribute.frame.origin.y, collectionView.contentOffset.y)
+      attribute.zIndex = 100
+    }
+    return attributes
+  }
+
+  override func layoutAttributesForSupplementaryView(
+    ofKind elementKind: String,
+    at indexPath: IndexPath
+  ) -> UICollectionViewLayoutAttributes? {
+    guard let attributes = super.layoutAttributesForSupplementaryView(
+      ofKind: elementKind,
+      at: indexPath
+    )?.copy() as? UICollectionViewLayoutAttributes else {
+      return nil
+    }
+    if elementKind == UICollectionView.elementKindSectionHeader,
+       let collectionView {
+      attributes.frame.origin.y = max(
+        attributes.frame.origin.y,
+        collectionView.contentOffset.y
+      )
+      attributes.zIndex = 100
+    }
+    return attributes
+  }
+
+  override func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
+    true
+  }
+}
+
+private final class HomeContainerTabHeaderView: UICollectionReusableView {
+  static let reuseIdentifier = "HomeContainerTabHeaderView"
+  private let titleLabel = UILabel()
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    titleLabel.font = HomeContainerTypography.semibold(18)
+    titleLabel.adjustsFontForContentSizeCategory = false
+    titleLabel.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(titleLabel)
+    accessibilityIdentifier = "native-home-tab-portfolio"
+    NSLayoutConstraint.activate([
+      titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -20),
+      titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+      titleLabel.heightAnchor.constraint(equalToConstant: 24),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func apply(title: String, backgroundColor: UIColor, textColor: UIColor) {
+    self.backgroundColor = backgroundColor
+    titleLabel.text = title
+    titleLabel.textColor = textColor
+  }
+}
+
+private final class HomeContainerPortfolioTitleCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioTitleCell"
+  private let titleLabel = UILabel()
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    titleLabel.font = HomeContainerTypography.semibold(20)
+    titleLabel.adjustsFontForContentSizeCategory = false
+    titleLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(titleLabel)
+    NSLayoutConstraint.activate([
+      titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
+      titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+      titleLabel.heightAnchor.constraint(equalToConstant: 28),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func apply(title: String, backgroundColor: UIColor, textColor: UIColor) {
+    contentView.backgroundColor = backgroundColor
+    titleLabel.text = title
+    titleLabel.textColor = textColor
+  }
+}
+
+private final class HomeContainerPortfolioTokenCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioTokenCell"
+
+  private let tokenImageView = UIImageView()
+  private let networkImageView = UIImageView()
+  private let titleLabel = UILabel()
+  private let leadingSkeleton = UIView()
+  private let trailingTopSkeleton = UIView()
+  private let trailingBottomSkeleton = UIView()
+  private var tokenImageTask: URLSessionDataTask?
+  private var networkImageTask: URLSessionDataTask?
+  private var representedId = ""
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+
+    tokenImageView.contentMode = .scaleAspectFill
+    tokenImageView.clipsToBounds = true
+    tokenImageView.layer.cornerRadius = 20
+    tokenImageView.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(tokenImageView)
+
+    networkImageView.contentMode = .scaleAspectFill
+    networkImageView.clipsToBounds = true
+    networkImageView.layer.cornerRadius = 8
+    networkImageView.layer.borderWidth = 2
+    networkImageView.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(networkImageView)
+
+    titleLabel.font = HomeContainerTypography.medium(16)
+    titleLabel.adjustsFontForContentSizeCategory = false
+    titleLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(titleLabel)
+
+    for skeleton in [leadingSkeleton, trailingTopSkeleton, trailingBottomSkeleton] {
+      skeleton.layer.cornerRadius = 5
+      skeleton.translatesAutoresizingMaskIntoConstraints = false
+      contentView.addSubview(skeleton)
+    }
+
+    let selectedBackground = UIView()
+    selectedBackgroundView = selectedBackground
+
+    NSLayoutConstraint.activate([
+      tokenImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+      tokenImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+      tokenImageView.widthAnchor.constraint(equalToConstant: 40),
+      tokenImageView.heightAnchor.constraint(equalToConstant: 40),
+      networkImageView.trailingAnchor.constraint(equalTo: tokenImageView.trailingAnchor, constant: 2),
+      networkImageView.bottomAnchor.constraint(equalTo: tokenImageView.bottomAnchor, constant: 2),
+      networkImageView.widthAnchor.constraint(equalToConstant: 16),
+      networkImageView.heightAnchor.constraint(equalToConstant: 16),
+      titleLabel.leadingAnchor.constraint(equalTo: tokenImageView.trailingAnchor, constant: 12),
+      titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
+      titleLabel.heightAnchor.constraint(equalToConstant: 24),
+      titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingTopSkeleton.leadingAnchor, constant: -12),
+      leadingSkeleton.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+      leadingSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 36),
+      leadingSkeleton.widthAnchor.constraint(equalToConstant: 88),
+      leadingSkeleton.heightAnchor.constraint(equalToConstant: 10),
+      trailingTopSkeleton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+      trailingTopSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 9),
+      trailingTopSkeleton.widthAnchor.constraint(equalToConstant: 72),
+      trailingTopSkeleton.heightAnchor.constraint(equalToConstant: 12),
+      trailingBottomSkeleton.trailingAnchor.constraint(equalTo: trailingTopSkeleton.trailingAnchor),
+      trailingBottomSkeleton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 35),
+      trailingBottomSkeleton.widthAnchor.constraint(equalToConstant: 52),
+      trailingBottomSkeleton.heightAnchor.constraint(equalToConstant: 10),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func prepareForReuse() {
+    super.prepareForReuse()
+    representedId = ""
+    tokenImageTask?.cancel()
+    networkImageTask?.cancel()
+    tokenImageTask = nil
+    networkImageTask = nil
+    tokenImageView.image = nil
+    networkImageView.image = nil
+  }
+
+  func apply(
+    id: String,
+    symbol: String,
+    iconURL: String,
+    networkIconURL: String,
+    enabled: Bool,
+    backgroundColor: UIColor,
+    surfaceColor: UIColor,
+    primaryTextColor: UIColor
+  ) {
+    representedId = id
+    contentView.backgroundColor = backgroundColor
+    selectedBackgroundView?.backgroundColor = surfaceColor
+    tokenImageView.backgroundColor = surfaceColor
+    networkImageView.backgroundColor = backgroundColor
+    networkImageView.layer.borderColor = backgroundColor.cgColor
+    titleLabel.text = symbol
+    titleLabel.textColor = primaryTextColor
+    leadingSkeleton.backgroundColor = surfaceColor
+    trailingTopSkeleton.backgroundColor = surfaceColor
+    trailingBottomSkeleton.backgroundColor = surfaceColor
+    leadingSkeleton.isHidden = false
+    trailingTopSkeleton.isHidden = false
+    trailingBottomSkeleton.isHidden = false
+    alpha = enabled ? 1 : 0.4
+    isUserInteractionEnabled = enabled
+    accessibilityIdentifier = "native-home-portfolio-item-\(id)"
+    accessibilityLabel = symbol
+    accessibilityTraits = enabled ? .button : .button.union(.notEnabled)
+    loadImage(from: iconURL, representedId: id, imageView: tokenImageView, isNetwork: false)
+    networkImageView.isHidden = networkIconURL.isEmpty
+    if !networkIconURL.isEmpty {
+      loadImage(
+        from: networkIconURL,
+        representedId: id,
+        imageView: networkImageView,
+        isNetwork: true
+      )
+    }
+  }
+
+  func applyLoading(backgroundColor: UIColor, surfaceColor: UIColor) {
+    representedId = ""
+    contentView.backgroundColor = backgroundColor
+    selectedBackgroundView?.backgroundColor = backgroundColor
+    tokenImageView.image = nil
+    tokenImageView.backgroundColor = surfaceColor
+    networkImageView.isHidden = true
+    titleLabel.text = ""
+    leadingSkeleton.backgroundColor = surfaceColor
+    trailingTopSkeleton.backgroundColor = surfaceColor
+    trailingBottomSkeleton.backgroundColor = surfaceColor
+    leadingSkeleton.isHidden = false
+    trailingTopSkeleton.isHidden = false
+    trailingBottomSkeleton.isHidden = false
+    alpha = 1
+    isUserInteractionEnabled = false
+    accessibilityIdentifier = nil
+  }
+
+  private func loadImage(
+    from urlString: String,
+    representedId: String,
+    imageView: UIImageView,
+    isNetwork: Bool
+  ) {
+    guard let url = URL(string: urlString),
+          let scheme = url.scheme?.lowercased(),
+          scheme == "https" || scheme == "http"
+    else {
+      return
+    }
+    let task = URLSession.shared.dataTask(with: url) { [weak self, weak imageView] data, _, _ in
+      guard let self,
+            self.representedId == representedId,
+            let data,
+            let image = UIImage(data: data)
+      else {
+        return
+      }
+      DispatchQueue.main.async {
+        guard self.representedId == representedId else { return }
+        imageView?.image = image
+      }
+    }
+    if isNetwork {
+      networkImageTask?.cancel()
+      networkImageTask = task
+    } else {
+      tokenImageTask?.cancel()
+      tokenImageTask = task
+    }
+    task.resume()
+  }
+}
+
+private final class HomeContainerPortfolioStatusCell: UICollectionViewCell {
+  static let reuseIdentifier = "HomeContainerPortfolioStatusCell"
+  private let iconHost = UIView()
+  private let iconLabel = UILabel()
+  private let messageLabel = UILabel()
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    iconHost.layer.cornerRadius = 28
+    iconHost.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(iconHost)
+
+    iconLabel.text = "?"
+    iconLabel.font = HomeContainerTypography.semibold(24)
+    iconLabel.textAlignment = .center
+    iconLabel.translatesAutoresizingMaskIntoConstraints = false
+    iconHost.addSubview(iconLabel)
+
+    messageLabel.font = HomeContainerTypography.medium(16)
+    messageLabel.textAlignment = .center
+    messageLabel.numberOfLines = 2
+    messageLabel.translatesAutoresizingMaskIntoConstraints = false
+    contentView.addSubview(messageLabel)
+
+    NSLayoutConstraint.activate([
+      iconHost.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+      iconHost.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 44),
+      iconHost.widthAnchor.constraint(equalToConstant: 56),
+      iconHost.heightAnchor.constraint(equalToConstant: 56),
+      iconLabel.centerXAnchor.constraint(equalTo: iconHost.centerXAnchor),
+      iconLabel.centerYAnchor.constraint(equalTo: iconHost.centerYAnchor),
+      messageLabel.topAnchor.constraint(equalTo: iconHost.bottomAnchor, constant: 16),
+      messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
+      messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func apply(
+    text: String,
+    backgroundColor: UIColor,
+    textColor: UIColor,
+    surfaceColor: UIColor
+  ) {
+    contentView.backgroundColor = backgroundColor
+    iconHost.backgroundColor = surfaceColor
+    iconLabel.textColor = textColor
+    messageLabel.text = text
+    messageLabel.textColor = textColor
+    accessibilityIdentifier = "native-home-portfolio-empty"
   }
 }
 

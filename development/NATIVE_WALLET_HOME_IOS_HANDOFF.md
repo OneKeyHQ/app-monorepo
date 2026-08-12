@@ -5,7 +5,7 @@
 - Base branch: `x`
 - Working branch: `codex/native-wallet-home-ios`
 - Read-only reference branch: `codex/native-home-container`
-- Current phase: Slice 2 implemented; awaiting manual acceptance
+- Current phase: Slice 3 implemented; awaiting manual acceptance
 - First target: iOS only
 - Android work starts only after the iOS behavior and architecture have been accepted
 
@@ -313,6 +313,58 @@ Manual acceptance:
 - Long list reaches the real bottom and recycles cells.
 - Structure-first/valuation-later rendering keeps stable scroll position.
 - Rapid owner switching never exposes actionable old rows.
+
+Implementation checkpoint (2026-08-12):
+
+- Expected: the existing Token List producer publishes current-owner structure
+  and metadata without waiting for valuation; Swift owns the complete vertical
+  list, stable-ID reuse, scrolling, sticky Portfolio tab, and item pixels.
+- Current before Slice 3: Swift renders only the accepted Slice 2 Header and a
+  non-interactive Portfolio shell. Legacy React Native remains the only Token
+  List renderer.
+- Failure conditions: starting a second token request path, retaining rows from
+  another owner, limiting the Native list to a JS-selected window, resetting
+  offset when same-owner metadata resolves, or executing an item absent from
+  the current ViewModel.
+- Automated pass condition: focused projection/ViewModel and intent tests pass,
+  Nitro generation and package lint pass, and the iOS Debug target compiles.
+- Visual pass condition: an All Networks fixture can fling through the complete
+  Native list to its real bottom, the Spot tab remains pinned, a current token
+  opens the existing JS details flow, and returning preserves the mounted
+  Native list offset.
+
+Implementation result (2026-08-12):
+
+- The existing Token List component now exposes a producer-only mode. It keeps
+  the current hooks, requests, Jotai context, projection rules, and press
+  handler alive while returning no React token rows; it does not add a Home
+  Store or request coordinator.
+- The iOS Native ViewModel reads the exact current-owner list structure and
+  metadata cells, reuses the existing pure Home projection, and publishes
+  explicit `initialLoading`, `ready`, and `empty` Portfolio states. An owner
+  mismatch immediately publishes no rows.
+- The protocol carries concrete Portfolio item fields and stable item IDs. It
+  sends the current full state and intentionally has no pagination, display
+  window, patch, ACK, revision, or generic section payload.
+- Swift now renders the complete projected list through one
+  `UICollectionViewDiffableDataSource`. Cells cancel image tasks on reuse;
+  Pager/list state and offset remain owned by the mounted view, and no Native
+  image or business cache was added.
+- Portfolio item intents carry the same owner token as Header intents. The JS
+  boundary verifies the current owner and current enabled item, then resolves
+  the current token and invokes the existing Token List press handler.
+- The iOS Debug app was rebuilt, cover-installed, and launched on an iPhone 17
+  Pro simulator. A long All Networks fixture reached the real bottom through
+  repeated flings, kept Spot pinned, opened the existing token details screen,
+  and restored the previous Native offset after closing it.
+- Focused validation passed: native-components lint, three Jest suites (nine
+  tests), Nitro code generation, and the iOS Debug simulator build. Empty,
+  zero-value, single-network, and rapid live owner-switch cases remain the
+  manual acceptance gate for this slice.
+
+The valuation-shaped placeholders are deliberate in Slice 3. Token quantity,
+price, fiat value, same-owner refreshing, and pull to refresh belong to Slice 4
+and must not be started before this gate is accepted.
 
 ### Slice 4 - Portfolio valuation and pull to refresh
 
