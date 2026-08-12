@@ -1,7 +1,13 @@
-import type { IFetchBuildTxResponse } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchBuildTxResponse,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
-import { buildSwapHistoryIdentity } from './swapHistoryIdentity';
+import {
+  buildSwapHistoryIdentity,
+  getSwapHistoryProviderOrderId,
+} from './swapHistoryIdentity';
 
 function createBuildRes(
   overrides: Partial<IFetchBuildTxResponse> = {},
@@ -78,5 +84,41 @@ describe('swapHistoryIdentity', () => {
       orderId: 'fusion-order-1',
       useOrderId: true,
     });
+  });
+});
+
+describe('getSwapHistoryProviderOrderId', () => {
+  function createHistory({
+    ctx,
+    orderId,
+  }: {
+    ctx?: ISwapTxHistory['ctx'];
+    orderId?: string;
+  }): ISwapTxHistory {
+    return {
+      ctx,
+      txInfo: { orderId },
+    } as ISwapTxHistory;
+  }
+
+  it('prefers the CoW order uid over the internal service order id (Stock orders)', () => {
+    expect(
+      getSwapHistoryProviderOrderId(
+        createHistory({
+          ctx: { cowSwapOrderId: '0xcow-order-uid' },
+          orderId: 'internal-service-uuid',
+        }),
+      ),
+    ).toBe('0xcow-order-uid');
+  });
+
+  it('falls back to txInfo.orderId when ctx has no provider order id', () => {
+    expect(
+      getSwapHistoryProviderOrderId(createHistory({ orderId: 'swft-order-1' })),
+    ).toBe('swft-order-1');
+  });
+
+  it('returns undefined when no order id exists at all', () => {
+    expect(getSwapHistoryProviderOrderId(createHistory({}))).toBeUndefined();
   });
 });

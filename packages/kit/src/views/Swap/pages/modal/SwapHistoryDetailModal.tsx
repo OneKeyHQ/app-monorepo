@@ -76,6 +76,7 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFee';
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
+import { getSwapHistoryProviderOrderId } from '../../utils/swapHistoryIdentity';
 import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
@@ -964,8 +965,11 @@ const SwapHistoryDetailModal = () => {
   // Only show Order ID when the provider has a third-party order explorer
   // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
   // hidden per OK-57251. (OK-59978)
+  const providerOrderId = txHistory
+    ? getSwapHistoryProviderOrderId(txHistory)
+    : undefined;
   const shouldRenderOrderId =
-    !!txHistory?.txInfo.orderId &&
+    !!providerOrderId &&
     !!txHistory?.swapInfo.orderSupportUrl &&
     !isPrivateSendHistory;
 
@@ -1661,12 +1665,12 @@ const SwapHistoryDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.Limit_order_history_order_id,
                 })}
-                renderContent={txHistory.txInfo.orderId}
+                renderContent={providerOrderId}
                 showCopy
                 openWithUrl={() =>
                   onViewInBrowser(
                     `${txHistory.swapInfo.orderSupportUrl ?? ''}${
-                      txHistory.txInfo.orderId ?? ''
+                      providerOrderId ?? ''
                     }`,
                   )
                 }
@@ -1717,6 +1721,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapProvider,
     renderSwapTransactionIdRows,
     shouldRenderOrderId,
+    providerOrderId,
     onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
