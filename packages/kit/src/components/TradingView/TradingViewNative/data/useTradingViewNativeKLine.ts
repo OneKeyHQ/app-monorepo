@@ -16,6 +16,10 @@ import {
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { logTradingViewNativeDataError } from './tradingViewNativeDataLogger';
 import {
+  emitTradingViewNativeDebugEvent,
+  getTradingViewNativeDebugErrorMessage,
+} from './tradingViewNativeDebugLogger';
+import {
   TRADING_VIEW_NATIVE_KLINE_INTERVALS,
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT,
   getTradingViewNativeKLineInterval,
@@ -65,6 +69,7 @@ const VIEWPORT_TARGET_FORWARD_CANDLE_COUNT =
   TRADING_VIEW_NATIVE_TIME_RANGE_MAX_CANDLE_COUNT;
 
 let realtimeSubscriberSequence = 0;
+let historyDebugRequestSequence = 0;
 
 function getHistoryPointTypeScopeKey(
   seriesKey: string,
@@ -1313,34 +1318,115 @@ export function useTradingViewNativeKLine({
     return {
       ...rawHistoryProvider,
       fetchHistory: async (request) => {
-        const data = await rawHistoryProvider.fetchHistory(request);
-        if (!request.signal.aborted && data && data.points.length > 0) {
-          const scopeKey = getHistoryPointTypeScopeKey(
-            seriesKey,
-            request.interval.value,
-          );
+        historyDebugRequestSequence += 1;
+        const debugRequestId = historyDebugRequestSequence;
+        const startedAt = Date.now();
+        emitTradingViewNativeDebugEvent({
+          details: {
+            interval: request.interval.value,
+            providerKey: seriesKey,
+            requestId: debugRequestId,
+            timeFrom: request.timeFrom,
+            timeTo: request.timeTo,
+          },
+          name: 'history.request',
+        });
+        try {
+          const data = await rawHistoryProvider.fetchHistory(request);
           const responseDataSource: IHistoryDataSource =
-            data.historySource === 'fallback' ? 'fallback' : 'primary';
-          const selectedDataSource = historyDataSourceScopes.get(scopeKey);
-          if (selectedDataSource && selectedDataSource !== responseDataSource) {
-            return { ...data, points: [], total: 0 };
+            data?.historySource === 'fallback' ? 'fallback' : 'primary';
+          const responseDetails = {
+            durationMs: Date.now() - startedAt,
+            historySource: responseDataSource,
+            interval: request.interval.value,
+            pointType: data?.pointType,
+            points: data?.points.length ?? 0,
+            providerKey: seriesKey,
+            requestId: debugRequestId,
+          };
+
+          if (request.signal.aborted) {
+            emitTradingViewNativeDebugEvent({
+              details: responseDetails,
+              level: 'warning',
+              name: 'history.response.aborted',
+            });
+            return data;
           }
-          historyDataSourceScopes.set(scopeKey, responseDataSource);
-          const currentClassification = historyPointTypeScopes.get(scopeKey);
-          const nextClassification = resolveHistoryPointTypeClassification({
-            currentClassification,
-            historySource: data.historySource,
-            pointType: data.pointType,
+
+          if (data && data.points.length > 0) {
+            const scopeKey = getHistoryPointTypeScopeKey(
+              seriesKey,
+              request.interval.value,
+            );
+            const selectedDataSource = historyDataSourceScopes.get(scopeKey);
+            if (
+              selectedDataSource &&
+              selectedDataSource !== responseDataSource
+            ) {
+              emitTradingViewNativeDebugEvent({
+                details: {
+                  ...responseDetails,
+                  reason: 'source-mismatch',
+                  selectedHistorySource: selectedDataSource,
+                },
+                level: 'warning',
+                name: 'history.response.dropped',
+              });
+              return { ...data, points: [], total: 0 };
+            }
+            historyDataSourceScopes.set(scopeKey, responseDataSource);
+            const currentClassification = historyPointTypeScopes.get(scopeKey);
+            const nextClassification = resolveHistoryPointTypeClassification({
+              currentClassification,
+              historySource: data.historySource,
+              pointType: data.pointType,
+            });
+            if (nextClassification !== currentClassification) {
+              historyPointTypeScopes.set(scopeKey, nextClassification);
+              setHistoryPointTypeScopeState({
+                historyProvider: rawHistoryProvider,
+                scopes: new Map(historyPointTypeScopes),
+              });
+            }
+          }
+
+          emitTradingViewNativeDebugEvent({
+            details: responseDetails,
+            level: responseDataSource === 'fallback' ? 'warning' : 'info',
+            name: 'history.response',
           });
-          if (nextClassification !== currentClassification) {
-            historyPointTypeScopes.set(scopeKey, nextClassification);
-            setHistoryPointTypeScopeState({
-              historyProvider: rawHistoryProvider,
-              scopes: new Map(historyPointTypeScopes),
+          if (responseDataSource === 'fallback') {
+            emitTradingViewNativeDebugEvent({
+              details: {
+                interval: request.interval.value,
+                points: data?.points.length ?? 0,
+                providerKey: seriesKey,
+                requestId: debugRequestId,
+              },
+              level: 'warning',
+              name: 'history.fallback.used',
             });
           }
+          return data;
+        } catch (error) {
+          const wasAborted = request.signal.aborted || isAbortError(error);
+          emitTradingViewNativeDebugEvent({
+            details: {
+              aborted: wasAborted,
+              durationMs: Date.now() - startedAt,
+              error: getTradingViewNativeDebugErrorMessage(error),
+              interval: request.interval.value,
+              providerKey: seriesKey,
+              requestId: debugRequestId,
+            },
+            level: wasAborted ? 'warning' : 'error',
+            name: wasAborted
+              ? 'history.request.aborted'
+              : 'history.request.error',
+          });
+          throw error;
         }
-        return data;
       },
     };
   }, [rawHistoryProvider, seriesKey]);
@@ -1480,6 +1566,30 @@ export function useTradingViewNativeKLine({
   chartDataRef.current = chartData;
 
   useEffect(() => {
+    emitTradingViewNativeDebugEvent({
+      details: {
+        historyReady: providerIsReady,
+        providerKey: seriesKey,
+        sourceKind,
+        supportsRealtime,
+      },
+      level: providerIsReady ? 'info' : 'warning',
+      name: 'provider.configured',
+    });
+  }, [providerIsReady, seriesKey, sourceKind, supportsRealtime]);
+
+  useEffect(() => {
+    emitTradingViewNativeDebugEvent({
+      details: {
+        interval: activeInterval,
+        namespace: intervalStorageNamespace,
+        providerKey: seriesKey,
+      },
+      name: 'interval.active',
+    });
+  }, [activeInterval, intervalStorageNamespace, seriesKey]);
+
+  useEffect(() => {
     setActiveIntervalState((currentState) =>
       currentState.namespace === intervalStorageNamespace
         ? currentState
@@ -1492,10 +1602,18 @@ export function useTradingViewNativeKLine({
 
   useEffect(() => {
     const currentVisibility = getCurrentVisibilityState();
+    emitTradingViewNativeDebugEvent({
+      details: { visible: currentVisibility },
+      name: 'visibility.initial',
+    });
     isVisibleRef.current = currentVisibility;
     setIsVisible(currentVisibility);
     return onVisibilityStateChange((nextVisibility) => {
       const wasVisible = isVisibleRef.current;
+      emitTradingViewNativeDebugEvent({
+        details: { from: wasVisible, to: nextVisibility },
+        name: 'visibility.changed',
+      });
       isVisibleRef.current = nextVisibility;
       setIsVisible(nextVisibility);
       if (!wasVisible && nextVisibility) {
@@ -1616,6 +1734,7 @@ export function useTradingViewNativeKLine({
   );
 
   const handleRetry = useCallback(() => {
+    emitTradingViewNativeDebugEvent({ name: 'data.retry.requested' });
     setHistoryRefreshRevision((current) => current + 1);
     setRealtimeRetryRevision((current) => current + 1);
   }, []);
@@ -2976,9 +3095,30 @@ export function useTradingViewNativeKLine({
         realtimeScope.seriesKey !== seriesKey ||
         realtimeScope.interval !== activeInterval
       ) {
+        emitTradingViewNativeDebugEvent({
+          details: {
+            activeInterval,
+            activeProviderKey: seriesKey,
+            pointTimestamp: point.t,
+            scopeInterval: realtimeScope.interval,
+            scopeProviderKey: realtimeScope.seriesKey,
+          },
+          level: 'warning',
+          name: 'realtime.point.ignored',
+        });
         return;
       }
 
+      emitTradingViewNativeDebugEvent({
+        details: {
+          close: point.c,
+          interval: activeInterval,
+          providerKey: seriesKey,
+          timestamp: point.t,
+          volume: point.v,
+        },
+        name: 'realtime.point',
+      });
       const interval =
         getTradingViewNativeKLineInterval(activeInterval) ??
         TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
@@ -3042,6 +3182,16 @@ export function useTradingViewNativeKLine({
 
   useEffect(() => {
     if (!realtimeProvider || !supportsRealtime || !isVisible) {
+      emitTradingViewNativeDebugEvent({
+        details: {
+          providerAvailable: Boolean(realtimeProvider),
+          providerKey: seriesKey,
+          supportsRealtime,
+          visible: isVisible,
+        },
+        level: supportsRealtime && !isVisible ? 'warning' : 'info',
+        name: 'realtime.subscription.skipped',
+      });
       realtimeSubscriptionRef.current = null;
       setRealtimeState((current) => ({
         interval: activeInterval,
@@ -3060,6 +3210,15 @@ export function useTradingViewNativeKLine({
       chartDataRef.current?.seriesKey === seriesKey &&
       chartDataRef.current.points.length,
     );
+    emitTradingViewNativeDebugEvent({
+      details: {
+        hasCurrentPoints,
+        interval: activeInterval,
+        providerKey: seriesKey,
+        subscriberId,
+      },
+      name: 'realtime.subscription.start',
+    });
     setRealtimeState((current) => ({
       interval: activeInterval,
       lastUpdatedAt:
@@ -3085,6 +3244,16 @@ export function useTradingViewNativeKLine({
 
         ownedSubscription = nextSubscription;
         realtimeSubscriptionRef.current = nextSubscription;
+        emitTradingViewNativeDebugEvent({
+          details: {
+            interval: activeInterval,
+            providerKey: seriesKey,
+            subscribed: Boolean(nextSubscription),
+            subscriberId,
+          },
+          level: nextSubscription ? 'info' : 'warning',
+          name: 'realtime.subscription.ready',
+        });
         setRealtimeState((current) => {
           return {
             interval: activeInterval,
@@ -3105,6 +3274,16 @@ export function useTradingViewNativeKLine({
           'Failed to subscribe to native TradingView realtime data',
           error,
         );
+        emitTradingViewNativeDebugEvent({
+          details: {
+            error: getTradingViewNativeDebugErrorMessage(error),
+            interval: activeInterval,
+            providerKey: seriesKey,
+            subscriberId,
+          },
+          level: 'error',
+          name: 'realtime.subscription.error',
+        });
         setRealtimeState((current) => ({
           error,
           interval: activeInterval,
@@ -3120,6 +3299,15 @@ export function useTradingViewNativeKLine({
     return () => {
       isCancelled = true;
       abortController.abort();
+      emitTradingViewNativeDebugEvent({
+        details: {
+          hadSubscription: Boolean(ownedSubscription),
+          interval: activeInterval,
+          providerKey: seriesKey,
+          subscriberId,
+        },
+        name: 'realtime.subscription.dispose',
+      });
       if (realtimeSubscriptionRef.current === ownedSubscription) {
         realtimeSubscriptionRef.current = null;
       }
@@ -3155,10 +3343,20 @@ export function useTradingViewNativeKLine({
       lastRealtimeActivityAtRef.current = Date.now();
       const subscription = realtimeSubscriptionRef.current;
       if (!subscription) {
+        emitTradingViewNativeDebugEvent({
+          details: { providerKey: seriesKey },
+          level: 'warning',
+          name: 'realtime.self-heal.resubscribe',
+        });
         setRealtimeRetryRevision((current) => current + 1);
         return;
       }
 
+      emitTradingViewNativeDebugEvent({
+        details: { providerKey: seriesKey },
+        level: 'warning',
+        name: 'realtime.self-heal.start',
+      });
       setRealtimeState((current) => ({
         ...current,
         error: undefined,
@@ -3171,6 +3369,10 @@ export function useTradingViewNativeKLine({
             return;
           }
           lastRealtimeActivityAtRef.current = Date.now();
+          emitTradingViewNativeDebugEvent({
+            details: { providerKey: seriesKey },
+            name: 'realtime.self-heal.ready',
+          });
           setRealtimeState((current) => ({
             ...current,
             error: undefined,
@@ -3185,6 +3387,14 @@ export function useTradingViewNativeKLine({
             'Failed to recover native TradingView realtime data',
             error,
           );
+          emitTradingViewNativeDebugEvent({
+            details: {
+              error: getTradingViewNativeDebugErrorMessage(error),
+              providerKey: seriesKey,
+            },
+            level: 'error',
+            name: 'realtime.self-heal.error',
+          });
           setRealtimeState((current) => ({
             ...current,
             error,
@@ -3202,12 +3412,21 @@ export function useTradingViewNativeKLine({
       skippedRequest?.seriesKey === seriesKey &&
       skippedRequest.interval === activeInterval
     ) {
+      emitTradingViewNativeDebugEvent({
+        details: { interval: activeInterval, providerKey: seriesKey },
+        name: 'history.initial.skipped',
+      });
       return;
     }
 
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
     if (!providerIsReady) {
+      emitTradingViewNativeDebugEvent({
+        details: { interval: activeInterval, providerKey: seriesKey },
+        level: 'warning',
+        name: 'history.provider.not-ready',
+      });
       setHistoryState({
         interval: activeInterval,
         seriesKey,
@@ -3246,6 +3465,16 @@ export function useTradingViewNativeKLine({
         currentChartData?.seriesKey === seriesKey &&
         currentChartData.interval !== requestedInterval.value
       ) {
+        emitTradingViewNativeDebugEvent({
+          details: {
+            error: getTradingViewNativeDebugErrorMessage(error),
+            fromInterval: requestedInterval.value,
+            providerKey: seriesKey,
+            toInterval: currentChartData.interval,
+          },
+          level: 'warning',
+          name: 'interval.change.rolled-back',
+        });
         skipNextRequestRef.current = {
           interval: currentChartData.interval,
           seriesKey,
@@ -3263,6 +3492,15 @@ export function useTradingViewNativeKLine({
             : currentInterval,
         );
       } else {
+        emitTradingViewNativeDebugEvent({
+          details: {
+            error: getTradingViewNativeDebugErrorMessage(error),
+            interval: requestedInterval.value,
+            providerKey: seriesKey,
+          },
+          level: 'error',
+          name: 'history.initial.failed',
+        });
         setHistoryState({
           error,
           interval: requestedInterval.value,

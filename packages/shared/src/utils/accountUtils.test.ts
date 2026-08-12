@@ -21,6 +21,26 @@ function testWithRandomAccountIndexes(
     testFunc(accountIndex);
   }
 }
+
+describe('hasNoUsableWallet', () => {
+  type IWallet = Parameters<typeof accountUtils.hasNoUsableWallet>[0]['wallet'];
+
+  test('keeps deprecated wallets viewable but hides mocked wallets', () => {
+    expect(
+      accountUtils.hasNoUsableWallet({
+        wallet: { id: 'hw-1', deprecated: true } as IWallet,
+        account: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      accountUtils.hasNoUsableWallet({
+        wallet: { id: 'hw-1', isMocked: true } as IWallet,
+        account: undefined,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe('Lightning Path Transformation', () => {
   test('buildBtcToLnPath transforms mainnet path correctly', () => {
     testWithRandomAccountIndexes((accountIndex) => {

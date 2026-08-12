@@ -34,4 +34,39 @@ describe('Market detail TradingViewNative source', () => {
       realtime: 'websocket',
     });
   });
+
+  it('uses the native Bitcoin whitelist before detail metadata loads', () => {
+    expect(
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: '',
+        isNative: true,
+        marketDataSource: undefined,
+        networkId: 'btc--0',
+        symbol: 'BTC',
+        tokenAddress: '',
+      }),
+    ).toEqual({
+      kind: 'hyperliquid',
+      coin: 'BTC',
+      environment: 'mainnet',
+    });
+  });
+
+  it('keeps non-whitelisted sources on Market', () => {
+    expect(
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: '',
+        marketDataSource: 'polling',
+        networkId: 'evm--1',
+        symbol: '',
+        tokenAddress: '',
+      }),
+    ).toEqual({
+      kind: 'market',
+      networkId: 'evm--1',
+      tokenAddress: '',
+      symbol: '',
+      realtime: 'disabled',
+    });
+  });
 });
